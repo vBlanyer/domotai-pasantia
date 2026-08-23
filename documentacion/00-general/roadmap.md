@@ -76,15 +76,22 @@ Existen requisitos claros que guían el diseño y la evaluación del prototipo.
 
 - [ ] Definir la infraestructura local o aislada (contenedores, VMs, red restringida).
 - [ ] Instalar y configurar el módulo propietario en el entorno de pruebas.
-- [ ] Configurar el modelo de lenguaje de forma local o en entorno controlado (sin envío de datos sensibles a terceros).
+- [ ] Diseñar y desplegar el **sandbox de red FTTx emulada** con Containerlab, con la topología versionada en el repositorio.
+- [ ] Incorporar a la topología nodos con **vulnerabilidades documentadas** que sirvan de ground truth para la evaluación.
+- [ ] Desplegar el **auditor de vulnerabilidades** (Nmap + Greenbone) en el plano de gestión y fijar la versión del feed usada en la campaña.
+- [ ] Evaluar si herramientas como Wazuh se usarán como base de ingestión y telemetría del entorno, sin asumir que sustituyen el prototipo de triaje inteligente.
+- [ ] Configurar el modelo de lenguaje de forma local o en entorno controlado (sin envío de datos sensibles a terceros), según el perfil de despliegue seleccionado en la Fase 4.
+- [ ] **Verificar empíricamente el consumo de recursos** del entorno (sandbox, Greenbone y modelo) frente al presupuesto de memoria del equipo disponible.
 - [ ] Preparar un conjunto de alertas de prueba representativas del caso de uso (incluyendo verdaderos positivos y falsos positivos).
 - [ ] **Etiquetar el dataset** (ground truth) con el criterio de clasificación acordado y documentar el procedimiento de etiquetado.
+- [ ] **Particionar el dataset** en entrenamiento y evaluación con nodos o campañas disjuntos, si el perfil elegido requiere fine-tuning.
 - [ ] Validar conectividad, permisos y flujo end-to-end con datos sintéticos o anonimizados.
 - [ ] Documentar procedimiento de despliegue y variables de configuración.
 
 ### Entregables
 
 - Entorno de pruebas operativo y reproducible.
+- Topología del sandbox definida como código (`.clab.yml`) y versionada, con el inventario de vulnerabilidades esperadas por nodo.
 - Dataset de prueba **etiquetado** y documentado (origen, volumen, criterio y distribución de etiquetas).
 - Guía de instalación y configuración del entorno.
 
@@ -101,11 +108,17 @@ El entorno procesa alertas de prueba de punta a punta sin dependencias externas 
 ### Actividades
 
 - [ ] Diseñar el diagrama de arquitectura (componentes, flujos de datos, puntos de integración).
+- [ ] Documentar el flujo **logs → playbook → EDR → sandbox → auditoría**, identificando qué componentes ya existen y cuáles se construyen.
 - [ ] Definir el pipeline de triaje: recepción → enriquecimiento → clasificación → priorización → justificación → validación humana.
 - [ ] Establecer reglas de decisión y umbrales (cuándo escalar, cuándo requerir revisión humana).
 - [ ] Especificar el formato de salida del razonamiento explicable (campos, nivel de detalle, trazabilidad).
 - [ ] Definir los puntos de validación humana dentro del flujo (qué decisiones la requieren y cómo se registran).
 - [ ] Definir interfaces con el módulo propietario y posibles herramientas auxiliares.
+- [ ] **Seleccionar el protocolo de comunicación EDR ↔ sandbox** y especificar el contrato de la orden de acción (idempotencia y trazabilidad).
+- [ ] Definir el **catálogo cerrado de acciones** ejecutables: precondiciones, efecto esperado, reversibilidad y verificación de cada una.
+- [ ] Diseñar el **auditor de vulnerabilidades** y el formato normalizado de sus hallazgos, independiente de la herramienta de escaneo.
+- [ ] **Seleccionar el modelo de análisis** y definir los perfiles de despliegue según el hardware disponible.
+- [ ] Especificar la **interfaz de análisis** (`clasificar` / `justificar`) que aísla al EDR del modelo concreto que la implementa.
 - [ ] **Definir las métricas de evaluación** (precisión, recall, F1, tasa de falsos positivos, tiempo de triaje, etc.) y cómo se calculan sobre el dataset etiquetado de la Fase 3.
 - [ ] **Definir el método tradicional de referencia (baseline)** contra el que se comparará el prototipo: reglas/firmas o proceso manual.
 - [ ] Documentar decisiones de diseño y alternativas descartadas.
@@ -115,6 +128,9 @@ El entorno procesa alertas de prueba de punta a punta sin dependencias externas 
 - Diagrama de arquitectura y flujo de datos.
 - Especificación de reglas de triaje y criterios de priorización.
 - Contrato de interfaces (APIs, esquemas de mensajes).
+- Catálogo de acciones y contrato del conector EDR ↔ sandbox.
+- Especificación del auditor y formato normalizado de hallazgos.
+- Selección del modelo de análisis, perfiles de despliegue e interfaz de análisis.
 - Plan de evaluación: métricas, forma de cálculo y definición del baseline.
 
 ### Criterio de cierre
@@ -130,10 +146,13 @@ La arquitectura está validada internamente y es suficiente para iniciar la impl
 ### Actividades
 
 - [ ] Implementar el módulo de ingesta y normalización de alertas.
-- [ ] Integrar el componente de análisis inteligente (LLM) con prompts y contexto acotado al caso de uso.
+- [ ] Integrar el componente de análisis inteligente mediante la **interfaz de análisis**, con prompts y contexto acotado al caso de uso.
+- [ ] Implementar el perfil de despliegue seleccionado, respetando la **separación temporal** entre la ejecución del sandbox y la del modelo si el perfil lo exige.
 - [ ] Desarrollar la lógica de clasificación y priorización de alertas.
 - [ ] Implementar la generación de justificación explicable para cada decisión.
 - [ ] Incorporar el flujo de validación humana para alertas de alta criticidad o baja confianza.
+- [ ] Implementar el **conector EDR ↔ sandbox** sobre el protocolo seleccionado, limitado al catálogo cerrado de acciones.
+- [ ] Implementar el **auditor de vulnerabilidades** y la normalización de sus hallazgos.
 - [ ] Registrar logs y trazas para auditoría y evaluación posterior.
 - [ ] Realizar pruebas unitarias e integración sobre el dataset de prueba.
 
@@ -141,12 +160,15 @@ La arquitectura está validada internamente y es suficiente para iniciar la impl
 
 - Prototipo funcional desplegado en el entorno de pruebas.
 - Conjunto de prompts/reglas de inferencia documentados.
+- Conector y auditor operativos sobre el sandbox.
 - Logs de ejecución sobre el dataset de prueba.
 
 ### Alcance explícito (fuera de esta fase)
 
-- Respuesta automatizada ante incidentes.
+- Respuesta automatizada ante incidentes **sobre infraestructura productiva**.
 - Integración multicapa en producción.
+
+> **Sobre el sandbox.** Las acciones que el EDR ejecuta sobre el sandbox son un mecanismo de **validación en entorno controlado**, no respuesta automatizada en producción. Su finalidad es medir la calidad de la decisión, no remediar incidentes reales. La respuesta automatizada sobre equipos productivos se mantiene como trabajo futuro.
 
 ### Criterio de cierre
 
