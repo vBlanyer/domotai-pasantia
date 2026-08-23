@@ -1,5 +1,10 @@
 # Sysmon
 
+> **Estado: condicional.** Sysmon es telemetría **exclusiva de Windows**. El sandbox del proyecto es una red FTTx emulada sobre OpenWrt y Linux ([diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)), donde Sysmon **no aplica**.
+>
+> Este documento sigue siendo válido y se conserva porque la incorporación de un endpoint Windows a la topología es una **pregunta abierta** de la Fase 3. Si entra un endpoint Windows, Sysmon vuelve a ser la fuente de telemetría de referencia para ese nodo. Mientras no ocurra, la telemetría del sandbox procede de los nodos de red y del auditor de vulnerabilidades.
+
+
 ## ¿Qué es Sysmon?
 
 Sysmon (System Monitor) es una herramienta de Microsoft, originalmente parte del conjunto Sysinternals, que funciona como un servicio de Windows y driver de kernel residente. Monitorea la actividad del sistema y escribe eventos detallados en el Registro de eventos de Windows, en el canal `Applications and Services Logs/Microsoft/Windows/Sysmon/Operational`.

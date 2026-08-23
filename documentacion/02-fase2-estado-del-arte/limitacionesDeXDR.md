@@ -188,7 +188,7 @@ El mercado valida la demanda (crecimiento sostenido del segmento XDR/MXDR), pero
 
 ## Requisitos derivados del análisis
 
-Esta sección constituye el entregable *«Lista de requisitos funcionales y no funcionales derivados del análisis»* de la Fase 2 del [roadmap](./roadmap.md). Cada requisito se traza a la limitación de mercado que lo motiva o a la fase del proyecto que lo exige.
+Esta sección constituye el entregable *«Lista de requisitos funcionales y no funcionales derivados del análisis»* de la Fase 2 del [roadmap](../00-general/roadmap.md). Cada requisito se traza a la limitación de mercado que lo motiva o a la fase del proyecto que lo exige.
 
 ### Requisitos funcionales
 
@@ -229,7 +229,7 @@ Esta sección constituye el entregable *«Lista de requisitos funcionales y no f
 
 ### Limitaciones sin requisito asociado
 
-Cuatro limitaciones del análisis no generan requisitos funcionales porque quedan fuera del alcance declarado en el [plan de trabajo](./planDeTrabajoActualizado.md):
+Cuatro limitaciones del análisis no generan requisitos funcionales porque quedan fuera del alcance declarado en el [plan de trabajo](../00-general/planDeTrabajoActualizado.md):
 
 - **§6 Respuesta fragmentada y dependencia de SOAR** y parte de **§7**: corresponden a respuesta automatizada, documentada como trabajo futuro.
 - **§5 Lock-in** y **§10 Evasión**: aportan restricciones de diseño (RNF-06 y RNF-08), no funcionalidad nueva del prototipo.

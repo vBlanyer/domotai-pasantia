@@ -1,5 +1,12 @@
 # Herramientas auxiliares para pruebas de XDR
 
+> **Estado: premisa parcialmente superada.** Este documento se escribió asumiendo un flujo de validación *ataque simulado → Sysmon → reglas Sigma* sobre endpoints, con el ground truth generado por herramientas de simulación de adversarios (Atomic Red Team, Caldera).
+>
+> Con el giro del proyecto a un sandbox de red FTTx, **el ground truth se obtiene de otra forma**: plantando en la topología nodos con vulnerabilidades documentadas y escaneándolos con Nmap y Greenbone. Ver [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) y [auditoría de vulnerabilidades](./auditoria-de-vulnerabilidades-del-sandbox.md).
+>
+> **Qué sigue vigente:** el catálogo de motores de reglas, SIEM/correlación, análisis de comportamiento y threat intelligence (secciones 3.1 a 3.4) y el mapeo a MITRE ATT&CK. **Qué queda supeditado:** la simulación de ataques sobre endpoints (sección 2) y el stack recomendado basado en Sysmon, condicionados a que entre un endpoint Windows en la topología.
+
+
 Este documento recopila las **herramientas auxiliares** que se utilizarán para probar y validar el uso de XDR y del módulo de triaje del proyecto. Incluye herramientas de **pentesting** y simulación de ataques —que generan telemetría real para fuentes como [Sysmon](./symons.md)— y herramientas de **análisis de comportamiento y patrones de ataque**, empleadas para detectar, correlacionar y explicar la actividad maliciosa.
 
 Sirve como base de la Fase 4 (diseño de arquitectura) y de la Fase 3 (entorno de pruebas), donde estas herramientas alimentan el dataset etiquetado y validan que las reglas de detección funcionen frente a comportamiento real.
