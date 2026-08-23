@@ -9,6 +9,7 @@ Este documento describe el flujo end-to-end del prototipo tal como fue planteado
 ```mermaid
 flowchart TD
     SIS["Sistema existente<br/>(emite logs)"] --> PB["Playbook<br/>(orquestación)"]
+    WZ["Wazuh en el sandbox<br/>(fuente de laboratorio)"] --> PB
     PB --> EDR["EDR<br/>(decisión)"]
     EDR -->|acción| SBX["Sandbox<br/>(red FTTx emulada)"]
     AUD["Auditor de vulnerabilidades"] -->|postura del sistema| EDR
@@ -26,7 +27,8 @@ El ciclo es cerrado: el sandbox genera telemetría, esa telemetría alimenta al 
 
 | Componente | Estado | Responsabilidad |
 |------------|--------|-----------------|
-| Sistema de logs | **Ya existe** (propietario) | Recoger y emitir eventos de seguridad |
+| Sistema de logs | **Ya existe** (propietario) — no disponible hoy | Recoger y emitir eventos de seguridad |
+| **Wazuh** (sustituto de laboratorio) | **A desplegar** — ver [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) | Generar alertas reales sobre el sandbox y aportar el **baseline** de reglas |
 | Playbook | **Ya existe** | Orquestar el flujo y entregar información al EDR |
 | EDR | **A construir** | Clasificar, priorizar, justificar y decidir la acción |
 | Sandbox | **A construir** — ver [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) | Ejecutar la acción y generar telemetría observable |
@@ -40,8 +42,13 @@ Los dos primeros son entrada dada: el proyecto **no** los rediseña. Lo que se c
 
 ## 3. Responsabilidad de cada componente
 
-### Sistema de logs (existente)
+### Sistema de logs (existente) y su sustituto de laboratorio
+
 Fuente primaria de eventos. Para la Fase 1 hace falta documentar su **formato de salida real**: esquema de los eventos, campos disponibles, mecanismo de entrega y volumen. Sin ese dato, el módulo de ingesta del EDR no puede especificarse.
+
+**Mientras ese sistema no esté disponible, el proyecto no puede quedarse sin entrada.** Se despliega **Wazuh dentro del sandbox** como fuente de alertas de laboratorio: agentes en los nodos Linux y reenvío de syslog desde el CPE OpenWrt. Además de desbloquear el flujo, su **nivel de regla proporciona el baseline** contra el que la Fase 6 debe comparar el prototipo.
+
+No es un parche provisional que haya que retirar: cuando el sistema de la empresa esté disponible, se integra como **segunda fuente** a través del mismo módulo de ingesta normalizada, sin desplazar a Wazuh.
 
 ### Playbook (existente)
 Actúa como orquestador entre el sistema de logs y el EDR. Es necesario determinar **qué información entrega exactamente** y si el flujo es síncrono (espera la decisión del EDR) o asíncrono (dispara y olvida). Esta distinción determina si el EDR puede permitirse la latencia de una inferencia con modelo de lenguaje y la de una validación humana.
@@ -117,7 +124,7 @@ Estas respuestas son entrada de la Fase 1 y bloquean partes del diseño:
 
 1. **¿Cuál es el formato exacto de salida del sistema de logs?** Bloquea la especificación del módulo de ingesta.
 2. **¿El playbook espera respuesta del EDR, o es asíncrono?** Determina el presupuesto de latencia y la viabilidad de la validación humana en línea.
-3. **¿Qué severidad o clasificación asigna hoy el sistema existente?** Es el baseline de comparación de la Fase 6; sin él, no hay contra qué medir.
+3. **¿Qué severidad o clasificación asigna hoy el sistema existente?** Serviría como segundo baseline de comparación. Mientras tanto, el baseline es el nivel de regla de Wazuh.
 4. **¿Existe ya un catálogo de acciones que el playbook sepa ejecutar?** Si existe, el catálogo del EDR debe alinearse con él en vez de inventar uno nuevo.
 
 ---

@@ -30,6 +30,8 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 | D4 | Canal EDR → sandbox: **SSH**, acotado a un **catálogo cerrado de acciones**. TR-069/TR-369 como evolución | [protocolos](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md) |
 | D5 | Auditoría limitada a **escaneo de red**: Nmap inventaría, Greenbone dictamina. Sin análisis de firmware | [auditoría](../04-fase4-diseno-de-arquitectura/auditoria-de-vulnerabilidades-del-sandbox.md) |
 | D6 | Modelo en **dos perfiles**: A híbrido (equipo actual), B con Foundation-Sec-8B (si hay hardware) | [modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
+| D8 | **Wazuh dentro del sandbox** como fuente de alertas y **su nivel de regla como baseline** | [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
+| D9 | El Perfil A incorpora un **modelo de 3B en línea** para la justificación breve de la validación humana | [modelo §3](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
 | D7 | Dos abstracciones sostienen el diseño: el **conector** (acciones abstractas) y la **interfaz de análisis** (`clasificar`/`justificar`) | [protocolos](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md), [modelo §5](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
 
 ---
@@ -40,7 +42,7 @@ Clasificadas por severidad. **Bloqueante** = impide avanzar. **Estructural** = e
 
 ---
 
-### I-1 · No existe la fuente de alertas — BLOQUEANTE
+### I-1 · No existe la fuente de alertas — ~~BLOQUEANTE~~ **RESUELTA**
 
 El flujo previsto es `logs → playbook → EDR`. El sistema de logs y el playbook son de la empresa, y **no hay empresa ni sistema definidos**.
 
@@ -48,25 +50,25 @@ Agravante detectado al revisar: el [diseño del sandbox](../03-fase3-entorno-de-
 
 **Choca con:** el criterio de cierre de la Fase 3 — *«el entorno procesa alertas de prueba de punta a punta»*.
 
-**Quién puede resolverlo:** la empresa (si cede el sistema), o nosotros (ver §4).
+**Resolución (agosto 2026):** se despliega **Wazuh dentro del sandbox** como fuente de alertas de laboratorio — agentes en los nodos Linux y reenvío de syslog desde el CPE OpenWrt. El proyecto deja de depender de la empresa para avanzar. Si su sistema llega, se integra como segunda fuente por el mismo módulo de ingesta. Ver [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md).
 
 ---
 
-### I-2 · Dos *ground truths* distintos tratados como uno — BLOQUEANTE
+### I-2 · Dos *ground truths* distintos tratados como uno — ~~BLOQUEANTE~~ **RESUELTA**
 
 El diseño del sandbox afirma que «la topología es el dataset». Eso es cierto para **vulnerabilidades**: se sabe qué CVE hay en cada nodo. Pero el plan exige ground truth de **alertas**: verdadero positivo frente a falso positivo.
 
 **No son lo mismo y no hay puente documentado entre ambos.** Es un error de redacción de la Fase 3 que debe corregirse explícitamente, no matizarse.
 
-**Quién puede resolverlo:** nosotros, una vez resuelta I-1.
+**Resolución (agosto 2026):** la sección 6 del diseño del sandbox se reescribió para separar ambos explícitamente y documentar el puente: cada alerta de Wazuh se contrasta contra el inventario de vulnerabilidades del nodo al que apunta, y de ahí sale la etiqueta de verdadero o falso positivo.
 
 ---
 
-### I-3 · No hay baseline, luego la Fase 6 no es ejecutable — BLOQUEANTE
+### I-3 · No hay baseline, luego la Fase 6 no es ejecutable — ~~BLOQUEANTE~~ **RESUELTA**
 
 La evaluación compara el prototipo contra «el método tradicional de referencia», que en la práctica es la clasificación o severidad que asigna hoy el sistema existente. Sin ese sistema **no hay contra qué medir**, y la Fase 6 completa queda sin sustento.
 
-**Quién puede resolverlo:** la empresa, o nosotros adoptando un motor de reglas propio como baseline (ver §4).
+**Resolución (agosto 2026):** el **nivel de regla de Wazuh** se adopta como método tradicional de referencia. Es literalmente el enfoque basado en reglas y firmas que el plan quiere como comparación, y viene incluido con la fuente de alertas. Si más adelante hay acceso al sistema de la empresa, su severidad se añade como segundo baseline.
 
 ---
 
@@ -90,14 +92,14 @@ Los requisitos funcionales y no funcionales de la Fase 2 se derivaron del primer
 
 ---
 
-### I-6 · El Perfil A contradice el diseño del flujo — DE DISEÑO
+### I-6 · El Perfil A contradice el diseño del flujo — ~~DE DISEÑO~~ **RESUELTA**
 
 Dos choques directos entre [selección del modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) y el [flujo de operación](../04-fase4-diseno-de-arquitectura/flujo-edr-playbook-sandbox.md):
 
 - **Validación humana sin justificación.** El flujo establece: EDR decide → justificación → validación humana → ejecución. Pero el Perfil A genera la justificación **en lote y fuera de línea**, así que el validador humano decidiría sin tener delante el razonamiento que debía darle criterio.
 - **«Punta a punta» imposible.** El criterio de cierre de la Fase 3 lo exige; el Perfil A prohíbe tener sandbox y modelo vivos a la vez.
 
-**Quién puede resolverlo:** nosotros. Requiere decidir qué cede: el flujo, el criterio de cierre o el perfil.
+**Resolución (agosto 2026):** se añade al Perfil A un **tercer componente de 3B cuantizado** (Phi-4-mini o Llama 3.2 3B, ~2 GB) que redacta una justificación breve en 15–20 s, disponible para la validación humana. El 8B en lote queda para la justificación extensa de auditoría y evaluación. El camino interactivo —alerta, clasificación, justificación breve, validación, acción— **sí es demostrable en vivo** en el equipo actual, así que el criterio de cierre de la Fase 3 se sostiene sin reescribirse.
 
 ---
 
@@ -139,7 +141,7 @@ Encaja con lo ya escrito: el roadmap tiene la casilla «Evaluar si herramientas 
 
 ## 5. Preguntas para la empresa
 
-Consolidadas. Las tres primeras desbloquean fases enteras.
+Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de alertas y baseline, pero todas mejoran el resultado y deben plantearse en la reunión.
 
 1. **¿Son la misma cosa «el módulo propietario» y «el sistema existente que emite logs»?** (I-4)
 2. **¿Cuál es el formato exacto de salida de ese sistema?** Bloquea la especificación del módulo de ingesta.
@@ -155,12 +157,12 @@ Consolidadas. Las tres primeras desbloquean fases enteras.
 
 | # | Incongruencia | Severidad | Responsable | Estado |
 |---|---------------|-----------|-------------|--------|
-| I-1 | Sin fuente de alertas | Bloqueante | Empresa / nosotros | Abierta |
-| I-2 | Dos ground truths | Bloqueante | Nosotros | Abierta |
-| I-3 | Sin baseline | Bloqueante | Empresa / nosotros | Abierta |
-| I-4 | Fase 1 vacía | Estructural | Empresa | Abierta |
+| I-1 | Sin fuente de alertas | Bloqueante | Nosotros | **Resuelta** — Wazuh en el sandbox |
+| I-2 | Dos ground truths | Bloqueante | Nosotros | **Resuelta** — sandbox §6 reescrita |
+| I-3 | Sin baseline | Bloqueante | Nosotros | **Resuelta** — nivel de regla de Wazuh |
+| I-4 | Fase 1 vacía | Estructural | Empresa | Abierta — ya no bloquea el avance |
 | I-5 | Estado del arte desalineado | Estructural | Nosotros | Abierta |
-| I-6 | Perfil A vs flujo | De diseño | Nosotros | Abierta |
+| I-6 | Perfil A vs flujo | De diseño | Nosotros | **Resuelta** — modelo de 3B en línea |
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |
 | I-8 | Material con premisa superada | Menor | Nosotros | Señalada |
 | I-9 | Dos planes conviviendo | Menor | Nosotros | Abierta |

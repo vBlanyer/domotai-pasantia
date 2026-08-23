@@ -79,11 +79,12 @@ Existen requisitos claros que guían el diseño y la evaluación del prototipo.
 - [ ] Diseñar y desplegar el **sandbox de red FTTx emulada** con Containerlab, con la topología versionada en el repositorio.
 - [ ] Incorporar a la topología nodos con **vulnerabilidades documentadas** que sirvan de ground truth para la evaluación.
 - [ ] Desplegar el **auditor de vulnerabilidades** (Nmap + Greenbone) en el plano de gestión y fijar la versión del feed usada en la campaña.
-- [ ] Evaluar si herramientas como Wazuh se usarán como base de ingestión y telemetría del entorno, sin asumir que sustituyen el prototipo de triaje inteligente.
+- [ ] Desplegar **Wazuh** dentro del sandbox como fuente de alertas del entorno: agentes en los nodos Linux y reenvío de syslog desde el CPE. El manager se despliega **sin indexer ni dashboard**. Wazuh es infraestructura de ingestión, no sustituye al prototipo de triaje.
+- [ ] Adoptar el **nivel de regla de Wazuh como método tradicional de referencia (baseline)** de la Fase 6, y registrarlo junto a cada alerta.
 - [ ] Configurar el modelo de lenguaje de forma local o en entorno controlado (sin envío de datos sensibles a terceros), según el perfil de despliegue seleccionado en la Fase 4.
 - [ ] **Verificar empíricamente el consumo de recursos** del entorno (sandbox, Greenbone y modelo) frente al presupuesto de memoria del equipo disponible.
 - [ ] Preparar un conjunto de alertas de prueba representativas del caso de uso (incluyendo verdaderos positivos y falsos positivos).
-- [ ] **Etiquetar el dataset** (ground truth) con el criterio de clasificación acordado y documentar el procedimiento de etiquetado.
+- [ ] **Etiquetar el dataset de alertas** (ground truth) contrastando cada alerta de Wazuh contra el inventario documentado de vulnerabilidades del nodo al que apunta, y documentar el procedimiento.
 - [ ] **Particionar el dataset** en entrenamiento y evaluación con nodos o campañas disjuntos, si el perfil elegido requiere fine-tuning.
 - [ ] Validar conectividad, permisos y flujo end-to-end con datos sintéticos o anonimizados.
 - [ ] Documentar procedimiento de despliegue y variables de configuración.
@@ -120,7 +121,7 @@ El entorno procesa alertas de prueba de punta a punta sin dependencias externas 
 - [ ] **Seleccionar el modelo de análisis** y definir los perfiles de despliegue según el hardware disponible.
 - [ ] Especificar la **interfaz de análisis** (`clasificar` / `justificar`) que aísla al EDR del modelo concreto que la implementa.
 - [ ] **Definir las métricas de evaluación** (precisión, recall, F1, tasa de falsos positivos, tiempo de triaje, etc.) y cómo se calculan sobre el dataset etiquetado de la Fase 3.
-- [ ] **Definir el método tradicional de referencia (baseline)** contra el que se comparará el prototipo: reglas/firmas o proceso manual.
+- [ ] **Definir el método tradicional de referencia (baseline)**: el nivel de regla de Wazuh, y cómo se compara con la clasificación del prototipo.
 - [ ] Documentar decisiones de diseño y alternativas descartadas.
 
 ### Entregables
@@ -147,7 +148,7 @@ La arquitectura está validada internamente y es suficiente para iniciar la impl
 
 - [ ] Implementar el módulo de ingesta y normalización de alertas.
 - [ ] Integrar el componente de análisis inteligente mediante la **interfaz de análisis**, con prompts y contexto acotado al caso de uso.
-- [ ] Implementar el perfil de despliegue seleccionado, respetando la **separación temporal** entre la ejecución del sandbox y la del modelo si el perfil lo exige.
+- [ ] Implementar el perfil de despliegue seleccionado: camino **interactivo** (encoder y modelo de 3B junto al sandbox) y camino **en lote** (modelo de 8B y Greenbone, separados en el tiempo).
 - [ ] Desarrollar la lógica de clasificación y priorización de alertas.
 - [ ] Implementar la generación de justificación explicable para cada decisión.
 - [ ] Incorporar el flujo de validación humana para alertas de alta criticidad o baja confianza.

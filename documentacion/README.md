@@ -5,6 +5,8 @@ Esta carpeta está organizada siguiendo las fases del plan de trabajo y el roadm
 ## Estructura
 
 - [00-general](00-general/): documentos base, plan de trabajo y roadmap.
+  - [estado-y-riesgos.md](00-general/estado-y-riesgos.md): estado por fase, decisiones cerradas e incongruencias abiertas.
+  - [camino-paso-a-paso.md](00-general/camino-paso-a-paso.md): plan de ejecución ordenado, con criterio de cierre por paso.
 - [01-fase1-analisis-del-modulo](01-fase1-analisis-del-modulo/): análisis del módulo propietario y definición del caso de uso.
 - [02-fase2-estado-del-arte](02-fase2-estado-del-arte/): revisión de MDR/XDR, límites y referencias técnicas.
 - [03-fase3-entorno-de-pruebas](03-fase3-entorno-de-pruebas/): configuración del entorno, dataset y validación.

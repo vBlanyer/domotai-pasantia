@@ -68,6 +68,7 @@ flowchart LR
     end
 
     subgraph gestion["Plano de gestión — red clab (OOB)"]
+        WZ["Wazuh manager<br/>(genera alertas)"]
         EDR["Conector EDR"]
         AUD["Auditor<br/>(Nmap + Greenbone)"]
     end
@@ -78,6 +79,11 @@ flowchart LR
     SW --- IOT
     SW --- VULN
 
+    CPE -.syslog.-> WZ
+    PC -.agente.-> WZ
+    IOT -.agente.-> WZ
+    VULN -.agente.-> WZ
+    WZ -.alertas.-> EDR
     AUD -.escaneo.-> CPE
     AUD -.escaneo.-> IOT
     AUD -.escaneo.-> VULN
@@ -95,6 +101,7 @@ flowchart LR
 | `host-abonado` | PC del usuario final | Contenedor Linux con utilidades de red |
 | `iot-legacy` | Dispositivo IoT con servicios antiguos expuestos | Contenedor con Telnet / UPnP / servicios obsoletos |
 | `objetivo-vuln` | Objetivo con vulnerabilidades **documentadas** | Metasploitable / imagen de Vulhub |
+| `wazuh` | **Generación de alertas** y baseline de reglas | Wazuh manager (ver §5.1) |
 | `auditor` | Escaneo de vulnerabilidades | Kali o contenedor con Nmap; Greenbone aparte (ver §5) |
 
 ### Separación de planos
@@ -138,6 +145,10 @@ topology:
       kind: linux
       image: <imagen con CVEs documentados>
 
+    wazuh:
+      kind: linux
+      image: <imagen de wazuh-manager, sin indexer ni dashboard>
+
     auditor:
       kind: linux
       image: <imagen con Nmap y cliente de escaneo>
@@ -156,6 +167,26 @@ Todos los nodos quedan además conectados automáticamente a la red de gestión 
 
 ## 5. Consideraciones de implementación
 
+### 5.1 Wazuh como fuente de alertas y como baseline
+
+El sandbox genera telemetría y vulnerabilidades, pero **por sí solo no produce alertas**, que es lo que el EDR debe triar. Wazuh cubre ese hueco y además resuelve el baseline de la evaluación.
+
+**Cómo se conecta cada nodo:**
+
+| Nodo | Vía | Motivo |
+|------|-----|--------|
+| CPE OpenWrt | **Reenvío de syslog** al manager (UDP 514) | No existe agente Wazuh para OpenWrt; el reenvío de syslog es nativo y ligero |
+| Nodos Linux (endpoint, IoT, objetivo vulnerable) | **Agente Wazuh** | Capacidades completas: HIDS, integridad de ficheros, detección local |
+| Equipos de red sin agente | **Agentless por SSH**, como complemento | Wazuh lo documenta para routers y switches; útil para revisiones periódicas de configuración |
+
+**Desplegar el manager sin indexer ni dashboard.** La instalación completa de Wazuh añade OpenSearch y una interfaz web que consumen varios GB, y **este proyecto no los necesita**: el EDR consume alertas, no una interfaz de usuario. El manager por sí solo escribe las alertas a `alerts.json`, que es exactamente la entrada que hace falta. Es la diferencia entre unos 1–2 GB y bastante más, decisiva en el presupuesto de memoria de este equipo.
+
+**El nivel de regla de Wazuh es el baseline.** El plan de trabajo exige comparar el prototipo contra «el método tradicional de referencia», definido como reglas y firmas. La severidad que Wazuh asigna por regla **es** ese método. No hay que construir un baseline aparte: viene incluido con la fuente de alertas.
+
+**Limitación a tener en cuenta:** los dispositivos monitorizados sin agente registran sus eventos bajo el manager (agente ID 000), no como agentes propios. Atribuir una alerta al nodo concreto que la originó requiere apoyarse en los campos del evento, no en el identificador de agente. Afecta al CPE, que es el nodo más importante.
+
+### 5.2 Otras consideraciones
+
 **Greenbone es multi-contenedor.** La distribución comunitaria de Greenbone se despliega como un conjunto de servicios coordinados (escáner, gestor, base de datos de feeds, interfaz web), no como una imagen única. Encajarlo como un nodo de Containerlab es forzado. La opción recomendada es **ejecutarlo fuera de la topología** y conectarlo al bridge de gestión `clab`, tratándolo como un servicio del entorno y no como un nodo del laboratorio. El nodo `auditor` de la topología queda entonces para Nmap y para la orquestación del escaneo.
 
 **Sincronización del feed de vulnerabilidades.** La primera descarga del feed de Greenbone es lenta y voluminosa. Debe hacerse una vez y quedar persistida, no repetirse en cada `deploy`. Conviene además **fijar la versión del feed** usada en la evaluación: si el feed cambia entre la ejecución del prototipo y la del baseline, los resultados de la Fase 6 dejan de ser comparables.
@@ -166,19 +197,36 @@ Todos los nodos quedan además conectados automáticamente a la red de gestión 
 
 ---
 
-## 6. Los objetivos etiquetados resuelven el ground truth
+## 6. Los dos *ground truths*: vulnerabilidades y alertas
 
-Que no exista todavía una empresa cliente definida permite diseñar una **red de referencia genérica** en vez de replicar una infraestructura concreta. Esto habilita algo que de otro modo sería costoso: **plantar deliberadamente dispositivos con vulnerabilidades conocidas y documentadas**.
+Que no exista todavía una empresa cliente definida permite diseñar una **red de referencia genérica** en vez de replicar una infraestructura concreta. Eso habilita algo que de otro modo sería costoso: **plantar deliberadamente nodos con vulnerabilidades conocidas y documentadas** (Metasploitable, escenarios de Vulhub, una versión antigua y concreta de OpenWrt).
 
-Al usar imágenes cuyos CVEs están publicados —Metasploitable, escenarios de Vulhub, una versión antigua y concreta de OpenWrt— se sabe de antemano:
+Ahora bien, conviene no confundir dos cosas distintas que el proyecto necesita:
 
-- qué vulnerabilidades existen en cada nodo,
-- qué debería detectar el auditor (verdaderos positivos esperados),
-- qué **no** existe, y por tanto qué detección sería un falso positivo.
+| | Ground truth de **vulnerabilidades** | Ground truth de **alertas** |
+|---|---|---|
+| Qué afirma | Qué CVE existe en cada nodo | Si una alerta concreta es verdadero o falso positivo |
+| De dónde sale | La **composición documentada de la topología** | Las alertas de **Wazuh**, etiquetadas una a una |
+| Para qué sirve | Evaluar el **auditor** | Evaluar el **triaje del EDR** |
+| Lo exige | El diseño de la auditoría | El plan de trabajo (objetivo 3 y Fase 6) |
 
-Eso es exactamente el **dataset etiquetado (ground truth)** que la Fase 3 exige como entregable y del que depende el cálculo de precisión, recall y F1 en la Fase 6. El etiquetado deja de ser un ejercicio manual de criterio y pasa a derivarse de la composición documentada de la topología.
+**Son distintos y ninguno sustituye al otro.** El plan de trabajo pide explícitamente el segundo: un conjunto de alertas etiquetado con verdaderos y falsos positivos. La topología por sí sola no lo proporciona.
 
-Consecuencia de diseño: **la topología es el dataset**. Cada nodo añadido al `.clab.yml` debe registrarse junto con su inventario de vulnerabilidades esperadas.
+### Cómo se construye el ground truth de alertas
+
+El puente entre ambos es lo que hace viable la evaluación:
+
+1. Se ejecuta actividad sobre el sandbox (escaneos, accesos, tráfico) y **Wazuh emite alertas**.
+2. Cada alerta se contrasta contra el **inventario documentado de vulnerabilidades** del nodo al que apunta.
+3. Una alerta que señala una exposición que **efectivamente existe** en ese nodo se etiqueta como **verdadero positivo**; una que señala algo que el inventario dice que **no está presente** se etiqueta como **falso positivo**.
+4. El **nivel de regla de Wazuh** de cada alerta se conserva: es el baseline contra el que se comparará el prototipo en la Fase 6.
+
+El etiquetado deja así de ser un juicio subjetivo y pasa a apoyarse en la composición conocida del laboratorio. **Requiere revisión manual** —el paso 3 no es totalmente automatizable— pero parte de una base objetiva en vez de la intuición del analista.
+
+### Consecuencias de diseño
+
+- **La topología debe registrarse junto con su inventario de vulnerabilidades esperadas por nodo.** Cada nodo añadido al `.clab.yml` documenta qué se espera encontrar en él.
+- **Si el modelo requiere fine-tuning** (Perfil A de la [selección del modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md)), el conjunto de alertas debe **particionarse en entrenamiento y evaluación con nodos o campañas disjuntos**. Entrenar y medir sobre las mismas alertas invalida por completo los resultados de la Fase 6.
 
 ---
 
@@ -186,6 +234,7 @@ Consecuencia de diseño: **la topología es el dataset**. Cada nodo añadido al 
 
 - ¿Debe incluirse un endpoint Windows? Aporta realismo al tramo final y es el objetivo natural de un EDR, pero exige licencia y una VM completa, lo que rompe el modelo ligero de contenedores.
 - ¿Qué versión de OpenWrt se fija como CPE? Debe ser lo bastante antigua para tener CVEs documentados, pero seguir arrancando de forma estable.
+- ¿Pueden convivir Wazuh y Greenbone en memoria, o deben separarse en el tiempo como el modelo? Es lo primero que hay que medir al desplegar.
 - ¿Cuántos hogares se emulan? La topología descrita modela **un** abonado. Varios CPE en paralelo permitirían estudiar correlación entre abonados, a costa de recursos.
 
 ---
@@ -198,3 +247,5 @@ Consecuencia de diseño: **la topología es el dataset**. Cada nodo añadido al 
 - [Containerlab — integración con vrnetlab](https://containerlab.dev/manual/vrnetlab/)
 - [Cisco Modeling Labs — Free (DevNet)](https://developer.cisco.com/docs/modeling-labs/cml-free/)
 - [Greenbone / OpenVAS](https://www.greenbone.net/en/openvas-scan/)
+- [Wazuh — monitorización sin agente](https://documentation.wazuh.com/current/user-manual/capabilities/agentless-monitoring/how-it-works.html)
+- [Wazuh — monitorización de dispositivos de red](https://wazuh.com/blog/monitoring-network-devices/)

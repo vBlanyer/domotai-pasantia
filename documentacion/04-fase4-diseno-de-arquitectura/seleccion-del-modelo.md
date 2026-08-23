@@ -33,9 +33,10 @@ El factor limitante no es el modelo por sí solo, sino que **el sandbox se ejecu
 | Sistema operativo, editor y navegador | 3–4 GB |
 | Containerlab: nodo de borde y contenedores de LAN | ~1 GB |
 | OpenWrt vía vrnetlab (es una **VM QEMU**, no un contenedor) | 0,5–1 GB |
+| Wazuh manager **sin indexer ni dashboard** | 1–2 GB |
 | Greenbone (escáner, gestor y base de datos del feed) | 4–8 GB |
 | Modelo generativo de 8B cuantizado a 4 bits | ~5 GB |
-| **Total si todo coexiste** | **14–19 GB** |
+| **Total si todo coexiste** | **15–21 GB** |
 
 **No cabe.** Y aun cuando entrara raspando, un modelo de 8B en Q4 sobre esta clase de CPU rinde del orden de 6–12 tokens/s según mediciones publicadas —obtenidas en chips de 45 W—, así que en un TDP de 15 W con estrangulamiento térmico cabe esperar menos. Un modelo de razonamiento emite además muchos tokens de pensamiento: una justificación de unos 800 tokens supone **varios minutos por alerta**.
 
@@ -45,16 +46,21 @@ El factor limitante no es el modelo por sí solo, sino que **el sandbox se ejecu
 
 ## 3. Perfil A — Equipo actual (CPU, 16 GB)
 
-**Arquitectura: híbrida.** Dos componentes especializados en vez de uno general. No es una elección de elegancia: es lo único que entra en el presupuesto de memoria.
+**Arquitectura: híbrida.** Tres componentes especializados en vez de uno general. No es una elección de elegancia: es lo único que entra en el presupuesto de memoria.
 
 | Función | Componente | Tamaño | Ejecución |
 |---------|-----------|--------|-----------|
 | Clasificación y prioridad | Encoder de seguridad (SecureBERT 2.0, CySecBERT o SecBERT), con fine-tuning | ~110M par., ~0,5 GB | **Interactiva**, milisegundos en CPU |
-| Justificación explicable | Foundation-Sec-8B-**Instruct** cuantizado (Q4), o un modelo genérico de 3B–4B si el 8B resulta impracticable | ~5 GB (Q4) | **En lote, fuera de línea** |
+| Justificación **breve**, para la validación humana | Modelo pequeño cuantizado: **Phi-4-mini** (3,8B) o **Llama 3.2 3B** | ~2–2,3 GB (Q4) | **Interactiva**, ~15–20 s |
+| Justificación **extensa**, para auditoría y evaluación | Foundation-Sec-8B-**Instruct** cuantizado (Q4) | ~5 GB (Q4) | **En lote, fuera de línea** |
 
 **Por qué el encoder para clasificar:** entra sobrado en memoria, responde en milisegundos, es determinista —lo que satisface RNF-03 mejor que cualquier generativo— y entrega la confianza numérica que el umbral de validación humana necesita.
 
-**Por qué la variante Instruct y no Reasoning:** emite bastantes menos tokens que el modelo de razonamiento, lo que sobre CPU es la diferencia entre viable e impracticable.
+**Por qué un tercer componente de 3B.** Sin él, el Perfil A entraba en contradicción con el propio diseño del flujo: la [validación humana](./flujo-edr-playbook-sandbox.md) ocurre **antes** de ejecutar la acción y necesita la justificación delante, pero un 8B en lote la produce después. Un modelo de 3B cuantizado ocupa ~2 GB y rinde del orden de 10–12 tokens/s en CPU según mediciones publicadas, así que una justificación breve de unos 200 tokens sale en **15–20 segundos**: tolerable para que una persona decida con el razonamiento a la vista.
+
+El 8B en lote no desaparece: produce la justificación extensa que alimenta la traza de auditoría y la evaluación de la Fase 6, donde la latencia no importa.
+
+**Por qué la variante Instruct y no Reasoning** en el componente de 8B: emite bastantes menos tokens que el modelo de razonamiento, lo que sobre CPU es la diferencia entre viable e impracticable.
 
 **Sobre la elección del encoder:** un estudio comparativo evalúa CTI-BERT, SecureBERT, CySecBERT y SecBERT en condiciones idénticas sobre CTI, phishing, **logs** y CVE, y concluye que hay **fuerte convergencia de rendimiento entre modelos**, y que los fallos vienen del ajuste al dominio y no de la superioridad arquitectónica de ninguno. Conclusión práctica: **no dedicar esfuerzo a elegir entre ellos**. Escoger uno por conveniencia y emplear el tiempo en el ajuste al dominio, que es donde está la diferencia real.
 
@@ -68,6 +74,8 @@ flowchart LR
     DS --> F2["2 · Apagar sandbox<br/>y Greenbone"]
     F2 --> F3["3 · Ejecutar el modelo<br/>sobre el dataset"]
 ```
+
+**Qué sí puede convivir:** el encoder (~0,5 GB) y el modelo de 3B (~2 GB) son lo bastante ligeros para ejecutarse junto al sandbox y a Wazuh. La separación temporal afecta al **8B en lote** y a **Greenbone**, no al camino interactivo. El lazo cerrado —alerta de Wazuh → clasificación → justificación breve → validación humana → acción por SSH— **sí es demostrable en vivo** en este equipo.
 
 Esto **no degrada la evaluación**: la Fase 6 es batch por naturaleza, así que medir sobre un dataset guardado es exactamente lo que hay que hacer. Lo único que pierde es la demostración del lazo cerrado en vivo — y esa puede realizarse con el encoder solo, que responde en milisegundos, generando las justificaciones en lote a posteriori.
 
@@ -141,6 +149,8 @@ Advertencia metodológica que debe recogerse en el informe de la Fase 7:
 | [SecBERT](https://huggingface.co/jackaduma/SecBERT) | Encoder | ~110M | Con fine-tuning | No | Sí | Opcional |
 | [SecureBERT 2.0](https://arxiv.org/abs/2510.00240) | Encoder | ~110–125M | Con fine-tuning | No | Sí | Opcional |
 | [CySecBERT](https://dl.acm.org/doi/10.1145/3652594) | Encoder | ~110M | Con fine-tuning | No | Sí | Opcional |
+| Phi-4-mini | Generativo | 3,8B | Limitado | Sí, breve | **Sí, en línea** | Sustituible |
+| Llama 3.2 3B | Generativo | 3B | Limitado | Sí, breve | **Sí, en línea** | Sustituible |
 | [Foundation-Sec-8B-Instruct](https://huggingface.co/fdtn-ai/Foundation-Sec-8B-Instruct) | Generativo | 8B | Sí | Sí | Solo en lote | Sí |
 | [Foundation-Sec-8B-Reasoning](https://huggingface.co/fdtn-ai/Foundation-Sec-8B-Reasoning) | Generativo + razonamiento | 8B | Sí | Sí | **No viable** | **Recomendado** |
 | APIs alojadas (cualquiera) | — | — | Sí | Sí | **Descartado por RNF-01** | **Descartado por RNF-01** |
