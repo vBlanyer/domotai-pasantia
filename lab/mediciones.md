@@ -73,8 +73,19 @@ Consecuencias: el nodo queda `unhealthy`, el SSH de la VM no responde (TCP conec
 sirve QEMU, pero falla el intercambio de banner), y el abonado no obtiene DHCP porque `eth2`
 no pertenece a ningún bridge.
 
-**Reproducido tres veces** de forma idéntica, incluida una sin declarar `USERNAME`/`PASSWORD`
-—una causa documentada de cuelgues similares— que se descartó así.
+**Reproducido cuatro veces** de forma idéntica:
+
+| Intento | Versión | Variante | Resultado |
+|---------|---------|----------|-----------|
+| 1 | 23.05.5 | con `USERNAME`/`PASSWORD` | Cuelgue |
+| 2 | 23.05.5 | redespliegue limpio | Cuelgue, mismo punto |
+| 3 | 23.05.5 | **sin** bloque `env` | Cuelgue, mismo punto |
+| 4 | **24.10.0** | sin bloque `env` | Cuelgue, mismo punto |
+
+Con eso quedan descartadas dos hipótesis: **no es un choque de credenciales** (intento 3) y
+**no depende de la versión de OpenWrt** (intento 4, con la otra versión que vrnetlab declara
+probada). El punto de parada es exactamente el mismo en los cuatro: tras volcar
+`/etc/config/network`, un `^C` y `echo READY`, sin llegar nunca a `uci set network.mgmt`.
 
 **Sospecha principal:** en `launch.py`, el bloque que reasigna la LAN lee la consola con
 `read_very_eager()`, que es **no bloqueante**. Si la salida de `cat /etc/config/network` no ha
@@ -84,7 +95,16 @@ en un CPU de 15 W— favorece esa carrera. No está confirmado que sea la causa 
 
 **Opciones pendientes de decidir:**
 
-1. Probar OpenWrt **24.10.0**, también en la lista de versiones probadas por vrnetlab.
+1. ~~Probar OpenWrt 24.10.0~~ — **descartado**, falla igual (intento 4).
 2. Configurar el CPE a mano por la consola serie, si se consigue tomarla de `launch.py`.
-3. Usar un contenedor Linux como CPE provisional y aplazar el OpenWrt real.
-4. Abrir incidencia en el proyecto vrnetlab.
+3. **Usar un contenedor Linux como CPE provisional** y aplazar el OpenWrt real. Es la única
+   opción que desbloquea el resto del bloque 1 sin depender de terceros.
+4. Abrir incidencia en el proyecto vrnetlab con el diagnóstico ya hecho.
+
+## Otra incidencia: colisión de puertos (24/08/2026)
+
+El despliegue falló con `failed to bind host port 0.0.0.0:8080/tcp: address already in use`.
+El puerto lo ocupaba un servidor Vite de otro proyecto del equipo (`crm-v2-domotai-frontend`),
+no un resto del laboratorio. **Los puertos de LuCI se movieron a 8180 y 8543.** Conviene
+recordarlo: el laboratorio comparte máquina con otros desarrollos y los puertos bajos
+habituales pueden estar tomados.

@@ -26,10 +26,11 @@ topology:
 
     cpe:
       kind: openwrt
-      image: vrnetlab/openwrt_openwrt:23.05.5
+      image: vrnetlab/openwrt_openwrt:24.10.0
       ports:
-        - 8080:80     # LuCI HTTP
-        - 8443:443    # LuCI HTTPS
+        # 8080 lo ocupa otro proyecto del equipo; se usan puertos altos libres
+        - 8180:80     # LuCI HTTP
+        - 8543:443    # LuCI HTTPS
 
     abonado:
       kind: linux
