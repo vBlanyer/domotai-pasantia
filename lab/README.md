@@ -9,6 +9,7 @@ y el plan de ejecución en [camino-paso-a-paso.md](../documentacion/00-general/c
 | [fttx-lab.clab.yml](fttx-lab.clab.yml) | **Topología de trabajo.** Cadena FTTx con CPE provisional en Linux | **Operativa** |
 | [fttx-base.clab.yml](fttx-base.clab.yml) | Variante con CPE OpenWrt real (VM QEMU) | **Bloqueada** — ver mediciones |
 | [smoke-test.clab.yml](smoke-test.clab.yml) | Tres nodos Alpine. Valida la cadena WSL → Docker → Containerlab | Validado 23/08/2026 |
+| [vulnerabilidades-esperadas.md](vulnerabilidades-esperadas.md) | **Ground truth**: qué se ha plantado en cada nodo | Verificado 24/08/2026 |
 | [mediciones.md](mediciones.md) | Consumo real por escalón — Paso 1 del camino | En curso |
 
 ## Uso
@@ -111,8 +112,9 @@ Un **dispositivo del hogar** —cámara, televisor, enchufe inteligente— en 19
 Representa la clase de equipos con firmware antiguo y servicios expuestos (Telnet, UPnP) que
 nadie parchea, y que en la práctica son la puerta de entrada más común a una red doméstica.
 
-> **Hoy es un marcador:** un Alpine pelado, sin servicios expuestos. Cumple el papel en el
-> diagrama pero no genera nada que el auditor pueda encontrar. Darle contenido es el Paso 4.
+Expone **telnet sin autenticación** en el 23 —una shell directa, que es la vulnerabilidad
+canónica de estos equipos— y una **interfaz web** en el 80. Nmap lo identifica como
+`Coolstream set-top box telnetd` y lo clasifica como *media device*.
 
 #### `objetivo-vuln`
 
@@ -122,9 +124,10 @@ Su función es tener **vulnerabilidades conocidas y documentadas**. Como se sabe
 falla en él, se sabe qué debería encontrar el auditor, qué debería decidir el EDR y qué
 detección sería un falso positivo. De ahí sale el ground truth de la Fase 6 sin etiquetar a ojo.
 
-> **También es un marcador.** Necesita una imagen realmente vulnerable —Metasploitable, algún
-> escenario de Vulhub— con su inventario de CVEs documentado al lado. Sin eso, la Fase 6 no
-> tiene contra qué medirse.
+Ejecuta **Metasploitable2**, con 19 puertos abiertos y vulnerabilidades documentadas: la puerta
+trasera de vsftpd 2.3.4, la de UnrealIRCd, el *usermap script* de Samba, servicios «r» sin
+cifrar, y un **shell de root sin autenticación en el 1524**. Inventario completo en
+[vulnerabilidades-esperadas.md](vulnerabilidades-esperadas.md).
 
 ### Grupo «Gestión»
 

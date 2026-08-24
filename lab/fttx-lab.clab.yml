@@ -60,12 +60,26 @@ topology:
 
     iot:
       labels: {graph-icon: server, graph-group: "Domicilio", graph-level: 4}
+      # Dispositivo domestico con servicios de administracion expuestos, que es
+      # la superficie tipica de una camara o un enchufe inteligente sin parchear.
+      #   23/tcp  telnet sin cifrar y SIN AUTENTICACION -> shell directa
+      #   80/tcp  interfaz web de administracion
       exec:
         - ip addr add 192.168.1.20/24 dev eth1
         - ip route add 10.0.1.0/24 via 192.168.1.1
+        - apk add --no-cache busybox-extras darkhttpd
+        - mkdir -p /www
+        - sh -c 'echo "<html><head><title>IPCam-2000 Admin</title></head><body><h1>IPCam-2000</h1><p>Firmware v1.0.3 (2016-04-11)</p><form><input name=user value=admin><input name=pass type=password><button>Entrar</button></form></body></html>" > /www/index.html'
+        - telnetd -l /bin/sh -p 23
+        - darkhttpd /www --port 80 --daemon
 
     objetivo-vuln:
       labels: {graph-icon: server, graph-group: "Domicilio", graph-level: 4}
+      # Metasploitable2: objetivo con vulnerabilidades DOCUMENTADAS. De este nodo
+      # sale el ground truth de la evaluacion: se sabe de antemano que deberia
+      # encontrar el auditor y que seria un falso positivo.
+      # Inventario esperado en vulnerabilidades-esperadas.md
+      image: tleemcjr/metasploitable2:latest
       exec:
         - ip addr add 192.168.1.30/24 dev eth1
         - ip route add 10.0.1.0/24 via 192.168.1.1

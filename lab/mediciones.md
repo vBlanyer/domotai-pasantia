@@ -156,3 +156,21 @@ serán comparables entre sí.
 
 Wazuh sigue siendo la única cifra grande sin medir, y por tanto el mayor riesgo del
 presupuesto.
+
+## Escalón 1d — Nodos vulnerables activos (24/08/2026)
+
+| Nodo | Imagen | Memoria |
+|------|--------|---------|
+| `objetivo-vuln` | Metasploitable2 (2,3 GB en disco) | **80,2 MiB** |
+| `auditor` | Alpine + nmap | **108,9 MiB** |
+| `iot` | Alpine + telnetd + darkhttpd | **1,7 MiB** |
+| `cpe`, `borde`, `sw-lan`, `abonado` | Alpine | **~0,7 MiB** cada uno |
+| **Total del laboratorio** | | **~194 MiB** |
+
+Metasploitable2 ocupa 2,3 GB en disco pero solo **80 MiB en memoria** con todos sus servicios
+levantados. El laboratorio completo, con objetivo vulnerable y auditor incluidos, sigue por
+debajo de 200 MiB.
+
+Se confirma la conclusión del escalón 1c: **el laboratorio no es el problema de memoria**. Con
+todo desplegado quedaban 5.232 MiB disponibles, y el consumo del entorno de desarrollo sigue
+siendo un orden de magnitud mayor que el del laboratorio.
