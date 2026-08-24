@@ -20,9 +20,18 @@ case "${1:-up}" in
       --hostname wazuh \
       -p 1514:1514 -p 1515:1515 -p 514:514/udp -p 55000:55000 \
       "$IMG"
-    echo "Wazuh manager arrancando. Puede tardar 1-2 min en escribir la primera alerta."
-    echo "IP de gestion:"
-    docker inspect "$NAME" --format '  {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+    echo "Wazuh manager arrancando..."
+    # Esperar a analysisd y HABILITAR la recepcion de syslog remoto (no viene
+    # activa de fabrica). Sin esto, el manager ignora todo el syslog del lab.
+    until docker exec "$NAME" sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-analysisd is running"' 2>/dev/null; do sleep 4; done
+    docker exec "$NAME" sh -c '
+      grep -q "<connection>syslog" /var/ossec/etc/ossec.conf 2>/dev/null || \
+      sed -i "s|</ossec_config>|  <remote>\n    <connection>syslog</connection>\n    <port>514</port>\n    <protocol>udp</protocol>\n    <allowed-ips>172.20.20.0/24</allowed-ips>\n  </remote>\n</ossec_config>|" /var/ossec/etc/ossec.conf
+      /var/ossec/bin/wazuh-control restart >/dev/null 2>&1
+    '
+    until docker exec "$NAME" sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-analysisd is running"' 2>/dev/null; do sleep 4; done
+    echo "Wazuh listo, recepcion de syslog activa. IP de gestion:"
+    docker inspect "$NAME" --format "  {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}"
     ;;
   down)  docker rm -f "$NAME" ;;
   logs)  docker logs --tail 40 "$NAME" ;;

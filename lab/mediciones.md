@@ -217,3 +217,28 @@ full_log conservado
 Wazuh parsea la IP de origen en vez de solo guardar el texto, y el `agent.id: 000` confirma que
 el CPE sin agente se identificará por los campos del evento y no por el identificador de agente
 — tal como preveía el módulo de ingesta.
+
+## Consolidación del laboratorio (24/08/2026)
+
+Cabo suelto del reenvío de syslog **resuelto**. Causa raíz: el `syslogd` de Metasploitable (2007)
+reenvía sin la cabecera `MES DÍA HH:MM:SS host` que el decodificador `sshd` de Wazuh necesita,
+así que archivaba los eventos pero no los clasificaba. Solución: un reenviador propio
+(`reenvio-syslog.sh`) que lee `auth.log` —que sí tiene la cabecera— y lo reinyecta con la
+prioridad syslog correcta. Verificado: un login fallido reenviado produce `nivel 5 regla 5760`
+con `srcip` parseada.
+
+Laboratorio completo controlable con `lab/lab.sh` (up/down/status/test) y verificable con
+`lab/COMO-PROBAR.md`. La prueba de humo pasa los tres eslabones: conectividad, escaneo del
+auditor y alerta correlacionada de nivel 10.
+
+**Presupuesto de memoria — cuadro final medido:**
+
+| Componente | Estimado en el diseño | Medido |
+|------------|----------------------|--------|
+| Red FTTx (7 nodos) | 1,5–2 GB | ~0,2 GB |
+| Metasploitable | incluido arriba | 80 MiB |
+| Wazuh manager | 1–4 GB | ~0,5 GB |
+| **Laboratorio + Wazuh** | **hasta 6 GB** | **< 0,8 GB** |
+
+Todas las cifras del laboratorio resultaron muy inferiores a las estimadas. El único límite real
+de la máquina es el entorno de desarrollo (~7 GB), no el proyecto.

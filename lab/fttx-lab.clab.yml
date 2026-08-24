@@ -37,6 +37,10 @@ topology:
 
     cpe:
       labels: {graph-icon: router, graph-group: "Domicilio", graph-level: 2}
+      # IP de gestion FIJA: el auditor encamina el trafico de escaneo a traves de
+      # esta direccion. Sin fijarla, containerlab la reasigna en cada deploy y las
+      # rutas del auditor quedan apuntando al nodo equivocado.
+      mgmt-ipv4: 172.20.20.100
       sysctls: {net.ipv4.ip_forward: 1}
       exec:
         - ip addr add 10.0.1.2/24 dev eth1
@@ -80,6 +84,7 @@ topology:
       # encontrar el auditor y que seria un falso positivo.
       # Inventario esperado en vulnerabilidades-esperadas.md
       image: tleemcjr/metasploitable2:latest
+      # WAZUH_IP: IP de gestion del manager. Ver lab/reenvio-syslog.sh
       exec:
         - ip addr add 192.168.1.30/24 dev eth1
         - ip route add 10.0.1.0/24 via 192.168.1.1
@@ -90,8 +95,8 @@ topology:
       # Para escanear el plano de datos encamina a traves del CPE.
       exec:
         - apk add --no-cache nmap nmap-scripts
-        - ip route add 192.168.1.0/24 via 172.20.20.8
-        - ip route add 10.0.1.0/24 via 172.20.20.8
+        - ip route add 192.168.1.0/24 via 172.20.20.100
+        - ip route add 10.0.1.0/24 via 172.20.20.100
 
   links:
     - endpoints: ["borde:eth1", "cpe:eth1"]

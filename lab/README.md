@@ -6,7 +6,11 @@ y el plan de ejecución en [camino-paso-a-paso.md](../documentacion/00-general/c
 
 | Fichero | Qué es | Estado |
 |---------|--------|--------|
+| [COMO-PROBAR.md](COMO-PROBAR.md) | **Guía de verificación de extremo a extremo** | Empieza aquí |
+| [lab.sh](lab.sh) | Control maestro: `up` / `down` / `status` / `test` | — |
 | [fttx-lab.clab.yml](fttx-lab.clab.yml) | **Topología de trabajo.** Cadena FTTx con CPE provisional en Linux | **Operativa** |
+| [wazuh-run.sh](wazuh-run.sh) · [reenvio-syslog.sh](reenvio-syslog.sh) | Arranque de Wazuh y del reenvío de alertas | — |
+| [generar-alertas.md](generar-alertas.md) | Cómo producir alertas (manual y por reenvío) | — |
 | [fttx-base.clab.yml](fttx-base.clab.yml) | Variante con CPE OpenWrt real (VM QEMU) | **Bloqueada** — ver mediciones |
 | [smoke-test.clab.yml](smoke-test.clab.yml) | Tres nodos Alpine. Valida la cadena WSL → Docker → Containerlab | Validado 23/08/2026 |
 | [vulnerabilidades-esperadas.md](vulnerabilidades-esperadas.md) | **Ground truth**: qué se ha plantado en cada nodo | Verificado 24/08/2026 |
@@ -14,10 +18,20 @@ y el plan de ejecución en [camino-paso-a-paso.md](../documentacion/00-general/c
 
 ## Uso
 
+Todo el laboratorio (red + Wazuh + reenvío) con un comando:
+
 ```bash
-containerlab validate -t lab/fttx-lab.clab.yml
-containerlab deploy   -t lab/fttx-lab.clab.yml
-containerlab destroy  -t lab/fttx-lab.clab.yml
+sh lab/lab.sh up       # levanta todo
+sh lab/lab.sh test     # prueba de humo de extremo a extremo
+sh lab/lab.sh status   # que esta vivo
+sh lab/lab.sh down     # apaga todo
+```
+
+Ver la guía completa en [COMO-PROBAR.md](COMO-PROBAR.md). Solo la red:
+
+```bash
+containerlab deploy  -t lab/fttx-lab.clab.yml
+containerlab destroy -t lab/fttx-lab.clab.yml
 ```
 
 En VS Code, la extensión de Containerlab detecta los ficheros sola y **TopoViewer** dibuja la
@@ -226,6 +240,11 @@ Reproducido en 23.05.5 y 24.10.0. Detalle en [mediciones.md](mediciones.md).
 
 **Los puertos bajos pueden estar ocupados.** El laboratorio comparte máquina con otros
 desarrollos; el 8080 lo tenía un servidor Vite. Los puertos de LuCI se movieron a 8180 y 8543.
+
+**Las IP de gestión se reasignan en cada `deploy`.** Containerlab reparte las 172.20.20.x por
+orden de arranque, así que no son estables entre despliegues. Cualquier ruta que dependa de una
+—como la del auditor hacia el plano de datos vía el CPE— debe apuntar a una IP **fijada** con
+`mgmt-ipv4` en el nodo destino, no a la que tuviera la última vez. El CPE usa `172.20.20.100`.
 
 **Los `exec` no configuran el reenvío.** Para que un nodo encamine hay que activar
 `net.ipv4.ip_forward` con la clave `sysctls`, y añadir la ruta de vuelta en el otro extremo.
