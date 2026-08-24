@@ -77,24 +77,28 @@ Generar actividad sobre el sandbox, recolectar las alertas de Wazuh, y **etiquet
 Puede solaparse con el Bloque 1: no depende de que el entorno esté desplegado.
 
 ### Paso 7 · Catálogo cerrado de acciones
+> **HECHO** (24/08/2026).
 
 Enumerar cada acción que el EDR puede ordenar, con precondiciones, efecto esperado, reversibilidad y cómo verificar que se aplicó.
 
 **Hecho cuando:** el catálogo está cerrado y cada acción tiene su comando concreto sobre OpenWrt o Linux.
 
 ### Paso 8 · Métricas y forma de cálculo
+> **HECHO** (24/08/2026).
 
 Precisión, recall, F1, tasa de falsos positivos y tiempo de triaje, definidos sobre el dataset del Paso 6 y sobre el baseline de Wazuh.
 
 **Hecho cuando:** cada métrica tiene su fórmula y se sabe de qué campo del dataset sale.
 
 ### Paso 9 · Revisar los requisitos contra el contexto FTTx
+> **HECHO** (24/08/2026).
 
 Los RF/RNF de la Fase 2 se derivaron de XDR empresarial y SOC. Revisar cuáles siguen aplicando a triaje de alertas sobre CPE de red de acceso, cuáles sobran y cuáles faltan. Resuelve la incongruencia **I-5**.
 
 **Hecho cuando:** cada requisito está marcado como vigente, descartado o nuevo, con una línea de justificación.
 
 ### Paso 10 · Diagrama de arquitectura consolidado
+> **HECHO** (24/08/2026).
 
 Un único diagrama que reúna sandbox, Wazuh, EDR, conector, auditor y validación humana.
 

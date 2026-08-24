@@ -163,7 +163,7 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-11 | Playbook sin sustituto en el laboratorio | Estructural | Nosotros | **Resuelta** — lo ocupa la ingesta (D10) |
 | I-3 | Sin baseline | Bloqueante | Nosotros | **Resuelta** — nivel de regla de Wazuh |
 | I-4 | Fase 1 vacía | Estructural | Empresa | Abierta — ya no bloquea el avance |
-| I-5 | Estado del arte desalineado | Estructural | Nosotros | Abierta |
+| I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos FTTx |
 | I-6 | Perfil A vs flujo | De diseño | Nosotros | **Resuelta** — modelo de 3B en línea |
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |
 | I-8 | Material con premisa superada | Menor | Nosotros | Señalada |
