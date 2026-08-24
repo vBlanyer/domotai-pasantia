@@ -8,9 +8,9 @@ Este documento describe el flujo end-to-end del prototipo tal como fue planteado
 
 ```mermaid
 flowchart TD
-    SIS["Sistema existente<br/>(emite logs)"] --> PB["Playbook<br/>(orquestación)"]
-    WZ["Wazuh en el sandbox<br/>(fuente de laboratorio)"] --> PB
-    PB --> EDR["EDR<br/>(decisión)"]
+    SIS["Sistema existente<br/>(emite logs)"] -.no disponible hoy.-> ING
+    WZ["Wazuh en el sandbox<br/>(fuente de laboratorio)"] --> ING["Ingesta y normalización"]
+    ING --> EDR["EDR<br/>(decisión)"]
     EDR -->|acción| SBX["Sandbox<br/>(red FTTx emulada)"]
     AUD["Auditor de vulnerabilidades"] -->|postura del sistema| EDR
     SBX --> AUD
@@ -29,7 +29,8 @@ El ciclo es cerrado: el sandbox genera telemetría, esa telemetría alimenta al 
 |------------|--------|-----------------|
 | Sistema de logs | **Ya existe** (propietario) — no disponible hoy | Recoger y emitir eventos de seguridad |
 | **Wazuh** (sustituto de laboratorio) | **A desplegar** — ver [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) | Generar alertas reales sobre el sandbox y aportar el **baseline** de reglas |
-| Playbook | **Ya existe** | Orquestar el flujo y entregar información al EDR |
+| Playbook | **Ya existe** (propietario) — no disponible hoy | Orquestar el flujo y entregar información al EDR |
+| **Módulo de ingesta y normalización** | **A construir** | Ocupa el papel del playbook en el laboratorio: lee las alertas, las normaliza y las entrega al EDR |
 | EDR | **A construir** | Clasificar, priorizar, justificar y decidir la acción |
 | Sandbox | **A construir** — ver [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) | Ejecutar la acción y generar telemetría observable |
 | Conector EDR ↔ sandbox | **A construir** | Transportar la acción y devolver su resultado |
@@ -50,8 +51,15 @@ Fuente primaria de eventos. Para la Fase 1 hace falta documentar su **formato de
 
 No es un parche provisional que haya que retirar: cuando el sistema de la empresa esté disponible, se integra como **segunda fuente** a través del mismo módulo de ingesta normalizada, sin desplazar a Wazuh.
 
-### Playbook (existente)
-Actúa como orquestador entre el sistema de logs y el EDR. Es necesario determinar **qué información entrega exactamente** y si el flujo es síncrono (espera la decisión del EDR) o asíncrono (dispara y olvida). Esta distinción determina si el EDR puede permitirse la latencia de una inferencia con modelo de lenguaje y la de una validación humana.
+### El playbook y su lugar en el laboratorio
+
+El playbook de la empresa **tampoco está disponible**, igual que el sistema de logs. Pero a diferencia de aquel, **no necesita un sustituto nuevo**: su papel —orquestar y entregar información al EDR— coincide con el del **módulo de ingesta y normalización** que el prototipo tiene que construir de todos modos.
+
+En el laboratorio, ese módulo lee las alertas de Wazuh, las normaliza al esquema de entrada del EDR y se las entrega. Cuando el playbook de la empresa esté disponible, entra como **segunda fuente por ese mismo módulo**, sin rediseñar el flujo.
+
+Consecuencia: el diagrama de ejecución **no incluye una caja «playbook»**, porque en el entorno de pruebas no existe y nada la suple aparte de la ingesta.
+
+Del playbook de la empresa sigue siendo necesario determinar **qué información entrega exactamente** y si el flujo es síncrono (espera la decisión del EDR) o asíncrono (dispara y olvida). Esa distinción condiciona si el EDR puede permitirse la latencia de una inferencia y la de una validación humana, y es una de las preguntas abiertas de la sección 8.
 
 ### EDR (a construir)
 El núcleo del proyecto. Recibe el evento enriquecido, lo clasifica y prioriza, produce una **justificación explicable**, y decide la acción. No ejecuta nada por sí mismo: emite una **orden de acción** que el conector transporta.
@@ -66,7 +74,64 @@ Contraparte del EDR. Escanea el sandbox y devuelve su postura de seguridad, que 
 
 ---
 
-## 4. Contratos entre componentes
+## 4. Diagrama de ejecución
+
+### Recorrido de una alerta
+
+```mermaid
+flowchart TD
+    ACT["Actividad en el sandbox<br/>escaneo · acceso · tráfico"] --> WZ["Wazuh manager<br/>reglas → alerts.json"]
+    AUD1["Auditor<br/>postura del nodo"] -.contexto.-> ING
+    WZ --> ING["Ingesta y normalización<br/><i>ocupa el papel del playbook</i>"]
+    ING --> CLS["EDR · clasificar()<br/>clase + prioridad + confianza"]
+    CLS --> DEC{"¿Validación<br/>humana?"}
+    DEC -->|"confianza baja · acción no<br/>reversible · discrepancia"| JUS["EDR · justificar()<br/>modelo 3B · 15-20 s"]
+    JUS --> HUM["Analista:<br/>aprueba · rechaza · modifica"]
+    HUM -->|aprobada| CON
+    HUM -->|rechazada| TRZ
+    DEC -->|no| CON["Conector SSH<br/>catálogo cerrado de acciones"]
+    CON --> SBX["Nodo del sandbox<br/>acción ejecutada"]
+    SBX --> VER["Auditor · verificación<br/>¿se cerró la exposición?"]
+    VER --> TRZ["Traza auditable<br/>evento · clase · justificación<br/>decisión · perfil · versión"]
+    SBX -.nueva telemetría.-> ACT
+```
+
+El ciclo es cerrado: la acción ejecutada genera telemetría nueva, que Wazuh vuelve a evaluar.
+
+El auditor aparece **dos veces y con papeles distintos**: antes de la decisión aporta la postura del nodo como contexto de prioridad, y después de la acción verifica que la exposición se cerró de verdad.
+
+### Cuándo se ejecuta cada pieza
+
+Con el Perfil A no todo puede convivir en memoria, así que el flujo se parte en dos modos.
+
+```mermaid
+flowchart LR
+    subgraph vivo["EN VIVO · lazo interactivo"]
+        V1["Sandbox<br/>~1,5 GB"]
+        V2["Wazuh manager<br/>~4 GB"]
+        V3["Encoder<br/>~0,5 GB"]
+        V4["Modelo 3B<br/>~2 GB"]
+    end
+    subgraph lote["EN LOTE · sandbox apagado"]
+        L1["Greenbone<br/>4-8 GB"]
+        L2["Modelo 8B<br/>~5 GB"]
+        L3["Cálculo de métricas"]
+    end
+    vivo -->|"dataset en disco"| lote
+```
+
+| Modo | Qué corre | Qué produce |
+|------|-----------|-------------|
+| **En vivo** | Sandbox, Wazuh, encoder y modelo de 3B | El lazo completo demostrable: alerta → clase → justificación breve → validación → acción |
+| **En lote** | Greenbone y modelo de 8B, con el sandbox apagado | Postura de seguridad, justificaciones extensas y métricas de la Fase 6 |
+
+**El dataset en disco es la frontera** entre ambos modos, y por eso es también la interfaz del diseño.
+
+> **Aviso de presupuesto.** Elegir Wazuh en lugar de un IDS de red lleva el camino interactivo a unos **8 GB de los 11,7 GiB** que expone WSL. Cabe, pero con poco margen, y **Greenbone queda definitivamente fuera del modo en vivo**. Las cifras de Wazuh y Greenbone son estimaciones sin medir: verificarlas es parte del Paso 1 y puede obligar a revisar esta división.
+
+---
+
+## 5. Contratos entre componentes
 
 La arquitectura descansa en dos contratos. Especificarlos es entregable de la Fase 4.
 
@@ -87,7 +152,7 @@ El transporte concreto se analiza en [protocolos de comunicación](./protocolos-
 
 ---
 
-## 5. Catálogo de acciones
+## 6. Catálogo de acciones
 
 Las acciones que el EDR puede ordenar deben ser un **conjunto cerrado y enumerado**, no comandos arbitrarios. Un catálogo cerrado es auditable, comprobable y acotado en su radio de impacto; un canal de comandos libres no lo es.
 
@@ -104,7 +169,7 @@ Para cada acción hay que documentar: precondiciones, efecto esperado, cómo rev
 
 ---
 
-## 6. Dónde encaja la validación humana
+## 7. Dónde encaja la validación humana
 
 El plan de trabajo exige validación humana en decisiones críticas. En este flujo se sitúa **entre la decisión del EDR y la ejecución en el sandbox**: el EDR emite la orden, esta queda retenida, y solo se transmite al conector tras aprobación.
 
@@ -118,7 +183,7 @@ Cada decisión de validación (aprobada, rechazada, modificada) debe registrarse
 
 ---
 
-## 7. Preguntas abiertas para la empresa
+## 8. Preguntas abiertas para la empresa
 
 Estas respuestas son entrada de la Fase 1 y bloquean partes del diseño:
 
