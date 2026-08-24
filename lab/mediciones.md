@@ -228,7 +228,7 @@ prioridad syslog correcta. Verificado: un login fallido reenviado produce `nivel
 con `srcip` parseada.
 
 Laboratorio completo controlable con `lab/lab.sh` (up/down/status/test) y verificable con
-`lab/COMO-PROBAR.md`. La prueba de humo pasa los tres eslabones: conectividad, escaneo del
+`lab/instrucciones-prueba-manual.md`. La prueba de humo pasa los tres eslabones: conectividad, escaneo del
 auditor y alerta correlacionada de nivel 10.
 
 **Presupuesto de memoria — cuadro final medido:**

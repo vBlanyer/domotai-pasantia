@@ -1,4 +1,4 @@
-# Cómo probar todo el laboratorio
+# Instrucciones de prueba manual
 
 Guía de verificación de extremo a extremo. Si sigues esto y todo pasa, el Bloque 1 del
 [camino](../documentacion/00-general/camino-paso-a-paso.md) está operativo: la red FTTx genera
@@ -44,6 +44,67 @@ Verifica los tres eslabones de la cadena y debe imprimir:
 ```
 
 Si el paso 3 da 0 alertas, el reenvío no está activo: `sh lab/reenvio-syslog.sh`.
+
+---
+
+## 2.bis Ver alertas en tiempo real (flujo de dos terminales)
+
+La forma más vistosa de entender el sistema: **una terminal vigilando Wazuh, otra atacando.**
+Las alarmas aparecen en la primera conforme lanzas ataques en la segunda.
+
+### Terminal A — el vigía
+
+```sh
+sh lab/ver-alertas.sh 5
+```
+
+Se queda escuchando y pinta cada alerta nueva de nivel ≥ 5, con color:
+verde bajo, amarillo aviso, **rojo ataque**. Déjala abierta. (El `5` filtra el ruido;
+`sh lab/ver-alertas.sh` sin número muestra todo.)
+
+### Terminal B — el atacante
+
+Lanza cualquiera de estos y mira la Terminal A:
+
+```sh
+# 1. Escaneo de puertos -> alarma nivel 6 "scan"
+docker exec clab-fttx-lab-auditor nmap -Pn -sV --top-ports 30 192.168.1.30
+
+# 2. Un login fallido -> alarma nivel 5
+docker exec clab-fttx-lab-objetivo-vuln sh -c \
+ 'logger -p auth.info -t "sshd[8001]" "Failed password for admin from 88.88.88.88 port 41001 ssh2"'
+
+# 3. Fuerza bruta -> alarma nivel 10 correlacionada (en ROJO)
+W=$(docker inspect clab-fttx-lab-wazuh --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+docker exec clab-fttx-lab-objetivo-vuln sh -c \
+ "for i in \$(seq 1 10); do echo '<38>'\$(date '+%b %d %H:%M:%S')' objetivo-vuln sshd[92'\$i']: Failed password for root from 45.9.148.7 port 600'\$i' ssh2' | nc -u -w1 $W 514; done"
+```
+
+En la Terminal A verás aparecer los eventos, y en el nº 3 cómo Wazuh **correlaciona** la ráfaga
+en una única alarma de nivel 10.
+
+### Qué ataques generan alarma y cuáles no
+
+Comprobado en el laboratorio (24/08/2026):
+
+| Ataque | ¿Alarma? | Por qué |
+|--------|----------|---------|
+| Escaneo nmap | **Sí**, nivel 6 | El objetivo registra el intento de conexión SSH y lo reenvía |
+| Login SSH fallido | **Sí**, nivel 5 | Se escribe en `auth.log`, que el reenviador vigila |
+| Fuerza bruta SSH | **Sí**, nivel 10 | Wazuh correlaciona varios fallos de la misma IP |
+| Puerta trasera 1524 | **No** | El *bootshell* de ingreslock no escribe ningún log |
+| Telnet sin auth (IoT/objetivo) | **No** | El servicio no registra, y el IoT no reenvía nada |
+
+> **Por qué el telnet y las puertas traseras no generan alarma:** el reenviador solo mira los
+> logs del objetivo (`auth.log`, `syslog`), y esos servicios no dejan rastro ahí. Es una
+> limitación honesta del laboratorio actual, no un fallo: las alarmas fiables son las de SSH.
+> Con un CPE OpenWrt real y agentes Wazuh en los nodos habría mucha más superficie, pero eso es
+> trabajo pendiente. **Para el flujo de dos terminales, usa los tres ataques SSH de arriba.**
+
+> Sobre "obtener credenciales": el telnet del IoT te da una *shell* (ver 3.3), no unas
+> credenciales que capturar; y no genera alarma. Si lo que quieres es **ver la alarma**, el
+> camino es el login SSH fallido, que es exactamente lo que un atacante probando contraseñas
+> dispararía.
 
 ---
 

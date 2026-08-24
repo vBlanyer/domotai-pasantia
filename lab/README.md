@@ -6,10 +6,11 @@ y el plan de ejecución en [camino-paso-a-paso.md](../documentacion/00-general/c
 
 | Fichero | Qué es | Estado |
 |---------|--------|--------|
-| [COMO-PROBAR.md](COMO-PROBAR.md) | **Guía de verificación de extremo a extremo** | Empieza aquí |
+| [instrucciones-prueba-manual.md](instrucciones-prueba-manual.md) | **Guía de verificación de extremo a extremo** | Empieza aquí |
 | [lab.sh](lab.sh) | Control maestro: `up` / `down` / `status` / `test` | — |
 | [fttx-lab.clab.yml](fttx-lab.clab.yml) | **Topología de trabajo.** Cadena FTTx con CPE provisional en Linux | **Operativa** |
 | [wazuh-run.sh](wazuh-run.sh) · [reenvio-syslog.sh](reenvio-syslog.sh) | Arranque de Wazuh y del reenvío de alertas | — |
+| [ver-alertas.sh](ver-alertas.sh) | Visor de alertas de Wazuh en tiempo real (flujo de 2 terminales) | — |
 | [generar-alertas.md](generar-alertas.md) | Cómo producir alertas (manual y por reenvío) | — |
 | [fttx-base.clab.yml](fttx-base.clab.yml) | Variante con CPE OpenWrt real (VM QEMU) | **Bloqueada** — ver mediciones |
 | [smoke-test.clab.yml](smoke-test.clab.yml) | Tres nodos Alpine. Valida la cadena WSL → Docker → Containerlab | Validado 23/08/2026 |
@@ -27,7 +28,7 @@ sh lab/lab.sh status   # que esta vivo
 sh lab/lab.sh down     # apaga todo
 ```
 
-Ver la guía completa en [COMO-PROBAR.md](COMO-PROBAR.md). Solo la red:
+Ver la guía completa en [instrucciones-prueba-manual.md](instrucciones-prueba-manual.md). Solo la red:
 
 ```bash
 containerlab deploy  -t lab/fttx-lab.clab.yml
