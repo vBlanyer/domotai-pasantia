@@ -174,3 +174,46 @@ debajo de 200 MiB.
 Se confirma la conclusión del escalón 1c: **el laboratorio no es el problema de memoria**. Con
 todo desplegado quedaban 5.232 MiB disponibles, y el consumo del entorno de desarrollo sigue
 siendo un orden de magnitud mayor que el del laboratorio.
+
+## Escalón 2 — Wazuh manager (24/08/2026)
+
+**La cifra que faltaba, y era el mayor riesgo del presupuesto.**
+
+| Componente | Estimado en el diseño | **Medido** |
+|------------|----------------------|------------|
+| Wazuh manager (solo, sin indexer ni dashboard) | 1–2 GB, quizá 4 | **~480 MiB** |
+
+La estimación estaba **entre 2 y 8 veces por encima**. El manager por sí solo —el único
+componente que interesa, porque escribe `alerts.json`— consume menos de medio giga. La imagen
+ocupa 2,55 GB en disco, pero en memoria es ligera.
+
+Esto **rehace el presupuesto del Perfil A**:
+
+| Componente | Antes (estimado) | Ahora (medido o revisado) |
+|------------|------------------|---------------------------|
+| Sandbox (7 nodos) | 1,5–2 GB | ~0,2 GB |
+| Wazuh manager | 4 GB | **~0,5 GB** |
+| Encoder | 0,5 GB | 0,5 GB (sin medir) |
+| Modelo 3B | 2 GB | 2 GB (sin medir) |
+| **Camino interactivo** | **~8 GB** | **~3,2 GB** |
+
+El camino interactivo del Perfil A pasa de «no cabe con el entorno abierto» a **caber con
+holgura**. El único límite real sigue siendo el entorno de desarrollo (~7 GB), no el laboratorio.
+
+### Circuito de alertas verificado de extremo a extremo
+
+Se habilitó la recepción de syslog remoto en el manager (514/udp, `allowed-ips` de la red de
+gestión) y se envió desde el CPE un evento de login SSH fallido. Wazuh lo recibió, lo evaluó y
+escribió en `alerts.json`:
+
+```
+nivel 5   regla 5760   sshd: authentication failed
+data.srcip: 203.0.113.55   data.dstuser: root
+agent.id: 000   (nodo sin agente, como se anticipó)
+full_log conservado
+```
+
+**Es exactamente el contrato de entrada del EDR:** el `rule.level` es el baseline de la Fase 6,
+Wazuh parsea la IP de origen en vez de solo guardar el texto, y el `agent.id: 000` confirma que
+el CPE sin agente se identificará por los campos del evento y no por el identificador de agente
+— tal como preveía el módulo de ingesta.
