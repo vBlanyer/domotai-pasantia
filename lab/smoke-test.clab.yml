@@ -1,0 +1,45 @@
+# Topologia de humo: valida la cadena WSL -> Docker -> Containerlab.
+#
+# No es todavia el sandbox FTTx. Usa alpine en los tres nodos para que el
+# despliegue sea inmediato y no dependa de imagenes pesadas. Corresponde al
+# primer incremento del Paso 2 de ../documentacion/00-general/camino-paso-a-paso.md
+#
+#   borde (10.0.1.1) --- (10.0.1.2) cpe (10.0.2.1) --- (10.0.2.2) abonado
+#
+# AVISO: "host" es un nombre RESERVADO en containerlab; designa el namespace
+# de red raiz de la maquina. Un nodo llamado asi hace que containerlab cree la
+# interfaz en WSL en vez de dentro del contenedor, y lo reporta como exito sin
+# ningun error. Por eso el nodo del abonado se llama "abonado".
+
+name: smoke-test
+
+topology:
+  nodes:
+    borde:
+      kind: linux
+      image: alpine:latest
+      exec:
+        - ip addr add 10.0.1.1/24 dev eth1
+        # ruta de vuelta hacia la LAN del abonado
+        - ip route add 10.0.2.0/24 via 10.0.1.2
+
+    cpe:
+      kind: linux
+      image: alpine:latest
+      # el CPE encamina entre el enlace de acceso y la LAN
+      sysctls:
+        net.ipv4.ip_forward: 1
+      exec:
+        - ip addr add 10.0.1.2/24 dev eth1
+        - ip addr add 10.0.2.1/24 dev eth2
+
+    abonado:
+      kind: linux
+      image: alpine:latest
+      exec:
+        - ip addr add 10.0.2.2/24 dev eth1
+        - ip route add 10.0.1.0/24 via 10.0.2.1
+
+  links:
+    - endpoints: ["borde:eth1", "cpe:eth1"]
+    - endpoints: ["cpe:eth2", "abonado:eth1"]

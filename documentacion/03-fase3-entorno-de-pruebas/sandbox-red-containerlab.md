@@ -98,7 +98,7 @@ flowchart LR
 | `borde` | Salida simulada a internet; abstrae OLT y red óptica | FRR o VyOS |
 | `cpe` | **Objetivo principal.** Router doméstico / HGU | OpenWrt (`kind: openwrt`) |
 | `sw-lan` | Segmento LAN del abonado | Bridge de host |
-| `host-abonado` | PC del usuario final | Contenedor Linux con utilidades de red |
+| `abonado` | PC del usuario final | Contenedor Linux con utilidades de red |
 | `iot-legacy` | Dispositivo IoT con servicios antiguos expuestos | Contenedor con Telnet / UPnP / servicios obsoletos |
 | `objetivo-vuln` | Objetivo con vulnerabilidades **documentadas** | Metasploitable / imagen de Vulhub |
 | `wazuh` | **Generación de alertas** y baseline de reglas | Wazuh manager (ver §5.1) |
@@ -114,6 +114,8 @@ El auditor y el conector del EDR se conectan por la **red de gestión** (`clab`)
 ---
 
 ## 4. Boceto de topología
+
+> **`host` es un nombre reservado.** En Containerlab designa el **namespace de red raíz de la máquina**, no un nodo. Un nodo llamado `host` hace que las interfaces de sus enlaces se creen en el sistema anfitrión en lugar de dentro del contenedor, y Containerlab lo reporta como **éxito, sin ningún error**. Verificado empíricamente el 23/08/2026 en la prueba de humo. Por eso el nodo del abonado se llama `abonado`.
 
 > **Estado: sin validar.** Este fichero es un punto de partida para la Fase 3. Las etiquetas de imagen concretas, las versiones de OpenWrt y el cableado deben verificarse al desplegar. Las imágenes de vrnetlab requieren construirse localmente a partir del firmware correspondiente.
 
@@ -133,7 +135,7 @@ topology:
     sw-lan:
       kind: bridge          # requiere un bridge del mismo nombre creado en el host
 
-    host-abonado:
+    abonado:
       kind: linux
       image: <imagen con utilidades de red>
 
@@ -156,7 +158,7 @@ topology:
   links:
     - endpoints: ["borde:eth1", "cpe:eth1"]
     - endpoints: ["cpe:eth2", "sw-lan:eth1"]
-    - endpoints: ["host-abonado:eth1", "sw-lan:eth2"]
+    - endpoints: ["abonado:eth1", "sw-lan:eth2"]
     - endpoints: ["iot-legacy:eth1", "sw-lan:eth3"]
     - endpoints: ["objetivo-vuln:eth1", "sw-lan:eth4"]
 ```
