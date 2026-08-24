@@ -72,6 +72,12 @@ topology:
 
     auditor:
       labels: {graph-icon: controller, graph-group: "Gestion", graph-level: 1}
+      # Solo esta en el plano de gestion: no aparece en ningun enlace.
+      # Para escanear el plano de datos encamina a traves del CPE.
+      exec:
+        - apk add --no-cache nmap nmap-scripts
+        - ip route add 192.168.1.0/24 via 172.20.20.8
+        - ip route add 10.0.1.0/24 via 172.20.20.8
 
   links:
     - endpoints: ["borde:eth1", "cpe:eth1"]

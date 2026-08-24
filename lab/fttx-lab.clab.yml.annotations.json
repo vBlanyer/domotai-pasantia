@@ -1,0 +1,75 @@
+{
+  "freeTextAnnotations": [],
+  "freeShapeAnnotations": [],
+  "trafficRateAnnotations": [],
+  "groupStyleAnnotations": [],
+  "networkNodeAnnotations": [],
+  "nodeAnnotations": [
+    {
+      "icon": "router",
+      "group": "Proveedor",
+      "id": "borde",
+      "position": {
+        "x": 60,
+        "y": 340
+      }
+    },
+    {
+      "icon": "router",
+      "group": "Domicilio",
+      "id": "cpe",
+      "position": {
+        "x": 220,
+        "y": 360
+      }
+    },
+    {
+      "icon": "switch",
+      "group": "Domicilio",
+      "id": "sw-lan",
+      "position": {
+        "x": 400,
+        "y": 360
+      }
+    },
+    {
+      "icon": "pc",
+      "group": "Domicilio",
+      "id": "abonado",
+      "position": {
+        "x": 460,
+        "y": 220
+      }
+    },
+    {
+      "icon": "server",
+      "group": "Domicilio",
+      "id": "iot",
+      "position": {
+        "x": 500,
+        "y": 500
+      }
+    },
+    {
+      "icon": "server",
+      "group": "Domicilio",
+      "id": "objetivo-vuln",
+      "position": {
+        "x": 560,
+        "y": 340
+      }
+    },
+    {
+      "icon": "controller",
+      "group": "Gestion",
+      "id": "auditor",
+      "position": {
+        "x": 960,
+        "y": 340
+      }
+    }
+  ],
+  "edgeAnnotations": [],
+  "aliasEndpointAnnotations": [],
+  "viewerSettings": {}
+}
