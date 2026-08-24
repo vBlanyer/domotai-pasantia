@@ -8,15 +8,28 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 
 ## 1. Estado por fase
 
-| Fase | Estado | Comentario |
-|------|--------|------------|
-| 1 — Análisis del módulo propietario | **Vacía / bloqueada** | No hay módulo ni cliente definido. Es la raíz de la que dependen las fases 3, 4 y 6 |
-| 2 — Estado del arte | **Completa** | Único bloque sustancial terminado. Ver incongruencia #5 |
-| 3 — Entorno de pruebas | **Diseñada, no ejecutada** | Sandbox especificado; nada desplegado. Falta la fuente de alertas |
-| 4 — Arquitectura | **Parcial** | Flujo, protocolos, auditoría y modelo escritos. Faltan diagrama consolidado, umbrales, métricas y baseline |
-| 5 — Implementación | **No iniciada** | — |
-| 6 — Evaluación | **No iniciada** | Bloqueada por ausencia de baseline (#3) |
-| 7 — Documentación final | **No iniciada** | — |
+*Actualizado a 24/08/2026.*
+
+| Fase | Estado | Qué hay hecho / qué falta |
+|------|--------|----------------------------|
+| 1 — Análisis del módulo propietario | **Bloqueada por la empresa** | No hay módulo ni cliente definido. **Ya no bloquea el avance:** su papel lo suple el laboratorio (Wazuh como fuente de alertas). Falta lo que solo puede dar la empresa (I-4). |
+| 2 — Estado del arte | **Completa** | Estado del arte MDR/XDR, límites y **27 requisitos** (RF/RNF). Revisados además contra el contexto FTTx (I-5 resuelta): ninguno se descarta, dos nuevos. |
+| 3 — Entorno de pruebas | **Operativa y verificada** | Red FTTx de 7 nodos desplegada; Metasploitable como objetivo con ground truth documentado; Wazuh generando alertas reales; auditor con Nmap; todo reproducible con `lab/lab.sh` y probado de extremo a extremo. Falta: CPE OpenWrt real (vrnetlab bloqueado). |
+| 4 — Arquitectura | **Cerrada** | Flujo, protocolos, auditoría, modelo (perfiles A/B), catálogo de acciones, métricas y baseline, y arquitectura consolidada. Único hueco: probar el catálogo sobre OpenWrt real. |
+| 5 — Implementación | **No iniciada** | Es el siguiente bloque. Empieza por el módulo de ingesta, que ya tiene una entrada real (`alerts.json`). |
+| 6 — Evaluación | **No iniciada** | Ya **no** está bloqueada: baseline (nivel de Wazuh), ground truth y métricas están definidos. Depende de tener el prototipo (Fase 5). |
+| 7 — Documentación final | **No iniciada** | Buena parte del material ya existe en los documentos de fase; el informe los consolida. |
+
+### Progreso del laboratorio (Fase 3, verificado)
+
+Lo que funciona hoy, medido y reproducible (`sh lab/lab.sh up && sh lab/lab.sh test`):
+
+- **Red FTTx**: borde → CPE → switch → {abonado, iot, objetivo-vuln}, más auditor en el plano de gestión. Conectividad de extremo a extremo, 2 saltos por el CPE.
+- **Superficie de ataque real**: el `iot` expone telnet sin auth y web; el `objetivo-vuln` es Metasploitable con 19 puertos y CVEs documentados (puerta trasera vsftpd, ingreslock, Samba…).
+- **Alertas reales**: Wazuh recibe syslog del objetivo y clasifica — login fallido → nivel 5, fuerza bruta correlacionada → nivel 10, con IP y usuario parseados. Visor en vivo (`lab/ver-alertas.sh`).
+- **Memoria medida**: laboratorio + Wazuh < 0,8 GB, frente a los ~6 GB estimados. El único límite real es el entorno de desarrollo.
+
+**Límite estructural del laboratorio:** el CPE es un contenedor Linux provisional (solo encamina), no OpenWrt, porque el arranque de vrnetlab se cuelga. El escenario central del caso de uso —compromiso del CPE— no es evaluable hasta resolverlo. Ver [lab/mediciones.md](../../lab/mediciones.md).
 
 ---
 
