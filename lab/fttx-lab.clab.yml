@@ -1,0 +1,81 @@
+# Sandbox FTTx — topologia de trabajo.
+#
+#   borde ──WAN── cpe ──LAN── sw-lan ─┬─ abonado
+#                                     ├─ iot
+#                                     └─ objetivo-vuln
+#   auditor  (solo plano de gestion)
+#
+# El CPE es PROVISIONAL: un contenedor Linux que encamina y sirve DHCP, en
+# lugar de OpenWrt. El kind openwrt esta bloqueado por un cuelgue del bootstrap
+# de vrnetlab; ver lab/mediciones.md. Cuando se resuelva, basta cambiar el kind
+# y la imagen de este nodo.
+#
+# AVISO: "host" es un nombre reservado en containerlab (namespace raiz).
+#
+# Direccionamiento
+#   Acceso (WAN):  10.0.1.0/24    borde .1   cpe .2
+#   LAN abonado:   192.168.1.0/24 cpe .1     abonado .10  iot .20  vuln .30
+#   Gestion:       172.20.20.0/24 (la crea containerlab sola)
+#
+# La ruta por defecto pertenece a la red de gestion (eth0). El plano de datos
+# usa rutas especificas para no pisarla y no perder el acceso a los nodos.
+
+name: fttx-lab
+
+topology:
+  defaults:
+    kind: linux
+    image: alpine:latest
+
+  nodes:
+    borde:
+      labels: {graph-icon: router, graph-group: "Proveedor", graph-level: 1}
+      sysctls: {net.ipv4.ip_forward: 1}
+      exec:
+        - ip addr add 10.0.1.1/24 dev eth1
+        - ip route add 192.168.1.0/24 via 10.0.1.2
+
+    cpe:
+      labels: {graph-icon: router, graph-group: "Domicilio", graph-level: 2}
+      sysctls: {net.ipv4.ip_forward: 1}
+      exec:
+        - ip addr add 10.0.1.2/24 dev eth1
+        - ip addr add 192.168.1.1/24 dev eth2
+
+    sw-lan:
+      labels: {graph-icon: switch, graph-group: "Domicilio", graph-level: 3}
+      exec:
+        - ip link add br0 type bridge
+        - ip link set eth1 master br0
+        - ip link set eth2 master br0
+        - ip link set eth3 master br0
+        - ip link set eth4 master br0
+        - ip link set br0 up
+
+    abonado:
+      labels: {graph-icon: pc, graph-group: "Domicilio", graph-level: 4}
+      exec:
+        - ip addr add 192.168.1.10/24 dev eth1
+        - ip route add 10.0.1.0/24 via 192.168.1.1
+
+    iot:
+      labels: {graph-icon: server, graph-group: "Domicilio", graph-level: 4}
+      exec:
+        - ip addr add 192.168.1.20/24 dev eth1
+        - ip route add 10.0.1.0/24 via 192.168.1.1
+
+    objetivo-vuln:
+      labels: {graph-icon: server, graph-group: "Domicilio", graph-level: 4}
+      exec:
+        - ip addr add 192.168.1.30/24 dev eth1
+        - ip route add 10.0.1.0/24 via 192.168.1.1
+
+    auditor:
+      labels: {graph-icon: controller, graph-group: "Gestion", graph-level: 1}
+
+  links:
+    - endpoints: ["borde:eth1", "cpe:eth1"]
+    - endpoints: ["cpe:eth2", "sw-lan:eth1"]
+    - endpoints: ["sw-lan:eth2", "abonado:eth1"]
+    - endpoints: ["sw-lan:eth3", "iot:eth1"]
+    - endpoints: ["sw-lan:eth4", "objetivo-vuln:eth1"]

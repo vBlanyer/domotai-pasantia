@@ -108,3 +108,51 @@ El puerto lo ocupaba un servidor Vite de otro proyecto del equipo (`crm-v2-domot
 no un resto del laboratorio. **Los puertos de LuCI se movieron a 8180 y 8543.** Conviene
 recordarlo: el laboratorio comparte máquina con otros desarrollos y los puertos bajos
 habituales pueden estar tomados.
+
+## Escalón 1c — Red FTTx completa con CPE provisional (24/08/2026)
+
+Topología [fttx-lab.clab.yml](fttx-lab.clab.yml): 7 nodos —borde, CPE, switch LAN, abonado,
+IoT, objetivo vulnerable y auditor— desplegada **sin errores** y validada de extremo a extremo.
+
+| Comprobación | Resultado |
+|--------------|-----------|
+| Bridge del switch con sus 4 puertos | Correcto |
+| Conectividad dentro de la LAN | 0 % de pérdida |
+| Extremo a extremo atravesando el CPE | 0 % de pérdida, 2 saltos |
+| Nmap en el auditor | Descubre los 8 hosts del plano de gestión |
+| Exportación a draw.io | Genera el diagrama correctamente |
+
+### El sandbox no es el problema de memoria
+
+| Componente | Estimado | **Medido** |
+|------------|----------|------------|
+| 7 nodos de la topología completa | 1,5–2 GB | **~12 MiB** |
+| CPE con OpenWrt (VM QEMU) | 0,5–1 GB | **~130 MiB** |
+
+Las estimaciones del diseño estaban **dos órdenes de magnitud por encima**. El plano de datos
+es prácticamente gratis.
+
+### El problema real: la máquina está compartida
+
+Con el laboratorio desplegado, el sistema marcaba 6.154 MiB usados y solo 5.805 MiB
+disponibles de 11,9 GiB. **El laboratorio aporta 12 MiB de esos 6 GB.** El resto es el
+entorno de trabajo:
+
+| Consumidor | Memoria |
+|------------|---------|
+| VS Code server, extensiones y procesos node | ~5.176 MiB |
+| CLI de cloud-code | ~1.204 MiB |
+| Proyecto `crm-v2-domotai` (8 procesos) | ~978 MiB |
+| **El laboratorio FTTx** | **~12 MiB** |
+
+**Consecuencia para el presupuesto del Perfil A.** El camino interactivo necesita sandbox
+(~0,01 GB) + Wazuh (~4 GB) + encoder (~0,5 GB) + modelo de 3B (~2 GB) ≈ **6,5 GB**, frente a
+los ~5,8 GB libres mientras el entorno de desarrollo está abierto. **No cabe trabajando a la
+vez.** Cabe si se cierran el otro proyecto y las herramientas que no hagan falta.
+
+No es un bloqueo, pero sí una condición de operación que debe constar: **las campañas de
+medición y evaluación se ejecutan con el entorno de desarrollo cerrado**, o los resultados no
+serán comparables entre sí.
+
+Wazuh sigue siendo la única cifra grande sin medir, y por tanto el mayor riesgo del
+presupuesto.

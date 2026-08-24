@@ -2,3 +2,4 @@
 lab/clab-*/
 *.img
 *.img.gz
+*.drawio
