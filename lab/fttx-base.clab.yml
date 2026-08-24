@@ -1,0 +1,41 @@
+# Base del sandbox FTTx: primer tramo real de la cadena de acceso, con el
+# CPE ejecutando OpenWrt de verdad (VM QEMU empaquetada por vrnetlab).
+#
+#   borde  --- WAN ---  cpe (OpenWrt)  --- LAN ---  abonado
+#
+# Interfaces del nodo OpenWrt, segun vrnetlab:
+#   eth0 = gestion (red clab)   eth1 = WAN   eth2 = LAN
+#
+# La imagen se construye localmente; ver lab/README.md.
+# Credenciales por defecto de vrnetlab: root / VR-netlab9
+#
+# AVISO: "host" es un nombre reservado en containerlab (namespace raiz de la
+# maquina). Por eso el nodo del abonado se llama "abonado".
+
+name: fttx-base
+
+topology:
+  nodes:
+    borde:
+      kind: linux
+      image: alpine:latest
+      sysctls:
+        net.ipv4.ip_forward: 1
+      exec:
+        - ip addr add 10.0.1.1/24 dev eth1
+
+    cpe:
+      kind: openwrt
+      image: vrnetlab/openwrt_openwrt:23.05.5
+      ports:
+        - 8080:80     # LuCI HTTP
+        - 8443:443    # LuCI HTTPS
+
+    abonado:
+      kind: linux
+      image: alpine:latest
+      # sin direccion estatica: debe obtenerla por DHCP del CPE
+
+  links:
+    - endpoints: ["borde:eth1", "cpe:eth1"]      # tramo de acceso (WAN)
+    - endpoints: ["cpe:eth2", "abonado:eth1"]    # LAN del abonado

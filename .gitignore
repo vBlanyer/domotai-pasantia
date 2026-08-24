@@ -1,2 +1,4 @@
 # Directorios de ejecucion que genera containerlab
 lab/clab-*/
+*.img
+*.img.gz
