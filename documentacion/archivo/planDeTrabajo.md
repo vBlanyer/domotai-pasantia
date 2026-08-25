@@ -1,3 +1,6 @@
+> ⚠️ **Documento archivado — superado.** Esta es la versión antigua del plan (6 objetivos, uno incompleto).
+> El plan vigente es [planDeTrabajoActualizado.md](../00-general/planDeTrabajoActualizado.md). Se conserva solo por trazabilidad.
+
 # Resumen
 
 Las organizaciones se enfrentan a un volumen creciente de eventos y alertas de seguridad que supera la capacidad de análisis manual de los equipos de operaciones internas, por lo cual muchas veces se debe buscar una forma de automatización y respuesta que pueda ayudar en estos procesos.

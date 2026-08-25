@@ -1,8 +1,11 @@
+> ⚠️ **Documento archivado — premisa parcialmente superada.** El dataset ya no se genera con Atomic Red Team → Sysmon → Sigma, sino con Metasploitable + Wazuh.
+> El catálogo de SIEM/correlación/threat intel sigue siendo referencia válida. Ver [archivo](./README.md).
+
 # Herramientas auxiliares para pruebas de XDR
 
 > **Estado: premisa parcialmente superada.** Este documento se escribió asumiendo un flujo de validación *ataque simulado → Sysmon → reglas Sigma* sobre endpoints, con el ground truth generado por herramientas de simulación de adversarios (Atomic Red Team, Caldera).
 >
-> Con el giro del proyecto a un sandbox de red FTTx, **el ground truth se obtiene de otra forma**: plantando en la topología nodos con vulnerabilidades documentadas y escaneándolos con Nmap y Greenbone. Ver [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) y [auditoría de vulnerabilidades](./auditoria-de-vulnerabilidades-del-sandbox.md).
+> Con el giro del proyecto a un sandbox de red FTTx, **el ground truth se obtiene de otra forma**: plantando en la topología nodos con vulnerabilidades documentadas y escaneándolos con Nmap y Greenbone. Ver [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) y [auditoría de vulnerabilidades](../04-fase4-diseno-de-arquitectura/auditoria-de-vulnerabilidades-del-sandbox.md).
 >
 > **Qué sigue vigente:** el catálogo de motores de reglas, SIEM/correlación, análisis de comportamiento y threat intelligence (secciones 3.1 a 3.4) y el mapeo a MITRE ATT&CK. **Qué queda supeditado:** la simulación de ataques sobre endpoints (sección 2) y el stack recomendado basado en Sysmon, condicionados a que entre un endpoint Windows en la topología.
 

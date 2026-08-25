@@ -1,8 +1,8 @@
 # EDR, XDR, MDR y su relación con las herramientas de telemetría
 
-Este documento explica la diferencia entre **EDR**, **XDR** y **MDR**, y cómo las soluciones **comerciales** obtienen y utilizan la telemetría. Aclara un punto clave para el proyecto: qué papel juegan herramientas de telemetría como [Sysmon](./symons.md), osquery, Zeek o auditd frente a los **agentes propietarios** de los productos comerciales, y cuándo unas complementan a los otros.
+Este documento explica la diferencia entre **EDR**, **XDR** y **MDR**, y cómo las soluciones **comerciales** obtienen y utilizan la telemetría. Aclara un punto clave para el proyecto: qué papel juegan herramientas de telemetría como [Sysmon](../archivo/symons.md), osquery, Zeek o auditd frente a los **agentes propietarios** de los productos comerciales, y cuándo unas complementan a los otros.
 
-Complementa el [estado del arte de MDR/XDR](../02-fase2-estado-del-arte/mdr-xdr.md) (panorama de mercado) y el catálogo de [herramientas auxiliares](./herramientas-auxiliares.md) (fuentes de telemetría y análisis).
+Complementa el [estado del arte de MDR/XDR](../02-fase2-estado-del-arte/mdr-xdr.md) (panorama de mercado) y el catálogo de [herramientas auxiliares](../archivo/herramientas-auxiliares.md) (fuentes de telemetría y análisis).
 
 ---
 
@@ -72,7 +72,7 @@ Los productos comerciales **sí ingieren** Sysmon, osquery, Zeek, auditd, etc. �
 
 | Capa | Fuente comercial típica | Equivalente open source (proyecto low-cost) |
 |------|-------------------------|---------------------------------------------|
-| **Endpoint** | Agente EDR (Falcon, Defender, SentinelOne, Cortex) | [Sysmon](./symons.md), osquery, auditd + Wazuh |
+| **Endpoint** | Agente EDR (Falcon, Defender, SentinelOne, Cortex) | [Sysmon](../archivo/symons.md), osquery, auditd + Wazuh |
 | **Red (NDR)** | Sensores propios / NGFW (Palo Alto, Cisco) | Zeek, Suricata |
 | **Identidad** | Entra ID / Okta / Ping (logs de IdP) | Logs de AD / LDAP + reglas |
 | **Correo** | Defender for Office, Proofpoint | Logs de gateway de correo |
@@ -122,7 +122,7 @@ El proyecto no compite con un EDR/XDR comercial: se sitúa como **módulo de tri
 | Decisión de mercado | Implicación para el prototipo |
 |---------------------|-------------------------------|
 | Comerciales usan agente propietario rico + respuesta | El prototipo **no** intenta reemplazar el agente; consume la telemetría (Sysmon u otra) y aporta clasificación/priorización/explicabilidad. |
-| XDR/MDR abiertos ingieren Sysmon y open source | Validar el prototipo con [Sysmon](./symons.md) + Wazuh/Elastic es representativo de un flujo real de Modelo B. |
+| XDR/MDR abiertos ingieren Sysmon y open source | Validar el prototipo con [Sysmon](../archivo/symons.md) + Wazuh/Elastic es representativo de un flujo real de Modelo B. |
 | El diferencial comercial es la correlación, no solo la captura | El valor del prototipo está en el **triaje explicable**, capa donde los comerciales siguen dependiendo del analista. |
 | MDR de bajo coste apuntan a PYMEs con telemetría existente | Encaja con el objetivo de una solución viable sin depender de servicios cloud externos. |
 
@@ -137,8 +137,8 @@ En este proyecto, herramientas como Wazuh pueden utilizarse como base tecnológi
 ## Referencias
 
 - Ver [estado del arte MDR/XDR](../02-fase2-estado-del-arte/mdr-xdr.md) para el panorama de mercado y proveedores.
-- Ver [herramientas auxiliares](./herramientas-auxiliares.md) para el catálogo de fuentes de telemetría y análisis.
-- Ver [Sysmon](./symons.md) para la fuente de telemetría de endpoint de referencia del proyecto.
+- Ver [herramientas auxiliares](../archivo/herramientas-auxiliares.md) para el catálogo de fuentes de telemetría y análisis.
+- Ver [Sysmon](../archivo/symons.md) para la fuente de telemetría de endpoint de referencia del proyecto.
 - Gartner Magic Quadrant for Endpoint Protection Platforms; Forrester Wave: XDR Platforms.
 - KuppingerCole Leadership Compass: MDR.
 - MITRE ATT&CK Evaluations (Enterprise).

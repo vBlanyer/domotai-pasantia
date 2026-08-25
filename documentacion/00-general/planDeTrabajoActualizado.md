@@ -53,7 +53,7 @@ Cada objetivo se corresponde con una fase del [roadmap](./roadmap.md):
 
 # Cambios respecto a la versión anterior
 
-Este documento actualiza a [planDeTrabajo.md](./planDeTrabajo.md) con las correcciones detectadas al contrastarlo con el roadmap:
+Este documento actualiza a [planDeTrabajo.md](../archivo/planDeTrabajo.md) con las correcciones detectadas al contrastarlo con el roadmap:
 
 1. **Nuevo objetivo 5 (implementación).** La versión anterior pasaba de *diseñar la arquitectura* a *evaluar el prototipo* sin ningún objetivo que mandara construirlo, dejando la Fase 5 del roadmap sin respaldo.
 2. **Objetivo 4 completado.** La redacción anterior quedaba cortada en «formas de interacción con herramientas»; ahora enumera reglas, umbrales, interfaces, formato del razonamiento explicable y puntos de validación humana.

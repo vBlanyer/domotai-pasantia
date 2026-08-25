@@ -127,13 +127,13 @@ El sandbox se encuadró como «entorno controlado de validación» para no tocar
 
 ### I-8 · Material de referencia con premisa superada — MENOR
 
-[symons.md](../04-fase4-diseno-de-arquitectura/symons.md) y [herramientas-auxiliares.md](../04-fase4-diseno-de-arquitectura/herramientas-auxiliares.md) llevan una nota de condicionalidad, pero su contenido interno —el stack Atomic Red Team → Sysmon → Sigma— sigue contradiciendo el diseño FTTx. Está señalado, no reescrito.
+[symons.md](../archivo/symons.md) y [herramientas-auxiliares.md](../archivo/herramientas-auxiliares.md) llevan una nota de condicionalidad, pero su contenido interno —el stack Atomic Red Team → Sysmon → Sigma— sigue contradiciendo el diseño FTTx. Está señalado, no reescrito.
 
 ---
 
 ### I-9 · Dos planes de trabajo conviviendo — MENOR
 
-[planDeTrabajo.md](./planDeTrabajo.md) (6 objetivos, objetivo 4 con la frase cortada) sigue junto a [planDeTrabajoActualizado.md](./planDeTrabajoActualizado.md) (7 objetivos). Riesgo de que alguien lea el equivocado.
+[planDeTrabajo.md](../archivo/planDeTrabajo.md) (6 objetivos, objetivo 4 con la frase cortada) sigue junto a [planDeTrabajoActualizado.md](./planDeTrabajoActualizado.md) (7 objetivos). Riesgo de que alguien lea el equivocado.
 
 ---
 
@@ -179,6 +179,6 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos FTTx |
 | I-6 | Perfil A vs flujo | De diseño | Nosotros | **Resuelta** — modelo de 3B en línea |
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |
-| I-8 | Material con premisa superada | Menor | Nosotros | Señalada |
-| I-9 | Dos planes conviviendo | Menor | Nosotros | Abierta |
+| I-8 | Material con premisa superada | Menor | Nosotros | **Resuelta** — movido a documentacion/archivo/ |
+| I-9 | Dos planes conviviendo | Menor | Nosotros | **Resuelta** — plan viejo movido a documentacion/archivo/ |
 | I-10 | El componente central se llamaba «EDR» siendo el motor de triaje de un XDR | De diseño | Nosotros | **Resuelta** — renombrado a «motor de triaje» |

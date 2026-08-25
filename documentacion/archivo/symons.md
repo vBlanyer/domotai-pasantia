@@ -1,3 +1,6 @@
+> ⚠️ **Documento archivado — premisa superada.** Sysmon es telemetría **solo de Windows**; el sandbox del proyecto es OpenWrt/Linux.
+> Se conserva como referencia por si entra un endpoint Windows. Ver [archivo](./README.md).
+
 # Sysmon
 
 > **Estado: condicional.** Sysmon es telemetría **exclusiva de Windows**. El sandbox del proyecto es una red FTTx emulada sobre OpenWrt y Linux ([diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)), donde Sysmon **no aplica**.

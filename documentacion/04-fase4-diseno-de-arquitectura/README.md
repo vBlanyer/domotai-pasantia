@@ -12,9 +12,9 @@
 
 ## Material de referencia
 
-- [motor de triaje, XDR, MDR y telemetría](edr-xdr-mdr-telemetria.md)
-- [Herramientas auxiliares para pruebas de XDR](herramientas-auxiliares.md) — *premisa parcialmente superada; ver la nota del documento.*
-- [Sysmon](symons.md) — *condicional a que entre un endpoint Windows en la topología.*
+- [EDR, XDR, MDR y telemetría](edr-xdr-mdr-telemetria.md) — encaje de las tres siglas y de dónde sale la telemetría.
+
+Material superado por el giro a FTTx, conservado en [documentacion/archivo/](../archivo/): el documento de Sysmon y el de herramientas auxiliares.
 
 ## Estado
 
