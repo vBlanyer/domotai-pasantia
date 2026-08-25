@@ -1,6 +1,14 @@
-# Flujo de operación: logs → playbook → EDR → sandbox → auditoría
+# Flujo de operación: logs → playbook → motor de triaje → sandbox → auditoría
 
 Este documento describe el flujo end-to-end del prototipo tal como fue planteado por la empresa, e identifica qué componentes ya existen, cuáles hay que construir y dónde encajan las decisiones del objetivo 4 del [plan de trabajo](../00-general/planDeTrabajoActualizado.md).
+
+>
+> **Terminología.** El componente central que este proyecto construye se llama **motor de triaje**
+> (el «módulo de triaje inteligente» del plan de trabajo). No es un **EDR**: un EDR es la capa de
+> detección de *endpoint*, una de las **fuentes** que alimentan el sistema. Visto completo, el flujo
+> es un **XDR** —correlación multi-fuente (red del CPE + endpoint de los nodos) vía Wazuh— sobre el
+> que el motor de triaje aporta clasificación, priorización y justificación, con validación humana
+> (el rasgo **MDR**). Ver [EDR, XDR, MDR y telemetría](./edr-xdr-mdr-telemetria.md) para las definiciones.
 
 ---
 
@@ -10,16 +18,16 @@ Este documento describe el flujo end-to-end del prototipo tal como fue planteado
 flowchart TD
     SIS["Sistema existente<br/>(emite logs)"] -.no disponible hoy.-> ING
     WZ["Wazuh en el sandbox<br/>(fuente de laboratorio)"] --> ING["Ingesta y normalización"]
-    ING --> EDR["EDR<br/>(decisión)"]
-    EDR -->|acción| SBX["Sandbox<br/>(red FTTx emulada)"]
-    AUD["Auditor de vulnerabilidades"] -->|postura del sistema| EDR
+    ING --> TRI["Motor de triaje<br/>(decisión)"]
+    TRI -->|acción| SBX["Sandbox<br/>(red FTTx emulada)"]
+    AUD["Auditor de vulnerabilidades"] -->|postura del sistema| TRI
     SBX --> AUD
     SBX -->|telemetría| SIS
-    EDR -.->|casos críticos| HUM["Validación humana"]
-    HUM -.-> EDR
+    TRI -.->|casos críticos| HUM["Validación humana"]
+    HUM -.-> TRI
 ```
 
-El ciclo es cerrado: el sandbox genera telemetría, esa telemetría alimenta al sistema de logs, y el resultado de la auditoría vuelve al EDR como contexto para la siguiente decisión.
+El ciclo es cerrado: el sandbox genera telemetría, esa telemetría alimenta al sistema de logs, y el resultado de la auditoría vuelve al motor de triaje como contexto para la siguiente decisión.
 
 ---
 
@@ -29,15 +37,15 @@ El ciclo es cerrado: el sandbox genera telemetría, esa telemetría alimenta al 
 |------------|--------|-----------------|
 | Sistema de logs | **Ya existe** (propietario) — no disponible hoy | Recoger y emitir eventos de seguridad |
 | **Wazuh** (sustituto de laboratorio) | **A desplegar** — ver [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) | Generar alertas reales sobre el sandbox y aportar el **baseline** de reglas |
-| Playbook | **Ya existe** (propietario) — no disponible hoy | Orquestar el flujo y entregar información al EDR |
-| **Módulo de ingesta y normalización** | **A construir** | Ocupa el papel del playbook en el laboratorio: lee las alertas, las normaliza y las entrega al EDR |
-| EDR | **A construir** | Clasificar, priorizar, justificar y decidir la acción |
+| Playbook | **Ya existe** (propietario) — no disponible hoy | Orquestar el flujo y entregar información al motor de triaje |
+| **Módulo de ingesta y normalización** | **A construir** | Ocupa el papel del playbook en el laboratorio: lee las alertas, las normaliza y las entrega al motor de triaje |
+| Motor de triaje | **A construir** | Clasificar, priorizar, justificar y decidir la acción |
 | Sandbox | **A construir** — ver [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) | Ejecutar la acción y generar telemetría observable |
-| Conector EDR ↔ sandbox | **A construir** | Transportar la acción y devolver su resultado |
+| Conector motor ↔ sandbox | **A construir** | Transportar la acción y devolver su resultado |
 | Auditor de vulnerabilidades | **A construir** — ver [auditoría](./auditoria-de-vulnerabilidades-del-sandbox.md) | Determinar la postura de seguridad del sandbox |
 | Validación humana | **A construir** | Aprobar decisiones críticas o de baja confianza |
 
-Los dos primeros son entrada dada: el proyecto **no** los rediseña. Lo que se construye empieza en el EDR.
+Los dos primeros son entrada dada: el proyecto **no** los rediseña. Lo que se construye empieza en el motor de triaje.
 
 ---
 
@@ -45,7 +53,7 @@ Los dos primeros son entrada dada: el proyecto **no** los rediseña. Lo que se c
 
 ### Sistema de logs (existente) y su sustituto de laboratorio
 
-Fuente primaria de eventos. Para la Fase 1 hace falta documentar su **formato de salida real**: esquema de los eventos, campos disponibles, mecanismo de entrega y volumen. Sin ese dato, el módulo de ingesta del EDR no puede especificarse.
+Fuente primaria de eventos. Para la Fase 1 hace falta documentar su **formato de salida real**: esquema de los eventos, campos disponibles, mecanismo de entrega y volumen. Sin ese dato, el módulo de ingesta del motor de triaje no puede especificarse.
 
 **Mientras ese sistema no esté disponible, el proyecto no puede quedarse sin entrada.** Se despliega **Wazuh dentro del sandbox** como fuente de alertas de laboratorio: agentes en los nodos Linux y reenvío de syslog desde el CPE OpenWrt. Además de desbloquear el flujo, su **nivel de regla proporciona el baseline** contra el que la Fase 6 debe comparar el prototipo.
 
@@ -53,24 +61,24 @@ No es un parche provisional que haya que retirar: cuando el sistema de la empres
 
 ### El playbook y su lugar en el laboratorio
 
-El playbook de la empresa **tampoco está disponible**, igual que el sistema de logs. Pero a diferencia de aquel, **no necesita un sustituto nuevo**: su papel —orquestar y entregar información al EDR— coincide con el del **módulo de ingesta y normalización** que el prototipo tiene que construir de todos modos.
+El playbook de la empresa **tampoco está disponible**, igual que el sistema de logs. Pero a diferencia de aquel, **no necesita un sustituto nuevo**: su papel —orquestar y entregar información al motor de triaje— coincide con el del **módulo de ingesta y normalización** que el prototipo tiene que construir de todos modos.
 
-En el laboratorio, ese módulo lee las alertas de Wazuh, las normaliza al esquema de entrada del EDR y se las entrega. Cuando el playbook de la empresa esté disponible, entra como **segunda fuente por ese mismo módulo**, sin rediseñar el flujo.
+En el laboratorio, ese módulo lee las alertas de Wazuh, las normaliza al esquema de entrada del motor de triaje y se las entrega. Cuando el playbook de la empresa esté disponible, entra como **segunda fuente por ese mismo módulo**, sin rediseñar el flujo.
 
 Consecuencia: el diagrama de ejecución **no incluye una caja «playbook»**, porque en el entorno de pruebas no existe y nada la suple aparte de la ingesta.
 
-Del playbook de la empresa sigue siendo necesario determinar **qué información entrega exactamente** y si el flujo es síncrono (espera la decisión del EDR) o asíncrono (dispara y olvida). Esa distinción condiciona si el EDR puede permitirse la latencia de una inferencia y la de una validación humana, y es una de las preguntas abiertas de la sección 8.
+Del playbook de la empresa sigue siendo necesario determinar **qué información entrega exactamente** y si el flujo es síncrono (espera la decisión del motor de triaje) o asíncrono (dispara y olvida). Esa distinción condiciona si el motor de triaje puede permitirse la latencia de una inferencia y la de una validación humana, y es una de las preguntas abiertas de la sección 8.
 
-### EDR (a construir)
+### Motor de triaje (a construir)
 El núcleo del proyecto. Recibe el evento enriquecido, lo clasifica y prioriza, produce una **justificación explicable**, y decide la acción. No ejecuta nada por sí mismo: emite una **orden de acción** que el conector transporta.
 
-Separar decisión de ejecución mantiene el EDR auditable y comprobable de forma aislada: se puede evaluar la calidad de sus decisiones sin ejecutar nada.
+Separar decisión de ejecución mantiene el motor de triaje auditable y comprobable de forma aislada: se puede evaluar la calidad de sus decisiones sin ejecutar nada.
 
 ### Sandbox (a construir)
 Entorno controlado donde la acción se ejecuta y donde su efecto puede observarse y medirse. Detalle completo en el [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md).
 
 ### Auditor (a construir)
-Contraparte del EDR. Escanea el sandbox y devuelve su postura de seguridad, que sirve tanto de **contexto de decisión** (¿el equipo afectado es vulnerable a lo que la alerta sugiere?) como de **verificación** (¿la acción cerró realmente la exposición?).
+Contraparte del motor de triaje. Escanea el sandbox y devuelve su postura de seguridad, que sirve tanto de **contexto de decisión** (¿el equipo afectado es vulnerable a lo que la alerta sugiere?) como de **verificación** (¿la acción cerró realmente la exposición?).
 
 ---
 
@@ -83,9 +91,9 @@ flowchart TD
     ACT["Actividad en el sandbox<br/>escaneo · acceso · tráfico"] --> WZ["Wazuh manager<br/>reglas → alerts.json"]
     AUD1["Auditor<br/>postura del nodo"] -.contexto.-> ING
     WZ --> ING["Ingesta y normalización<br/><i>ocupa el papel del playbook</i>"]
-    ING --> CLS["EDR · clasificar()<br/>clase + prioridad + confianza"]
+    ING --> CLS["Motor · clasificar()<br/>clase + prioridad + confianza"]
     CLS --> DEC{"¿Validación<br/>humana?"}
-    DEC -->|"confianza baja · acción no<br/>reversible · discrepancia"| JUS["EDR · justificar()<br/>modelo 3B · 15-20 s"]
+    DEC -->|"confianza baja · acción no<br/>reversible · discrepancia"| JUS["Motor · justificar()<br/>modelo 3B · 15-20 s"]
     JUS --> HUM["Analista:<br/>aprueba · rechaza · modifica"]
     HUM -->|aprobada| CON
     HUM -->|rechazada| TRZ
@@ -135,11 +143,11 @@ flowchart LR
 
 La arquitectura descansa en dos contratos. Especificarlos es entregable de la Fase 4.
 
-### Playbook → EDR (entrada)
+### Playbook → motor de triaje (entrada)
 
 Debe transportar como mínimo: identificador del evento, marca de tiempo, activo afectado dentro de la topología, tipo de evento, datos crudos originales y la severidad que asignó el sistema de origen. Este último campo es importante: es el **baseline** contra el que la Fase 6 comparará la clasificación del prototipo.
 
-### EDR → sandbox (orden de acción)
+### Motor de triaje → sandbox (orden de acción)
 
 Debe transportar: identificador de la decisión (trazable hasta el evento que la originó), nodo objetivo, acción a ejecutar, parámetros, si requiere validación humana previa, y la justificación explicable que la sustenta.
 
@@ -154,7 +162,7 @@ El transporte concreto se analiza en [protocolos de comunicación](./protocolos-
 
 ## 6. Catálogo de acciones
 
-Las acciones que el EDR puede ordenar deben ser un **conjunto cerrado y enumerado**, no comandos arbitrarios. Un catálogo cerrado es auditable, comprobable y acotado en su radio de impacto; un canal de comandos libres no lo es.
+Las acciones que el motor de triaje puede ordenar deben ser un **conjunto cerrado y enumerado**, no comandos arbitrarios. Un catálogo cerrado es auditable, comprobable y acotado en su radio de impacto; un canal de comandos libres no lo es.
 
 Categorías previstas sobre una red FTTx:
 
@@ -171,7 +179,7 @@ Para cada acción hay que documentar: precondiciones, efecto esperado, cómo rev
 
 ## 7. Dónde encaja la validación humana
 
-El plan de trabajo exige validación humana en decisiones críticas. En este flujo se sitúa **entre la decisión del EDR y la ejecución en el sandbox**: el EDR emite la orden, esta queda retenida, y solo se transmite al conector tras aprobación.
+El plan de trabajo exige validación humana en decisiones críticas. En este flujo se sitúa **entre la decisión del motor de triaje y la ejecución en el sandbox**: el motor de triaje emite la orden, esta queda retenida, y solo se transmite al conector tras aprobación.
 
 Criterios candidatos para exigirla (los umbrales concretos son entregable de la Fase 4):
 
@@ -188,9 +196,9 @@ Cada decisión de validación (aprobada, rechazada, modificada) debe registrarse
 Estas respuestas son entrada de la Fase 1 y bloquean partes del diseño:
 
 1. **¿Cuál es el formato exacto de salida del sistema de logs?** Bloquea la especificación del módulo de ingesta.
-2. **¿El playbook espera respuesta del EDR, o es asíncrono?** Determina el presupuesto de latencia y la viabilidad de la validación humana en línea.
+2. **¿El playbook espera respuesta del motor de triaje, o es asíncrono?** Determina el presupuesto de latencia y la viabilidad de la validación humana en línea.
 3. **¿Qué severidad o clasificación asigna hoy el sistema existente?** Serviría como segundo baseline de comparación. Mientras tanto, el baseline es el nivel de regla de Wazuh.
-4. **¿Existe ya un catálogo de acciones que el playbook sepa ejecutar?** Si existe, el catálogo del EDR debe alinearse con él en vez de inventar uno nuevo.
+4. **¿Existe ya un catálogo de acciones que el playbook sepa ejecutar?** Si existe, el catálogo del motor de triaje debe alinearse con él en vez de inventar uno nuevo.
 
 ---
 

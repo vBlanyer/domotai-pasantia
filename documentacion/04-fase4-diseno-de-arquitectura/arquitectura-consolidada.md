@@ -25,7 +25,7 @@ flowchart TB
         AUD["Auditor<br/>Nmap + Greenbone"]
     end
 
-    subgraph edr["EDR — el prototipo (software)"]
+    subgraph edr["Motor de triaje — el prototipo (software)"]
         direction TB
         ING["1· Ingesta y normalización<br/><i>aísla la fuente de alertas</i>"]
         ANA["2· Análisis · clasificar() / justificar()<br/><i>aísla el modelo (Perfil A/B)</i>"]
@@ -51,7 +51,7 @@ flowchart TB
 ## Los tres puntos de aislamiento
 
 El diseño depende de tres cosas externas que hoy no están definidas o son provisionales. En vez
-de acoplarse a ellas, el EDR las esconde tras un adaptador. Es el patrón que se repite y lo que
+de acoplarse a ellas, el motor de triaje las esconde tras un adaptador. Es el patrón que se repite y lo que
 hace el sistema portable:
 
 | Dependencia externa | Hoy | Mañana | Adaptador que lo aísla |
@@ -61,7 +61,7 @@ hace el sistema portable:
 | Canal hacia el objetivo | SSH | TR-069 / ACS | **Conector** |
 
 Cambiar cualquiera de los tres es escribir un adaptador nuevo, **sin tocar la lógica de decisión
-del EDR**. Es lo que permite empezar con lo disponible sin hipotecar el diseño.
+del motor de triaje**. Es lo que permite empezar con lo disponible sin hipotecar el diseño.
 
 ---
 
@@ -69,7 +69,7 @@ del EDR**. Es lo que permite empezar con lo disponible sin hipotecar el diseño.
 
 1. **Actividad** en el sandbox (un ataque, un escaneo) →
 2. **Wazuh** la convierte en alerta con nivel, IP y crudo →
-3. **Ingesta** la normaliza al esquema del EDR (y la enriquece con la postura del auditor) →
+3. **Ingesta** la normaliza al esquema del motor de triaje (y la enriquece con la postura del auditor) →
 4. **Análisis** la clasifica, prioriza y —si hace falta— justifica →
 5. **Decisión**: acción directa, o retención para **validación humana** →
 6. **Conector** ejecuta una acción del **catálogo cerrado** por SSH →
@@ -95,7 +95,7 @@ frontera**:
 | Componente | Documento |
 |------------|-----------|
 | Red FTTx y nodos | [sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) · [nodos](../../lab/README.md) |
-| Flujo, contratos, validación humana | [flujo](./flujo-edr-playbook-sandbox.md) |
+| Flujo, contratos, validación humana | [flujo](./flujo-triaje-playbook-sandbox.md) |
 | Canal y protocolo | [protocolos](./protocolos-comunicacion-sandbox.md) |
 | Auditor | [auditoría](./auditoria-de-vulnerabilidades-del-sandbox.md) |
 | Modelo y perfiles | [selección del modelo](./seleccion-del-modelo.md) |

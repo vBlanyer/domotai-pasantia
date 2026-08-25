@@ -27,12 +27,12 @@ Marcas: **✔ vigente** · **~ vigente con matiz** · **+ nuevo** · **✘ desca
 | RF-08 Validación humana | ✔ | Encaja con el catálogo de acciones: alto impacto → humano. |
 | RF-09 Traza auditable | ✔ | Reforzado: la traza es también la base de la evaluación. |
 | RF-10 Marcar «no soportada» fuera de alcance | ✔ | **Ahora sí es implementable:** el caso de uso acotado por fin existe y define el perímetro. |
-| RF-11 Agrupar/deduplicar | ~ | Wazuh **ya correlaciona** (fuerza bruta → una alerta nivel 10). Parte de RF-11 la cubre la fuente; el EDR agrupa por incidente por encima de eso. |
+| RF-11 Agrupar/deduplicar | ~ | Wazuh **ya correlaciona** (fuerza bruta → una alerta nivel 10). Parte de RF-11 la cubre la fuente; el motor de triaje agrupa por incidente por encima de eso. |
 | RF-12 Guardar feedback | ✔ | Sin cambios. |
-| RF-13 Interfaz con el módulo propietario | ~ | En el laboratorio no hay módulo propietario; el EDR expone sus resultados y el consumidor real llega después. |
+| RF-13 Interfaz con el módulo propietario | ~ | En el laboratorio no hay módulo propietario; el motor de triaje expone sus resultados y el consumidor real llega después. |
 | RF-14 Calcular métricas | ✔ | Detallado en el Paso 8. |
-| **RF-15** Actuar sobre el sandbox por catálogo cerrado | **+** | **Nuevo.** El flujo real incluye que el EDR ordene acciones sobre el sandbox; no había requisito que lo recogiera. Ver [catálogo de acciones](../04-fase4-diseno-de-arquitectura/catalogo-de-acciones.md). |
-| **RF-16** Identificar el nodo origen sin agente | **+** | **Nuevo.** El CPE reenvía syslog como `agent.id 000`; el EDR debe deducir el activo de los campos del evento, no del id de agente. Detectado al desplegar Wazuh. |
+| **RF-15** Actuar sobre el sandbox por catálogo cerrado | **+** | **Nuevo.** El flujo real incluye que el motor de triaje ordene acciones sobre el sandbox; no había requisito que lo recogiera. Ver [catálogo de acciones](../04-fase4-diseno-de-arquitectura/catalogo-de-acciones.md). |
+| **RF-16** Identificar el nodo origen sin agente | **+** | **Nuevo.** El CPE reenvía syslog como `agent.id 000`; el motor de triaje debe deducir el activo de los campos del evento, no del id de agente. Detectado al desplegar Wazuh. |
 
 ## Requisitos no funcionales
 
@@ -69,4 +69,4 @@ ingesta), así que esta revisión no abre trabajo pendiente: solo cierra la traz
 
 ## Documentos relacionados
 
-- [Requisitos originales](./limitacionesDeXDR.md) · [Catálogo de acciones](../04-fase4-diseno-de-arquitectura/catalogo-de-acciones.md) · [Flujo](../04-fase4-diseno-de-arquitectura/flujo-edr-playbook-sandbox.md)
+- [Requisitos originales](./limitacionesDeXDR.md) · [Catálogo de acciones](../04-fase4-diseno-de-arquitectura/catalogo-de-acciones.md) · [Flujo](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md)

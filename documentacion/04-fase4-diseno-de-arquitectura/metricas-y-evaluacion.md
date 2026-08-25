@@ -79,7 +79,7 @@ No es totalmente automatizable; se combina:
 
 Misma tabla, dos columnas:
 
-| Métrica | Nivel de regla de Wazuh (baseline) | Prototipo (EDR) |
+| Métrica | Nivel de regla de Wazuh (baseline) | Prototipo (motor de triaje) |
 |---------|-----------------------------------|-----------------|
 | Precisión | … | … |
 | Recall | … | … |
@@ -100,7 +100,7 @@ La evaluación no solo mide: define constantes que la Fase 5 necesita.
 
 - **Umbral de confianza para escalar a humano** (RF-07): se calibra buscando el punto donde bajar
   el escalado no empieza a perder recall. Es un resultado de la evaluación, no un número elegido a priori.
-- **Correspondencia nivel de Wazuh → prioridad del EDR**: qué nivel crudo mapea a qué prioridad
+- **Correspondencia nivel de Wazuh → prioridad del motor de triaje**: qué nivel crudo mapea a qué prioridad
   inicial antes de que el modelo reclasifique.
 
 ---
@@ -119,6 +119,6 @@ La evaluación no solo mide: define constantes que la Fase 5 necesita.
 
 ## Documentos relacionados
 
-- [Catálogo de acciones](./catalogo-de-acciones.md) · [Selección del modelo](./seleccion-del-modelo.md) · [Flujo](./flujo-edr-playbook-sandbox.md)
+- [Catálogo de acciones](./catalogo-de-acciones.md) · [Selección del modelo](./seleccion-del-modelo.md) · [Flujo](./flujo-triaje-playbook-sandbox.md)
 - [Ground truth del laboratorio](../../lab/vulnerabilidades-esperadas.md)
 - [Requisitos (RF-14, RNF-03)](../02-fase2-estado-del-arte/limitacionesDeXDR.md)

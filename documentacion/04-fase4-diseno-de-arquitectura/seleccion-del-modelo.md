@@ -18,7 +18,7 @@ Los requisitos derivados del [análisis de limitaciones de XDR](../02-fase2-esta
 | **RF-09** — Traza auditable | Registrar versión de modelo y de prompt en cada ejecución | El modelo es parte del registro, no un detalle de implementación |
 | **RNF-09** — Disponibilidad | Si el modelo falla, la alerta va a cola manual | Nunca se descarta una alerta en silencio |
 
-A esto se añade un criterio operativo que no procede de los requisitos sino del diseño del flujo: el [disparador de validación humana](./flujo-edr-playbook-sandbox.md) se activa cuando *«la confianza del clasificador queda por debajo de un umbral»*. Eso pide una **confianza numérica comparable entre alertas** — algo que un clasificador entrega de forma natural (softmax) y que un modelo generativo solo puede autodeclarar, de forma poco fiable.
+A esto se añade un criterio operativo que no procede de los requisitos sino del diseño del flujo: el [disparador de validación humana](./flujo-triaje-playbook-sandbox.md) se activa cuando *«la confianza del clasificador queda por debajo de un umbral»*. Eso pide una **confianza numérica comparable entre alertas** — algo que un clasificador entrega de forma natural (softmax) y que un modelo generativo solo puede autodeclarar, de forma poco fiable.
 
 ---
 
@@ -56,7 +56,7 @@ El factor limitante no es el modelo por sí solo, sino que **el sandbox se ejecu
 
 **Por qué el encoder para clasificar:** entra sobrado en memoria, responde en milisegundos, es determinista —lo que satisface RNF-03 mejor que cualquier generativo— y entrega la confianza numérica que el umbral de validación humana necesita.
 
-**Por qué un tercer componente de 3B.** Sin él, el Perfil A entraba en contradicción con el propio diseño del flujo: la [validación humana](./flujo-edr-playbook-sandbox.md) ocurre **antes** de ejecutar la acción y necesita la justificación delante, pero un 8B en lote la produce después. Un modelo de 3B cuantizado ocupa ~2 GB y rinde del orden de 10–12 tokens/s en CPU según mediciones publicadas, así que una justificación breve de unos 200 tokens sale en **15–20 segundos**: tolerable para que una persona decida con el razonamiento a la vista.
+**Por qué un tercer componente de 3B.** Sin él, el Perfil A entraba en contradicción con el propio diseño del flujo: la [validación humana](./flujo-triaje-playbook-sandbox.md) ocurre **antes** de ejecutar la acción y necesita la justificación delante, pero un 8B en lote la produce después. Un modelo de 3B cuantizado ocupa ~2 GB y rinde del orden de 10–12 tokens/s en CPU según mediciones publicadas, así que una justificación breve de unos 200 tokens sale en **15–20 segundos**: tolerable para que una persona decida con el razonamiento a la vista.
 
 El 8B en lote no desaparece: produce la justificación extensa que alimenta la traza de auditoría y la evaluación de la Fase 6, donde la latencia no importa.
 
@@ -108,11 +108,11 @@ Incluso en el Perfil B puede convenir conservar el encoder si el umbral de confi
 
 ## 5. Interfaz común: lo que hace real la escalabilidad
 
-Para que pasar del Perfil A al B sea un cambio de configuración y no una reescritura, **el EDR no invoca modelos: invoca dos operaciones abstractas.**
+Para que pasar del Perfil A al B sea un cambio de configuración y no una reescritura, **el motor de triaje no invoca modelos: invoca dos operaciones abstractas.**
 
 ```mermaid
 flowchart LR
-    EDR["EDR"] --> I["Interfaz de análisis<br/>clasificar() · justificar()"]
+    TRI["Motor de triaje"] --> I["Interfaz de análisis<br/>clasificar() · justificar()"]
     I --> A["Perfil A<br/>encoder + generativo en lote"]
     I -.-> B["Perfil B<br/>Foundation-Sec-8B"]
 ```
@@ -122,9 +122,9 @@ flowchart LR
 | `clasificar` | Alerta normalizada y su contexto | Clase, prioridad y **confianza numérica** |
 | `justificar` | Alerta, contexto y clase ya decidida | Texto explicable que referencia campos concretos |
 
-Que `clasificar` y `justificar` estén separadas **en la interfaz** aunque el Perfil B las resuelva con un único modelo es deliberado: es lo que permite que un perfil use dos componentes y el otro uno solo sin que el EDR se entere.
+Que `clasificar` y `justificar` estén separadas **en la interfaz** aunque el Perfil B las resuelva con un único modelo es deliberado: es lo que permite que un perfil use dos componentes y el otro uno solo sin que el motor de triaje se entere.
 
-Es el mismo principio aplicado en los [protocolos de comunicación](./protocolos-comunicacion-sandbox.md): el EDR emite acciones abstractas y el conector las traduce. Aquí el EDR pide análisis abstracto y el perfil decide con qué se resuelve.
+Es el mismo principio aplicado en los [protocolos de comunicación](./protocolos-comunicacion-sandbox.md): el motor de triaje emite acciones abstractas y el conector las traduce. Aquí el motor de triaje pide análisis abstracto y el perfil decide con qué se resuelve.
 
 **Consecuencia adicional:** al pasar la clase ya decidida a `justificar`, el componente generativo no decide *qué es* la alerta, solo explica una decisión tomada. Eso reduce la superficie de alucinación y refuerza RNF-02.
 
@@ -173,7 +173,7 @@ Advertencia metodológica que debe recogerse en el informe de la Fase 7:
 
 ## Documentos relacionados
 
-- [Flujo de operación: logs → playbook → EDR → sandbox](./flujo-edr-playbook-sandbox.md)
+- [Flujo de operación: logs → playbook → motor de triaje → sandbox](./flujo-triaje-playbook-sandbox.md)
 - [Protocolos de comunicación con el sandbox](./protocolos-comunicacion-sandbox.md)
 - [Auditoría de vulnerabilidades del sandbox](./auditoria-de-vulnerabilidades-del-sandbox.md)
 - [Diseño del sandbox: red FTTx con Containerlab](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)

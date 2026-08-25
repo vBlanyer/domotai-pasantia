@@ -1,6 +1,6 @@
 # Protocolos de comunicación con el sandbox
 
-El EDR decide una acción; algo tiene que transportarla hasta el nodo objetivo y devolver su resultado. Este documento evalúa los protocolos candidatos sobre una red FTTx y fija la decisión de diseño.
+El motor de triaje decide una acción; algo tiene que transportarla hasta el nodo objetivo y devolver su resultado. Este documento evalúa los protocolos candidatos sobre una red FTTx y fija la decisión de diseño.
 
 ---
 
@@ -18,7 +18,7 @@ En una cadena FTTx no existe "el protocolo": cada tramo tiene el suyo, con dueñ
 | Consulta de estado | **SNMP** | Métricas y trampas | Complementario |
 | Configuración estructurada | NETCONF / RESTCONF (YANG) | Configuración transaccional | Solo en equipos que lo soporten |
 | CPE OpenWrt | ubus / LuCI RPC sobre HTTP | API nativa de OpenWrt | Complementario |
-| Endpoint final | Agente EDR | Camino clásico | Fuera del sandbox de red |
+| Endpoint final | Agente motor de triaje | Camino clásico | Fuera del sandbox de red |
 
 ---
 
@@ -40,13 +40,13 @@ Criterios de evaluación: cobertura de los nodos de la topología, auditabilidad
 
 ## 3. Decisión: SSH como canal principal
 
-**Se adopta SSH** como transporte de las órdenes de acción del EDR hacia el sandbox.
+**Se adopta SSH** como transporte de las órdenes de acción del motor de triaje hacia el sandbox.
 
 Motivos:
 
 - **Cobertura completa sin desarrollo previo.** Todos los nodos de la topología —el CPE OpenWrt, el router de borde, los endpoints— hablan SSH de forma nativa. Cualquier otra opción exige desarrollar y desplegar un agente antes de poder ejecutar la primera acción, y ese agente sería trabajo que no contribuye al objetivo del proyecto.
 - **Auditabilidad orden a orden.** Cada acción es un comando registrable, con su código de salida y su salida estándar. Eso alimenta directamente el requisito de trazabilidad y el registro de trazas de la Fase 5.
-- **Síncrono por defecto.** El EDR obtiene confirmación inmediata de si la acción se aplicó, sin necesidad de un canal de retorno separado.
+- **Síncrono por defecto.** El motor de triaje obtiene confirmación inmediata de si la acción se aplicó, sin necesidad de un canal de retorno separado.
 - **Sin infraestructura adicional.** No hay ACS, ni broker, ni controlador que montar y mantener.
 - **Encaja con Containerlab.** El bridge de gestión que Containerlab crea automáticamente está pensado precisamente para acceso SSH out-of-band a los nodos.
 
@@ -54,7 +54,7 @@ Motivos:
 
 SSH da acceso a una shell completa, lo que es potente y por tanto peligroso. El diseño lo acota:
 
-- El conector expone únicamente el **catálogo cerrado de acciones** definido en el [flujo de operación](./flujo-edr-playbook-sandbox.md). El EDR **no** emite comandos arbitrarios: selecciona una acción del catálogo, y el conector la traduce al comando concreto.
+- El conector expone únicamente el **catálogo cerrado de acciones** definido en el [flujo de operación](./flujo-triaje-playbook-sandbox.md). El motor de triaje **no** emite comandos arbitrarios: selecciona una acción del catálogo, y el conector la traduce al comando concreto.
 - Autenticación por **clave, nunca por contraseña**, con una clave dedicada al conector.
 - Cuenta de servicio con **los privilegios mínimos** que cada acción requiera.
 - Registro de la orden, el comando resultante, el código de salida y la salida completa, asociados al identificador de decisión.
@@ -75,11 +75,11 @@ Se descartan **para esta iteración** porque:
 
 **Se documentan como la línea de evolución natural.** Si en algún momento el proyecto se aplica sobre infraestructura real de un proveedor, el canal pasa a ser TR-069 o TR-369.
 
-Para que ese cambio no obligue a rehacer el EDR, el diseño impone una condición: **el EDR emite acciones abstractas, no comandos**. La traducción de acción a comando vive por completo en el conector. Sustituir SSH por un ACS implica entonces escribir un conector nuevo, no tocar la lógica de decisión.
+Para que ese cambio no obligue a rehacer el motor de triaje, el diseño impone una condición: **el motor de triaje emite acciones abstractas, no comandos**. La traducción de acción a comando vive por completo en el conector. Sustituir SSH por un ACS implica entonces escribir un conector nuevo, no tocar la lógica de decisión.
 
 ```mermaid
 flowchart LR
-    EDR["EDR<br/>(acciones abstractas)"] --> INT["Interfaz de conector"]
+    TRI["Motor de triaje<br/>(acciones abstractas)"] --> INT["Interfaz de conector"]
     INT --> SSH["Conector SSH<br/>(esta iteración)"]
     INT -.-> ACS["Conector TR-069/ACS<br/>(trabajo futuro)"]
     INT -.-> USP["Conector TR-369/USP<br/>(trabajo futuro)"]
@@ -96,7 +96,7 @@ No sustituyen a SSH, pero pueden aportar en puntos concretos:
 
 - **SNMP** para recolección de estado y métricas de los nodos de red sin abrir sesión. Útil como fuente de telemetría continua, no como canal de acción.
 - **ubus / LuCI RPC** en el CPE OpenWrt cuando se requiera configuración estructurada en vez de manipulación de ficheros.
-- **Telnet, UPnP y CWMP** aparecen en el sandbox **como objetivos a auditar**, nunca como canal del EDR. Su presencia en un nodo es en sí misma un hallazgo de la auditoría.
+- **Telnet, UPnP y CWMP** aparecen en el sandbox **como objetivos a auditar**, nunca como canal del motor de triaje. Su presencia en un nodo es en sí misma un hallazgo de la auditoría.
 
 ---
 
@@ -110,6 +110,6 @@ No sustituyen a SSH, pero pueden aportar en puntos concretos:
 
 ## Documentos relacionados
 
-- [Flujo de operación: logs → playbook → EDR → sandbox](./flujo-edr-playbook-sandbox.md)
+- [Flujo de operación: logs → playbook → motor de triaje → sandbox](./flujo-triaje-playbook-sandbox.md)
 - [Diseño del sandbox: red FTTx con Containerlab](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)
 - [Auditoría de vulnerabilidades del sandbox](./auditoria-de-vulnerabilidades-del-sandbox.md)

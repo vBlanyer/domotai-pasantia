@@ -40,10 +40,10 @@ Lo que funciona hoy, medido y reproducible (`sh lab/lab.sh up && sh lab/lab.sh t
 | D1 | El plan de trabajo y el roadmap **no se modifican**; la información nueva va al detalle de fases | — |
 | D2 | El sandbox es la cadena de acceso **FTTx**; el objetivo principal es el **CPE/HGU** | [sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
 | D3 | Plataforma de laboratorio: **Containerlab**. Descartados Packet Tracer (simula, no virtualiza) y CML (tope de nodos) | [sandbox §2](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
-| D4 | Canal EDR → sandbox: **SSH**, acotado a un **catálogo cerrado de acciones**. TR-069/TR-369 como evolución | [protocolos](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md) |
+| D4 | Canal motor de triaje → sandbox: **SSH**, acotado a un **catálogo cerrado de acciones**. TR-069/TR-369 como evolución | [protocolos](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md) |
 | D5 | Auditoría limitada a **escaneo de red**: Nmap inventaría, Greenbone dictamina. Sin análisis de firmware | [auditoría](../04-fase4-diseno-de-arquitectura/auditoria-de-vulnerabilidades-del-sandbox.md) |
 | D6 | Modelo en **dos perfiles**: A híbrido (equipo actual), B con Foundation-Sec-8B (si hay hardware) | [modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
-| D10 | El **módulo de ingesta ocupa el papel del playbook** en el laboratorio; no se crea una caja aparte | [flujo §3](../04-fase4-diseno-de-arquitectura/flujo-edr-playbook-sandbox.md) |
+| D10 | El **módulo de ingesta ocupa el papel del playbook** en el laboratorio; no se crea una caja aparte | [flujo §3](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md) |
 | D8 | **Wazuh dentro del sandbox** como fuente de alertas y **su nivel de regla como baseline** | [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
 | D9 | El Perfil A incorpora un **modelo de 3B en línea** para la justificación breve de la validación humana | [modelo §3](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
 | D7 | Dos abstracciones sostienen el diseño: el **conector** (acciones abstractas) y la **interfaz de análisis** (`clasificar`/`justificar`) | [protocolos](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md), [modelo §5](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
@@ -58,9 +58,9 @@ Clasificadas por severidad. **Bloqueante** = impide avanzar. **Estructural** = e
 
 ### I-1 · No existe la fuente de alertas — ~~BLOQUEANTE~~ **RESUELTA**
 
-El flujo previsto es `logs → playbook → EDR`. El sistema de logs y el playbook son de la empresa, y **no hay empresa ni sistema definidos**.
+El flujo previsto es `logs → playbook → motor de triaje`. El sistema de logs y el playbook son de la empresa, y **no hay empresa ni sistema definidos**.
 
-Agravante detectado al revisar: el [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) **no contempla ningún componente que genere alertas**. Produce telemetría de red y vulnerabilidades, pero nada que el EDR pueda triar. **El EDR no tiene entrada.**
+Agravante detectado al revisar: el [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) **no contempla ningún componente que genere alertas**. Produce telemetría de red y vulnerabilidades, pero nada que el motor de triaje pueda triar. **El motor de triaje no tiene entrada.**
 
 **Choca con:** el criterio de cierre de la Fase 3 — *«el entorno procesa alertas de prueba de punta a punta»*.
 
@@ -108,9 +108,9 @@ Los requisitos funcionales y no funcionales de la Fase 2 se derivaron del primer
 
 ### I-6 · El Perfil A contradice el diseño del flujo — ~~DE DISEÑO~~ **RESUELTA**
 
-Dos choques directos entre [selección del modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) y el [flujo de operación](../04-fase4-diseno-de-arquitectura/flujo-edr-playbook-sandbox.md):
+Dos choques directos entre [selección del modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) y el [flujo de operación](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md):
 
-- **Validación humana sin justificación.** El flujo establece: EDR decide → justificación → validación humana → ejecución. Pero el Perfil A genera la justificación **en lote y fuera de línea**, así que el validador humano decidiría sin tener delante el razonamiento que debía darle criterio.
+- **Validación humana sin justificación.** El flujo establece: motor de triaje decide → justificación → validación humana → ejecución. Pero el Perfil A genera la justificación **en lote y fuera de línea**, así que el validador humano decidiría sin tener delante el razonamiento que debía darle criterio.
 - **«Punta a punta» imposible.** El criterio de cierre de la Fase 3 lo exige; el Perfil A prohíbe tener sandbox y modelo vivos a la vez.
 
 **Resolución (agosto 2026):** se añade al Perfil A un **tercer componente de 3B cuantizado** (Phi-4-mini o Llama 3.2 3B, ~2 GB) que redacta una justificación breve en 15–20 s, disponible para la validación humana. El 8B en lote queda para la justificación extensa de auditoría y evaluación. El camino interactivo —alerta, clasificación, justificación breve, validación, acción— **sí es demostrable en vivo** en el equipo actual, así que el criterio de cierre de la Fase 3 se sostiene sin reescribirse.
@@ -119,7 +119,7 @@ Dos choques directos entre [selección del modelo](../04-fase4-diseno-de-arquite
 
 ### I-7 · Tensión de alcance gestionada, no resuelta — DE DISEÑO
 
-El sandbox se encuadró como «entorno controlado de validación» para no tocar el alcance aprobado. Funciona sobre el papel, pero **el EDR sigue decidiendo y ejecutando acciones**, que es respuesta automatizada — declarada trabajo futuro en el plan. Una lectura atenta desde coordinación podría objetarlo.
+El sandbox se encuadró como «entorno controlado de validación» para no tocar el alcance aprobado. Funciona sobre el papel, pero **el motor de triaje sigue decidiendo y ejecutando acciones**, que es respuesta automatizada — declarada trabajo futuro en el plan. Una lectura atenta desde coordinación podría objetarlo.
 
 **Quién puede resolverlo:** coordinación, si se decide plantearlo abiertamente.
 
@@ -139,11 +139,11 @@ El sandbox se encuadró como «entorno controlado de validación» para no tocar
 
 ## 4. Propuesta: Wazuh como generador de alertas del sandbox
 
-Una sola decisión resuelve **I-1, I-2 e I-3** a la vez: desplegar **Wazuh dentro del sandbox**, con agentes en los nodos OpenWrt y Linux, un manager que correlaciona, y sus alertas como entrada del EDR.
+Una sola decisión resuelve **I-1, I-2 e I-3** a la vez: desplegar **Wazuh dentro del sandbox**, con agentes en los nodos OpenWrt y Linux, un manager que correlaciona, y sus alertas como entrada del motor de triaje.
 
 | Incongruencia | Cómo la resuelve |
 |---------------|------------------|
-| **I-1** — sin fuente de alertas | El EDR pasa a tener entrada real, generada en el propio laboratorio |
+| **I-1** — sin fuente de alertas | El motor de triaje pasa a tener entrada real, generada en el propio laboratorio |
 | **I-2** — ground truth equivocado | Las alertas de Wazuh sobre nodos con vulnerabilidades conocidas **sí** se pueden etiquetar como VP/FP |
 | **I-3** — sin baseline | El **nivel de regla de Wazuh es exactamente «el método tradicional basado en reglas y firmas»** contra el que el plan quiere comparar. El baseline sale gratis |
 
@@ -161,7 +161,7 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 2. **¿Cuál es el formato exacto de salida de ese sistema?** Bloquea la especificación del módulo de ingesta.
 3. **¿Qué severidad o clasificación asigna hoy?** Es el baseline de la Fase 6 (I-3).
 4. **¿Tendremos acceso real a ese sistema y al playbook, o construimos un sustituto en el laboratorio?** (I-1)
-5. **¿El playbook espera respuesta del EDR, o es asíncrono?** Determina el presupuesto de latencia y si la validación humana en línea es viable.
+5. **¿El playbook espera respuesta del motor de triaje, o es asíncrono?** Determina el presupuesto de latencia y si la validación humana en línea es viable.
 6. **¿Existe ya un catálogo de acciones que el playbook sepa ejecutar?**
 7. **¿Hay alguna máquina de laboratorio disponible?** Con 32 GB o una GPU dedicada, el Perfil B pasa a ser viable y el prototipo pierde un componente entero.
 
@@ -181,3 +181,4 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |
 | I-8 | Material con premisa superada | Menor | Nosotros | Señalada |
 | I-9 | Dos planes conviviendo | Menor | Nosotros | Abierta |
+| I-10 | El componente central se llamaba «EDR» siendo el motor de triaje de un XDR | De diseño | Nosotros | **Resuelta** — renombrado a «motor de triaje» |

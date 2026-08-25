@@ -1,6 +1,6 @@
 # Auditoría de vulnerabilidades del sandbox
 
-El auditor es la **contraparte del EDR**: mientras el EDR reacciona a eventos, el auditor observa el estado del sistema y determina qué exposiciones existen. Este documento define su alcance, herramientas, salida y encaje en el flujo.
+El auditor es la **contraparte del motor de triaje**: mientras el motor de triaje reacciona a eventos, el auditor observa el estado del sistema y determina qué exposiciones existen. Este documento define su alcance, herramientas, salida y encaje en el flujo.
 
 ---
 
@@ -49,7 +49,7 @@ Los dos son complementarios y ese es el reparto: **Nmap inventaría y acota, Gre
 
 ## 4. Salida normalizada
 
-Nmap y Greenbone producen formatos distintos. El auditor debe emitir un resultado **normalizado**, independiente de la herramienta, para que el EDR no dependa del escáner concreto y para que sustituir Greenbone más adelante no obligue a tocar el EDR.
+Nmap y Greenbone producen formatos distintos. El auditor debe emitir un resultado **normalizado**, independiente de la herramienta, para que el motor de triaje no dependa del escáner concreto y para que sustituir Greenbone más adelante no obligue a tocar el motor de triaje.
 
 Campos mínimos por hallazgo:
 
@@ -74,13 +74,13 @@ El auditor cumple **tres funciones distintas**, y conviene no confundirlas:
 
 ### 5.1 Contexto de decisión (antes)
 
-El resultado de la auditoría enriquece las alertas que llegan al EDR. Una alerta contra un nodo que **es efectivamente vulnerable** a lo que la alerta sugiere merece más prioridad que la misma alerta contra un nodo no afectado.
+El resultado de la auditoría enriquece las alertas que llegan al motor de triaje. Una alerta contra un nodo que **es efectivamente vulnerable** a lo que la alerta sugiere merece más prioridad que la misma alerta contra un nodo no afectado.
 
 Esta es la contribución más valiosa del auditor: ataca directamente la **fatiga por falsos positivos** identificada en el [análisis de limitaciones de XDR](../02-fase2-estado-del-arte/limitacionesDeXDR.md). Buena parte del ruido de un SOC son alertas correctas cuyo objetivo no era explotable.
 
 ### 5.2 Verificación de la acción (después)
 
-Tras ejecutarse una acción del EDR, un nuevo escaneo comprueba si la exposición se cerró realmente. Convierte "la acción se ejecutó sin error" en "la acción tuvo el efecto pretendido" — que no es lo mismo, y es la diferencia entre un registro de ejecución y una evidencia de remediación.
+Tras ejecutarse una acción del motor de triaje, un nuevo escaneo comprueba si la exposición se cerró realmente. Convierte "la acción se ejecutó sin error" en "la acción tuvo el efecto pretendido" — que no es lo mismo, y es la diferencia entre un registro de ejecución y una evidencia de remediación.
 
 ### 5.3 Generación del ground truth (una vez)
 
@@ -89,8 +89,8 @@ Un escaneo completo de la topología en estado limpio produce el **inventario de
 ```mermaid
 flowchart LR
     AUD["Auditor"] -->|"5.3 ground truth"| DS["Dataset etiquetado"]
-    AUD -->|"5.1 contexto"| EDR["EDR"]
-    EDR -->|acción| SBX["Sandbox"]
+    AUD -->|"5.1 contexto"| TRI["Motor de triaje"]
+    TRI -->|acción| SBX["Sandbox"]
     SBX -->|"5.2 reescaneo"| AUD
 ```
 
@@ -101,7 +101,7 @@ flowchart LR
 El auditor es una herramienta de medida, y una herramienta de medida imperfecta contamina lo que mide. Dos consecuencias:
 
 - **Como ground truth**, sus resultados deben **contrastarse con la composición documentada de la topología**, no aceptarse sin más. Si se etiqueta el dataset con la salida del escáner y luego se evalúa al prototipo contra esa etiqueta, se estaría midiendo el parecido con Greenbone, no la corrección.
-- **Como contexto**, un escáner puede no detectar una vulnerabilidad presente. Ausencia de hallazgo no es prueba de que el nodo sea seguro, y el EDR no debe tratarla como tal al bajar la prioridad de una alerta.
+- **Como contexto**, un escáner puede no detectar una vulnerabilidad presente. Ausencia de hallazgo no es prueba de que el nodo sea seguro, y el motor de triaje no debe tratarla como tal al bajar la prioridad de una alerta.
 
 Ambos puntos deben quedar recogidos como limitaciones conocidas en el informe de la Fase 7.
 
@@ -111,13 +111,13 @@ Ambos puntos deben quedar recogidos como limitaciones conocidas en el informe de
 
 - ¿Con qué frecuencia se escanea? Un escaneo por campaña es reproducible; escaneo continuo es más realista pero introduce ruido y carga.
 - ¿El escaneo es autenticado o no autenticado? El autenticado detecta mucho más, pero exige credenciales en cada nodo y se aleja del punto de vista de un atacante externo.
-- ¿Los hallazgos del auditor generan alertas por sí mismos, o solo enriquecen las existentes? Afecta al volumen que el EDR debe procesar.
+- ¿Los hallazgos del auditor generan alertas por sí mismos, o solo enriquecen las existentes? Afecta al volumen que el motor de triaje debe procesar.
 
 ---
 
 ## Documentos relacionados
 
-- [Flujo de operación: logs → playbook → EDR → sandbox](./flujo-edr-playbook-sandbox.md)
+- [Flujo de operación: logs → playbook → motor de triaje → sandbox](./flujo-triaje-playbook-sandbox.md)
 - [Diseño del sandbox: red FTTx con Containerlab](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)
 - [Protocolos de comunicación con el sandbox](./protocolos-comunicacion-sandbox.md)
 - [Limitaciones de XDR](../02-fase2-estado-del-arte/limitacionesDeXDR.md)

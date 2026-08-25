@@ -109,17 +109,17 @@ El entorno procesa alertas de prueba de punta a punta sin dependencias externas 
 ### Actividades
 
 - [ ] Diseñar el diagrama de arquitectura (componentes, flujos de datos, puntos de integración).
-- [ ] Documentar el flujo **logs → playbook → EDR → sandbox → auditoría**, identificando qué componentes ya existen y cuáles se construyen.
+- [ ] Documentar el flujo **logs → playbook → motor de triaje → sandbox → auditoría**, identificando qué componentes ya existen y cuáles se construyen.
 - [ ] Definir el pipeline de triaje: recepción → enriquecimiento → clasificación → priorización → justificación → validación humana.
 - [ ] Establecer reglas de decisión y umbrales (cuándo escalar, cuándo requerir revisión humana).
 - [ ] Especificar el formato de salida del razonamiento explicable (campos, nivel de detalle, trazabilidad).
 - [ ] Definir los puntos de validación humana dentro del flujo (qué decisiones la requieren y cómo se registran).
 - [ ] Definir interfaces con el módulo propietario y posibles herramientas auxiliares.
-- [ ] **Seleccionar el protocolo de comunicación EDR ↔ sandbox** y especificar el contrato de la orden de acción (idempotencia y trazabilidad).
+- [ ] **Seleccionar el protocolo de comunicación motor de triaje ↔ sandbox** y especificar el contrato de la orden de acción (idempotencia y trazabilidad).
 - [ ] Definir el **catálogo cerrado de acciones** ejecutables: precondiciones, efecto esperado, reversibilidad y verificación de cada una.
 - [ ] Diseñar el **auditor de vulnerabilidades** y el formato normalizado de sus hallazgos, independiente de la herramienta de escaneo.
 - [ ] **Seleccionar el modelo de análisis** y definir los perfiles de despliegue según el hardware disponible.
-- [ ] Especificar la **interfaz de análisis** (`clasificar` / `justificar`) que aísla al EDR del modelo concreto que la implementa.
+- [ ] Especificar la **interfaz de análisis** (`clasificar` / `justificar`) que aísla al motor de triaje del modelo concreto que la implementa.
 - [ ] **Definir las métricas de evaluación** (precisión, recall, F1, tasa de falsos positivos, tiempo de triaje, etc.) y cómo se calculan sobre el dataset etiquetado de la Fase 3.
 - [ ] **Definir el método tradicional de referencia (baseline)**: el nivel de regla de Wazuh, y cómo se compara con la clasificación del prototipo.
 - [ ] Documentar decisiones de diseño y alternativas descartadas.
@@ -129,7 +129,7 @@ El entorno procesa alertas de prueba de punta a punta sin dependencias externas 
 - Diagrama de arquitectura y flujo de datos.
 - Especificación de reglas de triaje y criterios de priorización.
 - Contrato de interfaces (APIs, esquemas de mensajes).
-- Catálogo de acciones y contrato del conector EDR ↔ sandbox.
+- Catálogo de acciones y contrato del conector motor de triaje ↔ sandbox.
 - Especificación del auditor y formato normalizado de hallazgos.
 - Selección del modelo de análisis, perfiles de despliegue e interfaz de análisis.
 - Plan de evaluación: métricas, forma de cálculo y definición del baseline.
@@ -152,7 +152,7 @@ La arquitectura está validada internamente y es suficiente para iniciar la impl
 - [ ] Desarrollar la lógica de clasificación y priorización de alertas.
 - [ ] Implementar la generación de justificación explicable para cada decisión.
 - [ ] Incorporar el flujo de validación humana para alertas de alta criticidad o baja confianza.
-- [ ] Implementar el **conector EDR ↔ sandbox** sobre el protocolo seleccionado, limitado al catálogo cerrado de acciones.
+- [ ] Implementar el **conector motor de triaje ↔ sandbox** sobre el protocolo seleccionado, limitado al catálogo cerrado de acciones.
 - [ ] Implementar el **auditor de vulnerabilidades** y la normalización de sus hallazgos.
 - [ ] Registrar logs y trazas para auditoría y evaluación posterior.
 - [ ] Realizar pruebas unitarias e integración sobre el dataset de prueba.
@@ -169,7 +169,7 @@ La arquitectura está validada internamente y es suficiente para iniciar la impl
 - Respuesta automatizada ante incidentes **sobre infraestructura productiva**.
 - Integración multicapa en producción.
 
-> **Sobre el sandbox.** Las acciones que el EDR ejecuta sobre el sandbox son un mecanismo de **validación en entorno controlado**, no respuesta automatizada en producción. Su finalidad es medir la calidad de la decisión, no remediar incidentes reales. La respuesta automatizada sobre equipos productivos se mantiene como trabajo futuro.
+> **Sobre el sandbox.** Las acciones que el motor de triaje ejecuta sobre el sandbox son un mecanismo de **validación en entorno controlado**, no respuesta automatizada en producción. Su finalidad es medir la calidad de la decisión, no remediar incidentes reales. La respuesta automatizada sobre equipos productivos se mantiene como trabajo futuro.
 
 ### Criterio de cierre
 

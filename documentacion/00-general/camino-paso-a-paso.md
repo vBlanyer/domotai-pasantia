@@ -79,7 +79,7 @@ Puede solaparse con el Bloque 1: no depende de que el entorno esté desplegado.
 ### Paso 7 · Catálogo cerrado de acciones
 > **HECHO** (24/08/2026).
 
-Enumerar cada acción que el EDR puede ordenar, con precondiciones, efecto esperado, reversibilidad y cómo verificar que se aplicó.
+Enumerar cada acción que el motor de triaje puede ordenar, con precondiciones, efecto esperado, reversibilidad y cómo verificar que se aplicó.
 
 **Hecho cuando:** el catálogo está cerrado y cada acción tiene su comando concreto sobre OpenWrt o Linux.
 
@@ -100,7 +100,7 @@ Los RF/RNF de la Fase 2 se derivaron de XDR empresarial y SOC. Revisar cuáles s
 ### Paso 10 · Diagrama de arquitectura consolidado
 > **HECHO** (24/08/2026).
 
-Un único diagrama que reúna sandbox, Wazuh, EDR, conector, auditor y validación humana.
+Un único diagrama que reúna sandbox, Wazuh, motor de triaje, conector, auditor y validación humana.
 
 **Cierra la Fase 4.**
 
@@ -109,7 +109,7 @@ Un único diagrama que reúna sandbox, Wazuh, EDR, conector, auditor y validaci�
 ## Bloque 3 — Prototipo (Fase 5)
 
 ### Paso 11 · Ingesta y normalización
-Leer `alerts.json`, normalizar al esquema de entrada del EDR, **conservando el nivel de regla** como baseline.
+Leer `alerts.json`, normalizar al esquema de entrada del motor de triaje, **conservando el nivel de regla** como baseline.
 
 ### Paso 12 · Interfaz de análisis y clasificador
 Implementar `clasificar` y `justificar` como interfaz, y detrás el encoder con fine-tuning sobre la partición de entrenamiento del Paso 6.
@@ -124,7 +124,7 @@ Modelo de 3B cuantizado detrás de `justificar`.
 ### Paso 14 · Conector SSH
 Traduce acciones abstractas del catálogo a comandos, con autenticación por clave, privilegio mínimo y registro de orden, comando, código de salida y salida.
 
-**Hecho cuando:** el EDR ordena una acción del catálogo y el nodo del sandbox la ejecuta, con la traza completa registrada.
+**Hecho cuando:** el motor de triaje ordena una acción del catálogo y el nodo del sandbox la ejecuta, con la traza completa registrada.
 
 ### Paso 15 · Validación humana y trazas
 Retener las órdenes que requieren aprobación, mostrar la justificación del Paso 13, registrar la decisión del analista.
@@ -166,7 +166,7 @@ Arquitectura, decisiones y alternativas descartadas, resultados, limitaciones y 
 | Reunión con la empresa: las siete preguntas de [estado y riesgos §5](./estado-y-riesgos.md) | Ya no bloquean, pero mejoran el resultado. La 7 (hardware) puede cambiar el Perfil | I-4 |
 | Retirar o archivar `planDeTrabajo.md` | Convive con la versión actualizada y alguien puede leer el equivocado | I-9 |
 | Reescribir o podar `herramientas-auxiliares.md` y `symons.md` | Llevan nota de condicionalidad, pero su contenido sigue contradiciendo el diseño FTTx | I-8 |
-| Plantear a coordinación el encuadre del sandbox | El EDR ejecuta acciones; está encuadrado como validación, pero conviene que lo sepan | I-7 |
+| Plantear a coordinación el encuadre del sandbox | El motor de triaje ejecuta acciones; está encuadrado como validación, pero conviene que lo sepan | I-7 |
 
 ---
 
@@ -174,4 +174,4 @@ Arquitectura, decisiones y alternativas descartadas, resultados, limitaciones y 
 
 **El Paso 1.** No es burocracia: es la única forma de saber si el diseño de los últimos días se sostiene en el equipo que hay. Cuesta poco y puede ahorrar semanas.
 
-Después, los pasos 2 y 3 en ese orden. Con el Paso 3 terminado el proyecto tiene, por primera vez, **una alerta real generada por el propio laboratorio** — que es lo que faltaba para que el EDR tuviera algo que triar.
+Después, los pasos 2 y 3 en ese orden. Con el Paso 3 terminado el proyecto tiene, por primera vez, **una alerta real generada por el propio laboratorio** — que es lo que faltaba para que el motor de triaje tuviera algo que triar.

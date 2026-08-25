@@ -1,6 +1,6 @@
 # Catálogo cerrado de acciones
 
-El EDR no ejecuta comandos: **selecciona una acción de este catálogo**, y el conector la traduce
+El motor de triaje no ejecuta comandos: **selecciona una acción de este catálogo**, y el conector la traduce
 al comando concreto sobre el nodo. Un conjunto cerrado y enumerado es auditable, comprobable y
 acotado en su radio de impacto; un canal de comandos libres no lo es. Esta es la condición que
 impide que el canal SSH degenere en ejecución remota arbitraria (ver [protocolos](./protocolos-comunicacion-sandbox.md)).
@@ -8,13 +8,13 @@ impide que el canal SSH degenere en ejecución remota arbitraria (ver [protocolo
 Cada acción se define por: **precondición**, **efecto esperado**, **reversibilidad**, **cómo se
 verifica** y si **requiere validación humana**. El comando mostrado es el del sandbox actual
 (nodos Linux); sobre un CPE OpenWrt real cambiaría el conector, no la acción abstracta que el
-EDR emite.
+Motor de triaje emite.
 
 ---
 
 ## Estructura de una orden de acción
 
-Lo que el EDR emite hacia el conector (ver el contrato en [flujo §5](./flujo-edr-playbook-sandbox.md)):
+Lo que el motor de triaje emite hacia el conector (ver el contrato en [flujo §5](./flujo-triaje-playbook-sandbox.md)):
 
 ```
 accion_id        identificador del catalogo (p. ej. AISLAR_NODO)
@@ -88,7 +88,7 @@ Se deriva de tres criterios (los umbrales concretos se fijan en el [Paso 8](./me
 
 1. La acción **no es reversible** o **interrumpe el servicio del abonado** → siempre humano.
 2. La **confianza del clasificador** está por debajo del umbral → humano.
-3. La clasificación del EDR y la **severidad de Wazuh discrepan** → humano (uno de los dos se equivoca).
+3. La clasificación del motor de triaje y la **severidad de Wazuh discrepan** → humano (uno de los dos se equivoca).
 
 Categorías A y las acciones marcadas «No» pasan directas; el resto queda retenido hasta aprobación.
 
@@ -98,7 +98,7 @@ Categorías A y las acciones marcadas «No» pasan directas; el resto queda rete
 
 - **Contraataque o acción sobre el origen externo** de la alerta: fuera de alcance y de la red controlada.
 - **Borrado de datos o de logs**: destruye la traza de auditoría que el proyecto exige.
-- **Cualquier comando no listado**: si el EDR necesitara algo que no está aquí, se añade al
+- **Cualquier comando no listado**: si el motor de triaje necesitara algo que no está aquí, se añade al
   catálogo con su ficha, no se abre un canal genérico.
 
 ---
@@ -118,4 +118,4 @@ solo con OpenWrt real: un `RESTAURAR_CONFIG` sobre un CPE de verdad usaría UCI,
 
 ## Documentos relacionados
 
-- [Flujo de operación](./flujo-edr-playbook-sandbox.md) · [Protocolos](./protocolos-comunicacion-sandbox.md) · [Métricas y evaluación](./metricas-y-evaluacion.md)
+- [Flujo de operación](./flujo-triaje-playbook-sandbox.md) · [Protocolos](./protocolos-comunicacion-sandbox.md) · [Métricas y evaluación](./metricas-y-evaluacion.md)
