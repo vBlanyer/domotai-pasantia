@@ -3,3 +3,4 @@ lab/clab-*/
 *.img
 *.img.gz
 *.drawio
+get-docker.sh
