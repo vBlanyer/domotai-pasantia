@@ -1,6 +1,13 @@
-Para usar el sysmon lo ideal es tener una plantilla para que no capture todo los eventos de manera indiscriminada y se almancene una cantidad de memoria en logs innecesarios, por eso lo ideal es usar una plantilla, hay una llamada swiftOnSecurity que se encuentra en git. Donde se clasifica con un numero de id segun el tipo de evento, ya se un cambio en el registro o una creacion de archivo.
+# Notas de trabajo
 
+Borrador personal. El estado real y las decisiones viven en
+`documentacion/00-general/estado-y-riesgos.md` y en los README de cada fase.
 
-Fase 1: No tengo info del cliente
-Fase 2: Falta estructurar requisitos funcionales y no funcionales
+## Estado (31/08/2026)
+- Fases 1–4: completas. Fase 3 con dataset etiquetado en `lab/dataset/`.
+- Siguiente: Fase 5 (implementación del prototipo).
 
+## Pendiente de la empresa (no bloquea)
+- ¿«Módulo propietario» y «sistema de logs» son lo mismo? (I-4)
+- Formato real de salida del sistema de logs; su severidad (segundo baseline).
+- ¿Hay máquina de laboratorio con más recursos? (habilitaría el Perfil B).

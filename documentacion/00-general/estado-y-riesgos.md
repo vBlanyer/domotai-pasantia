@@ -8,15 +8,15 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 
 ## 1. Estado por fase
 
-*Actualizado a 24/08/2026.*
+*Actualizado a 31/08/2026.*
 
 | Fase | Estado | Qué hay hecho / qué falta |
 |------|--------|----------------------------|
-| 1 — Análisis del módulo propietario | **Bloqueada por la empresa** | No hay módulo ni cliente definido. **Ya no bloquea el avance:** su papel lo suple el laboratorio (Wazuh como fuente de alertas). Falta lo que solo puede dar la empresa (I-4). |
+| 1 — Análisis del módulo propietario | **Completa por modelado** | Ejecutada por modelado al no haber cliente: [modelo de cliente genérico](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md) y [caso de uso acotado](../01-fase1-analisis-del-modulo/caso-de-uso-acotado.md), con las limitaciones y los cinco puntos de variabilidad. Sigue abierto solo lo que depende de la empresa (I-4). |
 | 2 — Estado del arte | **Completa** | Estado del arte MDR/XDR **y de los modelos de lenguaje aplicados a seguridad**, con la comparación reglas frente a IA. **34 requisitos** (20 RF + 14 RNF) en un [registro único](../02-fase2-estado-del-arte/requisitos.md). Encuadre de mercado reorientado del segmento PYME al cliente modelado en la Fase 1. |
-| 3 — Entorno de pruebas | **Operativa y verificada** | Red del cliente de 7 nodos desplegada; Metasploitable como servidor objetivo con ground truth documentado; Wazuh generando alertas reales; auditor con Nmap; todo reproducible con `lab/lab.sh` y probado de extremo a extremo. Falta: equipo de borde OpenWrt real (vrnetlab bloqueado). |
-| 4 — Arquitectura | **Cerrada** | Flujo, protocolos, auditoría, modelo (perfiles A/B), catálogo de acciones, métricas y baseline, y arquitectura consolidada. Único hueco: probar el catálogo sobre OpenWrt real. |
-| 5 — Implementación | **No iniciada** | Es el siguiente bloque. Empieza por el módulo de ingesta, que ya tiene una entrada real (`alerts.json`). |
+| 3 — Entorno de pruebas | **Completa** | Red del cliente de 7 nodos, Metasploitable con ground truth, Wazuh generando alertas reales, auditor Nmap normalizado, todo reproducible con `lab/lab.sh` y con [guía de instalación](../../lab/docs/instalacion.md). **Dataset de alertas etiquetado entregado** (`lab/dataset/etiquetado.jsonl`: 410 alertas, 20 VP / 16 FP, particionado). Falta solo: equipo de borde OpenWrt real (vrnetlab bloqueado). |
+| 4 — Arquitectura | **Cerrada** | Flujo, protocolos, auditoría, modelo (perfiles A/B), catálogo de acciones con impacto, métricas y baseline, arquitectura consolidada, y la [política de decisión y perfil de cliente](../04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md) (revisión RF-17 a RF-20 y RNF-14 absorbida el 31/08). Único hueco: probar el catálogo sobre OpenWrt real. |
+| 5 — Implementación | **No iniciada** | Es el siguiente bloque. Empieza por el módulo de ingesta, que ya tiene entrada real (`alerts.json`) y dataset para entrenar y evaluar. |
 | 6 — Evaluación | **No iniciada** | Ya **no** está bloqueada: baseline (nivel de Wazuh), ground truth y métricas están definidos. Depende de tener el prototipo (Fase 5). |
 | 7 — Documentación final | **No iniciada** | Buena parte del material ya existe en los documentos de fase; el informe los consolida. |
 
@@ -87,11 +87,11 @@ La evaluación compara el prototipo contra «el método tradicional de referenci
 
 ---
 
-### I-4 · La Fase 1 está vacía y es la raíz de las demás — ESTRUCTURAL
+### I-4 · La identidad del módulo propietario depende de la empresa — ESTRUCTURAL
 
-«Analizar el módulo propietario» no ha empezado porque no hay módulo ni cliente. Las fases 3, 4 y 6 consumen sus salidas.
+~~La Fase 1 está vacía~~ **Ya no.** La Fase 1 se ejecutó **por modelado** (cliente genérico y caso de uso acotado), del mismo modo que I-1 se resolvió supliendo la fuente de alertas con Wazuh. Sus salidas —perímetro, clases, criticidad, política de continuidad— existen y las fases 3, 4 y 5 ya las consumen.
 
-Sin resolver además: **¿son la misma cosa «el módulo propietario» del plan y «el sistema existente que emite logs» que describió la empresa?** Nadie lo ha preguntado, y cambia el análisis.
+Lo único que **sigue abierto**, y solo lo puede resolver la empresa: **¿son la misma cosa «el módulo propietario» del plan y «el sistema existente que emite logs»?** No cambia el avance del prototipo —el diseño está aislado tras el módulo de ingesta—, pero sí afinaría el análisis si el sistema real llega.
 
 **Quién puede resolverlo:** la empresa.
 
@@ -176,7 +176,7 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-2 | Dos ground truths | Bloqueante | Nosotros | **Resuelta** — sandbox §6 reescrita |
 | I-11 | Playbook sin sustituto en el laboratorio | Estructural | Nosotros | **Resuelta** — lo ocupa la ingesta (D10) |
 | I-3 | Sin baseline | Bloqueante | Nosotros | **Resuelta** — nivel de regla de Wazuh |
-| I-4 | Fase 1 vacía | Estructural | Empresa | Abierta — ya no bloquea el avance |
+| I-4 | Identidad del módulo propietario | Estructural | Empresa | **Parcial** — Fase 1 hecha por modelado; solo queda la pregunta de identidad, que depende de la empresa |
 | I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos contra el contexto del cliente |
 | I-6 | Perfil A vs flujo | De diseño | Nosotros | **Resuelta** — modelo de 3B en línea |
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |

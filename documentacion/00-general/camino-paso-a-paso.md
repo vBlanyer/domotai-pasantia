@@ -9,6 +9,7 @@ No sustituye al roadmap ni al plan de trabajo.
 ## Bloque 0 — La compuerta: medir antes de construir
 
 ### Paso 1 · Verificar el presupuesto de memoria
+> **HECHO** (23–24/08/2026). Medido en [lab/docs/mediciones.md](../../lab/docs/mediciones.md): laboratorio + Wazuh < 0,8 GB, muy por debajo de lo estimado. Greenbone no cabe junto al resto → auditor con Nmap.
 
 **Todo el diseño descansa en estimaciones que nadie ha comprobado.** Si no caben en el equipo, cambia el plan, no la realidad. Este paso va primero y condiciona el resto.
 
@@ -55,12 +56,14 @@ Añadir a la topología los objetivos con CVEs conocidos, y **documentar por nod
 **Hecho cuando:** el repositorio contiene el `.clab.yml` y, junto a él, el inventario de vulnerabilidades esperadas por nodo.
 
 ### Paso 5 · Auditor de vulnerabilidades
+> **HECHO** (31/08/2026). `lab/scripts/auditar.sh` (+`auditor.py`) produce `hallazgos.json` normalizado con la versión de Nmap registrada. Greenbone no cabía; se usa Nmap.
 
 Greenbone si el Paso 1 dijo que cabe; Nmap con scripts NSE si no.
 
 **Hecho cuando:** una campaña completa produce hallazgos normalizados, con la **versión del feed fijada y registrada**.
 
 ### Paso 6 · Dataset de alertas etiquetado
+> **HECHO** (31/08/2026). `lab/dataset/etiquetado.jsonl`: 410 alertas (20 VP, 16 FP, 374 no_soportada), particionado por campaña. Pipeline en `lab/dataset/`, generado desde ataques reales. Ver [lab/docs/dataset.md](../../lab/docs/dataset.md).
 
 Generar actividad sobre el sandbox, recolectar las alertas de Wazuh, y **etiquetar cada una** contrastándola contra el inventario del Paso 4: verdadero positivo si la exposición existe, falso positivo si no.
 
@@ -103,6 +106,8 @@ Los RF/RNF de la Fase 2 se derivaron de XDR empresarial y SOC. Revisar cuáles s
 Un único diagrama que reúna sandbox, Wazuh, motor de triaje, conector, auditor y validación humana.
 
 **Cierra la Fase 4.**
+
+> **Revisión posterior HECHA** (31/08/2026). Tras cerrar la Fase 1 por modelado surgieron RF-17 a RF-20 y RNF-14, que la Fase 4 no recogía. Absorbidos: nuevo [política de decisión y perfil de cliente](../04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md) (regla clasificación→acción + perfil configurable), columna de impacto en el catálogo, métricas de continuidad. La Fase 4 ya no tiene revisión pendiente.
 
 ---
 
@@ -164,8 +169,8 @@ Arquitectura, decisiones y alternativas descartadas, resultados, limitaciones y 
 | Tarea | Por qué | Incongruencia |
 |-------|---------|---------------|
 | Reunión con la empresa: las siete preguntas de [estado y riesgos §5](./estado-y-riesgos.md) | Ya no bloquean, pero mejoran el resultado. La 7 (hardware) puede cambiar el Perfil | I-4 |
-| Retirar o archivar `planDeTrabajo.md` | Convive con la versión actualizada y alguien puede leer el equivocado | I-9 |
-| Reescribir o podar `herramientas-auxiliares.md` y `symons.md` | Llevan nota de condicionalidad, pero su contenido sigue contradiciendo el diseño actual | I-8 |
+| ~~Retirar o archivar `planDeTrabajo.md`~~ **HECHO** — movido a `documentacion/archivo/` | — | I-9 |
+| ~~Reescribir o podar `herramientas-auxiliares.md` y `symons.md`~~ **HECHO** — movidos a `documentacion/archivo/` | — | I-8 |
 | Plantear a coordinación el encuadre del sandbox | El motor de triaje ejecuta acciones; está encuadrado como validación, pero conviene que lo sepan | I-7 |
 
 ---
