@@ -63,6 +63,22 @@ Sobre la matriz de confusión: VP (verdadero positivo), FP, VN, FN.
 | **Cobertura** | % de alertas clasificadas vs. marcadas «no soportada» (RF-10) | — |
 | **Tasa de escalado** | % de alertas que van a validación humana | debe bajar sin perder recall |
 
+### 3.3.bis Continuidad (RF-20)
+
+Dos métricas que solo tienen sentido en este perímetro y que miden si el
+[perfil de continuidad](./politica-decision-continuidad.md#42-política-de-continuidad-v3) funciona.
+La razón de medirlas: **un triaje con buen F1 que corta el servicio del cliente es peor que el
+sistema al que sustituye.**
+
+| Métrica | Cómo se calcula | Referencia |
+|---------|-----------------|-----------|
+| **Acciones disruptivas indebidas** | nº de respuestas de impacto `alcanza_servicio` que se habrían ejecutado a partir de una alerta que era **falso positivo** | El daño que el prototipo habría causado |
+| **Retención correcta** | de esas, % que quedó efectivamente retenido por la validación humana | Mide si la regla del perfil funciona |
+
+Ambas exigen que **cada orden lleve su `impacto` declarado en la traza** (RF-17; ver el
+[contrato de la orden](./catalogo-de-acciones.md#estructura-de-una-orden-de-acción)). Sin ese campo
+no se pueden calcular.
+
 ### 3.4 Calidad de la justificación (RF-05, RNF-02)
 
 No es totalmente automatizable; se combina:

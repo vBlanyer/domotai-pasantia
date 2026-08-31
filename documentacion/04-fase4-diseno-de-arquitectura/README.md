@@ -42,10 +42,11 @@ comparar contra él es lo único que responde a la pregunta del proyecto.
 
 - [Flujo de operación](flujo-triaje-playbook-sandbox.md) — componentes, quién existe y quién se construye, contratos entre piezas y dónde encaja la validación humana.
 - [Protocolos de comunicación con el sandbox](protocolos-comunicacion-sandbox.md) — comparativa por tramo de red y la decisión de SSH.
-- [Catálogo cerrado de acciones](catalogo-de-acciones.md) — qué puede ordenar el motor, con precondición, efecto, reversibilidad, verificación y validación humana.
+- [Catálogo cerrado de acciones](catalogo-de-acciones.md) — qué puede ordenar el motor, con impacto, precondición, efecto, reversibilidad, verificación y validación humana.
+- [Política de decisión y perfil de cliente](politica-decision-continuidad.md) — la regla clasificación→acción, el perfil configurable (V3/V4) y el filtro permite/degrada/veta.
 - [Auditoría de vulnerabilidades](auditoria-de-vulnerabilidades-del-sandbox.md) — alcance, herramientas, salida normalizada y los tres papeles del auditor.
 - [Selección del modelo de análisis](seleccion-del-modelo.md) — criterios, perfiles A y B, e interfaz `clasificar`/`justificar`.
-- [Métricas y plan de evaluación](metricas-y-evaluacion.md) — baseline, ground truth, fórmulas y condiciones de una campaña válida.
+- [Métricas y plan de evaluación](metricas-y-evaluacion.md) — baseline, ground truth, fórmulas, métricas de continuidad y condiciones de una campaña válida.
 - [Arquitectura consolidada](arquitectura-consolidada.md) — vista única: componentes, planos, flujo y los tres puntos de aislamiento.
 
 **Material de referencia:** [EDR, XDR, MDR y telemetría](edr-xdr-mdr-telemetria.md) — encaje de las
@@ -68,22 +69,16 @@ la [Fase 6](../06-fase6-evaluacion-del-prototipo/), que aplica sus métricas y s
 
 ## Estado
 
-**Cerrada, con una revisión pendiente.** El diseño está completo y es suficiente para empezar a
-implementar; la vista de conjunto está en [arquitectura consolidada](arquitectura-consolidada.md).
+**Cerrada.** El diseño está completo y es suficiente para empezar a implementar; la vista de
+conjunto está en [arquitectura consolidada](arquitectura-consolidada.md).
 
-Queda por absorber lo que la Fase 1 produjo después de cerrarla:
+La revisión pendiente que la Fase 1 abrió tras cerrar la Fase 4 quedó **absorbida** (31/08/2026):
 
-- [**RF-17**](../02-fase2-estado-del-arte/requisitos.md) (declarar el impacto sobre el servicio de cada acción) y [**RF-20**](../02-fase2-estado-del-arte/requisitos.md) (métricas de
-  continuidad) no tienen reflejo en el contrato de la orden de acción ni en el plan de métricas.
-- [**RF-18**](../02-fase2-estado-del-arte/requisitos.md) (sin reversión verificable no se propone) y [**RF-19**](../02-fase2-estado-del-arte/requisitos.md) (rechazar lo que dejaría el
-  activo fuera del plano de gestión) cuestionan varias entradas del catálogo. El
-  [caso de uso §9](../01-fase1-analisis-del-modulo/caso-de-uso-acotado.md) ya señala `BLOQUEAR_PUERTO`
-  y `LIMITAR_BANDA` como probablemente mal clasificadas.
-- [**RNF-14**](../02-fase2-estado-del-arte/requisitos.md) (adaptarse a un cliente nuevo configurando [V1–V5](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md#6-puntos-de-variabilidad), sin tocar código) no tiene artefacto
-  de diseño para la política de continuidad ni para el inventario de criticidad.
-- No existe todavía la **regla que traduce clasificación en acción**, que el roadmap pide en esta
-  fase como «reglas de decisión y umbrales».
+- **RF-17** (impacto de cada acción) → columna de impacto en el [catálogo](catalogo-de-acciones.md) y campo en el contrato de la orden ([flujo §5](flujo-triaje-playbook-sandbox.md)).
+- **RF-18** (reversión verificable) y **RF-19** (no cortar la gestión) → precondiciones duras del [perfil](politica-decision-continuidad.md#44-rf-18-y-rf-19-son-precondiciones-duras-no-criterios-de-escalado); `BLOQUEAR_PUERTO` y `LIMITAR_BANDA` reclasificadas en el catálogo.
+- **RF-20** (métricas de continuidad) → [plan de métricas §3.3.bis](metricas-y-evaluacion.md).
+- **RNF-14** (configurar V1–V5 sin código) y la **regla clasificación→acción** del roadmap → el documento nuevo [política de decisión y perfil de cliente](politica-decision-continuidad.md).
 
-Otros dos huecos, ya conocidos: el catálogo no se ha podido probar sobre un equipo de borde con
-firmware real, y los umbrales de escalado se calibran en la Fase 6 — la implementación arranca con
-valores declarados y recalibrables.
+Dos huecos conocidos que **no** son de diseño: el catálogo no se ha podido probar sobre un equipo de
+borde con firmware real (vrnetlab bloqueado), y los umbrales concretos (confianza, `LIMITAR_BANDA`)
+se calibran en la Fase 6 — la implementación arranca con valores declarados y recalibrables.

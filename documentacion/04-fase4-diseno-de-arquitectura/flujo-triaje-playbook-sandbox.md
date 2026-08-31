@@ -149,7 +149,9 @@ Debe transportar como mínimo: identificador del evento, marca de tiempo, activo
 
 ### Motor de triaje → sandbox (orden de acción)
 
-Debe transportar: identificador de la decisión (trazable hasta el evento que la originó), nodo objetivo, acción a ejecutar, parámetros, si requiere validación humana previa, y la justificación explicable que la sustenta.
+Debe transportar: identificador de la decisión (trazable hasta el evento que la originó), nodo objetivo, acción a ejecutar, parámetros, el **impacto sobre el servicio** de la acción (`ninguno` / `localizado` / `alcanza_servicio` — RF-17), si requiere validación humana previa, y la justificación explicable que la sustenta.
+
+El campo **impacto** es lo que el [perfil del cliente](./politica-decision-continuidad.md#4-el-perfil-de-cliente) filtra y lo que las [métricas de continuidad](./metricas-y-evaluacion.md) (RF-20) miden; sin él, ni la política de continuidad ni la evaluación son calculables.
 
 Dos propiedades no negociables:
 
