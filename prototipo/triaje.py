@@ -11,7 +11,9 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
     filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),
                              alerta.get("servicio"), clas["confianza"])
     analisis_out = {**clas, "justificacion": just}
-    return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro)
+    version_perfil = perfil_dict.get("version", "v0")
+    return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro,
+                            version_perfil=version_perfil)
 
 def main(argv):
     alertas_path, perfil_path, hallazgos_path, salida = argv[1:5]

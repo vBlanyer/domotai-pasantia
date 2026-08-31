@@ -1,4 +1,5 @@
 # Operador residencial: equipos de abonado, poca criticidad, continuidad permisiva.
+version: v0
 activos:
   cpe-abonado:  { criticidad: media, servicios_prestados: [] }
   servidor-web: { criticidad: media, servicios_prestados: [] }

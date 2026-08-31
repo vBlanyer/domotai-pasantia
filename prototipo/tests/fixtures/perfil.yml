@@ -1,3 +1,4 @@
+version: v0
 activos:
   objetivo-vuln: { criticidad: alta, servicios_prestados: [] }
   puesto:        { criticidad: media, servicios_prestados: [] }

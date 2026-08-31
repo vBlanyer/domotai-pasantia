@@ -1,4 +1,5 @@
 # Cliente empresarial: servidores publicados, continuidad estricta.
+version: v0
 activos:
   servidor-web:   { criticidad: alta, servicios_prestados: [443, 80] }
   controlador-ot: { criticidad: critica, servicios_prestados: [502] }

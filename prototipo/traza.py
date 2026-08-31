@@ -2,7 +2,7 @@
 
 VERSION_BASELINE = "baseline-0"
 
-def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto, perfil_nombre, filtro_out):
+def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto, perfil_nombre, filtro_out, version_perfil):
     return {
         "id_decision": id_decision,
         "timestamp": timestamp,
@@ -19,4 +19,5 @@ def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto
         "accion_final": filtro_out.get("accion_final"),
         "requiere_humano": filtro_out.get("requiere_humano"),
         "version_baseline": VERSION_BASELINE,
+        "version_perfil": version_perfil,
     }

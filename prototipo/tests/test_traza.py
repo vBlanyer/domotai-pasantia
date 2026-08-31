@@ -8,10 +8,13 @@ class TestConstruir(unittest.TestCase):
             alerta={"id_alerta":"a1","activo":"objetivo-vuln"},
             analisis_out={"clase":"vp_intento_acceso","prioridad":4,"confianza":1.0,"justificacion":"..."},
             accion_prop="BLOQUEAR_IP", impacto="localizado", perfil_nombre="empresarial",
-            filtro_out={"resultado":"permite","accion_final":"BLOQUEAR_IP","requiere_humano":False})
-        for k in ("id_decision","id_alerta","clase","confianza","justificacion","accion_propuesta",
-                  "impacto","perfil_aplicado","resultado_filtro","accion_final","requiere_humano","version_baseline"):
+            filtro_out={"resultado":"permite","accion_final":"BLOQUEAR_IP","requiere_humano":False},
+            version_perfil="v0")
+        for k in ("id_decision","timestamp","id_alerta","activo","clase","prioridad","confianza",
+                  "justificacion","accion_propuesta","impacto","perfil_aplicado","resultado_filtro",
+                  "accion_final","requiere_humano","version_baseline","version_perfil"):
             self.assertIn(k, r)
         self.assertEqual(r["id_alerta"], "a1")
         self.assertEqual(r["resultado_filtro"], "permite")
         self.assertEqual(r["version_baseline"], "baseline-0")
+        self.assertEqual(r["version_perfil"], "v0")
