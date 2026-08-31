@@ -1,0 +1,4 @@
+# Decisiones humanas sobre alertas que la regla marcó PENDIENTE (caso gris).
+# Clave: id_alerta de Wazuh. Valor: VP | FP | PROPIA | no_soportada.
+# Queda versionado para que el ground truth sea auditable (etiqueta_por=humano).
+{}

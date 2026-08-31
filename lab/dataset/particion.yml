@@ -1,0 +1,6 @@
+# Reparto A PRIORI de campañas. Se fija ANTES de entrenar y NO se toca al ver
+# resultados: elegir la partición mirando los números contamina la evaluación.
+# ~80/20 medido en alertas, no en número de campañas. Estratificado: cada familia
+# y ambas etiquetas VP y FP presentes en los dos lados; evaluación DEBE tener FP.
+entrenamiento: []
+evaluacion: []
