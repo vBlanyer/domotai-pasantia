@@ -27,3 +27,30 @@ class TestEnriquecer(unittest.TestCase):
         a = dict(self.alerta); a["activo"] = "fantasma"
         ctx = analisis.enriquecer(a, self.hallazgos, self.perfil)
         self.assertEqual(ctx["criticidad"], "media")
+
+class TestClasificar(unittest.TestCase):
+    def setUp(self):
+        self.alerta = cargar_json("alerta_vp.json")
+
+    def test_servicio_expuesto_es_vp_intento_confianza_alta(self):
+        r = analisis.clasificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "vp_intento_acceso")
+        self.assertEqual(r["confianza"], 1.0)
+
+    def test_servicio_no_expuesto_es_fp_exposicion_inexistente(self):
+        r = analisis.clasificar(self.alerta, {"postura": {"expuesto": False}, "criticidad": "media"})
+        self.assertEqual(r["clase"], "fp_exposicion_inexistente")
+
+    def test_postura_gris_es_vp_intento_confianza_baja(self):
+        r = analisis.clasificar(self.alerta, {"postura": None, "criticidad": "media"})
+        self.assertEqual(r["clase"], "vp_intento_acceso")
+        self.assertEqual(r["confianza"], 0.5)
+
+    def test_familia_plataforma_es_no_soportada(self):
+        a = dict(self.alerta); a["familia"] = "plataforma"
+        r = analisis.clasificar(a, {"postura": None, "criticidad": "media"})
+        self.assertEqual(r["clase"], "no_soportada")
+
+    def test_prioridad_es_entero_1_a_4(self):
+        r = analisis.clasificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"})
+        self.assertIn(r["prioridad"], (1, 2, 3, 4))
