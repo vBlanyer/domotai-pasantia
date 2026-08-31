@@ -1,0 +1,12 @@
+# Cliente empresarial: servidores publicados, continuidad estricta.
+activos:
+  servidor-web:   { criticidad: alta, servicios_prestados: [443, 80] }
+  controlador-ot: { criticidad: critica, servicios_prestados: [502] }
+continuidad:
+  impacto_ninguno:          automatica
+  impacto_localizado:       automatica_si_confianza
+  impacto_alcanza_servicio: humano_siempre
+  reversibilidad_obligatoria: true
+  no_cortar_gestion: true
+excepciones:
+  - { servicio: 443, activo: servidor-web, regla: nunca_automatica }

@@ -1,0 +1,1 @@
+{"id_alerta":"ilu-1","timestamp":"2026-08-31T00:00:00Z","campaña":"ilustrativa","fuente":"ilustrativa","activo":"servidor-web","servicio":"https","familia":"servicio_expuesto","origen_ip":"203.0.113.9","mitre":["T1190"],"evento_crudo":"flood contra 443","nivel_wazuh":10,"regla_id":"ilu"}
