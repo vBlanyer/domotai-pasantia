@@ -7,10 +7,10 @@
 # entrypoint. Vive en el plano de gestion, junto al auditor, sin tocar el plano
 # de datos. Ver documentacion/04-.../flujo-edr-playbook-sandbox.md
 #
-# Uso:   sh lab/wazuh-run.sh up | down | logs | alerts | mem
+# Uso:   sh lab/scripts/wazuh-run.sh up | down | logs | alerts | mem
 set -e
 IMG=wazuh/wazuh-manager:4.14.7
-NAME=clab-fttx-lab-wazuh
+NAME=clab-red-cliente-wazuh
 NET=clab
 
 case "${1:-up}" in

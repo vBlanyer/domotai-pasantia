@@ -1,27 +1,34 @@
 # Documentación del proyecto
 
-Esta carpeta está organizada siguiendo las fases del plan de trabajo y el roadmap del proyecto.
+Organizada siguiendo las fases del [plan de trabajo](00-general/planDeTrabajoActualizado.md) y del
+[roadmap](00-general/roadmap.md). **Cada carpeta de fase tiene un `README.md`** que resume qué
+decidió y qué produjo esa fase, indexa sus documentos, y declara qué consume, qué entrega y en qué
+estado está. Empieza por ahí.
 
-## Estructura
+## Documentos base
 
-- [00-general](00-general/): documentos base, plan de trabajo y roadmap.
-  - [archivo/](archivo/): material superado que se conserva por trazabilidad.
-  - [estado-y-riesgos.md](00-general/estado-y-riesgos.md): estado por fase, decisiones cerradas e incongruencias abiertas.
-  - [camino-paso-a-paso.md](00-general/camino-paso-a-paso.md): plan de ejecución ordenado, con criterio de cierre por paso.
-- [01-fase1-analisis-del-modulo](01-fase1-analisis-del-modulo/): análisis del módulo propietario y definición del caso de uso.
-- [02-fase2-estado-del-arte](02-fase2-estado-del-arte/): revisión de MDR/XDR, límites y referencias técnicas.
-- [03-fase3-entorno-de-pruebas](03-fase3-entorno-de-pruebas/): configuración del entorno, dataset y validación.
-- [04-fase4-diseno-de-arquitectura](04-fase4-diseno-de-arquitectura/): arquitectura, flujos, reglas y métricas.
-- [05-fase5-implementacion-del-prototipo](05-fase5-implementacion-del-prototipo/): implementación del prototipo.
-- [06-fase6-evaluacion-del-prototipo](06-fase6-evaluacion-del-prototipo/): evaluación y resultados.
-- [07-fase7-documentacion-e-informe-final](07-fase7-documentacion-e-informe-final/): informe final y documentación consolidada.
+- [00-general/](00-general/) — plan de trabajo y roadmap, los dos documentos que van a coordinación.
+  - [estado-y-riesgos.md](00-general/estado-y-riesgos.md) — estado por fase, decisiones cerradas e incongruencias abiertas.
+  - [camino-paso-a-paso.md](00-general/camino-paso-a-paso.md) — plan de ejecución ordenado, con criterio de cierre por paso.
+- [archivo/](archivo/) — material superado, conservado por trazabilidad. No es diseño vigente.
 
-## Fases del plan de trabajo
+## Las siete fases
 
-1. Fase 1 — Análisis del módulo propietario
-2. Fase 2 — Revisión del estado del arte
-3. Fase 3 — Configuración del entorno de pruebas
-4. Fase 4 — Diseño de la arquitectura del sistema
-5. Fase 5 — Implementación del prototipo
-6. Fase 6 — Evaluación del prototipo
-7. Fase 7 — Documentación técnica e informe final
+| Fase | Qué contiene | Estado |
+|------|--------------|--------|
+| [1 — Análisis del módulo](01-fase1-analisis-del-modulo/) | Modelo de cliente genérico y caso de uso acotado | Completa por sustitución |
+| [2 — Estado del arte](02-fase2-estado-del-arte/) | MDR/XDR, modelos de lenguaje en seguridad y el registro único de requisitos | Completa |
+| [3 — Entorno de pruebas](03-fase3-entorno-de-pruebas/) | Diseño del laboratorio; el laboratorio ejecutable vive en [`lab/`](../lab/) | Operativa; falta el dataset etiquetado |
+| [4 — Arquitectura](04-fase4-diseno-de-arquitectura/) | Flujo, protocolos, catálogo de acciones, auditoría, modelo y métricas | Cerrada, con revisión pendiente |
+| [5 — Implementación](05-fase5-implementacion-del-prototipo/) | El prototipo: ingesta, análisis, conector, validación humana y trazas | No iniciada |
+| [6 — Evaluación](06-fase6-evaluacion-del-prototipo/) | Medición contra el baseline y análisis de errores | No iniciada |
+| [7 — Informe final](07-fase7-documentacion-e-informe-final/) | Consolidación de todo lo anterior | No iniciada |
+
+La correspondencia con los objetivos del plan es uno a uno: la fase *N* implementa el objetivo *N*.
+
+## Convención
+
+Los `README.md` de fase **resumen y enlazan; no redefinen**. Ninguna tabla normativa —requisitos,
+catálogo de acciones, clases de clasificación, métricas, puntos de variabilidad— se copia en ellos:
+vive en su documento y el README la cita. Es para evitar el problema que este repositorio ya ha
+tenido dos veces: dos copias de la misma lista que se desincronizan sin que nadie se entere.

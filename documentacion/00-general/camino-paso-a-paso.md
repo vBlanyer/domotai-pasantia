@@ -16,7 +16,7 @@ Desplegar por incrementos y **medir el consumo real en cada escalón**:
 
 | Escalón | Qué se añade | Estimado |
 |---------|--------------|----------|
-| 1 | Containerlab mínimo: borde + CPE OpenWrt + un endpoint | ~1,5–2 GB |
+| 1 | Containerlab mínimo: punto de entrega + equipo de borde OpenWrt + un endpoint | ~1,5–2 GB |
 | 2 | + Wazuh manager **sin indexer ni dashboard** | +1–2 GB |
 | 3 | + modelo de 3B cuantizado | +2–2,3 GB |
 | 4 | + Greenbone | +4–8 GB |
@@ -34,7 +34,7 @@ Desplegar por incrementos y **medir el consumo real en cada escalón**:
 
 ### Paso 2 · Topología mínima versionada
 
-Tres nodos: borde, CPE OpenWrt y un endpoint Linux. Nada más todavía.
+Tres nodos: punto de entrega, equipo de borde OpenWrt y un endpoint Linux. Nada más todavía.
 
 **Hecho cuando:** `containerlab deploy` levanta la topología desde un `.clab.yml` **commiteado**, hay conectividad de extremo a extremo, y `containerlab destroy && deploy` devuelve el laboratorio a un estado idéntico.
 
@@ -42,9 +42,9 @@ Tres nodos: borde, CPE OpenWrt y un endpoint Linux. Nada más todavía.
 
 ### Paso 3 · Wazuh generando alertas
 
-Manager sin indexer ni dashboard. Reenvío de syslog desde el CPE, agente Wazuh en el endpoint Linux.
+Manager sin indexer ni dashboard. Reenvío de syslog desde el equipo de borde, agente Wazuh en el endpoint Linux.
 
-**Hecho cuando:** una acción deliberada sobre el CPE (por ejemplo, un intento de acceso fallido) **aparece como alerta en `alerts.json`**, con su nivel de regla.
+**Hecho cuando:** una acción deliberada sobre el equipo de borde (por ejemplo, un intento de acceso fallido) **aparece como alerta en `alerts.json`**, con su nivel de regla.
 
 **Ojo:** los dispositivos sin agente registran bajo el manager (ID 000). Hay que comprobar desde el principio que se puede **atribuir cada alerta a su nodo** mediante los campos del evento; si no, el etiquetado del Paso 6 se complica.
 
@@ -90,10 +90,10 @@ Precisión, recall, F1, tasa de falsos positivos y tiempo de triaje, definidos s
 
 **Hecho cuando:** cada métrica tiene su fórmula y se sabe de qué campo del dataset sale.
 
-### Paso 9 · Revisar los requisitos contra el contexto FTTx
+### Paso 9 · Revisar los requisitos contra el contexto del cliente
 > **HECHO** (24/08/2026).
 
-Los RF/RNF de la Fase 2 se derivaron de XDR empresarial y SOC. Revisar cuáles siguen aplicando a triaje de alertas sobre CPE de red de acceso, cuáles sobran y cuáles faltan. Resuelve la incongruencia **I-5**.
+Los RF/RNF de la Fase 2 se derivaron de XDR empresarial y SOC. Revisar cuáles siguen aplicando al triaje de alertas sobre la red de un cliente, cuáles sobran y cuáles faltan. Resuelve la incongruencia **I-5**.
 
 **Hecho cuando:** cada requisito está marcado como vigente, descartado o nuevo, con una línea de justificación.
 
@@ -129,7 +129,7 @@ Traduce acciones abstractas del catálogo a comandos, con autenticación por cla
 ### Paso 15 · Validación humana y trazas
 Retener las órdenes que requieren aprobación, mostrar la justificación del Paso 13, registrar la decisión del analista.
 
-**Hecho cuando:** el **lazo completo funciona en vivo**: alerta de Wazuh → clasificación → justificación → validación humana → acción sobre el CPE → verificación.
+**Hecho cuando:** el **lazo completo funciona en vivo**: alerta de Wazuh → clasificación → justificación → validación humana → acción sobre el equipo de borde → verificación.
 
 **Cierra la Fase 5.**
 
@@ -165,7 +165,7 @@ Arquitectura, decisiones y alternativas descartadas, resultados, limitaciones y 
 |-------|---------|---------------|
 | Reunión con la empresa: las siete preguntas de [estado y riesgos §5](./estado-y-riesgos.md) | Ya no bloquean, pero mejoran el resultado. La 7 (hardware) puede cambiar el Perfil | I-4 |
 | Retirar o archivar `planDeTrabajo.md` | Convive con la versión actualizada y alguien puede leer el equivocado | I-9 |
-| Reescribir o podar `herramientas-auxiliares.md` y `symons.md` | Llevan nota de condicionalidad, pero su contenido sigue contradiciendo el diseño FTTx | I-8 |
+| Reescribir o podar `herramientas-auxiliares.md` y `symons.md` | Llevan nota de condicionalidad, pero su contenido sigue contradiciendo el diseño actual | I-8 |
 | Plantear a coordinación el encuadre del sandbox | El motor de triaje ejecuta acciones; está encuadrado como validación, pero conviene que lo sepan | I-7 |
 
 ---

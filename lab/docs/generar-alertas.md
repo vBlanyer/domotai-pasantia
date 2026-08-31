@@ -3,7 +3,7 @@
 Cómo producir las alertas que el EDR consumirá. Hay dos vías: **manual** (fiable, para probar
 el pipeline) y **por reenvío** (un ataque real produce la alerta, más realista pero con matices).
 
-Requisito común: el Wazuh manager corriendo (`sh lab/wazuh-run.sh up`) con la recepción de
+Requisito común: el Wazuh manager corriendo (`sh lab/scripts/wazuh-run.sh up`) con la recepción de
 syslog activada en el 514/udp.
 
 ---
@@ -19,7 +19,7 @@ La prioridad `38` = facility `auth` (4) × 8 + severidad `info` (6).
 ### Un login SSH fallido → nivel 5
 
 ```sh
-docker exec clab-fttx-lab-objetivo-vuln sh -c \
+docker exec clab-red-cliente-objetivo-vuln sh -c \
  'echo "<38>Aug 24 15:40:00 objetivo-vuln sshd[9001]: Failed password for root from 45.83.12.7 port 55001 ssh2" | nc -u -w1 172.20.20.9 514'
 ```
 
@@ -30,7 +30,7 @@ Produce: `nivel 5, regla 5760, sshd: authentication failed, data.srcip=45.83.12.
 Ocho fallos seguidos desde la **misma IP**. Wazuh los correlaciona y eleva el nivel:
 
 ```sh
-docker exec clab-fttx-lab-objetivo-vuln sh -c '
+docker exec clab-red-cliente-objetivo-vuln sh -c '
 for i in $(seq 1 8); do
   echo "<38>Aug 24 15:41:0$i objetivo-vuln sshd[81$i]: Failed password for root from 91.240.118.9 port 6000$i ssh2" | nc -u -w1 172.20.20.9 514
 done'
@@ -42,9 +42,9 @@ clave para el triaje: siete eventos rutinarios frente a un ataque correlacionado
 ### Ver el resultado
 
 ```sh
-docker exec clab-fttx-lab-wazuh sh -c 'tail -5 /var/ossec/logs/alerts/alerts.json'
+docker exec clab-red-cliente-wazuh sh -c 'tail -5 /var/ossec/logs/alerts/alerts.json'
 # o filtrado por IP:
-docker exec clab-fttx-lab-wazuh sh -c 'grep 91.240.118.9 /var/ossec/logs/alerts/alerts.json'
+docker exec clab-red-cliente-wazuh sh -c 'grep 91.240.118.9 /var/ossec/logs/alerts/alerts.json'
 ```
 
 ---
@@ -63,7 +63,7 @@ pkill syslogd; /sbin/syslogd -u syslog        # reinicio COMPLETO, el HUP no bas
 Luego, cualquier escritura en el log de auth se reenvía:
 
 ```sh
-docker exec clab-fttx-lab-objetivo-vuln sh -c \
+docker exec clab-red-cliente-objetivo-vuln sh -c \
  'logger -p auth.info -t "sshd[2001]" "Failed password for root from 45.83.12.7 port 40001 ssh2"'
 ```
 
@@ -82,13 +82,13 @@ atacado; para que lleguen a Wazuh hay que combinarlos con el reenvío de arriba.
 
 ```sh
 # Puerta trasera ingreslock (1524) — deja rastro de conexion
-docker exec clab-fttx-lab-auditor sh -c 'echo id | nc -w2 192.168.1.30 1524'
+docker exec clab-red-cliente-auditor sh -c 'echo id | nc -w2 192.168.1.30 1524'
 
 # Telnet sin auth al IoT
-docker exec clab-fttx-lab-auditor sh -c 'echo id | nc -w2 192.168.1.20 23'
+docker exec clab-red-cliente-auditor sh -c 'echo id | nc -w2 192.168.1.20 23'
 
 # Escaneo de puertos — nmap genera conexiones que el objetivo registra
-docker exec clab-fttx-lab-auditor nmap -sV 192.168.1.30
+docker exec clab-red-cliente-auditor nmap -sV 192.168.1.30
 ```
 
 ---

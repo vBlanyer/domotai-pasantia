@@ -158,39 +158,45 @@ El MDR democratiza acceso a operaciones de seguridad 24/7. Proveedores como Arct
 
 ---
 
-## Limitaciones comunes del mercado actual
+## Limitaciones e implicaciones para el proyecto
 
-Estas limitaciones son relevantes para el enfoque del proyecto (triaje inteligente, reducción de falsos positivos, explicabilidad):
+Este documento describe **qué hay en el mercado**. El análisis de **qué sigue sin resolverse** —y
+qué hueco ocupa por tanto este prototipo— vive en un solo sitio, para que las dos versiones no
+diverjan:
 
-1. **Fatiga por alertas:** Incluso con XDR/MDR, los analistas reciben volúmenes elevados de alertas; el triaje manual sigue siendo cuello de botella.
-2. **Falsos positivos persistentes:** Las soluciones basadas en reglas y firmas generan ruido; la correlación XDR reduce pero no elimina el problema.
-3. **Dependencia de telemetría:** Un MDR/XDR solo es tan bueno como los datos que recibe; gaps en cobertura producen puntos ciegos.
-4. **Coste y complejidad:** XDR enterprise (CrowdStrike, Palo Alto) resulta costoso para PYMEs; SIEM + SOAR + XDR puede ser más complejo que el problema que resuelve.
-5. **Explicabilidad limitada:** Muchas plataformas priorizan detección sobre justificación clara de por qué una alerta es relevante; el analista debe reconstruir el razonamiento.
-6. **Respuesta automatizada acotada:** La remediación autónoma avanza en endpoint, pero la respuesta coordinada multi-capa sigue requiriendo intervención humana en la mayoría de los despliegues.
+- [Limitaciones de XDR](./limitacionesDeXDR.md) — las diez limitaciones documentadas, con las
+  implicaciones para el proyecto y el destinatario al que va dirigido.
+- [Modelos de lenguaje aplicados a la seguridad](./llm-en-seguridad.md) — qué aportan y qué
+  riesgos introducen los modelos en el camino de una alerta, y la comparación entre reglas y IA.
+- [Requisitos del prototipo](./requisitos.md) — el registro único al que llegan ambos análisis.
 
----
-
-## Implicaciones para este proyecto
-
-| Necesidad del mercado | Oportunidad del prototipo |
-|-----------------------|---------------------------|
-| Reducir falsos positivos y fatiga de alertas | Clasificación y priorización inteligente de eventos |
-| Justificar decisiones de triaje | Razonamiento explicable generado por LLM |
-| Operación viable en PYMEs | Enfoque acotado, validación humana, sin dependencia de servicios cloud externos |
-| Complemento a MDR/XDR existentes | Módulo de triaje que se integra sobre la plataforma propietaria, no compite con ella |
-
-El mercado valida la demanda (crecimiento del 21–27% anual en MDR/XDR), pero las soluciones líderes siguen dependiendo de analistas para el triaje final. Un módulo que **clasifique, priorice y explique** alertas — con validación humana en decisiones críticas — aborda un vacío real, especialmente en organizaciones que no pueden costear un MDR completo pero necesitan reducir el ruido operativo.
+En una línea: el mercado valida la demanda —crecimiento sostenido en MDR y XDR— pero las
+plataformas líderes siguen dependiendo del analista para el triaje y la investigación final, y
+**ninguna sabe si la respuesta que propone va a interrumpir un servicio**. Ese es el hueco.
 
 ---
 
 ## Referencias
 
-- Gartner Magic Quadrant for Endpoint Protection Platforms (2024–2026).
-- Forrester Wave: Extended Detection and Response Platforms, Q2 2026.
-- KuppingerCole Leadership Compass: Managed Detection and Response, 2026.
-- MarketsandMarkets — Managed Detection and Response Market Report (2026–2031).
-- Mordor Intelligence — MDR Market Size & Trends (2026–2031).
-- MarketsandMarkets — Extended Detection and Response Market.
-- MITRE ATT&CK Evaluations (Enterprise, 2024–2025).
-- Frost & Sullivan — Frost Radar: Managed Detection and Response, 2025.
+Enlaces verificados el **25/08/2026**.
+
+| Fuente | Qué aporta | Enlace |
+|--------|------------|--------|
+| MITRE ATT&CK Evaluations — Enterprise | Resultados públicos de detección por plataforma | https://attackevals.mitre-engenuity.org/ |
+| NIS2 — Directiva (UE) 2022/2555 | Presión regulatoria como factor de adopción | https://eur-lex.europa.eu/eli/dir/2022/2555 |
+| DORA — Reglamento (UE) 2022/2554 | Ídem, sector financiero | https://eur-lex.europa.eu/eli/reg/2022/2554 |
+
+### Fuentes pendientes de verificación directa
+
+**Todas las cifras de mercado de este documento** —tamaños de segmento, proyecciones, CAGR, cuotas
+y posicionamiento de proveedores— proceden de informes de firmas analistas de acceso restringido,
+recogidos de forma indirecta: Gartner (*Magic Quadrant for Endpoint Protection Platforms*),
+Forrester (*Wave: Extended Detection and Response Platforms*), KuppingerCole (*Leadership Compass:
+MDR*), MarketsandMarkets, Mordor Intelligence y Frost & Sullivan.
+
+Las operaciones societarias citadas (adquisiciones y fusiones del mercado MDR) son públicas y
+verificables en las notas de prensa de las compañías implicadas.
+
+**Antes de llevar cualquier cifra al informe final de la Fase 7**, hay que citarla contra el informe
+original con edición y fecha, o sustituirla por una formulación cualitativa. Una cifra concreta sin
+fuente localizable no se sostiene en una revisión.

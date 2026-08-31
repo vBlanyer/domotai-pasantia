@@ -1,7 +1,7 @@
 # Mediciones de consumo — Paso 1 del camino
 
 Consumo real medido por incrementos, para contrastarlo con las estimaciones de
-[selección del modelo §2](../documentacion/04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md).
+[selección del modelo §2](../../documentacion/04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md).
 
 ## Entorno
 
@@ -32,7 +32,7 @@ Consumo real medido por incrementos, para contrastarlo con las estimaciones de
 |---------|--------------|----------|------------|--------|
 | 0 | Base: WSL en reposo | — | 1.965 MiB usados, 5.638 MiB libres | — |
 | 1a | Containerlab, 3 nodos Alpine (prueba de humo) | — | **+~90 MiB** (6,3 MiB en contenedores) | Sí, holgado |
-| 1b | Containerlab con OpenWrt (QEMU) | 1,5–2 GB | **~130 MiB** el nodo CPE | Sí, muy holgado |
+| 1b | Containerlab con OpenWrt (QEMU) | 1,5–2 GB | **~130 MiB** el nodo de borde | Sí, muy holgado |
 | 2 | + Wazuh manager sin indexer ni dashboard | +1–2 GB | *pendiente* | ? |
 | 3 | + modelo de 3B cuantizado | +2–2,3 GB | *pendiente* | ? |
 | 4 | + Greenbone | +4–8 GB | *pendiente* | **Improbable** |
@@ -48,7 +48,7 @@ Consumo real medido por incrementos, para contrastarlo con las estimaciones de
 - Los contenedores Alpine consumen ~2 MiB cada uno: el coste del plano de datos
   es despreciable frente a Wazuh, Greenbone y los modelos.
 
-## Escalón 1b — CPE OpenWrt real (23/08/2026)
+## Escalón 1b — equipo de borde OpenWrt real (23/08/2026)
 
 **La imagen se construye y la VM arranca, pero el bootstrap de vrnetlab se cuelga.**
 
@@ -70,7 +70,7 @@ ajusta `/etc/group`, crea `/home/root`, corrige permisos de `/etc/config`, vuelc
 configuran la interfaz de gestión, ni reasigna la LAN de `eth0` a `eth2`.
 
 Consecuencias: el nodo queda `unhealthy`, el SSH de la VM no responde (TCP conecta porque lo
-sirve QEMU, pero falla el intercambio de banner), y el abonado no obtiene DHCP porque `eth2`
+sirve QEMU, pero falla el intercambio de banner), y el puesto no obtiene DHCP porque `eth2`
 no pertenece a ningún bridge.
 
 **Reproducido cuatro veces** de forma idéntica:
@@ -96,8 +96,8 @@ en un CPU de 15 W— favorece esa carrera. No está confirmado que sea la causa 
 **Opciones pendientes de decidir:**
 
 1. ~~Probar OpenWrt 24.10.0~~ — **descartado**, falla igual (intento 4).
-2. Configurar el CPE a mano por la consola serie, si se consigue tomarla de `launch.py`.
-3. **Usar un contenedor Linux como CPE provisional** y aplazar el OpenWrt real. Es la única
+2. Configurar el equipo de borde a mano por la consola serie, si se consigue tomarla de `launch.py`.
+3. **Usar un contenedor Linux como equipo de borde provisional** y aplazar el OpenWrt real. Es la única
    opción que desbloquea el resto del bloque 1 sin depender de terceros.
 4. Abrir incidencia en el proyecto vrnetlab con el diagnóstico ya hecho.
 
@@ -109,16 +109,16 @@ no un resto del laboratorio. **Los puertos de LuCI se movieron a 8180 y 8543.** 
 recordarlo: el laboratorio comparte máquina con otros desarrollos y los puertos bajos
 habituales pueden estar tomados.
 
-## Escalón 1c — Red FTTx completa con CPE provisional (24/08/2026)
+## Escalón 1c — Red del cliente completa con equipo de borde provisional (24/08/2026)
 
-Topología [fttx-lab.clab.yml](fttx-lab.clab.yml): 7 nodos —borde, CPE, switch LAN, abonado,
+Topología [red-cliente.clab.yml](../topologias/red-cliente.clab.yml): 7 nodos —proveedor, borde, switch LAN, puesto,
 IoT, objetivo vulnerable y auditor— desplegada **sin errores** y validada de extremo a extremo.
 
 | Comprobación | Resultado |
 |--------------|-----------|
 | Bridge del switch con sus 4 puertos | Correcto |
 | Conectividad dentro de la LAN | 0 % de pérdida |
-| Extremo a extremo atravesando el CPE | 0 % de pérdida, 2 saltos |
+| Extremo a extremo atravesando el equipo de borde | 0 % de pérdida, 2 saltos |
 | Nmap en el auditor | Descubre los 8 hosts del plano de gestión |
 | Exportación a draw.io | Genera el diagrama correctamente |
 
@@ -127,7 +127,7 @@ IoT, objetivo vulnerable y auditor— desplegada **sin errores** y validada de e
 | Componente | Estimado | **Medido** |
 |------------|----------|------------|
 | 7 nodos de la topología completa | 1,5–2 GB | **~12 MiB** |
-| CPE con OpenWrt (VM QEMU) | 0,5–1 GB | **~130 MiB** |
+| Borde con OpenWrt (VM QEMU) | 0,5–1 GB | **~130 MiB** |
 
 Las estimaciones del diseño estaban **dos órdenes de magnitud por encima**. El plano de datos
 es prácticamente gratis.
@@ -143,7 +143,7 @@ entorno de trabajo:
 | VS Code server, extensiones y procesos node | ~5.176 MiB |
 | CLI de cloud-code | ~1.204 MiB |
 | Proyecto `crm-v2-domotai` (8 procesos) | ~978 MiB |
-| **El laboratorio FTTx** | **~12 MiB** |
+| **El laboratorio completo** | **~12 MiB** |
 
 **Consecuencia para el presupuesto del Perfil A.** El camino interactivo necesita sandbox
 (~0,01 GB) + Wazuh (~4 GB) + encoder (~0,5 GB) + modelo de 3B (~2 GB) ≈ **6,5 GB**, frente a
@@ -164,7 +164,7 @@ presupuesto.
 | `objetivo-vuln` | Metasploitable2 (2,3 GB en disco) | **80,2 MiB** |
 | `auditor` | Alpine + nmap | **108,9 MiB** |
 | `iot` | Alpine + telnetd + darkhttpd | **1,7 MiB** |
-| `cpe`, `borde`, `sw-lan`, `abonado` | Alpine | **~0,7 MiB** cada uno |
+| `borde`, `proveedor`, `sw-lan`, `puesto` | Alpine | **~0,7 MiB** cada uno |
 | **Total del laboratorio** | | **~194 MiB** |
 
 Metasploitable2 ocupa 2,3 GB en disco pero solo **80 MiB en memoria** con todos sus servicios
@@ -203,7 +203,7 @@ holgura**. El único límite real sigue siendo el entorno de desarrollo (~7 GB),
 ### Circuito de alertas verificado de extremo a extremo
 
 Se habilitó la recepción de syslog remoto en el manager (514/udp, `allowed-ips` de la red de
-gestión) y se envió desde el CPE un evento de login SSH fallido. Wazuh lo recibió, lo evaluó y
+gestión) y se envió desde el equipo de borde un evento de login SSH fallido. Wazuh lo recibió, lo evaluó y
 escribió en `alerts.json`:
 
 ```
@@ -215,7 +215,7 @@ full_log conservado
 
 **Es exactamente el contrato de entrada del EDR:** el `rule.level` es el baseline de la Fase 6,
 Wazuh parsea la IP de origen en vez de solo guardar el texto, y el `agent.id: 000` confirma que
-el CPE sin agente se identificará por los campos del evento y no por el identificador de agente
+el borde sin agente se identificará por los campos del evento y no por el identificador de agente
 — tal como preveía el módulo de ingesta.
 
 ## Consolidación del laboratorio (24/08/2026)
@@ -228,14 +228,14 @@ prioridad syslog correcta. Verificado: un login fallido reenviado produce `nivel
 con `srcip` parseada.
 
 Laboratorio completo controlable con `lab/lab.sh` (up/down/status/test) y verificable con
-`lab/instrucciones-prueba-manual.md`. La prueba de humo pasa los tres eslabones: conectividad, escaneo del
+`lab/docs/prueba-manual.md`. La prueba de humo pasa los tres eslabones: conectividad, escaneo del
 auditor y alerta correlacionada de nivel 10.
 
 **Presupuesto de memoria — cuadro final medido:**
 
 | Componente | Estimado en el diseño | Medido |
 |------------|----------------------|--------|
-| Red FTTx (7 nodos) | 1,5–2 GB | ~0,2 GB |
+| Red del cliente (7 nodos) | 1,5–2 GB | ~0,2 GB |
 | Metasploitable | incluido arriba | 80 MiB |
 | Wazuh manager | 1–4 GB | ~0,5 GB |
 | **Laboratorio + Wazuh** | **hasta 6 GB** | **< 0,8 GB** |

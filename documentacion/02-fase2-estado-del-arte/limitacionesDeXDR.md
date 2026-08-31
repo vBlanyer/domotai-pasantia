@@ -177,70 +177,74 @@ XDR optimiza las etapas superiores del flujo. Las etapas marcadas siguen dependi
 
 | Limitación del mercado | Oportunidad del prototipo |
 |------------------------|---------------------------|
-| Falsos positivos y fatiga de alertas | Clasificación y priorización inteligente de eventos |
-| Explicabilidad limitada | Razonamiento explicable generado por LLM |
-| Coste y complejidad en PYMEs | Enfoque acotado, validación humana, sin dependencia de servicios cloud externos |
-| Complemento a XDR/MDR existentes | Módulo de triaje sobre la plataforma propietaria, no competencia directa con ella |
+| Falsos positivos y fatiga de alertas (§1) | Clasificación y priorización con **contexto de la postura real del activo**, que es lo que la regla no tiene |
+| Brecha entre detección e investigación (§2) | El prototipo no investiga por el analista, pero le entrega la alerta ya clasificada, priorizada y **justificada** |
+| Explicabilidad limitada (§9) | Razonamiento explicable con anclaje verificable a los campos de la alerta |
+| Dependencia de la nube del proveedor (§5, §8) | Ejecución **local**, sobre hardware modesto, sin que la alerta salga de la red del cliente |
+| Complemento, no sustituto (§5) | Capa de triaje **sobre** el sistema de reglas que el cliente ya tiene; no compite con él ni lo reemplaza |
 
-El mercado valida la demanda (crecimiento sostenido del segmento XDR/MXDR), pero las soluciones líderes siguen dependiendo de analistas para el triaje e investigación final. Un módulo que **clasifique, priorice y explique** alertas — con validación humana en decisiones críticas — aborda un vacío real documentado en la industria.
+### Sobre a quién va dirigido
+
+El análisis de mercado señala repetidamente a las **PYMEs** como el segmento peor cubierto, y así
+figura en las fuentes. Conviene no confundir esa observación con el destinatario de este proyecto.
+
+El plan de trabajo declara el *«despliegue y escalabilidad en entornos de clientes PYME»* **fuera
+del alcance**, como trabajo futuro. El cliente que el prototipo modela es el descrito en la
+[Fase 1](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md): una **organización con red
+propia** —borde, conmutación, servidores, servicios publicados— que quiere protegerse **sin
+interrumpir lo que presta**. Ese cliente puede ser pequeño o grande; lo que lo define no es su
+tamaño sino su restricción de continuidad.
+
+La distinción tiene consecuencias reales. Justificar el proyecto sobre el precio de las licencias
+enterprise apunta a un problema de presupuesto; justificarlo sobre la **restricción de continuidad**
+apunta a un problema que ninguna plataforma del mercado resuelve hoy, porque **ninguna sabe si la
+respuesta que propone va a cortar un servicio**. Esa es la limitación §9 llevada hasta su
+consecuencia operativa, y es el hueco que este prototipo ocupa.
 
 ---
 
-## Requisitos derivados del análisis
+## Los requisitos que se derivan de aquí
 
-Esta sección constituye el entregable *«Lista de requisitos funcionales y no funcionales derivados del análisis»* de la Fase 2 del [roadmap](../00-general/roadmap.md). Cada requisito se traza a la limitación de mercado que lo motiva o a la fase del proyecto que lo exige.
+El análisis anterior es el origen de la mayor parte de los requisitos del prototipo, pero **la lista
+no vive en este documento**: vive en el [registro único de requisitos](./requisitos.md), junto con
+los que derivan del [análisis de modelos de lenguaje](./llm-en-seguridad.md) y de las restricciones
+del [cliente modelado](../01-fase1-analisis-del-modulo/).
 
-### Requisitos funcionales
-
-| ID | Requisito | Deriva de |
-|----|-----------|-----------|
-| RF-01 | Ingerir alertas del módulo propietario y normalizarlas a un esquema común, tolerando campos ausentes | §4 Dependencia de telemetría |
-| RF-02 | Enriquecer cada alerta con contexto disponible (activo, usuario, histórico de alertas similares, IoC) antes de clasificar | §2 Brecha detección–investigación |
-| RF-03 | Clasificar cada alerta como verdadero/falso positivo (o categoría del caso de uso acotado) | §1 Fatiga por alertas |
-| RF-04 | Asignar una prioridad/score que permita ordenar la cola de triaje | §1, §2 |
-| RF-05 | Generar por cada decisión una justificación estructurada: evidencia citada de la alerta, hipótesis, técnica MITRE ATT&CK asociada y acción sugerida | §9 Explicabilidad limitada |
-| RF-06 | Emitir un nivel de confianza explícito junto a cada clasificación | §9, §7 |
-| RF-07 | Aplicar reglas de decisión y umbrales configurables que determinen cuándo se escala a validación humana | Fase 4 del roadmap |
-| RF-08 | Ofrecer flujo de validación humana (aprobar / rechazar / reclasificar) para alertas críticas o de baja confianza | §7 Respuesta automatizada acotada |
-| RF-09 | Registrar traza auditable de cada ejecución: entrada, prompt, salida del modelo, decisión, veredicto del analista, timestamps y versión de prompt/modelo | §9, Fase 5 |
-| RF-10 | Marcar explícitamente como «no soportada» toda alerta fuera del caso de uso acotado, en lugar de emitir una clasificación no fundamentada | §3 Techo de correlación |
-| RF-11 | Agrupar/deduplicar alertas relacionadas con un mismo incidente | §1, §2 |
-| RF-12 | Almacenar el feedback del analista en formato reutilizable (sin reentrenamiento — trabajo futuro) | Trabajo futuro |
-| RF-13 | Exponer los resultados al módulo propietario mediante una interfaz definida, sin sustituir sus funciones | §5 Lock-in / complemento a XDR |
-| RF-14 | Calcular métricas de evaluación (precisión, recall, F1, tasa de falsos positivos, tiempo de triaje) sobre el dataset etiquetado | Fase 6 |
-
-### Requisitos no funcionales
-
-| ID | Requisito | Deriva de |
-|----|-----------|-----------|
-| RNF-01 | **Privacidad:** procesamiento del LLM en local o entorno aislado; ninguna alerta sale a servicios externos | §8 Cumplimiento (DORA, NIS2), Objetivo 3 |
-| RNF-02 | **Explicabilidad verificable:** toda afirmación de la justificación debe referenciar campos concretos de la alerta o del contexto, no conocimiento genérico del modelo | §9 |
-| RNF-03 | **Reproducibilidad:** misma alerta + misma versión de prompt/modelo → misma decisión (temperatura baja, prompts versionados) | §9, comparabilidad de la evaluación |
-| RNF-04 | **Latencia:** tiempo de triaje por alerta del orden de segundos, frente a los ~70 minutos de investigación manual citados | §2 |
-| RNF-05 | **Coste operativo bajo:** ejecutable sobre hardware modesto, sin licencias enterprise ni plataforma SOAR adicional | §8 Coste y complejidad |
-| RNF-06 | **Interoperabilidad:** esquema de entrada/salida agnóstico de vendor, sin dependencia de un ecosistema XDR concreto | §5 Lock-in |
-| RNF-07 | **Degradación controlada:** ante telemetría incompleta debe reducir la confianza y escalar a humano, nunca inferir datos ausentes | §4 |
-| RNF-08 | **Seguridad del propio módulo:** resistencia a inyección de prompt desde campos controlables por el atacante, control de acceso e integridad de los logs | §10 Evasión y desactivación de agentes |
-| RNF-09 | **Disponibilidad:** si el LLM falla o no responde, la alerta pasa a cola de revisión manual; nunca se descarta silenciosamente | §7 |
-| RNF-10 | **Mantenibilidad:** prompts, reglas y umbrales como configuración externa versionada, modificables sin tocar código | §8 Tuning de reglas |
-| RNF-11 | **Usabilidad:** salida legible por un analista en menos de un minuto por alerta | §1, §9 |
-| RNF-12 | **Cumplimiento:** política de retención y anonimización de los datos de prueba conforme a la normativa aplicable | §8 |
-| RNF-13 | **Escalabilidad acotada:** procesamiento por lotes del dataset de prueba; la escalabilidad de producción queda como trabajo futuro | Alcance del plan de trabajo |
-
-### Limitaciones sin requisito asociado
-
-Cuatro limitaciones del análisis no generan requisitos funcionales porque quedan fuera del alcance declarado en el [plan de trabajo](../00-general/planDeTrabajoActualizado.md):
-
-- **§6 Respuesta fragmentada y dependencia de SOAR** y parte de **§7**: corresponden a respuesta automatizada, documentada como trabajo futuro.
-- **§5 Lock-in** y **§10 Evasión**: aportan restricciones de diseño (RNF-06 y RNF-08), no funcionalidad nueva del prototipo.
+Cada requisito de ese registro cita en su columna «Deriva de» la sección de este documento que lo
+motiva. Mantener una sola lista evita el problema que ya se dio una vez: requisitos nuevos anotados
+en un documento aparte que la tabla maestra nunca recogió.
 
 ---
 
 ## Referencias
 
-- Gartner Magic Quadrant for Endpoint Protection Platforms (2024–2026).
-- Forrester Wave: Extended Detection and Response Platforms, Q2 2026.
-- MITRE ATT&CK Enterprise Evaluations (2024–2025).
-- Omdia — estudios sobre volumen de alertas y ruido operativo en SOC.
-- D3 Security — análisis sobre la brecha detección-investigación y el techo del paradigma XDR (2025).
-- Documento interno: [mdr-xdr.md](./mdr-xdr.md).
+Enlaces verificados el **25/08/2026**.
+
+| Fuente | Qué aporta | Enlace |
+|--------|------------|--------|
+| MITRE ATT&CK Evaluations — Enterprise | Cobertura de técnicas y volumen de alertas por plataforma | https://attackevals.mitre-engenuity.org/ |
+| MITRE ATT&CK | Taxonomía de técnicas adversarias | https://attack.mitre.org/ |
+| OWASP Top 10 for LLM Applications | Riesgos del componente de IA (§9 y RNF-08) | https://genai.owasp.org/llm-top-10/ |
+| NIS2 — Directiva (UE) 2022/2555 | Presión regulatoria citada en §8 | https://eur-lex.europa.eu/eli/dir/2022/2555 |
+| DORA — Reglamento (UE) 2022/2554 | Ídem, sector financiero | https://eur-lex.europa.eu/eli/reg/2022/2554 |
+| Documento interno | Estado del arte MDR/XDR | [mdr-xdr.md](./mdr-xdr.md) |
+| Documento interno | Modelos de lenguaje aplicados a seguridad | [llm-en-seguridad.md](./llm-en-seguridad.md) |
+
+### Fuentes pendientes de verificación directa
+
+Las cifras concretas de este documento —el porcentaje de alertas que siguen siendo ruido operativo,
+el tiempo medio de investigación por alerta, la proporción de *burnout* entre analistas y las cuotas
+de mercado— proceden de **informes de firmas analistas de acceso restringido** (Gartner, Forrester,
+Omdia, KuppingerCole) recogidos de forma indirecta.
+
+| Informe | Uso en este documento |
+|---------|----------------------|
+| Gartner — Magic Quadrant for Endpoint Protection Platforms | Posicionamiento de plataformas (§5) |
+| Forrester — Wave: Extended Detection and Response Platforms | Ídem |
+| Omdia — estudios sobre volumen de alertas en SOC | Cifra de ruido operativo (§1) |
+| KuppingerCole — Leadership Compass: MDR | Posicionamiento de proveedores MDR |
+| D3 Security — análisis sobre la brecha detección-investigación | §2 |
+
+**Antes de incorporar cualquiera de esas cifras al informe final de la Fase 7 hay que citarlas
+contra el informe original**, con edición y fecha, o sustituirlas por una formulación cualitativa.
+Una cifra concreta sin fuente localizable no se sostiene en una revisión.

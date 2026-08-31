@@ -1,27 +1,33 @@
-# Diseño del sandbox: red FTTx emulada con Containerlab
+# Diseño del sandbox: la red del cliente emulada con Containerlab
 
-Este documento define el **entorno de pruebas** sobre el que operará el prototipo: una red emulada que reproduce la cadena de acceso FTTx, desde el borde del proveedor hasta el dispositivo del abonado.
+Este documento define el **entorno de pruebas** sobre el que operará el prototipo: una red emulada que reproduce la red de un cliente, desde el punto de entrega del proveedor (ODF) hacia dentro — equipo de borde, electrónica de red, servidores y puestos de trabajo.
 
-> **Encuadre de alcance.** El sandbox es un **entorno controlado de validación**, no un despliegue productivo. El EDR decide y ejecuta acciones *aquí* para poder medir la calidad de esas decisiones. Esto no altera el alcance declarado en [planDeTrabajoActualizado.md](../00-general/planDeTrabajoActualizado.md): la respuesta automatizada sobre equipos reales sigue siendo trabajo futuro.
+> **Encuadre de alcance.** El sandbox es un **entorno controlado de validación**, no un despliegue productivo. El motor de triaje decide y ejecuta acciones *aquí* para poder medir la calidad de esas decisiones. Esto no altera el alcance declarado en [planDeTrabajoActualizado.md](../00-general/planDeTrabajoActualizado.md): la respuesta automatizada sobre equipos reales sigue siendo trabajo futuro.
 
 ---
 
 ## 1. Qué se emula y qué no
 
-La cadena FTTx completa va del OLT en la central del proveedor, a través de la red óptica pasiva, hasta la ONT en casa del abonado, el router/CPE y finalmente su PC o teléfono. No todos esos tramos son territorio útil para este proyecto:
+La red de un cliente empieza donde el proveedor entrega el servicio —el **ODF**— y sigue hacia
+dentro: el equipo de borde, la electrónica de red, los **servidores** que sostienen los servicios
+del cliente y los puestos de trabajo. El sandbox reproduce ese tramo, no el del proveedor.
 
 | Tramo | Equipo | ¿En el sandbox? | Motivo |
 |-------|--------|-----------------|--------|
-| Central | OLT | No | Carrier-grade, propietario, fuera del alcance de un EDR |
-| Red óptica | Splitters ODN | No | Elementos pasivos, sin software que auditar |
-| Casa — óptica | ONT/ONU | No (se abstrae) | El plano de gestión relevante vive en el CPE |
-| **Casa — red** | **Router / CPE / HGU** | **Sí — objetivo principal** | Firmware desactualizado, credenciales por defecto, servicios expuestos |
-| Casa — LAN | Switch, WiFi, dispositivos IoT | Sí | Superficie lateral: propagación dentro del hogar |
-| Final | PC / móvil del abonado | Sí | Objetivo clásico de EDR |
+| Proveedor | Central y planta externa | No | Carrier-grade y propietario; no hay software que auditar |
+| Punto de entrega | ODF y terminación de línea | No (se abstrae) | Elemento de demarcación, sin plano de gestión útil |
+| **Borde del cliente** | **Enrutador de borde** | **Sí — prioritario** | Concentra la gestión remota y es la frontera con el exterior |
+| Red interna | Switch, WiFi, dispositivos IoT | Sí | Superficie lateral: propagación dentro de la red |
+| **Servicios** | **Servidores del cliente** | **Sí — prioritario** | Sostienen lo que no puede interrumpirse |
+| Puestos | PC del usuario | Sí | Origen habitual del compromiso inicial |
 
-El centro de gravedad es el **CPE**. Es el equipo con mayor exposición real: firmware que rara vez se actualiza, credenciales de fábrica, y servicios de administración accesibles.
+El centro de gravedad **no es un tipo de equipo, sino una superficie**: los **servicios de gestión
+expuestos**. Se concentran en el equipo de borde y en los servidores —administración remota,
+credenciales por defecto, interfaces alcanzables desde donde no deberían— y son exactamente el
+perímetro del caso de uso acotado de la [Fase 1](../01-fase1-analisis-del-modulo/).
 
-El OLT y la red óptica se **abstraen** en un único nodo de borde. Emular OMCI o el plano PON no aportaría nada al triaje de alertas y sí un coste de implementación considerable.
+El tramo del proveedor se **abstrae** en un único nodo de borde superior. Emular el plano de
+transporte no aportaría nada al triaje de alertas y sí un coste de implementación considerable.
 
 ---
 
@@ -33,7 +39,7 @@ Se evaluaron las plataformas de laboratorio de red disponibles:
 |------------|-------|-------------|-----------------|-----------|
 | Cisco Packet Tracer | Gratis | **No** | — | **Descartado** |
 | Cisco Modeling Labs — Free | Gratis | Sí | **5 (tope duro)** | Insuficiente |
-| Cisco Modeling Labs — Personal | ~199 USD/año | Sí | 20 | Cisco-céntrico, sin CPE doméstico |
+| Cisco Modeling Labs — Personal | ~199 USD/año | Sí | 20 | Cisco-céntrico, sin equipo de borde de gama baja |
 | GNS3 | Gratis | Sí | Según RAM | Alternativa válida |
 | EVE-NG Community | Gratis | Sí | Según RAM | Alternativa válida |
 | **Containerlab** | **Gratis** | **Sí** | Según RAM (muy ligero) | **Seleccionado** |
@@ -46,8 +52,8 @@ Packet Tracer **simula** dispositivos: no ejecuta un sistema operativo real ni e
 
 - **Topología como código.** La red se define en un fichero `.clab.yml` versionable en git. Esto satisface directamente el criterio de cierre de la Fase 3 ("entorno de pruebas operativo y **reproducible**"): el entorno deja de ser un estado de máquina difícil de reconstruir y pasa a ser un artefacto del repositorio.
 - **Reset determinista.** `containerlab destroy && containerlab deploy` devuelve el laboratorio a un estado limpio y conocido en segundos. Imprescindible cuando cada caso de prueba debe partir del mismo punto para que las métricas de la Fase 6 sean comparables.
-- **Red de gestión out-of-band incorporada.** Containerlab crea automáticamente una red Docker (`clab`) que conecta todos los nodos y que su documentación describe como un switch de gestión OOB. El EDR y el auditor viven ahí, separados del plano de datos que observan.
-- **Soporta OpenWrt de forma nativa.** El `kind: openwrt` arranca una VM QEMU de OpenWrt empaquetada como contenedor, vía vrnetlab. Da un CPE con firmware real, no un sustituto.
+- **Red de gestión out-of-band incorporada.** Containerlab crea automáticamente una red Docker (`clab`) que conecta todos los nodos y que su documentación describe como un switch de gestión OOB. El motor de triaje y el auditor viven ahí, separados del plano de datos que observan.
+- **Soporta OpenWrt de forma nativa.** El `kind: openwrt` arranca una VM QEMU de OpenWrt empaquetada como contenedor, vía vrnetlab. Da un equipo de borde con firmware real, no un sustituto.
 - **Coste en recursos bajo.** Al ser mayoritariamente contenedores, la topología completa cabe en un portátil de desarrollo.
 
 **Limitación aceptada:** Containerlab no tiene interfaz gráfica de arrastrar y soltar. La topología se edita en YAML. A cambio, es diffeable, revisable y reproducible — propiedades que una GUI no ofrece.
@@ -58,84 +64,84 @@ Packet Tracer **simula** dispositivos: no ejecuta un sistema operativo real ni e
 
 ```mermaid
 flowchart LR
-    subgraph datos["Plano de datos — cadena FTTx"]
-        BORDE["Borde / ISP<br/>(FRR o VyOS)"]
-        CPE["CPE / HGU<br/>(OpenWrt)"]
-        SW["Switch LAN"]
-        PC["Endpoint abonado"]
+    subgraph datos["Plano de datos — red del cliente"]
+        PROV["Punto de entrega / ODF<br/>(FRR o VyOS)"]
+        BORDE["Enrutador de borde<br/>(OpenWrt)"]
+        SW["Switch de red interna"]
+        PC["Puesto de usuario"]
         IOT["Dispositivo IoT<br/>(servicios legacy)"]
         VULN["Objetivo etiquetado<br/>(CVEs conocidos)"]
     end
 
     subgraph gestion["Plano de gestión — red clab (OOB)"]
         WZ["Wazuh manager<br/>(genera alertas)"]
-        EDR["Conector EDR"]
+        TRI["Conector del motor de triaje"]
         AUD["Auditor<br/>(Nmap + Greenbone)"]
     end
 
-    BORDE --- CPE
-    CPE --- SW
+    PROV --- BORDE
+    BORDE --- SW
     SW --- PC
     SW --- IOT
     SW --- VULN
 
-    CPE -.syslog.-> WZ
+    BORDE -.syslog.-> WZ
     PC -.agente.-> WZ
     IOT -.agente.-> WZ
     VULN -.agente.-> WZ
-    WZ -.alertas.-> EDR
-    AUD -.escaneo.-> CPE
+    WZ -.alertas.-> TRI
+    AUD -.escaneo.-> BORDE
     AUD -.escaneo.-> IOT
     AUD -.escaneo.-> VULN
-    EDR -.SSH.-> CPE
-    EDR -.SSH.-> PC
+    TRI -.SSH.-> BORDE
+    TRI -.SSH.-> PC
 ```
 
 ### Inventario de nodos
 
 | Nodo | Rol | Base sugerida |
 |------|-----|---------------|
-| `borde` | Salida simulada a internet; abstrae OLT y red óptica | FRR o VyOS |
-| `cpe` | **Objetivo principal.** Router doméstico / HGU | OpenWrt (`kind: openwrt`) |
-| `sw-lan` | Segmento LAN del abonado | Bridge de host |
-| `abonado` | PC del usuario final | Contenedor Linux con utilidades de red |
+| `proveedor` | Punto de entrega del proveedor; abstrae el tramo de transporte | FRR o VyOS |
+| `borde` | **Equipo de borde del cliente.** Conserva el identificador `borde` por compatibilidad con la topología desplegada | OpenWrt (`kind: openwrt`) |
+| `sw-lan` | Segmento de red interna | Bridge de host |
+| `puesto` | Puesto de usuario. Conserva el identificador `puesto` por compatibilidad | Contenedor Linux con utilidades de red |
 | `iot-legacy` | Dispositivo IoT con servicios antiguos expuestos | Contenedor con Telnet / UPnP / servicios obsoletos |
-| `objetivo-vuln` | Objetivo con vulnerabilidades **documentadas** | Metasploitable / imagen de Vulhub |
+| `objetivo-vuln` | **Servidor con vulnerabilidades documentadas** | Metasploitable / imagen de Vulhub |
 | `wazuh` | **Generación de alertas** y baseline de reglas | Wazuh manager (ver §5.1) |
 | `auditor` | Escaneo de vulnerabilidades | Kali o contenedor con Nmap; Greenbone aparte (ver §5) |
 
 ### Separación de planos
 
-El auditor y el conector del EDR se conectan por la **red de gestión** (`clab`), no por el plano de datos. Dos razones:
+El auditor y el conector del motor de triaje se conectan por la **red de gestión** (`clab`), no por el plano de datos. Dos razones:
 
-1. **Independencia operativa.** El EDR debe poder actuar sobre el CPE incluso si el plano de datos está degradado o comprometido — que es precisamente el escenario en el que hace falta.
+1. **Independencia operativa.** El motor de triaje debe poder actuar sobre el equipo de borde incluso si el plano de datos está degradado o comprometido — que es precisamente el escenario en el que hace falta.
 2. **No contaminar la telemetría.** Si el tráfico de escaneo circulase por el mismo segmento que se está observando, el auditor generaría los eventos que el propio sistema debe analizar, sesgando la evaluación de la Fase 6.
 
 ---
 
 ## 4. Boceto de topología
 
-> **`host` es un nombre reservado.** En Containerlab designa el **namespace de red raíz de la máquina**, no un nodo. Un nodo llamado `host` hace que las interfaces de sus enlaces se creen en el sistema anfitrión en lugar de dentro del contenedor, y Containerlab lo reporta como **éxito, sin ningún error**. Verificado empíricamente el 23/08/2026 en la prueba de humo. Por eso el nodo del abonado se llama `abonado`.
+> **`host` es un nombre reservado.** En Containerlab designa el **namespace de red raíz de la máquina**, no un nodo. Un nodo llamado `host` hace que las interfaces de sus enlaces se creen en el sistema anfitrión en lugar de dentro del contenedor, y Containerlab lo reporta como **éxito, sin ningún error**. Verificado empíricamente el 23/08/2026 en la prueba de humo. Por eso el nodo del puesto de usuario se llama `puesto`.
 
 > **Estado: sin validar.** Este fichero es un punto de partida para la Fase 3. Las etiquetas de imagen concretas, las versiones de OpenWrt y el cableado deben verificarse al desplegar. Las imágenes de vrnetlab requieren construirse localmente a partir del firmware correspondiente.
 
 ```yaml
-name: fttx-sandbox
+name: sandbox-red-cliente
 
 topology:
   nodes:
-    borde:
+    proveedor:
       kind: linux
       image: frrouting/frr:latest
 
-    cpe:
+    borde:
       kind: openwrt
       image: vrnetlab/openwrt_openwrt:<version>
 
     sw-lan:
       kind: bridge          # requiere un bridge del mismo nombre creado en el host
 
-    abonado:
+    puesto:
       kind: linux
       image: <imagen con utilidades de red>
 
@@ -156,9 +162,9 @@ topology:
       image: <imagen con Nmap y cliente de escaneo>
 
   links:
-    - endpoints: ["borde:eth1", "cpe:eth1"]
-    - endpoints: ["cpe:eth2", "sw-lan:eth1"]
-    - endpoints: ["abonado:eth1", "sw-lan:eth2"]
+    - endpoints: ["proveedor:eth1", "borde:eth1"]
+    - endpoints: ["borde:eth2", "sw-lan:eth1"]
+    - endpoints: ["puesto:eth1", "sw-lan:eth2"]
     - endpoints: ["iot-legacy:eth1", "sw-lan:eth3"]
     - endpoints: ["objetivo-vuln:eth1", "sw-lan:eth4"]
 ```
@@ -171,21 +177,21 @@ Todos los nodos quedan además conectados automáticamente a la red de gestión 
 
 ### 5.1 Wazuh como fuente de alertas y como baseline
 
-El sandbox genera telemetría y vulnerabilidades, pero **por sí solo no produce alertas**, que es lo que el EDR debe triar. Wazuh cubre ese hueco y además resuelve el baseline de la evaluación.
+El sandbox genera telemetría y vulnerabilidades, pero **por sí solo no produce alertas**, que es lo que el motor de triaje debe triar. Wazuh cubre ese hueco y además resuelve el baseline de la evaluación.
 
 **Cómo se conecta cada nodo:**
 
 | Nodo | Vía | Motivo |
 |------|-----|--------|
-| CPE OpenWrt | **Reenvío de syslog** al manager (UDP 514) | No existe agente Wazuh para OpenWrt; el reenvío de syslog es nativo y ligero |
-| Nodos Linux (endpoint, IoT, objetivo vulnerable) | **Agente Wazuh** | Capacidades completas: HIDS, integridad de ficheros, detección local |
+| Equipo de borde OpenWrt | **Reenvío de syslog** al manager (UDP 514) | No existe agente Wazuh para OpenWrt; el reenvío de syslog es nativo y ligero |
+| Nodos Linux (puesto, IoT, servidor vulnerable) | **Agente Wazuh** | Capacidades completas: HIDS, integridad de ficheros, detección local |
 | Equipos de red sin agente | **Agentless por SSH**, como complemento | Wazuh lo documenta para routers y switches; útil para revisiones periódicas de configuración |
 
-**Desplegar el manager sin indexer ni dashboard.** La instalación completa de Wazuh añade OpenSearch y una interfaz web que consumen varios GB, y **este proyecto no los necesita**: el EDR consume alertas, no una interfaz de usuario. El manager por sí solo escribe las alertas a `alerts.json`, que es exactamente la entrada que hace falta. Es la diferencia entre unos 1–2 GB y bastante más, decisiva en el presupuesto de memoria de este equipo.
+**Desplegar el manager sin indexer ni dashboard.** La instalación completa de Wazuh añade OpenSearch y una interfaz web que consumen varios GB, y **este proyecto no los necesita**: el motor de triaje consume alertas, no una interfaz de usuario. El manager por sí solo escribe las alertas a `alerts.json`, que es exactamente la entrada que hace falta. Es la diferencia entre unos 1–2 GB y bastante más, decisiva en el presupuesto de memoria de este equipo.
 
 **El nivel de regla de Wazuh es el baseline.** El plan de trabajo exige comparar el prototipo contra «el método tradicional de referencia», definido como reglas y firmas. La severidad que Wazuh asigna por regla **es** ese método. No hay que construir un baseline aparte: viene incluido con la fuente de alertas.
 
-**Limitación a tener en cuenta:** los dispositivos monitorizados sin agente registran sus eventos bajo el manager (agente ID 000), no como agentes propios. Atribuir una alerta al nodo concreto que la originó requiere apoyarse en los campos del evento, no en el identificador de agente. Afecta al CPE, que es el nodo más importante.
+**Limitación a tener en cuenta:** los dispositivos monitorizados sin agente registran sus eventos bajo el manager (agente ID 000), no como agentes propios. Atribuir una alerta al nodo concreto que la originó requiere apoyarse en los campos del evento, no en el identificador de agente. Afecta al equipo de borde, que es uno de los nodos prioritarios.
 
 ### 5.2 Otras consideraciones
 
@@ -201,7 +207,7 @@ El sandbox genera telemetría y vulnerabilidades, pero **por sí solo no produce
 
 ## 6. Los dos *ground truths*: vulnerabilidades y alertas
 
-Que no exista todavía una empresa cliente definida permite diseñar una **red de referencia genérica** en vez de replicar una infraestructura concreta. Eso habilita algo que de otro modo sería costoso: **plantar deliberadamente nodos con vulnerabilidades conocidas y documentadas** (Metasploitable, escenarios de Vulhub, una versión antigua y concreta de OpenWrt).
+Que no exista todavía una empresa cliente definida permite diseñar la **red del cliente genérico** modelado en la [Fase 1](../01-fase1-analisis-del-modulo/) en vez de replicar una infraestructura concreta. Eso habilita algo que de otro modo sería costoso: **plantar deliberadamente nodos con vulnerabilidades conocidas y documentadas** (Metasploitable, escenarios de Vulhub, una versión antigua y concreta de OpenWrt en el equipo de borde).
 
 Ahora bien, conviene no confundir dos cosas distintas que el proyecto necesita:
 
@@ -209,7 +215,7 @@ Ahora bien, conviene no confundir dos cosas distintas que el proyecto necesita:
 |---|---|---|
 | Qué afirma | Qué CVE existe en cada nodo | Si una alerta concreta es verdadero o falso positivo |
 | De dónde sale | La **composición documentada de la topología** | Las alertas de **Wazuh**, etiquetadas una a una |
-| Para qué sirve | Evaluar el **auditor** | Evaluar el **triaje del EDR** |
+| Para qué sirve | Evaluar el **auditor** | Evaluar el **triaje del motor** |
 | Lo exige | El diseño de la auditoría | El plan de trabajo (objetivo 3 y Fase 6) |
 
 **Son distintos y ninguno sustituye al otro.** El plan de trabajo pide explícitamente el segundo: un conjunto de alertas etiquetado con verdaderos y falsos positivos. La topología por sí sola no lo proporciona.
@@ -234,10 +240,10 @@ El etiquetado deja así de ser un juicio subjetivo y pasa a apoyarse en la compo
 
 ## 7. Preguntas abiertas
 
-- ¿Debe incluirse un endpoint Windows? Aporta realismo al tramo final y es el objetivo natural de un EDR, pero exige licencia y una VM completa, lo que rompe el modelo ligero de contenedores.
-- ¿Qué versión de OpenWrt se fija como CPE? Debe ser lo bastante antigua para tener CVEs documentados, pero seguir arrancando de forma estable.
+- ¿Debe incluirse un puesto o servidor Windows? Aporta realismo y es objetivo habitual, pero exige licencia y una VM completa, lo que rompe el modelo ligero de contenedores.
+- ¿Qué versión de OpenWrt se fija para el equipo de borde? Debe ser lo bastante antigua para tener CVEs documentados, pero seguir arrancando de forma estable.
 - ¿Pueden convivir Wazuh y Greenbone en memoria, o deben separarse en el tiempo como el modelo? Es lo primero que hay que medir al desplegar.
-- ¿Cuántos hogares se emulan? La topología descrita modela **un** abonado. Varios CPE en paralelo permitirían estudiar correlación entre abonados, a costa de recursos.
+- ¿Cuántas sedes se emulan? La topología descrita modela **una**. Varios equipos de borde en paralelo permitirían estudiar correlación entre sedes, a costa de recursos.
 
 ---
 

@@ -6,7 +6,7 @@ Este documento describe el flujo end-to-end del prototipo tal como fue planteado
 > **Terminología.** El componente central que este proyecto construye se llama **motor de triaje**
 > (el «módulo de triaje inteligente» del plan de trabajo). No es un **EDR**: un EDR es la capa de
 > detección de *endpoint*, una de las **fuentes** que alimentan el sistema. Visto completo, el flujo
-> es un **XDR** —correlación multi-fuente (red del CPE + endpoint de los nodos) vía Wazuh— sobre el
+> es un **XDR** —correlación multi-fuente (red del cliente + endpoint de los nodos) vía Wazuh— sobre el
 > que el motor de triaje aporta clasificación, priorización y justificación, con validación humana
 > (el rasgo **MDR**). Ver [EDR, XDR, MDR y telemetría](./edr-xdr-mdr-telemetria.md) para las definiciones.
 
@@ -19,7 +19,7 @@ flowchart TD
     SIS["Sistema existente<br/>(emite logs)"] -.no disponible hoy.-> ING
     WZ["Wazuh en el sandbox<br/>(fuente de laboratorio)"] --> ING["Ingesta y normalización"]
     ING --> TRI["Motor de triaje<br/>(decisión)"]
-    TRI -->|acción| SBX["Sandbox<br/>(red FTTx emulada)"]
+    TRI -->|acción| SBX["Sandbox<br/>(red del cliente emulada)"]
     AUD["Auditor de vulnerabilidades"] -->|postura del sistema| TRI
     SBX --> AUD
     SBX -->|telemetría| SIS
@@ -55,7 +55,7 @@ Los dos primeros son entrada dada: el proyecto **no** los rediseña. Lo que se c
 
 Fuente primaria de eventos. Para la Fase 1 hace falta documentar su **formato de salida real**: esquema de los eventos, campos disponibles, mecanismo de entrega y volumen. Sin ese dato, el módulo de ingesta del motor de triaje no puede especificarse.
 
-**Mientras ese sistema no esté disponible, el proyecto no puede quedarse sin entrada.** Se despliega **Wazuh dentro del sandbox** como fuente de alertas de laboratorio: agentes en los nodos Linux y reenvío de syslog desde el CPE OpenWrt. Además de desbloquear el flujo, su **nivel de regla proporciona el baseline** contra el que la Fase 6 debe comparar el prototipo.
+**Mientras ese sistema no esté disponible, el proyecto no puede quedarse sin entrada.** Se despliega **Wazuh dentro del sandbox** como fuente de alertas de laboratorio: agentes en los nodos Linux y reenvío de syslog desde el equipo de borde OpenWrt. Además de desbloquear el flujo, su **nivel de regla proporciona el baseline** contra el que la Fase 6 debe comparar el prototipo.
 
 No es un parche provisional que haya que retirar: cuando el sistema de la empresa esté disponible, se integra como **segunda fuente** a través del mismo módulo de ingesta normalizada, sin desplazar a Wazuh.
 
@@ -164,7 +164,7 @@ El transporte concreto se analiza en [protocolos de comunicación](./protocolos-
 
 Las acciones que el motor de triaje puede ordenar deben ser un **conjunto cerrado y enumerado**, no comandos arbitrarios. Un catálogo cerrado es auditable, comprobable y acotado en su radio de impacto; un canal de comandos libres no lo es.
 
-Categorías previstas sobre una red FTTx:
+Categorías previstas sobre la red de un cliente:
 
 | Categoría | Ejemplos | Reversible |
 |-----------|----------|------------|
@@ -183,7 +183,7 @@ El plan de trabajo exige validación humana en decisiones críticas. En este flu
 
 Criterios candidatos para exigirla (los umbrales concretos son entregable de la Fase 4):
 
-- La acción no es reversible o interrumpe el servicio del abonado.
+- La acción no es reversible o interrumpe un servicio que el cliente presta.
 - La confianza del clasificador queda por debajo de un umbral.
 - La clasificación y la severidad del sistema de origen **discrepan** — señal de que uno de los dos se equivoca, y merece un ojo humano.
 
@@ -204,7 +204,7 @@ Estas respuestas son entrada de la Fase 1 y bloquean partes del diseño:
 
 ## Documentos relacionados
 
-- [Diseño del sandbox: red FTTx con Containerlab](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)
+- [Diseño del sandbox: la red del cliente con Containerlab](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)
 - [Protocolos de comunicación con el sandbox](./protocolos-comunicacion-sandbox.md)
 - [Auditoría de vulnerabilidades del sandbox](./auditoria-de-vulnerabilidades-del-sandbox.md)
 - [Limitaciones de XDR](../02-fase2-estado-del-arte/limitacionesDeXDR.md)

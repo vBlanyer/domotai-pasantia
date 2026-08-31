@@ -25,7 +25,7 @@ nivel 10. Ese nivel viaja en cada alerta (`rule.level`) y se conserva a lo largo
 Dos fuentes, ya construidas en la Fase 3:
 
 - **Etiqueta de la alerta** (verdadero / falso positivo): de contrastar cada alerta de Wazuh
-  contra el [inventario de vulnerabilidades](../../lab/vulnerabilidades-esperadas.md) del nodo al
+  contra el [inventario de vulnerabilidades](../../lab/docs/vulnerabilidades-esperadas.md) del nodo al
   que apunta.
 - **Prioridad esperada**: derivada de la gravedad documentada del nodo y del tipo de evento.
 
@@ -120,5 +120,5 @@ La evaluación no solo mide: define constantes que la Fase 5 necesita.
 ## Documentos relacionados
 
 - [Catálogo de acciones](./catalogo-de-acciones.md) · [Selección del modelo](./seleccion-del-modelo.md) · [Flujo](./flujo-triaje-playbook-sandbox.md)
-- [Ground truth del laboratorio](../../lab/vulnerabilidades-esperadas.md)
-- [Requisitos (RF-14, RNF-03)](../02-fase2-estado-del-arte/limitacionesDeXDR.md)
+- [Ground truth del laboratorio](../../lab/docs/vulnerabilidades-esperadas.md)
+- [Requisitos (RF-14, RF-20, RNF-03)](../02-fase2-estado-del-arte/requisitos.md)

@@ -7,7 +7,7 @@ impide que el canal SSH degenere en ejecución remota arbitraria (ver [protocolo
 
 Cada acción se define por: **precondición**, **efecto esperado**, **reversibilidad**, **cómo se
 verifica** y si **requiere validación humana**. El comando mostrado es el del sandbox actual
-(nodos Linux); sobre un CPE OpenWrt real cambiaría el conector, no la acción abstracta que el
+(nodos Linux); sobre un equipo de borde OpenWrt real cambiaría el conector, no la acción abstracta que el
 Motor de triaje emite.
 
 ---
@@ -49,7 +49,7 @@ Acciones de solo lectura. Nunca requieren validación humana: no cambian nada.
 ### Categoría B — Contención de red (reversible)
 
 Limitan el alcance del nodo sin apagarlo. Reversibles. Validación humana **según impacto**: aislar
-al abonado interrumpe su servicio; bloquear una IP maliciosa concreta, no.
+un servidor o un puesto interrumpe lo que ese equipo presta; bloquear una IP maliciosa concreta, no.
 
 | ID | Efecto | Comando | Reversión | Requiere humano |
 |----|--------|---------|-----------|-----------------|
@@ -86,7 +86,7 @@ Restauran o reinician. Alto impacto, siempre validación humana.
 
 Se deriva de tres criterios (los umbrales concretos se fijan en el [Paso 8](./metricas-y-evaluacion.md)):
 
-1. La acción **no es reversible** o **interrumpe el servicio del abonado** → siempre humano.
+1. La acción **no es reversible** o **interrumpe un servicio que el cliente presta** → siempre humano.
 2. La **confianza del clasificador** está por debajo del umbral → humano.
 3. La clasificación del motor de triaje y la **severidad de Wazuh discrepan** → humano (uno de los dos se equivoca).
 
@@ -107,10 +107,11 @@ Categorías A y las acciones marcadas «No» pasan directas; el resto queda rete
 
 Las acciones de **observación (A)** y **contención de red (B)** son ejecutables hoy sobre los
 nodos Linux del sandbox por SSH. Las de **endurecimiento (C)** dependen del servicio concreto.
-Las de **remediación (D)** funcionan pero, como todo en el CPE, serán plenamente representativas
-solo con OpenWrt real: un `RESTAURAR_CONFIG` sobre un CPE de verdad usaría UCI, no copia de ficheros.
+Las de **remediación (D)** funcionan pero, como todo en el equipo de borde, serán plenamente
+representativas solo con OpenWrt real: un `RESTAURAR_CONFIG` sobre un enrutador de verdad usaría
+UCI, no copia de ficheros.
 
-> **Límite heredado:** el objetivo principal del catálogo es el CPE, y el CPE es provisional.
+> **Límite heredado:** el equipo de borde es uno de los objetivos prioritarios del catálogo, y hoy es provisional.
 > Las acciones están diseñadas para ser correctas sobre OpenWrt, pero solo se han podido probar
 > sobre el sustituto Linux. Queda como validación pendiente al desbloquear vrnetlab.
 

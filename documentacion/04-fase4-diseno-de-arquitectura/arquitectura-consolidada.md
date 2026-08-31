@@ -10,11 +10,11 @@ su diseño.
 
 ```mermaid
 flowchart TB
-    subgraph datos["PLANO DE DATOS — red FTTx (Containerlab)"]
+    subgraph datos["PLANO DE DATOS — red del cliente (Containerlab)"]
         direction LR
-        BORDE["borde<br/>(proveedor)"] --- CPE["CPE / HGU<br/>objetivo principal"]
-        CPE --- SW["switch LAN"]
-        SW --- PC["abonado"]
+        PROV["proveedor<br/>(punto de entrega)"] --- BORDE["borde<br/>equipo de borde · objetivo prioritario"]
+        BORDE --- SW["sw-lan<br/>switch interno"]
+        SW --- PC["puesto"]
         SW --- IOT["iot"]
         SW --- VULN["objetivo-vuln<br/>(ground truth)"]
     end
@@ -94,14 +94,14 @@ frontera**:
 
 | Componente | Documento |
 |------------|-----------|
-| Red FTTx y nodos | [sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) · [nodos](../../lab/README.md) |
+| Red del cliente y nodos | [sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) · [nodos](../../lab/README.md) |
 | Flujo, contratos, validación humana | [flujo](./flujo-triaje-playbook-sandbox.md) |
 | Canal y protocolo | [protocolos](./protocolos-comunicacion-sandbox.md) |
 | Auditor | [auditoría](./auditoria-de-vulnerabilidades-del-sandbox.md) |
 | Modelo y perfiles | [selección del modelo](./seleccion-del-modelo.md) |
 | Acciones | [catálogo](./catalogo-de-acciones.md) |
 | Métricas y baseline | [métricas](./metricas-y-evaluacion.md) |
-| Requisitos | [Fase 2](../02-fase2-estado-del-arte/limitacionesDeXDR.md) · [revisión FTTx](../02-fase2-estado-del-arte/revision-requisitos-fttx.md) |
+| Requisitos | [registro único](../02-fase2-estado-del-arte/requisitos.md) · [revisión de contexto](../02-fase2-estado-del-arte/revision-requisitos-contexto.md) |
 
 ---
 
@@ -109,5 +109,5 @@ frontera**:
 
 Con este documento, el diseño de la arquitectura queda **cerrado**. Todo lo pendiente es
 implementación (Fase 5) o depende de datos de la empresa (Fase 1). El único hueco de diseño
-conocido es que el objetivo principal —el CPE— es provisional hasta desbloquear OpenWrt en
+conocido es que el equipo de borde es provisional hasta desbloquear OpenWrt en
 vrnetlab; las decisiones están tomadas para OpenWrt, solo falta poder probarlas sobre él.

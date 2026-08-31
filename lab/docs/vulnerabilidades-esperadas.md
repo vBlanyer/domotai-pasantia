@@ -1,7 +1,7 @@
 # Inventario de vulnerabilidades esperadas
 
 **Este documento es el *ground truth* del proyecto.** Registra qué se ha plantado
-deliberadamente en cada nodo de [fttx-lab.clab.yml](fttx-lab.clab.yml), de modo que al evaluar
+deliberadamente en cada nodo de [red-cliente.clab.yml](../topologias/red-cliente.clab.yml), de modo que al evaluar
 se sepa de antemano:
 
 - qué **debería** encontrar el auditor — los verdaderos positivos esperados;
@@ -83,24 +83,25 @@ un **falso positivo** salvo que se documente antes en este fichero.
 
 | Nodo | Dirección | Estado |
 |------|-----------|--------|
-| `cpe` | 192.168.1.1 · 10.0.1.2 | **Todos los puertos cerrados.** Es el CPE provisional en Linux: solo encamina |
-| `borde` | 10.0.1.1 | Sin servicios |
+| `borde` | 192.168.1.1 · 10.0.1.2 | **Todos los puertos cerrados.** Es el equipo de borde provisional en Linux: solo encamina |
+| `proveedor` | 10.0.1.1 | Sin servicios |
 | `sw-lan` | Sin IP | Capa 2, sin superficie |
-| `abonado` | 192.168.1.10 | Sin servicios |
+| `puesto` | 192.168.1.10 | Sin servicios |
 | `auditor` | Solo gestión | Es quien escanea, no un objetivo |
 
 ### El hueco más importante del inventario
 
-**El CPE, que es el objetivo principal del proyecto, hoy no tiene ninguna vulnerabilidad.**
+**El equipo de borde, uno de los dos objetivos prioritarios, hoy no tiene ninguna vulnerabilidad.**
 
 Un OpenWrt real expondría dropbear en el 22, LuCI en el 80 y dnsmasq en el 53, además de sus
 credenciales de fábrica y su gestión remota — que es justo la superficie que el caso de uso
-quiere estudiar. El CPE provisional no ofrece nada de eso.
+quiere estudiar. El sustituto en Linux no ofrece nada de eso.
 
-Mientras siga bloqueado el arranque de OpenWrt en vrnetlab, **la evaluación no puede cubrir el
-escenario central**: compromiso del CPE por credenciales débiles o gestión expuesta. Puede
-cubrir movimiento lateral y compromiso de dispositivos de la LAN, que no es poco, pero conviene
-que conste como limitación en el informe.
+Mientras siga bloqueado el arranque de OpenWrt en vrnetlab, **el escenario más representativo del
+caso de uso —el borde comprometido por credenciales débiles o gestión expuesta— no es evaluable
+sobre ese nodo**. No bloquea la evaluación: el caso de uso se acota por familia de alerta y no
+por equipo, y el nodo `iot` (telnet sin autenticación) y el `objetivo-vuln` ejercitan la misma
+superficie de gestión expuesta. Conviene que conste como limitación en el informe.
 
 ---
 

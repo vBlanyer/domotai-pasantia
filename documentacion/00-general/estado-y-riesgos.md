@@ -13,8 +13,8 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 | Fase | Estado | Qué hay hecho / qué falta |
 |------|--------|----------------------------|
 | 1 — Análisis del módulo propietario | **Bloqueada por la empresa** | No hay módulo ni cliente definido. **Ya no bloquea el avance:** su papel lo suple el laboratorio (Wazuh como fuente de alertas). Falta lo que solo puede dar la empresa (I-4). |
-| 2 — Estado del arte | **Completa** | Estado del arte MDR/XDR, límites y **27 requisitos** (RF/RNF). Revisados además contra el contexto FTTx (I-5 resuelta): ninguno se descarta, dos nuevos. |
-| 3 — Entorno de pruebas | **Operativa y verificada** | Red FTTx de 7 nodos desplegada; Metasploitable como objetivo con ground truth documentado; Wazuh generando alertas reales; auditor con Nmap; todo reproducible con `lab/lab.sh` y probado de extremo a extremo. Falta: CPE OpenWrt real (vrnetlab bloqueado). |
+| 2 — Estado del arte | **Completa** | Estado del arte MDR/XDR **y de los modelos de lenguaje aplicados a seguridad**, con la comparación reglas frente a IA. **34 requisitos** (20 RF + 14 RNF) en un [registro único](../02-fase2-estado-del-arte/requisitos.md). Encuadre de mercado reorientado del segmento PYME al cliente modelado en la Fase 1. |
+| 3 — Entorno de pruebas | **Operativa y verificada** | Red del cliente de 7 nodos desplegada; Metasploitable como servidor objetivo con ground truth documentado; Wazuh generando alertas reales; auditor con Nmap; todo reproducible con `lab/lab.sh` y probado de extremo a extremo. Falta: equipo de borde OpenWrt real (vrnetlab bloqueado). |
 | 4 — Arquitectura | **Cerrada** | Flujo, protocolos, auditoría, modelo (perfiles A/B), catálogo de acciones, métricas y baseline, y arquitectura consolidada. Único hueco: probar el catálogo sobre OpenWrt real. |
 | 5 — Implementación | **No iniciada** | Es el siguiente bloque. Empieza por el módulo de ingesta, que ya tiene una entrada real (`alerts.json`). |
 | 6 — Evaluación | **No iniciada** | Ya **no** está bloqueada: baseline (nivel de Wazuh), ground truth y métricas están definidos. Depende de tener el prototipo (Fase 5). |
@@ -24,12 +24,12 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 
 Lo que funciona hoy, medido y reproducible (`sh lab/lab.sh up && sh lab/lab.sh test`):
 
-- **Red FTTx**: borde → CPE → switch → {abonado, iot, objetivo-vuln}, más auditor en el plano de gestión. Conectividad de extremo a extremo, 2 saltos por el CPE.
+- **Red del cliente**: punto de entrega → equipo de borde → switch → {puesto, iot, servidor vulnerable}, más auditor en el plano de gestión. Conectividad de extremo a extremo, 2 saltos por el borde. Los identificadores de nodo del `.clab.yml` siguen la terminología actual: `proveedor`, `borde`, `sw-lan`, `puesto`, `iot`, `objetivo-vuln` y `auditor`.
 - **Superficie de ataque real**: el `iot` expone telnet sin auth y web; el `objetivo-vuln` es Metasploitable con 19 puertos y CVEs documentados (puerta trasera vsftpd, ingreslock, Samba…).
-- **Alertas reales**: Wazuh recibe syslog del objetivo y clasifica — login fallido → nivel 5, fuerza bruta correlacionada → nivel 10, con IP y usuario parseados. Visor en vivo (`lab/ver-alertas.sh`).
+- **Alertas reales**: Wazuh recibe syslog del objetivo y clasifica — login fallido → nivel 5, fuerza bruta correlacionada → nivel 10, con IP y usuario parseados. Visor en vivo (`lab/scripts/ver-alertas.sh`).
 - **Memoria medida**: laboratorio + Wazuh < 0,8 GB, frente a los ~6 GB estimados. El único límite real es el entorno de desarrollo.
 
-**Límite estructural del laboratorio:** el CPE es un contenedor Linux provisional (solo encamina), no OpenWrt, porque el arranque de vrnetlab se cuelga. El escenario central del caso de uso —compromiso del CPE— no es evaluable hasta resolverlo. Ver [lab/mediciones.md](../../lab/mediciones.md).
+**Límite estructural del laboratorio:** el equipo de borde es un contenedor Linux provisional (solo encamina), no OpenWrt, porque el arranque de vrnetlab se cuelga. Deja de ser bloqueante desde que el caso de uso se acota por familia de alerta y no por equipo —el nodo IoT y el servidor vulnerable ya ejercitan la misma superficie—, pero el borde con firmware real sigue siendo el escenario más representativo. Ver [lab/docs/mediciones.md](../../lab/docs/mediciones.md).
 
 ---
 
@@ -38,7 +38,7 @@ Lo que funciona hoy, medido y reproducible (`sh lab/lab.sh up && sh lab/lab.sh t
 | # | Decisión | Documento |
 |---|----------|-----------|
 | D1 | El plan de trabajo y el roadmap **no se modifican**; la información nueva va al detalle de fases | — |
-| D2 | El sandbox es la cadena de acceso **FTTx**; el objetivo principal es el **CPE/HGU** | [sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
+| D2 | El sandbox es **la red del cliente desde el ODF hacia dentro** (borde, red interna, servidores, puestos); los objetivos prioritarios son los **servicios de gestión expuestos**. *Sustituye al encuadre FTTx/CPE de agosto 2026.* | [sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) · [Fase 1](../01-fase1-analisis-del-modulo/) |
 | D3 | Plataforma de laboratorio: **Containerlab**. Descartados Packet Tracer (simula, no virtualiza) y CML (tope de nodos) | [sandbox §2](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
 | D4 | Canal motor de triaje → sandbox: **SSH**, acotado a un **catálogo cerrado de acciones**. TR-069/TR-369 como evolución | [protocolos](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md) |
 | D5 | Auditoría limitada a **escaneo de red**: Nmap inventaría, Greenbone dictamina. Sin análisis de firmware | [auditoría](../04-fase4-diseno-de-arquitectura/auditoria-de-vulnerabilidades-del-sandbox.md) |
@@ -64,7 +64,7 @@ Agravante detectado al revisar: el [diseño del sandbox](../03-fase3-entorno-de-
 
 **Choca con:** el criterio de cierre de la Fase 3 — *«el entorno procesa alertas de prueba de punta a punta»*.
 
-**Resolución (agosto 2026):** se despliega **Wazuh dentro del sandbox** como fuente de alertas de laboratorio — agentes en los nodos Linux y reenvío de syslog desde el CPE OpenWrt. El proyecto deja de depender de la empresa para avanzar. Si su sistema llega, se integra como segunda fuente por el mismo módulo de ingesta. Ver [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md).
+**Resolución (agosto 2026):** se despliega **Wazuh dentro del sandbox** como fuente de alertas de laboratorio — agentes en los nodos Linux y reenvío de syslog desde el equipo de borde OpenWrt. El proyecto deja de depender de la empresa para avanzar. Si su sistema llega, se integra como segunda fuente por el mismo módulo de ingesta. Ver [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md).
 
 ---
 
@@ -98,7 +98,7 @@ Sin resolver además: **¿son la misma cosa «el módulo propietario» del plan 
 
 ### I-5 · El estado del arte no apunta a donde va el proyecto — ESTRUCTURAL
 
-[mdr-xdr.md](../02-fase2-estado-del-arte/mdr-xdr.md) y [limitacionesDeXDR.md](../02-fase2-estado-del-arte/limitacionesDeXDR.md) analizan plataformas XDR/MDR empresariales, operación de SOC y fatiga de alertas, con foco en PYMEs. El proyecto derivó a **seguridad de CPE en la red de acceso de un operador**, que es otro mercado y otra superficie.
+[mdr-xdr.md](../02-fase2-estado-del-arte/mdr-xdr.md) y [limitacionesDeXDR.md](../02-fase2-estado-del-arte/limitacionesDeXDR.md) analizan plataformas XDR/MDR empresariales, operación de SOC y fatiga de alertas, con foco en PYMEs. El proyecto derivó a **seguridad de la red de un cliente**, desde el punto de entrega hacia dentro, que es otro mercado y otra superficie.
 
 Los requisitos funcionales y no funcionales de la Fase 2 se derivaron del primer contexto. **No están necesariamente mal: están sin verificar** contra el segundo.
 
@@ -127,7 +127,7 @@ El sandbox se encuadró como «entorno controlado de validación» para no tocar
 
 ### I-8 · Material de referencia con premisa superada — MENOR
 
-[symons.md](../archivo/symons.md) y [herramientas-auxiliares.md](../archivo/herramientas-auxiliares.md) llevan una nota de condicionalidad, pero su contenido interno —el stack Atomic Red Team → Sysmon → Sigma— sigue contradiciendo el diseño FTTx. Está señalado, no reescrito.
+[symons.md](../archivo/symons.md) y [herramientas-auxiliares.md](../archivo/herramientas-auxiliares.md) llevan una nota de condicionalidad, pero su contenido interno —el stack Atomic Red Team → Sysmon → Sigma— sigue contradiciendo el diseño actual. Está señalado, no reescrito.
 
 ---
 
@@ -176,7 +176,7 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-11 | Playbook sin sustituto en el laboratorio | Estructural | Nosotros | **Resuelta** — lo ocupa la ingesta (D10) |
 | I-3 | Sin baseline | Bloqueante | Nosotros | **Resuelta** — nivel de regla de Wazuh |
 | I-4 | Fase 1 vacía | Estructural | Empresa | Abierta — ya no bloquea el avance |
-| I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos FTTx |
+| I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos contra el contexto del cliente |
 | I-6 | Perfil A vs flujo | De diseño | Nosotros | **Resuelta** — modelo de 3B en línea |
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |
 | I-8 | Material con premisa superada | Menor | Nosotros | **Resuelta** — movido a documentacion/archivo/ |

@@ -8,7 +8,7 @@
     {
       "icon": "router",
       "group": "Proveedor",
-      "id": "borde",
+      "id": "proveedor",
       "position": {
         "x": 60,
         "y": 340
@@ -17,7 +17,7 @@
     {
       "icon": "router",
       "group": "Domicilio",
-      "id": "cpe",
+      "id": "borde",
       "position": {
         "x": 220,
         "y": 360
@@ -35,7 +35,7 @@
     {
       "icon": "pc",
       "group": "Domicilio",
-      "id": "abonado",
+      "id": "puesto",
       "position": {
         "x": 460,
         "y": 220

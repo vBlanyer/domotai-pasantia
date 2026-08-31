@@ -8,7 +8,7 @@ El auditor es la **contraparte del motor de triaje**: mientras el motor de triaj
 
 La auditoría se limita a **escaneo de red**: descubrimiento de activos, identificación de servicios y detección de vulnerabilidades conocidas desde la red.
 
-**Queda fuera** el análisis de firmware —extracción de imágenes, SBOM, búsqueda de credenciales embebidas, análisis estático de binarios—. Ese enfoque requiere disponer de las imágenes de firmware de los equipos desplegados, y no existiendo hoy un proveedor ni un parque de CPE definido, no hay firmware que analizar.
+**Queda fuera** el análisis de firmware —extracción de imágenes, SBOM, búsqueda de credenciales embebidas, análisis estático de binarios—. Ese enfoque requiere disponer de las imágenes de firmware de los equipos desplegados, y no existiendo hoy un cliente ni un parque de equipos definido, no hay firmware que analizar.
 
 > Si en el futuro se dispusiera de imágenes de firmware reales, herramientas como EMBA cubrirían ese análisis. Queda anotado como trabajo futuro, no como parte de esta iteración.
 
@@ -16,18 +16,18 @@ La auditoría se limita a **escaneo de red**: descubrimiento de activos, identif
 
 ## 2. Qué se audita
 
-Sobre una red FTTx emulada, la superficie relevante:
+Sobre la red emulada del cliente, la superficie relevante:
 
 | Categoría | Qué se busca | Dónde importa más |
 |-----------|--------------|-------------------|
-| Servicios expuestos | Puertos abiertos, servicios accesibles desde la LAN o desde el borde | CPE, IoT |
-| Protocolos inseguros | Telnet, HTTP sin cifrar, SNMP con comunidad por defecto, UPnP | CPE, IoT |
-| Gestión remota | CWMP (7547), interfaces de administración accesibles desde el lado WAN | CPE |
-| Credenciales por defecto | Pares usuario/contraseña de fábrica sin cambiar | CPE, IoT |
+| Servicios expuestos | Puertos abiertos, servicios accesibles desde la red interna o desde el borde | Borde, servidores, IoT |
+| Protocolos inseguros | Telnet, HTTP sin cifrar, SNMP con comunidad por defecto, UPnP | Borde, IoT |
+| Gestión remota | Interfaces de administración accesibles desde el lado exterior (incluido CWMP/7547 si el borde lo gestiona el proveedor) | Borde, servidores |
+| Credenciales por defecto | Pares usuario/contraseña de fábrica sin cambiar | Borde, IoT |
 | Software desactualizado | Versiones de servicios con CVEs publicados | Todos los nodos |
 | Configuración débil | Cifrado obsoleto, servicios innecesarios activos | Todos los nodos |
 
-El **CPE es el objetivo prioritario**: concentra la gestión remota, las credenciales de fábrica y el firmware que rara vez se actualiza.
+Los **objetivos prioritarios son el equipo de borde y los servidores**: concentran la gestión remota, las credenciales sin rotar y el software que rara vez se actualiza. Coinciden con el perímetro del caso de uso acotado de la [Fase 1](../01-fase1-analisis-del-modulo/).
 
 ---
 
@@ -118,7 +118,7 @@ Ambos puntos deben quedar recogidos como limitaciones conocidas en el informe de
 ## Documentos relacionados
 
 - [Flujo de operación: logs → playbook → motor de triaje → sandbox](./flujo-triaje-playbook-sandbox.md)
-- [Diseño del sandbox: red FTTx con Containerlab](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)
+- [Diseño del sandbox: la red del cliente con Containerlab](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)
 - [Protocolos de comunicación con el sandbox](./protocolos-comunicacion-sandbox.md)
 - [Limitaciones de XDR](../02-fase2-estado-del-arte/limitacionesDeXDR.md)
 

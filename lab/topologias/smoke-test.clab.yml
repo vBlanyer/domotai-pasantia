@@ -1,6 +1,6 @@
 # Topologia de humo: valida la cadena WSL -> Docker -> Containerlab.
 #
-# No es todavia el sandbox FTTx. Usa alpine en los tres nodos para que el
+# No es todavia la topologia de trabajo. Usa alpine en los tres nodos para que el
 # despliegue sea inmediato y no dependa de imagenes pesadas. Corresponde al
 # primer incremento del Paso 2 de ../documentacion/00-general/camino-paso-a-paso.md
 #

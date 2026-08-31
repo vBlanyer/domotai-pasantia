@@ -2,15 +2,15 @@
 # Visor de alertas de Wazuh EN TIEMPO REAL, formateado y con color.
 # Pensado para dejarlo en una terminal mientras atacas desde otra.
 #
-# Uso:  sh lab/ver-alertas.sh          (todas las alertas nuevas)
-#       sh lab/ver-alertas.sh 5        (solo nivel >= 5, ignora el ruido)
+# Uso:  sh lab/scripts/ver-alertas.sh          (todas las alertas nuevas)
+#       sh lab/scripts/ver-alertas.sh 5        (solo nivel >= 5, ignora el ruido)
 
 MIN="${1:-1}"
 echo "Vigilando alertas de Wazuh (nivel >= $MIN). Ctrl+C para salir."
 echo "Ataca desde otra terminal y velas aparecer aqui."
 echo "--------------------------------------------------------------"
 
-docker exec clab-fttx-lab-wazuh sh -c 'tail -n0 -f /var/ossec/logs/alerts/alerts.json' 2>/dev/null | \
+docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -f /var/ossec/logs/alerts/alerts.json' 2>/dev/null | \
 python3 -u -c "
 import sys, json
 MIN=$MIN

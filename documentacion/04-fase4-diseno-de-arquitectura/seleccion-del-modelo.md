@@ -8,7 +8,7 @@ Se definen **dos perfiles de despliegue**: el **Perfil A**, ejecutable en el equ
 
 ## 1. Criterios de selección
 
-Los requisitos derivados del [análisis de limitaciones de XDR](../02-fase2-estado-del-arte/limitacionesDeXDR.md) acotan la elección antes de mirar ningún modelo:
+Los [requisitos del prototipo](../02-fase2-estado-del-arte/requisitos.md) acotan la elección antes de mirar ningún modelo:
 
 | Requisito | Exigencia | Consecuencia |
 |-----------|-----------|--------------|
@@ -161,7 +161,7 @@ Advertencia metodológica que debe recogerse en el informe de la Fase 7:
 
 **El fine-tuning del encoder exige datos de entrenamiento distintos del ground truth de evaluación.** Un encoder preentrenado no clasifica alertas: hay que ajustarlo con ejemplos etiquetados. Si se entrena con los mismos nodos vulnerables contra los que luego se mide precisión y recall, **los resultados no valen nada**. Obliga a particionar el dataset de la Fase 3 en entrenamiento y evaluación, con nodos o campañas disjuntos. Afecta solo al Perfil A.
 
-**Desajuste de dominio.** Los encoders de seguridad se preentrenaron sobre *prosa*: informes APT, artículos, papers. La entrada del prototipo son **alertas y logs estructurados de una red FTTx**. Comparten vocabulario técnico pero no género textual. Es medible y barato: comparar el encoder de seguridad contra un BERT genérico sobre las alertas reales es un experimento honesto para la Fase 6.
+**Desajuste de dominio.** Los encoders de seguridad se preentrenaron sobre *prosa*: informes APT, artículos, papers. La entrada del prototipo son **alertas y logs estructurados de la red de un cliente**. Comparten vocabulario técnico pero no género textual. Es medible y barato: comparar el encoder de seguridad contra un BERT genérico sobre las alertas reales es un experimento honesto para la Fase 6.
 
 **Greenbone puede ser demasiado pesado incluso en solitario** en este equipo. Si al desplegarlo se ahoga, la alternativa es Nmap con scripts NSE de vulnerabilidades: menos exhaustivo como dictamen, mucho más ligero. **Debe probarse al inicio de la Fase 3**, no descubrirse en la Fase 6.
 
@@ -176,8 +176,8 @@ Advertencia metodológica que debe recogerse en el informe de la Fase 7:
 - [Flujo de operación: logs → playbook → motor de triaje → sandbox](./flujo-triaje-playbook-sandbox.md)
 - [Protocolos de comunicación con el sandbox](./protocolos-comunicacion-sandbox.md)
 - [Auditoría de vulnerabilidades del sandbox](./auditoria-de-vulnerabilidades-del-sandbox.md)
-- [Diseño del sandbox: red FTTx con Containerlab](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)
-- [Limitaciones de XDR y requisitos derivados](../02-fase2-estado-del-arte/limitacionesDeXDR.md)
+- [Diseño del sandbox: la red del cliente con Containerlab](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md)
+- [Requisitos del prototipo](../02-fase2-estado-del-arte/requisitos.md) · [Modelos de lenguaje aplicados a seguridad](../02-fase2-estado-del-arte/llm-en-seguridad.md)
 
 ## Referencias
 

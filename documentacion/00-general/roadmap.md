@@ -76,10 +76,10 @@ Existen requisitos claros que guían el diseño y la evaluación del prototipo.
 
 - [ ] Definir la infraestructura local o aislada (contenedores, VMs, red restringida).
 - [ ] Instalar y configurar el módulo propietario en el entorno de pruebas.
-- [ ] Diseñar y desplegar el **sandbox de red FTTx emulada** con Containerlab, con la topología versionada en el repositorio.
+- [ ] Diseñar y desplegar el **sandbox: la red del cliente emulada** con Containerlab —desde el punto de entrega del proveedor hacia dentro—, con la topología versionada en el repositorio.
 - [ ] Incorporar a la topología nodos con **vulnerabilidades documentadas** que sirvan de ground truth para la evaluación.
 - [ ] Desplegar el **auditor de vulnerabilidades** (Nmap + Greenbone) en el plano de gestión y fijar la versión del feed usada en la campaña.
-- [ ] Desplegar **Wazuh** dentro del sandbox como fuente de alertas del entorno: agentes en los nodos Linux y reenvío de syslog desde el CPE. El manager se despliega **sin indexer ni dashboard**. Wazuh es infraestructura de ingestión, no sustituye al prototipo de triaje.
+- [ ] Desplegar **Wazuh** dentro del sandbox como fuente de alertas del entorno: agentes en los nodos Linux y reenvío de syslog desde el equipo de borde. El manager se despliega **sin indexer ni dashboard**. Wazuh es infraestructura de ingestión, no sustituye al prototipo de triaje.
 - [ ] Adoptar el **nivel de regla de Wazuh como método tradicional de referencia (baseline)** de la Fase 6, y registrarlo junto a cada alerta.
 - [ ] Configurar el modelo de lenguaje de forma local o en entorno controlado (sin envío de datos sensibles a terceros), según el perfil de despliegue seleccionado en la Fase 4.
 - [ ] **Verificar empíricamente el consumo de recursos** del entorno (sandbox, Greenbone y modelo) frente al presupuesto de memoria del equipo disponible.
