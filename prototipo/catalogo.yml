@@ -1,0 +1,16 @@
+# Catálogo de acciones como dato. Fuente para máquinas; la narrativa vive en
+# documentacion/04-.../catalogo-de-acciones.md. impacto: ninguno|localizado|alcanza_servicio.
+OBS_CONEXIONES:  { categoria: observacion, impacto: ninguno, reversion: no_aplica, comando: "ss -tunap", verificacion: "salida capturada" }
+OBS_PROCESOS:    { categoria: observacion, impacto: ninguno, reversion: no_aplica, comando: "ps aux", verificacion: "salida capturada" }
+OBS_ESCUCHA:     { categoria: observacion, impacto: ninguno, reversion: no_aplica, comando: "ss -lntu", verificacion: "salida capturada" }
+OBS_CONFIG:      { categoria: observacion, impacto: ninguno, reversion: no_aplica, comando: "ip addr; ip route", verificacion: "salida capturada" }
+OBS_CAPTURA:     { categoria: observacion, impacto: ninguno, reversion: no_aplica, comando: "timeout 10 tcpdump -c 100 -w -", verificacion: "pcap devuelto" }
+BLOQUEAR_IP:     { categoria: contencion, impacto: localizado, reversion: definida, comando: "iptables -A INPUT -s {ip} -j DROP", reversion_cmd: "iptables -D INPUT -s {ip} -j DROP", verificacion: "iptables -L -n | grep {ip}" }
+BLOQUEAR_PUERTO: { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "iptables -A INPUT -p tcp --dport {puerto} -j DROP", reversion_cmd: "iptables -D INPUT -p tcp --dport {puerto} -j DROP", verificacion: "iptables -L -n" }
+AISLAR_NODO:     { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "iptables -A FORWARD -s {ip_nodo} -j DROP", reversion_cmd: "iptables -D FORWARD -s {ip_nodo} -j DROP", verificacion: "iptables -L -n" }
+LIMITAR_BANDA:   { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "tc qdisc add dev {if} root tbf rate {rate}", reversion_cmd: "tc qdisc del dev {if} root", verificacion: "tc qdisc show" }
+CERRAR_SERVICIO: { categoria: endurecimiento, impacto: alcanza_servicio, reversion: definida, comando: "service {servicio} stop", reversion_cmd: "service {servicio} start", verificacion: "ss -lntu", corta_gestion_si: ssh }
+FORZAR_CAMBIO_PASS: { categoria: endurecimiento, impacto: alcanza_servicio, reversion: definida, comando: "passwd -l {usuario}", reversion_cmd: "passwd -u {usuario}", verificacion: "passwd -S {usuario}" }
+MATAR_CONEXION:  { categoria: endurecimiento, impacto: localizado, reversion: transitoria, comando: "ss -K dst {ip}", verificacion: "ss -tunap | grep {ip}" }
+REINICIAR_NODO:  { categoria: remediacion, impacto: alcanza_servicio, reversion: auto, comando: "reboot", verificacion: "ping -c1 {ip_nodo}" }
+RESTAURAR_CONFIG: { categoria: remediacion, impacto: alcanza_servicio, reversion: definida, comando: "restaurar {respaldo}", reversion_cmd: "restaurar {respaldo_previo}", verificacion: "diff config respaldo" }

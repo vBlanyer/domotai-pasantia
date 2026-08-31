@@ -1,0 +1,1 @@
+{"id_alerta":"1788184171.1318","timestamp":"2026-08-31T13:49:31.755+0000","campaña":"fx","fuente":"wazuh","activo":"objetivo-vuln","servicio":"ssh","familia":"acceso_credenciales","origen_ip":"192.168.1.10","mitre":["T1110.001"],"evento_crudo":"Failed password for root from 192.168.1.10","nivel_wazuh":5,"regla_id":"5760"}
