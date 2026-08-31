@@ -1,5 +1,6 @@
 # Directorios de ejecucion que genera containerlab
 lab/**/clab-*/
+lab/campañas/prueba-*/
 *.img
 *.img.gz
 *.drawio
