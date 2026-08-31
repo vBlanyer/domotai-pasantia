@@ -54,3 +54,18 @@ class TestClasificar(unittest.TestCase):
     def test_prioridad_es_entero_1_a_4(self):
         r = analisis.clasificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"})
         self.assertIn(r["prioridad"], (1, 2, 3, 4))
+
+class TestJustificar(unittest.TestCase):
+    def setUp(self):
+        self.alerta = cargar_json("alerta_vp.json")
+
+    def test_cita_campos_reales(self):
+        txt = analisis.justificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"}, "vp_intento_acceso")
+        self.assertIn("5760", txt)            # regla_id
+        self.assertIn("192.168.1.10", txt)     # origen_ip
+        self.assertIn("objetivo-vuln", txt)    # activo
+        self.assertIn("ssh", txt)              # servicio
+
+    def test_menciona_confirmacion_del_auditor(self):
+        txt = analisis.justificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"}, "vp_intento_acceso")
+        self.assertIn("confirma", txt.lower())

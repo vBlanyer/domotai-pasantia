@@ -31,3 +31,16 @@ def clasificar(alerta, contexto):
     else:
         clase, confianza = "fp_exposicion_inexistente", 1.0
     return {"clase": clase, "prioridad": _priorizar(clase, contexto.get("criticidad")), "confianza": confianza}
+
+def justificar(alerta, contexto, clase):
+    postura = contexto.get("postura")
+    if postura is None:
+        veredicto = "el auditor no tiene postura del activo (contexto incompleto)"
+    elif postura.get("expuesto"):
+        veredicto = f"el auditor confirma que {alerta.get('servicio')} está expuesto en {alerta.get('activo')}"
+    else:
+        veredicto = f"el auditor no confirma exposición de {alerta.get('servicio')} en {alerta.get('activo')}"
+    mitre = ", ".join(alerta.get("mitre", []) or ["s/téc."])
+    return (f"Alerta {alerta.get('regla_id')} (técnica {mitre}) desde {alerta.get('origen_ip')} "
+            f"contra {alerta.get('activo')} ({alerta.get('servicio')}). {veredicto}. "
+            f"Clasificada como {clase}. [justificación de plantilla — baseline, no modelo]")
