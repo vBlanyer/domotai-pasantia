@@ -5,3 +5,7 @@ lab/campañas/prueba-*/
 *.img.gz
 *.drawio
 get-docker.sh
+
+# Artefactos de Python
+__pycache__/
+*.pyc
