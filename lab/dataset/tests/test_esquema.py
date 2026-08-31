@@ -28,3 +28,27 @@ class TestDerivaciones(unittest.TestCase):
 
     def test_familia_desconocida_es_otra(self):
         self.assertEqual(esquema.familia_de({"groups": ["algo_raro"]}), "otra")
+
+class TestNormalizarAlerta(unittest.TestCase):
+    def setUp(self):
+        self.ssh = cargar("alerta_ssh_vp.json")
+        self.reg = esquema.normalizar_alerta(self.ssh, "2026-08-31-fuerzabruta")
+
+    def test_campos_de_identidad(self):
+        self.assertEqual(self.reg["campaña"], "2026-08-31-fuerzabruta")
+        self.assertEqual(self.reg["fuente"], "wazuh")
+        self.assertEqual(self.reg["id_alerta"], self.ssh["id"])
+
+    def test_baseline_conservado(self):
+        self.assertEqual(self.reg["nivel_wazuh"], self.ssh["rule"]["level"])
+        self.assertEqual(self.reg["regla_id"], self.ssh["rule"]["id"])
+
+    def test_evento_crudo_intacto(self):
+        self.assertEqual(self.reg["evento_crudo"], self.ssh["full_log"])
+
+    def test_activo_y_servicio(self):
+        self.assertEqual(self.reg["activo"], "objetivo-vuln")
+        self.assertEqual(self.reg["servicio"], "ssh")
+
+    def test_mitre_es_lista(self):
+        self.assertIsInstance(self.reg["mitre"], list)

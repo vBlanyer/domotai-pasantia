@@ -33,3 +33,21 @@ def familia_de(rule):
     if g & {"rootcheck", "cis", "ossec"}:
         return "plataforma"
     return "otra"
+
+def normalizar_alerta(cruda, campaña):
+    rule = cruda.get("rule", {})
+    data = cruda.get("data", {})
+    return {
+        "id_alerta": cruda.get("id"),
+        "timestamp": cruda.get("timestamp"),
+        "campaña": campaña,
+        "fuente": FUENTE,
+        "activo": resolver_activo(cruda),
+        "servicio": servicio_de(cruda),
+        "familia": familia_de(rule),
+        "origen_ip": data.get("srcip"),
+        "mitre": rule.get("mitre", {}).get("id", []),
+        "evento_crudo": cruda.get("full_log"),
+        "nivel_wazuh": rule.get("level"),
+        "regla_id": rule.get("id"),
+    }
