@@ -71,6 +71,11 @@ el clasificador no se puede ajustar, y la **revisión pendiente de la Fase 4** �
 RNF-14](../02-fase2-estado-del-arte/requisitos.md), más la regla que traduce clasificación en acción—, porque afecta directamente al conector y
 a la validación humana.
 
+>**Decisión de stack pendiente.** El prototipo es Python (atado por el ecosistema ML del
+>clasificador y el justificador). Queda abierto evaluar **Go para el conector SSH** —binario
+>estático, buena librería SSH, robustez para un componente que ejecuta y traza acciones— cuando se
+>aborde el Paso 14; se decide por sus méritos entonces, no antes.
+
 > **Sobre el alcance.** Las acciones que el motor ejecuta sobre el entorno de pruebas son un
 > mecanismo de **validación en entorno controlado**, no respuesta automatizada en producción, que
 > el plan declara trabajo futuro. La finalidad es medir la calidad de la decisión, no remediar
