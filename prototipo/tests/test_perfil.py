@@ -39,3 +39,23 @@ class TestFiltro(unittest.TestCase):
         r = perfil.filtrar(self.p, "CERRAR_SERVICIO", {"servicio":"ssh"}, CAT, "objetivo-vuln", "ssh", 1.0)
         self.assertEqual(r["resultado"], "veta")
         self.assertTrue(r["requiere_humano"])
+
+    def test_accion_inexistente_veta(self):
+        r = perfil.filtrar(self.p, "ACCION_INEXISTENTE", {}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual(r["resultado"], "veta")
+        self.assertTrue(r["requiere_humano"])
+
+    def test_bloquear_puerto_confianza_baja_degradacion_con_humano(self):
+        r = perfil.filtrar(self.p, "BLOQUEAR_PUERTO", {"puerto":443,"ip":"1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 0.3)
+        self.assertEqual(r["resultado"], "degrada")
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")
+        self.assertTrue(r["requiere_humano"])
+
+    def test_excepcion_nunca_automatica_degrada(self):
+        p = {"activos": {"servidor-web": {"criticidad": "alta"}},
+             "continuidad": {"impacto_localizado": "automatica_si_confianza",
+                             "impacto_alcanza_servicio": "automatica_si_confianza"},
+             "excepciones": [{"servicio": 443, "activo": "servidor-web", "regla": "nunca_automatica"}]}
+        r = perfil.filtrar(p, "BLOQUEAR_PUERTO", {"puerto": 443, "ip": "1.2.3.4"}, CAT, "servidor-web", "https", 1.0)
+        self.assertEqual(r["resultado"], "degrada")
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")

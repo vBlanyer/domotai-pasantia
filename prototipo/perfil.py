@@ -40,6 +40,8 @@ def _permite_localizado(perfil, confianza):
 def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza):
     if accion_id is None:
         return _res("sin_accion", None, False)
+    if accion_id not in catalogo:
+        return _res("veta", None, True)
     acc = catalogo[accion_id]
     cont = perfil.get("continuidad", {})
     # Precondición dura RF-19: no cortar el plano de gestión.
