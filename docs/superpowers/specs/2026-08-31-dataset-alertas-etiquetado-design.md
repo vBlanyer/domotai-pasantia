@@ -38,8 +38,9 @@ La red se simula con **Containerlab**, y tres propiedades suyas moldean cada dec
    campañas se acumulan en el disco del anfitrión.
 2. **El auditor contamina lo que mide.** Escanea desde el plano de gestión, pero su tráfico llega al
    plano de datos y **genera alertas indistinguibles de un atacante** (verificado: un `nmap` desde
-   el auditor produce alertas 5760 con su propia IP). Consecuencia: la campaña registra cuándo corrió
-   el auditor, y esas alertas se etiquetan como actividad propia, no como amenaza.
+   el auditor produce alertas 5760 con su propia IP). Consecuencia: la campaña registra la IP del
+   auditor, y esas alertas se etiquetan `PROPIA`. Por el mismo motivo, **el ataque no puede lanzarse
+   desde el auditor** — se lanza desde `puesto`, o todos los ataques reales caerían como PROPIA.
 3. **Red cerrada, sin atacante externo.** Las IP de origen son de gestión (`172.20.20.x`) o de la LAN
    (`192.168.1.x`), nunca de Internet. Consecuencia: la noción de *origen inhabitual* del caso de uso
    se emula marcando segmentos, no se observa de forma natural. Es un límite documentado.
@@ -101,12 +102,22 @@ escaneo 5706 que la inyección sintética nunca producía).
 
 | Escenario | Contra | Familia | Etiqueta esperada |
 |-----------|--------|---------|-------------------|
-| Fuerza bruta SSH | objetivo-vuln | acceso credenciales | VP (SSH expuesto) |
-| Fuerza bruta SSH | puesto | acceso credenciales | FP (sin SSH) |
-| Escaneo de puertos | objetivo-vuln | reconocimiento | VP |
-| Telnet sin auth | iot | servicio expuesto | VP |
-| Contacto con ingreslock | objetivo-vuln | explotación conocida | VP |
-| Ruido de plataforma | — | plataforma | FP (autoauditoría CIS) |
+| Fuerza bruta SSH (desde `puesto`, atacante) | objetivo-vuln | acceso credenciales | VP (SSH expuesto) |
+| Logins fallidos benignos (desde `borde`, admin declarado) | objetivo-vuln | acceso credenciales | **FP (origen legítimo)** |
+| Escaneo de puertos (desde el auditor) | objetivo-vuln | reconocimiento | PROPIA |
+| Telnet sin auth (desde `puesto`) | iot | servicio expuesto | VP |
+| Contacto con ingreslock (desde `puesto`) | objetivo-vuln | explotación conocida | VP |
+| Ruido de plataforma | — | plataforma | no_soportada (familia fuera del caso de uso) |
+
+**Tres roles de origen, deliberadamente separados** (todos con IP distinta):
+- **Atacante** (`puesto`, `192.168.1.10`): sus alertas son ataques reales → VP/FP por postura.
+- **Admin legítimo** (`borde`, `192.168.1.1`, declarado en la ficha): produce la *misma señal* que
+  un ataque sobre un servicio expuesto, pero es administración normal → **FP**. Es el falso positivo
+  dominante del dominio, y distinguirlo del ataque es justo lo que da valor al prototipo.
+- **Auditor** (`172.20.20.4`): solo escanea → PROPIA.
+
+Los tres deben tener IP distinta: si el atacante y el admin compartieran origen, la etiqueta sería
+ambigua. El auditor nunca ataca, o sus ataques caerían como PROPIA.
 
 **Produce:** `campañas/<id>/alerts.json` (crudo congelado) y `campaña.yml` (ficha: qué se lanzó,
 contra qué nodo, cuándo, con qué script, **y cuándo/desde qué IP corrió el auditor**).
@@ -189,18 +200,26 @@ el clasificador y el justificador de la Fase 5.
 
 ## 6. Árbol de decisión del etiquetado
 
-Cuatro preguntas en orden, por cada alerta:
+Cinco preguntas en orden, por cada alerta:
 
-1. **¿`origen_ip` es el auditor?** (contrastar contra `campaña.yml`) → **`PROPIA`**, fuera del
+1. **¿`origen_ip` es el auditor?** (contra `campaña.yml → auditor.ips`) → **`PROPIA`**, fuera del
    cálculo de métricas. Para aquí.
 2. **¿La familia cae dentro del caso de uso acotado?**
    ([caso de uso](../../../documentacion/01-fase1-analisis-del-modulo/caso-de-uso-acotado.md)) → si
    no, **`no_soportada`**, a cola manual con su severidad intacta (RF-10).
-3. **¿El servicio que la alerta ataca existe y está expuesto en ese nodo?** (cruce contra
-   `hallazgos.json`) → sí = **`VP`**, no = **`FP`**. La etiqueta depende de la alerta *cruzada con la
-   postura*, que es justo lo que el baseline no sabe hacer.
-4. **¿La regla decidió con claridad?** → si no, **`PENDIENTE`** en `resoluciones.yml`, decisión
+3. **¿`origen_ip` es un administrador legítimo declarado?** (contra `campaña.yml → legitimos.ips`) →
+   **`FP`** (actividad administrativa legítima). Es la misma señal que un ataque sobre un servicio
+   expuesto; lo que la separa es el origen. Va **antes** que la postura, porque la postura diría VP.
+4. **¿El servicio que la alerta ataca existe y está expuesto en ese nodo?** (cruce contra
+   `hallazgos.json`) → sí = **`VP`**, no = **`FP`** (exposición inexistente). La etiqueta depende de
+   la alerta *cruzada con la postura*, que es justo lo que el baseline no sabe hacer.
+5. **¿La regla decidió con claridad?** → si no, **`PENDIENTE`** en `resoluciones.yml`, decisión
    humana.
+
+> **Sobre la circularidad.** El etiquetado usa la lista de orígenes legítimos como *ground truth*
+> —lo sabemos porque montamos la campaña—, pero **el clasificador de la Fase 5 no recibe esa lista**:
+> debe inferir la legitimidad de los rasgos de la alerta. Usar información privilegiada para la
+> etiqueta y negársela al modelo es exactamente cómo funciona un dataset preparado.
 
 Un **caso gris** (paso 4) es: la alerta no identifica el servicio atacado, el puerto no está en el
 inventario, o la versión detectada es ambigua. En la duda no se adivina: se marca pendiente.
