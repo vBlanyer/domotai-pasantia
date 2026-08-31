@@ -24,7 +24,7 @@ El trabajo se ordena en cinco piezas, que son los **pasos 11 a 15** del
 | **Interfaz de análisis y clasificador** | `clasificar` detrás de un encoder ajustado sobre la partición de entrenamiento | Dada una alerta, devuelve clase, prioridad y **confianza numérica** |
 | **Justificador en línea** | `justificar` detrás del modelo pequeño del Perfil A | Produce una justificación breve que **referencia campos concretos** de la alerta ([RNF-02](../02-fase2-estado-del-arte/requisitos.md)), en un tiempo tolerable para una persona |
 | **Conector** | Traduce acciones abstractas del catálogo a comandos, con clave dedicada y privilegio mínimo | El motor ordena una acción y el nodo la ejecuta, con orden, comando, código de salida y salida registrados |
-| **Validación humana y trazas** | Retiene lo que exige aprobación, muestra la justificación, registra la decisión | El lazo completo funciona en vivo: alerta → clasificación → justificación → validación → acción → verificación |
+| **Validación humana y trazas** | Retiene lo que exige aprobación, muestra la justificación **por terminal (TUI/CLI, sin UI gráfica — [flujo §7](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md))**, registra la decisión | El lazo completo funciona en vivo: alerta → clasificación → justificación → validación → acción → verificación |
 
 Dos restricciones de diseño condicionan cómo se implementa. La primera: **el dataset en disco es la
 frontera** entre el camino en vivo y el camino en lote, porque el presupuesto de memoria no permite

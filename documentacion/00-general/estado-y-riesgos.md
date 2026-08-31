@@ -47,6 +47,7 @@ Lo que funciona hoy, medido y reproducible (`sh lab/lab.sh up && sh lab/lab.sh t
 | D8 | **Wazuh dentro del sandbox** como fuente de alertas y **su nivel de regla como baseline** | [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
 | D9 | El Perfil A incorpora un **modelo de 3B en línea** para la justificación breve de la validación humana | [modelo §3](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
 | D7 | Dos abstracciones sostienen el diseño: el **conector** (acciones abstractas) y la **interfaz de análisis** (`clasificar`/`justificar`) | [protocolos](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md), [modelo §5](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
+| D11 | La interacción humana del prototipo es **por terminal (TUI/CLI)**; **sin UI gráfica**. Una UI gráfica queda como **trabajo futuro** tras culminar el prototipo | [flujo §7](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md) |
 
 ---
 

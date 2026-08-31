@@ -191,6 +191,14 @@ Criterios candidatos para exigirla (los umbrales concretos son entregable de la 
 
 Cada decisión de validación (aprobada, rechazada, modificada) debe registrarse: alimenta el análisis cualitativo de la Fase 6 y es la semilla del aprendizaje continuo listado como trabajo futuro.
 
+### Forma de la interacción: terminal, no UI gráfica
+
+La validación humana del prototipo se realiza **por terminal (TUI/CLI)**: el analista ve en la consola la alerta, su clase y prioridad, la justificación breve del modelo de 3B, la postura del auditor y la acción propuesta con su impacto, y responde aprobar / rechazar / modificar. No hay interfaz gráfica.
+
+Es coherente con el resto del diseño: el pipeline es *batch con ficheros como frontera*, Wazuh se despliega **sin dashboard** por el presupuesto de memoria ([selección del modelo §2](./seleccion-del-modelo.md)), y un servidor web competiría por RAM con el modelo en un equipo ya ajustado. Satisface RF-08 (aprobar/rechazar/reclasificar) y RNF-11 (legible en menos de un minuto) sin coste de memoria ni superficie nueva. La salida hacia otros sistemas (RF-13) es **estructurada en disco** —el dataset y las trazas—, no una pantalla.
+
+**Una UI gráfica queda como trabajo futuro**, para cuando el prototipo esté culminado: presentaría el mismo contenido —que ya existe— con jerarquía visual, y es donde el ejemplo del perfil (política propone → perfil degrada/veta) y el panel de métricas de la Fase 6 más ganarían. No se hace ahora porque es producto, y el prototipo demuestra la calidad de la decisión, no la presentación.
+
 ---
 
 ## 8. Preguntas abiertas para la empresa
