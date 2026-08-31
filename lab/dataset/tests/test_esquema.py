@@ -29,6 +29,11 @@ class TestDerivaciones(unittest.TestCase):
     def test_familia_desconocida_es_otra(self):
         self.assertEqual(esquema.familia_de({"groups": ["algo_raro"]}), "otra")
 
+    def test_familia_sca_es_plataforma(self):
+        # M1: el ruido de autoauditoría real lleva el grupo "sca" (Security
+        # Configuration Assessment), no solo rootcheck/cis/ossec.
+        self.assertEqual(esquema.familia_de({"groups": ["sca"]}), "plataforma")
+
 class TestNormalizarAlerta(unittest.TestCase):
     def setUp(self):
         self.ssh = cargar("alerta_ssh_vp.json")

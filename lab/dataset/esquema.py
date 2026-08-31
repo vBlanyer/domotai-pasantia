@@ -30,7 +30,7 @@ def familia_de(rule):
         return "servicio_expuesto"
     if g & {"exploit", "attack"}:
         return "explotacion_conocida"
-    if g & {"rootcheck", "cis", "ossec"}:
+    if g & {"rootcheck", "cis", "ossec", "sca"}:
         return "plataforma"
     return "otra"
 

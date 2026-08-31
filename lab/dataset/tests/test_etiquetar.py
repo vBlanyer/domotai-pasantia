@@ -25,6 +25,19 @@ class TestPostura(unittest.TestCase):
     def test_nodo_desconocido_es_gris(self):
         self.assertIsNone(etiquetar.postura_de(self.h, "nodo-fantasma", "ssh"))
 
+    def test_servicio_desconocido_es_gris_aunque_el_nodo_se_conozca(self):
+        # I1: la alerta no identifica el servicio atacado -> gris, no FP.
+        self.assertIsNone(etiquetar.postura_de(self.h, "objetivo-vuln", "desconocido"))
+
+    def test_servicio_vacio_es_gris(self):
+        self.assertIsNone(etiquetar.postura_de(self.h, "objetivo-vuln", ""))
+
+    def test_nodo_escaneado_sin_servicios_sigue_siendo_fp_legitimo(self):
+        # I2: distinguir "escaneado, sin servicios" (FP legítimo) de "nodo
+        # ausente" (gris). No debe confundirse una cosa con la otra.
+        p = etiquetar.postura_de(self.h, "puesto", "ssh")
+        self.assertFalse(p["expuesto"])
+
 class TestEtiquetar(unittest.TestCase):
     def setUp(self):
         import yaml
@@ -68,4 +81,19 @@ class TestEtiquetar(unittest.TestCase):
         reg["activo"] = "nodo-fantasma"
         r = etiquetar.etiquetar(reg, self.h, self.ficha, {reg["id_alerta"]: "FP"})
         self.assertEqual(r["etiqueta"], "FP")
+        self.assertEqual(r["etiqueta_por"], "humano")
+
+    def test_servicio_desconocido_con_nodo_conocido_es_pendiente_no_fp(self):
+        # I1: familia soportada + servicio desconocido + nodo conocido ->
+        # PENDIENTE (gris), nunca FP por defecto.
+        reg = self._reg(self.ssh)
+        reg["servicio"] = "desconocido"
+        r = etiquetar.etiquetar(reg, self.h, self.ficha, {})
+        self.assertEqual(r["etiqueta"], "PENDIENTE")
+
+    def test_servicio_desconocido_con_resolucion_humana(self):
+        reg = self._reg(self.ssh)
+        reg["servicio"] = "desconocido"
+        r = etiquetar.etiquetar(reg, self.h, self.ficha, {reg["id_alerta"]: "VP"})
+        self.assertEqual(r["etiqueta"], "VP")
         self.assertEqual(r["etiqueta_por"], "humano")

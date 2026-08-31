@@ -7,7 +7,12 @@ def construir(campañas, particion_map, resoluciones):
     for c in campañas:
         ficha = c["ficha"]
         cid = ficha.get("id")
-        parte = particion_map.get(cid)
+        # I3: una campaña sin partición asignada NO debe colarse como
+        # particion=None (violaría el esquema, spec §7); es un error de
+        # configuración que hay que atajar explícitamente.
+        if cid not in particion_map:
+            raise ValueError(f"campaña {cid!r} no tiene partición asignada en particion.yml")
+        parte = particion_map[cid]
         for cruda in c["alertas"]:
             reg = esquema.normalizar_alerta(cruda, cid)
             reg = etq.etiquetar(reg, c["hallazgos"], ficha, resoluciones)

@@ -20,3 +20,13 @@ class TestConstruir(unittest.TestCase):
         self.assertEqual(len(regs), 1)
         self.assertEqual(regs[0]["etiqueta"], "VP")
         self.assertEqual(regs[0]["particion"], "evaluacion")
+
+    def test_campaña_sin_particion_lanza_error_en_vez_de_particion_null(self):
+        # I3: un cid ausente de particion_map no debe colarse como None.
+        campaña = {
+            "alertas": [json.loads(texto("alerta_ssh_vp.json").strip())],
+            "hallazgos": json.loads(texto("hallazgos.json")),
+            "ficha": yaml.safe_load(texto("campaña.yml")),
+        }
+        with self.assertRaises(ValueError):
+            construir.construir([campaña], particion_map={}, resoluciones={})
