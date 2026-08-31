@@ -176,12 +176,17 @@ sin reversión definida; `no_cortar_gestion` (RF-19) rechaza las que dejarían e
 
 ### Demostración de RNF-14
 
-El motor se corre sobre dos perfiles. Honestamente, con los datos reales del laboratorio (solo
-fuerza bruta SSH → `vp_intento_acceso` → `BLOQUEAR_IP`, impacto localizado) **los dos perfiles
-coinciden**, porque una acción localizada se auto-permite en ambos. La divergencia se demuestra sobre
-un par de **alertas ilustrativas** (el DDoS al 443, un servicio de gestión expuesto), declaradas como
-escenario ilustrativo y no como tráfico del laboratorio. Es lo máximo honesto que permiten los datos
-actuales, y vuelve a señalar el límite (una sola familia de ataque).
+La divergencia de perfiles se demuestra **a nivel de filtro**, no por CLI: `test_rnf14.py` llama
+`perfil.filtrar(...)` directamente con `BLOQUEAR_PUERTO` (impacto `alcanza_servicio`) sobre
+`servidor-web:443` y muestra que `residencial` permite mientras `empresarial` degrada a
+`BLOQUEAR_IP` por su excepción `nunca_automatica`. Por CLI, sobre el dataset real, `residencial.yml`
+y `empresarial.yml` producen las **mismas** decisiones: el baseline solo emite
+`vp_intento_acceso`/`fp_exposicion_inexistente`/`no_soportada`, y `vp_intento_acceso` propone
+`BLOQUEAR_IP` (impacto `localizado`), un impacto que ningún perfil degrada. El baseline no puede
+producir `vp_exposicion_gestion` —la clase que propondría una acción `alcanza_servicio`— porque
+exige contexto que una regla no tiene; por eso no hay hoy un escenario e2e por CLI que ejerza la
+divergencia. Esa divergencia e2e llega con **5C**, cuando el clasificador real sí produzca las
+clases ricas. No es un defecto del filtro (que es correcto): es el límite documentado del baseline.
 
 ---
 
@@ -211,15 +216,18 @@ en este entorno no permite `Date.now()` en algunos contextos; el CLI los inyecta
 - Tests `unittest` por módulo.
 - El CLI `python3 -m prototipo.triaje <dataset.jsonl> <perfil.yml> <salida.jsonl>` que corre el lazo
   de decisión sobre un dataset y escribe las trazas.
-- Un par de alertas ilustrativas para la demostración de RNF-14.
+- `test_rnf14.py`, que ejercita la divergencia de perfiles a nivel de filtro (ver §6).
 
 ---
 
 ## 9. Criterio de cierre de 5A
 
 - El CLI procesa el `etiquetado.jsonl` con un perfil y produce trazas de decisión completas.
-- Correrlo con `residencial.yml` y con `empresarial.yml` sobre las alertas ilustrativas produce
-  decisiones **distintas** para la misma alerta (RNF-14 demostrado).
+- La divergencia de perfiles (RNF-14) queda demostrada **a nivel de filtro**, en `test_rnf14.py`
+  (`perfil.filtrar` con `BLOQUEAR_PUERTO`), no por CLI: el baseline no produce ninguna clase que
+  proponga una acción `alcanza_servicio`, así que correr el CLI con `residencial.yml` y con
+  `empresarial.yml` sobre el dataset real da las mismas decisiones. La divergencia e2e por CLI queda
+  para 5C, cuando el clasificador real produzca las clases ricas.
 - Cada traza registra clase, confianza, justificación anclada, acción propuesta, resultado del filtro
   y acción final.
 - Batería `unittest` verde.

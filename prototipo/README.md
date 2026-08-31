@@ -61,9 +61,15 @@ contrato de salida: `clase`, `prioridad`, `confianza`, `justificacion`), sin toc
 `perfil.py`, `traza.py` ni `triaje.py`. Esa frontera es la que hace posible medir 5A ahora y
 sustituir solo esa pieza más adelante.
 
-Las clases que produce el baseline: `vp_acceso_consumado`, `vp_intento_acceso`,
-`vp_exposicion_gestion`, `fp_actividad_legitima`, `fp_exposicion_inexistente`, `no_soportada`
-(mismas etiquetas que usa el dataset de la Fase 3 — `lab/dataset/etiquetar.py`).
+Las clases que produce el baseline hoy son solo **tres**: `no_soportada` (familia sin soporte de
+acción), `vp_intento_acceso` (familia de ataque con el servicio expuesto, o postura desconocida con
+confianza baja) y `fp_exposicion_inexistente` (familia de ataque con el servicio no expuesto). Las
+otras tres etiquetas del caso de uso — `vp_acceso_consumado`, `vp_exposicion_gestion`,
+`fp_actividad_legitima` — son clases que el dataset de la Fase 3 conoce (mismas etiquetas que usa
+`lab/dataset/etiquetar.py`) pero que el baseline **no puede producir**: exigen contexto que una
+regla determinista no tiene (por ejemplo, distinguir un acceso ya consumado de un intento, o una
+exposición de gestión de una exposición de servicio). Ese límite documentado es exactamente lo que
+motiva **5C** (ver [spec §3](../docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md#3-el-clasificador-baseline)).
 
 ## 3. El esquema de la traza (RF-09)
 
@@ -85,7 +91,8 @@ Cada línea de la salida (`.jsonl`) es una decisión de triaje:
   "resultado_filtro": "permite",
   "accion_final": "BLOQUEAR_IP",
   "requiere_humano": false,
-  "version_baseline": "baseline-0"
+  "version_baseline": "baseline-0",
+  "version_perfil": "v0"
 }
 ```
 
@@ -93,6 +100,9 @@ Cada línea de la salida (`.jsonl`) es una decisión de triaje:
 `version_baseline` deja constancia en la propia traza de que la clasificación es placeholder — se
 incrementará cuando 5C sustituya el baseline por el modelo real, para poder distinguir en las
 métricas de la Fase 6 qué decisiones vinieron de cuál.
+`version_perfil` es la versión del perfil de cliente aplicado (clave `version` en el YAML del
+perfil, `v0` mientras no cambie el esquema), para poder distinguir en las trazas y en las métricas
+qué versión de la regla de negocio produjo cada decisión.
 
 ## 4. Cómo correr el CLI
 
@@ -134,7 +144,19 @@ todos).
   decisiones distintas, ambas trazables a una regla del perfil y no a un capricho del modelo.
 
 Esto está verificado en `prototipo/tests/test_rnf14.py` (`test_localizado_coincide_en_ambos` y
-`test_misma_accion_alcanza_servicio_diverge_por_perfil`).
+`test_misma_accion_alcanza_servicio_diverge_por_perfil`), llamando `perfil.filtrar(...)`
+directamente con `BLOQUEAR_PUERTO`.
+
+**Por qué la divergencia no se ve corriendo el CLI.** El baseline (§2) solo produce
+`vp_intento_acceso`, `fp_exposicion_inexistente` y `no_soportada`; nunca produce
+`vp_exposicion_gestion`, que es la única clase que la política traduce en una acción de impacto
+`alcanza_servicio` (`BLOQUEAR_PUERTO`/`CERRAR_SERVICIO`). Por eso, corriendo
+`python3 -m prototipo.triaje` sobre el dataset real con `residencial.yml` y con `empresarial.yml`,
+las decisiones **coinciden** siempre: toda la actividad que el baseline sabe clasificar propone
+`BLOQUEAR_IP` (impacto `localizado`), y ningún perfil degrada ni veta ese impacto. La divergencia
+demostrada arriba es real y trazable a una regla del perfil, pero hoy solo se ejercita a nivel de
+filtro (unit); la divergencia end-to-end por CLI llega con **5C**, cuando el clasificador real
+produzca `vp_exposicion_gestion`.
 
 ## 6. Corrida sobre el dataset real de la Fase 3
 
