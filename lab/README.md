@@ -8,8 +8,10 @@ y el plan de ejecución en [camino-paso-a-paso.md](../documentacion/00-general/c
 lab/
 ├── lab.sh              control maestro: up · down · status · test
 ├── topologias/         las topologías de Containerlab
-├── scripts/            Wazuh, reenvío de syslog y visor de alertas
-└── docs/               instalación, verificación y ground truth
+├── scripts/            Wazuh, reenvío de syslog, campañas, auditoría y visor de alertas
+├── campañas/           actividad real congelada, una subcarpeta por campaña
+├── dataset/            la tubería de etiquetado y el dataset resultante
+└── docs/               instalación, verificación, ground truth y dataset
 ```
 
 ## Documentos
@@ -21,6 +23,7 @@ lab/
 | [generar-alertas.md](docs/generar-alertas.md) | Cómo producir alertas, manualmente y por reenvío | — |
 | [vulnerabilidades-esperadas.md](docs/vulnerabilidades-esperadas.md) | **Ground truth**: qué se ha plantado en cada nodo | Verificado 24/08/2026 |
 | [mediciones.md](docs/mediciones.md) | Consumo real por escalón — Paso 1 del camino | En curso |
+| [dataset.md](docs/dataset.md) | **Dataset de alertas etiquetado**: cómo se genera, esquema de 16 campos, distribución de etiquetas | **Entregado 31/08/2026** |
 
 ## Topologías
 
@@ -38,6 +41,8 @@ lab/
 | [scripts/wazuh-run.sh](scripts/wazuh-run.sh) | Arranca el manager de Wazuh y activa la recepción de syslog |
 | [scripts/reenvio-syslog.sh](scripts/reenvio-syslog.sh) | Reenvía el `auth.log` del objetivo hacia Wazuh |
 | [scripts/ver-alertas.sh](scripts/ver-alertas.sh) | Visor de alertas en tiempo real (flujo de dos terminales) |
+| [scripts/campana.sh](scripts/campana.sh) | Genera una campaña de actividad real (ataques + tráfico legítimo) y la congela en `campañas/` |
+| [scripts/auditar.sh](scripts/auditar.sh) | Escanea el plano de datos con Nmap y emite `hallazgos.json` normalizado |
 
 > **Nomenclatura.** Los identificadores siguen la terminología vigente del proyecto: la topología
 > es `red-cliente`, y sus nodos son `proveedor` (antes del punto de entrega), `borde` (el equipo de

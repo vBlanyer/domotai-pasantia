@@ -1,0 +1,17 @@
+id: 2026-08-31-entrenamiento
+fecha: 2026-08-31
+ataques:
+  - escenario: fuerza bruta SSH
+    objetivo: objetivo-vuln
+    desde: puesto
+  - escenario: logins fallidos benignos (admin legitimo)
+    objetivo: objetivo-vuln
+    desde: borde
+  - escenario: escaneo de puertos
+    objetivo: objetivo-vuln
+    desde: auditor
+auditor:
+  ips: ["172.20.20.7"]
+  cuando: "2026-08-31T16:44:04+0000"
+legitimos:
+  ips: ["192.168.1.1"]

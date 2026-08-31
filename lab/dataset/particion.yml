@@ -2,5 +2,7 @@
 # resultados: elegir la partición mirando los números contamina la evaluación.
 # ~80/20 medido en alertas, no en número de campañas. Estratificado: cada familia
 # y ambas etiquetas VP y FP presentes en los dos lados; evaluación DEBE tener FP.
-entrenamiento: []
-evaluacion: []
+entrenamiento:
+  - 2026-08-31-entrenamiento
+evaluacion:
+  - 2026-08-31-evaluacion

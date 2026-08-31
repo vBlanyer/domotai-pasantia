@@ -1,0 +1,102 @@
+{
+  "version_herramienta": "Nmap version 7.99",
+  "timestamp": "2026-08-31T16:45:52+0000",
+  "nodos": {
+    "objetivo-vuln": [
+      {
+        "puerto": 21,
+        "servicio": "ftp",
+        "estado": "open"
+      },
+      {
+        "puerto": 22,
+        "servicio": "ssh",
+        "estado": "open"
+      },
+      {
+        "puerto": 23,
+        "servicio": "telnet",
+        "estado": "open"
+      },
+      {
+        "puerto": 25,
+        "servicio": "smtp",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "open"
+      },
+      {
+        "puerto": 111,
+        "servicio": "rpcbind",
+        "estado": "open"
+      },
+      {
+        "puerto": 139,
+        "servicio": "netbios-ssn",
+        "estado": "open"
+      },
+      {
+        "puerto": 445,
+        "servicio": "microsoft-ds",
+        "estado": "open"
+      },
+      {
+        "puerto": 513,
+        "servicio": "login",
+        "estado": "open"
+      },
+      {
+        "puerto": 514,
+        "servicio": "shell",
+        "estado": "open"
+      },
+      {
+        "puerto": 2121,
+        "servicio": "ccproxy-ftp",
+        "estado": "open"
+      },
+      {
+        "puerto": 3306,
+        "servicio": "mysql",
+        "estado": "open"
+      },
+      {
+        "puerto": 5432,
+        "servicio": "postgresql",
+        "estado": "open"
+      },
+      {
+        "puerto": 5900,
+        "servicio": "vnc",
+        "estado": "open"
+      },
+      {
+        "puerto": 6000,
+        "servicio": "X11",
+        "estado": "open"
+      },
+      {
+        "puerto": 8009,
+        "servicio": "ajp13",
+        "estado": "open"
+      }
+    ],
+    "puesto": [],
+    "iot": [
+      {
+        "puerto": 23,
+        "servicio": "telnet",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "open"
+      }
+    ],
+    "borde": []
+  }
+}

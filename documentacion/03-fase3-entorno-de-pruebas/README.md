@@ -28,7 +28,7 @@ la RAM del anfitrión hasta corregirlo.
 La fase distingue explícitamente **dos ground truths que no son el mismo**: el de vulnerabilidades,
 que sale de la composición documentada de la topología y sirve para evaluar al auditor; y el de
 alertas —verdadero o falso positivo—, que sale de contrastar cada alerta contra el inventario del
-nodo al que apunta y es lo que evalúa al triaje. El primero está hecho; el segundo es lo que falta.
+nodo al que apunta y es lo que evalúa al triaje. Ambos están hechos: ver [lab/docs/dataset.md](../../lab/docs/dataset.md) para el segundo.
 
 **Dos límites conocidos.** El equipo de borde es un contenedor Linux provisional y no OpenWrt real,
 porque el arranque de vrnetlab se cuelga; deja de ser bloqueante desde que el caso de uso se acota
@@ -49,6 +49,7 @@ En [`lab/`](../../lab/), fuera de esta carpeta, vive el laboratorio ejecutable:
 - [lab/docs/vulnerabilidades-esperadas.md](../../lab/docs/vulnerabilidades-esperadas.md) — **ground truth de vulnerabilidades**: qué se ha plantado en cada nodo.
 - [lab/docs/generar-alertas.md](../../lab/docs/generar-alertas.md) — cómo producir alertas y qué nivel asigna Wazuh a cada una.
 - [lab/docs/mediciones.md](../../lab/docs/mediciones.md) — consumo real por escalón, frente a lo estimado.
+- [lab/docs/dataset.md](../../lab/docs/dataset.md) — **dataset de alertas etiquetado**: cómo se genera, esquema de 16 campos, origen, volumen y distribución de etiquetas.
 
 ---
 
@@ -69,16 +70,14 @@ laboratorio instancia y el perímetro que decide qué actividad merece generarse
 
 ## Estado
 
-**Entorno operativo y verificado; el entregable de datos, pendiente.**
+**Fase cerrada: entorno operativo y verificado, entregable de datos entregado.**
 
 Hecho: topología versionada y reproducible, superficie de ataque real con ground truth de
-vulnerabilidades documentado, Wazuh emitiendo alertas, auditor con Nmap, y el consumo medido.
+vulnerabilidades documentado, Wazuh emitiendo alertas, auditor con Nmap, el consumo medido, y el
+[dataset de alertas etiquetado](../../lab/docs/dataset.md) — 410 alertas reales de dos campañas
+(`entrenamiento`/`evaluacion`, partición disjunta y fijada a priori), con ground truth VP/FP/PROPIA/
+no_soportada, 0 casos `PENDIENTE` sin resolver, y ambas etiquetas VP y FP presentes en los dos
+lados de la partición, tal como exige el criterio de cierre de la especificación.
 
-Falta para cerrar la fase, según su criterio del roadmap —*el dataset cuenta con ground truth
-suficiente para calcular precisión, recall y F1*—:
-
-- **Dataset de alertas etiquetado** (verdadero / falso positivo) y documentado: origen, volumen,
-  criterio y distribución.
-- **Partición en entrenamiento y evaluación** con campañas disjuntas, exigida si el perfil de
-  modelo requiere ajuste fino. Entrenar y medir sobre las mismas alertas invalidaría la Fase 6.
-- **Salida normalizada del auditor**, con la versión de su base de datos fijada y registrada.
+Cumple el criterio del roadmap —*el dataset cuenta con ground truth suficiente para calcular
+precisión, recall y F1*.
