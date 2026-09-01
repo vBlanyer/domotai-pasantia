@@ -9,3 +9,6 @@ get-docker.sh
 # Artefactos de Python
 __pycache__/
 *.pyc
+
+# Modelos de ML (grandes, se descargan aparte)
+modelos/
