@@ -1,8 +1,13 @@
 """El conector: traduce la orden a un comando del catálogo y lo ejecuta por el ejecutor inyectado."""
-import json, sys
+import json, sys, re
+
+_SEGURO = re.compile(r'^[A-Za-z0-9._:-]+$')   # IPs, puertos, nombres de servicio: sin metacaracteres de shell
 
 def render_comando(catalogo, accion_id, params):
     return catalogo[accion_id]["comando"].format(**params)
+
+def _params_seguros(params):
+    return all(_SEGURO.match(str(v)) for v in params.values())
 
 def _resultado(orden, comando, rc, salida, exito, idempotente, timestamp):
     return {
@@ -14,6 +19,8 @@ def _resultado(orden, comando, rc, salida, exito, idempotente, timestamp):
 
 def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
     acc = catalogo[orden["accion_id"]]
+    if not _params_seguros(orden.get("params", {})):
+        return _resultado(orden, None, -1, "params rechazados: caracteres no permitidos", False, False, timestamp)
     cmd_verif = acc["verificacion"].format(**orden["params"])
     # 1. Verificar-antes-de-actuar: si ya está en el estado deseado, no reejecutar (idempotencia).
     rc_v, out_v = ejecutor(orden["nodo_ip"], cmd_verif)
@@ -26,7 +33,7 @@ def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
     return _resultado(orden, cmd, rc, out, rc == 0 and rc_v2 == 0, False, timestamp)
 
 def _main(argv):  # lee una orden de stdin y la ejecuta (frontera de proceso; futuro conector en Go)
-    import os, yaml
+    import os
     from prototipo import catalogo as catm
     orden = json.loads(sys.stdin.read())
     cat = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))

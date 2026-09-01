@@ -34,3 +34,10 @@ class TestConector(unittest.TestCase):
         self.assertTrue(r["idempotente"])
         self.assertTrue(r["exito"])
         self.assertNotIn("-A INPUT", " ".join(ej.llamadas))   # NO reejecutó la acción
+
+    def test_params_con_inyeccion_se_rechazan_sin_ejecutar(self):
+        ej = EjecutorFalso()
+        orden_mala = dict(ORDEN); orden_mala["params"] = {"ip": "1.2.3.4; rm -rf /"}
+        r = conector.ejecutar_orden(orden_mala, CAT, ej, "2026-08-31T00:00:00Z")
+        self.assertFalse(r["exito"])
+        self.assertEqual(ej.llamadas, [])   # el ejecutor NUNCA se llamó
