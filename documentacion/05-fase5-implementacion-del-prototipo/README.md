@@ -17,8 +17,8 @@ propio: el perímetro lo fija la [Fase 1](../01-fase1-analisis-del-modulo/), los
 
 El trabajo se ordena en cinco piezas, que son los **pasos 11 a 15** del
 [camino paso a paso](../00-general/camino-paso-a-paso.md), agrupadas en tres subproyectos: **5A**
-(núcleo de decisión, offline, hecho), **5B** (lazo en vivo: conector + validación humana,
-pendiente) y **5C** (ML real detrás de la interfaz, pendiente).
+(núcleo de decisión, offline, hecho), **5B** (lazo en vivo: conector + validación humana, hecho) y
+**5C** (ML real detrás de la interfaz, pendiente — lo único que falta de la Fase 5).
 
 | Pieza | Qué hace | Se da por hecha cuando | Estado |
 |-------|----------|------------------------|--------|
@@ -26,8 +26,8 @@ pendiente) y **5C** (ML real detrás de la interfaz, pendiente).
 | **Núcleo de decisión (5A)** | Análisis (baseline) → política → perfil → traza: el lazo completo hasta antes de ejecutar | Corre sobre el dataset etiquetado de la Fase 3 y produce trazas con clase, acción y resultado de filtro auditables | **Hecho** — [`prototipo/`](../../prototipo/README.md) |
 | **Interfaz de análisis y clasificador real (5C)** | `clasificar` detrás de un encoder ajustado sobre la partición de entrenamiento | Dada una alerta, devuelve clase, prioridad y **confianza numérica** desde el modelo, no desde una regla fija | Pendiente |
 | **Justificador en línea (5C)** | `justificar` detrás del modelo pequeño del Perfil A | Produce una justificación breve que **referencia campos concretos** de la alerta ([RNF-02](../02-fase2-estado-del-arte/requisitos.md)), en un tiempo tolerable para una persona | Pendiente |
-| **Conector (5B)** | Traduce acciones abstractas del catálogo a comandos, con clave dedicada y privilegio mínimo | El motor ordena una acción y el nodo la ejecuta, con orden, comando, código de salida y salida registrados | Pendiente |
-| **Validación humana y trazas en vivo (5B)** | Retiene lo que exige aprobación, muestra la justificación **por terminal (TUI/CLI, sin UI gráfica — [flujo §7](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md))**, registra la decisión | El lazo completo funciona en vivo: alerta → clasificación → justificación → validación → acción → verificación | Pendiente |
+| **Conector (5B)** | Traduce acciones abstractas del catálogo a comandos, con clave dedicada y privilegio mínimo | El motor ordena una acción y el nodo la ejecuta, con orden, comando, código de salida y salida registrados | **Hecho** — [`prototipo/`](../../prototipo/README.md#8-5b--el-lazo-en-vivo) |
+| **Validación humana y trazas en vivo (5B)** | Retiene lo que exige aprobación, muestra la justificación **por terminal (TUI/CLI, sin UI gráfica — [flujo §7](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md))**, registra la decisión | El lazo completo funciona en vivo: alerta → clasificación → justificación → validación → acción → verificación | **Hecho** — [`prototipo/`](../../prototipo/README.md#8-5b--el-lazo-en-vivo), demostrado sobre `objetivo-vuln` con `BLOQUEAR_IP` |
 
 > **Sobre el clasificador de 5A.** El núcleo de decisión ya construido corre con un
 > **baseline determinista** (regla fija sobre postura de exposición, sin ML) detrás de la interfaz
@@ -50,9 +50,9 @@ producir.
 ## Documentos
 
 - [`docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md`](../../docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md) — diseño del subproyecto 5A.
+- [`docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md`](../../docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md) — diseño del subproyecto 5B (conector, validación humana, verificación).
 
-Se irán añadiendo aquí conforme la fase avance: prompts versionados (5C), contrato del conector
-(5B).
+Se irán añadiendo aquí conforme la fase avance: prompts versionados (5C).
 
 El código del prototipo vive fuera de esta carpeta, junto al laboratorio, en
 [`prototipo/`](../../prototipo/README.md) — no en `documentacion/`.
@@ -73,11 +73,16 @@ trazas sobre las que se calculan las métricas.
 
 ## Estado
 
-**En curso.** El subproyecto **5A** (núcleo de decisión) está hecho: corre sobre el dataset
-etiquetado real de la Fase 3 y produce trazas auditables — ver [`prototipo/README.md`](../../prototipo/README.md).
-Quedan **5B** (conector SSH + validación humana TUI + verificación por reescaneo) y **5C**
+**En curso.** Los subproyectos **5A** (núcleo de decisión) y **5B** (lazo en vivo) están hechos.
+**5A** corre sobre el dataset etiquetado real de la Fase 3 y produce trazas auditables. **5B** añade
+el conector SSH (orden como frontera de dato, idempotencia verificar-antes-de-actuar, ejecutor
+inyectable, validación de params contra inyección), la validación humana por terminal (demostrada
+con un escenario provocado, porque el baseline sobre datos reales casi nunca la dispara) y la
+verificación por reescaneo; el lazo completo se demostró en vivo contra el laboratorio sobre
+`objetivo-vuln` con `BLOQUEAR_IP` (ejecución y verificación confirmadas) — ver
+[`prototipo/README.md`](../../prototipo/README.md#8-5b--el-lazo-en-vivo). Queda **5C**
 (clasificador y justificador reales, ML, detrás de la misma interfaz que hoy usa el baseline
-determinista de 5A).
+determinista de 5A) — lo único pendiente de la Fase 5.
 
 **Criterio de cierre** (roadmap): el prototipo procesa el dataset de prueba completo y produce
 clasificaciones priorizadas con justificación explicable.

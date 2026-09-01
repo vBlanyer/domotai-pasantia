@@ -181,3 +181,119 @@ todavía alertas que disparen `veta` o `degrada` sobre este perfil (esos casos e
 ```bash
 python3 -m unittest discover -s prototipo/tests
 ```
+
+---
+
+## 8. 5B — el lazo en vivo
+
+5A se detiene justo antes de actuar: produce `accion_final`, pero nada la ejecuta. 5B cierra ese
+tramo — orden → conector → validación humana → verificación — sin tocar ningún módulo de 5A.
+Diseño completo: [`docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md`](../docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md).
+
+```
+decisión (5A) ──► ¿requiere_humano? ──sí──► validación por terminal ──rechazar──► fin (no se ejecuta)
+                        │no                          │aprobar/modificar
+                        ▼                             ▼
+                   orden.construir()  ──►  conector.ejecutar_orden()  ──►  verificacion.confirmar()
+                                                                                    │
+                                                                                    ▼
+                                                                          traza (RF-09, ampliada)
+```
+
+| Módulo | Responsabilidad |
+|--------|------------------|
+| `prototipo/orden.py` | Traduce la decisión + la alerta en una orden (acción, nodo, IP, params) — la frontera motor↔conector |
+| `prototipo/conector.py` | Renderiza el comando del catálogo con los params de la orden y lo ejecuta con el ejecutor inyectado |
+| `prototipo/validacion.py` | Muestra la decisión por terminal y captura el veredicto humano (RF-08) |
+| `prototipo/verificacion.py` | Reejecuta el comando de verificación del catálogo para confirmar el efecto |
+| `prototipo/lazo.py` | Orquesta decisión → validación → orden → conector → verificación, con CLI (`--auto` / vivo) |
+
+**El conector (`conector.py`).**
+
+- **La orden es la frontera de dato, no de instrucción.** `orden.construir` arma un diccionario con
+  campos fijos (`accion_id`, `nodo_ip`, `params`) a partir de la decisión y la alerta; el conector
+  nunca interpola texto libre de la alerta en un comando de shell. Antes de renderizar cualquier
+  comando, `conector._params_seguros` exige que cada valor de `params` cumpla
+  `^[A-Za-z0-9._:-]+$` (IPs, puertos, nombres de servicio) — si algo en el `origen_ip` u otro campo
+  trae metacaracteres de shell, la orden se rechaza (`"params rechazados: caracteres no
+  permitidos"`) y no se ejecuta ni se verifica nada. Es la aplicación directa de RNF-08 (los campos
+  del log los escribe quien ataca) al punto exacto donde ese texto podría llegar a un `subprocess`.
+- **Idempotencia: verificar antes de actuar.** `ejecutar_orden` primero corre el comando de
+  `verificacion` del catálogo; si ya confirma el estado deseado (p. ej. la IP ya está bloqueada),
+  devuelve éxito sin volver a aplicar la acción (`idempotente: true`) — reintentar el lazo sobre la
+  misma alerta no duplica reglas de `iptables` ni repite efectos. Solo si la verificación inicial
+  falla se renderiza y ejecuta el comando real, y se vuelve a verificar después para confirmar el
+  efecto.
+- **El ejecutor es inyectable.** `ejecutar_orden(orden, catalogo, ejecutor, timestamp)` recibe el
+  ejecutor como parámetro — una función `(nodo_ip, comando) -> (codigo_salida, salida)`. Los tests y
+  el modo `--auto` de `lazo.py` usan un ejecutor falso (sin red, sin SSH); el modo vivo usa
+  `conector.ejecutor_ssh_lab`, que hace `docker exec` sobre el auditor del laboratorio y `ssh` con
+  `sshpass` contra el nodo objetivo. Esa frontera es la misma razón por la que 5C puede sustituir el
+  clasificador sin tocar el conector: el contrato es la firma, no la implementación.
+
+**Honestidad sobre el alcance de la demo en vivo.** El conector solo se ha ejecutado en vivo contra
+`objetivo-vuln` (`192.168.1.30`), porque es el único nodo del laboratorio con `sshd` accesible desde
+el auditor; los demás nodos del plano de datos no exponen SSH. La credencial usada es
+`msfadmin`/`msfadmin` con `sudo -S` — es un **sustituto de laboratorio** de la clave de servicio
+dedicada y de privilegio mínimo que un despliegue real usaría (ver la nota de RNF-08/conector en la
+spec de 5B); no es la credencial de producción ni pretende serlo.
+
+**La validación humana (`validacion.py`).** Cuando el filtro del perfil marca `requiere_humano`
+(RF-08, RF-18), `lazo.procesar_lazo` no construye la orden todavía: llama a `validacion.pedir`, que
+imprime por terminal la decisión completa (activo, clase, confianza, justificación, acción
+propuesta e impacto) y lee un veredicto (`aprobar` / `rechazar` / `modificar`, con `rechazar` como
+valor por defecto ante cualquier respuesta ambigua — seguro por defecto). Solo si el veredicto no es
+`rechazar` se construye y ejecuta la orden.
+
+**Honestidad sobre cuándo se dispara.** Sobre el dataset real de la Fase 3 (§6), el baseline no
+produce ninguna decisión con `requiere_humano: true`: la única familia soportada
+(`acceso_credenciales`) con postura conocida cae siempre en `permite` con confianza alta. Por eso la
+validación humana se demuestra aquí con un **escenario provocado** — una alerta cuyo `activo` no
+aparece en `hallazgos.json`, de forma que la postura queda en `None`, la confianza baja a `0.5` y el
+perfil `empresarial` veta la acción automática:
+
+```bash
+python3 - <<'PY'
+import json
+from prototipo import lazo, catalogo, perfil
+CAT = catalogo.cargar_catalogo("prototipo/catalogo.yml")
+P = perfil.cargar("prototipo/perfiles/empresarial.yml")
+H = json.load(open("prototipo/tests/fixtures/hallazgos.json"))
+alerta = {"id_alerta":"prov","timestamp":"2026-08-31T00:00:00Z","activo":"nodo-sin-postura",
+          "servicio":"ssh","familia":"acceso_credenciales","origen_ip":"192.168.1.10",
+          "mitre":["T1110"],"regla_id":"5760","nivel_wazuh":5}
+r = lazo.procesar_lazo(alerta, H, P, "empresarial", CAT,
+                       lambda ip,c: (1,"") if "grep" in c else (0,""),
+                       "prov", "2026-08-31T00:00:00Z", leer=lambda _: "aprobar")
+print("requiere_humano:", r["requiere_humano"], "| veredicto:", r["veredicto_humano"],
+      "| ejecuto:", r["ejecucion"] is not None)
+PY
+```
+
+Salida: `requiere_humano: True | veredicto: aprobar | ejecuto: True` — la orden se retuvo, la
+validación (simulada aquí con `leer=lambda _: "aprobar"`) la aprobó, y solo entonces se ejecutó.
+
+**La verificación (`verificacion.py`).** Después de ejecutar, `lazo.procesar_lazo` llama siempre a
+`verificacion.confirmar`, que reejecuta el comando `verificacion` del catálogo (independiente del
+`ejecutor_ssh_lab` de la ejecución) y guarda `verificado` + `evidencia` en la traza. Es la misma
+idea de "verificar, no asumir" que usa la idempotencia del conector, aplicada después del hecho en
+vez de antes.
+
+**El orquestador (`lazo.py`) y su CLI.**
+
+```bash
+python3 -m prototipo.lazo <alertas.jsonl> <perfil.yml> <hallazgos.json> <salida.jsonl> [--auto]
+```
+
+- **`--auto`** usa un ejecutor falso (sin red, sin laboratorio): útil para correr el lazo completo
+  —incluida la construcción de la orden y el formato de la traza— sin depender de que el laboratorio
+  esté arriba. Es lo que corren los tests y este mismo README para las demos que no tocan SSH.
+- **Sin `--auto` (modo vivo)** usa `conector.ejecutor_ssh_lab`: requiere el laboratorio
+  (`sh lab/lab.sh up`) arriba y `sshpass` instalado en el contenedor del auditor. Así se demostró el
+  lazo extremo a extremo sobre `objetivo-vuln`: alerta VP real del dataset → `vp_intento_acceso` →
+  `BLOQUEAR_IP` → ejecución por SSH con `exito: true` → verificación con `verificado: true` (detalle
+  completo en `.superpowers/sdd/2026-08-31-fase5b-lazo-en-vivo/task-6-report.md`).
+
+Cada línea de la salida de `lazo.py` extiende la traza de 5A (§3) con `veredicto_humano`, `orden`,
+`ejecucion` y `verificacion` (cualquiera de los tres puede ser `null` si la decisión no requería
+acción, o si la validación humana rechazó).
