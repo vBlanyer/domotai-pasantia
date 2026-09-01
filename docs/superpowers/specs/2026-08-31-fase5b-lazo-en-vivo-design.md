@@ -162,7 +162,7 @@ Cada veredicto (aprobada/rechazada/modificada) va a la traza — semilla del apr
   un reescaneo confirma que la exposición se cerró — para acciones de endurecimiento; demostrable si
   se provoca una.
 
-`verificacion.confirmar(orden, resultado, ejecutor) -> {verificado: bool, evidencia}`.
+`verificacion.confirmar(orden, catalogo, ejecutor) -> {verificado: bool, evidencia}`.
 
 **La traza del lazo completo** (`lazo.py`), el artefacto que prueba «el lazo funciona en vivo».
 Reúne por alerta: la decisión de 5A, el veredicto humano (si lo hubo), la orden, el resultado de
@@ -203,11 +203,11 @@ para cada alerta de la fuente:
     veredicto = None
     if decision["requiere_humano"]:
         veredicto = validacion.pedir(decision, alerta)
-        if veredicto == "rechazar":  registrar(sin ejecución);  continuar
+        if veredicto in ("rechazar", "modificar"):  registrar(sin ejecución);  continuar
     orden = orden.construir(decision, alerta)
     if orden is None:  registrar(sin acción);  continuar
-    resultado = conector.ejecutar_orden(orden, catalogo, ejecutor)
-    verif = verificacion.confirmar(orden, resultado, ejecutor)
+    resultado = conector.ejecutar_orden(orden, catalogo, ejecutor, timestamp)
+    verif = verificacion.confirmar(orden, catalogo, ejecutor)
     traza_lazo.registrar(decision, veredicto, orden, resultado, verif)
 ```
 

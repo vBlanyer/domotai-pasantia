@@ -7,7 +7,9 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
     veredicto = None
     if decision.get("requiere_humano"):
         veredicto = validacion.pedir(decision, alerta, leer=leer)
-        if veredicto == "rechazar":
+        if veredicto in ("rechazar", "modificar"):
+            # "modificar" retiene la alerta sin ejecutar la acción propuesta (salvaguarda honesta):
+            # elegir una acción alternativa concreta es trabajo futuro (semilla en veredicto_humano).
             return {**decision, "veredicto_humano": veredicto, "orden": None, "ejecucion": None, "verificacion": None}
     o = ordenm.construir(decision, alerta)
     if o is None:
@@ -16,10 +18,23 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
     verif = verificacion.confirmar(o, catalogo, ejecutor)
     return {**decision, "veredicto_humano": veredicto, "orden": o, "ejecucion": ejecucion, "verificacion": verif}
 
-def _ejecutor_auto(nodo_ip, comando):   # ejecutor falso para --auto (sin laboratorio)
-    if "grep" in comando:
-        return (1, "")
-    return (0, "(simulado)")
+class _EjecutorAuto:
+    """Ejecutor falso para --auto (sin laboratorio), con estado como el EjecutorFalso de los tests:
+    la primera verificación (pre-check) da "no está"; tras aplicar la acción, la re-verificación
+    da "sí está". Así --auto puede mostrar un lazo con ejecucion.exito y verificacion.verificado
+    en True sin necesitar el laboratorio Containerlab."""
+    def __init__(self):
+        self._vistos = {}      # nodo_ip -> comandos de verificación (con grep) ya vistos
+        self._aplicado = set()  # (nodo_ip, comando_de_verificacion) que ya deben dar "sí está"
+
+    def __call__(self, nodo_ip, comando):
+        if "grep" in comando:   # comando de verificación
+            self._vistos.setdefault(nodo_ip, set()).add(comando)
+            return (0, "(simulado)") if (nodo_ip, comando) in self._aplicado else (1, "")
+        # comando de aplicación: marca aplicadas las verificaciones ya vistas para este nodo
+        for c in self._vistos.get(nodo_ip, set()):
+            self._aplicado.add((nodo_ip, c))
+        return (0, "(simulado)")
 
 def main(argv):
     args = [a for a in argv[1:] if a != "--auto"]
@@ -30,7 +45,7 @@ def main(argv):
     with open(hallazgos_path, encoding="utf-8") as f:
         hallazgos = json.load(f)
     catalogo = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
-    ejecutor = _ejecutor_auto if auto else conector.ejecutor_ssh_lab
+    ejecutor = _EjecutorAuto() if auto else conector.ejecutor_ssh_lab
     n = 0
     with open(alertas_path, encoding="utf-8") as fin, open(salida, "w", encoding="utf-8") as fout:
         for i, linea in enumerate(fin):

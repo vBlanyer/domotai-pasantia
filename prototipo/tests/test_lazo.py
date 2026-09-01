@@ -32,3 +32,32 @@ class TestLazo(unittest.TestCase):
                                ejecutor_ok, "d2", "2026-08-31T00:00:00Z", leer=lambda _: "rechazar")
         self.assertEqual(r["veredicto_humano"], "rechazar")
         self.assertIsNone(r["ejecucion"])          # rechazada -> no se ejecuta
+
+    def test_lazo_modificar_humano_no_ejecuta_la_accion_original(self):
+        # "modificar" retiene la alerta sin ejecutar la acción propuesta (I-3): no es inerte-como-aprobar.
+        a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                               ejecutor_ok, "d3", "2026-08-31T00:00:00Z", leer=lambda _: "modificar")
+        self.assertEqual(r["veredicto_humano"], "modificar")
+        self.assertIsNone(r["ejecucion"])
+        self.assertIsNone(r["orden"])
+
+
+class TestEjecutorAuto(unittest.TestCase):
+    def test_ejecutor_auto_confirma_verificacion_tras_aplicar(self):
+        ej = lazo._EjecutorAuto()
+        # pre-check: aún no aplicado -> rc1
+        rc1, _ = ej("192.168.1.30", "iptables -L -n | grep 192.168.1.10")
+        self.assertEqual(rc1, 1)
+        # aplicar la acción
+        rc2, _ = ej("192.168.1.30", "iptables -A INPUT -s 192.168.1.10 -j DROP")
+        self.assertEqual(rc2, 0)
+        # re-verificación posterior: ya aplicado -> rc0
+        rc3, _ = ej("192.168.1.30", "iptables -L -n | grep 192.168.1.10")
+        self.assertEqual(rc3, 0)
+
+    def test_lazo_auto_completo_da_ejecucion_exitosa_y_verificada(self):
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),
+                               "prueba", CAT, lazo._EjecutorAuto(), "d4", "2026-08-31T00:00:00Z")
+        self.assertTrue(r["ejecucion"]["exito"])
+        self.assertTrue(r["verificacion"]["verificado"])

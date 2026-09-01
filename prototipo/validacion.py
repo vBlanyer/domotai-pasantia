@@ -1,4 +1,10 @@
-"""Validación humana por terminal (D11): muestra la decisión y captura el veredicto (RF-08)."""
+"""Validación humana por terminal (D11): muestra la decisión y captura el veredicto (RF-08).
+
+Veredictos: "aprobar" ejecuta la acción propuesta; "rechazar" y "modificar" retienen la alerta
+sin ejecutar nada. "modificar" NO sustituye la acción por una alternativa concreta (eso es trabajo
+futuro) -- hoy es una salvaguarda honesta: se registra el veredicto en la traza como semilla para
+esa sustitución futura, pero el lazo no ejecuta la acción original bajo ese veredicto.
+"""
 
 def mostrar(decision, alerta):
     return (

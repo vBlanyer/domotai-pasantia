@@ -191,8 +191,8 @@ tramo — orden → conector → validación humana → verificación — sin to
 Diseño completo: [`docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md`](../docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md).
 
 ```
-decisión (5A) ──► ¿requiere_humano? ──sí──► validación por terminal ──rechazar──► fin (no se ejecuta)
-                        │no                          │aprobar/modificar
+decisión (5A) ──► ¿requiere_humano? ──sí──► validación por terminal ──rechazar/modificar──► fin (no se ejecuta)
+                        │no                          │aprobar
                         ▼                             ▼
                    orden.construir()  ──►  conector.ejecutar_orden()  ──►  verificacion.confirmar()
                                                                                     │
@@ -214,16 +214,22 @@ decisión (5A) ──► ¿requiere_humano? ──sí──► validación por t
   campos fijos (`accion_id`, `nodo_ip`, `params`) a partir de la decisión y la alerta; el conector
   nunca interpola texto libre de la alerta en un comando de shell. Antes de renderizar cualquier
   comando, `conector._params_seguros` exige que cada valor de `params` cumpla
-  `^[A-Za-z0-9._:-]+$` (IPs, puertos, nombres de servicio) — si algo en el `origen_ip` u otro campo
-  trae metacaracteres de shell, la orden se rechaza (`"params rechazados: caracteres no
-  permitidos"`) y no se ejecuta ni se verifica nada. Es la aplicación directa de RNF-08 (los campos
-  del log los escribe quien ataca) al punto exacto donde ese texto podría llegar a un `subprocess`.
-- **Idempotencia: verificar antes de actuar.** `ejecutar_orden` primero corre el comando de
-  `verificacion` del catálogo; si ya confirma el estado deseado (p. ej. la IP ya está bloqueada),
-  devuelve éxito sin volver a aplicar la acción (`idempotente: true`) — reintentar el lazo sobre la
-  misma alerta no duplica reglas de `iptables` ni repite efectos. Solo si la verificación inicial
-  falla se renderiza y ejecuta el comando real, y se vuelve a verificar después para confirmar el
-  efecto.
+  `^[A-Za-z0-9._:-]+\Z` (ancla `\Z`, no `$`, para que un salto de línea final no cuele como
+  separador de comandos en el shell remoto) y que no empiece por `-` (para que no se interprete
+  como un flag, p. ej. de `iptables`) — si algo en el `origen_ip` u otro campo trae metacaracteres
+  de shell, la orden se rechaza (`"params rechazados: caracteres no permitidos"`) y no se ejecuta
+  ni se verifica nada. Es la aplicación directa de RNF-08 (los campos del log los escribe quien
+  ataca) al punto exacto donde ese texto podría llegar a un `subprocess`.
+- **Idempotencia: verificar antes de actuar (solo para estado persistente).** `ejecutar_orden`
+  primero corre el comando de `verificacion` del catálogo; si ya confirma el estado deseado (p. ej.
+  la IP ya está bloqueada), devuelve éxito sin volver a aplicar la acción (`idempotente: true`) —
+  reintentar el lazo sobre la misma alerta no duplica reglas de `iptables` ni repite efectos. Esto
+  solo aplica a acciones cuya `verificacion` representa un estado final persistente
+  (`reversion: definida` o `auto`). Para acciones con `reversion: transitoria` (`MATAR_CONEXION`),
+  `rc0` en la verificación significa que el estado indeseado **sigue existiendo** (la conexión
+  sigue viva), no que la acción ya se aplicó — por eso esas acciones nunca se saltan por
+  idempotencia: siempre se ejecutan. Solo cuando no se salta por idempotencia se renderiza y
+  ejecuta el comando real, y se vuelve a verificar después para confirmar el efecto.
 - **El ejecutor es inyectable.** `ejecutar_orden(orden, catalogo, ejecutor, timestamp)` recibe el
   ejecutor como parámetro — una función `(nodo_ip, comando) -> (codigo_salida, salida)`. Los tests y
   el modo `--auto` de `lazo.py` usan un ejecutor falso (sin red, sin SSH); el modo vivo usa
@@ -242,8 +248,11 @@ spec de 5B); no es la credencial de producción ni pretende serlo.
 (RF-08, RF-18), `lazo.procesar_lazo` no construye la orden todavía: llama a `validacion.pedir`, que
 imprime por terminal la decisión completa (activo, clase, confianza, justificación, acción
 propuesta e impacto) y lee un veredicto (`aprobar` / `rechazar` / `modificar`, con `rechazar` como
-valor por defecto ante cualquier respuesta ambigua — seguro por defecto). Solo si el veredicto no es
-`rechazar` se construye y ejecuta la orden.
+valor por defecto ante cualquier respuesta ambigua — seguro por defecto). Solo `aprobar` construye y
+ejecuta la orden. `modificar` **no** sustituye la acción propuesta por una alternativa concreta —
+eso es trabajo futuro — hoy es una salvaguarda honesta: retiene la alerta sin ejecutar nada, igual
+que `rechazar`, y el veredicto queda registrado en la traza (`veredicto_humano: "modificar"`) como
+semilla para esa sustitución futura.
 
 **Honestidad sobre cuándo se dispara.** Sobre el dataset real de la Fase 3 (§6), el baseline no
 produce ninguna decisión con `requiere_humano: true`: la única familia soportada
