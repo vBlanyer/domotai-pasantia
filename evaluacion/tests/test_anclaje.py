@@ -25,4 +25,8 @@ class TestAnclaje(unittest.TestCase):
         self.assertEqual(r["llm_total"], 1)
         self.assertEqual(r["anclados"], 1)
         self.assertEqual(r["degradados"], 1)
-        self.assertAlmostEqual(r["pct_anclaje"], 1.0)
+        self.assertAlmostEqual(r["pct_anclaje"], 0.5)
+        # Test case with only LLM (no degraded) should yield 1.0
+        res_solo_llm = [{"justificador":"llm","anclaje_verificado":True}]
+        r_solo = anclaje.resumen(res_solo_llm)
+        self.assertAlmostEqual(r_solo["pct_anclaje"], 1.0)

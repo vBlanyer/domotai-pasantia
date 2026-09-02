@@ -34,6 +34,7 @@ def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_priori
             "ms_medio_clasificar": sum(ms) / len(ms) if ms else 0.0}
 
     # Continuidad
+    # impacto = de la accion PROPUESTA (lo que expone la traza); requiere_humano es del filtro posterior.
     regs = [{"impacto": p["impacto"], "etiqueta": f["etiqueta"], "requiere_humano": p["requiere_humano"]}
             for f, p in zip(filas, preds)]
     cont = metricas.continuidad(regs)

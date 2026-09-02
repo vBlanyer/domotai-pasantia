@@ -2,6 +2,7 @@
 import time
 from prototipo import triaje
 
+# Nota: una traza sin clase (None) cuenta como no-amenaza (negativo benigno).
 def es_amenaza(clase):
     return str(clase).startswith("vp_")
 

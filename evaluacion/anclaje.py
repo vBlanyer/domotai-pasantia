@@ -20,6 +20,9 @@ def resumen(resultados):
     usaron_llm = [r for r in resultados if r["justificador"] == "llm"]
     anclados = sum(1 for r in usaron_llm if r["anclaje_verificado"])
     degradados = sum(1 for r in resultados if r["justificador"] == "plantilla")
-    pct = anclados / len(usaron_llm) if usaron_llm else "n/d"
+    # pct_anclaje is the meaningful rate: LLM-anchored vs degraded to template,
+    # because justificar_llm only tags "llm" when anchoring check already passed.
+    total = len(usaron_llm) + degradados
+    pct = len(usaron_llm) / total if total else "n/d"
     return {"llm_total": len(usaron_llm), "anclados": anclados,
             "degradados": degradados, "pct_anclaje": pct}
