@@ -4,7 +4,7 @@ from evaluacion import cargar, prediccion, baseline, prioridad, anclaje, metrica
 from prototipo import catalogo as catm, perfil as perfilm, triaje, justificador_llm
 
 def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_prioridad,
-            con_llm=True, generador=None, _procesar=triaje.procesar):
+            con_llm=True, generador=None, recuperar_fn=None, _procesar=triaje.procesar):
     verd = [f["etiqueta"] == "VP" for f in filas]
     preds = prediccion.predecir_todas(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, _procesar=_procesar)
 
@@ -51,7 +51,7 @@ def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_priori
     }
     if con_llm:
         gen = generador or justificador_llm.generador_llama
-        anc = anclaje.medir(filas, hallazgos, perfil_dict, generador=gen)
+        anc = anclaje.medir(filas, hallazgos, perfil_dict, generador=gen, recuperar_fn=recuperar_fn)
         resultados["anclaje"] = {"resumen": anclaje.resumen(anc), "detalle": anc}
     return resultados
 
@@ -87,6 +87,7 @@ def main(argv):
     ap.add_argument("--particion", default="evaluacion")
     ap.add_argument("--perfil", default="empresarial")
     ap.add_argument("--sin-llm", action="store_true")
+    ap.add_argument("--con-rag", action="store_true")
     ap.add_argument("--salida-dir", default="evaluacion/resultados")
     ap.add_argument("--hallazgos", default="lab/campañas/2026-08-31-evaluacion/hallazgos.json")
     a = ap.parse_args(argv[1:])
@@ -98,8 +99,13 @@ def main(argv):
     catalogo = catm.cargar_catalogo("prototipo/catalogo.yml")
     tabla_prioridad = prioridad.cargar_esperada("evaluacion/prioridad_esperada.yml")
 
+    recuperar_fn = None
+    if a.con_rag:
+        from prototipo import rag
+        indice = rag.cargar_indice()
+        recuperar_fn = lambda alerta: rag.recuperar(rag.construir_consulta(alerta), indice, rag.embedder_llama, k=3)
     resultados = evaluar(filas, hallazgos, perfil_dict, a.perfil, catalogo, tabla_prioridad,
-                         con_llm=not a.sin_llm)
+                         con_llm=not a.sin_llm, recuperar_fn=recuperar_fn)
 
     os.makedirs(a.salida_dir, exist_ok=True)
     fecha = datetime.date.today().isoformat()

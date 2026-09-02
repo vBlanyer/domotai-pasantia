@@ -30,3 +30,14 @@ class TestAnclaje(unittest.TestCase):
         res_solo_llm = [{"justificador":"llm","anclaje_verificado":True}]
         r_solo = anclaje.resumen(res_solo_llm)
         self.assertAlmostEqual(r_solo["pct_anclaje"], 1.0)
+
+class TestAnclajeRAG(unittest.TestCase):
+    def test_medir_con_rag_usa_recuperar_fn(self):
+        from evaluacion import anclaje
+        filas = [{"id_alerta":"1","etiqueta":"VP","activo":"objetivo-vuln","servicio":"ssh",
+                  "familia":"acceso_credenciales","origen_ip":"192.168.1.10","regla_id":"5760","mitre":["T1110.001"]}]
+        gen = lambda prompt: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln regla 5760."
+        recuperar_fn = lambda alerta: [{"id":"regla-5760","titulo":"5760","texto":"fallo SSH"}]
+        res = anclaje.medir(filas, {}, {}, generador=gen, recuperar_fn=recuperar_fn)
+        self.assertEqual(res[0]["justificador"], "llm")
+        self.assertEqual(res[0]["pasajes_usados"], ["regla-5760"])
