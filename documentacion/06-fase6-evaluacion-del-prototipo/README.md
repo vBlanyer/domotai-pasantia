@@ -43,8 +43,8 @@ estructurados — un desajuste que es barato medir comparándolos contra un mode
 
 ## Documentos
 
-*Ninguno todavía.* Aquí irán el informe de evaluación con la tabla comparativa, el análisis de
-errores y las recomendaciones.
+- [informe-evaluacion.md](informe-evaluacion.md) — el informe con la tabla comparativa prototipo vs
+  baseline, la curva del barrido, el análisis de errores y los umbrales calibrados devueltos a la Fase 5.
 
 ---
 
@@ -63,11 +63,15 @@ la implementación arranca con valores provisionales.
 
 ## Estado
 
-**No iniciada, y ya no bloqueada.** Durante un tiempo lo estuvo: no había baseline contra el que
-comparar ni ground truth de alertas. Ambos están resueltos —el nivel de regla de Wazuh y el
-etiquetado contra el inventario de cada nodo—, así que la única dependencia real es tener el
-prototipo.
+**Hecha.** El marco de medición vive en [`evaluacion/`](../../evaluacion/) y la campaña corre con
+`python3 -m evaluacion.campana --particion evaluacion`. Resultado principal: sobre la partición de
+evaluación el prototipo **baja la tasa de falsos positivos casi 7×** frente al nivel de regla de Wazuh
+(0.041 vs 0.282) **sin perder ninguna amenaza** (recall 1.0) y sin acciones disruptivas indebidas; su
+límite —no separar admin legítimo de atacante, y un justificador 1B poco fiable pese a anclar al 100 %—
+está medido y documentado. Los números y el análisis completo están en el
+[informe](informe-evaluacion.md).
 
-**Criterio de cierre** (roadmap): existen resultados cuantitativos y cualitativos que demuestran el
-valor —o las limitaciones— del enfoque propuesto. Un resultado negativo bien medido también es un
-hallazgo válido.
+**Criterio de cierre** (roadmap): cumplido — existen resultados cuantitativos (tabla comparativa,
+curva del baseline) y cualitativos (lectura de las justificaciones) que demuestran el valor y las
+limitaciones del enfoque. Queda pendiente para un dataset mayor: la calibración del umbral de escalado
+(RF-07) y el clasificador con fine-tuning.
