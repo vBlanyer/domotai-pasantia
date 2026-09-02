@@ -47,3 +47,18 @@ def adaptador(generador, fallback=analisis.justificar):
     def _fn(alerta, contexto, clase):
         return justificar_llm(alerta, contexto, clase, generador, fallback)["texto"]
     return _fn
+
+BINARIO = os.environ.get("LLAMA_BIN", os.path.expanduser("~/miniforge3/envs/triaje-ml/bin/llama-simple"))
+MODELO = os.environ.get("LLAMA_MODELO", "modelos/llama-3.2-1b-q4.gguf")
+
+def generador_llama(prompt, binario=BINARIO, modelo=MODELO, n_tokens=64, timeout=90):
+    """Ejecutor del LLM: subprocess al binario de llama.cpp (conda). temp 0 (RNF-03). Se valida en vivo."""
+    try:
+        cp = subprocess.run([binario, "-m", modelo, "-n", str(n_tokens), "--temp", "0", prompt],
+                            capture_output=True, text=True, timeout=timeout)
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return ""
+    salida = cp.stdout
+    if "Explicacion:" in salida:                    # quedarse con lo generado tras el prompt
+        salida = salida.split("Explicacion:", 1)[1]
+    return salida.strip()

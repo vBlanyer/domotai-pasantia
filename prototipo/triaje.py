@@ -2,10 +2,11 @@
 import json, os, sys, yaml
 from prototipo import analisis, politica, perfil as perfilm, traza, catalogo as catm
 
-def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decision, timestamp):
+def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decision, timestamp,
+             justificar_fn=analisis.justificar):
     ctx = analisis.enriquecer(alerta, hallazgos, perfil_dict)
     clas = analisis.clasificar(alerta, ctx)
-    just = analisis.justificar(alerta, ctx, clas["clase"])
+    just = justificar_fn(alerta, ctx, clas["clase"])
     accion, params = politica.proponer(clas["clase"], alerta)
     impacto = catalogo[accion]["impacto"] if accion else "ninguno"
     filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),

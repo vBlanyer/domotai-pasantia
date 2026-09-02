@@ -19,3 +19,10 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["accion_propuesta"], "BLOQUEAR_IP")
         self.assertEqual(r["resultado_filtro"], "permite")
         self.assertIn("192.168.1.10", r["justificacion"])
+
+class TestJustificarFn(unittest.TestCase):
+    def test_procesar_usa_el_justificar_fn_inyectado(self):
+        r = triaje.procesar(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                            id_decision="d1", timestamp="2026-08-31T00:00:00Z",
+                            justificar_fn=lambda a, c, cl: "JUSTIFICACION-INYECTADA")
+        self.assertEqual(r["justificacion"], "JUSTIFICACION-INYECTADA")
