@@ -60,7 +60,7 @@ def embedder_llama(textos, modelo=MODELO, binario=BINARIO, timeout=180):
         if any(v is None for v in vecs):
             return []
         return vecs
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError, KeyError):
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError, KeyError, IndexError):
         return []
     finally:
         os.unlink(ruta)

@@ -102,7 +102,11 @@ def main(argv):
     recuperar_fn = None
     if a.con_rag:
         from prototipo import rag
-        indice = rag.cargar_indice()
+        try:
+            indice = rag.cargar_indice()
+        except FileNotFoundError:
+            print("ERROR: falta el indice del RAG. Genera primero: python3 -m prototipo.rag --indexar")
+            return 1
         recuperar_fn = lambda alerta: rag.recuperar(rag.construir_consulta(alerta), indice, rag.embedder_llama, k=3)
     resultados = evaluar(filas, hallazgos, perfil_dict, a.perfil, catalogo, tabla_prioridad,
                          con_llm=not a.sin_llm, recuperar_fn=recuperar_fn)
