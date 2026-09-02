@@ -154,7 +154,7 @@ El sandbox se encuadró como «entorno controlado de validación» para no tocar
 
 ---
 
-### I-12 · El RAG del objetivo general nunca se diseñó ni se implementó — ESTRUCTURAL, BLOQUEANTE PARA EL CIERRE
+### I-12 · El RAG del objetivo general nunca se diseñó ni se implementó — ~~BLOQUEANTE~~ **RESUELTA**
 
 El **objetivo general oficial** del proyecto exige «un módulo de generación aumentada por recuperación
 (RAG) ejecutado sobre un modelo desplegado de forma local». Detectado el 02/09/2026:
@@ -171,11 +171,12 @@ El **objetivo general oficial** del proyecto exige «un módulo de generación a
   exactamente ese fallo: recuperar la descripción real de la técnica/regla desde una base local y
   fundamentar la justificación.
 
-**Plan de resolución (en curso):** diseñar el RAG (Fase 4), implementarlo como subproyecto **5D**
-detrás de la interfaz `justificar_llm`, y **re-evaluar** la calidad de la justificación con RAG vs sin
-RAG (Fase 6). Corpus candidato: descripciones de técnicas MITRE ATT&CK, descripciones de reglas de
-Wazuh e inventario de vulnerabilidades del laboratorio. Embeddings vía `llama.cpp` (entorno conda de
-5C), búsqueda por coseno en Python puro.
+**Resuelta (02/09/2026):** implementado como subproyecto **5D** (`prototipo/rag.py` + corpus curado en
+`prototipo/corpus/`), detrás de la interfaz `justificar_llm`. Corpus de técnicas MITRE, reglas de Wazuh
+y vulnerabilidades del lab; embeddings con `llama-embedding` del entorno conda de 5C; coseno en Python
+puro. **Contraste medido** con RAG vs sin RAG sobre las 18 soportadas: RAG corrige la corrección
+semántica de la justificación (de «la regla 5760 es un protocolo de seguridad» a «indica un ataque de
+fuerza bruta SSH»), manteniendo el anclaje al 100 %. Ver [informe §5.bis](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md) y `prototipo/README.md §10`. Trabajo futuro (no bloqueante): modelo de embeddings dedicado y LLM mayor para afinar recuperación y razonamiento.
 
 **Quién lo resuelve:** nosotros. Es la pieza que faltaba para que el prototipo cumpla su objetivo
 general, no un extra.
@@ -217,7 +218,7 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-1 | Sin fuente de alertas | Bloqueante | Nosotros | **Resuelta** — Wazuh en el sandbox |
 | I-2 | Dos ground truths | Bloqueante | Nosotros | **Resuelta** — sandbox §6 reescrita |
 | I-11 | Playbook sin sustituto en el laboratorio | Estructural | Nosotros | **Resuelta** — lo ocupa la ingesta (D10) |
-| I-12 | RAG del objetivo general nunca diseñado ni implementado | Estructural | Nosotros | **Abierta** — plan sincronizado; falta diseñar (Fase 4), implementar (5D) y re-evaluar (Fase 6) |
+| I-12 | RAG del objetivo general nunca diseñado ni implementado | Estructural | Nosotros | **Resuelta** — módulo RAG 5D implementado y su mejora medida (contraste con/sin RAG) |
 | I-3 | Sin baseline | Bloqueante | Nosotros | **Resuelta** — nivel de regla de Wazuh |
 | I-4 | Identidad del módulo propietario | Estructural | Empresa | **Parcial** — Fase 1 hecha por modelado; solo queda la pregunta de identidad, que depende de la empresa |
 | I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos contra el contexto del cliente |

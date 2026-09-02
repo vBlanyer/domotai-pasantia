@@ -424,3 +424,32 @@ clases suficiente para entrenar ni validar un clasificador que generalice. El ba
 de 5A (§2) sigue siendo lo que produce `clase`/`prioridad`/`confianza` en el lazo completo; el
 justificador con LLM de esta sección es una pieza independiente que ya sustituye la plantilla de
 `analisis.justificar` cuando se le pasa `justificar_fn` a `triaje.procesar`.
+
+## 10. RAG — recuperación aumentada local (5D)
+
+El **objetivo general del proyecto exige un módulo RAG local**. `prototipo/rag.py` lo implementa detrás
+de la interfaz `justificar_llm` de la sección 9, y arregla el fallo que la Fase 6 midió (el 1B describía
+las reglas y técnicas al revés).
+
+- **Corpus curado** en `prototipo/corpus/corpus.jsonl`: fichas cortas y *correctas* de las técnicas MITRE
+  (T1110, T1110.001, T1021.004), las reglas de Wazuh (5760, 5763, 5710, 5712) y las vulnerabilidades del
+  laboratorio. Es dato versionado y **de confianza** (lo escribimos nosotros).
+- **Recuperación semántica**: `construir_consulta` arma la consulta con **solo campos estructurados**
+  (regla, MITRE, servicio — RNF-08, el `full_log` del atacante nunca entra); `embedder_llama` vectoriza
+  con `llama-embedding --pooling mean` sobre el mismo GGUF de 1B (sin descargas); `recuperar` ordena por
+  **coseno en Python puro** y devuelve el top-k. El índice se precomputa a `prototipo/corpus/indice.json`
+  (versionado); se regenera con `python3 -m prototipo.rag --indexar`.
+- **Prompt aumentado**: `construir_prompt(..., pasajes)` inyecta un bloque «Conocimiento de referencia»
+  con las fichas recuperadas. Sin `pasajes` es **byte-idéntico a 5C** (retrocompatible).
+  `justificar_con_rag(...)` recupera, justifica y **degrada a plantilla** si el embedder o el generador
+  fallan (RNF-09). La recuperación y el embedder son **inyectables** (falsos en los tests).
+- **CLI**: `python3 -m prototipo.rag --consulta "regla 5760 MITRE T1110.001 servicio ssh"` imprime los
+  pasajes recuperados.
+
+**Medido (Fase 6, contraste `--con-rag` vs sin RAG sobre las 18 soportadas):** RAG **corrige la
+corrección semántica** de la justificación —de «la regla 5760 es un protocolo de seguridad» (falso) a
+«la regla 5760 indica un ataque de fuerza bruta SSH» (correcto)— manteniendo el anclaje al 100 %. Detalle
+y matices honestos (recuperación imprecisa en el ID exacto, el 1B parafrasea los pasajes) en el
+[informe de evaluación §5.bis](../documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
+Un modelo de embeddings dedicado y un LLM mayor son el trabajo futuro; la interfaz ya lo permite sin
+tocar el motor.

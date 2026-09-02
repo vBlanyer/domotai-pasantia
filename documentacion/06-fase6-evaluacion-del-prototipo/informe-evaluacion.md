@@ -123,6 +123,52 @@ interfaz ya están listos para sustituirlo.
 
 ---
 
+## 5.bis Justificación con RAG (Fase 5D): el contraste medido
+
+El fallo de §5 —el 1B ancla pero describe las reglas y técnicas al revés— es exactamente lo que ataca el
+**módulo RAG local** de la Fase 5D. Se recupera de un corpus curado (fichas reales de las técnicas MITRE,
+las reglas de Wazuh y las vulnerabilidades del laboratorio) la descripción correcta, y se inyecta en el
+prompt. Contraste medido sobre las mismas 18 alertas soportadas
+(`--con-rag` vs sin RAG, ambos con el 1B, temp 0):
+
+| | Sin RAG | Con RAG |
+|---|---------|---------|
+| Anclaje (automático) | 18/18 (100 %) | 18/18 (100 %) |
+| **Corrección semántica** (lectura manual) | **incorrecta** | **corregida** |
+
+**El antes/después literal, misma alerta:**
+
+- **Alerta VP:**
+  - *Sin RAG:* «La regla 5760 **es un protocolo de seguridad** para la autenticación de usuarios en
+    redes. El MITRE T1110.001 **es un conjunto de técnicas de seguridad**…» — falso.
+  - *Con RAG:* «La regla 5760 de Wazuh **indica un ataque de fuerza bruta SSH** en curso desde una IP.» —
+    correcto, apoyado en el pasaje recuperado (fichas de las reglas 5712/5763/5710).
+- **Alerta FP:**
+  - *Sin RAG:* «La regla 5710 **define el protocolo SSH como un protocolo seguro**… objetivo-vuln es un
+    servicio de seguridad…» — disparate.
+  - *Con RAG:* «La regla 5710 de Wazuh indica que se probó un **nombre de usuario que no existe** por SSH.
+    Esto es un indicio de **ataque de fuerza bruta SSH**. La regla 5710 es nivel 5…» — correcto.
+
+**Veredicto:** RAG **corrige la corrección semántica** que era el fallo central del justificador. La
+mejora es cualitativa y clara en las 18; es la evidencia que cierra la incongruencia I-12 (el módulo RAG
+del objetivo general).
+
+**Matices honestos (medidos):**
+- El **anclaje no cambia** (100 % en ambos): mide que no inventa campos, no la corrección — de ahí que
+  §5 siguiera necesitando lectura manual.
+- Siguen saliendo **solo 4 textos distintos de 18** (un solo nodo + temp 0); RAG mejora la *calidad*, no
+  la *diversidad*.
+- La **recuperación del 1B es imprecisa en el ID exacto**: para una alerta de la regla 5760/5710 recuperó
+  el grupo de reglas de fuerza bruta SSH (5712/5763/5710), no el ID exacto. Aun así entrega el dominio
+  correcto, y por eso la justificación mejora. Un modelo de embeddings dedicado afinaría la recuperación
+  (trabajo futuro; la interfaz del embedder es inyectable).
+- Con RAG el 1B tiende a **parafrasear los pasajes** recuperados (lista las reglas) más que a razonar
+  sobre la alerta concreta — mejor que inventar, pero lejos de un analista. Un modelo mayor lo cerraría.
+
+Reproducir: `python3 -m evaluacion.campana --particion evaluacion --con-rag`.
+
+---
+
 ## 6. Anexo: la partición completa confirma que no hubo fuga
 
 Corrida sobre las 410 alertas (36 soportadas), sin LLM

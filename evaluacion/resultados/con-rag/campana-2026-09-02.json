@@ -1,0 +1,374 @@
+{
+  "clasificacion_prototipo": {
+    "matriz": {
+      "vp": 10,
+      "fp": 8,
+      "vn": 187,
+      "fn": 0
+    },
+    "precision": 0.5555555555555556,
+    "recall": 1.0,
+    "f1": 0.7142857142857143,
+    "tasa_fp": 0.041025641025641026
+  },
+  "baseline": {
+    "optimo": {
+      "umbral": 5,
+      "matriz": {
+        "vp": 10,
+        "fp": 55,
+        "vn": 140,
+        "fn": 0
+      },
+      "f1": 0.2666666666666667
+    },
+    "puntos": [
+      {
+        "umbral": 3,
+        "matriz": {
+          "vp": 10,
+          "fp": 195,
+          "vn": 0,
+          "fn": 0
+        },
+        "f1": 0.09302325581395349
+      },
+      {
+        "umbral": 4,
+        "matriz": {
+          "vp": 10,
+          "fp": 55,
+          "vn": 140,
+          "fn": 0
+        },
+        "f1": 0.2666666666666667
+      },
+      {
+        "umbral": 5,
+        "matriz": {
+          "vp": 10,
+          "fp": 55,
+          "vn": 140,
+          "fn": 0
+        },
+        "f1": 0.2666666666666667
+      },
+      {
+        "umbral": 6,
+        "matriz": {
+          "vp": 1,
+          "fp": 46,
+          "vn": 149,
+          "fn": 9
+        },
+        "f1": 0.03508771929824561
+      },
+      {
+        "umbral": 7,
+        "matriz": {
+          "vp": 1,
+          "fp": 46,
+          "vn": 149,
+          "fn": 9
+        },
+        "f1": 0.03508771929824561
+      },
+      {
+        "umbral": 8,
+        "matriz": {
+          "vp": 1,
+          "fp": 1,
+          "vn": 194,
+          "fn": 9
+        },
+        "f1": 0.16666666666666669
+      },
+      {
+        "umbral": 9,
+        "matriz": {
+          "vp": 1,
+          "fp": 1,
+          "vn": 194,
+          "fn": 9
+        },
+        "f1": 0.16666666666666669
+      },
+      {
+        "umbral": 10,
+        "matriz": {
+          "vp": 1,
+          "fp": 1,
+          "vn": 194,
+          "fn": 9
+        },
+        "f1": 0.16666666666666669
+      },
+      {
+        "umbral": 11,
+        "matriz": {
+          "vp": 0,
+          "fp": 0,
+          "vn": 195,
+          "fn": 10
+        },
+        "f1": "n/d"
+      },
+      {
+        "umbral": 12,
+        "matriz": {
+          "vp": 0,
+          "fp": 0,
+          "vn": 195,
+          "fn": 10
+        },
+        "f1": "n/d"
+      }
+    ]
+  },
+  "priorizacion": {
+    "n": 18,
+    "acierto_pm1": 0.5555555555555556,
+    "spearman": "n/d"
+  },
+  "operacion": {
+    "cobertura": 0.08780487804878048,
+    "tasa_escalado": 0.0,
+    "ms_medio_clasificar": 0.004177112323970239
+  },
+  "continuidad": {
+    "disruptivas_indebidas": 0,
+    "retencion_correcta": "n/d"
+  },
+  "condiciones": {
+    "perfil": "empresarial",
+    "n_alertas": 205,
+    "n_soportadas": 18,
+    "version_baseline": "baseline-0"
+  },
+  "anclaje": {
+    "resumen": {
+      "llm_total": 18,
+      "anclados": 18,
+      "degradados": 0,
+      "pct_anclaje": 1.0
+    },
+    "detalle": [
+      {
+        "id_alerta": "1788194885.702564",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5760 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194890.703041",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5760 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194898.703518",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5760 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194902.703995",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5760 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194910.704472",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5760 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194914.704949",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5760 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194920.705426",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5760 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194924.705903",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710 de Wazuh indica un intento de inicio de sesión con un usuario inexistente. \n- La regla 5712 de",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194932.707158",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5760 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194936.707635",
+        "etiqueta": "VP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5760 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5763 de Wazuh indica un ataque de fuerza bruta SSH en curso desde una IP. \n- La regla 5710",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194950.708112",
+        "etiqueta": "FP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "La regla 5710 de Wazuh indica que se puede probar un nombre de usuario que no existe en el sistema por SSH. Esto es un indicio de que se puede realizar un ataque de fuerza bruta SSH. La regla 5710 es un nivel 5 de seguridad, lo",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194952.708604",
+        "etiqueta": "FP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "La regla 5710 de Wazuh indica que se puede probar un nombre de usuario que no existe en el sistema por SSH. Esto es un indicio de que se puede realizar un ataque de fuerza bruta SSH. La regla 5710 es un nivel 5 de seguridad, lo",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194954.709128",
+        "etiqueta": "FP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "La regla 5710 de Wazuh indica que se puede probar un nombre de usuario que no existe en el sistema por SSH. Esto es un indicio de que se puede realizar un ataque de fuerza bruta SSH. La regla 5710 es un nivel 5 de seguridad, lo",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194958.709656",
+        "etiqueta": "FP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "La regla 5710 de Wazuh indica que se puede probar un nombre de usuario que no existe en el sistema por SSH. Esto es un indicio de que se puede realizar un ataque de fuerza bruta SSH. La regla 5710 es un nivel 5 de seguridad, lo",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194960.710148",
+        "etiqueta": "FP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "La regla 5710 de Wazuh indica que se puede probar un nombre de usuario que no existe en el sistema por SSH. Esto es un indicio de que se puede realizar un ataque de fuerza bruta SSH. La regla 5710 es un nivel 5 de seguridad, lo",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194962.710672",
+        "etiqueta": "FP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "La regla 5710 de Wazuh indica que se puede probar un nombre de usuario que no existe en el sistema por SSH. Esto es un indicio de que se puede realizar un ataque de fuerza bruta SSH. La regla 5710 es un nivel 5 de seguridad, lo",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194966.711200",
+        "etiqueta": "FP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "La regla 5710 de Wazuh indica que se puede probar un nombre de usuario que no existe en el sistema por SSH. Esto es un indicio de que se puede realizar un ataque de fuerza bruta SSH. La regla 5710 es un nivel 5 de seguridad, lo",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      },
+      {
+        "id_alerta": "1788194968.711692",
+        "etiqueta": "FP",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "texto": "- La regla 5712 de Wazuh indica que el sistema es vulnerable a un ataque de fuerza bruta SSH. \n- La regla 5710 de Wazuh indica que el sistema tiene un intento de inicio de sesión con un usuario inexistente. \n- La reg",
+        "pasajes_usados": [
+          "regla-5712",
+          "regla-5763",
+          "regla-5710"
+        ]
+      }
+    ]
+  }
+}
