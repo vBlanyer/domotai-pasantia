@@ -4,6 +4,18 @@ from prototipo import analisis
 
 VERSION_JUSTIFICADOR = "llm-1b-0"
 
+_IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
+
+def verificar_anclaje(texto, alerta):
+    origen = alerta.get("origen_ip")
+    # 1. Toda IP mencionada debe ser la de la alerta; si aparece otra, es alucinación.
+    for ip in _IP.findall(texto):
+        if ip != origen:
+            return False
+    # 2. Debe referenciar al menos un dato concreto de la alerta.
+    campos = [str(alerta.get(k)) for k in ("origen_ip", "activo", "servicio", "regla_id")]
+    return any(c and c != "None" and c in texto for c in campos)
+
 def construir_prompt(alerta, contexto, clase):
     postura = contexto.get("postura")
     if postura is None:
