@@ -1,0 +1,7 @@
+# Prioridad esperada por (activo, etiqueta). Fuente: la gravedad del nodo en
+# lab/docs/vulnerabilidades-esperadas.md + la etiqueta como desempate.
+# HONESTO: en la particion de evaluacion TODAS las alertas soportadas son
+# objetivo-vuln/ssh, asi que este mapeo tiene una sola entrada util. Escala 1-4.
+objetivo-vuln:
+  VP: 4   # acceso real contra el objetivo vulnerable (Metasploitable, nodo critico) -> maxima
+  FP: 1   # actividad del administrador legitimo -> minima
