@@ -18,14 +18,15 @@ propio: el perímetro lo fija la [Fase 1](../01-fase1-analisis-del-modulo/), los
 El trabajo se ordena en cinco piezas, que son los **pasos 11 a 15** del
 [camino paso a paso](../00-general/camino-paso-a-paso.md), agrupadas en tres subproyectos: **5A**
 (núcleo de decisión, offline, hecho), **5B** (lazo en vivo: conector + validación humana, hecho) y
-**5C** (ML real detrás de la interfaz, pendiente — lo único que falta de la Fase 5).
+**5C** (ML real detrás de la interfaz — el justificador hecho con matiz, el clasificador bloqueado
+por datos).
 
 | Pieza | Qué hace | Se da por hecha cuando | Estado |
 |-------|----------|------------------------|--------|
 | **Ingesta y normalización** | Lee las alertas de la fuente y las lleva al esquema común, conservando la severidad de origen como baseline | Una alerta real de `alerts.json` sale normalizada, con su activo resuelto aunque el equipo no tenga agente ([RF-16](../02-fase2-estado-del-arte/requisitos.md)) | **Hecho** — `lab/dataset/esquema.py` |
 | **Núcleo de decisión (5A)** | Análisis (baseline) → política → perfil → traza: el lazo completo hasta antes de ejecutar | Corre sobre el dataset etiquetado de la Fase 3 y produce trazas con clase, acción y resultado de filtro auditables | **Hecho** — [`prototipo/`](../../prototipo/README.md) |
-| **Interfaz de análisis y clasificador real (5C)** | `clasificar` detrás de un encoder ajustado sobre la partición de entrenamiento | Dada una alerta, devuelve clase, prioridad y **confianza numérica** desde el modelo, no desde una regla fija | Pendiente |
-| **Justificador en línea (5C)** | `justificar` detrás del modelo pequeño del Perfil A | Produce una justificación breve que **referencia campos concretos** de la alerta ([RNF-02](../02-fase2-estado-del-arte/requisitos.md)), en un tiempo tolerable para una persona | Pendiente |
+| **Interfaz de análisis y clasificador real (5C)** | `clasificar` detrás de un encoder ajustado sobre la partición de entrenamiento | Dada una alerta, devuelve clase, prioridad y **confianza numérica** desde el modelo, no desde una regla fija | **Bloqueado** — el dataset etiquetado de la Fase 3 tiene una sola familia de ataque con soporte de acción (`acceso_credenciales`); no hay variedad de clases para entrenar ni validar un clasificador que generalice. El baseline determinista de 5A cubre `clasificar` mientras tanto |
+| **Justificador en línea (5C)** | `justificar` detrás de un modelo generativo real | Produce una justificación breve que **referencia campos concretos** de la alerta ([RNF-02](../02-fase2-estado-del-arte/requisitos.md)), en un tiempo tolerable para una persona | **Hecho, con matiz** — `justificar_llm` corre un LLM real (Llama-3.2-**1B**, cuantizado, por `subprocess` a un binario de llama.cpp), verificado en vivo produciendo una justificación anclada en ~14 s; la interfaz queda lista para un modelo mayor cuando haya hardware (GPU). Ver [`prototipo/README.md §9`](../../prototipo/README.md#9-5c--el-justificador-con-llm) |
 | **Conector (5B)** | Traduce acciones abstractas del catálogo a comandos, con clave dedicada y privilegio mínimo | El motor ordena una acción y el nodo la ejecuta, con orden, comando, código de salida y salida registrados | **Hecho** — [`prototipo/`](../../prototipo/README.md#8-5b--el-lazo-en-vivo) |
 | **Validación humana y trazas en vivo (5B)** | Retiene lo que exige aprobación, muestra la justificación **por terminal (TUI/CLI, sin UI gráfica — [flujo §7](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md))**, registra la decisión | El lazo completo funciona en vivo: alerta → clasificación → justificación → validación → acción → verificación | **Hecho** — [`prototipo/`](../../prototipo/README.md#8-5b--el-lazo-en-vivo), demostrado sobre `objetivo-vuln` con `BLOQUEAR_IP` |
 
@@ -51,8 +52,7 @@ producir.
 
 - [`docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md`](../../docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md) — diseño del subproyecto 5A.
 - [`docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md`](../../docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md) — diseño del subproyecto 5B (conector, validación humana, verificación).
-
-Se irán añadiendo aquí conforme la fase avance: prompts versionados (5C).
+- [`docs/superpowers/specs/2026-08-31-fase5c-justificador-llm-design.md`](../../docs/superpowers/specs/2026-08-31-fase5c-justificador-llm-design.md) — diseño del subproyecto 5C (justificador con LLM real).
 
 El código del prototipo vive fuera de esta carpeta, junto al laboratorio, en
 [`prototipo/`](../../prototipo/README.md) — no en `documentacion/`.
@@ -73,24 +73,34 @@ trazas sobre las que se calculan las métricas.
 
 ## Estado
 
-**En curso.** Los subproyectos **5A** (núcleo de decisión) y **5B** (lazo en vivo) están hechos.
-**5A** corre sobre el dataset etiquetado real de la Fase 3 y produce trazas auditables. **5B** añade
-el conector SSH (orden como frontera de dato, idempotencia verificar-antes-de-actuar, ejecutor
-inyectable, validación de params contra inyección), la validación humana por terminal (demostrada
-con un escenario provocado, porque el baseline sobre datos reales casi nunca la dispara) y la
-verificación por reescaneo; el lazo completo se demostró en vivo contra el laboratorio sobre
-`objetivo-vuln` con `BLOQUEAR_IP` (ejecución y verificación confirmadas) — ver
-[`prototipo/README.md`](../../prototipo/README.md#8-5b--el-lazo-en-vivo). Queda **5C**
-(clasificador y justificador reales, ML, detrás de la misma interfaz que hoy usa el baseline
-determinista de 5A) — lo único pendiente de la Fase 5.
+**Cerrada, salvo una pieza documentada como límite.** Los subproyectos **5A** (núcleo de decisión) y
+**5B** (lazo en vivo) están hechos. **5A** corre sobre el dataset etiquetado real de la Fase 3 y
+produce trazas auditables. **5B** añade el conector SSH (orden como frontera de dato, idempotencia
+verificar-antes-de-actuar, ejecutor inyectable, validación de params contra inyección), la validación
+humana por terminal (demostrada con un escenario provocado, porque el baseline sobre datos reales casi
+nunca la dispara) y la verificación por reescaneo; el lazo completo se demostró en vivo contra el
+laboratorio sobre `objetivo-vuln` con `BLOQUEAR_IP` (ejecución y verificación confirmadas) — ver
+[`prototipo/README.md`](../../prototipo/README.md#8-5b--el-lazo-en-vivo).
+
+**5C** tiene dos piezas y quedan en estados distintos. El **justificador** está **hecho, con matiz**:
+`justificar_llm` corre un LLM real — Llama-3.2-**1B** cuantizado, invocado por `subprocess` a un
+binario de llama.cpp en un entorno conda separado — detrás de la misma interfaz `justificar` que usaba
+la plantilla; verificado en vivo sobre una alerta VP produce una justificación anclada (cita campos
+concretos, sin alucinar otra IP) en ~14 s, y es reproducible a `temp 0`. El matiz: es 1B, no el 3B del
+diseño original, porque el rendimiento medido en la máquina de desarrollo (~3.7 tokens/s en CPU) hace
+que un modelo mayor sea intolerablemente lento para una validación interactiva; la interfaz queda
+lista para un modelo mayor cuando haya hardware con GPU. Detalle completo, comandos y resultado real
+en [`prototipo/README.md §9`](../../prototipo/README.md#9-5c--el-justificador-con-llm). El
+**clasificador con fine-tuning sigue bloqueado**: el dataset etiquetado de la Fase 3 tiene una sola
+familia de ataque con soporte de acción, sin variedad de clases suficiente para entrenar ni validar un
+clasificador que generalice; el baseline determinista de **5A** sigue cubriendo `clasificar` en el
+lazo completo. Con esto, la Fase 5 queda **cerrada salvo esa pieza**, documentada aquí como límite y
+no como trabajo olvidado.
 
 **Criterio de cierre** (roadmap): el prototipo procesa el dataset de prueba completo y produce
-clasificaciones priorizadas con justificación explicable.
-
-Antes de arrancar conviene resolver dos cosas: el **dataset etiquetado** de la Fase 3, sin el cual
-el clasificador no se puede ajustar, y la **revisión pendiente de la Fase 4** —[RF-17 a RF-20 y
-RNF-14](../02-fase2-estado-del-arte/requisitos.md), más la regla que traduce clasificación en acción—, porque afecta directamente al conector y
-a la validación humana.
+clasificaciones priorizadas con justificación explicable. Se cumple para el justificador; para el
+clasificador el criterio queda cubierto por el baseline determinista de 5A mientras el dataset no
+tenga variedad suficiente de clases.
 
 >**Decisión de stack pendiente.** El prototipo es Python (atado por el ecosistema ML del
 >clasificador y el justificador). Queda abierto evaluar **Go para el conector SSH** —binario
