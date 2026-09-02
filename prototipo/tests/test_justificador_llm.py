@@ -73,6 +73,16 @@ class TestRAG(unittest.TestCase):
         self.assertEqual(jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso"),
                          jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso", pasajes=None))
 
+    def test_sin_pasajes_conserva_la_instruccion_5c(self):
+        p = jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso")
+        self.assertIn("sin inventar nada ni usar conocimiento externo", p)
+        self.assertNotIn("conocimiento de referencia", p.lower())
+
+    def test_con_pasajes_menciona_el_conocimiento_de_referencia(self):
+        pasajes = [{"id":"regla-5760","titulo":"Wazuh 5760","texto":"fallo de autenticacion SSH"}]
+        p = jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso", pasajes=pasajes)
+        self.assertIn("conocimiento de referencia", p.lower())
+
     def test_justificar_con_rag_recupera_y_marca_pasajes(self):
         gen = lambda prompt: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
         recuperar_fn = lambda alerta: [{"id":"regla-5760","titulo":"Wazuh 5760","texto":"fallo SSH"},
