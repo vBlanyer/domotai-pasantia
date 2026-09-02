@@ -154,6 +154,32 @@ El sandbox se encuadró como «entorno controlado de validación» para no tocar
 
 ---
 
+### I-12 · El RAG del objetivo general nunca se diseñó ni se implementó — ESTRUCTURAL, BLOQUEANTE PARA EL CIERRE
+
+El **objetivo general oficial** del proyecto exige «un módulo de generación aumentada por recuperación
+(RAG) ejecutado sobre un modelo desplegado de forma local». Detectado el 02/09/2026:
+
+- La copia del plan en el repo (`planDeTrabajoActualizado.md`) **omitía** el objetivo general y no
+  mencionaba RAG. **Sincronizada** con el oficial en esa misma fecha; el objetivo general con RAG ya
+  consta.
+- **Ningún requisito (RF/RNF), ningún documento de la Fase 4 y nada del código** cubren RAG. El
+  justificador de la Fase 5C inyecta en el prompt la **postura del auditor** y la **criticidad del
+  perfil** (enriquecimiento de contexto), pero eso **no es RAG**: no hay base de conocimiento, ni
+  embeddings, ni recuperación.
+- **Conexión con la Fase 6:** la evaluación midió que el justificador 1B *ancla al 100 % pero es
+  semánticamente poco fiable* (describe la técnica MITRE y la regla de Wazuh al revés). RAG ataca
+  exactamente ese fallo: recuperar la descripción real de la técnica/regla desde una base local y
+  fundamentar la justificación.
+
+**Plan de resolución (en curso):** diseñar el RAG (Fase 4), implementarlo como subproyecto **5D**
+detrás de la interfaz `justificar_llm`, y **re-evaluar** la calidad de la justificación con RAG vs sin
+RAG (Fase 6). Corpus candidato: descripciones de técnicas MITRE ATT&CK, descripciones de reglas de
+Wazuh e inventario de vulnerabilidades del laboratorio. Embeddings vía `llama.cpp` (entorno conda de
+5C), búsqueda por coseno en Python puro.
+
+**Quién lo resuelve:** nosotros. Es la pieza que faltaba para que el prototipo cumpla su objetivo
+general, no un extra.
+
 ## 4. Propuesta: Wazuh como generador de alertas del sandbox
 
 Una sola decisión resuelve **I-1, I-2 e I-3** a la vez: desplegar **Wazuh dentro del sandbox**, con agentes en los nodos OpenWrt y Linux, un manager que correlaciona, y sus alertas como entrada del motor de triaje.
@@ -191,6 +217,7 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-1 | Sin fuente de alertas | Bloqueante | Nosotros | **Resuelta** — Wazuh en el sandbox |
 | I-2 | Dos ground truths | Bloqueante | Nosotros | **Resuelta** — sandbox §6 reescrita |
 | I-11 | Playbook sin sustituto en el laboratorio | Estructural | Nosotros | **Resuelta** — lo ocupa la ingesta (D10) |
+| I-12 | RAG del objetivo general nunca diseñado ni implementado | Estructural | Nosotros | **Abierta** — plan sincronizado; falta diseñar (Fase 4), implementar (5D) y re-evaluar (Fase 6) |
 | I-3 | Sin baseline | Bloqueante | Nosotros | **Resuelta** — nivel de regla de Wazuh |
 | I-4 | Identidad del módulo propietario | Estructural | Empresa | **Parcial** — Fase 1 hecha por modelado; solo queda la pregunta de identidad, que depende de la empresa |
 | I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos contra el contexto del cliente |

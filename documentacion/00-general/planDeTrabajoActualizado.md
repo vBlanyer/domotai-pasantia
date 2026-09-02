@@ -10,7 +10,15 @@ Este proyecto se centra en el desarrollo de módulos para la detección y el tri
 
 El sistema buscará clasificar y priorizar alertas, justificar decisiones mediante razonamiento explicable para apoyar al analista y reducir la fatiga por falsos positivos. Se priorizará un caso de uso acotado y la incorporación de validación humana en las decisiones críticas, dejando como trabajo futuro la respuesta automatizada y la integración multicapa en producción.
 
-# Objetivos generales
+# Objetivo general
+
+Desarrollar un prototipo para la detección y el triaje de eventos de seguridad en entornos
+empresariales, basado en modelos de lenguaje (LLMs) con un **módulo de generación aumentada por
+recuperación (RAG)** ejecutado sobre un modelo desplegado de forma local, de forma que permita
+clasificar y priorizar alertas con razonamiento explicable, reduciendo los falsos positivos y apoyando
+la labor de los analistas de seguridad.
+
+# Objetivos específicos
 
 1. **Analizar y aprender a usar el módulo propietario:** Analizar la solución actual de la empresa para recepción y análisis de datos, identificando las limitaciones que se tengan y necesidades no cubiertas actualmente por el mismo, y definiendo el caso de uso acotado sobre el que se construirá el prototipo.
 
@@ -28,7 +36,7 @@ El sistema buscará clasificar y priorizar alertas, justificar decisiones median
 
 # Alcance
 
-Queda **dentro** del alcance del proyecto: un prototipo funcional sobre un caso de uso acotado, desplegado en el entorno de pruebas, con clasificación, priorización, razonamiento explicable y validación humana.
+Queda **dentro** del alcance del proyecto: un prototipo funcional sobre un caso de uso acotado, desplegado en el entorno de pruebas, con clasificación, priorización, **razonamiento explicable apoyado en un módulo RAG local** y validación humana.
 
 Queda **fuera** del alcance y se documenta como trabajo futuro:
 
