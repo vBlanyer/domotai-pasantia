@@ -72,6 +72,6 @@ no existe— se reescribe así: *el equipo opera una fuente de alertas equivalen
 modelado, tiene documentadas las limitaciones que el prototipo debe cubrir y las que debe respetar,
 y el caso de uso acotado está definido con su perímetro explícito.* Los tres se cumplen.
 
-**Pendiente de reflejar** en [estado-y-riesgos.md](../00-general/estado-y-riesgos.md), que todavía
-declara esta fase bloqueada por la empresa: la decisión que ampara la ejecución por modelado y la
-reformulación de **I-4**.
+Reflejado ya en [estado-y-riesgos.md](../00-general/estado-y-riesgos.md): la fase consta como
+«completa por modelado» y **I-4** queda como *parcial* — solo sigue abierta la pregunta de identidad
+del módulo, que depende de la empresa.

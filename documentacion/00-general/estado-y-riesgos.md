@@ -8,7 +8,7 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 
 ## 1. Estado por fase
 
-*Actualizado a 31/08/2026.*
+*Actualizado a 02/09/2026.*
 
 | Fase | Estado | Qué hay hecho / qué falta |
 |------|--------|----------------------------|
@@ -16,8 +16,8 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 | 2 — Estado del arte | **Completa** | Estado del arte MDR/XDR **y de los modelos de lenguaje aplicados a seguridad**, con la comparación reglas frente a IA. **34 requisitos** (20 RF + 14 RNF) en un [registro único](../02-fase2-estado-del-arte/requisitos.md). Encuadre de mercado reorientado del segmento PYME al cliente modelado en la Fase 1. |
 | 3 — Entorno de pruebas | **Completa** | Red del cliente de 7 nodos, Metasploitable con ground truth, Wazuh generando alertas reales, auditor Nmap normalizado, todo reproducible con `lab/lab.sh` y con [guía de instalación](../../lab/docs/instalacion.md). **Dataset de alertas etiquetado entregado** (`lab/dataset/etiquetado.jsonl`: 410 alertas, 20 VP / 16 FP, particionado). Falta solo: equipo de borde OpenWrt real (vrnetlab bloqueado). |
 | 4 — Arquitectura | **Cerrada** | Flujo, protocolos, auditoría, modelo (perfiles A/B), catálogo de acciones con impacto, métricas y baseline, arquitectura consolidada, y la [política de decisión y perfil de cliente](../04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md) (revisión RF-17 a RF-20 y RNF-14 absorbida el 31/08). Único hueco: probar el catálogo sobre OpenWrt real. |
-| 5 — Implementación | **No iniciada** | Es el siguiente bloque. Empieza por el módulo de ingesta, que ya tiene entrada real (`alerts.json`) y dataset para entrenar y evaluar. |
-| 6 — Evaluación | **No iniciada** | Ya **no** está bloqueada: baseline (nivel de Wazuh), ground truth y métricas están definidos. Depende de tener el prototipo (Fase 5). |
+| 5 — Implementación | **Completa, salvo una pieza** | El prototipo vive en [`prototipo/`](../../prototipo/) (63 tests): decisión (5A), lazo en vivo con conector SSH y validación humana (5B), y justificador con LLM real (5C, Llama-3.2-**1B**). Falta solo el **clasificador con fine-tuning**, bloqueado por un dataset de una sola familia; lo cubre el baseline determinista. |
+| 6 — Evaluación | **Completa** | Marco de medición en [`evaluacion/`](../../evaluacion/) (21 tests) y campaña ejecutada. Resultado: el prototipo baja la **tasa de FP casi 7×** frente al nivel de regla de Wazuh (0.041 vs 0.282) sin perder amenazas (recall 1.0) y sin acciones disruptivas indebidas. Ver [informe](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md). |
 | 7 — Documentación final | **No iniciada** | Buena parte del material ya existe en los documentos de fase; el informe los consolida. |
 
 ### Progreso del laboratorio (Fase 3, verificado)
@@ -107,7 +107,7 @@ Los requisitos funcionales y no funcionales de la Fase 2 se derivaron del primer
 
 ---
 
-### I-6 · El Perfil A contradice el diseño del flujo — ~~DE DISEÑO~~ **RESUELTA**
+### I-6 · El Perfil A contradice el diseño del flujo — ~~DE DISEÑO~~ **RESUELTA EN FORMA, REABIERTA EN CALIDAD**
 
 Dos choques directos entre [selección del modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) y el [flujo de operación](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md):
 
@@ -115,6 +115,22 @@ Dos choques directos entre [selección del modelo](../04-fase4-diseno-de-arquite
 - **«Punta a punta» imposible.** El criterio de cierre de la Fase 3 lo exige; el Perfil A prohíbe tener sandbox y modelo vivos a la vez.
 
 **Resolución (agosto 2026):** se añade al Perfil A un **tercer componente de 3B cuantizado** (Phi-4-mini o Llama 3.2 3B, ~2 GB) que redacta una justificación breve en 15–20 s, disponible para la validación humana. El 8B en lote queda para la justificación extensa de auditoría y evaluación. El camino interactivo —alerta, clasificación, justificación breve, validación, acción— **sí es demostrable en vivo** en el equipo actual, así que el criterio de cierre de la Fase 3 se sostiene sin reescribirse.
+
+**Actualización (02/09/2026) — la resolución ya no se sostiene tal cual.** La medición propia en la
+máquina de desarrollo dio **~3,7 tokens/s en CPU**, no los 10–12 t/s que suponía la resolución. Con
+ese rendimiento el 3B interactivo no cabe en el presupuesto de latencia, así que la Fase 5C bajó a un
+**Llama-3.2-1B** con justificación breve. Consecuencia en dos planos:
+
+- **En forma, I-6 sigue resuelta:** el validador humano **sí tiene una justificación delante** en el
+  momento de decidir; el lazo en vivo está demostrado.
+- **En calidad, I-6 se reabre:** la evaluación de la Fase 6 midió que las justificaciones del 1B
+  **anclan al 100 % pero son semánticamente poco fiables** (describen la regla y la técnica MITRE al
+  revés). Un validador humano que se apoye en ellas recibe un texto que cita los campos correctos y
+  los explica mal. El problema que I-6 atacaba —decidir sin criterio— **no está del todo cerrado**.
+
+**Quién puede resolverlo:** nosotros, sustituyendo el generador por un modelo mayor (la interfaz
+`justificar_llm`/`adaptador` ya lo permite sin tocar el motor), lo que exige hardware con GPU o más
+memoria — que es la pregunta 7 de la §5.
 
 ---
 
@@ -178,7 +194,7 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-3 | Sin baseline | Bloqueante | Nosotros | **Resuelta** — nivel de regla de Wazuh |
 | I-4 | Identidad del módulo propietario | Estructural | Empresa | **Parcial** — Fase 1 hecha por modelado; solo queda la pregunta de identidad, que depende de la empresa |
 | I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos contra el contexto del cliente |
-| I-6 | Perfil A vs flujo | De diseño | Nosotros | **Resuelta** — modelo de 3B en línea |
+| I-6 | Perfil A vs flujo | De diseño | Nosotros | **Parcial** — hay justificación en línea (1B, no 3B: medidos ~3,7 t/s), pero la Fase 6 midió que es poco fiable; reabierta en calidad |
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |
 | I-8 | Material con premisa superada | Menor | Nosotros | **Resuelta** — movido a documentacion/archivo/ |
 | I-9 | Dos planes conviviendo | Menor | Nosotros | **Resuelta** — plan viejo movido a documentacion/archivo/ |

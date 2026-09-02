@@ -56,6 +56,13 @@ El factor limitante no es el modelo por sí solo, sino que **el sandbox se ejecu
 
 **Por qué el encoder para clasificar:** entra sobrado en memoria, responde en milisegundos, es determinista —lo que satisface RNF-03 mejor que cualquier generativo— y entrega la confianza numérica que el umbral de validación humana necesita.
 
+> **Desmentido por medición (02/09/2026).** Lo que sigue supone 10–12 tokens/s en CPU. La medición
+> real en la máquina de desarrollo fue de **~3,7 tokens/s**, así que una justificación breve con un 3B
+> tardaría ~50–100 s, fuera del presupuesto de latencia. La Fase 5C implementó el justificador con un
+> **Llama-3.2-1B** (~14 s para ~64 tokens). El razonamiento de abajo se conserva por trazabilidad de la
+> decisión; la cifra de rendimiento **no se sostiene**. Ver [informe de la Fase
+> 6](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md) y `prototipo/README.md`.
+
 **Por qué un tercer componente de 3B.** Sin él, el Perfil A entraba en contradicción con el propio diseño del flujo: la [validación humana](./flujo-triaje-playbook-sandbox.md) ocurre **antes** de ejecutar la acción y necesita la justificación delante, pero un 8B en lote la produce después. Un modelo de 3B cuantizado ocupa ~2 GB y rinde del orden de 10–12 tokens/s en CPU según mediciones publicadas, así que una justificación breve de unos 200 tokens sale en **15–20 segundos**: tolerable para que una persona decida con el razonamiento a la vista.
 
 El 8B en lote no desaparece: produce la justificación extensa que alimenta la traza de auditoría y la evaluación de la Fase 6, donde la latencia no importa.

@@ -114,24 +114,29 @@ Un único diagrama que reúna sandbox, Wazuh, motor de triaje, conector, auditor
 ## Bloque 3 — Prototipo (Fase 5)
 
 ### Paso 11 · Ingesta y normalización
+> **HECHO** (31/08/2026). El motor consume el esquema normalizado del dataset conservando `nivel_wazuh` como baseline. *Matiz honesto:* la normalización vive en `lab/dataset/normalizar.py` (atada al laboratorio), no como módulo de ingesta dentro de `prototipo/` — RF-01 se cumple a nivel de proyecto, no de producto.
 Leer `alerts.json`, normalizar al esquema de entrada del motor de triaje, **conservando el nivel de regla** como baseline.
 
 ### Paso 12 · Interfaz de análisis y clasificador
+> **HECHO A MEDIAS** (31/08/2026). La interfaz `clasificar`/`justificar` existe y devuelve clase, prioridad y confianza (`prototipo/analisis.py`). Detrás hay un **baseline determinista**, no el encoder con fine-tuning: bloqueado por un dataset de una sola familia de ataque. Documentado como límite.
 Implementar `clasificar` y `justificar` como interfaz, y detrás el encoder con fine-tuning sobre la partición de entrenamiento del Paso 6.
 
 **Hecho cuando:** dada una alerta, devuelve clase, prioridad y **confianza numérica**.
 
 ### Paso 13 · Justificador en línea
+> **HECHO, con matiz** (31/08/2026). `prototipo/justificador_llm.py` corre un LLM real por subprocess, con anclaje verificable (RNF-02) y degradación a plantilla (RNF-09). Es un **1B, no un 3B**: medidos ~3,7 t/s en CPU. La Fase 6 midió que ancla al 100 % pero es semánticamente poco fiable.
 Modelo de 3B cuantizado detrás de `justificar`.
 
 **Hecho cuando:** produce una justificación breve que **referencia campos concretos de la alerta** (RNF-02) en un tiempo tolerable para una persona.
 
 ### Paso 14 · Conector SSH
+> **HECHO** (31/08/2026). `prototipo/conector.py`: acción del catálogo → comando, ejecutor SSH inyectable, idempotencia verificar-antes-de-actuar y validación de parámetros contra inyección de comandos.
 Traduce acciones abstractas del catálogo a comandos, con autenticación por clave, privilegio mínimo y registro de orden, comando, código de salida y salida.
 
 **Hecho cuando:** el motor de triaje ordena una acción del catálogo y el nodo del sandbox la ejecuta, con la traza completa registrada.
 
 ### Paso 15 · Validación humana y trazas
+> **HECHO** (31/08/2026). `prototipo/lazo.py` + `validacion.py` + `verificacion.py`. Lazo completo demostrado en vivo contra el laboratorio sobre `objetivo-vuln` con `BLOQUEAR_IP`, con ejecución y verificación confirmadas. **Cierra la Fase 5.**
 Retener las órdenes que requieren aprobación, mostrar la justificación del Paso 13, registrar la decisión del analista.
 
 **Hecho cuando:** el **lazo completo funciona en vivo**: alerta de Wazuh → clasificación → justificación → validación humana → acción sobre el equipo de borde → verificación.
@@ -143,14 +148,18 @@ Retener las órdenes que requieren aprobación, mostrar la justificación del Pa
 ## Bloque 4 — Evaluación (Fase 6)
 
 ### Paso 16 · Justificaciones extensas en lote
+> **NO HECHO — fuera de alcance por hardware** (02/09/2026). Con ~3,7 t/s medidos, un 8B en lote sobre el dataset no es viable en este equipo. Queda como trabajo futuro; la interfaz del justificador admite sustituir el generador sin tocar el motor.
+
 Con el sandbox apagado, ejecutar el modelo de 8B sobre el dataset guardado.
 
 ### Paso 17 · Medir prototipo contra baseline
+> **HECHO** (02/09/2026). `evaluacion/campana.py` produce la tabla comparativa sobre la partición de evaluación. Prototipo F1 0.714 / tasa FP 0.041 frente al baseline de Wazuh 0.267 / 0.282.
 Ambos sobre **el mismo dataset y la misma partición de evaluación**. Registrar perfil, modelo, versión y cuantización en cada ejecución.
 
 **Hecho cuando:** hay una tabla comparativa de métricas entre el prototipo y el nivel de regla de Wazuh.
 
 ### Paso 18 · Análisis de errores
+> **HECHO** (02/09/2026). En el [informe de evaluación](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md): error sistemático dominante (no separa admin legítimo de atacante), límites del 1B, y las limitaciones conocidas. **Cierra la Fase 6.**
 Casos de éxito, errores sistemáticos, y las limitaciones conocidas: el auditor no es infalible, el corte de conocimiento del modelo, el desajuste de dominio del encoder.
 
 **Cierra la Fase 6.**
