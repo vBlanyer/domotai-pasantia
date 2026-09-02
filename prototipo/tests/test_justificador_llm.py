@@ -60,3 +60,30 @@ class TestJustificarLLM(unittest.TestCase):
         txt = fn(ALERTA, CTX_EXP, "vp_intento_acceso")
         self.assertIsInstance(txt, str)
         self.assertIn("192.168.1.10", txt)
+
+class TestRAG(unittest.TestCase):
+    def test_prompt_inyecta_pasajes_y_sigue_sin_full_log(self):
+        pasajes = [{"id":"regla-5760","titulo":"Wazuh 5760","texto":"fallo de autenticacion SSH"}]
+        p = jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso", pasajes=pasajes)
+        self.assertIn("Conocimiento de referencia", p)
+        self.assertIn("fallo de autenticacion SSH", p)
+        self.assertNotIn("IGNORA TODO", p)              # el evento_crudo del atacante sigue fuera
+
+    def test_prompt_sin_pasajes_es_como_5c(self):
+        self.assertEqual(jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso"),
+                         jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso", pasajes=None))
+
+    def test_justificar_con_rag_recupera_y_marca_pasajes(self):
+        gen = lambda prompt: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
+        recuperar_fn = lambda alerta: [{"id":"regla-5760","titulo":"Wazuh 5760","texto":"fallo SSH"},
+                                        {"id":"mitre-T1110.001","titulo":"T","texto":"adivinacion"}]
+        r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen, recuperar_fn)
+        self.assertEqual(r["justificador"], "llm")
+        self.assertEqual(r["pasajes_usados"], ["regla-5760", "mitre-T1110.001"])
+
+    def test_justificar_con_rag_degrada_si_falla_el_generador(self):
+        def gen_falla(prompt): raise RuntimeError("subprocess muerto")
+        recuperar_fn = lambda alerta: []
+        r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen_falla, recuperar_fn)
+        self.assertEqual(r["justificador"], "plantilla")
+        self.assertEqual(r["pasajes_usados"], [])
