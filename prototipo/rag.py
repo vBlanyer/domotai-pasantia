@@ -36,3 +36,61 @@ def recuperar(consulta, indice, embedder, k=3):
     q = qv[0]
     puntuados = sorted(indice, key=lambda d: _coseno(q, d["vector"]), reverse=True)
     return [{c: d[c] for c in d if c != "vector"} for d in puntuados[:k]]
+
+BINARIO = os.environ.get("LLAMA_EMBED_BIN",
+                         os.path.expanduser("~/miniforge3/envs/triaje-ml/bin/llama-embedding"))
+MODELO = os.environ.get("LLAMA_MODELO", "modelos/llama-3.2-1b-q4.gguf")
+RUTA_INDICE = os.path.join(os.path.dirname(__file__), "corpus", "indice.json")
+
+def embedder_llama(textos, modelo=MODELO, binario=BINARIO, timeout=180):
+    """Un vector por texto via llama-embedding (--pooling mean). [] ante fallo (RNF-09)."""
+    # cada texto en una linea; se limpian saltos internos para no romper el conteo por linea
+    limpio = [t.replace("\n", " ").strip() for t in textos]
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+        f.write("\n".join(limpio) + "\n")
+        ruta = f.name
+    try:
+        cp = subprocess.run([binario, "-m", modelo, "-f", ruta,
+                             "--pooling", "mean", "--embd-output-format", "json"],
+                            capture_output=True, text=True, timeout=timeout)
+        datos = json.loads(cp.stdout)["data"]
+        vecs = [None] * len(limpio)
+        for item in datos:
+            vecs[item["index"]] = item["embedding"]
+        if any(v is None for v in vecs):
+            return []
+        return vecs
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError, KeyError):
+        return []
+    finally:
+        os.unlink(ruta)
+
+def guardar_indice(indice, ruta=RUTA_INDICE):
+    with open(ruta, "w", encoding="utf-8") as f:
+        json.dump(indice, f, ensure_ascii=False)
+
+def cargar_indice(ruta=RUTA_INDICE):
+    with open(ruta, encoding="utf-8") as f:
+        return json.load(f)
+
+def _main(argv):
+    import sys
+    if "--indexar" in argv:
+        indice = indexar(cargar_corpus(), embedder_llama)
+        if not indice:
+            print("ERROR: el embedder no devolvio vectores"); return 1
+        guardar_indice(indice)
+        print(f"indice regenerado: {len(indice)} documentos -> {RUTA_INDICE}")
+        return 0
+    if "--consulta" in argv:
+        consulta = argv[argv.index("--consulta") + 1]
+        docs = recuperar(consulta, cargar_indice(), embedder_llama, k=3)
+        for d in docs:
+            print(f"[{d['id']}] {d['titulo']}: {d['texto'][:120]}...")
+        return 0
+    print("uso: python3 -m prototipo.rag [--indexar | --consulta \"...\"]")
+    return 1
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_main(sys.argv[1:]))
