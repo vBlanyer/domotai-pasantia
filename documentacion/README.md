@@ -18,10 +18,10 @@ estado está. Empieza por ahí.
 |------|--------------|--------|
 | [1 — Análisis del módulo](01-fase1-analisis-del-modulo/) | Modelo de cliente genérico y caso de uso acotado | Completa por sustitución |
 | [2 — Estado del arte](02-fase2-estado-del-arte/) | MDR/XDR, modelos de lenguaje en seguridad y el registro único de requisitos | Completa |
-| [3 — Entorno de pruebas](03-fase3-entorno-de-pruebas/) | Diseño del laboratorio; el laboratorio ejecutable vive en [`lab/`](../lab/) | Operativa; falta el dataset etiquetado |
-| [4 — Arquitectura](04-fase4-diseno-de-arquitectura/) | Flujo, protocolos, catálogo de acciones, auditoría, modelo y métricas | Cerrada, con revisión pendiente |
-| [5 — Implementación](05-fase5-implementacion-del-prototipo/) | El prototipo: ingesta, análisis, conector, validación humana y trazas | No iniciada |
-| [6 — Evaluación](06-fase6-evaluacion-del-prototipo/) | Medición contra el baseline y análisis de errores | No iniciada |
+| [3 — Entorno de pruebas](03-fase3-entorno-de-pruebas/) | Diseño del laboratorio (ejecutable en [`lab/`](../lab/)) y el dataset etiquetado y particionado | Completa (410 alertas etiquetadas) |
+| [4 — Arquitectura](04-fase4-diseno-de-arquitectura/) | Flujo, protocolos, catálogo de acciones, auditoría, modelo y métricas | Cerrada |
+| [5 — Implementación](05-fase5-implementacion-del-prototipo/) | El prototipo [`prototipo/`](../prototipo/): decisión (5A), lazo en vivo (5B) y justificador LLM real (5C) | Completa (salvo el clasificador con fine-tuning, bloqueado por datos) |
+| [6 — Evaluación](06-fase6-evaluacion-del-prototipo/) | Medición contra el baseline de Wazuh y análisis de errores | En curso (especificada) |
 | [7 — Informe final](07-fase7-documentacion-e-informe-final/) | Consolidación de todo lo anterior | No iniciada |
 
 La correspondencia con los objetivos del plan es uno a uno: la fase *N* implementa el objetivo *N*.
