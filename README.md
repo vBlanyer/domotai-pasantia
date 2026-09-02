@@ -13,7 +13,7 @@ ese ruido sin cortar lo que el negocio necesita.
 | Componente | Dónde | Estado |
 |------------|-------|--------|
 | **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, 63 tests |
-| **Justificador con LLM real** (Llama-3.2-1B, anclaje verificable, degradación a plantilla) | [`prototipo/justificador_llm.py`](prototipo/justificador_llm.py) | Funcional, verificado en vivo |
+| **Justificador con LLM real + RAG** (Llama-3.2-1B; recuperación aumentada local sobre corpus curado de MITRE/reglas Wazuh) | [`prototipo/justificador_llm.py`](prototipo/justificador_llm.py), [`prototipo/rag.py`](prototipo/rag.py) | Funcional, verificado en vivo |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap/Greenbone, objetivo vulnerable) | [`lab/`](lab/) | Ejecutable |
 | **Dataset etiquetado** (410 alertas reales, VP/FP/no_soportada, particionado 80/20) | [`lab/dataset/`](lab/dataset/) | Cerrado |
 | **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 21 tests; campaña ejecutada |
