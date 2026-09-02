@@ -408,7 +408,7 @@ La spec de 5C (`seleccion-del-modelo.md`, Fase 4) proponía un modelo generativo
 A** sin cuantificar el tamaño exacto en tokens/segundo. Medido en la máquina de desarrollo (16 GB,
 sin GPU), Llama-3.2 corre a **~3.7 tokens/s en CPU** con el binario de llama.cpp. A esa velocidad, una
 justificación de 64 tokens tarda ~15-17 s — ya al límite de lo tolerable para una validación humana
-interactiva (RF-08). Subir a un 3B habría más que duplicado esa latencia. Por eso 5C usa
+interactiva (RNF-04). Subir a un 3B habría más que duplicado esa latencia. Por eso 5C usa
 **Llama-3.2-1B cuantizado (q4)** con una justificación deliberadamente breve (~64 tokens, `n_tokens`
 configurable), documentado aquí como decisión honesta de rendimiento medido, no de diseño ideal. La
 interfaz (`justificar_llm`/`adaptador`) no cambia si más adelante se sustituye el binario o el modelo
