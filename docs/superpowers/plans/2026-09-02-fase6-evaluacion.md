@@ -314,7 +314,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Produces:
   - `predecir(nivel, umbral) -> bool` — `nivel >= umbral`.
   - `verdad_binaria(filas) -> list[bool]` — `etiqueta == "VP"` por fila.
-  - `barrido(filas, rango=range(3, 13)) -> dict` con `"puntos"` (lista de `{"umbral","matriz","f1"}`) y `"optimo"` (el punto de mayor F1; empate → menor umbral).
+  - `barrido(filas, rango=range(3, 13)) -> dict` con `"puntos"` (lista de `{"umbral","matriz","f1"}`) y `"optimo"` (el punto de mayor F1; empate → mayor umbral).
 
 - [ ] **Step 1: Escribir el test que falla**
 

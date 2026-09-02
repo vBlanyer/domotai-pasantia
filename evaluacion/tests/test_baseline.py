@@ -17,6 +17,6 @@ class TestBaseline(unittest.TestCase):
     def test_barrido_tiene_un_punto_por_umbral_y_optimo(self):
         r = baseline.barrido(FILAS, range(3, 13))
         self.assertEqual(len(r["puntos"]), 10)
-        # umbral 10: predice amenaza solo los dos nivel-10 (ambos VP) -> F1 perfecto
+        # umbrales 6-10 empatan en F1=1.0 (5>=6 es False); el desempate elige el MAYOR -> 10
         self.assertEqual(r["optimo"]["umbral"], 10)
         self.assertEqual(r["optimo"]["matriz"], {"vp":2,"fp":0,"vn":2,"fn":0})

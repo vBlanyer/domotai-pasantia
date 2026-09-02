@@ -16,6 +16,7 @@ def barrido(filas, rango=range(3, 13)):
         puntos.append({"umbral": t, "matriz": mat, "f1": metricas.f1(mat)})
     def clave(p):
         f1 = p["f1"]
+        # Desempate: con F1 empatado gana el MAYOR umbral (la regla más selectiva que aún alcanza F1 máx).
         return (f1 if isinstance(f1, (int, float)) else -1.0, p["umbral"])
     optimo = max(puntos, key=clave)
     return {"puntos": puntos, "optimo": optimo}
