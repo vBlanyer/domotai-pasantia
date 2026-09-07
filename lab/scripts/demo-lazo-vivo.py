@@ -9,7 +9,7 @@ import json, subprocess, os, sys, time
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, REPO)
-from lab.dataset import esquema
+from prototipo import ingesta, adaptador_wazuh
 from prototipo import triaje, orden as ordenm, conector, verificacion
 from prototipo import perfil as perfilm, catalogo as catm, rag, justificador_llm
 
@@ -36,7 +36,7 @@ def alerta_fresca():
         try: d = json.loads(l)
         except Exception: continue
         if str(d.get("rule", {}).get("id")) in ("5760","5763","5710","5712","5716") and d.get("data", {}).get("srcip"):
-            return esquema.normalizar_alerta(d, "demo-vivo")
+            return ingesta.normalizar(d, adaptador_wazuh.adaptador("demo-vivo"))
     return None
 
 def main():
