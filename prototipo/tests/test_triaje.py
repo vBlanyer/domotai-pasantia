@@ -26,3 +26,13 @@ class TestJustificarFn(unittest.TestCase):
                             id_decision="d1", timestamp="2026-08-31T00:00:00Z",
                             justificar_fn=lambda a, c, cl: "JUSTIFICACION-INYECTADA")
         self.assertEqual(r["justificacion"], "JUSTIFICACION-INYECTADA")
+        self.assertEqual(r["version_justificador"], "plantilla-0")   # str -> plantilla (RF-09)
+
+    def test_procesar_registra_metadata_del_justificador_dict(self):
+        def just_dict(a, c, cl):
+            return {"texto": "TEXTO", "version_justificador": "llm-1b-0:modelo.gguf", "pasajes_usados": ["p1"]}
+        r = triaje.procesar(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                            id_decision="d2", timestamp="t", justificar_fn=just_dict)
+        self.assertEqual(r["justificacion"], "TEXTO")
+        self.assertEqual(r["version_justificador"], "llm-1b-0:modelo.gguf")
+        self.assertEqual(r["pasajes_usados"], ["p1"])

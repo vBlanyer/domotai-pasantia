@@ -51,3 +51,22 @@ class TestJustificacionEstructurada(unittest.TestCase):
         self.assertEqual(est["tecnica_mitre"], [])
         self.assertIsNone(est["evidencia"]["origen_ip"])
         self.assertIsNone(est["accion_sugerida"])
+
+
+class TestVersionJustificadorTraza(unittest.TestCase):
+    def _c(self, analisis_out):
+        return traza.construir(id_decision="d", timestamp="t", alerta={"id_alerta": "a"},
+                               analisis_out=analisis_out, accion_prop="BLOQUEAR_IP", impacto="localizado",
+                               perfil_nombre="p", filtro_out={"resultado": "permite", "accion_final": "BLOQUEAR_IP",
+                               "requiere_humano": False}, version_perfil="v0")
+
+    def test_registra_version_justificador_y_pasajes(self):
+        r = self._c({"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 1.0, "justificacion": "x",
+                     "version_justificador": "llm-1b-0:llama-3.2-1b-q4.gguf", "pasajes_usados": ["regla-5760"]})
+        self.assertEqual(r["version_justificador"], "llm-1b-0:llama-3.2-1b-q4.gguf")
+        self.assertEqual(r["pasajes_usados"], ["regla-5760"])
+
+    def test_default_plantilla_sin_metadata(self):
+        r = self._c({"clase": "no_soportada", "prioridad": 1, "confianza": 1.0, "justificacion": "x"})
+        self.assertEqual(r["version_justificador"], "plantilla-0")
+        self.assertEqual(r["pasajes_usados"], [])

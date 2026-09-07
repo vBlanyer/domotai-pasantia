@@ -67,14 +67,11 @@ def main():
           dexec(ATAC_C, f"nc -z -w3 {VICT_IP} 22 && echo ALCANZABLE || echo no"))
 
     barra("3 · TRIAJE — clasifica y justifica CON RAG")
-    capturado = {}
-    def just_rag(al, ctx, clase):
-        r = justificador_llm.justificar_con_rag(al, ctx, clase, justificador_llm.generador_llama, recuperar_fn)
-        capturado.update(r); return r["texto"]
+    just_rag = justificador_llm.justificar_fn_rag(justificador_llm.generador_llama, recuperar_fn)
     ts = alerta.get("timestamp", "")
     decision = triaje.procesar(alerta, hallazgos, perfil, "empresarial", catalogo, "demo-vivo", ts, justificar_fn=just_rag)
     print(f"  Clase: {decision['clase']} · Prioridad: {decision['prioridad']} · Confianza: {decision['confianza']}")
-    print(f"  Pasajes RAG: {capturado.get('pasajes_usados')}  ·  justificador: {capturado.get('justificador')}")
+    print(f"  Pasajes RAG: {decision.get('pasajes_usados')}  ·  justificador: {decision.get('version_justificador')}")
     print("  Justificación:", (decision['justificacion'] or "").replace("\n", " ")[:360])
     print(f"  Acción: {decision['accion_propuesta']} · impacto {decision['impacto']} · filtro {decision['resultado_filtro']} "
           f"· final {decision['accion_final']} · requiere_humano {decision['requiere_humano']}")

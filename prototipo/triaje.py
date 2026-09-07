@@ -6,12 +6,17 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
              justificar_fn=analisis.justificar):
     ctx = analisis.enriquecer(alerta, hallazgos, perfil_dict)
     clas = analisis.clasificar(alerta, ctx)
-    just = justificar_fn(alerta, ctx, clas["clase"])
+    # justificar_fn puede devolver str (plantilla, legado) o dict con metadata (LLM: version, pasajes).
+    res = justificar_fn(alerta, ctx, clas["clase"])
+    if isinstance(res, dict):
+        just, version_just, pasajes = res.get("texto", ""), res.get("version_justificador", "desconocido"), res.get("pasajes_usados", [])
+    else:
+        just, version_just, pasajes = res, "plantilla-0", []
     accion, params = politica.proponer(clas["clase"], alerta)
     impacto = catalogo[accion]["impacto"] if accion else "ninguno"
     filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),
                              alerta.get("servicio"), clas["confianza"])
-    analisis_out = {**clas, "justificacion": just}
+    analisis_out = {**clas, "justificacion": just, "version_justificador": version_just, "pasajes_usados": pasajes}
     version_perfil = perfil_dict.get("version", "v0")
     return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro,
                             version_perfil=version_perfil)

@@ -105,3 +105,25 @@ class TestRAG(unittest.TestCase):
         r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen_falla, recuperar_fn)
         self.assertEqual(r["justificador"], "plantilla")
         self.assertEqual(r["pasajes_usados"], [])
+
+
+class TestVersionJustificador(unittest.TestCase):
+    def test_llm_reporta_version_con_modelo(self):
+        gen = lambda p: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen)
+        self.assertTrue(r["version_justificador"].startswith("llm-1b-0"))
+        self.assertIn("llama-3.2-1b-q4.gguf", r["version_justificador"])
+
+    def test_degradacion_reporta_plantilla(self):
+        def gen_falla(p): raise RuntimeError("x")
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen_falla)
+        self.assertEqual(r["version_justificador"], "plantilla-0")
+
+    def test_justificar_fn_rag_devuelve_dict_con_metadata(self):
+        gen = lambda p: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
+        recuperar_fn = lambda a: [{"id": "regla-5760", "titulo": "5760", "texto": "fallo SSH"}]
+        fn = jl.justificar_fn_rag(gen, recuperar_fn)
+        r = fn(ALERTA, CTX_EXP, "vp_intento_acceso")
+        self.assertIn("texto", r)
+        self.assertTrue(r["version_justificador"].startswith("llm-1b-0"))
+        self.assertEqual(r["pasajes_usados"], ["regla-5760"])
