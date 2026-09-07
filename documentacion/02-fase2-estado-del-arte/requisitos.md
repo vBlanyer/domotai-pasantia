@@ -17,7 +17,7 @@ modelos de lenguaje ([LLM en seguridad](./llm-en-seguridad.md)), una restricció
 
 | ID | Requisito | Deriva de | Estado y nota |
 |----|-----------|-----------|---------------|
-| RF-01 | Ingerir alertas de la fuente del cliente y normalizarlas a un esquema común, tolerando campos ausentes | XDR §4 · [V1](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md#6-puntos-de-variabilidad) | ✔ La fuente concreta la fija cada cliente; en el laboratorio es Wazuh (`alerts.json`) |
+| RF-01 | Ingerir alertas de la fuente del cliente y normalizarlas a un esquema común, tolerando campos ausentes | XDR §4 · [V1](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md#6-puntos-de-variabilidad) | ✔ Módulo de producto `prototipo/ingesta.py`: adaptador por fuente (RNF-06), tolerante sin inferir (RNF-07). En el laboratorio la fuente es Wazuh (`alerts.json`) |
 | RF-02 | Enriquecer cada alerta con el contexto disponible antes de clasificar | XDR §2 · LLM §4 | ~ El contexto de más valor es la **postura del activo** que devuelve el auditor, no el histórico de un SOC |
 | RF-03 | Clasificar cada alerta según las categorías del caso de uso acotado | XDR §1 · LLM §1 | ✔ Las categorías las fija el [caso de uso acotado](../01-fase1-analisis-del-modulo/caso-de-uso-acotado.md) |
 | RF-04 | Asignar una prioridad que permita ordenar la cola de triaje | XDR §1, §2 | ~ La prioridad combina la clase con la **criticidad del activo** ([V4](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md#6-puntos-de-variabilidad)) |

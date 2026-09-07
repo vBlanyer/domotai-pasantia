@@ -38,7 +38,7 @@ El ciclo es cerrado: el sandbox genera telemetría, esa telemetría alimenta al 
 | Sistema de logs | **Ya existe** (propietario) — no disponible hoy | Recoger y emitir eventos de seguridad |
 | **Wazuh** (sustituto de laboratorio) | **A desplegar** — ver [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) | Generar alertas reales sobre el sandbox y aportar el **baseline** de reglas |
 | Playbook | **Ya existe** (propietario) — no disponible hoy | Orquestar el flujo y entregar información al motor de triaje |
-| **Módulo de ingesta y normalización** | **A construir** | Ocupa el papel del playbook en el laboratorio: lee las alertas, las normaliza y las entrega al motor de triaje |
+| **Módulo de ingesta y normalización** | **Construido** (`prototipo/ingesta.py` + `adaptador_wazuh`) | Ocupa el papel del playbook: lee las alertas, las normaliza (agnóstico de fuente, RNF-06) y las entrega al motor de triaje |
 | Motor de triaje | **A construir** | Clasificar, priorizar, justificar y decidir la acción |
 | Sandbox | **A construir** — ver [diseño del sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) | Ejecutar la acción y generar telemetría observable |
 | Conector motor ↔ sandbox | **A construir** | Transportar la acción y devolver su resultado |

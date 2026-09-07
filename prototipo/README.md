@@ -453,3 +453,24 @@ y matices honestos (recuperación imprecisa en el ID exacto, el 1B parafrasea lo
 [informe de evaluación §5.bis](../documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
 Un modelo de embeddings dedicado y un LLM mayor son el trabajo futuro; la interfaz ya lo permite sin
 tocar el motor.
+
+## 11. Ingesta y normalización (RF-01)
+
+El punto de entrada del prototipo: lee las alertas de la fuente del cliente y las lleva al **esquema
+común** que consume el motor, tolerando campos ausentes.
+
+- **Agnóstico de fuente (RNF-06):** el conocimiento de la fuente vive en un **adaptador inyectable**
+  (`cruda -> dict` de los 12 campos del esquema). `prototipo/adaptador_wazuh.py` es el implementado;
+  `prototipo/ingesta.py` es el núcleo, que no sabe de fabricante. El registro `ingesta.ADAPTADORES`
+  admite una segunda fuente (el sistema de la empresa) por el mismo módulo, sin tocar el motor.
+- **Tolerante, sin inferir (RNF-07):** el mapeo usa `.get()` con defaults, así que una alerta con
+  campos ausentes no rompe ni inventa valores; `ingesta.campos_ausentes(reg)` lista los campos críticos
+  ausentes (`id_alerta`, `activo`, `origen_ip`, `regla_id`) para avisar, no para rellenar.
+- **Activo desde los campos del evento (RF-16):** `resolver_activo` deduce el activo del hostname que
+  decodifica Wazuh, no del id de agente (que en Containerlab es siempre `000`).
+- **Robusto:** `ingerir_fichero` lee JSONL saltando líneas vacías o corruptas.
+- **CLI:** `python3 -m prototipo.ingesta <alerts.json> <salida.jsonl> [fuente=wazuh] [campaña]` —
+  verificada en vivo sobre el `alerts.json` real de Wazuh.
+
+`lab/dataset/esquema.py` re-exporta desde `adaptador_wazuh` por compatibilidad, así que el pipeline del
+dataset (Fase 3) sigue usándolo sin cambios; la dirección de dependencia queda `lab` → producto.

@@ -114,7 +114,7 @@ Un único diagrama que reúna sandbox, Wazuh, motor de triaje, conector, auditor
 ## Bloque 3 — Prototipo (Fase 5)
 
 ### Paso 11 · Ingesta y normalización
-> **HECHO** (31/08/2026). El motor consume el esquema normalizado del dataset conservando `nivel_wazuh` como baseline. *Matiz honesto:* la normalización vive en `lab/dataset/normalizar.py` (atada al laboratorio), no como módulo de ingesta dentro de `prototipo/` — RF-01 se cumple a nivel de proyecto, no de producto.
+> **HECHO** (31/08/2026; a nivel de producto el 02/09/2026). El motor consume el esquema normalizado conservando `nivel_wazuh` como baseline. RF-01 se cumple ahora **a nivel de producto**: la ingesta vive en `prototipo/ingesta.py` (núcleo agnóstico de fuente, adaptador inyectable — RNF-06) + `prototipo/adaptador_wazuh.py` (el mapeo Wazuh); `lab/dataset/esquema.py` re-exporta desde ahí, así el pipeline del dataset sigue igual.
 Leer `alerts.json`, normalizar al esquema de entrada del motor de triaje, **conservando el nivel de regla** como baseline.
 
 ### Paso 12 · Interfaz de análisis y clasificador
