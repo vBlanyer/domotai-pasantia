@@ -28,6 +28,17 @@ class TestEnriquecer(unittest.TestCase):
         ctx = analisis.enriquecer(a, self.hallazgos, self.perfil)
         self.assertEqual(ctx["criticidad"], "media")
 
+    def test_marca_origen_legitimo_segun_el_perfil(self):
+        perfil = dict(self.perfil); perfil["origenes_legitimos"] = ["192.168.1.1"]
+        a = dict(self.alerta); a["origen_ip"] = "192.168.1.1"
+        self.assertTrue(analisis.enriquecer(a, self.hallazgos, perfil)["origen_legitimo"])
+        a2 = dict(self.alerta); a2["origen_ip"] = "192.168.1.10"
+        self.assertFalse(analisis.enriquecer(a2, self.hallazgos, perfil)["origen_legitimo"])
+
+    def test_sin_origenes_legitimos_el_flag_es_falso(self):
+        ctx = analisis.enriquecer(self.alerta, self.hallazgos, self.perfil)
+        self.assertFalse(ctx["origen_legitimo"])
+
 class TestClasificar(unittest.TestCase):
     def setUp(self):
         self.alerta = cargar_json("alerta_vp.json")
@@ -50,6 +61,17 @@ class TestClasificar(unittest.TestCase):
         a = dict(self.alerta); a["familia"] = "plataforma"
         r = analisis.clasificar(a, {"postura": None, "criticidad": "media"})
         self.assertEqual(r["clase"], "no_soportada")
+
+    def test_origen_legitimo_es_fp_actividad_legitima(self):
+        # RF-03: un admin legítimo es FP aunque el servicio esté expuesto (precede a la postura)
+        r = analisis.clasificar(self.alerta, {"origen_legitimo": True,
+                                              "postura": {"expuesto": True}, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "fp_actividad_legitima")
+        self.assertEqual(r["confianza"], 1.0)
+
+    def test_sin_flag_legitimo_no_cambia(self):
+        r = analisis.clasificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "vp_intento_acceso")
 
     def test_prioridad_es_entero_1_a_4(self):
         r = analisis.clasificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"})

@@ -3,6 +3,8 @@ version: v0
 activos:
   servidor-web:   { criticidad: alta, servicios_prestados: [443, 80] }
   controlador-ot: { criticidad: critica, servicios_prestados: [502] }
+# Orígenes de administración declarados: un ataque aparente desde ellos es FP (RF-03).
+origenes_legitimos: ["192.168.1.1"]
 continuidad:
   impacto_ninguno:          automatica
   impacto_localizado:       automatica_si_confianza

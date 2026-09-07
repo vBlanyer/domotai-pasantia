@@ -10,3 +10,4 @@ continuidad:
   reversibilidad_obligatoria: true
   no_cortar_gestion: true
 excepciones: []
+origenes_legitimos: []

@@ -12,7 +12,10 @@ def enriquecer(alerta, hallazgos, perfil):
     activo = alerta.get("activo")
     postura = postura_de(hallazgos, activo, alerta.get("servicio"))
     criticidad = perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")
-    return {"postura": postura, "criticidad": criticidad}
+    # Orígenes de administración declarados por el cliente (RNF-14): un ataque aparente
+    # desde uno de ellos es el FP dominante (RF-03, clase fp_actividad_legitima).
+    origen_legitimo = alerta.get("origen_ip") in set(perfil.get("origenes_legitimos") or [])
+    return {"postura": postura, "criticidad": criticidad, "origen_legitimo": origen_legitimo}
 
 def _priorizar(clase, criticidad):
     base = _PRIORIDAD_BASE.get(clase, 1)
@@ -24,6 +27,8 @@ def clasificar(alerta, contexto):
     postura = contexto.get("postura")
     if alerta.get("familia") not in FAMILIAS_ATAQUE:
         clase, confianza = "no_soportada", 1.0
+    elif contexto.get("origen_legitimo"):       # admin declarado -> FP dominante (RF-03)
+        clase, confianza = "fp_actividad_legitima", 1.0
     elif postura is None:                       # gris: el baseline sabe que no sabe
         clase, confianza = "vp_intento_acceso", 0.5
     elif postura.get("expuesto"):
