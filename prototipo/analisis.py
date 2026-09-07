@@ -1,5 +1,5 @@
 """Interfaz de análisis (clasificar/justificar) con implementación baseline determinista."""
-from prototipo.postura import postura_de
+from prototipo.postura import postura_de, resumen_otros_expuestos
 
 FAMILIAS_ATAQUE = {"acceso_credenciales", "reconocimiento", "servicio_expuesto", "explotacion_conocida"}
 
@@ -38,6 +38,9 @@ def justificar(alerta, contexto, clase):
         veredicto = "el auditor no tiene postura del activo (contexto incompleto)"
     elif postura.get("expuesto"):
         veredicto = f"el auditor confirma que {alerta.get('servicio')} está expuesto en {alerta.get('activo')}"
+        otros = resumen_otros_expuestos(postura, alerta.get("servicio"))
+        if otros:
+            veredicto += f" (el activo también expone: {otros})"
     else:
         veredicto = f"el auditor no confirma exposición de {alerta.get('servicio')} en {alerta.get('activo')}"
     mitre = ", ".join(alerta.get("mitre", []) or ["s/téc."])

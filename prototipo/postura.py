@@ -18,3 +18,20 @@ def postura_de(hallazgos, activo, servicio):
         return None  # nodo desconocido → caso gris, decide un humano
     servicios = {s.get("servicio") for s in nodos[activo] if s.get("estado") == "open"}
     return {"expuesto": servicio in servicios, "servicios_abiertos": sorted(servicios)}
+
+def otros_servicios_expuestos(postura, servicio):
+    """Otros servicios abiertos del activo, distintos del atacado — contexto que enriquece la
+    justificación (RF-02). Vacío si no hay postura, no está expuesto, o no se conocen otros."""
+    if not postura or not postura.get("expuesto"):
+        return []
+    return [s for s in postura.get("servicios_abiertos", []) if s != servicio]
+
+def resumen_otros_expuestos(postura, servicio, tope=4):
+    """Los otros servicios expuestos, resumidos para una justificación legible: los primeros `tope`
+    y «y N más» si hay más. Cadena vacía si no hay otros (para no meter ruido)."""
+    otros = otros_servicios_expuestos(postura, servicio)
+    if not otros:
+        return ""
+    if len(otros) <= tope:
+        return ", ".join(otros)
+    return ", ".join(otros[:tope]) + f" y {len(otros) - tope} más"

@@ -69,3 +69,13 @@ class TestJustificar(unittest.TestCase):
     def test_menciona_confirmacion_del_auditor(self):
         txt = analisis.justificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"}, "vp_intento_acceso")
         self.assertIn("confirma", txt.lower())
+
+    def test_enriquece_con_otros_servicios_expuestos(self):
+        ctx = {"postura": {"expuesto": True, "servicios_abiertos": ["ssh", "telnet"]}, "criticidad": "alta"}
+        txt = analisis.justificar(self.alerta, ctx, "vp_intento_acceso")
+        self.assertIn("también expone", txt)
+        self.assertIn("telnet", txt)
+
+    def test_sin_otros_servicios_no_anade_ruido(self):
+        txt = analisis.justificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"}, "vp_intento_acceso")
+        self.assertNotIn("también expone", txt)

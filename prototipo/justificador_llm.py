@@ -1,6 +1,7 @@
 """Justificador con LLM real detrás de la interfaz `justificar` (5A). Subprocess a llama.cpp."""
 import os, re, subprocess
 from prototipo import analisis
+from prototipo import postura as postura_mod
 
 VERSION_JUSTIFICADOR = "llm-1b-0"
 
@@ -22,6 +23,9 @@ def construir_prompt(alerta, contexto, clase, pasajes=None):
         verd = "el auditor no tiene postura del activo"
     elif postura.get("expuesto"):
         verd = f"el auditor confirma que {alerta.get('servicio')} esta expuesto en {alerta.get('activo')}"
+        otros = postura_mod.resumen_otros_expuestos(postura, alerta.get("servicio"))
+        if otros:
+            verd += f"; el activo tambien expone {otros}"
     else:
         verd = f"el auditor no confirma exposicion de {alerta.get('servicio')} en {alerta.get('activo')}"
     mitre = ", ".join(alerta.get("mitre", []) or ["s/tecnica"])
