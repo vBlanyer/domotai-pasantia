@@ -197,7 +197,7 @@ tramo — orden → conector → validación humana → verificación — sin to
 Diseño completo: [`docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md`](../docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md).
 
 ```
-decisión (5A) ──► ¿requiere_humano? ──sí──► validación por terminal ──rechazar/modificar──► fin (no se ejecuta)
+decisión (5A) ──► ¿requiere_humano? ──sí──► validación por terminal ──rechazar/reclasificar──► fin (no se ejecuta)
                         │no                          │aprobar
                         ▼                             ▼
                    orden.construir()  ──►  conector.ejecutar_orden()  ──►  verificacion.confirmar()
@@ -253,12 +253,12 @@ spec de 5B); no es la credencial de producción ni pretende serlo.
 **La validación humana (`validacion.py`).** Cuando el filtro del perfil marca `requiere_humano`
 (RF-08, RF-18), `lazo.procesar_lazo` no construye la orden todavía: llama a `validacion.pedir`, que
 imprime por terminal la decisión completa (activo, clase, confianza, justificación, acción
-propuesta e impacto) y lee un veredicto (`aprobar` / `rechazar` / `modificar`, con `rechazar` como
+propuesta e impacto) y lee un veredicto (`aprobar` / `rechazar` / `reclasificar`, con `rechazar` como
 valor por defecto ante cualquier respuesta ambigua — seguro por defecto). Solo `aprobar` construye y
-ejecuta la orden. `modificar` **no** sustituye la acción propuesta por una alternativa concreta —
-eso es trabajo futuro — hoy es una salvaguarda honesta: retiene la alerta sin ejecutar nada, igual
-que `rechazar`, y el veredicto queda registrado en la traza (`veredicto_humano: "modificar"`) como
-semilla para esa sustitución futura.
+ejecuta la orden. `reclasificar` (RF-08) captura la **clase corregida** por el analista: retiene la
+alerta sin ejecutar (si el triaje se equivocó de clase, no se ejecuta su acción) y registra la
+corrección en la traza (`veredicto_humano: "reclasificar"`, `clase_reclasificada`) como **feedback
+del analista** (RF-12). `pedir` devuelve `{"veredicto", "clase_nueva"}`.
 
 **Honestidad sobre cuándo se dispara.** Sobre el dataset real de la Fase 3 (§6), el baseline no
 produce ninguna decisión con `requiere_humano: true`: la única familia soportada
