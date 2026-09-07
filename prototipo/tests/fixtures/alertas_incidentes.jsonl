@@ -1,0 +1,6 @@
+{"id_alerta":"1","timestamp":"2026-08-31T16:48:05.000+0000","origen_ip":"192.168.1.10","activo":"objetivo-vuln","servicio":"ssh","familia":"acceso_credenciales","regla_id":"5760","nivel_wazuh":5}
+{"id_alerta":"2","timestamp":"2026-08-31T16:48:10.000+0000","origen_ip":"192.168.1.10","activo":"objetivo-vuln","servicio":"ssh","familia":"acceso_credenciales","regla_id":"5763","nivel_wazuh":10}
+{"id_alerta":"3","timestamp":"2026-08-31T16:48:20.000+0000","origen_ip":"192.168.1.10","activo":"objetivo-vuln","servicio":"ssh","familia":"acceso_credenciales","regla_id":"5760","nivel_wazuh":5}
+{"id_alerta":"4","timestamp":"2026-08-31T17:10:00.000+0000","origen_ip":"192.168.1.10","activo":"objetivo-vuln","servicio":"ssh","familia":"acceso_credenciales","regla_id":"5760","nivel_wazuh":5}
+{"id_alerta":"5","timestamp":"2026-08-31T16:48:12.000+0000","origen_ip":"192.168.1.1","activo":"objetivo-vuln","servicio":"ssh","familia":"acceso_credenciales","regla_id":"5710","nivel_wazuh":5}
+{"id_alerta":"6","timestamp":null,"origen_ip":"192.168.1.1","activo":"objetivo-vuln","servicio":"ssh","familia":"acceso_credenciales","regla_id":"5710","nivel_wazuh":5}
