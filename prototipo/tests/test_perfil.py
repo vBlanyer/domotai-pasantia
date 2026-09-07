@@ -18,6 +18,23 @@ class TestFiltro(unittest.TestCase):
     def test_localizado_confianza_alta_permite(self):
         r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip":"1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
         self.assertEqual(r["resultado"], "permite")
+
+    def test_umbral_configurable_por_perfil(self):
+        # RF-07: el umbral de escalado sale del perfil, no del código
+        p = perfil_fx(); p["continuidad"]["umbral_confianza"] = 0.9
+        r = perfil.filtrar(p, "BLOQUEAR_IP", {"ip":"1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 0.8)
+        self.assertEqual(r["resultado"], "veta")            # 0.8 < 0.9 -> escala
+        self.assertTrue(r["requiere_humano"])
+        p["continuidad"]["umbral_confianza"] = 0.5
+        r2 = perfil.filtrar(p, "BLOQUEAR_IP", {"ip":"1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 0.8)
+        self.assertEqual(r2["resultado"], "permite")        # 0.8 >= 0.5 -> automatica
+
+    def test_umbral_por_defecto_es_0_7(self):
+        # sin la clave en el perfil, el default 0.7 y el borde >=
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip":"1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 0.7)
+        self.assertEqual(r["resultado"], "permite")         # 0.7 >= 0.7
+        r2 = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip":"1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 0.69)
+        self.assertEqual(r2["resultado"], "veta")           # 0.69 < 0.7
         self.assertFalse(r["requiere_humano"])
 
     def test_localizado_confianza_baja_veta(self):

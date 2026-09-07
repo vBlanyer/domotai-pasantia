@@ -9,5 +9,6 @@ continuidad:
   impacto_alcanza_servicio: automatica_si_confianza
   reversibilidad_obligatoria: true
   no_cortar_gestion: true
+  umbral_confianza: 0.7   # umbral de escalado (RF-07); 0.7 por defecto
 excepciones: []
 origenes_legitimos: []

@@ -2,7 +2,7 @@
 import yaml
 from prototipo import catalogo as _cat
 
-UMBRAL_CONFIANZA = 0.7                       # recalibrable en la Fase 6
+UMBRAL_CONFIANZA = 0.7   # default; configurable por perfil en continuidad.umbral_confianza (RF-07). Sin calibrar aún (Fase 6 midió escalado 0.0)
 DEGRADACION = {"BLOQUEAR_PUERTO": "BLOQUEAR_IP"}   # alcanza_servicio -> localizado
 _REVERSION_OK = {"definida", "auto", "transitoria"}
 
@@ -15,6 +15,10 @@ def criticidad_de(perfil, activo):
 
 def _res(resultado, accion_final, requiere_humano):
     return {"resultado": resultado, "accion_final": accion_final, "requiere_humano": requiere_humano}
+
+def _umbral(perfil):
+    # RF-07: el umbral de escalado es configurable por perfil; 0.7 por defecto.
+    return perfil.get("continuidad", {}).get("umbral_confianza", UMBRAL_CONFIANZA)
 
 def _corta_gestion(catalogo, accion_id, servicio):
     return catalogo.get(accion_id, {}).get("corta_gestion_si") == servicio
@@ -34,7 +38,7 @@ def _permite_localizado(perfil, confianza):
     if regla == "automatica":
         return True
     if regla == "automatica_si_confianza":
-        return confianza >= UMBRAL_CONFIANZA
+        return confianza >= _umbral(perfil)
     return False
 
 def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza):
@@ -61,7 +65,7 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza):
     if regla == "automatica":
         return _res("permite", accion_id, False)
     if regla == "automatica_si_confianza":
-        if confianza >= UMBRAL_CONFIANZA:
+        if confianza >= _umbral(perfil):
             return _res("permite", accion_id, False)
         return _res("veta", accion_id, True)
     # regla == "humano_siempre" (impacto alcanza_servicio): intentar degradar
