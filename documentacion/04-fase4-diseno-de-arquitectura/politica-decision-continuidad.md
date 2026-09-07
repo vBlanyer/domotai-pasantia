@@ -124,6 +124,7 @@ continuidad:
   impacto_alcanza_servicio: humano_siempre
   reversibilidad_obligatoria: true    # RF-18
   no_cortar_gestion: true             # RF-19
+  umbral_confianza: 0.7               # RF-07: umbral de escalado (0.7 por defecto)
 excepciones:
   - servicio: 443
     activo: servidor-web

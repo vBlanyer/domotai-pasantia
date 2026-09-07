@@ -137,7 +137,8 @@ tratan el impacto de una acción, no en qué acción proponen (eso lo decide la 
 todos).
 
 - **Acciones de impacto `localizado` (p. ej. `BLOQUEAR_IP`) — los perfiles COINCIDEN.** Ambos
-  perfiles fijan `impacto_localizado: automatica_si_confianza`: con confianza alta, ambos permiten
+  perfiles fijan `impacto_localizado: automatica_si_confianza`: con confianza sobre el umbral del perfil
+  (`continuidad.umbral_confianza`, 0.7 por defecto — RF-07, configurable), ambos permiten
   la acción sin intervención humana. Es el caso mayoritario en la corrida real (ver §6).
 
 - **Acciones de impacto `alcanza_servicio` (p. ej. `BLOQUEAR_PUERTO` sobre el 443 de

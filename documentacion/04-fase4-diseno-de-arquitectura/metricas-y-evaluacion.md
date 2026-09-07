@@ -114,7 +114,7 @@ analista. Si no lo hiciera, ese resultado negativo también es un hallazgo váli
 
 La evaluación no solo mide: define constantes que la Fase 5 necesita.
 
-- **Umbral de confianza para escalar a humano** (RF-07): se calibra buscando el punto donde bajar
+- **Umbral de confianza para escalar a humano** (RF-07): ya es un campo del perfil (`continuidad.umbral_confianza`, 0.7 por defecto); su **valor calibrado** se busca aquí, en el punto donde bajar
   el escalado no empieza a perder recall. Es un resultado de la evaluación, no un número elegido a priori.
 - **Correspondencia nivel de Wazuh → prioridad del motor de triaje**: qué nivel crudo mapea a qué prioridad
   inicial antes de que el modelo reclasifique.
