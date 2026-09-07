@@ -1,0 +1,38 @@
+% ---------------------------------------------------------------------------
+% Resumen (norma 3.4)
+% ---------------------------------------------------------------------------
+% Requisitos de la norma:
+%   - Máximo UNA página.
+%   - Típicamente un SOLO PÁRRAFO de 250 palabras como máximo.
+%   - Debe exponer: tema tratado, metodología empleada, resultados obtenidos
+%     y conclusiones alcanzadas.
+%   - Si se usan siglas, su significado se explica entre paréntesis dentro del
+%     propio resumen, la primera vez que aparezcan.
+% Redactado al cierre de la Fase 6, cuando ya existen los resultados medidos.
+% 250 palabras exactas.
+
+\seccionSinNumerar{Resumen}
+
+Las organizaciones enfrentan un volumen de alertas de seguridad que supera la capacidad de
+análisis manual de sus equipos, en buena parte porque los sistemas basados en reglas y firmas
+generan un alto volumen de falsos positivos sin justificar sus decisiones. Este trabajo,
+realizado como pasantía larga en Domotai C.A., desarrolla un motor de triaje que clasifica y
+prioriza alertas de seguridad, justifica cada decisión con un modelo de lenguaje de gran escala
+(LLM) apoyado en generación aumentada por recuperación (RAG) ejecutada en local, y propone una
+acción de respuesta contenida sujeta a validación humana: el modelo justifica, no decide. La
+metodología partió de modelar un cliente genérico ante la ausencia de un módulo propietario
+disponible, revisó el estado del arte de la detección extendida y gestionada y de los modelos de
+lenguaje en seguridad, construyó un laboratorio reproducible con Containerlab y Wazuh como fuente
+de alertas, diseñó una arquitectura que separa clasificación, política de decisión determinista y
+perfil de cliente configurable, e implementó y evaluó el prototipo frente al nivel de regla de
+Wazuh. Sobre 205 alertas reales, el prototipo redujo la tasa de falsos positivos de 0,282 a
+0,041 ---casi siete veces menos--- sin dejar de detectar ninguna amenaza y sin acciones disruptivas
+indebidas. La recuperación aumentada corrigió el defecto principal del justificador: el modelo
+ancla sus explicaciones en la alerta pero, sin ella, las describe con imprecisión. Queda como
+limitación el clasificador con ajuste fino, bloqueado por un conjunto de datos con una sola
+familia de ataque.
+
+\vspace{1.5\baselineskip}
+
+\noindent\textbf{Palabras clave:} triaje de alertas de seguridad, modelos de lenguaje de gran
+escala, generación aumentada por recuperación, MITRE ATT\&CK, validación humana.

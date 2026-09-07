@@ -1,0 +1,161 @@
+\begin{thebibliography}{10}
+
+\bibitem{microchip2024ds40002043}
+Microchip Technology Inc.
+\newblock {\em {PIC18F27/47Q10} Microcontrollers Data Sheet}, 2024.
+\newblock Documento DS40002043F, 767 p{\'a}ginas.
+
+\bibitem{chen2021codex}
+Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan, Henrique Ponde de~Oliveira
+  Pinto, Jared Kaplan, Harri Edwards, Yuri Burda, Nicholas Joseph, Greg
+  Brockman, et~al.
+\newblock Evaluating large language models trained on code.
+\newblock {\em arXiv preprint arXiv:2107.03374}, 2021.
+
+\bibitem{englhardt2023embedded}
+Zachary Englhardt, Richard Li, Dilini Nissanka, Zhihan Zhang, Girish
+  Narayanswamy, Joseph Breda, Xin Liu, Shwetak Patel, and Vikram Iyer.
+\newblock Exploring and characterizing large language models for embedded
+  system development and debugging.
+\newblock {\em arXiv preprint arXiv:2307.03817}, 2023.
+
+\bibitem{lewis2020rag}
+Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir
+  Karpukhin, Naman Goyal, Heinrich K{\"u}ttler, Mike Lewis, Wen-tau Yih, Tim
+  Rockt{\"a}schel, Sebastian Riedel, and Douwe Kiela.
+\newblock Retrieval-augmented generation for knowledge-intensive {NLP} tasks.
+\newblock In {\em Advances in Neural Information Processing Systems},
+  volume~33, pages 9459--9474, 2020.
+
+\bibitem{haug2025microcontrollers}
+Sebastian Haug, Christoph B{\"o}hm, and Daniel Mayer.
+\newblock Automated code generation and validation for software components of
+  microcontrollers.
+\newblock {\em arXiv preprint arXiv:2502.18905}, 2025.
+
+\bibitem{microchip2024errata}
+Microchip Technology Inc.
+\newblock {\em {PIC18F27/47Q10} Silicon Errata and Data Sheet Clarifications},
+  2024.
+\newblock Documento DS80000832G.
+
+\bibitem{liu2024lost}
+Nelson~F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua,
+  Fabio Petroni, and Percy Liang.
+\newblock Lost in the middle: How language models use long contexts.
+\newblock {\em Transactions of the Association for Computational Linguistics},
+  2024.
+
+\bibitem{microchip2023progspec}
+Microchip Technology Inc.
+\newblock {\em {PIC18F2X/4XQ10} Memory Programming Specification}, 2023.
+\newblock Documento DS40001874H.
+
+\bibitem{microchip2012xc8}
+Microchip Technology Inc.
+\newblock {\em {MPLAB} {XC8} {C} Compiler User's Guide for {PIC} {MCU}}, 2012.
+\newblock Documento DS52053B.
+
+\bibitem{microchip2020curiosity}
+Microchip Technology Inc.
+\newblock {\em {PIC18F47Q10} Curiosity Nano Hardware User Guide}, 2020.
+\newblock Documento DS40002103B.
+
+\bibitem{microchip2022mcc}
+Microchip Technology Inc.
+\newblock {\em {MPLAB} {Code} {Configurator} ({MCC}) User's Guide}, 2022.
+\newblock Documento DS40001829F.
+
+\bibitem{vaswani2017attention}
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
+  Aidan~N. Gomez, {\L}ukasz Kaiser, and Illia Polosukhin.
+\newblock Attention is all you need.
+\newblock In {\em Advances in Neural Information Processing Systems},
+  volume~30, pages 5998--6008, 2017.
+
+\bibitem{karpukhin2020dpr}
+Vladimir Karpukhin, Barlas O{\u{g}}uz, Sewon Min, Patrick Lewis, Ledell Wu,
+  Sergey Edunov, Danqi Chen, and Wen-tau Yih.
+\newblock Dense passage retrieval for open-domain question answering.
+\newblock In {\em Proceedings of the 2020 Conference on Empirical Methods in
+  Natural Language Processing (EMNLP)}, pages 6769--6781, 2020.
+
+\bibitem{reimers2019sbert}
+Nils Reimers and Iryna Gurevych.
+\newblock {Sentence-BERT}: Sentence embeddings using siamese {BERT}-networks.
+\newblock In {\em Proceedings of the 2019 Conference on Empirical Methods in
+  Natural Language Processing and the 9th International Joint Conference on
+  Natural Language Processing (EMNLP-IJCNLP)}, pages 3982--3992, 2019.
+
+\bibitem{reimers2020multilingual}
+Nils Reimers and Iryna Gurevych.
+\newblock Making monolingual sentence embeddings multilingual using knowledge
+  distillation.
+\newblock In {\em Proceedings of the 2020 Conference on Empirical Methods in
+  Natural Language Processing (EMNLP)}, pages 4512--4525. Association for
+  Computational Linguistics, 2020.
+
+\bibitem{hammerl2024alignment}
+Katharina H{\"a}mmerl, Jind{\v{r}}ich Libovick{\'y}, and Alexander Fraser.
+\newblock Understanding cross-lingual alignment---a survey.
+\newblock In {\em Findings of the Association for Computational Linguistics:
+  ACL 2024}. Association for Computational Linguistics, 2024.
+
+\bibitem{robertson2009bm25}
+Stephen Robertson and Hugo Zaragoza.
+\newblock The probabilistic relevance framework: {BM25} and beyond.
+\newblock {\em Foundations and Trends in Information Retrieval}, 3(4):333--389,
+  2009.
+
+\bibitem{malkov2020hnsw}
+Yu~A. Malkov and D.~A. Yashunin.
+\newblock Efficient and robust approximate nearest neighbor search using
+  hierarchical navigable small world graphs.
+\newblock {\em IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  42(4):824--836, 2020.
+
+\bibitem{nogueira2019passage}
+Rodrigo Nogueira and Kyunghyun Cho.
+\newblock Passage re-ranking with {BERT}.
+\newblock {\em arXiv preprint arXiv:1901.04085}, 2019.
+
+\bibitem{khattab2020colbert}
+Omar Khattab and Matei Zaharia.
+\newblock {ColBERT}: Efficient and effective passage search via contextualized
+  late interaction over {BERT}.
+\newblock In {\em Proceedings of the 43rd International ACM SIGIR Conference on
+  Research and Development in Information Retrieval}, pages 39--48, 2020.
+
+\bibitem{asai2024selfrag}
+Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, and Hannaneh Hajishirzi.
+\newblock {Self-RAG}: Learning to retrieve, generate, and critique through
+  self-reflection.
+\newblock In {\em International Conference on Learning Representations (ICLR)},
+  2024.
+
+\bibitem{yan2024crag}
+Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, and Zhen-Hua Ling.
+\newblock Corrective retrieval augmented generation.
+\newblock {\em arXiv preprint arXiv:2401.15884}, 2024.
+
+\bibitem{edge2024graphrag}
+Darren Edge, Ha~Trinh, Newman Cheng, Joshua Bradley, Alex Chao, Apurva Mody,
+  Steven Truitt, and Jonathan Larson.
+\newblock From local to global: A graph {RAG} approach to query-focused
+  summarization.
+\newblock {\em arXiv preprint arXiv:2404.16130}, 2024.
+
+\bibitem{mcp2026spec}
+{Anthropic}.
+\newblock Model context protocol specification.
+\newblock \url{https://modelcontextprotocol.io}, 2026.
+\newblock Revisión del protocolo \texttt{2026-07-28}; consultada el 24 de
+  agosto de 2026.
+
+\bibitem{es2024ragas}
+Shahul Es, Jithin James, Luis Espinosa-Anke, and Steven Schockaert.
+\newblock {RAGAs}: Automated evaluation of retrieval augmented generation.
+\newblock In {\em Proceedings of the 18th Conference of the European Chapter of
+  the ACL: System Demonstrations}, 2024.
+
+\end{thebibliography}

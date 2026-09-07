@@ -38,8 +38,17 @@ aprendizaje continuo a partir del feedback del analista, y escalabilidad operati
 
 ## Documentos
 
-*Ninguno todavía.* Aquí irán el informe técnico final, la documentación de arquitectura y operación,
-y el roadmap de trabajo futuro.
+**Primer borrador del informe final, en `documentacion/report/`** (formato LaTeX según la norma
+del Decanato de Estudios Profesionales de la USB): carátula, resumen, lista de símbolos y de
+abreviaturas, introducción, descripción de la empresa, marco teórico, metodología, resultados y
+discusión, conclusiones y recomendaciones, y referencias. Compila con
+`latexmk -pdf ip1_main.tex` desde ese directorio (no verificado en este entorno por no disponer de
+una distribución LaTeX instalada).
+
+Pendiente antes de la entrega: confirmar el nombre y el cargo del tutor académico y del tutor
+industrial (marcados como «por confirmar» en `ip1_main.tex` e `ip3_empresa.tex`), insertar el Acta
+de Evaluación de Pasantía cuando exista, y verificar la compilación completa con una distribución
+LaTeX real.
 
 ---
 
@@ -56,7 +65,9 @@ del camino.
 
 ## Estado
 
-**No iniciada.**
+**En curso.** Primer borrador completo del informe redactado el 07/09/2026, consolidando el
+material de las fases 1 a 6. Falta la revisión humana del contenido, los datos pendientes de
+confirmar con la empresa y coordinación (tutores), y la compilación verificada.
 
 **Criterio de cierre** (roadmap): la documentación está completa, revisada y lista para entrega o
 presentación.

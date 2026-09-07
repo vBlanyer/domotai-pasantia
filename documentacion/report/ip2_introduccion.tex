@@ -1,0 +1,175 @@
+% ---------------------------------------------------------------------------
+% Introducción (norma 3.12)
+% ---------------------------------------------------------------------------
+% NO se numera como capítulo (norma 2.6). El primer capítulo numerado es el que
+% sigue inmediatamente a esta sección.
+%
+% La norma exige que contenga, en este orden: antecedentes; justificación e
+% importancia del trabajo, con la hipótesis de manera implícita; planteamiento
+% del problema; objetivo general; y objetivos específicos.
+%
+% Redactada en tercera persona. Los acrónimos se explican en su primera
+% aparición dentro de esta sección, con su traducción cuando proceden de otro
+% idioma (norma 2.4).
+
+\seccionSinNumerar{Introducción}
+
+Los equipos de operaciones de seguridad reciben, en la práctica totalidad de las organizaciones,
+un volumen de alertas que supera su capacidad de análisis manual. La causa dominante no es la
+falta de detección, sino el exceso de ella: los sistemas de correlación basados en reglas y
+firmas ---el fundamento de la mayoría de las plataformas de detección y respuesta hoy
+desplegadas--- generan un alto volumen de falsos positivos, y cada uno exige el mismo esfuerzo de
+interpretación que una amenaza real, porque la alerta señala qué regla se disparó, no por qué eso
+importa en el contexto concreto del activo afectado.
+
+El presente trabajo, realizado como pasantía larga en la empresa Domotai C.A., aborda ese problema
+mediante un motor de triaje que clasifica y prioriza alertas de seguridad de red, justifica cada
+decisión con un modelo de lenguaje de gran escala (LLM, del inglés \emph{Large Language Model})
+apoyado en generación aumentada por recuperación (RAG, del inglés \emph{Retrieval-Augmented
+Generation}) ejecutada en un entorno local, y propone una acción de respuesta contenida sujeta a
+validación humana antes de ejecutarse.
+
+\subsection*{Antecedentes}
+
+Las plataformas comerciales de detección y respuesta han evolucionado del \emph{endpoint} aislado
+---EDR, del inglés \emph{Endpoint Detection and Response}--- hacia la correlación multicapa que
+combina red, identidad, correo y nube en una sola plataforma, conocida como XDR (\emph{Extended
+Detection and Response}); y hacia el servicio operado por un equipo humano que las administra las
+veinticuatro horas, conocido como MDR (\emph{Managed Detection and Response}). Las evaluaciones
+independientes de estas plataformas ---notablemente las de MITRE ATT\&CK Evaluations, que mide su
+cobertura de técnicas adversarias contra la matriz pública MITRE ATT\&CK--- siguen registrando de
+forma explícita el volumen de alertas que un analista debe triar como un criterio de comparación
+entre proveedores, lo que confirma que la fatiga de falsos positivos persiste incluso en las
+soluciones líderes del mercado.
+
+En paralelo, los modelos de lenguaje de gran escala han empezado a incorporarse a la operación de
+seguridad. Una primera línea de trabajo continuó el preentrenamiento de modelos de tipo
+\emph{encoder} sobre corpus específicos de ciberseguridad ---informes de amenazas, bases de
+vulnerabilidades, documentación técnica---, de lo que \textbf{SecureBERT} es la referencia original
+\cite{aghaei2022securebert}. Una segunda línea publicó modelos generativos con preentrenamiento
+continuado sobre el mismo tipo de corpus, de los que \textbf{Foundation-Sec-8B}, de Cisco
+Foundation AI, es la referencia pública más reciente, con variantes que declaran explícitamente el
+triaje y el resumen de casos de un centro de operaciones de seguridad (SOC, \emph{Security
+Operations Center}) como caso de uso objetivo \cite{foundationsec8b}. Las plataformas comerciales
+líderes ---Microsoft Security Copilot, CrowdStrike Charlotte AI y equivalentes--- han incorporado
+asistentes basados en estos modelos, con un patrón consistente: redactan y resumen, no deciden; la
+autoridad final permanece humana.
+
+Complementando a los modelos generativos, la generación aumentada por recuperación demostró que
+combinar un modelo de lenguaje con un sistema de recuperación sobre un corpus externo permite
+anclar sus respuestas a documentos concretos y actualizar ese conocimiento sin reentrenar el modelo
+\cite{lewis2020rag}. Esta técnica es la que este trabajo aplica para corregir la principal
+limitación detectada en la justificación generada por un modelo pequeño: describe correctamente
+qué campos cita, pero se equivoca en lo que esos campos significan.
+
+\subsection*{Justificación e importancia}
+
+Adoptar un modelo de lenguaje en el camino de una alerta de seguridad no es una decisión neutra.
+El catálogo de riesgos de OWASP para aplicaciones basadas en LLM sitúa la inyección de instrucciones
+como el riesgo número uno \cite{owaspllmtop10}, y en este dominio no es un riesgo hipotético: el
+contenido de un registro de eventos ---el nombre de usuario probado, la cadena completa del
+evento--- lo escribe quien está atacando. Si esos campos se concatenan al mensaje del modelo sin
+distinguirlos de una instrucción, el atacante obtiene un canal directo hacia el sistema que decide
+sobre su propio ataque. A esto se suma un segundo riesgo, más sutil: la alucinación con apariencia
+de fundamento, en la que el modelo redacta una explicación plausible que cita un dato que la alerta
+no contiene, y que un analista con prisa acepta precisamente porque suena a análisis correcto.
+
+Estos riesgos, junto con la exigencia de que el análisis de una alerta no salga de la red del
+cliente hacia un servicio externo, justifican dos decisiones de diseño que atraviesan todo el
+trabajo: que los campos de una alerta se traten siempre como datos y nunca como instrucciones, y
+que el modelo se ejecute en un entorno local, sin depender de una nube de terceros. La segunda
+decisión responde además a una necesidad de negocio concreta de la empresa: Domotai C.A. ofrece
+la automatización asistida por inteligencia artificial como una de sus líneas de servicio, y un
+módulo que reduzca el ruido operativo de un cliente sin exponer sus datos ocupa un lugar dentro de
+esa oferta que las plataformas comerciales, todas ellas dependientes de la nube del proveedor, no
+cubren.
+
+Por último, la restricción de continuidad de servicio es la que distingue a este trabajo de un
+sistema de respuesta automatizada convencional: un triaje que acierta más pero que, por error,
+interrumpe un servicio que el cliente presta a los suyos es peor que el sistema al que sustituye.
+De ahí que la decisión de qué acción ejecutar nunca la tome el propio modelo de lenguaje, sino una
+política determinista filtrada por un perfil de cliente configurable, con la validación de una
+persona antes de cualquier acción que alcance un servicio.
+
+\subsection*{Planteamiento del problema}
+
+Diseñar este motor de triaje sobre el sistema de análisis de alertas que la empresa usa hoy exigía
+partir de tres elementos que, en la práctica, no estaban disponibles al inicio de la pasantía: el
+propio sistema de logs y correlación de un cliente real, un entorno donde ejercitarlo sin riesgo
+para una operación productiva, y un conjunto de alertas con verdaderos y falsos positivos
+identificados contra los que medir cualquier mejora. Sin una fuente de alertas no hay nada que
+triar; sin un entorno controlado no hay dónde ejecutar ni verificar una acción de respuesta; y sin
+un conjunto etiquetado no es posible calcular precisión, exhaustividad ni ninguna otra métrica de
+clasificación.
+
+El problema, formulado de manera acotada, es entonces el siguiente: dado que no se dispone de
+acceso a un cliente ni a su módulo propietario de análisis de alertas, ¿es posible construir,
+evaluar y demostrar en un entorno de laboratorio reproducible un motor de triaje que clasifique
+alertas de acceso no autorizado a servicios de gestión expuestos, justifique cada decisión con
+razonamiento verificable en vez de con la sola cita de una regla, y proponga una acción de
+respuesta acotada sin comprometer la continuidad del servicio que protege, de forma que el
+resultado sea representativo de lo que ese motor haría sobre la infraestructura real de un cliente
+cuando esta esté disponible?
+
+La respuesta de diseño fue modelar un cliente genérico en vez de esperar a uno concreto, y sustituir
+el sistema de logs inexistente por Wazuh, una plataforma de detección basada en reglas desplegada
+dentro de un laboratorio de red emulado con Containerlab \cite{containerlabdocs}, cuyo nivel de
+regla cumple además el papel de método tradicional de referencia contra el que se mide el
+prototipo.
+
+\subsection*{Objetivo general}
+
+Desarrollar un prototipo para la detección y el triaje de alertas de seguridad en entornos
+empresariales, basado en modelos de lenguaje con un módulo de generación aumentada por
+recuperación ejecutado sobre un modelo desplegado de forma local, de manera que permita clasificar
+y priorizar alertas con razonamiento explicable, reduciendo los falsos positivos y apoyando la
+labor de los analistas de seguridad.
+
+\subsection*{Objetivos específicos}
+
+\begin{enumerate}
+  \item \textbf{Analizar y aprender a usar el módulo propietario.} Analizar la solución actual de
+        la empresa para la recepción y el análisis de alertas, identificar sus limitaciones y las
+        necesidades no cubiertas, y definir el caso de uso acotado sobre el que se construiría el
+        prototipo.
+
+  \item \textbf{Revisar el estado del arte.} Analizar las soluciones de detección y respuesta
+        extendida y gestionada existentes en el mercado y las aplicaciones de modelos de lenguaje
+        en el ámbito de la ciberseguridad, identificando sus ventajas, sus limitaciones y las
+        necesidades no cubiertas por las herramientas actuales, para derivar de ello los
+        requisitos funcionales y no funcionales del prototipo.
+
+  \item \textbf{Configurar un entorno de pruebas.} Instalar y poner en funcionamiento un entorno
+        con casos de prueba representativos, garantizando que los datos no salgan hacia servicios
+        externos, y preparar un conjunto de alertas de prueba etiquetado ---verdaderos y falsos
+        positivos--- que sirviera de referencia de evaluación.
+
+  \item \textbf{Diseñar la arquitectura del sistema.} Definir el flujo de procesamiento, las
+        reglas de decisión y sus umbrales, la forma de interacción con el entorno de pruebas, el
+        formato del razonamiento explicable y los puntos de validación humana, así como las
+        métricas de evaluación y el método tradicional de referencia contra el que se compararía
+        el prototipo.
+
+  \item \textbf{Implementar el prototipo.} Construir el caso de uso acotado, integrando la
+        ingesta y normalización de alertas, la clasificación y priorización, la generación de
+        justificación explicable y el flujo de validación humana en las decisiones críticas, con
+        registro de trazas para auditoría.
+
+  \item \textbf{Evaluar el prototipo.} Medir el desempeño del sistema frente al método tradicional
+        de referencia definido en el objetivo anterior, y analizar los errores sistemáticos y las
+        limitaciones del enfoque.
+
+  \item \textbf{Elaborar la documentación técnica.} Generar la documentación y el informe técnico
+        con la arquitectura, las decisiones de diseño, los resultados, las limitaciones y las
+        líneas de trabajo futuro.
+\end{enumerate}
+
+\subsection*{Estructura del informe}
+
+El documento se organiza en cuatro capítulos. El primero describe la empresa donde se desarrolló
+la pasantía. El segundo reúne el marco teórico, recorriendo desde el problema del triaje de
+alertas y las plataformas de detección y respuesta hasta los modelos de lenguaje, la generación
+aumentada por recuperación, los riesgos de aplicarla a este dominio y las métricas con que se
+evalúa. El tercero expone la metodología seguida a lo largo de las seis fases del proyecto, y el
+cuarto presenta los resultados obtenidos y su discusión. Cierran el documento las conclusiones y
+recomendaciones, y las referencias consultadas.

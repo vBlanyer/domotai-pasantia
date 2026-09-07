@@ -1,0 +1,79 @@
+% ---------------------------------------------------------------------------
+% Conclusiones y recomendaciones (norma 3.14)
+% ---------------------------------------------------------------------------
+% NO se numera como capítulo (norma 2.6) y sus elementos NO deben numerarse.
+%
+% La norma pide:
+%   - Conclusiones derivadas de forma lógica del trabajo y sustentadas por los
+%     resultados obtenidos.
+%   - Recomendaciones bien razonadas y fundamentadas.
+%   - Pueden incluirse sugerencias sobre la aplicación de los resultados y
+%     perspectivas para trabajos futuros.
+
+\seccionSinNumerar{Conclusiones y recomendaciones}
+
+El objetivo general de este trabajo era desarrollar un prototipo que clasificara y priorizara
+alertas de seguridad, justificando cada decisión con un modelo de lenguaje apoyado en generación
+aumentada por recuperación ejecutada en local, y que redujera los falsos positivos sin sacrificar
+la detección de amenazas reales. Los resultados del capítulo \ref{cap:resultados} sostienen que ese
+objetivo se cumplió dentro del caso de uso acotado sobre el que se evaluó: el prototipo redujo la
+tasa de falsos positivos frente al nivel de regla de Wazuh en un factor cercano a siete, sin dejar
+de detectar ninguna amenaza real y sin ejecutar ninguna acción que hubiera interrumpido
+indebidamente un servicio del cliente. Este resultado confirma, con datos y no solo con diseño, la
+idea central del trabajo: separar la clasificación, la decisión y la justificación en componentes
+distintos ---una política determinista que decide, un perfil de cliente que filtra, y un modelo de
+lenguaje que solo explica--- permite obtener las ventajas de un modelo de lenguaje sin heredar su
+principal debilidad, que es decidir de forma no auditable.
+
+La incorporación de recuperación aumentada, no prevista en el diseño original y añadida al detectar
+en la propia evaluación que el justificador de menor tamaño describía correctamente los campos de
+una alerta pero se equivocaba en su significado, es la conclusión metodológica más relevante del
+trabajo: un anclaje verificable perfecto no implica una justificación correcta, y ambas propiedades
+deben medirse por separado. Corregir el conocimiento del modelo mediante un corpus curado y
+recuperación por similitud, en vez de sustituirlo por un modelo mayor que el hardware disponible no
+podía sostener con una latencia razonable, resolvió esa brecha sin añadir ningún requisito de
+cómputo significativo.
+
+El trabajo deja, con la misma honestidad con que reporta sus logros, dos límites identificados y no
+resueltos. El primero es la precisión del clasificador determinista, limitada por su incapacidad de
+distinguir un administrador legítimo de un atacante sobre el mismo servicio: es exactamente el
+problema que un clasificador con ajuste fino resolvería, y que permanece bloqueado porque el
+conjunto de datos disponible, concentrado en una sola familia de ataque, no ofrece variedad
+suficiente para entrenarlo sin invalidar la propia evaluación. El segundo es el alcance estadístico
+de la evaluación misma: dieciocho alertas soportadas, todas del mismo activo y servicio, sostienen
+un resultado direccionalmente claro pero no permiten generalizar sus cifras exactas a un cliente con
+un perfil de amenazas distinto.
+
+\subsection*{Recomendaciones}
+
+\begin{itemize}
+  \item \textbf{Ampliar el conjunto de datos etiquetado con más familias de ataque y más activos},
+        antes de intentar de nuevo el ajuste fino de un clasificador. Es la condición que hoy
+        bloquea la pieza más importante que falta en el prototipo, y no depende de ninguna decisión
+        externa a este proyecto.
+  \item \textbf{Evaluar el prototipo con un modelo de justificación de mayor capacidad} en cuanto se
+        disponga de una unidad de procesamiento gráfico o de memoria adicional, aprovechando que la
+        interfaz de análisis ya aísla al motor de triaje del modelo concreto que la implementa: el
+        cambio no exigiría modificar la lógica de decisión.
+  \item \textbf{Resolver, junto con Domotai C.A., si el sistema de logs propietario que
+        originalmente motivó el proyecto llegará a estar disponible}, y en qué formato entrega sus
+        eventos. De confirmarse, se integraría como una segunda fuente a través del mismo módulo de
+        ingesta que hoy consume las alertas de Wazuh, sin desplazarlo.
+  \item \textbf{Completar la validación sobre un equipo de borde con firmware real}, hoy sustituido
+        en el laboratorio por un contenedor Linux provisional: las acciones del catálogo están
+        diseñadas para ese firmware, pero solo se han verificado sobre su sustituto.
+  \item \textbf{Someter la calidad de la justificación a una segunda revisión manual independiente}
+        antes de dar por definitiva la lectura de utilidad reportada en este informe, dado que el
+        método de evaluación de esa dimensión no es completamente automatizable.
+\end{itemize}
+
+\subsection*{Trabajo futuro}
+
+Quedan fuera del alcance de esta pasantía, y se documentan explícitamente para que no se
+interpreten como un olvido: la respuesta automatizada sin validación humana previa, que el diseño
+actual descarta de forma deliberada; la integración multicapa con fuentes de identidad, correo y
+nube, que ampliaría la correlación más allá de la red del cliente; el aprendizaje continuo a partir
+de la retroalimentación que el analista ya registra en cada validación, hoy almacenada pero no
+utilizada para ajustar ningún modelo; y el despliegue y la escalabilidad del prototipo sobre
+múltiples clientes de forma simultánea. Cada una de estas líneas es una extensión natural sobre la
+arquitectura ya construida, y ninguna exige rediseñarla desde cero.

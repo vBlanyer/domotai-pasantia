@@ -1,0 +1,219 @@
+% ---------------------------------------------------------------------------
+% Capítulo 3 --- Metodología
+% ---------------------------------------------------------------------------
+% Mínimo dos páginas por capítulo (norma 2.6). Declara las decisiones de
+% diseño con su fecha, no solo describe el sistema resultante: son las que
+% hacen reproducible el experimento del capítulo 4.
+
+\chapter{Metodología}
+\label{cap:metodologia}
+
+El trabajo se organizó en seis fases sucesivas, correspondientes una a una con los objetivos
+específicos enunciados en la Introducción, más una séptima fase de consolidación documental. Cada
+fase produjo un entregable concreto sobre el que se apoya la siguiente, y las decisiones de diseño
+que no podían anticiparse al inicio ---porque dependían de una medición, no de un criterio--- se
+tomaron y registraron en el momento en que la medición estuvo disponible, con su fecha. Esta
+sección documenta esas decisiones en el orden en que se tomaron.
+
+% ===========================================================================
+\section{Enfoque general: modelar en lugar de esperar}
+% ===========================================================================
+
+La primera decisión metodológica, y la que condiciona a todas las demás, se tomó antes de escribir
+ninguna línea de código: al no disponer de acceso a un cliente real ni a su sistema propietario de
+análisis de alertas, el trabajo optó por \emph{modelar} un cliente genérico en lugar de
+\emph{analizar} uno concreto. Analizar un cliente real habría producido un prototipo ajustado a ese
+cliente; modelar uno genérico obligó a separar explícitamente, desde el principio, lo que cualquier
+empresa comparte ---una infraestructura de red organizada por capas, con una superficie de gestión
+remota presente en todas ellas--- de lo que varía de una a otra ---su catálogo de acciones permitidas,
+su política de continuidad de servicio, la criticidad de sus activos---. Esa separación es la que
+permite que el prototipo resultante sea configurable por cliente sin cambios de código, y es la
+misma lógica que, más adelante, resolvió la ausencia de una fuente real de alertas: en vez de
+esperar a que un sistema propietario estuviera disponible, se sustituyó por una plataforma de
+detección basada en reglas ---Wazuh--- desplegada dentro de un laboratorio propio, con la ventaja
+adicional de que su nivel de regla podía servir directamente como método tradicional de referencia.
+
+% ===========================================================================
+\section{Fase 1: modelado del cliente y del caso de uso}
+% ===========================================================================
+
+Se construyó un modelo de cliente genérico describiendo su infraestructura de red por capas ---punto
+de entrega, equipo de borde, conmutación, zona desmilitarizada, servidores internos, puestos de
+trabajo, dispositivos IoT y plano de gestión---, identificando en cada una qué expone hacia la
+administración remota y qué ocurre si se interrumpe. De ese modelo se derivaron cinco puntos de
+variabilidad configurables entre clientes ---el esquema de la alerta, el repertorio de acciones y su
+canal, la política de continuidad, el inventario y criticidad de activos, y la severidad de
+referencia--- y un conjunto de restricciones operativas que no son negociables en ningún cliente:
+que ningún servicio se detenga sin autorización, que no exista una ventana de mantenimiento sobre
+la que apoyarse, que toda acción sea reversible porque no hay manos físicas junto al equipo, y que
+ninguna acción pueda cortar el propio canal de gestión por el que se administra y se responde.
+
+Sobre ese modelo se acotó el caso de uso a una sola familia de alertas ---el acceso no autorizado a
+servicios de gestión expuestos---, deliberadamente definida por el tipo de patrón y no por el equipo
+concreto que lo sufre: la misma fuerza bruta contra un servicio de administración se reconoce igual
+en un conmutador que en un servidor de ficheros, lo que permite que el sistema generalice al parque
+de equipos de cualquier cliente en lugar de aprender las particularidades de uno solo.
+
+% ===========================================================================
+\section{Fase 2: estado del arte y registro de requisitos}
+% ===========================================================================
+
+Se revisaron, por un lado, las plataformas comerciales de detección y respuesta extendida y
+gestionada y sus limitaciones documentadas, y por otro, las aplicaciones de modelos de lenguaje a
+la seguridad, incluyendo sus riesgos específicos. De ese análisis se derivó un registro único de
+veinte requisitos funcionales y catorce no funcionales, cada uno trazado hasta la limitación de
+mercado o el criterio de diseño que lo motiva. Cuando, más adelante, el encuadre del proyecto se
+desplazó del segmento de pequeña y mediana empresa hacia la red de un cliente modelado en la Fase 1,
+ese registro se revisó íntegramente contra el nuevo contexto: ningún requisito original dejó de
+aplicar, seis cambiaron de matiz y siete se añadieron ---principalmente los que más adelante
+formalizarían la política de continuidad de servicio---, lo que se documentó como una revisión
+explícita y no como una reescritura silenciosa.
+
+% ===========================================================================
+\section{Fase 3: construcción del entorno de pruebas}
+% ===========================================================================
+
+El entorno de pruebas se construyó como una red de cliente emulada con Containerlab, reproduciendo
+desde el punto de entrega del proveedor hacia dentro: un equipo de borde, un conmutador de red
+interna, un puesto de usuario, un dispositivo de tipo IoT con servicios expuestos y un servidor con
+vulnerabilidades documentadas ---Metasploitable2, con diecinueve puertos abiertos y fallos conocidos
+y públicos---, todos conectados además a una red de gestión fuera de banda por la que operan, sin
+contaminar el tráfico observado, el motor de triaje y un nodo auditor con Nmap.
+
+Un mismo laboratorio debía resolver dos necesidades que, se verificó explícitamente, no son
+intercambiables: un \emph{ground truth} de vulnerabilidades ---qué falla exactamente en cada
+nodo--- y un \emph{ground truth} de alertas ---si una alerta concreta es un verdadero o un falso
+positivo---. El primero sale directamente de la composición documentada de la topología; el segundo
+exigió un puente explícito: cada alerta que Wazuh generaba sobre la actividad del laboratorio se
+contrastaba contra el inventario de vulnerabilidades del nodo al que apuntaba, y de esa
+comparación ---con revisión manual, no completamente automatizable--- salía la etiqueta de verdadero o
+falso positivo, conservando en todo momento el nivel de regla original de Wazuh como el dato que
+más adelante serviría de baseline.
+
+El resultado, cerrado el 31 de agosto de 2026, fue un conjunto de 410 alertas reales generadas
+sobre el propio laboratorio, etiquetadas y particionadas por campaña: 20 verdaderos positivos, 16
+falsos positivos y 374 alertas de ruido de plataforma ---telemetría de evaluación de configuración
+que no corresponde a ningún patrón del caso de uso acotado---, todas ellas concentradas, las
+soportadas, en un único activo y servicio (acceso por SSH al servidor con vulnerabilidades
+documentadas). Esta concentración en una sola familia de ataque, verificada al construir el
+conjunto y no descubierta después, es la que más adelante bloquearía el ajuste fino del
+clasificador y limitaría el alcance estadístico de la evaluación del capítulo \ref{cap:resultados}:
+se documenta aquí como una condición conocida del método, no como un hallazgo posterior.
+
+% ===========================================================================
+\section{Fase 4: diseño de la arquitectura}
+% ===========================================================================
+
+El diseño se apoyó en tres puntos de aislamiento deliberados, cada uno resuelto mediante un
+adaptador que esconde una dependencia externa hoy provisional: un módulo de ingesta que aísla la
+fuente de alertas concreta ---hoy Wazuh, mañana el sistema propietario del cliente---; una interfaz de
+análisis de dos operaciones, \texttt{clasificar} y \texttt{justificar}, que aísla el modelo de
+lenguaje concreto detrás de cada una; y un conector que aísla el protocolo de comunicación hacia el
+equipo objetivo ---hoy SSH sobre un catálogo cerrado de acciones---. Ninguno de los tres exige
+reescribir la lógica de decisión del motor de triaje cuando la pieza que ocultan cambie.
+
+Sobre esa interfaz de análisis se definieron dos perfiles de despliegue según el hardware
+disponible: un perfil híbrido para el equipo de desarrollo entonces disponible ---un procesador de
+propósito general de ocho núcleos, sin GPU dedicada y con dieciséis gigabytes de memoria---, que
+combina un codificador ligero para clasificar con un modelo generativo pequeño para justificar en
+línea; y un perfil de un único componente generativo especializado, viable únicamente con una GPU
+dedicada o memoria sustancialmente mayor. La decisión inicial del 24 de agosto de 2026 estimaba,
+sobre mediciones publicadas en hardware comparable, que un modelo generativo de tres mil ochocientos
+millones de parámetros cuantizado rendiría entre diez y doce \emph{tokens} por segundo en el equipo
+disponible. La medición directa realizada el 2 de septiembre de 2026 dio un resultado muy distinto
+---aproximadamente 3,7 \emph{tokens} por segundo---, lo que se documentó de inmediato como una
+corrección y no se ocultó: con ese rendimiento, un modelo de ese tamaño quedaba fuera del
+presupuesto de latencia tolerable para una validación humana interactiva, y el justificador se
+implementó finalmente sobre un modelo generativo de mil millones de parámetros. La interfaz de
+análisis, precisamente por estar aislada del modelo concreto, no tuvo que rediseñarse para absorber
+ese cambio.
+
+También en la Fase 4 se resolvió que la decisión de qué acción proponer nunca recae en el modelo de
+lenguaje, por las razones expuestas en la sección \ref{sec:politica-perfil} del marco teórico: una
+tabla de política determinista, indexada por la clase de la alerta, propone la acción de menor
+impacto que resuelve la amenaza, y un perfil de cliente configurable la filtra ---permitiéndola,
+degradándola a una de menor impacto o reteniéndola para validación humana--- según lo que ese cliente
+concreto permite. Se definió además el plan de métricas de la evaluación ---precisión, exhaustividad,
+medida $F_1$, tasa de falsos positivos, acierto de prioridad y dos métricas de continuidad
+específicas de este caso de uso: acciones disruptivas indebidas y retención correcta---, y se fijó
+como método tradicional de referencia el nivel de regla de Wazuh, por ser literalmente el enfoque
+basado en reglas y firmas contra el que el proyecto se planteó comparar.
+
+% ===========================================================================
+\section{Fase 5: implementación}
+% ===========================================================================
+
+El prototipo se implementó en Python 3, empleando únicamente su biblioteca estándar más
+\texttt{pyyaml} para la configuración, sin gestor de paquetes ni entorno virtual adicional para el
+motor de decisión, y con \texttt{unittest} como marco de pruebas. La implementación se dividió en
+tres subproyectos:
+
+\begin{itemize}
+  \item \textbf{Núcleo de decisión.} La cadena ingesta~$\rightarrow$~análisis~$\rightarrow$~política~
+        $\rightarrow$~perfil~$\rightarrow$~traza, ejecutable en lote sobre el conjunto de alertas
+        etiquetado, con un clasificador de referencia determinista ---una regla fija sobre la postura
+        de exposición del activo, sin aprendizaje--- detrás de la interfaz \texttt{clasificar}. Este
+        clasificador se mantiene como una pieza provisional deliberada: el ajuste fino de un
+        codificador quedó bloqueado precisamente por la concentración en una sola familia de ataque
+        documentada en la Fase 3, sin variedad suficiente de clases para entrenar y validar un
+        modelo que generalizara.
+  \item \textbf{Lazo en vivo.} Un conector que traduce cada acción abstracta del catálogo cerrado a
+        un comando concreto sobre el nodo objetivo por SSH, con verificación de idempotencia previa
+        a la ejecución, validación de los parámetros contra caracteres de control de shell, y una
+        segunda verificación posterior para confirmar el efecto; una validación humana por terminal
+        que muestra la alerta, la clase, la prioridad, la justificación y la acción propuesta antes
+        de ejecutarla; y el registro de traza auditable de cada decisión. El ejecutor SSH real se
+        inyecta como una función sustituible, de forma que la lógica de idempotencia y de
+        verificación se pudo probar con un ejecutor simulado sin necesidad del laboratorio activo.
+  \item \textbf{Justificador con modelo de lenguaje real.} Un modelo generativo de mil millones de
+        parámetros, cuantizado a cuatro bits, invocado mediante un proceso independiente a un motor
+        de inferencia en un entorno Conda separado del resto del prototipo. Cada justificación se
+        somete a una verificación de anclaje automática ---ninguna dirección IP mencionada puede ser
+        distinta de la de la alerta, y el texto debe referenciar al menos un campo concreto de
+        esta--- y, si no la supera o el modelo falla, se degrada a una plantilla determinista que por
+        construcción sí ancla, de forma que ninguna alerta queda nunca sin justificación.
+\end{itemize}
+
+Sobre esa misma interfaz se añadió un cuarto componente, no previsto en el diseño original de la
+Fase 4 sino incorporado tras detectar en la Fase 6 que el justificador de mil millones de
+parámetros, aunque anclaba correctamente sus afirmaciones, las describía con un significado
+equivocado: un módulo de generación aumentada por recuperación que indexa, mediante un modelo de
+\emph{embeddings} del mismo entorno de inferencia, un corpus curado de fichas sobre las técnicas
+MITRE ATT\&CK, las reglas de Wazuh y las vulnerabilidades del laboratorio pertinentes al caso de
+uso, y recupera los tres pasajes más afines a cada alerta ---por similitud coseno, según la ecuación
+de la sección \ref{sec:problema-triaje-referencia} del marco teórico--- antes de invocar al modelo
+generativo. Dos decisiones de diseño acotan deliberadamente su alcance: la consulta de recuperación
+se construye únicamente a partir de campos estructurados de la alerta ---el identificador de la
+regla, la técnica y el servicio---, nunca del registro completo del evento, por la misma razón de
+seguridad que ya impedía tratar ese campo como instrucción; y el corpus se mantiene reducido y
+curado a mano, en vez de indexar documentación completa, porque el objetivo era verificar si
+corregir el conocimiento del modelo mejoraba la corrección de su justificación, no maximizar la
+cobertura de la recuperación.
+
+Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
+este informe, asciende a más de un centenar de casos, ejecutados con generadores y ejecutores
+simulados que permiten probar la lógica de decisión, de idempotencia y de degradación sin necesidad
+de un modelo de lenguaje cargado ni de un laboratorio en ejecución.
+
+% ===========================================================================
+\section{Fase 6: evaluación}
+% ===========================================================================
+
+La evaluación se diseñó como una campaña reproducible por línea de comandos que procesa una
+partición del conjunto de alertas etiquetado, calcula la clasificación del prototipo y, sobre la
+misma partición, calcula el mejor punto de un barrido del nivel de regla de Wazuh como umbral de
+clasificación ---el método tradicional de referencia---, de forma que ambos se comparan siempre bajo
+las mismas condiciones y contra el mismo \emph{ground truth}. Para la calidad de la justificación se
+definieron dos evaluaciones complementarias: una automática, que mide la tasa de anclaje ---el
+porcentaje de justificaciones cuyas afirmaciones referencian campos que existen realmente en la
+alerta---, y una manual, sobre una muestra, en la que un revisor humano juzga si el contenido de la
+explicación es correcto y no solo si cita los campos adecuados. Esta distinción resultó decisiva: es
+precisamente la que permitió detectar que un anclaje perfecto no garantiza una justificación
+semánticamente correcta, y la que motivó incorporar la recuperación aumentada descrita en la
+sección anterior.
+
+Para aislar el efecto de esa incorporación, la campaña se ejecutó dos veces sobre el mismo
+subconjunto de dieciocho alertas soportadas de la partición de evaluación, con el modelo generativo
+y la temperatura de muestreo fijadas en ambos casos: una vez con el justificador simple, y otra con
+la recuperación aumentada activada, comparando en cada caso el mismo par de alertas para poder
+atribuir cualquier diferencia observada a la sola presencia del módulo de recuperación.

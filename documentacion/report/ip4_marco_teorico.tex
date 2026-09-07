@@ -1,0 +1,310 @@
+% ---------------------------------------------------------------------------
+% Capítulo 2 --- Marco teórico
+% ---------------------------------------------------------------------------
+% Redactado en tercera persona (norma 2.4). Los acrónimos ya introducidos en
+% la Introducción no se repiten en extenso salvo cuando aclara la exposición.
+% Decimales con coma y unidades del Sistema Internacional. Mínimo dos páginas
+% por capítulo (norma 2.6).
+
+\chapter{Marco teórico}
+
+Este capítulo reúne los fundamentos sobre los que se apoya el desarrollo. Avanza desde el
+problema que motiva el proyecto ---la fatiga de falsos positivos en el triaje de alertas--- hacia las
+plataformas que hoy lo abordan, los modelos de lenguaje que este trabajo incorpora, la técnica de
+recuperación que corrige su principal debilidad, los riesgos de aplicarlos a este dominio, el
+razonamiento que sostiene que la decisión final no debe tomarla el modelo, y por último los
+criterios con que se mide el resultado.
+
+% ===========================================================================
+\section{El problema del triaje de alertas de seguridad}
+\label{sec:problema-triaje-referencia}
+% ===========================================================================
+
+Un sistema de detección basado en reglas y firmas dispara una alerta cuando una secuencia de
+eventos coincide con un patrón previamente definido: una autenticación fallida, un puerto que
+empieza a recibir tráfico, un proceso que no debería ejecutarse. Esa coincidencia es determinista y
+auditable ---se puede señalar exactamente qué regla se disparó---, pero no incorpora ningún juicio
+sobre si, en el contexto del activo concreto que la generó, esa coincidencia representa una
+amenaza real. La misma regla se dispara igual sobre un servidor expuesto a internet que sobre uno
+que no lo está, y el resultado es un volumen de falsos positivos que crece con el tamaño de la red
+sin que crezca en la misma proporción el riesgo real.
+
+El \emph{triaje} es la tarea de decidir, para cada alerta, si merece la atención de un analista y
+con qué prioridad. Cuando esa tarea se realiza manualmente sobre un volumen de alertas que supera
+la capacidad del equipo, dos fallos son posibles y ambos son costosos: tratar como amenaza algo que
+no lo es, que consume tiempo del analista sin reducir el riesgo, y descartar como ruido algo que sí
+lo es, que es exactamente el fallo que un sistema de seguridad no puede permitirse. Las evaluaciones
+independientes de las plataformas comerciales de detección más recientes miden de forma explícita
+el volumen de alertas que un analista debe procesar como un criterio de comparación entre
+proveedores \cite{mitreattackevals}, lo que confirma que este problema no es una limitación de las
+herramientas más antiguas, sino una característica persistente del propio enfoque basado en reglas,
+incluso en sus implementaciones más avanzadas.
+
+% ===========================================================================
+\section{Detección y respuesta: EDR, XDR y MDR}
+% ===========================================================================
+
+Tres siglas dominan el mercado de plataformas de detección y conviene distinguirlas, porque operan
+en planos distintos.
+
+\textbf{EDR} (\emph{Endpoint Detection and Response}, detección y respuesta en el \emph{endpoint})
+es la tecnología que recoge telemetría de un equipo concreto ---procesos, ficheros, registro,
+conexiones de red locales--- y responde sobre ese mismo equipo: aislarlo, terminar un proceso,
+ponerlo en cuarentena.
+
+\textbf{XDR} (\emph{Extended Detection and Response}, detección y respuesta extendida) correlaciona
+telemetría de varias capas ---\emph{endpoint}, red, identidad, correo, nube--- en una sola plataforma
+analítica. El EDR es, en este esquema, una de las fuentes que alimentan al XDR; lo que este añade
+es la correlación entre fuentes que, por separado, solo verían una parte del incidente.
+
+\textbf{MDR} (\emph{Managed Detection and Response}, detección y respuesta gestionada) no es una
+tecnología sino un servicio: un equipo humano que opera un EDR o un XDR por cuenta del cliente,
+haciendo el triaje, la investigación y la respuesta que el cliente no tiene capacidad de operar por
+sí mismo. Un MDR que opera sobre un XDR se denomina en ocasiones MXDR (\emph{Managed XDR}).
+
+Las plataformas comerciales líderes despliegan típicamente un agente propietario a nivel de
+sistema operativo, más rico que las fuentes de telemetría de código abierto ---como Sysmon, osquery o
+Zeek--- y con capacidad de respuesta activa integrada. Esas fuentes abiertas, sin embargo, no quedan
+excluidas del ecosistema: numerosas plataformas las ingieren como fuente complementaria en su capa
+de agregación, y los servicios MDR que no exigen un agente comercial concreto ---el modelo que en
+este trabajo se denomina telemetría-agnóstico--- operan directamente sobre la telemetría que el
+cliente ya tenga. Este proyecto se inserta precisamente en ese segundo modelo: no sustituye al
+agente ni a la fuente de telemetría, sino que añade la capa de clasificación, priorización y
+justificación explicable sobre las alertas que esa fuente ya produce.
+
+% ===========================================================================
+\section{MITRE ATT\&CK como taxonomía de referencia}
+% ===========================================================================
+
+MITRE ATT\&CK (\emph{Adversarial Tactics, Techniques, and Common Knowledge}) es una matriz pública
+y de acceso libre que cataloga las tácticas y técnicas que un atacante emplea a lo largo de un
+incidente, desde el acceso inicial hasta la exfiltración, con un identificador único por técnica
+---por ejemplo, T1110 para el acceso por fuerza bruta, con la subtécnica T1110.001 para el intento
+por diccionario de contraseñas \cite{mitreattack}. Su valor para este trabajo es doble: sirve como
+vocabulario común para expresar la hipótesis de ataque dentro de la justificación de cada decisión,
+y sirve como criterio de comparación en las evaluaciones independientes de plataformas comerciales
+citadas en la sección anterior. MITRE mantiene además ATLAS, una matriz equivalente centrada en las
+amenazas contra los propios sistemas de inteligencia artificial \cite{mitreatlas}, pertinente en la
+medida en que este trabajo introduce uno de esos sistemas en el propio camino de decisión.
+
+% ===========================================================================
+\section{Modelos de lenguaje de gran escala aplicados a la seguridad}
+% ===========================================================================
+
+Un modelo de lenguaje de gran escala (LLM) es una red neuronal entrenada para predecir la
+continuación más probable de una secuencia de texto, sobre un volumen de parámetros que va de
+varios cientos de millones a varios cientos de miles de millones. Aplicado a la seguridad, conviene
+distinguir tres formas de uso, que no compiten entre sí sino que resuelven partes distintas del
+problema de triaje:
+
+\begin{itemize}
+  \item \textbf{Codificador clasificador} (\emph{encoder}, con arquitectura de tipo BERT y del
+        orden de cien millones de parámetros): asigna una clase y una confianza numérica a una
+        entrada, tras un ajuste fino sobre datos etiquetados. Su coste de ejecución es muy bajo
+        ---del orden de milisegundos sobre un procesador convencional--- y es determinista, pero no
+        redacta ninguna explicación y no generaliza bien fuera de lo que vio durante el
+        entrenamiento.
+  \item \textbf{Modelo generativo instruido} (de varios miles de millones de parámetros): redacta
+        el razonamiento, resume un incidente o traduce una consulta en lenguaje natural. Su coste es
+        alto ---segundos y varios gigabytes de memoria--- y no es fiable como clasificador numérico ni
+        determinista por defecto.
+  \item \textbf{Modelo especializado de dominio}: un codificador o un generativo con
+        preentrenamiento continuado sobre corpus de ciberseguridad. \textbf{SecureBERT} demostró que
+        esa especialización mejora las tareas de clasificación del dominio frente al modelo genérico
+        equivalente \cite{aghaei2022securebert}, y \textbf{Foundation-Sec-8B}, un modelo generativo
+        de ocho mil millones de parámetros con preentrenamiento continuado sobre corpus de
+        inteligencia de amenazas, declara explícitamente el triaje de un centro de operaciones de
+        seguridad como uno de sus casos de uso objetivo \cite{foundationsec8b}. La especialización
+        aporta vocabulario ---el modelo reconoce sin explicación previa un identificador de
+        vulnerabilidad o una técnica ATT\&CK--- pero no aporta garantías: sigue pudiendo afirmar con
+        aparente seguridad algo que la entrada no contiene.
+\end{itemize}
+
+La conclusión que este marco teórico traslada al diseño del prototipo es que clasificar y
+justificar son tareas de naturaleza distinta y conviene resolverlas con componentes distintos: un
+codificador da una clase estable, barata y con una confianza calibrable; un modelo generativo
+produce el texto que una persona necesita leer para decidir. Pedirle ambas cosas al mismo
+componente tiende a producir puntuaciones de confianza inventadas con apariencia de cálculo.
+
+% ===========================================================================
+\section{Generación aumentada por recuperación}
+% ===========================================================================
+
+La generación aumentada por recuperación (RAG) combina un modelo de lenguaje con un mecanismo de
+recuperación de información sobre un corpus documental externo: ante una consulta, el sistema
+recupera primero los fragmentos de texto más relevantes de ese corpus y se los entrega al modelo
+como parte de su contexto, antes de que este redacte la respuesta \cite{lewis2020rag}. Dos
+consecuencias hacen de esta técnica algo más que un atajo de ingeniería. La primera es que el
+conocimiento deja de residir exclusivamente en los parámetros del modelo ---fijados en el momento de
+su entrenamiento--- y pasa a un índice que puede actualizarse sin reentrenar nada. La segunda es que
+la respuesta queda \emph{anclada}: cada afirmación puede, en principio, rastrearse hasta el
+fragmento del corpus que la sustenta, lo que reduce ---sin eliminar--- el riesgo de que el modelo
+invente un dato plausible.
+
+La forma más simple de recuperación ---la empleada en este trabajo--- representa cada documento del
+corpus y cada consulta como un vector numérico mediante un modelo de \emph{embeddings}, y ordena
+los documentos por su similitud coseno con la consulta:
+
+\begin{equation}
+  \cos(\mathbf{q}, \mathbf{d}) = \frac{\mathbf{q} \cdot \mathbf{d}}{\lVert \mathbf{q} \rVert \, \lVert \mathbf{d} \rVert}
+\end{equation}
+
+donde $\mathbf{q}$ es el vector de la consulta y $\mathbf{d}$ el de un documento del corpus; se
+seleccionan los $k$ documentos de mayor similitud, con $k$ típicamente pequeño (en este trabajo,
+$k=3$) para no saturar el contexto del modelo con pasajes de relevancia marginal. Existen técnicas
+de recuperación más sofisticadas ---dispersas, como BM25, o densas entrenadas específicamente para la
+tarea de recuperación, como en los sistemas de tipo \emph{dense passage retrieval}--- así como
+arquitecturas de recuperación por grafo; este trabajo emplea la variante más simple posible, por
+similitud de \emph{embeddings} genéricos, dado que el objetivo no es optimizar la recuperación en sí
+sino verificar si corregir el conocimiento del modelo mejora la corrección de su justificación.
+
+Un riesgo documentado de esta técnica, especialmente relevante cuando la consulta y el corpus se
+formulan en idiomas o registros distintos, es que la utilidad de un fragmento recuperado no es
+uniforme según su posición en el contexto que finalmente recibe el modelo: los fragmentos situados
+en el centro de un contexto largo se aprovechan peor que los situados en sus extremos
+\cite{liu2023lost}. Esta observación motivó, en el diseño del justificador de este trabajo,
+mantener el número de pasajes recuperados deliberadamente bajo.
+
+% ===========================================================================
+\section{Riesgos de aplicar un modelo de lenguaje al triaje de seguridad}
+% ===========================================================================
+
+Introducir un modelo de lenguaje en el camino de decisión de una alerta de seguridad tiene riesgos
+específicos de este dominio, más allá de los riesgos generales de cualquier aplicación basada en
+LLM catalogados por el proyecto abierto de seguridad en aplicaciones web \cite{owaspllmtop10} y por
+la evaluación de seguridad de modelos de Meta conocida como CyberSecEval \cite{purplellama}.
+
+\textbf{Inyección de instrucciones desde campos controlados por el atacante.} El contenido de un
+registro de eventos ---el nombre de usuario probado, la cadena de \emph{user-agent}, el mensaje
+completo del evento--- lo escribe, en un intento de intrusión, la propia parte atacante. Si esos
+campos se concatenan sin distinguirlos de las instrucciones del sistema, el atacante dispone de un
+canal directo hacia el componente que analiza su propio ataque. La respuesta de diseño es tratar
+siempre esos campos como datos delimitados, nunca como instrucciones.
+
+\textbf{Alucinación con apariencia de fundamento.} El fallo más peligroso no es el error evidente,
+sino la explicación bien redactada que cita un detalle que la entrada no contiene; un analista con
+prisa la acepta precisamente porque suena a análisis correcto. El contrapeso es exigir un anclaje
+verificable: toda afirmación debe poder rastrearse a un campo concreto de la alerta o del contexto
+recuperado, y esa verificación puede automatizarse.
+
+\textbf{Ausencia de determinismo.} La misma entrada puede producir salidas distintas en dos
+ejecuciones sucesivas de un modelo generativo. Para la operación es una incomodidad menor; para la
+evaluación es descalificante, porque impide que los resultados sean reproducibles. Se controla
+fijando una temperatura de muestreo próxima a cero y registrando la versión exacta del modelo y de
+las instrucciones empleadas en cada ejecución.
+
+\textbf{Corte de conocimiento.} Un modelo no sabe nada de lo publicado después de su entrenamiento,
+así que cualquier afirmación suya sobre el panorama de amenazas actual es sospechosa por
+construcción; el conocimiento reciente debe entrar por el contexto que se le suministra, no salir
+de sus propios parámetros.
+
+\textbf{Superficie de fallo adicional.} Un componente más que puede fallar, colgarse o rendir por
+debajo de lo esperado exige un mecanismo de degradación: si el modelo no responde o su respuesta no
+pasa la verificación de anclaje, la decisión debe seguir un camino alternativo ---una plantilla
+determinista, en este trabajo--- y nunca descartarse en silencio.
+
+% ===========================================================================
+\section{Reglas y firmas frente a análisis asistido por modelos de lenguaje}
+% ===========================================================================
+
+La tabla \ref{tab:reglas-vs-ia} resume la comparación entre ambos enfoques sobre los atributos que
+importan para el triaje.
+
+\begin{table}[H]
+  \centering
+  \caption{Reglas y firmas frente a análisis asistido por modelos de lenguaje}
+  \label{tab:reglas-vs-ia}
+  \begin{tabular}{@{}p{0.24\textwidth}p{0.34\textwidth}p{0.34\textwidth}@{}}
+    \toprule
+    & \textbf{Reglas y firmas} & \textbf{Análisis asistido por modelo} \\
+    \midrule
+    Decisión & Determinista y repetible & Probabilístico; repetible solo si se fuerza \\
+    Auditabilidad & Total: se lee la regla que se disparó & Indirecta: se lee la justificación, no
+      el cálculo \\
+    Contexto del activo & Ninguno & Su mejor aportación, si se le suministra \\
+    Explicación & El nombre de la regla & Razonamiento en lenguaje natural \\
+    Generalización & Nula ante lo no previsto & Parcial: reconoce variantes de lo ya visto \\
+    Fallo típico & Falso positivo por falta de contexto & Afirmación segura y equivocada \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Ninguno de los dos enfoques sustituye por completo al otro: las reglas son buenas detectando y
+malas decidiendo qué importa, y el modelo es débil detectando por sí solo pero fuerte explicando y
+priorizando lo que ya fue detectado. El diseño que este trabajo adopta usa las reglas como fuente
+---de ahí que Wazuh se conserve como origen de las alertas--- y el modelo como capa de triaje sobre
+ellas, nunca al revés.
+
+% ===========================================================================
+\section{Políticas de decisión determinista y separación entre analizar y actuar}
+\label{sec:politica-perfil}
+% ===========================================================================
+
+Un motor de triaje que, además de clasificar una alerta, decidiera con el mismo componente
+generativo qué acción de respuesta ejecutar, heredaría todos los riesgos de la sección anterior en
+el punto de mayor consecuencia del sistema: el momento de actuar sobre la infraestructura del
+cliente. La alternativa que sostiene el diseño de este trabajo separa esa decisión en dos capas con
+motivos de cambio distintos: una \emph{política} determinista, expresada como una tabla indexada
+por la clase de la alerta y el contexto del activo, que \emph{propone} la acción de menor impacto
+capaz de resolver la amenaza; y un \emph{perfil de cliente} configurable, que \emph{filtra} esa
+propuesta según lo que el negocio del cliente concreto permite, degradándola a una de menor impacto
+o reteniéndola para validación humana. El modelo de lenguaje interviene únicamente para redactar la
+justificación de una decisión ya tomada por la política, nunca para tomarla. Esta separación es, en
+sí misma, una aplicación directa del principio de auditabilidad: un error se puede atribuir a la
+clasificación, a la política o al perfil, y se sabe cuál de los tres corregir, algo que no seria
+posible si toda la decisión residiera dentro de un único componente generativo.
+
+% ===========================================================================
+\section{Métricas de evaluación de un clasificador binario}
+% ===========================================================================
+
+Evaluar si el triaje asistido mejora sobre el método de referencia exige medir su desempeño como
+clasificador binario ---amenaza o no amenaza--- sobre una matriz de confusión con cuatro categorías:
+verdadero positivo ($VP$), cuando el sistema marca como amenaza una alerta que efectivamente lo es;
+falso positivo ($FP$), cuando la marca como amenaza sin serlo; verdadero negativo ($VN$), cuando
+correctamente no la marca; y falso negativo ($FN$), cuando una amenaza real pasa desapercibida. De
+esa matriz se derivan las métricas de la tabla \ref{tab:metricas-clasificacion}.
+
+\begin{table}[H]
+  \centering
+  \caption{Métricas de clasificación empleadas en la evaluación}
+  \label{tab:metricas-clasificacion}
+  \begin{tabular}{@{}p{0.22\textwidth}p{0.28\textwidth}p{0.42\textwidth}@{}}
+    \toprule
+    \textbf{Métrica} & \textbf{Fórmula} & \textbf{Qué mide} \\
+    \midrule
+    Precisión ($P$) & $\dfrac{VP}{VP+FP}$ & De lo marcado como amenaza, cuánto lo era realmente \\
+    Exhaustividad ($R$) & $\dfrac{VP}{VP+FN}$ & De las amenazas reales, cuántas se detectaron \\
+    Medida $F_1$ & $\dfrac{2\,P\,R}{P+R}$ & Equilibrio entre precisión y exhaustividad \\
+    Tasa de falsos positivos & $\dfrac{FP}{FP+VN}$ & El ruido operativo que sufre el analista \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+De estas cuatro, la tasa de falsos positivos es la que responde más directamente al problema
+planteado en la sección \ref{sec:problema-triaje-referencia}: mide exactamente la proporción de
+ruido que un analista tendría que descartar manualmente. La exhaustividad, por su parte, es la
+métrica que no puede sacrificarse bajo ninguna circunstancia: un sistema que reduce el ruido a costa
+de dejar pasar amenazas reales no es una mejora, sino un riesgo nuevo.
+
+% ===========================================================================
+\section{Entornos de red virtualizados para experimentación en seguridad}
+% ===========================================================================
+
+Ejercitar y medir un motor de triaje exige un entorno donde generar actividad legítima y hostil
+sobre una red con vulnerabilidades conocidas, sin exponer una infraestructura productiva. Las
+plataformas de este tipo se dividen en dos familias con una diferencia determinante para este
+trabajo: las que \emph{simulan} un dispositivo ---reproducen su comportamiento observable sin
+ejecutar su sistema operativo real--- y las que lo \emph{virtualizan} o lo \emph{emulan}, ejecutando
+una imagen real del sistema dentro de un contenedor o una máquina virtual. Solo la segunda familia
+expone servicios genuinos que una herramienta de escaneo de vulnerabilidades pueda encontrar, lo
+que descarta a los simuladores puramente didácticos como plataforma de laboratorio para este
+proyecto.
+
+Containerlab es una de las plataformas de esa segunda familia: define la topología de red como un
+fichero de texto versionable, orquesta contenedores y máquinas virtuales ligeras según ese fichero,
+y crea automáticamente una red de gestión fuera de banda que conecta todos los nodos entre sí
+\cite{containerlabdocs}. Su reproducibilidad ---una topología descrita en un fichero puede destruirse
+y recrearse de forma idéntica--- es lo que hace posible que las condiciones de una campaña de
+evaluación puedan repetirse de manera fiel, un requisito directo de la reproducibilidad exigida a
+la propia evaluación del capítulo \ref{cap:metodologia}.
