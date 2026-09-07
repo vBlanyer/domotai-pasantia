@@ -84,6 +84,12 @@ Cada línea de la salida (`.jsonl`) es una decisión de triaje:
   "prioridad": 3,
   "confianza": 1.0,
   "justificacion": "Alerta ... [justificación de plantilla — baseline, no modelo]",
+  "justificacion_estructurada": {
+    "evidencia": {"regla": "5760", "origen_ip": "...", "activo": "servidor-web", "servicio": "ssh"},
+    "hipotesis": {"clase": "vp_intento_acceso", "confianza": 1.0},
+    "tecnica_mitre": ["T1110.001"],
+    "accion_sugerida": "BLOQUEAR_IP"
+  },
   "accion_propuesta": "BLOQUEAR_IP",
   "impacto": "localizado",
   "perfil_aplicado": "empresarial",
