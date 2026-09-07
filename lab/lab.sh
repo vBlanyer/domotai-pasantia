@@ -13,6 +13,8 @@ case "${1:-up}" in
   up)
     echo "== 1. Desplegando la red del cliente =="
     containerlab deploy -t "$TOPO"
+    echo "   preparando el auditor (nmap, ssh, sshpass)..."
+    docker exec clab-red-cliente-auditor sh -c "command -v ssh >/dev/null && command -v sshpass >/dev/null || apk add --no-cache openssh-client sshpass >/dev/null 2>&1" || true
     echo "== 2. Arrancando Wazuh manager =="
     sh "$HERE/scripts/wazuh-run.sh" up
     echo "   esperando a que Wazuh este listo..."

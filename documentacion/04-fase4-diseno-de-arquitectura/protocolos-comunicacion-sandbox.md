@@ -108,6 +108,43 @@ No sustituyen a SSH, pero pueden aportar en puntos concretos:
 
 ---
 
+## 6. Cobertura real de SSH: laboratorio vs. cliente de producción
+
+*(Añadido 02/09/2026, tras verificarlo en vivo en el laboratorio.)*
+
+La §3 afirma «cobertura completa» de SSH. **Eso es cierto en el laboratorio** —todos los nodos son Linux
+y hablan SSH— pero **no debe leerse como cobertura de los dispositivos de un cliente real**. Verificado en
+el lab: el conector alcanza `objetivo-vuln` (SSH + credencial de servicio), pero el resto de nodos, aun
+con sshd, no aceptan la credencial única del conector. Extrapolado a un parque real, SSH como **canal de
+acción** cubre una porción, no la mayoría:
+
+| Tipo de dispositivo (modelo de cliente, Fase 1) | ¿SSH lo alcanza para *actuar*? |
+|---|---|
+| Servidores Linux | **Sí** — canal de gestión estándar. |
+| Equipo de red / borde (router, switch) | **Parcial** — suelen tener SSH, pero su CLI es propietaria; el catálogo (`iptables`, `service`…) no traduce. |
+| Puestos Windows | **No** — gestión por WinRM/RPC/RDP, no SSH nativo. |
+| IoT / OT (cámaras, PLC) | **Mayormente no** — sin SSH, o telnet, o protocolos propietarios. |
+
+### La estrategia de integración (lo que sí escala)
+
+Esto **no** es un fallo del diseño, porque la arquitectura ya lo absorbe por dos vías:
+
+1. **SSH es un ejecutor, no *el* mecanismo.** El motor emite acciones **abstractas** del catálogo; el
+   conector traduce a comandos. Cubrir más clases de dispositivo es **añadir ejecutores** (WinRM, API de
+   firewall, agente EDR) detrás de la misma interfaz —como ya prevé la §3 y el diagrama de conector
+   sustituible— sin tocar la lógica de decisión.
+2. **En producción, la acción va por los planos de control que el cliente ya tiene** (respuesta activa de
+   Wazuh, API del firewall, agente EDR), no por un canal SSH nuevo que abra el triaje. Eso es **RF-13**
+   (exponer los resultados al sistema del cliente sin sustituir sus funciones). **SSH-al-nodo es el
+   sustituto del laboratorio** de «algún canal de aplicación», no el camino de producción.
+
+**Conclusión para la integración:** para *demostrar* el lazo, SSH sobre un servidor Linux basta. Para
+*integrar en un cliente real*, SSH no es la vía única ni mayoritaria: se enrutan las acciones por los
+planos de control existentes (RF-13) y se suman ejecutores por clase de dispositivo. La cobertura es una
+propiedad del conjunto de ejecutores, no de SSH.
+
+---
+
 ## Documentos relacionados
 
 - [Flujo de operación: logs → playbook → motor de triaje → sandbox](./flujo-triaje-playbook-sandbox.md)
