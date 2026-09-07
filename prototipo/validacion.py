@@ -1,9 +1,9 @@
-"""Validación humana por terminal (D11): muestra la decisión y captura el veredicto (RF-08).
+"""Validación humana por terminal (RF-08): muestra la decisión y captura el veredicto.
 
-Veredictos: "aprobar" ejecuta la acción propuesta; "rechazar" y "modificar" retienen la alerta
-sin ejecutar nada. "modificar" NO sustituye la acción por una alternativa concreta (eso es trabajo
-futuro) -- hoy es una salvaguarda honesta: se registra el veredicto en la traza como semilla para
-esa sustitución futura, pero el lazo no ejecuta la acción original bajo ese veredicto.
+Veredictos: "aprobar" ejecuta la acción propuesta; "rechazar" retiene sin ejecutar; "reclasificar"
+retiene sin ejecutar y captura la **clase corregida** por el analista, que el lazo registra como
+feedback (RF-12) — si el triaje se equivocó de clase, no se ejecuta su acción. `pedir` devuelve un
+dict `{"veredicto", "clase_nueva"}` (`clase_nueva` solo con "reclasificar").
 """
 
 def mostrar(decision, alerta):
@@ -21,9 +21,10 @@ def mostrar(decision, alerta):
 
 def pedir(decision, alerta, leer=input, escribir=print):
     escribir(mostrar(decision, alerta))
-    resp = leer("¿aprobar / rechazar / modificar? ").strip().lower()
+    resp = leer("¿aprobar / rechazar / reclasificar? ").strip().lower()
     if resp.startswith("a"):
-        return "aprobar"
-    if resp.startswith("m"):
-        return "modificar"
-    return "rechazar"   # por defecto, seguro
+        return {"veredicto": "aprobar", "clase_nueva": None}
+    if resp.startswith("recl"):
+        nueva = leer("nueva clase: ").strip() or None
+        return {"veredicto": "reclasificar", "clase_nueva": nueva}
+    return {"veredicto": "rechazar", "clase_nueva": None}   # por defecto, seguro

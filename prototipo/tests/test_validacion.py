@@ -22,12 +22,20 @@ class TestValidacion(unittest.TestCase):
 
     def test_pedir_aprobar(self):
         v = validacion.pedir(DECISION, ALERTA, leer=lambda _: "aprobar", escribir=lambda _: None)
-        self.assertEqual(v, "aprobar")
+        self.assertEqual(v["veredicto"], "aprobar")
+        self.assertIsNone(v["clase_nueva"])
 
     def test_pedir_rechazar(self):
         v = validacion.pedir(DECISION, ALERTA, leer=lambda _: "r", escribir=lambda _: None)
-        self.assertEqual(v, "rechazar")
+        self.assertEqual(v["veredicto"], "rechazar")
 
     def test_respuesta_desconocida_es_rechazar(self):
         v = validacion.pedir(DECISION, ALERTA, leer=lambda _: "xyz", escribir=lambda _: None)
-        self.assertEqual(v, "rechazar")
+        self.assertEqual(v["veredicto"], "rechazar")
+
+    def test_pedir_reclasificar_captura_la_clase_nueva(self):
+        # RF-08: el analista reclasifica y aporta la clase corregida (feedback, RF-12)
+        leer = lambda p: "reclasificar" if "aprobar" in p else "fp_actividad_legitima"
+        v = validacion.pedir(DECISION, ALERTA, leer=leer, escribir=lambda _: None)
+        self.assertEqual(v["veredicto"], "reclasificar")
+        self.assertEqual(v["clase_nueva"], "fp_actividad_legitima")

@@ -82,12 +82,12 @@ def main():
 
     barra("3 · VALIDACIÓN HUMANA — Beat A: el analista RECHAZA")
     ver_a = validacion.pedir(decision, alerta, leer=lambda _p: "rechazar")
-    print(f"  veredicto -> {ver_a}  => NO se ejecuta nada.")
+    print(f"  veredicto -> {ver_a['veredicto']}  => NO se ejecuta nada.")
     print("  iptables tras rechazar:", iptables())
 
     barra("4 · VALIDACIÓN HUMANA — Beat B: el analista APRUEBA")
     ver_b = validacion.pedir(decision, alerta, leer=lambda _p: "aprobar")
-    print(f"  veredicto -> {ver_b}")
+    print(f"  veredicto -> {ver_b['veredicto']}")
     o = ordenm.construir(decision, alerta)
     print(f"  Orden ejecutable: {o['accion_id']} params={o['params']} sobre {o['nodo_objetivo']} ({o['nodo_ip']})")
     ejec = conector.ejecutar_orden(o, catalogo, conector.ejecutor_ssh_lab, alerta.get('timestamp', ''))

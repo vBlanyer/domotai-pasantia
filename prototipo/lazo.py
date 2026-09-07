@@ -4,19 +4,24 @@ from prototipo import triaje, orden as ordenm, conector, validacion, verificacio
 
 def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp, leer=input):
     decision = triaje.procesar(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp)
-    veredicto = None
+    veredicto, clase_reclasificada = None, None
     if decision.get("requiere_humano"):
-        veredicto = validacion.pedir(decision, alerta, leer=leer)
-        if veredicto in ("rechazar", "modificar"):
-            # "modificar" retiene la alerta sin ejecutar la acción propuesta (salvaguarda honesta):
-            # elegir una acción alternativa concreta es trabajo futuro (semilla en veredicto_humano).
-            return {**decision, "veredicto_humano": veredicto, "orden": None, "ejecucion": None, "verificacion": None}
+        v = validacion.pedir(decision, alerta, leer=leer)
+        veredicto, clase_reclasificada = v["veredicto"], v.get("clase_nueva")
+        if veredicto in ("rechazar", "reclasificar"):
+            # "reclasificar" retiene la alerta sin ejecutar la acción propuesta y registra la clase
+            # corregida por el analista como feedback (RF-08/RF-12): si el triaje se equivocó de clase,
+            # no se ejecuta su acción.
+            return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
+                    "orden": None, "ejecucion": None, "verificacion": None}
     o = ordenm.construir(decision, alerta)
     if o is None:
-        return {**decision, "veredicto_humano": veredicto, "orden": None, "ejecucion": None, "verificacion": None}
+        return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
+                "orden": None, "ejecucion": None, "verificacion": None}
     ejecucion = conector.ejecutar_orden(o, catalogo, ejecutor, timestamp)
     verif = verificacion.confirmar(o, catalogo, ejecutor)
-    return {**decision, "veredicto_humano": veredicto, "orden": o, "ejecucion": ejecucion, "verificacion": verif}
+    return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
+            "orden": o, "ejecucion": ejecucion, "verificacion": verif}
 
 class _EjecutorAuto:
     """Ejecutor falso para --auto (sin laboratorio), con estado como el EjecutorFalso de los tests:
