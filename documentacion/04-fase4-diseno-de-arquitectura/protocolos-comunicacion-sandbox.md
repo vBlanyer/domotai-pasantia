@@ -145,6 +145,65 @@ propiedad del conjunto de ejecutores, no de SSH.
 
 ---
 
+## 7. De la contención *host-based* del laboratorio a la integración con firewalls de producción
+
+*(Añadido 02/09/2026. El prototipo se construye en el laboratorio, pero el diseño debe contemplar la
+integración en un entorno real; esta sección lo fija.)*
+
+### Qué hace hoy (laboratorio)
+
+La contención actual es **basada en host**: el conector entra por SSH al **propio equipo atacado** y
+ejecuta ahí su firewall local. En vivo **no es un simulador** —corre comandos reales— (el «simulador» es
+solo el modo `--auto`, con ejecutor falso para los tests sin laboratorio). Lo que ejecuta cada acción del
+[catálogo](./catalogo-de-acciones.md):
+
+| Acción | Comando real (en el host víctima) |
+|--------|-----------------------------------|
+| `BLOQUEAR_IP` | `iptables -A INPUT -s {ip} -j DROP` |
+| `BLOQUEAR_PUERTO` | `iptables -A INPUT -p tcp --dport {puerto} -j DROP` |
+| `AISLAR_NODO` | `iptables -A FORWARD -s {ip_nodo} -j DROP` |
+| `LIMITAR_BANDA` | `tc qdisc add dev {if} root tbf rate {rate}` |
+| `CERRAR_SERVICIO` | `service {servicio} stop` |
+| `MATAR_CONEXION` | `ss -K dst {ip}` |
+
+**Límite de este enfoque:** bloquear en el host protege *ese* equipo; no bloquea el origen en el resto de
+la red. La contención de producción suele querer nivel de **red** (perímetro/segmentación), no host.
+
+### Cómo se integra en producción (sin rediseñar el motor)
+
+La clave: el catálogo es **abstracto** (`BLOQUEAR_IP`) y el conector **traduce** a comando concreto con un
+**ejecutor inyectable**. Integrar un firewall real = **escribir un ejecutor nuevo** + su traducción; la
+lógica de decisión (política + perfil) **no cambia**. La misma acción abstracta, distinto back-end:
+
+| Destino de producción | Traducción de `BLOQUEAR_IP` |
+|-----------------------|-----------------------------|
+| **Palo Alto** | API PAN-OS: IP → *Dynamic Address Group* / *External Dynamic List* que una regla ya bloquea |
+| **FortiGate** | API REST FortiOS: address object → grupo de bloqueo referenciado por una policy |
+| **Cisco (FTD/ASA/IOS-XE)** | API de FMC, o NETCONF/RESTCONF |
+| **pfSense / OPNsense** | API: entrada en tabla/alias de pf |
+| **Cloud (AWS/Azure/GCP)** | SDK: Security Group / NACL / regla de firewall |
+| **La propia pila del cliente** | *active-response* de Wazuh (`firewall-drop`) o su SOAR |
+
+### El cambio conceptual y lo que falta construir
+
+- **Punto de aplicación:** de *host* (iptables en la víctima) → *red* (firewall) o *identidad* (NAC / VLAN
+  de cuarentena para `AISLAR_NODO`).
+- **Vía de integración — RF-13:** en producción lo idóneo **no** es abrir un canal SSH nuevo a cada equipo,
+  sino **enrutar la acción por el plano de control que el cliente ya tiene** (la active-response de Wazuh,
+  la API de su firewall, su SOAR). SSH-al-host es el **sustituto del laboratorio** de ese plano.
+- **Lo que ya encaja:** la **reversibilidad** (RF-18, cada acción lleva su `reversion_cmd` → las APIs de
+  firewall des-bloquean igual), el **verificar-antes-de-actuar** (la API devuelve estado, como hoy
+  `iptables -L | grep`), la **idempotencia** y el **catálogo cerrado**.
+- **Lo que falta (trabajo futuro honesto):** un **ejecutor por fabricante** (empezando por el firewall del
+  cliente o la active-response de Wazuh), un **almacén de secretos** para los tokens de API (hoy el lab usa
+  una credencial fija), y el **catálogo de traducción por destino** (acción abstracta → llamada concreta).
+
+**En una frase:** hoy se cierra con `iptables` real en el host por SSH (contención host-based, sustituto de
+laboratorio); en producción se añade un ejecutor por firewall/plano de control del cliente detrás de la
+misma interfaz, enrutando la acción por lo que el cliente ya tiene — sin tocar el cerebro de triaje.
+
+---
+
 ## Documentos relacionados
 
 - [Flujo de operación: logs → playbook → motor de triaje → sandbox](./flujo-triaje-playbook-sandbox.md)
