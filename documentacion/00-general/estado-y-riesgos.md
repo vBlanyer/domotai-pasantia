@@ -33,6 +33,13 @@ Lo que funciona hoy, medido y reproducible (`sh lab/lab.sh up && sh lab/lab.sh t
 
 ---
 
+**Revisión requisito-a-requisito (02/09/2026).** Cerrado el «grupo B»: RF-01 (ingesta de producto) y
+RF-11 (agrupación por incidente) implementados; RF-03 mejorado (fp_actividad_legitima → precisión de
+la Fase 6 a 1.0); RF-05 (justificación estructurada), RF-07 (umbral configurable), RF-08 (reclasificar
+real), RF-09/RNF-03 (justificador+modelo en la traza) programados; RF-04, RF-12, RF-13, RNF-04, RNF-10,
+RNF-12, RNF-14 resueltos por documentación. `prototipo/` quedó independiente de `lab/`. Pendiente: solo
+la Fase 7 (informe final + matriz de trazabilidad).
+
 ## 2. Decisiones cerradas
 
 | # | Decisión | Documento |

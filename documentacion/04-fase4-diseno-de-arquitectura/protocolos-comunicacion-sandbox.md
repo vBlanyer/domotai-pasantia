@@ -204,6 +204,25 @@ misma interfaz, enrutando la acción por lo que el cliente ya tiene — sin toca
 
 ---
 
+## 8. Retención y anonimización de datos (RNF-12)
+
+*(Añadido 02/09/2026. Política de cumplimiento; en el prototipo se declara, la implementación es de
+despliegue.)*
+
+- **Qué datos personales manejan las trazas.** El registro de decisión (`traza.construir`) y las alertas
+  normalizadas contienen PII: **IPs de origen** (`origen_ip`) y, en `evento_crudo`, **nombres de usuario**
+  (p. ej. «Failed password for msfadmin from 192.168.1.10»). La `justificacion` puede citar esos campos.
+- **En el prototipo.** Todo se procesa y retiene **en local**, sin envío a servicios externos (RNF-01); el
+  dato del laboratorio es sintético. No se aplica anonimización porque el análisis de la Fase 6 necesita los
+  campos reales.
+- **En producción (config de despliegue, no implementado).** Se aplicaría: (a) **retención** con un plazo
+  conforme a la normativa del cliente (borrado o archivado de trazas pasado el plazo); (b) **anonimización**
+  de PII en las trazas que se compartan o conserven —hash/enmascarado de IP y usuario— manteniendo la
+  utilidad para auditoría; (c) minimización: la justificación se construye solo con campos estructurados
+  (RNF-08), y el `evento_crudo` no se envía al LLM. Son parámetros del despliegue, no lógica del motor.
+
+---
+
 ## Documentos relacionados
 
 - [Flujo de operación: logs → playbook → motor de triaje → sandbox](./flujo-triaje-playbook-sandbox.md)
