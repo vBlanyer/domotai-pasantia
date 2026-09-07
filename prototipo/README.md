@@ -499,3 +499,21 @@ que Wazuh ya hace (reglas 5763/5712).
 **Medido (Fase 6):** 18 alertas soportadas → **2 incidentes** (9× menos ítems); 205 → **4** (~51×). Triar
 los 2 representantes reproduce las 2 decisiones correctas. Detalle en el
 [informe §4.bis](../documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
+
+## 13. Modo tiempo real (daemon / listener MDR)
+
+`prototipo/stream.py` es el runner en streaming: se queda **escuchando** alertas de Wazuh sin cerrarse
+—como en producción— en vez de correr por lotes o de un solo tiro. Es una **capa de orquestación** sobre
+`lazo.procesar_lazo` (§8), sin lógica de decisión propia:
+
+- **Fuente inyectable:** sigue un fichero del host estilo `tail -f` (tolerando que aún no exista) o lee de
+  `stdin` (`-`), para canalizar `docker exec … tail -F … | python3 -m prototipo.stream -` cuando el
+  `alerts.json` vive dentro del contenedor de Wazuh. La fuente inyectable hace el bucle testeable con una
+  lista (mock del generador de líneas).
+- **Ventana de agrupación (RF-11):** acumula la ráfaga `--ventana-agrupacion N` segundos y la colapsa con
+  `agrupacion.agrupar` antes de emitir el incidente; `N=0` procesa cada alerta al instante.
+- **Validación humana en línea:** cuando la decisión requiere humano, abre el prompt de `validacion.pedir`
+  (bloquea, ejecuta y vuelve a escuchar); la traza se escribe **línea a línea** (RF-09).
+- **CLI:** `python3 -m prototipo.stream <ruta|-> [perfil] [hallazgos] [--con-llm|--sin-llm] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]`.
+  `Ctrl+C` cierra limpio e imprime el resumen de la sesión. Uso paso a paso en
+  [`../COMO-PROBAR.md`](../COMO-PROBAR.md) (Nivel 3.bis).

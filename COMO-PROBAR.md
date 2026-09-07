@@ -167,6 +167,47 @@ y **aprobar** (ejecuta por SSH)— para mostrar que la decisión humana gobierna
 
 ---
 
+## Nivel 3.bis · Modo tiempo real continuo (daemon / listener MDR)
+
+A diferencia de las demos de un solo tiro (`demo-lazo-vivo.py`, que lee `alerts.json` una vez y sale),
+el runner **se queda escuchando** alertas sin cerrarse, como en producción. Reutiliza el motor completo
+(`lazo.procesar_lazo`): por cada ráfaga colapsa el incidente (RF-11), lo clasifica, lo justifica (con RAG
+si `--con-llm`), abre el prompt **[Aprobar/Rechazar/Reclasificar]** cuando la decisión requiere humano,
+ejecuta la mitigación, escribe la traza línea a línea y vuelve a escuchar. CLI:
+
+```bash
+python3 -m prototipo.stream <ruta_alerts.json | -> [perfil.yml] [hallazgos.json] \
+    [--con-llm | --sin-llm] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]
+```
+
+**En producción** (Wazuh escribe a un fichero del host, p. ej. montado): apúntalo al fichero y lo sigue
+estilo `tail -f`, tolerando incluso que aún no exista:
+
+```bash
+python3 -m prototipo.stream /var/ossec/logs/alerts/alerts.json prototipo/perfiles/empresarial.yml --con-llm
+```
+
+**En el laboratorio** (el `alerts.json` vive **dentro** del contenedor de Wazuh): canaliza el `tail -F`
+del contenedor a la entrada estándar del runner (fuente `-`):
+
+```bash
+docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
+    | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
+```
+
+En otra terminal lanza el ataque (la fuerza bruta de `demo-lazo-vivo.py`, o a mano desde el atacante) y
+observa el runner reaccionar en vivo. `Ctrl+C` cierra e imprime el resumen de la sesión (alertas vistas,
+incidentes, aprobadas/rechazadas/ejecutadas). Con **`--sin-lab`** usa un ejecutor **simulado** (sin
+Containerlab), útil para ensayar la UX; y una **prueba de humo sin nada** (canalizando una alerta cruda):
+
+```bash
+printf '%s\n' '<una alerta cruda de Wazuh en JSON>' \
+    | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
+```
+
+> La ventana de agrupación (`--ventana-agrupacion N`, por defecto 5 s) acumula la ráfaga N segundos antes
+> de emitir el incidente; `N=0` procesa cada alerta al instante.
+
 ## Qué mirar en cada prueba
 
 - **La traza** (`salida.jsonl`, o el retorno de `triaje.procesar`) es la evidencia auditable: clase,
