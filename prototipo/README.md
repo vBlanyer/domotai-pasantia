@@ -480,3 +480,20 @@ común** que consume el motor, tolerando campos ausentes.
 
 `lab/dataset/esquema.py` re-exporta desde `adaptador_wazuh` por compatibilidad, así que el pipeline del
 dataset (Fase 3) sigue usándolo sin cambios; la dirección de dependencia queda `lab` → producto.
+
+## 12. Agrupación por incidente (RF-11)
+
+El analista no debería triar 18 alertas casi idénticas, sino los **incidentes** que representan.
+`prototipo/agrupacion.py` colapsa las ráfagas —misma `(origen_ip, activo, servicio, familia)` dentro de una
+**ventana temporal** (`ventana_seg`, 300 s por defecto)— en un incidente, **por encima** de la correlación
+que Wazuh ya hace (reglas 5763/5712).
+
+- `agrupar(alertas, ventana_seg=300) -> list[incidente]`; cada incidente lleva `conteo`, el desglose de
+  `reglas`, la ventana (`primera_ts`/`ultima_ts`), los `ids`, y el **`representante`** = la alerta más
+  informativa (mayor `nivel_wazuh`, la correlada). El motor triaja el representante, no cada alerta.
+- Puro y tolerante (RNF-07): una alerta sin timestamp no rompe la agrupación.
+- **CLI:** `python3 -m prototipo.agrupacion <alertas.jsonl> <incidentes.jsonl> [ventana_seg]`.
+
+**Medido (Fase 6):** 18 alertas soportadas → **2 incidentes** (9× menos ítems); 205 → **4** (~51×). Triar
+los 2 representantes reproduce las 2 decisiones correctas. Detalle en el
+[informe §4.bis](../documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).

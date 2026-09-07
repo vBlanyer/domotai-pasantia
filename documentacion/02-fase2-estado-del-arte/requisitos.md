@@ -27,7 +27,7 @@ modelos de lenguaje ([LLM en seguridad](./llm-en-seguridad.md)), una restricció
 | RF-08 | Ofrecer flujo de validación humana —aprobar, rechazar, reclasificar— para decisiones críticas o de baja confianza | XDR §7 · LLM §3 | ✔ `reclasificar` captura la clase corregida (retiene sin ejecutar) y la registra como feedback (`clase_reclasificada`, RF-12) |
 | RF-09 | Registrar traza auditable de cada ejecución: entrada, prompt, salida, decisión, veredicto del analista, marcas de tiempo y versión de prompt y modelo | XDR §9 · Fase 5 | ✔ La traza es también la base de la evaluación |
 | RF-10 | Marcar como **«no soportada»** toda alerta fuera del caso de uso acotado, en lugar de emitir una clasificación no fundamentada | XDR §3 | ✔ Implementable desde que el perímetro existe; la alerta conserva su severidad de origen |
-| RF-11 | Agrupar y deduplicar alertas relacionadas con un mismo incidente | XDR §1, §2 | ~ La fuente **ya correlaciona** en parte; el motor agrupa por incidente por encima de eso |
+| RF-11 | Agrupar y deduplicar alertas relacionadas con un mismo incidente | XDR §1, §2 | ✔ `prototipo/agrupacion.py`: agrupa por `(origen_ip, activo, servicio, familia)` en ventana temporal sobre la correlación de Wazuh. Medido: 18 soportadas→2 incidentes, 205→4 |
 | RF-12 | Almacenar el feedback del analista en formato reutilizable, sin reentrenamiento | Trabajo futuro | ✔ |
 | RF-13 | Exponer los resultados al sistema del cliente mediante una interfaz definida, sin sustituir sus funciones | XDR §5 | ~ En el laboratorio no hay consumidor real; el motor expone sus resultados y el consumidor llega después |
 | RF-14 | Calcular las métricas de evaluación sobre el dataset etiquetado, **comparando siempre contra el baseline de reglas** | Fase 6 · LLM §5 | ✔ |

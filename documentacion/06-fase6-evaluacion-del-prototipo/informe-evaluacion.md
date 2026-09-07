@@ -107,6 +107,26 @@ consecuencia directa del dataset de una familia; se reporta como **indicativo, n
 
 ---
 
+## 4.bis Agrupación por incidente (RF-11): menos ítems que triar
+
+El analista no debería revisar 18 alertas casi idénticas, sino los **incidentes** que representan.
+`prototipo/agrupacion.py` colapsa las ráfagas por `(origen_ip, activo, servicio, familia)` dentro de una
+ventana temporal (300 s por defecto), **por encima** de la correlación que Wazuh ya hace. Medido sobre la
+partición de evaluación:
+
+| Entrada | Ítems | Tras agrupar |
+|---------|-------|--------------|
+| 18 alertas soportadas (VP+FP) | 18 | **2 incidentes** (9×) |
+| 205 alertas (toda la partición) | 205 | **4 incidentes** (~51×) |
+
+Los 2 incidentes soportados son exactamente el ataque (192.168.1.10, 10 alertas, representante regla 5763
+nivel 10) y la actividad de admin (192.168.1.1, 8 alertas, representante 5712). Triar **los 2
+representantes** con el motor da las **decisiones correctas** —`vp_intento_acceso` y `fp_actividad_legitima`—
+con 9× menos trabajo. **Matiz honesto:** el dataset es de una familia (ambos incidentes son SSH); la
+agrupación mostraría más incidentes distintos en un tráfico más variado.
+
+---
+
 ## 5. Calidad de la justificación: anclada, pero poco útil
 
 **Anclaje (RNF-02, automático): 18/18 justificaciones del 1B ancladas, 0 degradadas a plantilla → tasa
