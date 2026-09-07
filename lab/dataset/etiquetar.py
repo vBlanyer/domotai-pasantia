@@ -1,23 +1,9 @@
 """Árbol de decisión del etiquetado: asigna el ground truth a cada alerta."""
+from prototipo.postura import postura_de  # noqa: F401  (re-exportación: la lógica vive en el producto)
 
 FAMILIAS_SOPORTADAS = {
     "acceso_credenciales", "reconocimiento", "servicio_expuesto", "explotacion_conocida",
 }
-
-def postura_de(hallazgos, activo, servicio):
-    # I1: la alerta no identifica el servicio atacado -> caso gris, no FP.
-    # Adivinar aquí (asumir "no coincide con nada abierto" = no expuesto)
-    # corrompería el ground truth en silencio.
-    if not servicio or servicio == "desconocido":
-        return None
-    nodos = hallazgos.get("nodos", {})
-    # I2: un nodo ausente de "nodos" es "no escaneado con éxito" (desconocido
-    # → gris), NUNCA "sin servicios abiertos" (FP). auditar.sh omite la clave
-    # del nodo cuando el escaneo falla, precisamente para caer en esta rama.
-    if activo not in nodos:
-        return None  # nodo desconocido → caso gris, decide un humano
-    servicios = {s.get("servicio") for s in nodos[activo] if s.get("estado") == "open"}
-    return {"expuesto": servicio in servicios, "servicios_abiertos": sorted(servicios)}
 
 def _ips_auditor(ficha):
     return set((ficha.get("auditor") or {}).get("ips", []))

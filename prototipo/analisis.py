@@ -1,5 +1,5 @@
 """Interfaz de análisis (clasificar/justificar) con implementación baseline determinista."""
-from lab.dataset.etiquetar import postura_de
+from prototipo.postura import postura_de
 
 FAMILIAS_ATAQUE = {"acceso_credenciales", "reconocimiento", "servicio_expuesto", "explotacion_conocida"}
 
