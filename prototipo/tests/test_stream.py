@@ -1,0 +1,122 @@
+import io, json, os, tempfile, unittest, yaml
+from prototipo import stream, catalogo, lazo
+
+FX = os.path.join(os.path.dirname(__file__), "fixtures")
+CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
+
+def _txt(n):
+    with open(os.path.join(FX, n), encoding="utf-8") as f: return f.read().strip()
+def j(n): return json.loads(_txt(n))
+def y(n):
+    with open(os.path.join(FX, n), encoding="utf-8") as f: return yaml.safe_load(f)
+
+def _linea_wazuh(srcip="192.168.1.10", rule_id="5760"):
+    # una alerta CRUDA de Wazuh (la que el adaptador normaliza): activo <- predecoder.hostname,
+    # servicio ssh <- groups sshd, familia acceso_credenciales <- groups authentication_failed.
+    return json.dumps({
+        "id": "a1", "rule": {"id": rule_id, "level": 10, "description": "sshd brute force",
+                             "groups": ["sshd", "authentication_failed"],
+                             "mitre": {"id": ["T1110.001"]}},
+        "predecoder": {"hostname": "objetivo-vuln", "program_name": "sshd"},
+        "data": {"srcip": srcip}, "timestamp": "2026-08-31T00:00:00Z",
+        "full_log": "Failed password for root from %s" % srcip})
+
+
+class TestBucleInmediato(unittest.TestCase):
+    def test_una_alerta_produce_un_incidente_y_traza(self):
+        buf = io.StringIO()
+        salidas = []
+        resumen = stream.ejecutar(
+            [_linea_wazuh(), "", "no-es-json", None],
+            hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"), perfil_nombre="prueba",
+            catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None,
+            ventana_agrupacion=0, salida_traza=buf,
+            escribir=lambda *a, **k: salidas.append(" ".join(str(x) for x in a)), leer=lambda *_: "rechazar")
+        self.assertEqual(resumen["alertas"], 1)      # la vacía y la corrupta se saltan (RNF-07)
+        self.assertEqual(resumen["incidentes"], 1)
+        lineas = [l for l in buf.getvalue().splitlines() if l.strip()]
+        self.assertEqual(len(lineas), 1)
+        traza = json.loads(lineas[0])
+        self.assertEqual(traza["clase"], "vp_intento_acceso")
+        self.assertIn("192.168.1.10", traza["justificacion"])
+
+
+class TestVentana(unittest.TestCase):
+    def test_rafaga_se_colapsa_en_un_incidente(self):
+        # 3 alertas de la misma clave llegan "dentro" de la ventana; luego un tick vence la ventana.
+        reloj = iter([0, 0, 1, 2, 100, 100, 100]).__next__   # el 5º valor (100) vence ventana=10
+        fuente = [_linea_wazuh(), _linea_wazuh(), _linea_wazuh(), None]
+        buf = io.StringIO()
+        resumen = stream.ejecutar(
+            fuente, hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"), perfil_nombre="prueba",
+            catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None,
+            ventana_agrupacion=10, salida_traza=buf,
+            escribir=lambda *a, **k: None, leer=lambda *_: "rechazar", reloj=reloj)
+        self.assertEqual(resumen["alertas"], 3)
+        self.assertEqual(resumen["incidentes"], 1)          # las 3 -> un incidente (misma clave)
+        self.assertEqual(len([l for l in buf.getvalue().splitlines() if l.strip()]), 1)
+
+    def test_fuente_agotada_descarga_lo_pendiente(self):
+        reloj = iter([0, 0, 0]).__next__
+        resumen = stream.ejecutar(
+            [_linea_wazuh(), _linea_wazuh()], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+            perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
+            ventana_agrupacion=10, salida_traza=None,
+            escribir=lambda *a, **k: None, leer=lambda *_: "rechazar", reloj=reloj)
+        self.assertEqual(resumen["incidentes"], 1)          # se descarga al agotar la fuente
+
+
+class TestFuentes(unittest.TestCase):
+    def test_fichero_inexistente_rinde_tick_y_no_rompe(self):
+        gen = stream.leer_lineas_fichero("/no/existe/aqui.json", intervalo=0,
+                                         detener=iter([False, True]).__next__, dormir=lambda s: None)
+        self.assertIsNone(next(gen))           # primer yield: tick de reposo, sin excepcion
+
+    def test_fichero_desde_inicio_lee_lineas_existentes(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+            f.write('{"a":1}\n{"a":2}\n'); ruta = f.name
+        try:
+            stop = iter([False, False, False, True]).__next__
+            got = list(stream.leer_lineas_fichero(ruta, intervalo=0, desde_inicio=True,
+                                                  detener=stop, dormir=lambda s: None))
+        finally:
+            os.unlink(ruta)
+        self.assertEqual([g for g in got if g is not None][:2], ['{"a":1}\n', '{"a":2}\n'])
+
+    def test_stdin_rinde_cada_linea(self):
+        got = list(stream.leer_lineas_stdin(io.StringIO("l1\nl2\n")))
+        self.assertEqual(got, ["l1\n", "l2\n"])
+
+
+class TestCLI(unittest.TestCase):
+    def test_parsear_args_defaults_y_flags(self):
+        cfg = stream.parsear_args(["alerts.json"])
+        self.assertEqual(cfg["ruta"], "alerts.json")
+        self.assertFalse(cfg["con_llm"])
+        self.assertEqual(cfg["ventana"], 5)
+        cfg2 = stream.parsear_args(["-", "prototipo/perfiles/residencial.yml", "--con-llm",
+                                    "--ventana-agrupacion", "20", "--sin-lab"])
+        self.assertEqual(cfg2["ruta"], "-")
+        self.assertTrue(cfg2["con_llm"])
+        self.assertTrue(cfg2["sin_lab"])
+        self.assertEqual(cfg2["ventana"], 20)
+        self.assertTrue(cfg2["perfil"].endswith("residencial.yml"))
+
+    def test_sin_llm_no_construye_justificador(self):
+        self.assertIsNone(stream.construir_justificar_fn(False))
+
+    def test_banner_menciona_perfil_y_ruta(self):
+        b = stream.banner({"perfil": "empresarial.yml", "ruta": "alerts.json", "con_llm": False,
+                           "ventana": 5, "sin_lab": True})
+        self.assertIn("empresarial", b)
+        self.assertIn("alerts.json", b)
+        self.assertIn("MDR", b)
+
+    def test_resumen_final_cuenta(self):
+        s = stream._resumen_final({"alertas": 4, "incidentes": 2, "aprobadas": 1, "rechazadas": 1,
+                                   "reclasificadas": 0, "ejecutadas": 1})
+        self.assertIn("2", s); self.assertIn("Incidentes", s)
+
+
+if __name__ == "__main__":
+    unittest.main()
