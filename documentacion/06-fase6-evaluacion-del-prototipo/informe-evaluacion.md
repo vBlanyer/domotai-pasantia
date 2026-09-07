@@ -16,36 +16,50 @@ respuesta cuantitativa clara sobre la partición de evaluación:
 
 | Métrica | Prototipo | Baseline (Wazuh @óptimo, nivel ≥ 5) |
 |---------|-----------|-------------------------------------|
-| Precisión | **0.556** | 0.154 |
+| Precisión | **1.000** | 0.154 |
 | Recall | 1.000 | 1.000 |
-| F1 | **0.714** | 0.267 |
-| Tasa de FP | **0.041** | 0.282 |
+| F1 | **1.000** | 0.267 |
+| Tasa de FP | **0.000** | 0.282 |
 
-- Matriz prototipo: VP=10, FP=8, VN=187, FN=0
+- Matriz prototipo: VP=10, FP=0, VN=195, FN=0
 - Matriz baseline: VP=10, FP=55, VN=140, FN=0
 
-**Ambos detectan todas las amenazas (recall 1.0), pero el prototipo reduce drásticamente el ruido.** El
-baseline, en su umbral óptimo, deja pasar **55 falsos positivos**; el prototipo, **8**. La diferencia son
-los **187 eventos de ruido de plataforma** que el motor clasifica correctamente como `no_soportada`/sin
-acción (VN=187) y que el nivel de regla no sabe suprimir. La **tasa de FP baja de 0.282 a 0.041** —casi
-7×— que es exactamente el dolor del analista que el proyecto ataca.
+**Ambos detectan todas las amenazas (recall 1.0), pero el prototipo suprime todo el ruido.** El baseline,
+en su umbral óptimo, deja pasar **55 falsos positivos**; el prototipo, **0**. Los 195 negativos del
+prototipo son los **187 eventos de ruido de plataforma** (clasificados `no_soportada`) más las **8
+alertas del administrador legítimo** (clasificadas `fp_actividad_legitima`), que el nivel de regla no
+sabe distinguir. La **tasa de FP baja de 0.282 a 0.000**, que es exactamente el dolor del analista que el
+proyecto ataca.
+
+> **Progresión honesta (RF-03).** La primera medición de esta fase dio **precisión 0.556** (matriz
+> VP=10, FP=8, VN=187): el clasificador confundía al admin con el atacante porque **no usaba la señal de
+> origen legítimo**, aunque el ground truth sí. Al añadir esa señal como configuración del cliente
+> (`origenes_legitimos` en el perfil — RNF-14), el clasificador produce la categoría
+> `fp_actividad_legitima` y la precisión sube a **1.000**. Los dos números son reales; el 0.556 medía el
+> motor *sin* esa config, el 1.000 *con* ella. **Caveat:** `origen_ip` es suplantable, así que en
+> producción la legitimidad del origen debería apoyarse en autenticación más fuerte, no solo en la IP.
 
 **Este es un resultado positivo y medido a favor del enfoque.**
 
 ---
 
-## 2. La limitación del prototipo, medida
+## 2. Cómo se resolvió la confusión admin-vs-atacante (RF-03)
 
-La precisión del prototipo se queda en **0.556**, no en 1.0, y la razón es concreta y honesta: **las 18
-alertas soportadas de la partición son todas el mismo activo y servicio** (`objetivo-vuln/ssh`, familia
-`acceso_credenciales`). De ellas, 10 son ataques reales (VP) y 8 son actividad del **administrador
-legítimo** (FP). El clasificador baseline decide por familia + postura del activo, y como el servicio SSH
-está expuesto en ese nodo, **clasifica las 18 como amenaza** — no distingue al admin del atacante, porque
-esa señal (la legitimidad del origen) no está en la regla que usa. De ahí los 8 FP.
+Las 18 alertas soportadas son todas el mismo activo y servicio (`objetivo-vuln/ssh`, familia
+`acceso_credenciales`): 10 son ataques reales (VP) y 8 son actividad del **administrador legítimo** (FP,
+todas desde `192.168.1.1`). La señal que las separa no es la postura del activo —el servicio SSH está
+expuesto en los dos casos— sino la **legitimidad del origen**.
 
-Es el límite esperado del clasificador determinista, y es justo lo que motiva el clasificador con
-fine-tuning (bloqueado por datos, ver §5). El baseline de Wazuh sufre lo mismo y peor: no solo confunde
-admin y atacante, sino que además inunda con ruido de plataforma.
+El clasificador ahora la usa: el perfil declara `origenes_legitimos` (punto de configuración del cliente,
+RNF-14), `analisis.enriquecer` marca `origen_legitimo`, y `analisis.clasificar` produce
+`fp_actividad_legitima` para esos casos —replicando el paso que el etiquetado ya hacía—. Resultado: los 8
+FP pasan de amenaza a negativo, y la precisión llega a 1.0.
+
+Queda el límite honesto: es una señal **determinista basada en IP** (suplantable), y solo cubre **4 de
+las 6** categorías del caso de uso — faltan `vp_acceso_consumado` (exige la señal de autenticación
+exitosa) y `vp_exposicion_gestion`, que motivan el clasificador con fine-tuning, bloqueado por el dataset
+de una sola familia (ver §5). El baseline de Wazuh no puede hacer nada de esto: confunde admin y atacante
+e inunda con ruido de plataforma.
 
 ---
 
@@ -176,12 +190,12 @@ Corrida sobre las 410 alertas (36 soportadas), sin LLM
 
 | Métrica | Prototipo | Baseline |
 |---------|-----------|----------|
-| Precisión | 0.556 | 0.154 |
+| Precisión | 1.000 | 0.154 |
 | Recall | 1.000 | 1.000 |
-| F1 | 0.714 | 0.267 |
-| Tasa de FP | 0.041 | 0.282 |
+| F1 | 1.000 | 0.267 |
+| Tasa de FP | 0.000 | 0.282 |
 
-Matriz prototipo: VP=20, FP=16, VN=374, FN=0. **Las tasas son idénticas a las de la partición de
+Matriz prototipo: VP=20, FP=0, VN=390, FN=0. **Las tasas son idénticas a las de la partición de
 evaluación**, lo que era esperable: el clasificador es determinista y **no se entrenó**, así que no hay
 diferencia entre entrenar y evaluar. La partición se respetó igualmente por rigor.
 
@@ -219,9 +233,11 @@ que **n=18 los hace provisionales**:
 
 ## 9. Veredicto de la fase
 
-**El enfoque aporta valor medible donde importa:** reduce la tasa de falsos positivos casi 7× frente al
-método por reglas, sin perder ninguna amenaza (recall 1.0), y sin cortar el servicio por error (0 acciones
-disruptivas indebidas). Su límite —no separar admin de atacante, y un justificador 1B poco fiable— está
-medido y tiene camino conocido (clasificador entrenado, modelo mayor). El resultado es un **sí con
-matices**, cuantificado y honesto, que es exactamente lo que la Fase 6 debía entregar a la
-[Fase 7](../07-fase7-documentacion-e-informe-final/).
+**El enfoque aporta valor medible donde importa:** con la configuración de orígenes legítimos, el
+prototipo **elimina los falsos positivos** sobre la partición (tasa de FP 0.000 frente a 0.282 del método
+por reglas) sin perder ninguna amenaza (recall 1.0) y sin cortar el servicio por error (0 acciones
+disruptivas indebidas). Sus límites —cubre 4 de las 6 categorías (faltan `vp_acceso_consumado` y
+`vp_exposicion_gestion`, que motivan el clasificador entrenado, bloqueado por datos), la legitimidad se
+apoya en la IP (suplantable), y el justificador 1B es poco fiable sin RAG— están medidos y tienen camino
+conocido. El resultado es un **sí con matices**, cuantificado y honesto, que es exactamente lo que la
+Fase 6 debía entregar a la [Fase 7](../07-fase7-documentacion-e-informe-final/).

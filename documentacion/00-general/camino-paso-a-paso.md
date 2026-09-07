@@ -118,7 +118,7 @@ Un único diagrama que reúna sandbox, Wazuh, motor de triaje, conector, auditor
 Leer `alerts.json`, normalizar al esquema de entrada del motor de triaje, **conservando el nivel de regla** como baseline.
 
 ### Paso 12 · Interfaz de análisis y clasificador
-> **HECHO A MEDIAS** (31/08/2026). La interfaz `clasificar`/`justificar` existe y devuelve clase, prioridad y confianza (`prototipo/analisis.py`). Detrás hay un **baseline determinista**, no el encoder con fine-tuning: bloqueado por un dataset de una sola familia de ataque. Documentado como límite.
+> **HECHO A MEDIAS** (31/08/2026; ampliado 02/09/2026). La interfaz `clasificar`/`justificar` existe (`prototipo/analisis.py`). Detrás hay un **baseline determinista** que produce **4 de las 6** clases —incluida `fp_actividad_legitima` vía `origenes_legitimos` del perfil (RF-03), que llevó la precisión de la Fase 6 de 0.556 a 1.0—; faltan `vp_acceso_consumado` y `vp_exposicion_gestion`, que exigen el encoder con fine-tuning, bloqueado por un dataset de una sola familia.
 Implementar `clasificar` y `justificar` como interfaz, y detrás el encoder con fine-tuning sobre la partición de entrenamiento del Paso 6.
 
 **Hecho cuando:** dada una alerta, devuelve clase, prioridad y **confianza numérica**.

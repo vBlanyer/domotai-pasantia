@@ -65,10 +65,9 @@ la implementación arranca con valores provisionales.
 
 **Hecha.** El marco de medición vive en [`evaluacion/`](../../evaluacion/) y la campaña corre con
 `python3 -m evaluacion.campana --particion evaluacion`. Resultado principal: sobre la partición de
-evaluación el prototipo **baja la tasa de falsos positivos casi 7×** frente al nivel de regla de Wazuh
-(0.041 vs 0.282) **sin perder ninguna amenaza** (recall 1.0) y sin acciones disruptivas indebidas; su
-límite —no separar admin legítimo de atacante, y un justificador 1B poco fiable pese a anclar al 100 %—
-está medido y documentado. Los números y el análisis completo están en el
+evaluación el prototipo **elimina los falsos positivos** (tasa 0.000 vs 0.282 del nivel de regla de Wazuh; con la configuración de orígenes legítimos que distingue admin de atacante, RF-03) **sin perder ninguna amenaza** (recall 1.0) y sin acciones disruptivas indebidas; sus
+límites —cubre 4 de las 6 categorías (falta el encoder bloqueado por datos), la legitimidad se apoya en la IP (suplantable), y el 1B justifica mal sin RAG—
+están medidos y documentados. Los números y el análisis completo están en el
 [informe](informe-evaluacion.md).
 
 **Criterio de cierre** (roadmap): cumplido — existen resultados cuantitativos (tabla comparativa,

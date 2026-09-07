@@ -62,7 +62,7 @@ las decisiones cerradas y los riesgos está en
 [`documentacion/00-general/estado-y-riesgos.md`](documentacion/00-general/estado-y-riesgos.md).
 
 **Resultado medido (Fase 6):** frente al nivel de regla de Wazuh, el prototipo reduce la tasa de
-falsos positivos casi **7×** (0.041 vs 0.282) **sin perder ninguna amenaza** (recall 1.0) y sin
+falsos positivos **a 0.000** (vs 0.282 del baseline) **sin perder ninguna amenaza** (recall 1.0) y sin
 acciones disruptivas indebidas. Detalle en el
 [informe de evaluación](documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
 

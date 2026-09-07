@@ -61,12 +61,11 @@ contrato de salida: `clase`, `prioridad`, `confianza`, `justificacion`), sin toc
 `perfil.py`, `traza.py` ni `triaje.py`. Esa frontera es la que hace posible medir 5A ahora y
 sustituir solo esa pieza más adelante.
 
-Las clases que produce el baseline hoy son solo **tres**: `no_soportada` (familia sin soporte de
-acción), `vp_intento_acceso` (familia de ataque con el servicio expuesto, o postura desconocida con
-confianza baja) y `fp_exposicion_inexistente` (familia de ataque con el servicio no expuesto). Las
-otras tres etiquetas del caso de uso — `vp_acceso_consumado`, `vp_exposicion_gestion`,
-`fp_actividad_legitima` — son clases que el dataset de la Fase 3 conoce (mismas etiquetas que usa
-`lab/dataset/etiquetar.py`) pero que el baseline **no puede producir**: exigen contexto que una
+Las clases que produce el baseline hoy son **cuatro**: `no_soportada`, `vp_intento_acceso`,
+`fp_exposicion_inexistente` y **`fp_actividad_legitima`** (cuando el `origen_ip` está en los
+`origenes_legitimos` del perfil — RF-03; es el FP dominante y replica el paso 2b de
+`lab/dataset/etiquetar.py`). Las otras dos etiquetas del caso de uso — `vp_acceso_consumado` y
+`vp_exposicion_gestion` — el baseline **aún no las produce**: exigen contexto que una
 regla determinista no tiene (por ejemplo, distinguir un acceso ya consumado de un intento, o una
 exposición de gestión de una exposición de servicio). Ese límite documentado es exactamente lo que
 motiva **5C** (ver [spec §3](../docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md#3-el-clasificador-baseline)).
