@@ -7,12 +7,15 @@ esa sustitución futura, pero el lazo no ejecuta la acción original bajo ese ve
 """
 
 def mostrar(decision, alerta):
+    est = decision.get("justificacion_estructurada", {}) or {}
+    mitre = ", ".join(est.get("tecnica_mitre") or []) or "—"
     return (
         "── Validación humana requerida ──\n"
         f"Activo: {alerta.get('activo')}  ·  Origen: {alerta.get('origen_ip')}  ·  Servicio: {alerta.get('servicio')}\n"
         f"Clase: {decision.get('clase')}  ·  Prioridad: {decision.get('prioridad')}  ·  Confianza: {decision.get('confianza')}\n"
+        f"Técnica MITRE: {mitre}\n"
         f"Justificación: {decision.get('justificacion')}\n"
-        f"Acción propuesta: {decision.get('accion_propuesta')}  ·  Impacto: {decision.get('impacto')}  ·  Filtro: {decision.get('resultado_filtro')}\n"
+        f"Acción sugerida: {est.get('accion_sugerida', decision.get('accion_propuesta'))}  ·  Impacto: {decision.get('impacto')}  ·  Filtro: {decision.get('resultado_filtro')}\n"
         f"Acción final: {decision.get('accion_final')}\n"
     )
 

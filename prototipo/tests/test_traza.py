@@ -18,3 +18,36 @@ class TestConstruir(unittest.TestCase):
         self.assertEqual(r["resultado_filtro"], "permite")
         self.assertEqual(r["version_baseline"], "baseline-0")
         self.assertEqual(r["version_perfil"], "v0")
+
+
+class TestJustificacionEstructurada(unittest.TestCase):
+    ALERTA = {"id_alerta": "a1", "regla_id": "5760", "origen_ip": "192.168.1.10",
+              "activo": "objetivo-vuln", "servicio": "ssh", "mitre": ["T1110.001", "T1021.004"]}
+    ANALISIS = {"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 1.0, "justificacion": "..."}
+
+    def _construir(self, alerta=None, accion="BLOQUEAR_IP"):
+        return traza.construir(
+            id_decision="d1", timestamp="t", alerta=alerta or self.ALERTA,
+            analisis_out=self.ANALISIS, accion_prop=accion, impacto="localizado",
+            perfil_nombre="empresarial",
+            filtro_out={"resultado": "permite", "accion_final": accion, "requiere_humano": False},
+            version_perfil="v0")
+
+    def test_tiene_los_4_componentes(self):
+        est = self._construir()["justificacion_estructurada"]
+        self.assertEqual(set(est), {"evidencia", "hipotesis", "tecnica_mitre", "accion_sugerida"})
+
+    def test_copia_accion_y_mitre_y_evidencia(self):
+        est = self._construir()["justificacion_estructurada"]
+        self.assertEqual(est["accion_sugerida"], "BLOQUEAR_IP")
+        self.assertEqual(est["tecnica_mitre"], ["T1110.001", "T1021.004"])
+        self.assertEqual(est["evidencia"]["regla"], "5760")
+        self.assertEqual(est["evidencia"]["origen_ip"], "192.168.1.10")
+        self.assertEqual(est["hipotesis"]["clase"], "vp_intento_acceso")
+        self.assertEqual(est["hipotesis"]["confianza"], 1.0)
+
+    def test_tolera_campos_ausentes(self):
+        est = self._construir(alerta={"id_alerta": "a2"}, accion=None)["justificacion_estructurada"]
+        self.assertEqual(est["tecnica_mitre"], [])
+        self.assertIsNone(est["evidencia"]["origen_ip"])
+        self.assertIsNone(est["accion_sugerida"])

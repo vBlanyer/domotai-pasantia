@@ -2,6 +2,24 @@
 
 VERSION_BASELINE = "baseline-0"
 
+def justificacion_estructurada(alerta, analisis_out, accion_prop):
+    """Justificación estructurada (RF-05): los 4 componentes de la decisión como objeto.
+    Puro y tolerante — usa `.get()`, no infiere lo ausente (RNF-07)."""
+    return {
+        "evidencia": {
+            "regla": alerta.get("regla_id"),
+            "origen_ip": alerta.get("origen_ip"),
+            "activo": alerta.get("activo"),
+            "servicio": alerta.get("servicio"),
+        },
+        "hipotesis": {
+            "clase": analisis_out.get("clase"),
+            "confianza": analisis_out.get("confianza"),
+        },
+        "tecnica_mitre": alerta.get("mitre", []) or [],
+        "accion_sugerida": accion_prop,
+    }
+
 def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto, perfil_nombre, filtro_out, version_perfil):
     return {
         "id_decision": id_decision,
@@ -12,6 +30,7 @@ def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto
         "prioridad": analisis_out.get("prioridad"),
         "confianza": analisis_out.get("confianza"),
         "justificacion": analisis_out.get("justificacion"),
+        "justificacion_estructurada": justificacion_estructurada(alerta, analisis_out, accion_prop),
         "accion_propuesta": accion_prop,
         "impacto": impacto,
         "perfil_aplicado": perfil_nombre,
