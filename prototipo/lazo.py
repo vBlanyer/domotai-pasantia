@@ -1,9 +1,11 @@
 """Orquestador del lazo en vivo: decisión (5A) -> validación -> orden -> conector -> verificación -> traza."""
 import json, os, sys, yaml
-from prototipo import triaje, orden as ordenm, conector, validacion, verificacion, perfil as perfilm, catalogo as catm
+from prototipo import triaje, orden as ordenm, conector, validacion, verificacion, perfil as perfilm, catalogo as catm, analisis
 
-def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp, leer=input):
-    decision = triaje.procesar(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp)
+def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp,
+                  leer=input, justificar_fn=analisis.justificar):
+    decision = triaje.procesar(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
+                               justificar_fn=justificar_fn)
     veredicto, clase_reclasificada = None, None
     if decision.get("requiere_humano"):
         v = validacion.pedir(decision, alerta, leer=leer)

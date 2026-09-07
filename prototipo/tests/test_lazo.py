@@ -33,6 +33,17 @@ class TestLazo(unittest.TestCase):
         self.assertEqual(r["veredicto_humano"], "rechazar")
         self.assertIsNone(r["ejecucion"])          # rechazada -> no se ejecuta
 
+    def test_procesar_lazo_propaga_justificar_fn_a_la_traza(self):
+        # el justificador inyectado (dict) fluye a la traza (RF-09): version + pasajes.
+        def just_dict(a, c, cl):
+            return {"texto": "TEXTO-LLM", "version_justificador": "llm-1b-0:m.gguf", "pasajes_usados": ["p1"]}
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                               lazo._EjecutorAuto(), "d5", "t", leer=lambda *_: "rechazar",
+                               justificar_fn=just_dict)
+        self.assertEqual(r["justificacion"], "TEXTO-LLM")
+        self.assertEqual(r["version_justificador"], "llm-1b-0:m.gguf")
+        self.assertEqual(r["pasajes_usados"], ["p1"])
+
     def test_lazo_reclasificar_registra_la_clase_y_no_ejecuta(self):
         # RF-08: "reclasificar" retiene sin ejecutar y registra la clase corregida como feedback (RF-12).
         a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"
