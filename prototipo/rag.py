@@ -69,6 +69,22 @@ def recuperar(consulta, indice, embedder, k=3):
     puntuados = sorted(indice, key=lambda d: _coseno(q, d["vector"]), reverse=True)
     return [{c: d[c] for c in d if c != "vector"} for d in puntuados[:k]]
 
+def consultar_conocimiento(alerta, indice, embedder, generador=None, k=3):
+    """Herramienta de conocimiento (Opcion C): decide la consulta (agentica si hay generador) y
+    recupera. Devuelve {consulta, agentica, pasajes}. Con generador=None es la recuperacion fija."""
+    if generador is not None:
+        ca = consulta_agentica(alerta, generador)
+    else:
+        ca = {"consulta": construir_consulta(alerta), "agentica": False}
+    pasajes = recuperar(ca["consulta"], indice, embedder, k=k)
+    return {"consulta": ca["consulta"], "agentica": ca["agentica"], "pasajes": pasajes}
+
+def recuperar_fn_agentico(indice, embedder, generador=None, k=3):
+    """Un recuperar_fn `alerta -> {consulta, agentica, pasajes}` para el justificador y el agente."""
+    def _fn(alerta):
+        return consultar_conocimiento(alerta, indice, embedder, generador=generador, k=k)
+    return _fn
+
 BINARIO = os.environ.get("LLAMA_EMBED_BIN",
                          os.path.expanduser("~/miniforge3/envs/triaje-ml/bin/llama-embedding"))
 MODELO = os.environ.get("LLAMA_MODELO", "modelos/llama-3.2-1b-q4.gguf")

@@ -57,6 +57,37 @@ class TestConsultaAgentica(unittest.TestCase):
         self.assertFalse(r["agentica"])
 
 
+class TestConsultarConocimiento(unittest.TestCase):
+    ALERTA = {"regla_id": "5760", "mitre": ["T1110.001"], "servicio": "ssh"}
+
+    def _indice_falso(self):
+        def emb(textos):
+            return [[1.0 if "d3" in t.lower() else 0.0, 1.0 if "5760" in t else 0.0] for t in textos]
+        corpus = [{"id": "d3fend-D3-ITF", "tipo": "d3fend", "titulo": "D3-ITF", "texto": "D3-ITF filtrado entrante"},
+                  {"id": "regla-5760", "tipo": "regla", "titulo": "5760", "texto": "regla 5760 fallo ssh"}]
+        return rag.indexar(corpus, emb), emb
+
+    def test_con_generador_es_agentica_y_devuelve_pasajes(self):
+        indice, emb = self._indice_falso()
+        gen = lambda p: "Busqueda: contramedida D3 filtrado entrante"
+        r = rag.consultar_conocimiento(self.ALERTA, indice, emb, generador=gen, k=1)
+        self.assertTrue(r["agentica"])
+        self.assertEqual(len(r["pasajes"]), 1)
+        self.assertEqual(r["pasajes"][0]["id"], "d3fend-D3-ITF")   # la consulta agentica trae D3FEND
+
+    def test_sin_generador_usa_consulta_fija(self):
+        indice, emb = self._indice_falso()
+        r = rag.consultar_conocimiento(self.ALERTA, indice, emb, generador=None, k=2)
+        self.assertFalse(r["agentica"])
+        self.assertEqual(r["consulta"], rag.construir_consulta(self.ALERTA))
+
+    def test_recuperar_fn_agentico_devuelve_dict(self):
+        indice, emb = self._indice_falso()
+        fn = rag.recuperar_fn_agentico(indice, emb, generador=None, k=1)
+        r = fn(self.ALERTA)
+        self.assertIn("pasajes", r); self.assertIn("consulta", r); self.assertIn("agentica", r)
+
+
 class TestLogica(unittest.TestCase):
     def test_consulta_solo_campos_estructurados(self):
         alerta = {"regla_id":"5760","mitre":["T1110.001","T1021.004"],"servicio":"ssh",
