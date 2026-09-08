@@ -19,6 +19,18 @@ class TestCorpus(unittest.TestCase):
         corpus = {d["id"]: d for d in rag.cargar_corpus(RUTA_CORPUS)}
         self.assertIn("fallo de autenticacion", corpus["regla-5760"]["texto"].lower())
 
+class TestCorpusV2(unittest.TestCase):
+    def test_corpus_incluye_d3fend_y_mapeo_a_accion(self):
+        corpus = rag.cargar_corpus(RUTA_CORPUS)
+        tipos = {d["tipo"] for d in corpus}
+        self.assertIn("d3fend", tipos)          # contramedidas defensivas
+        self.assertIn("mapeo", tipos)           # tecnica -> contramedida -> accion
+        mapeos = " ".join(d["texto"] for d in corpus if d["tipo"] == "mapeo")
+        self.assertIn("BLOQUEAR_IP", mapeos)    # el mapeo nombra una accion del catalogo
+        d3 = " ".join(d["texto"] for d in corpus if d["tipo"] == "d3fend")
+        self.assertIn("D3-", d3)                 # identificadores D3FEND
+
+
 class TestLogica(unittest.TestCase):
     def test_consulta_solo_campos_estructurados(self):
         alerta = {"regla_id":"5760","mitre":["T1110.001","T1021.004"],"servicio":"ssh",
