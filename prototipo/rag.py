@@ -40,15 +40,18 @@ def _limpiar_consulta(texto):
     return ""
 
 def consulta_agentica(alerta, generador, fallback=construir_consulta):
-    """Paso de consulta agentico (1 salto): el modelo decide QUE recuperar. Degrada a la consulta
-    fija (RNF-09) si la salida es vacia o trae IPs inventadas (RNF-08/anclaje). Marca `agentica`."""
+    """Paso de consulta agentico (1 salto): el modelo decide QUE anadir a la busqueda. **Aumenta** la
+    consulta fija (conserva los anclajes estructurados) con la aportacion del modelo, para que nunca sea
+    peor que la fija — un 1B formula consultas debiles. Degrada a la fija (RNF-09) si la salida es vacia
+    o trae IPs inventadas (RNF-08/anclaje). Marca `agentica`."""
+    base = fallback(alerta)
     try:
         q = _limpiar_consulta(generador(construir_prompt_consulta(alerta)))
     except Exception:
         q = ""
     if q and not _IP.search(q):
-        return {"consulta": q, "agentica": True}
-    return {"consulta": fallback(alerta), "agentica": False}
+        return {"consulta": f"{base} {q}".strip(), "agentica": True}
+    return {"consulta": base, "agentica": False}
 
 def _coseno(a, b):
     na = math.sqrt(sum(x * x for x in a))

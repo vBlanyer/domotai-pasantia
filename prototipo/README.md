@@ -462,6 +462,34 @@ y matices honestos (recuperación imprecisa en el ID exacto, el 1B parafrasea lo
 Un modelo de embeddings dedicado y un LLM mayor son el trabajo futuro; la interfaz ya lo permite sin
 tocar el motor.
 
+### 10.bis RAG agéntico (Opción C) — consulta que decide, corpus ATT&CK+D3FEND
+
+Recomendación del tutor: que el RAG *"tenga un agente / no sea determinista"*. Se implementó como un
+**paso de consulta agéntico de un salto, registrado y degradable**, sin sacrificar auditabilidad:
+
+- **Corpus v2 (ATT&CK + D3FEND):** además de las fichas ATT&CK, el corpus (17 fichas) añade contramedidas
+  **D3FEND** (`D3-NTF` filtrado de tráfico, `D3-ITF` filtrado entrante, `D3-AL` bloqueo de cuenta, `D3-NI`
+  aislamiento de red — verificadas contra [d3fend.mitre.org](https://d3fend.mitre.org/)) y fichas de
+  **mapeo** que encadenan *técnica ofensiva → contramedida D3FEND → acción del catálogo* (p. ej.
+  `T1110.001 → D3-ITF/D3-NTF → BLOQUEAR_IP`). Así la justificación explica la contramedida, no solo el ataque.
+- **Consulta agéntica** (`rag.consulta_agentica`): el 1B decide **qué añadir** a la búsqueda; se **aumenta**
+  la consulta fija (conserva los anclajes estructurados, RNF-08) con la aportación del modelo — nunca es
+  peor que la fija. Si la salida es vacía o inventa IPs, **degrada** a la consulta fija (RNF-09). Corre a
+  temp 0 y **cada consulta y sus pasajes quedan en la traza** (`consulta_rag`, `recuperacion_agentica`,
+  `pasajes_usados`) → **reproducible dado el input (RNF-03)**.
+- **Herramienta reutilizable** (`rag.consultar_conocimiento` / `recuperar_fn_agentico`): la misma pieza que
+  usa el justificador es la herramienta read-only `consultar_conocimiento` del **agente de mitigación**
+  (un agente, un RAG, el conocimiento ATT&CK+D3FEND). Con `generador=None` es la recuperación fija de hoy.
+- **La decisión sigue determinista (RF-15):** D3FEND **explica y sugiere** la contramedida; la acción la
+  elige el catálogo cerrado + política, no el modelo.
+
+**Medido (verificación en vivo con el 1B real):** el corpus D3FEND **es recuperable** con una consulta
+orientada a la contramedida (una ficha de mapeo D3FEND aparece en el top-3). **Límite honesto:** el 1B
+formula consultas **débiles** (p. ej. *"identificar la regla 5760"*), así que por sí solo no explota del
+todo D3FEND; por eso se **aumenta** la consulta fija en vez de reemplazarla (garantía de no-regresión), y
+la recuperación mejora con una consulta más dirigida —como la que hará el agente de mitigación al citar la
+técnica— o con un modelo mayor.
+
 ## 11. Ingesta y normalización (RF-01)
 
 El punto de entrada del prototipo: lee las alertas de la fuente del cliente y las lleva al **esquema

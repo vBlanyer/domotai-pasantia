@@ -124,6 +124,17 @@ python3 -m prototipo.rag --consulta "regla 5760 tecnicas MITRE T1110.001 servici
 
 Esperado: los pasajes más cercanos por coseno (fichas de las reglas SSH / técnicas MITRE).
 
+El corpus incluye ahora contramedidas **D3FEND** y fichas de mapeo *técnica → contramedida → acción* (RAG
+agéntico, Opción C). Pruébalo con una consulta orientada a la defensa:
+
+```bash
+python3 -m prototipo.rag --consulta "contramedida defensiva D3FEND filtrado de trafico ante fuerza bruta SSH"
+```
+
+La **consulta agéntica** (el 1B decide qué añadir a la búsqueda, aumentando la consulta fija) se ejerce
+al justificar con `rag.recuperar_fn_agentico(...)`; la traza registra `consulta_rag` y
+`recuperacion_agentica` (RNF-03). Si el modelo no está, degrada a la consulta fija sin romper.
+
 ---
 
 ## Nivel 3 · La demo en vivo, de punta a punta (laboratorio + modelo)

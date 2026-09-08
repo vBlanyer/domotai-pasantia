@@ -62,14 +62,14 @@ class TestConsultarConocimiento(unittest.TestCase):
 
     def _indice_falso(self):
         def emb(textos):
-            return [[1.0 if "d3" in t.lower() else 0.0, 1.0 if "5760" in t else 0.0] for t in textos]
+            return [[1.0 if "d3-itf" in t.lower() else 0.0, 1.0 if "fallo" in t.lower() else 0.0] for t in textos]
         corpus = [{"id": "d3fend-D3-ITF", "tipo": "d3fend", "titulo": "D3-ITF", "texto": "D3-ITF filtrado entrante"},
                   {"id": "regla-5760", "tipo": "regla", "titulo": "5760", "texto": "regla 5760 fallo ssh"}]
         return rag.indexar(corpus, emb), emb
 
     def test_con_generador_es_agentica_y_devuelve_pasajes(self):
         indice, emb = self._indice_falso()
-        gen = lambda p: "Busqueda: contramedida D3 filtrado entrante"
+        gen = lambda p: "Busqueda: contramedida D3-ITF filtrado entrante"
         r = rag.consultar_conocimiento(self.ALERTA, indice, emb, generador=gen, k=1)
         self.assertTrue(r["agentica"])
         self.assertEqual(len(r["pasajes"]), 1)
