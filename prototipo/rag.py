@@ -1,5 +1,7 @@
 """RAG local para el justificador: corpus curado + recuperacion semantica por embeddings."""
-import json, math, os, subprocess, tempfile
+import json, math, os, re, subprocess, tempfile
+
+_IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 
 RUTA_CORPUS = os.path.join(os.path.dirname(__file__), "corpus", "corpus.jsonl")
 
@@ -17,6 +19,36 @@ def construir_consulta(alerta):
     # SOLO campos estructurados (RNF-08): nunca el full_log/evento_crudo.
     return (f"regla {alerta.get('regla_id')} tecnicas MITRE {mitre} "
             f"servicio {alerta.get('servicio')}").strip()
+
+def construir_prompt_consulta(alerta):
+    """Prompt del paso agentico: pide UNA linea de busqueda desde campos estructurados (RNF-08)."""
+    mitre = ", ".join(alerta.get("mitre", []) or ["s/tecnica"])
+    return ("Eres un analista. Formula UNA linea de busqueda para recuperar conocimiento defensivo "
+            "sobre esta alerta, citando SOLO estos datos y, si aplica, la contramedida D3FEND. "
+            "No inventes IPs ni datos.\n"
+            f"Datos: regla {alerta.get('regla_id')}, tecnicas MITRE {mitre}, servicio {alerta.get('servicio')}.\n"
+            "Busqueda:")
+
+def _limpiar_consulta(texto):
+    t = texto or ""
+    if "Busqueda:" in t:                     # quedarse con lo generado tras el prompt
+        t = t.split("Busqueda:", 1)[-1]
+    for linea in t.splitlines():
+        linea = linea.strip()
+        if linea:
+            return linea
+    return ""
+
+def consulta_agentica(alerta, generador, fallback=construir_consulta):
+    """Paso de consulta agentico (1 salto): el modelo decide QUE recuperar. Degrada a la consulta
+    fija (RNF-09) si la salida es vacia o trae IPs inventadas (RNF-08/anclaje). Marca `agentica`."""
+    try:
+        q = _limpiar_consulta(generador(construir_prompt_consulta(alerta)))
+    except Exception:
+        q = ""
+    if q and not _IP.search(q):
+        return {"consulta": q, "agentica": True}
+    return {"consulta": fallback(alerta), "agentica": False}
 
 def _coseno(a, b):
     na = math.sqrt(sum(x * x for x in a))

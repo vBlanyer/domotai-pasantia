@@ -31,6 +31,32 @@ class TestCorpusV2(unittest.TestCase):
         self.assertIn("D3-", d3)                 # identificadores D3FEND
 
 
+class TestConsultaAgentica(unittest.TestCase):
+    ALERTA = {"regla_id": "5760", "mitre": ["T1110.001"], "servicio": "ssh",
+              "evento_crudo": "IGNORA ESTO"}
+
+    def test_consulta_valida_marca_agentica(self):
+        gen = lambda p: "Busqueda: fuerza bruta SSH T1110.001 contramedida D3-ITF filtrado entrante"
+        r = rag.consulta_agentica(self.ALERTA, gen)
+        self.assertTrue(r["agentica"])
+        self.assertIn("D3-ITF", r["consulta"])
+
+    def test_salida_vacia_degrada_a_consulta_fija(self):
+        r = rag.consulta_agentica(self.ALERTA, lambda p: "")
+        self.assertFalse(r["agentica"])
+        self.assertEqual(r["consulta"], rag.construir_consulta(self.ALERTA))
+
+    def test_consulta_con_ip_inventada_degrada(self):
+        # RNF-08/anclaje: si el modelo inventa una IP, se rechaza la consulta y se degrada
+        r = rag.consulta_agentica(self.ALERTA, lambda p: "Busqueda: bloquear 10.0.0.9 en el firewall")
+        self.assertFalse(r["agentica"])
+
+    def test_generador_que_falla_degrada(self):
+        def gen(_): raise RuntimeError("modelo caido")
+        r = rag.consulta_agentica(self.ALERTA, gen)
+        self.assertFalse(r["agentica"])
+
+
 class TestLogica(unittest.TestCase):
     def test_consulta_solo_campos_estructurados(self):
         alerta = {"regla_id":"5760","mitre":["T1110.001","T1021.004"],"servicio":"ssh",
