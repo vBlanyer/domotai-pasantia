@@ -70,3 +70,14 @@ class TestVersionJustificadorTraza(unittest.TestCase):
         r = self._c({"clase": "no_soportada", "prioridad": 1, "confianza": 1.0, "justificacion": "x"})
         self.assertEqual(r["version_justificador"], "plantilla-0")
         self.assertEqual(r["pasajes_usados"], [])
+
+    def test_registra_consulta_rag_y_recuperacion_agentica(self):
+        r = self._c({"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 1.0, "justificacion": "x",
+                     "consulta_rag": "contramedida D3-ITF filtrado", "recuperacion_agentica": True})
+        self.assertEqual(r["consulta_rag"], "contramedida D3-ITF filtrado")
+        self.assertTrue(r["recuperacion_agentica"])
+
+    def test_default_sin_recuperacion_agentica(self):
+        r = self._c({"clase": "no_soportada", "prioridad": 1, "confianza": 1.0, "justificacion": "x"})
+        self.assertEqual(r["consulta_rag"], "")
+        self.assertFalse(r["recuperacion_agentica"])

@@ -36,3 +36,13 @@ class TestJustificarFn(unittest.TestCase):
         self.assertEqual(r["justificacion"], "TEXTO")
         self.assertEqual(r["version_justificador"], "llm-1b-0:modelo.gguf")
         self.assertEqual(r["pasajes_usados"], ["p1"])
+
+    def test_procesar_registra_consulta_rag_agentica(self):
+        def just_dict(a, c, cl):
+            return {"texto": "TEXTO", "version_justificador": "llm-1b-0:m.gguf",
+                    "pasajes_usados": ["d3fend-D3-ITF"], "consulta_usada": "D3-ITF filtrado",
+                    "recuperacion_agentica": True}
+        r = triaje.procesar(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                            id_decision="d4", timestamp="t", justificar_fn=just_dict)
+        self.assertEqual(r["consulta_rag"], "D3-ITF filtrado")
+        self.assertTrue(r["recuperacion_agentica"])

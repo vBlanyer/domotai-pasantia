@@ -33,6 +33,8 @@ def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto
         "justificacion_estructurada": justificacion_estructurada(alerta, analisis_out, accion_prop),
         "version_justificador": analisis_out.get("version_justificador", "plantilla-0"),  # RF-09/RNF-03
         "pasajes_usados": analisis_out.get("pasajes_usados", []),
+        "consulta_rag": analisis_out.get("consulta_rag", ""),                    # Opcion C (RNF-03)
+        "recuperacion_agentica": analisis_out.get("recuperacion_agentica", False),
         "accion_propuesta": accion_prop,
         "impacto": impacto,
         "perfil_aplicado": perfil_nombre,
