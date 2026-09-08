@@ -62,17 +62,26 @@ def justificar_llm(alerta, contexto, clase, generador, fallback=analisis.justifi
             "anclaje_verificado": True, "version_justificador": "plantilla-0"}
 
 def justificar_con_rag(alerta, contexto, clase, generador, recuperar_fn, fallback=analisis.justificar):
-    pasajes = recuperar_fn(alerta) or []
+    # recuperar_fn puede devolver una lista de pasajes (legado) o un dict {consulta, agentica, pasajes}
+    # (Opcion C, recuperacion agentica): se normaliza y se registra la consulta usada (RNF-03).
+    rec = recuperar_fn(alerta) or []
+    if isinstance(rec, dict):
+        pasajes = rec.get("pasajes", []) or []
+        consulta_usada, recuperacion_agentica = rec.get("consulta", ""), bool(rec.get("agentica"))
+    else:
+        pasajes, consulta_usada, recuperacion_agentica = rec, "", False
     try:
         texto = (generador(construir_prompt(alerta, contexto, clase, pasajes)) or "").strip()
     except Exception:
         texto = ""
     ids = [p["id"] for p in pasajes]
+    meta = {"pasajes_usados": ids, "consulta_usada": consulta_usada,
+            "recuperacion_agentica": recuperacion_agentica}
     if texto and verificar_anclaje(texto, alerta):
         return {"texto": texto, "justificador": "llm", "anclaje_verificado": True,
-                "pasajes_usados": ids, "version_justificador": _version_llm()}
+                "version_justificador": _version_llm(), **meta}
     return {"texto": fallback(alerta, contexto, clase), "justificador": "plantilla",
-            "anclaje_verificado": True, "pasajes_usados": ids, "version_justificador": "plantilla-0"}
+            "anclaje_verificado": True, "version_justificador": "plantilla-0", **meta}
 
 def adaptador(generador, fallback=analisis.justificar):
     def _fn(alerta, contexto, clase):

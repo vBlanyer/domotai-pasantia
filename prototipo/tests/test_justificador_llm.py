@@ -99,6 +99,23 @@ class TestRAG(unittest.TestCase):
         self.assertEqual(r["justificador"], "llm")
         self.assertEqual(r["pasajes_usados"], ["regla-5760", "mitre-T1110.001"])
 
+    def test_registra_consulta_y_agentica_desde_un_recuperar_fn_dict(self):
+        # Opcion C: recuperar_fn devuelve {consulta, agentica, pasajes} -> se registra en la traza (RNF-03)
+        gen = lambda prompt: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
+        recuperar_fn = lambda a: {"consulta": "contramedida D3-ITF filtrado", "agentica": True,
+                                  "pasajes": [{"id": "d3fend-D3-ITF", "titulo": "D3-ITF", "texto": "filtrado"}]}
+        r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen, recuperar_fn)
+        self.assertEqual(r["pasajes_usados"], ["d3fend-D3-ITF"])
+        self.assertEqual(r["consulta_usada"], "contramedida D3-ITF filtrado")
+        self.assertTrue(r["recuperacion_agentica"])
+
+    def test_recuperar_fn_lista_legado_no_es_agentica(self):
+        gen = lambda prompt: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
+        recuperar_fn = lambda a: [{"id": "regla-5760", "titulo": "5760", "texto": "fallo SSH"}]
+        r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen, recuperar_fn)
+        self.assertFalse(r["recuperacion_agentica"])
+        self.assertEqual(r["consulta_usada"], "")
+
     def test_justificar_con_rag_degrada_si_falla_el_generador(self):
         def gen_falla(prompt): raise RuntimeError("subprocess muerto")
         recuperar_fn = lambda alerta: []
