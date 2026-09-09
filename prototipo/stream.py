@@ -195,7 +195,10 @@ def construir_justificar_fn(con_llm, escribir=print):
     try:
         from prototipo import justificador_llm, rag
         indice = rag.cargar_indice()
-        recuperar_fn = lambda a: rag.recuperar(rag.construir_consulta(a), indice, rag.embedder_llama, k=3)
+        # RAG AGÉNTICO (Opción C): la consulta la decide el 1B y se excluyen las fichas regla-* del
+        # conocimiento (palanca 3). La traza registra consulta_rag/recuperacion_agentica/pasajes_usados.
+        recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_llama,
+                                                 generador=justificador_llm.generador_llama, k=3)
         return justificador_llm.justificar_fn_rag(justificador_llm.generador_llama, recuperar_fn)
     except Exception as e:                          # sin indice/modelo -> degradar a plantilla (RNF-09)
         escribir(f"[aviso] justificador LLM/RAG no disponible ({e}); se usara la plantilla.")
