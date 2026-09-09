@@ -52,5 +52,16 @@ class TestSintesis(unittest.TestCase):
         self.assertAlmostEqual(res["tasa_termino"], 0.5)     # a cita 5760, b no
 
 
+class TestInforme(unittest.TestCase):
+    def _agg(self, mrr, h, p):
+        return {"agregado": {"mrr": mrr, "por_k": {k: {"hit_rate": h, "precision": p} for k in (1, 3, 5)}}}
+
+    def test_formatear_incluye_metricas_y_columnas(self):
+        md = sim.formatear_informe(self._agg(0.5, 0.4, 0.4), self._agg(0.6, 0.5, 0.5),
+                                   {"tasa_anclaje": 0.83, "tasa_termino": 0.5, "n": 12})
+        for frag in ("Hit Rate@1", "Precision@3", "MRR", "Fija", "Agéntica", "anclaje"):
+            self.assertIn(frag, md)
+
+
 if __name__ == "__main__":
     unittest.main()
