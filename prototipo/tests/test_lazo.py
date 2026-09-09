@@ -56,6 +56,29 @@ class TestLazo(unittest.TestCase):
         self.assertIsNone(r["orden"])
 
 
+class TestMitigarFn(unittest.TestCase):
+    def test_delega_al_agente_cuando_hay_accion(self):
+        # vp con accion_final -> se llama a mitigar_fn (agente), no al conector; la traza lleva el plan
+        llamadas = []
+        def mitigar(decision, alerta, leer):
+            llamadas.append(decision["clase"])
+            return {"resultado": "mitigado", "escalado": True, "dispositivo_ejecutor": "gateway"}
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                               ejecutor_ok, "d1", "t", mitigar_fn=mitigar)
+        self.assertEqual(llamadas, ["vp_intento_acceso"])          # el agente decidió
+        self.assertEqual(r["mitigacion_agente"]["dispositivo_ejecutor"], "gateway")
+        self.assertIsNone(r["ejecucion"])                          # no pasó por el conector
+
+    def test_no_llama_al_agente_si_no_hay_accion(self):
+        # alerta fuera de perímetro -> no_soportada -> accion_final None -> el agente NO se invoca
+        a = dict(j("alerta_vp.json")); a["familia"] = "plataforma"
+        llamado = []
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, ejecutor_ok,
+                               "d2", "t", mitigar_fn=lambda *args: llamado.append(1))
+        self.assertEqual(llamado, [])
+        self.assertNotIn("mitigacion_agente", r)
+
+
 class TestEjecutorAuto(unittest.TestCase):
     def test_ejecutor_auto_confirma_verificacion_tras_aplicar(self):
         ej = lazo._EjecutorAuto()

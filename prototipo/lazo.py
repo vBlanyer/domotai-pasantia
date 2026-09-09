@@ -3,9 +3,15 @@ import json, os, sys, yaml
 from prototipo import triaje, orden as ordenm, conector, validacion, verificacion, perfil as perfilm, catalogo as catm, analisis
 
 def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp,
-                  leer=input, justificar_fn=analisis.justificar):
+                  leer=input, justificar_fn=analisis.justificar, mitigar_fn=None):
     decision = triaje.procesar(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
                                justificar_fn=justificar_fn)
+    # Modo agente: si hay contención que aplicar, delega la mitigación al agente ReAct, que decide la
+    # estrategia, ESCALA de dispositivo y aprueba POR PASO (RF-08). El daemon no hace su prompt único.
+    if mitigar_fn is not None and decision.get("accion_final"):
+        plan = mitigar_fn(decision, alerta, leer)
+        return {**decision, "veredicto_humano": None, "clase_reclasificada": None,
+                "mitigacion_agente": plan, "orden": None, "ejecucion": None, "verificacion": None}
     veredicto, clase_reclasificada = None, None
     if decision.get("requiere_humano"):
         v = validacion.pedir(decision, alerta, leer=leer)
