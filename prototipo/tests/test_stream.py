@@ -118,5 +118,32 @@ class TestCLI(unittest.TestCase):
         self.assertIn("2", s); self.assertIn("Incidentes", s)
 
 
+class TestLecturaInteractiva(unittest.TestCase):
+    def test_lee_del_tty_cuando_existe(self):
+        # el analista responde por /dev/tty (teclado), no por stdin (el pipe de alertas)
+        import builtins
+        orig = builtins.open
+        fake = io.StringIO("aprobar\n")
+        builtins.open = lambda p, *a, **k: fake if p == "/dev/tty" else orig(p, *a, **k)
+        try:
+            leer = stream._leer_interactivo()
+            self.assertEqual(leer("¿aprobar/rechazar? "), "aprobar")
+        finally:
+            builtins.open = orig
+
+    def test_cae_a_input_si_no_hay_tty(self):
+        import builtins
+        orig = builtins.open
+        def fake(p, *a, **k):
+            if p == "/dev/tty":
+                raise OSError("no tty")
+            return orig(p, *a, **k)
+        builtins.open = fake
+        try:
+            self.assertIs(stream._leer_interactivo(), input)   # sin terminal -> input estándar
+        finally:
+            builtins.open = orig
+
+
 if __name__ == "__main__":
     unittest.main()

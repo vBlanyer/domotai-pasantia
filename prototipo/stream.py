@@ -201,6 +201,24 @@ def _resumen_final(r):
             f"  Aprobadas: {r['aprobadas']} · Rechazadas: {r['rechazadas']} · "
             f"Reclasificadas: {r['reclasificadas']} · Ejecutadas: {r['ejecutadas']}")
 
+def _leer_interactivo():
+    """Lector de la respuesta del ANALISTA desde el terminal de control (/dev/tty), no de stdin.
+    Imprescindible cuando las alertas llegan por stdin (pipe `… tail -F | stream -`): si se leyera de
+    stdin, el input() consumiría líneas de alerta como si fueran la respuesta. Cae a input() si no hay
+    tty (tests/CI/background)."""
+    try:
+        tty = open("/dev/tty")
+    except OSError:
+        return input
+    def _leer(prompt=""):
+        if prompt:
+            print(prompt, end="", flush=True)
+        linea = tty.readline()
+        if not linea:
+            raise EOFError
+        return linea.rstrip("\n")
+    return _leer
+
 def main(argv):
     from prototipo import perfil as perfilm, catalogo as catm, conector
     cfg = parsear_args(argv)
@@ -219,7 +237,7 @@ def main(argv):
         with open(cfg["salida"], "a", encoding="utf-8") as traza_f:
             resumen = ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                                justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
-                               salida_traza=traza_f)
+                               salida_traza=traza_f, leer=_leer_interactivo())
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))

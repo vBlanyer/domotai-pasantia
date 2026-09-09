@@ -83,24 +83,31 @@ al analista**.
 
 **En vivo, dos terminales** (para *ver* el prompt y elegir la acción):
 
-*Terminal A — el daemon escuchando, con un auditor que aún no perfiló el activo* (`nodos: {}`):
+*Terminal A — el daemon escuchando, con un auditor que aún no perfiló el activo* (`nodos: {}`). La ventana
+de agrupación amplia (15 s) hace que la ráfaga completa se colapse en **un solo incidente → un solo prompt**:
 ```bash
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
   | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml \
-      lab/campañas/hallazgos-sin-perfilar.json --sin-lab --ventana-agrupacion 5
+      lab/campañas/hallazgos-sin-perfilar.json --sin-lab --ventana-agrupacion 15
 ```
 
-*Terminal B — el ataque real (atacante .10 → víctima .30):*
+*Terminal B — el ataque real (una ráfaga corta; atacante .10 → víctima .30):*
 ```bash
-for i in $(seq 1 8); do
+for i in $(seq 1 4); do
   docker exec clab-red-cliente-puesto sh -c "sshpass -p mal_$i ssh -o StrictHostKeyChecking=no \
     -o ConnectTimeout=4 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAuthentication=no \
     -o PreferredAuthentications=password msfadmin@192.168.1.30 id 2>/dev/null"; done
 ```
 
 A los pocos segundos, en la Terminal A el daemon emite el incidente, muestra `Confianza: 0.5 · filtro veta`
-y abre el prompt: escribe `aprobar`, `rechazar` o `reclasificar` y observa el resultado. (Con `--sin-lab` la
-ejecución es simulada; quita `--sin-lab` para que `aprobar` bloquee de verdad por SSH.)
+y abre el prompt: **escribe `aprobar`, `rechazar` o `reclasificar` con el teclado** (el daemon lee tu
+respuesta del terminal, `/dev/tty`, no del flujo de alertas) y observa el resultado. Con `--sin-lab` la
+ejecución es simulada; quita `--sin-lab` para que `aprobar` bloquee de verdad por SSH.
+
+> **Prompt limpio:** usa una **ráfaga corta** (≈4 intentos) y una **ventana ≥ 15 s** para que toda la ráfaga
+> caiga en un solo incidente. Un ataque **sostenido** genera legítimamente varios incidentes: el daemon es de
+> un solo hilo, así que mientras esperas tu veredicto las alertas nuevas se acumulan y, al responder, procesa
+> el siguiente incidente (otro prompt). Es correcto, pero para *ver* el flujo una vez, ráfaga corta.
 
 **Por inyección** (sin lab, para un vistazo rápido; se pipea `rechazar` para no colgar):
 ```bash
