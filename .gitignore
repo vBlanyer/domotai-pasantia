@@ -12,3 +12,7 @@ __pycache__/
 
 # Modelos de ML (grandes, se descargan aparte)
 modelos/
+
+# Fuentes crudas del corpus RAG (bundles STIX grandes, se descargan aparte).
+# El corpus curado (corpus.jsonl) y el README de fuentes SI se versionan.
+prototipo/corpus/fuentes/*.json
