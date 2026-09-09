@@ -7,7 +7,11 @@
 #   sh lab/lab.sh test    ejecuta la prueba de humo de extremo a extremo
 set -e
 HERE=$(dirname "$0")
-TOPO="$HERE/topologias/red-cliente.clab.yml"
+# Segundo argumento = topologia (default red-cliente). Todas conservan name: red-cliente,
+# asi que los contenedores mantienen el prefijo clab-red-cliente-* que usan los scripts.
+#   sh lab/lab.sh up [topologia]     p. ej. red-cliente-firewall (escalada host->firewall real)
+TOPOLOGIA="${2:-red-cliente}"
+TOPO="$HERE/topologias/${TOPOLOGIA}.clab.yml"
 
 case "${1:-up}" in
   up)

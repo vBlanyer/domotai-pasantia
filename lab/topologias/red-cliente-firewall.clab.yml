@@ -1,0 +1,97 @@
+# Sandbox — variante con FIREWALL DE BORDE GESTIONABLE por SSH.
+#
+# Idéntica a red-cliente.clab.yml salvo el nodo `borde`, que aquí corre sshd + msfadmin
+# (como la víctima) para que el conector (ejecutor_ssh_lab, msfadmin@<ip> + sudo) pueda
+# empujar `iptables -A FORWARD -s <ip> -j DROP` al firewall -> ESCALADA host->firewall REAL
+# (en red-cliente esa escalada solo se demuestra simulada).
+#
+#   proveedor ──WAN── borde ──LAN── sw-lan ─┬─ puesto
+#                    (firewall SSH)          ├─ iot
+#                                            └─ objetivo-vuln
+#   auditor  (solo plano de gestion)
+#
+# name: red-cliente -> los contenedores conservan el prefijo clab-red-cliente-* que usan
+# los scripts, el conector y el perfil (topologia.gateway.ip = 192.168.1.1).
+#
+# Direccionamiento (igual que red-cliente):
+#   Acceso (WAN):  10.0.1.0/24    proveedor .1  borde .2
+#   LAN interna:   192.168.1.0/24 borde .1      puesto .10  iot .20  vuln .30
+#   Gestion:       172.20.20.0/24 (la crea containerlab sola)
+
+name: red-cliente
+
+topology:
+  defaults:
+    kind: linux
+    image: alpine:latest
+
+  nodes:
+    proveedor:
+      labels: {graph-icon: router, graph-group: "Proveedor", graph-level: 1}
+      sysctls: {net.ipv4.ip_forward: 1}
+      exec:
+        - ip addr add 10.0.1.1/24 dev eth1
+        - ip route add 192.168.1.0/24 via 10.0.1.2
+
+    borde:
+      labels: {graph-icon: router, graph-group: "Red del cliente", graph-level: 2}
+      mgmt-ipv4: 172.20.20.100
+      sysctls: {net.ipv4.ip_forward: 1}
+      exec:
+        - ip addr add 10.0.1.2/24 dev eth1
+        - ip addr add 192.168.1.1/24 dev eth2
+        # Firewall gestionable: sshd + msfadmin (para el ejecutor del conector -> escalada real).
+        # Mismo patron de aprovisionamiento que el auditor/atacante (apk, ya validado).
+        - apk add --no-cache openssh sshpass sudo iptables
+        - sh -c 'adduser -D msfadmin 2>/dev/null; echo msfadmin:msfadmin | chpasswd'
+        - sh -c 'echo "msfadmin ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers'
+        - ssh-keygen -A
+        - sh -c '/usr/sbin/sshd'
+
+    sw-lan:
+      labels: {graph-icon: switch, graph-group: "Red del cliente", graph-level: 3}
+      exec:
+        - ip link add br0 type bridge
+        - ip link set eth1 master br0
+        - ip link set eth2 master br0
+        - ip link set eth3 master br0
+        - ip link set eth4 master br0
+        - ip link set br0 up
+
+    puesto:
+      labels: {graph-icon: pc, graph-group: "Red del cliente", graph-level: 4}
+      exec:
+        - ip addr add 192.168.1.10/24 dev eth1
+        - ip route add 10.0.1.0/24 via 192.168.1.1
+
+    iot:
+      labels: {graph-icon: server, graph-group: "Red del cliente", graph-level: 4}
+      exec:
+        - ip addr add 192.168.1.20/24 dev eth1
+        - ip route add 10.0.1.0/24 via 192.168.1.1
+        - apk add --no-cache busybox-extras darkhttpd
+        - mkdir -p /www
+        - sh -c 'echo "<html><head><title>IPCam-2000 Admin</title></head><body><h1>IPCam-2000</h1><p>Firmware v1.0.3 (2016-04-11)</p><form><input name=user value=admin><input name=pass type=password><button>Entrar</button></form></body></html>" > /www/index.html'
+        - telnetd -l /bin/sh -p 23
+        - darkhttpd /www --port 80 --daemon
+
+    objetivo-vuln:
+      labels: {graph-icon: server, graph-group: "Red del cliente", graph-level: 4}
+      image: tleemcjr/metasploitable2:latest
+      exec:
+        - ip addr add 192.168.1.30/24 dev eth1
+        - ip route add 10.0.1.0/24 via 192.168.1.1
+
+    auditor:
+      labels: {graph-icon: controller, graph-group: "Gestion", graph-level: 1}
+      exec:
+        - apk add --no-cache nmap nmap-scripts
+        - ip route add 192.168.1.0/24 via 172.20.20.100
+        - ip route add 10.0.1.0/24 via 172.20.20.100
+
+  links:
+    - endpoints: ["proveedor:eth1", "borde:eth1"]
+    - endpoints: ["borde:eth2", "sw-lan:eth1"]
+    - endpoints: ["sw-lan:eth2", "puesto:eth1"]
+    - endpoints: ["sw-lan:eth3", "iot:eth1"]
+    - endpoints: ["sw-lan:eth4", "objetivo-vuln:eth1"]
