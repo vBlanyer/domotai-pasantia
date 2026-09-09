@@ -309,6 +309,59 @@ python3 lab/scripts/demo-agente-escalado.py --autonomo
 al firewall** (`BLOQUEAR_IP_FIREWALL`) → verifica el corte → registra ambas reversiones; `escalado: True`,
 `dispositivo ejecutor: gateway`.
 
+## 3.5 · Demo manual en vivo: monitoreo vs ataque (multi-terminal)
+
+Para la defensa práctica: un lado **monitorea/responde** y otro **ataca**, en terminales separadas. Tras
+`sh lab/lab.sh up` el atacante ya queda aprovisionado con cliente SSH (además del auditor).
+
+**Mapa del lab:** atacante `puesto` = **192.168.1.10** · víctima `objetivo-vuln` = **192.168.1.30** ·
+firewall `borde` = **192.168.1.1** · manager `wazuh`.
+
+### Terminal A — LADO DE MONITOREO (defensor)
+
+Elige **una** vista (o abre varias terminales):
+
+**A1 · Daemon MDR en tiempo real** (escucha Wazuh, triaja, responde):
+```bash
+docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
+    | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
+```
+
+**A2 · Alertas crudas de Wazuh** (ver lo que detecta el SIEM):
+```bash
+docker exec clab-red-cliente-wazuh tail -f /var/ossec/logs/alerts/alerts.json
+```
+
+**A3 · El bloqueo en la víctima** (ver aparecer la regla `iptables` cuando el motor responde):
+```bash
+watch -n2 "docker exec clab-red-cliente-objetivo-vuln iptables -L INPUT -n"
+```
+
+### Terminal B — LADO DE ATAQUE (atacante, .10)
+
+**B1 · Fuerza bruta SSH real** (dispara las alertas 5760/5712/5763 desde 192.168.1.10):
+```bash
+for i in $(seq 1 8); do
+  docker exec clab-red-cliente-puesto sh -c "sshpass -p mal_$i ssh -o StrictHostKeyChecking=no \
+    -o ConnectTimeout=4 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAuthentication=no \
+    -o PreferredAuthentications=password msfadmin@192.168.1.30 id 2>/dev/null"
+done
+```
+
+**B2 · Comprobar alcance del puerto 22** (antes = ALCANZABLE, después del bloqueo = BLOQUEADO):
+```bash
+docker exec clab-red-cliente-puesto sh -c "nc -z -w3 192.168.1.30 22 && echo ALCANZABLE || echo BLOQUEADO"
+```
+
+### Limpieza (dejar el lab neutro tras la práctica)
+```bash
+docker exec clab-red-cliente-objetivo-vuln iptables -D INPUT -s 192.168.1.10 -j DROP 2>/dev/null
+```
+
+> El flujo típico: en **A1** arranca el daemon → en **B1** lanza la fuerza bruta → el daemon emite el
+> incidente, justifica con RAG y pide **[Aprobar/Rechazar/Reclasificar]** → al aprobar, en **A3** ves la
+> regla `iptables` y en **B2** el puerto pasa a BLOQUEADO.
+
 ---
 
 ## Qué mirar en cada prueba
