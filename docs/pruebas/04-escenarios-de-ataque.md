@@ -19,23 +19,27 @@ familia), `rule.mitre.id`, `predecoder.hostname` (→ activo), `data.srcip` (→
 | Comportamiento | Familia / técnica (ejemplo) | Disparo | Qué observar en la traza |
 |---|---|---|---|
 | **A. Auto-bloqueo** | credenciales · T1110.001 | vivo (fuerza bruta SSH) o inyección | `permite`, `requiere_humano=false`, `Ejecutadas: 1` |
-| **B. Confirmación humana** | credenciales, activo sin postura | inyección | conf 0.5, `veta`, abre `[aprobar/rechazar/reclasificar]` |
+| **B. Confirmación humana** | credenciales, activo sin postura | **vivo** (hallazgos sin perfilar) o inyección | conf 0.5, `veta`, abre `[aprobar/rechazar/reclasificar]` |
 | **C. Escalada a firewall** | cualquiera, víctima inalcanzable | agente (`demo-agente-escalado.py`) | `BLOQUEAR_IP_FIREWALL`, `escalado: True` |
 | **D. Falso positivo** | admin declarado (origen legítimo) | **vivo** (ataque desde .1) o inyección | `fp_actividad_legitima`, sin acción |
 | **E. `no_soportada`** | fuera de perímetro | inyección | `no_soportada`, sin acción |
 
 **En vivo vs inyección (qué reproduce este lab):**
 
-- **A, C, D → en vivo.** A = fuerza bruta SSH a la víctima; C = el agente (host caído → firewall);
-  D = fuerza bruta **desde el borde** (.1, origen legítimo). Todos verificados contra el laboratorio.
-- **B, E → solo por inyección**, y no por capricho sino porque **este lab no los produce a demanda**:
-  - **B** (confianza 0.5) exige un activo **sin postura**; pero los 4 nodos del lab (`objetivo-vuln`,
-    `puesto`, `iot`, `borde`) están **todos** en los hallazgos del auditor, así que un ataque real siempre
-    cae sobre un activo "conocido" → confianza 1.0. No hay dónde disparar B en vivo aquí.
-  - **E** exige una alerta de **familia fuera de las 4**; Wazuh no dispara una a demanda en este lab (el
-    telnet al IoT no genera alerta; rootcheck/syscheck corren en su propio ciclo).
-  - La inyección es la vía **controlada** para verlos — es la fuente equivalente a que el SIEM del cliente
-    los entregue.
+- **A, B, C, D → en vivo.** A = fuerza bruta SSH a la víctima; B = la misma fuerza bruta pero con un
+  **auditor que aún no perfiló el activo** (hallazgos vacíos) → confianza 0.5 → prompt al analista;
+  C = el agente (host caído → firewall); D = fuerza bruta **desde el borde** (.1, origen legítimo). Todos
+  verificados contra el laboratorio.
+- **E → solo por inyección**, y no por capricho: exige una alerta de **familia fuera de las 4**, y Wazuh no
+  dispara una a demanda en este lab (el telnet al IoT no genera alerta; rootcheck/syscheck corren en su
+  propio ciclo). La inyección es la vía **controlada** — la fuente equivalente a que el SIEM del cliente la
+  entregue.
+
+> **Sobre B en vivo:** los 4 nodos del lab ya están en los hallazgos del auditor, así que un ataque normal da
+> confianza 1.0 (auto-bloqueo). Para provocar la **confianza 0.5** se le pasa al daemon un hallazgos **sin
+> perfilar** (`lab/campañas/hallazgos-sin-perfilar.json`, `nodos: {}`) — que representa el caso real de un
+> **activo que el auditor todavía no ha escaneado**. El ataque es real; solo el conocimiento del auditor
+> refleja "aún no perfilado".
 
 > **Nota honesta:** la **escalada a firewall (C)** la produce el **agente de mitigación**, no el motor base
 > del daemon. Y la "degradación" del perfil (permite→degrada→veta) **no** se alcanza en el flujo base actual
@@ -73,9 +77,32 @@ Ejecutadas: 1
 
 ## B · Confirmación humana (activo sin postura → baja confianza)
 
-Misma fuerza bruta pero contra un activo que el auditor **no** conoce (sin postura) → confianza 0.5 < umbral
-0.7 → el perfil **veta** y **exige humano**: el daemon abre el prompt. (Se pipea `rechazar` para no bloquear.)
+Fuerza bruta contra un activo que el auditor **no** ha perfilado (sin postura) → confianza 0.5 < umbral 0.7 →
+el perfil **veta** y **exige humano**: el daemon abre el prompt `[aprobar/rechazar/reclasificar]` y **espera
+al analista**.
 
+**En vivo, dos terminales** (para *ver* el prompt y elegir la acción):
+
+*Terminal A — el daemon escuchando, con un auditor que aún no perfiló el activo* (`nodos: {}`):
+```bash
+docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
+  | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml \
+      lab/campañas/hallazgos-sin-perfilar.json --sin-lab --ventana-agrupacion 5
+```
+
+*Terminal B — el ataque real (atacante .10 → víctima .30):*
+```bash
+for i in $(seq 1 8); do
+  docker exec clab-red-cliente-puesto sh -c "sshpass -p mal_$i ssh -o StrictHostKeyChecking=no \
+    -o ConnectTimeout=4 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAuthentication=no \
+    -o PreferredAuthentications=password msfadmin@192.168.1.30 id 2>/dev/null"; done
+```
+
+A los pocos segundos, en la Terminal A el daemon emite el incidente, muestra `Confianza: 0.5 · filtro veta`
+y abre el prompt: escribe `aprobar`, `rechazar` o `reclasificar` y observa el resultado. (Con `--sin-lab` la
+ejecución es simulada; quita `--sin-lab` para que `aprobar` bloquee de verdad por SSH.)
+
+**Por inyección** (sin lab, para un vistazo rápido; se pipea `rechazar` para no colgar):
 ```bash
 printf '%s\nrechazar\n' '{"id":"B1","rule":{"id":"5760","level":10,"groups":["sshd","authentication_failed"],"mitre":{"id":["T1110.001"]}},"predecoder":{"hostname":"camara-desconocida","program_name":"sshd"},"data":{"srcip":"192.168.1.55"},"timestamp":"2026-09-09T00:00:00Z","full_log":"Failed password for admin from 192.168.1.55"}' \
   | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
@@ -92,10 +119,6 @@ Rechazadas: 1 · Ejecutadas: 0
 
 > Sustituye `rechazar` por `aprobar` para ejecutar la acción, o `reclasificar` para corregir la clase (RF-08/RF-12).
 > **En el agente de mitigación**, cada acción mutante pide aprobación por paso salvo con `--autonomo`.
->
-> **Por qué solo por inyección:** la confianza 0.5 exige un activo **sin postura**, pero los 4 nodos del lab
-> ya están en los hallazgos del auditor (todos "conocidos") → un ataque real siempre da confianza 1.0. En un
-> despliegue real, B aparece cuando llega un ataque contra un activo que el auditor aún no perfiló.
 
 ---
 
