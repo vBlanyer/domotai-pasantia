@@ -12,6 +12,7 @@ Guía práctica ordenada por **niveles de dependencia**. El contenido detallado 
 - [03 · Lab en vivo](docs/pruebas/03-lab-en-vivo.md) — levantar lab, demos, daemon, agente, monitoreo vs ataque
 - [04 · Escenarios de ataque](docs/pruebas/04-escenarios-de-ataque.md) — por comportamiento (auto-bloqueo, confirmación humana, escalada a firewall, FP, `no_soportada`)
 - [05 · Topologías del laboratorio](docs/pruebas/05-topologias.md)
+- [06 · Rendimiento y hardware](docs/pruebas/06-rendimiento-y-hardware.md) — latencia por modo/hardware; perfil 9800X3D + RTX 5070
 
 ## Arranque rápido (copia-pega)
 

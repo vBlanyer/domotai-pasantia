@@ -47,6 +47,7 @@ sh lab/lab.sh up && python3 lab/scripts/demo-agente-escalado.py --autonomo
 - [03 · Lab en vivo](03-lab-en-vivo.md)
 - [04 · Escenarios de ataque](04-escenarios-de-ataque.md)
 - [05 · Topologías del laboratorio](05-topologias.md)
+- [06 · Rendimiento y hardware](06-rendimiento-y-hardware.md)
 
 ---
 
