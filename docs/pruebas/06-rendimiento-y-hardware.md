@@ -23,6 +23,22 @@ Tres retardos se suman entre el ataque y el prompt:
 3. **El 1B** (el grande): `--con-llm` hace **2 generaciones** por incidente (consulta agéntica + justificación)
    de ~64 tokens cada una, **antes** de abrir el prompt.
 
+## Hallazgo medido: crecer el corpus con el 1B lo empeora
+
+Se intentó **crecer el corpus** 29 → 39 fichas (+8 técnicas ATT&CK hermanas + 2 D3FEND) y se re-midió con el
+banco (§2.4). Resultado de la recuperación **fija**:
+
+| | 29 fichas | 39 fichas |
+|---|---|---|
+| Hit@1 | 0.25 | 0.00 |
+| MRR | **0.41** | **0.19** |
+
+**Crecer el corpus DILUYÓ la recuperación** (MRR a la mitad): el embedder 1B **no discrimina técnicas
+semánticamente cercanas** (p. ej. `T1110.001` Password Guessing vs `T1110.002` Password Cracking), así que
+más fichas = más confusión. Se hizo **rollback** a las 29 fichas. **Conclusión:** con el 1B, el corpus no se
+puede crecer útilmente; **crecerlo exige un modelo de embeddings dedicado** (`bge`/`e5`, o el 7–8B en GPU) —
+otra razón para el hardware objetivo. La calibración (banco §2.4) es la que permite detectar esto antes de fijar nada.
+
 ## Baseline medido (hardware actual)
 
 - Portátil, **CPU sin GPU**, `llama-3.2-1b-q4` → **~3.7 t/s**.
