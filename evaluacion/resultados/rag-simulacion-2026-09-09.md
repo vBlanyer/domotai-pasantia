@@ -6,37 +6,44 @@ Sobre 12 alertas sintéticas etiquetadas (perímetro MITRE). Recuperación medid
 
 | Métrica | Fija | Agéntica |
 |---|---|---|
-| Hit Rate@1 | 0.00 | 0.00 |
-| Hit Rate@3 | 0.25 | 0.08 |
-| Hit Rate@5 | 0.50 | 0.42 |
-| Precision@1 | 0.00 | 0.00 |
-| Precision@3 | 0.08 | 0.03 |
-| Precision@5 | 0.10 | 0.08 |
-| MRR | 0.14 | 0.10 |
+| Hit Rate@1 | 0.25 | 0.25 |
+| Hit Rate@3 | 0.42 | 0.75 |
+| Hit Rate@5 | 0.75 | 0.75 |
+| Precision@1 | 0.25 | 0.25 |
+| Precision@3 | 0.14 | 0.25 |
+| Precision@5 | 0.15 | 0.15 |
+| MRR | 0.41 | 0.50 |
 
-## Interpretación (hallazgos de la calibración)
+## Interpretación (calibración, con palancas 1+3 aplicadas)
 
-**La recuperación es débil y la consulta agéntica la empeora.** `Hit Rate@1 = 0.00` (la ficha correcta
-nunca es la primera), `Hit Rate@5 = 0.50`, `MRR = 0.14`. El paso agéntico queda **por debajo** de la
-consulta fija en todas las métricas — confirma, cuantificado, que el 1B formula consultas de búsqueda pobres.
+**Estado final:** la recuperación **agéntica** con las mejoras da `Hit@3 = 0.75`, `Hit@5 = 0.75`,
+`MRR = 0.50`. Dos conclusiones:
 
-**Causa raíz (diagnóstico).** La consulta fija es `regla {id} tecnicas MITRE {tec} servicio {srv}`; los
-*embeddings* del 1B quedan **dominados por la palabra «regla»** y arrastran las fichas `regla-*` al top-5
-sin importar la técnica. Ejemplo real (alerta de fuerza bruta SSH, T1110.001):
+1. **Las palancas funcionaron y se pueden medir.** Comparado con la primera corrida (consulta fija con
+   número de regla, sin filtrar el conocimiento):
 
-    consulta: regla 5760 tecnicas MITRE T1110.001 servicio ssh
-    top-5:    regla-5712, regla-5763, mapeo-reconocimiento, regla-5710, d3fend-D3-AL
-    esperado: mitre-T1110.001, mapeo-acceso_credenciales   (ambas fuera del top-5)
+   | Métrica | Baseline inicial (fija) | **Final (agéntica, palancas 1+3)** |
+   |---|---|---|
+   | Hit Rate@1 | 0.00 | **0.25** |
+   | Hit Rate@3 | 0.25 | **0.75** |
+   | Hit Rate@5 | 0.50 | **0.75** |
+   | MRR | 0.14 | **0.50** (≈3.5×) |
 
-Las fichas `mitre-*` y `mapeo-*` esperadas son expulsadas; incluso aparece `mapeo-reconocimiento` (familia
-equivocada). El 1B es un modelo de **generación**, no de *embeddings*: su discriminación semántica es baja.
+   - **Palanca 1** — reformular `construir_consulta`: liderar con técnica MITRE + familia + intención de
+     contramedida y **omitir el número de regla** (sesgaba los *embeddings* del 1B hacia las fichas `regla-*`).
+   - **Palanca 3** — **excluir las fichas `regla-*`** de la recuperación de conocimiento (describen reglas
+     de Wazuh, casi idénticas a los ataques de credenciales/servicio; competían y expulsaban a las
+     `mitre-*`/`mapeo-*`/`d3fend-*` esperadas).
 
-**Palancas (trabajo futuro, no en este banco).**
-1. **Reformular la consulta fija**: liderar con técnica + familia + intención de contramedida y quitar el
-   número de regla (ruido que sesga hacia `regla-*`). Palanca barata; el banco ya la puede medir.
-2. **Modelo de *embeddings* dedicado** (p. ej. un `bge`/`e5` pequeño) en vez del 1B de generación: es la
-   corrección de fondo. La interfaz `embedder` ya es inyectable.
-3. Revisar si conviene separar/ponderar el corpus por tipo.
+2. **La consulta agéntica pasó de restar a sumar.** En la primera corrida el paso agéntico **empeoraba**
+   (Hit@5 0.42 < 0.50); ahora **mejora** (Hit@3 0.75 vs 0.42 fija; MRR 0.50 vs 0.41). Su valor estaba
+   **enmascarado** por el ruido de las fichas de regla. La calibración lo hizo visible.
 
-**Valor del banco.** Convirtió un «creemos que el RAG es bueno» en un «la recuperación mide Hit@5=0.50 y
-el paso agéntico resta», con la causa localizada. Eso es exactamente para lo que sirve la calibración.
+**Por familia (Hit@5, recuperación fija):** `acceso_credenciales 1.00`, `reconocimiento 1.00`,
+`explotacion_conocida 1.00`, **`servicio_expuesto 0.00`** — residual. Las alertas de servicio expuesto
+(T1133/T1021/T1021.004) siguen sin recuperar su ficha esperada en top-5; probable trabajo futuro: reforzar
+esas fichas o un modelo de *embeddings* dedicado (la interfaz `embedder` ya es inyectable).
+
+**Valor del banco:** convirtió suposiciones en un ciclo medible — reveló el fallo, localizó la causa
+(fichas de regla + *embeddings* débiles), guió dos correcciones y **cuantificó la mejora** (MRR ×3.5),
+además de descubrir que el paso agéntico sí aporta una vez quitado el ruido.
