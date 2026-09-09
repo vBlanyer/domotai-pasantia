@@ -20,7 +20,7 @@ familia), `rule.mitre.id`, `predecoder.hostname` (→ activo), `data.srcip` (→
 |---|---|---|---|
 | **A. Auto-bloqueo** | credenciales · T1110.001 | vivo (fuerza bruta SSH) o inyección | `permite`, `requiere_humano=false`, `Ejecutadas: 1` |
 | **B. Confirmación humana** | credenciales, activo sin postura | **vivo** (hallazgos sin perfilar) o inyección | conf 0.5, `veta`, abre `[aprobar/rechazar/reclasificar]` |
-| **C. Escalada a firewall** | cualquiera, víctima inalcanzable | agente (`demo-agente-escalado.py`) | `BLOQUEAR_IP_FIREWALL`, `escalado: True` |
+| **C. Escalada a firewall** | cualquiera, víctima inalcanzable | agente (`demo-agente-escalado.py`) **o daemon `--agente`** | `BLOQUEAR_IP_FIREWALL`, `escalado: True` |
 | **D. Falso positivo** | admin declarado (origen legítimo) | **vivo** (ataque desde .1) o inyección | `fp_actividad_legitima`, sin acción |
 | **E. `no_soportada`** | fuera de perímetro | inyección | `no_soportada`, sin acción |
 
@@ -138,6 +138,11 @@ perimetral (`BLOQUEAR_IP_FIREWALL`). Reproducible sin lab (ejecutores simulados)
 python3 lab/scripts/demo-agente-escalado.py --autonomo
 ```
 (en vivo con firewall real: `sh lab/lab.sh up red-cliente-firewall` y `--lab` — ver [05 · Topologías](05-topologias.md))
+
+**En el daemon en vivo:** el escalado también ocurre dentro del listener si lo lanzas con **`--agente`** (§3.3
+en [03 · Lab en vivo](03-lab-en-vivo.md)): cuando un incidente de contención llega y la víctima no responde,
+el agente escala al firewall, pidiendo aprobación por paso. La traza registra `mitigacion_agente` con
+`escalado`/`dispositivo_ejecutor`.
 
 **Esperado** (salida real):
 ```

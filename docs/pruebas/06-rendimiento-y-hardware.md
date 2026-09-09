@@ -9,6 +9,7 @@ al pasar a una máquina con GPU. Útil para decidir dónde correr las pruebas c�
 |---|---|---|---|
 | **`--sin-llm`** (default) | plantilla determinista (más vaga) | **instantánea** | lazo humano ágil, iterar rápido |
 | **`--con-llm`** | 1B local + RAG agéntico (enriquecida) | **~30–60 s / incidente** | inspeccionar el anclaje y los pasajes RAG |
+| **`--agente`** | 1B para el ReAct (decide + escala) | **similar o mayor** (varios pasos ReAct, cada uno una llamada al 1B) | mitigación multi-nodo (host → firewall) |
 
 La **decisión y el bloqueo son deterministas e instantáneos en cualquier modo/hardware** (RF-15); el LLM/RAG
 solo **explica** (y, en el agente, decide la estrategia de escalada). El coste del LLM afecta a la

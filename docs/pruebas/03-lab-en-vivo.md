@@ -59,9 +59,16 @@ falta humano, ejecuta, escribe la traza línea a línea y vuelve a escuchar. `Ct
 **Sinopsis**
 ```
 python3 -m prototipo.stream <alerts.json | -> [perfil.yml] [hallazgos.json] \
-        [--con-llm | --sin-llm] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]
+        [--con-llm | --sin-llm] [--agente] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]
 ```
 (`--ventana-agrupacion N`: acumula la ráfaga N s antes de emitir el incidente; `N=0` = al instante. Default 5.)
+
+**`--agente`** — en vez del bloqueo determinista de **un** nodo, delega la mitigación al **agente ReAct**:
+decide la estrategia y **escala de dispositivo** (host → firewall) si el objetivo no responde, consultando
+ATT&CK/D3FEND. La aprobación es **por paso** (cada acción de dispositivo pide humano; se pierde
+"reclasificar"). Usa el 1B para el razonamiento (implica coste LLM, ver [06 · Rendimiento](06-rendimiento-y-hardware.md));
+sin modelo, degrada al motor determinista. Requiere `topologia` en el perfil (la tiene `empresarial.yml`).
+La escalada **real** se ejerce con la topología `red-cliente-firewall` (ver [05 · Topologías](05-topologias.md)).
 
 **Ejemplo** (en el lab: el `alerts.json` vive dentro del contenedor de Wazuh → canaliza su `tail -F`)
 ```bash

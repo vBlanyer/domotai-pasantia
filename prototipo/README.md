@@ -573,7 +573,12 @@ los 2 representantes reproduce las 2 decisiones correctas. Detalle en el
 - **Ventana de agrupación (RF-11):** acumula la ráfaga `--ventana-agrupacion N` segundos y la colapsa con
   `agrupacion.agrupar` antes de emitir el incidente; `N=0` procesa cada alerta al instante.
 - **Validación humana en línea:** cuando la decisión requiere humano, abre el prompt de `validacion.pedir`
-  (bloquea, ejecuta y vuelve a escuchar); la traza se escribe **línea a línea** (RF-09).
-- **CLI:** `python3 -m prototipo.stream <ruta|-> [perfil] [hallazgos] [--con-llm|--sin-llm] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]`.
+  (bloquea, ejecuta y vuelve a escuchar); la traza se escribe **línea a línea** (RF-09). El veredicto se lee
+  del terminal de control (`/dev/tty`), no de stdin, para que funcione con las alertas por pipe.
+- **Modo agente (`--agente`):** en vez del bloqueo determinista de un nodo, inyecta un `mitigar_fn` que
+  delega en `agente_mitigacion.bucle_react` — decide la estrategia y **escala host→firewall**, con aprobación
+  **por paso**, reutilizando el conector y el conocimiento RAG. Es el mismo patrón de inyección que
+  `justificar_fn` (en `lazo.procesar_lazo`); sin modelo, el agente degrada al motor determinista.
+- **CLI:** `python3 -m prototipo.stream <ruta|-> [perfil] [hallazgos] [--con-llm|--sin-llm] [--agente] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]`.
   `Ctrl+C` cierra limpio e imprime el resumen de la sesión. Uso paso a paso en
   [`../docs/pruebas/03-lab-en-vivo.md`](../docs/pruebas/03-lab-en-vivo.md) §3.3.
