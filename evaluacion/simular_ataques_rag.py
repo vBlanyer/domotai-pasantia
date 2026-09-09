@@ -44,3 +44,21 @@ def evaluar_recuperacion(alertas, recuperar_ids, ks=(1, 3, 5)):
             "precision": sum(f["por_k"][k]["precision"] for f in filas) / n,
         }
     return {"n": len(filas), "filas": filas, "agregado": agg}
+
+# ---------------------------------------------------------------- síntesis --
+
+def evaluar_sintesis(alertas, justificar_texto, anclado_fn):
+    """Mide cómo el 1B sintetiza la justificación: `anclado_fn(texto, alerta)` (reusa verificar_anclaje)
+    y si aparece `termino_esperado`. `justificar_texto(alerta) -> str` inyectable."""
+    filas = []
+    for a in alertas:
+        texto = justificar_texto(a) or ""
+        term = a.get("termino_esperado", "")
+        filas.append({"id_alerta": a.get("id_alerta"),
+                      "anclado": bool(anclado_fn(texto, a)),
+                      "menciona_termino": bool(term and term in texto)})
+    n = len(filas) or 1
+    return {"n": len(filas),
+            "tasa_anclaje": sum(f["anclado"] for f in filas) / n,
+            "tasa_termino": sum(f["menciona_termino"] for f in filas) / n,
+            "filas": filas}

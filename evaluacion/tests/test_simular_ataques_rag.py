@@ -41,5 +41,16 @@ class TestRecuperacion(unittest.TestCase):
         self.assertEqual(res["agregado"]["por_k"][3]["hit_rate"], 0.0)
 
 
+class TestSintesis(unittest.TestCase):
+    def test_tasa_anclaje_y_termino(self):
+        alertas = [{"id_alerta": "a", "termino_esperado": "5760"},
+                   {"id_alerta": "b", "termino_esperado": "5758"}]
+        textos = {"a": "regla 5760 fuerza bruta anclada", "b": ""}
+        anclado_fn = lambda texto, al: bool(texto)          # fake: anclado si hay texto
+        res = sim.evaluar_sintesis(alertas, lambda al: textos[al["id_alerta"]], anclado_fn)
+        self.assertAlmostEqual(res["tasa_anclaje"], 0.5)     # a anclada, b vacia
+        self.assertAlmostEqual(res["tasa_termino"], 0.5)     # a cita 5760, b no
+
+
 if __name__ == "__main__":
     unittest.main()
