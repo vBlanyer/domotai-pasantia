@@ -135,6 +135,21 @@ La **consulta agéntica** (el 1B decide qué añadir a la búsqueda, aumentando 
 al justificar con `rag.recuperar_fn_agentico(...)`; la traza registra `consulta_rag` y
 `recuperacion_agentica` (RNF-03). Si el modelo no está, degrada a la consulta fija sin romper.
 
+### 2.3 Banco de simulación y evaluación del RAG
+
+Mide la **efectividad del RAG** sobre 12 alertas sintéticas etiquetadas (3 por cada familia del perímetro),
+calibrando **consulta fija vs agéntica** con **Hit Rate@K, Precision@K y MRR** (K=1,3,5):
+
+```bash
+python3 -m evaluacion.simular_ataques_rag                 # solo recuperación (usa el 1B para la agéntica)
+python3 -m evaluacion.simular_ataques_rag --con-sintesis  # + tasa de anclaje del 1B (más lento)
+```
+
+Escribe `evaluacion/resultados/rag-simulacion-<fecha>.md` con la tabla comparativa. La recuperación se mide
+contra el **`id` de ficha esperado** (verdad estructural), sin circularidad. La **lógica de métricas** está
+cubierta por tests unitarios con *fakes* (`evaluacion/tests/test_simular_ataques_rag.py`) — el run real con
+el 1B es aparte, así la suite queda en verde sin depender del modelo.
+
 ---
 
 ## Nivel 3 · La demo en vivo, de punta a punta (laboratorio + modelo)
