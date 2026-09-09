@@ -16,9 +16,13 @@ def cargar_corpus(ruta=RUTA_CORPUS):
 
 def construir_consulta(alerta):
     mitre = " ".join(alerta.get("mitre", []) or [])
+    familia = (alerta.get("familia") or "").replace("_", " ")
+    # Lidera con la SEMANTICA del ataque (tecnica MITRE + familia + servicio) y la intencion de
+    # contramedida, para recuperar las fichas mitre/mapeo/D3FEND. Se OMITE el numero de regla: sesga
+    # los embeddings del 1B hacia las fichas regla-* (medido en el banco de simulacion, palanca 1).
     # SOLO campos estructurados (RNF-08): nunca el full_log/evento_crudo.
-    return (f"regla {alerta.get('regla_id')} tecnicas MITRE {mitre} "
-            f"servicio {alerta.get('servicio')}").strip()
+    return (f"tecnica MITRE {mitre} {familia} servicio {alerta.get('servicio')} "
+            f"contramedida defensiva").strip()
 
 def construir_prompt_consulta(alerta):
     """Prompt del paso agentico: pide UNA linea de busqueda desde campos estructurados (RNF-08)."""
@@ -72,20 +76,26 @@ def recuperar(consulta, indice, embedder, k=3):
     puntuados = sorted(indice, key=lambda d: _coseno(q, d["vector"]), reverse=True)
     return [{c: d[c] for c in d if c != "vector"} for d in puntuados[:k]]
 
-def consultar_conocimiento(alerta, indice, embedder, generador=None, k=3):
+# Tipos de ficha que NO son conocimiento defensivo y compiten en la recuperacion (medido en el banco de
+# simulacion, palanca 3): las 'regla-*' describen reglas de Wazuh, casi identicas a los ataques de
+# credenciales/servicio, y expulsan a las mitre/mapeo/d3fend esperadas. Se excluyen del conocimiento.
+EXCLUIR_CONOCIMIENTO = ("regla",)
+
+def consultar_conocimiento(alerta, indice, embedder, generador=None, k=3, excluir_tipos=EXCLUIR_CONOCIMIENTO):
     """Herramienta de conocimiento (Opcion C): decide la consulta (agentica si hay generador) y
-    recupera. Devuelve {consulta, agentica, pasajes}. Con generador=None es la recuperacion fija."""
+    recupera del indice de conocimiento (filtrado por tipo). Devuelve {consulta, agentica, pasajes}."""
+    idx = [d for d in indice if d.get("tipo") not in (excluir_tipos or ())]
     if generador is not None:
         ca = consulta_agentica(alerta, generador)
     else:
         ca = {"consulta": construir_consulta(alerta), "agentica": False}
-    pasajes = recuperar(ca["consulta"], indice, embedder, k=k)
+    pasajes = recuperar(ca["consulta"], idx, embedder, k=k)
     return {"consulta": ca["consulta"], "agentica": ca["agentica"], "pasajes": pasajes}
 
-def recuperar_fn_agentico(indice, embedder, generador=None, k=3):
+def recuperar_fn_agentico(indice, embedder, generador=None, k=3, excluir_tipos=EXCLUIR_CONOCIMIENTO):
     """Un recuperar_fn `alerta -> {consulta, agentica, pasajes}` para el justificador y el agente."""
     def _fn(alerta):
-        return consultar_conocimiento(alerta, indice, embedder, generador=generador, k=k)
+        return consultar_conocimiento(alerta, indice, embedder, generador=generador, k=k, excluir_tipos=excluir_tipos)
     return _fn
 
 BINARIO = os.environ.get("LLAMA_EMBED_BIN",

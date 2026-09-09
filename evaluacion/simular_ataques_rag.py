@@ -90,7 +90,8 @@ def formatear_informe(rec_fija, rec_agentica, sintesis=None, ks=(1, 3, 5)):
 
 def _recuperar_ids_fijo(indice, embedder, k):
     from prototipo import rag
-    return lambda a: [p["id"] for p in rag.recuperar(rag.construir_consulta(a), indice, embedder, k=k)]
+    # via consultar_conocimiento (generador=None) para aplicar el mismo filtro de conocimiento (palanca 3)
+    return lambda a: [p["id"] for p in rag.consultar_conocimiento(a, indice, embedder, generador=None, k=k)["pasajes"]]
 
 def _recuperar_ids_agentico(indice, embedder, generador, k):
     from prototipo import rag

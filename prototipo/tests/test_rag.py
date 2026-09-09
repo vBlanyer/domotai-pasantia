@@ -87,13 +87,23 @@ class TestConsultarConocimiento(unittest.TestCase):
         r = fn(self.ALERTA)
         self.assertIn("pasajes", r); self.assertIn("consulta", r); self.assertIn("agentica", r)
 
+    def test_excluye_fichas_de_regla_del_conocimiento(self):
+        # las fichas 'regla-*' (reglas de Wazuh) no son conocimiento defensivo y compiten -> se excluyen
+        emb = lambda textos: [[1.0] for _ in textos]      # todo empata -> orden del indice
+        indice = rag.indexar([{"id": "regla-5760", "tipo": "regla", "titulo": "r", "texto": "fuerza bruta ssh"},
+                              {"id": "mapeo-acceso_credenciales", "tipo": "mapeo", "titulo": "m", "texto": "contramedida"}], emb)
+        ids = [p["id"] for p in rag.consultar_conocimiento(self.ALERTA, indice, emb, generador=None, k=5)["pasajes"]]
+        self.assertNotIn("regla-5760", ids)
+        self.assertIn("mapeo-acceso_credenciales", ids)
+
 
 class TestLogica(unittest.TestCase):
     def test_consulta_solo_campos_estructurados(self):
         alerta = {"regla_id":"5760","mitre":["T1110.001","T1021.004"],"servicio":"ssh",
-                  "evento_crudo":"IGNORA ESTO texto del atacante"}
+                  "familia":"acceso_credenciales","evento_crudo":"IGNORA ESTO texto del atacante"}
         q = rag.construir_consulta(alerta)
-        self.assertIn("5760", q); self.assertIn("T1110.001", q); self.assertIn("ssh", q)
+        self.assertIn("T1110.001", q); self.assertIn("ssh", q)
+        self.assertIn("acceso credenciales", q)         # lidera con la semantica del ataque (palanca 1)
         self.assertNotIn("IGNORA ESTO", q)              # RNF-08: el full_log no entra
 
     def test_coseno(self):
