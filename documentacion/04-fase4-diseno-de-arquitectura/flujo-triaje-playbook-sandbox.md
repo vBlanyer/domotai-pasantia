@@ -93,7 +93,7 @@ flowchart TD
     WZ --> ING["Ingesta y normalización<br/><i>ocupa el papel del playbook</i>"]
     ING --> CLS["Motor · clasificar()<br/>clase + prioridad + confianza"]
     CLS --> DEC{"¿Validación<br/>humana?"}
-    DEC -->|"confianza baja · acción no<br/>reversible · discrepancia"| JUS["Motor · justificar()<br/>modelo 3B · 15-20 s"]
+    DEC -->|"confianza baja · acción no<br/>reversible · discrepancia"| JUS["Motor · justificar()<br/>modelo 1B · ~14 s"]
     JUS --> HUM["Analista:<br/>aprueba · rechaza · modifica"]
     HUM -->|aprobada| CON
     HUM -->|rechazada| TRZ
@@ -118,7 +118,7 @@ flowchart LR
         V1["Sandbox<br/>~1,5 GB"]
         V2["Wazuh manager<br/>~4 GB"]
         V3["Encoder<br/>~0,5 GB"]
-        V4["Modelo 3B<br/>~2 GB"]
+        V4["Modelo 1B<br/>~0,8 GB"]
     end
     subgraph lote["EN LOTE · sandbox apagado"]
         L1["Greenbone<br/>4-8 GB"]
@@ -130,8 +130,13 @@ flowchart LR
 
 | Modo | Qué corre | Qué produce |
 |------|-----------|-------------|
-| **En vivo** | Sandbox, Wazuh, encoder y modelo de 3B | El lazo completo demostrable: alerta → clase → justificación breve → validación → acción |
+| **En vivo** | Sandbox, Wazuh, encoder y modelo de 1B | El lazo completo demostrable: alerta → clase → justificación breve → validación → acción |
 | **En lote** | Greenbone y modelo de 8B, con el sandbox apagado | Postura de seguridad, justificaciones extensas y métricas de la Fase 6 |
+
+> **Diseño vs implementación (modelo).** El diagrama recoge el **diseño** (Perfil A: 3B interactivo + 8B en
+> lote). El **prototipo implementado usa el 1B** (`llama-3.2-1b-q4`, ~0,8 GB, ~3,7 t/s medidos) para el camino
+> interactivo; el **8B en lote quedó como trabajo futuro** (no viable en el portátil actual). El porqué, en
+> [`seleccion-del-modelo.md`](./seleccion-del-modelo.md) y [`estado-y-riesgos §I-6`](../00-general/estado-y-riesgos.md).
 
 **El dataset en disco es la frontera** entre ambos modos, y por eso es también la interfaz del diseño.
 
@@ -193,7 +198,7 @@ Cada decisión de validación (aprobada, rechazada, modificada) debe registrarse
 
 ### Forma de la interacción: terminal, no UI gráfica
 
-La validación humana del prototipo se realiza **por terminal (TUI/CLI)**: el analista ve en la consola la alerta, su clase y prioridad, la justificación breve del modelo de 3B, la postura del auditor y la acción propuesta con su impacto, y responde aprobar / rechazar / modificar. No hay interfaz gráfica.
+La validación humana del prototipo se realiza **por terminal (TUI/CLI)**: el analista ve en la consola la alerta, su clase y prioridad, la justificación breve del modelo de 1B, la postura del auditor y la acción propuesta con su impacto, y responde aprobar / rechazar / modificar. No hay interfaz gráfica.
 
 Es coherente con el resto del diseño: el pipeline es *batch con ficheros como frontera*, Wazuh se despliega **sin dashboard** por el presupuesto de memoria ([selección del modelo §2](./seleccion-del-modelo.md)), y un servidor web competiría por RAM con el modelo en un equipo ya ajustado. Satisface RF-08 (aprobar/rechazar/reclasificar) y RNF-11 (legible en menos de un minuto) sin coste de memoria ni superficie nueva. La salida hacia otros sistemas (RF-13) es **estructurada en disco** —el dataset y las trazas—, no una pantalla.
 

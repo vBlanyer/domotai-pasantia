@@ -153,7 +153,7 @@ Retener las órdenes que requieren aprobación, mostrar la justificación del Pa
 Con el sandbox apagado, ejecutar el modelo de 8B sobre el dataset guardado.
 
 ### Paso 17 · Medir prototipo contra baseline
-> **HECHO** (02/09/2026). `evaluacion/campana.py` produce la tabla comparativa sobre la partición de evaluación. Prototipo F1 0.714 / tasa FP 0.041 frente al baseline de Wazuh 0.267 / 0.282.
+> **HECHO** (02/09/2026). `evaluacion/campana.py` produce la tabla comparativa sobre la partición de evaluación. Prototipo F1 1.000 / tasa FP 0.000 (tras RF-03; la primera medición dio 0.714 / 0.041) frente al baseline de Wazuh 0.267 / 0.282.
 Ambos sobre **el mismo dataset y la misma partición de evaluación**. Registrar perfil, modelo, versión y cuantización en cada ejecución.
 
 **Hecho cuando:** hay una tabla comparativa de métricas entre el prototipo y el nivel de regla de Wazuh.

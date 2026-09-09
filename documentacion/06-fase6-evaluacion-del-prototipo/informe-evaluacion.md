@@ -73,7 +73,7 @@ El nivel de Wazuh se evaluó como clasificador barriendo el umbral. F1 por umbra
 
 El mejor F1 del baseline es **0.267** (umbrales 4-5; se reporta el 5 por el desempate a mayor umbral). La
 curva no es monótona: subir el umbral no mejora limpiamente, porque los VP y buena parte del ruido
-conviven en los mismos niveles. **En ningún punto el baseline se acerca al prototipo** (F1 0.714).
+conviven en los mismos niveles. **En ningún punto el baseline se acerca al prototipo** (F1 1.000 tras RF-03; 0.714 en la primera medición — ver la progresión honesta arriba).
 
 ---
 

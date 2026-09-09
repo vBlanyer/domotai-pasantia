@@ -29,6 +29,18 @@ por datos).
 | **Justificador en línea (5C)** | `justificar` detrás de un modelo generativo real | Produce una justificación breve que **referencia campos concretos** de la alerta ([RNF-02](../02-fase2-estado-del-arte/requisitos.md)), en un tiempo tolerable para una persona | **Hecho, con matiz** — `justificar_llm` corre un LLM real (Llama-3.2-**1B**, cuantizado, por `subprocess` a un binario de llama.cpp), verificado en vivo produciendo una justificación anclada en ~14 s; la interfaz queda lista para un modelo mayor cuando haya hardware (GPU). Ver [`prototipo/README.md §9`](../../prototipo/README.md#9-5c--el-justificador-con-llm) |
 | **Conector (5B)** | Traduce acciones abstractas del catálogo a comandos, con clave dedicada y privilegio mínimo | El motor ordena una acción y el nodo la ejecuta, con orden, comando, código de salida y salida registrados | **Hecho** — [`prototipo/`](../../prototipo/README.md#8-5b--el-lazo-en-vivo) |
 | **Validación humana y trazas en vivo (5B)** | Retiene lo que exige aprobación, muestra la justificación **por terminal (TUI/CLI, sin UI gráfica — [flujo §7](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md))**, registra la decisión | El lazo completo funciona en vivo: alerta → clasificación → justificación → validación → acción → verificación | **Hecho** — [`prototipo/`](../../prototipo/README.md#8-5b--el-lazo-en-vivo), demostrado sobre `objetivo-vuln` con `BLOQUEAR_IP` |
+| **RAG local (5D)** | Recuperación aumentada: corpus curado **ATT&CK + D3FEND** + recuperación semántica por embeddings; consulta **agéntica** (el 1B decide qué recuperar) que enriquece la justificación y queda en la traza (`consulta_rag`/`pasajes_usados`) | El justificador cita conocimiento del corpus; el banco de simulación mide Hit@K/MRR | **Hecho** — `prototipo/rag.py` (+ `extraer_attack.py`); ver [`prototipo/README §10`](../../prototipo/README.md) y [banco](../../docs/pruebas/04-escenarios-de-ataque.md) |
+| **Runner en tiempo real (daemon)** | Listener MDR que sigue `alerts.json` sin cerrarse y triaja incidentes en streaming (RF-11) con validación humana por `/dev/tty` | Escucha en vivo, agrupa la ráfaga, decide y bloquea; `Ctrl+C` cierra con resumen | **Hecho** — `prototipo/stream.py`; ver [`docs/pruebas/03-lab-en-vivo.md`](../../docs/pruebas/03-lab-en-vivo.md) |
+| **Agente de mitigación (ReAct)** | Decide la estrategia y **escala de dispositivo** (host → firewall) sobre catálogo cerrado, aprobando por paso y consultando ATT&CK/D3FEND | Ante un host inalcanzable, escala al firewall (`BLOQUEAR_IP_FIREWALL`), reversible | **Hecho** — `prototipo/agente_mitigacion.py`; integrado en el daemon con `--agente` |
+
+> **Piezas posteriores a 5C.** La fase creció más allá de 5A/5B/5C: el **RAG local (5D)** —exigido por el
+> objetivo general—, el **daemon en tiempo real** y el **agente de mitigación con escalada** se añadieron
+> después, todos detrás de las mismas interfaces (`justificar_fn`, `mitigar_fn`) sin tocar el motor de
+> decisión. El detalle vive en [`prototipo/README.md`](../../prototipo/README.md) y la guía de pruebas en
+> [`docs/pruebas/`](../../docs/pruebas/README.md). **Límite honesto:** el RAG no escala con el 1B (crecer el
+> corpus baja el MRR — ver [`docs/pruebas/06`](../../docs/pruebas/06-rendimiento-y-hardware.md)); el
+> justificador/agente con el 1B son lentos en CPU. Ambos mejoran con un embedder dedicado y un modelo mayor
+> en el hardware objetivo, sin cambios en el motor.
 
 > **Sobre el clasificador de 5A.** El núcleo de decisión ya construido corre con un
 > **baseline determinista** (regla fija sobre postura de exposición, sin ML) detrás de la interfaz

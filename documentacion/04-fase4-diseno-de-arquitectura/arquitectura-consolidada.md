@@ -85,8 +85,12 @@ El ciclo es cerrado: la acción genera telemetría nueva que Wazuh vuelve a eval
 Por el presupuesto de memoria medido, el flujo se parte en dos y **el dataset en disco es la
 frontera**:
 
-- **En vivo:** sandbox + Wazuh + encoder + modelo 3B. El lazo interactivo, demostrable.
+- **En vivo:** sandbox + Wazuh + encoder + modelo 1B. El lazo interactivo, demostrable.
 - **En lote:** Greenbone + modelo 8B, con el sandbox apagado. Postura, justificación extensa y métricas.
+
+> **Diseño vs implementación:** el diseño previó un 3B interactivo + 8B en lote (Perfil A); el prototipo
+> implementado usa el **1B** (`llama-3.2-1b-q4`) en vivo y deja el **8B en lote como trabajo futuro** (no
+> viable en el portátil). Ver [`seleccion-del-modelo.md`](./seleccion-del-modelo.md).
 
 ---
 
