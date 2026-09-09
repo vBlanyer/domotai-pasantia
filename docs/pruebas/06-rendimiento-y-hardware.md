@@ -9,7 +9,7 @@ al pasar a una máquina con GPU. Útil para decidir dónde correr las pruebas c�
 |---|---|---|---|
 | **`--sin-llm`** (default) | plantilla determinista (más vaga) | **instantánea** | lazo humano ágil, iterar rápido |
 | **`--con-llm`** | 1B local + RAG agéntico (enriquecida) | **~30–60 s / incidente** | inspeccionar el anclaje y los pasajes RAG |
-| **`--agente`** | 1B para el ReAct (decide + escala) | **similar o mayor** (varios pasos ReAct, cada uno una llamada al 1B) | mitigación multi-nodo (host → firewall) |
+| **`--agente`** | 1B para el ReAct (decide + escala) | **impráctico en CPU** (medido: >4 min/incidente, no terminó en 260 s) | mitigación multi-nodo (host → firewall) — **requiere hardware rápido** |
 
 La **decisión y el bloqueo son deterministas e instantáneos en cualquier modo/hardware** (RF-15); el LLM/RAG
 solo **explica** (y, en el agente, decide la estrategia de escalada). El coste del LLM afecta a la
@@ -51,7 +51,12 @@ por llamada** (el diseño actual lanza `llama-simple`/`llama-embedding` por invo
 2. **Pasa a un modelo residente** para exprimir la GPU: `llama-server` (modelo cargado una vez en VRAM) +
    cliente HTTP en `justificador_llm`/`rag`, en lugar de un subproceso por llamada. Es un cambio **acotado**
    que **no toca el motor de decisión**. Elimina el mayor coste en hardware rápido (la recarga del modelo).
-3. **Sube a un modelo 7–8B** (cabe en 12 GB a q4, ~5 GB, ~50–100 t/s en el 5070). Resuelve la limitación de
+3. **`--agente` prácticamente exige GPU/CPU rápido.** El ReAct hace **varias** llamadas al 1B por
+   incidente (hasta `max_pasos`); en el CPU actual eso supera los ~4 min y no es usable en vivo (medido). La
+   lógica de escalada está verificada por test determinista; en el hardware objetivo cae a segundos. Úsalo
+   con `demo-agente-escalado.py` (guionizado, instantáneo) mientras tanto, y en el daemon (`--agente`) cuando
+   tengas la máquina rápida.
+4. **Sube a un modelo 7–8B** (cabe en 12 GB a q4, ~5 GB, ~50–100 t/s en el 5070). Resuelve la limitación de
    calidad del 1B (el "5760 es una regla de firewall" que alucinó) — la justificación pasa a ser bastante
    más rica y correcta. Es el *perfil B* que ya contemplaba el proyecto (Foundation-Sec-8B). Tendrías
    **velocidad y calidad a la vez**.
