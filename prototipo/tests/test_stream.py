@@ -84,8 +84,24 @@ class TestFuentes(unittest.TestCase):
         self.assertEqual([g for g in got if g is not None][:2], ['{"a":1}\n', '{"a":2}\n'])
 
     def test_stdin_rinde_cada_linea(self):
-        got = list(stream.leer_lineas_stdin(io.StringIO("l1\nl2\n")))
+        got = list(stream.leer_lineas_stdin(io.StringIO("l1\nl2\n")))   # StringIO -> sin ticks, iteración simple
         self.assertEqual(got, ["l1\n", "l2\n"])
+
+    def test_stdin_rinde_ticks_en_reposo_y_lee_la_linea(self):
+        r, w = os.pipe()
+        rf = os.fdopen(r)
+        try:
+            gen = stream.leer_lineas_stdin(rf, intervalo=0.02)
+            self.assertIsNone(next(gen))            # sin datos -> tick de reposo
+            os.write(w, b"hola\n")
+            got = None
+            for _ in range(50):
+                v = next(gen)
+                if v is not None:
+                    got = v; break
+            self.assertEqual(got, "hola\n")
+        finally:
+            os.close(w); rf.close()
 
 
 class TestCLI(unittest.TestCase):

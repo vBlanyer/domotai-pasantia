@@ -6,7 +6,7 @@ La fuente de lineas es inyectable (fichero seguido estilo `tail -f`, o stdin), l
 testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Wazuh vive dentro del
 contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.stream -`.
 """
-import json, os, sys, time
+import io, json, os, select, sys, time
 from prototipo import ingesta, adaptador_wazuh, agrupacion, lazo
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
@@ -113,8 +113,24 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
 
 # ------------------------------------------------------------------ fuentes --
 
-def leer_lineas_stdin(stream=sys.stdin):
-    for linea in stream:
+def leer_lineas_stdin(stream=sys.stdin, intervalo=0.5):
+    """Rinde líneas de stdin y, en reposo, `None` (tick) para que la ventana de agrupación pueda
+    cerrarse aunque no lleguen alertas nuevas. Usa select sobre el descriptor; si no hay uno real
+    (tests con StringIO), cae a iteración simple sin ticks."""
+    try:
+        fd = stream.fileno()
+    except (OSError, ValueError, io.UnsupportedOperation):
+        for linea in stream:
+            yield linea
+        return
+    while True:
+        listos, _, _ = select.select([fd], [], [], intervalo)
+        if not listos:
+            yield None                      # reposo -> permite vencer la ventana
+            continue
+        linea = stream.readline()
+        if not linea:                       # EOF
+            return
         yield linea
 
 def leer_lineas_fichero(ruta, intervalo=0.5, desde_inicio=False, detener=None, dormir=time.sleep):
