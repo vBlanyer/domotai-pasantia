@@ -56,5 +56,33 @@ class TestParser(unittest.TestCase):
         self.assertIsNone(ag.parsear_accion("no hay ninguna accion aqui"))
 
 
+class TestHerramientasReadOnly(unittest.TestCase):
+    def test_consultar_topologia_lista_roles(self):
+        topo = ag.resolver_topologia(y_perfil())
+        obs = ag.herramienta_consultar_topologia(topo)
+        self.assertIn("objetivo-vuln=host_victima", obs)
+        self.assertIn("gateway=firewall_perimetral", obs)
+
+    def test_verificar_bloqueado_segun_ejecutor(self):
+        topo = ag.resolver_topologia(y_perfil())
+        self.assertEqual(ag.herramienta_verificar_mitigacion(topo, CAT, lambda ip, c: (0, "DROP"),
+                                                             "gateway", "192.168.1.10"), "bloqueado")
+        self.assertEqual(ag.herramienta_verificar_mitigacion(topo, CAT, lambda ip, c: (1, ""),
+                                                             "gateway", "192.168.1.10"), "activo")
+
+    def test_consultar_conocimiento_resume_pasajes(self):
+        from prototipo import rag
+        emb = lambda textos: [[1.0 if "bloquear" in t.lower() else 0.0] for t in textos]
+        indice = rag.indexar([{"id": "mapeo-acceso_credenciales", "tipo": "mapeo",
+                               "titulo": "Mapeo acceso", "texto": "bloquear ip contramedida D3-ITF"}], emb)
+        obs = ag.herramienta_consultar_conocimiento({"regla_id": "5760", "mitre": ["T1110.001"], "servicio": "ssh"},
+                                                    indice, emb, generador=None, k=1)
+        self.assertIn("Mapeo acceso", obs)
+
+    def test_consultar_conocimiento_sin_indice_no_rompe(self):
+        obs = ag.herramienta_consultar_conocimiento({"regla_id": "5760"}, None, None)
+        self.assertIn("sin", obs.lower())
+
+
 if __name__ == "__main__":
     unittest.main()
