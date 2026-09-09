@@ -514,8 +514,10 @@ que pidió el requerimiento — **sin** que el LLM redacte shell:
   en el perfil.
 - **Degradación (RNF-09):** si el agente no produce una acción válida en `max_pasos`, cae al motor
   determinista (`politica.proponer`), marcado `degradado`.
-- **Invocable** desde `lab/scripts/demo-agente-escalado.py` (ver [`../COMO-PROBAR.md`](../COMO-PROBAR.md),
-  Nivel 3.ter) y testeable sin lab ni modelo (generador guionizado + ejecutor falso).
+- **Invocable** desde `lab/scripts/demo-agente-escalado.py` (ver
+  [`../docs/pruebas/03-lab-en-vivo.md`](../docs/pruebas/03-lab-en-vivo.md) §3.4, y los escenarios en
+  [`../docs/pruebas/04-escenarios-de-ataque.md`](../docs/pruebas/04-escenarios-de-ataque.md)) y testeable
+  sin lab ni modelo (generador guionizado + ejecutor falso).
 
 **La decisión sigue siendo determinista y segura:** el LLM razona y elige de un catálogo cerrado; el
 comando lo escribe el código; la ejecución es reversible y con humano en el gatillo.
@@ -574,4 +576,4 @@ los 2 representantes reproduce las 2 decisiones correctas. Detalle en el
   (bloquea, ejecuta y vuelve a escuchar); la traza se escribe **línea a línea** (RF-09).
 - **CLI:** `python3 -m prototipo.stream <ruta|-> [perfil] [hallazgos] [--con-llm|--sin-llm] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]`.
   `Ctrl+C` cierra limpio e imprime el resumen de la sesión. Uso paso a paso en
-  [`../COMO-PROBAR.md`](../COMO-PROBAR.md) (Nivel 3.bis).
+  [`../docs/pruebas/03-lab-en-vivo.md`](../docs/pruebas/03-lab-en-vivo.md) §3.3.
