@@ -490,6 +490,32 @@ todo D3FEND; por eso se **aumenta** la consulta fija en vez de reemplazarla (gar
 la recuperación mejora con una consulta más dirigida —como la que hará el agente de mitigación al citar la
 técnica— o con un modelo mayor.
 
+### 10.ter Agente de mitigación (ReAct + Tool Calling acotado)
+
+`prototipo/agente_mitigacion.py` es un **agente ReAct** que **determina la estrategia de mitigación y
+escala de dispositivo** (host → firewall) reaccionando a los errores — la respuesta orquestada multi-nodo
+que pidió el requerimiento — **sin** que el LLM redacte shell:
+
+- **Tool Calling acotado (RF-15):** el agente elige `(herramienta, dispositivo, accion_lógica)`; el
+  **código renderiza el comando** desde `catalogo.yml` (host → `INPUT`, firewall → `FORWARD`). Herramientas:
+  `consultar_topologia`, `consultar_conocimiento` (el RAG ATT&CK+D3FEND, §10.bis), `verificar_mitigacion`
+  (read-only) y `ejecutar_comando` (la única que muta).
+- **Salvaguardas en código, no en el modelo:** `validar_comando` veta el plano de gestión y los patrones
+  destructivos (RF-19); cada acción registra su `reversion_cmd` (RF-18); `ejecutar_comando` reutiliza
+  `conector.ejecutar_orden` (verificar-antes/aplicar/verificar-después, idempotencia).
+- **Gobernanza (RF-08):** con `autonomo=False` (default) cada acción mutante pide **aprobación humana**;
+  `autonomo=True` la salta. Las herramientas read-only nunca piden nada.
+- **Escalado:** si el bloqueo en el host falla (host inalcanzable), el agente **razona y escala al firewall
+  perimetral** (`BLOQUEAR_IP_FIREWALL`, de impacto mayor). La topología (`topologia:`/`ip_gestion:`) vive
+  en el perfil.
+- **Degradación (RNF-09):** si el agente no produce una acción válida en `max_pasos`, cae al motor
+  determinista (`politica.proponer`), marcado `degradado`.
+- **Invocable** desde `lab/scripts/demo-agente-escalado.py` (ver [`../COMO-PROBAR.md`](../COMO-PROBAR.md),
+  Nivel 3.ter) y testeable sin lab ni modelo (generador guionizado + ejecutor falso).
+
+**La decisión sigue siendo determinista y segura:** el LLM razona y elige de un catálogo cerrado; el
+comando lo escribe el código; la ejecución es reversible y con humano en el gatillo.
+
 ## 11. Ingesta y normalización (RF-01)
 
 El punto de entrada del prototipo: lee las alertas de la fuente del cliente y las lleva al **esquema

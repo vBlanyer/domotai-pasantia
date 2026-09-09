@@ -219,6 +219,24 @@ printf '%s\n' '<una alerta cruda de Wazuh en JSON>' \
 > La ventana de agrupación (`--ventana-agrupacion N`, por defecto 5 s) acumula la ráfaga N segundos antes
 > de emitir el incidente; `N=0` procesa cada alerta al instante.
 
+## Nivel 3.ter · Agente de mitigación (escalado multi-nodo host → firewall)
+
+El LLM actúa como **agente ReAct**: decide la estrategia y **escala de dispositivo** (del host al
+firewall) reaccionando a los errores — pero **elige acciones de un catálogo cerrado** (no redacta shell:
+el código renderiza el `iptables`, RF-15), valida (RF-19), exige aprobación humana (RF-08) y ejecuta de
+forma reversible (RF-18). Consulta el conocimiento **ATT&CK/D3FEND** del RAG para fundamentar la
+contramedida. Si no produce una acción válida, **degrada** al motor determinista (RNF-09).
+
+```bash
+python3 lab/scripts/demo-agente-escalado.py [--lab] [--autonomo] [--con-llm]
+```
+
+Por defecto usa **ejecutores simulados** (host caído / firewall ok) — el firewall `borde` del laboratorio
+no trae sshd por defecto — y **pide aprobación por cada acción** (usa `--autonomo` para verlo sin
+interacción). Esperado: el agente consulta el conocimiento, intenta el bloqueo local (falla: *Connection
+refused*), **escala al firewall** (`BLOQUEAR_IP_FIREWALL`), verifica el corte, y registra ambas
+reversiones. Con `--con-llm` usa el 1B real como agente (puede degradar); con `--lab`, el conector SSH real.
+
 ## Qué mirar en cada prueba
 
 - **La traza** (`salida.jsonl`, o el retorno de `triaje.procesar`) es la evidencia auditable: clase,
