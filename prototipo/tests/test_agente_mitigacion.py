@@ -1,5 +1,5 @@
 import json, os, unittest, yaml
-from prototipo import agente_mitigacion as ag, catalogo
+from prototipo import agente_mitigacion as ag, catalogo, lazo
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
@@ -82,6 +82,39 @@ class TestHerramientasReadOnly(unittest.TestCase):
     def test_consultar_conocimiento_sin_indice_no_rompe(self):
         obs = ag.herramienta_consultar_conocimiento({"regla_id": "5760"}, None, None)
         self.assertIn("sin", obs.lower())
+
+
+class TestEjecutarComando(unittest.TestCase):
+    def _args(self, ejecutor, **kw):
+        base = dict(topo=ag.resolver_topologia(y_perfil()), catalogo=CAT, ejecutor=ejecutor,
+                    dispositivo="gateway", accion="bloquear_ip", ip="192.168.1.10",
+                    ip_gestion="192.168.1.100", decision_id="d1", timestamp="t",
+                    autonomo=True, leer=lambda *_: "s", escribir=lambda *_: None)
+        base.update(kw); return base
+
+    def test_ejecuta_en_firewall_y_registra_reversion(self):
+        # _EjecutorAuto modela el estado: verif-antes "no está" (rc1), tras aplicar la re-verif da rc0.
+        obs, reg = ag.herramienta_ejecutar_comando(**self._args(lazo._EjecutorAuto()))
+        self.assertTrue(obs.startswith("OK"))
+        self.assertTrue(reg["exito"])
+        self.assertEqual(reg["accion_id"], "BLOQUEAR_IP_FIREWALL")
+        self.assertIn("FORWARD", reg["reversion_cmd"])
+
+    def test_host_caido_devuelve_error(self):
+        ej = lambda ip, cmd: (255, "connect: Connection refused")
+        obs, reg = ag.herramienta_ejecutar_comando(**self._args(ej, dispositivo="objetivo-vuln"))
+        self.assertTrue(obs.startswith("Error"))
+        self.assertFalse(reg["exito"])
+
+    def test_no_autonomo_pide_aprobacion_y_rechazo_cancela(self):
+        obs, reg = ag.herramienta_ejecutar_comando(**self._args(lambda ip, c: (0, ""), autonomo=False,
+                                                                leer=lambda *_: "n"))
+        self.assertIn("Cancelado", obs)
+        self.assertTrue(reg["cancelado"])
+
+    def test_dispositivo_desconocido(self):
+        obs, reg = ag.herramienta_ejecutar_comando(**self._args(lambda ip, c: (0, ""), dispositivo="marte"))
+        self.assertTrue(obs.startswith("Error")); self.assertIsNone(reg)
 
 
 if __name__ == "__main__":

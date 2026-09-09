@@ -87,3 +87,36 @@ def herramienta_consultar_conocimiento(alerta, indice=None, embedder=None, gener
     if not r.get("pasajes"):
         return "sin conocimiento recuperado"
     return "conocimiento: " + "; ".join(p.get("titulo", "") for p in r["pasajes"])
+
+# ------------------------------------------------------ herramienta mutante --
+
+def _aprobar(dispositivo, nodo_ip, accion_id, ip, leer, escribir):
+    escribir(f"── Validación humana ── {accion_id} en {dispositivo} ({nodo_ip}) contra {ip}")
+    return leer("¿aprobar la ejecución? [s/N] ").strip().lower().startswith("s")
+
+def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, ip, ip_gestion,
+                                 decision_id, timestamp, autonomo, leer, escribir):
+    """Única herramienta que muta: renderiza del catálogo (RF-15) -> valida (RF-19) -> aprobación
+    humana (RF-08, salvo autonomo) -> conector.ejecutar_orden -> registra reversión (RF-18)."""
+    nodo = topo.get(dispositivo)
+    if not isinstance(nodo, dict):
+        return (f"Error: dispositivo desconocido '{dispositivo}'", None)
+    accion_id = _ACCION_POR_ROL.get((accion, nodo.get("rol")))
+    if accion_id is None or accion_id not in catalogo:
+        return (f"Error: accion '{accion}' no valida para el rol '{nodo.get('rol')}'", None)
+    comando = catalogo[accion_id]["comando"].format(ip=ip)
+    ok, motivo = validar_comando(comando, ip_gestion)
+    reversion_cmd = catalogo[accion_id].get("reversion_cmd", "").format(ip=ip)
+    if not ok:
+        return (f"Error: {motivo}", {"accion_id": accion_id, "vetado": True, "reversion_cmd": reversion_cmd})
+    if not autonomo and not _aprobar(dispositivo, nodo.get("ip"), accion_id, ip, leer, escribir):
+        return (f"Cancelado por el humano: {accion_id} en {dispositivo}",
+                {"accion_id": accion_id, "cancelado": True, "reversion_cmd": reversion_cmd})
+    orden = {"decision_id": decision_id, "accion_id": accion_id, "nodo_objetivo": dispositivo,
+             "nodo_ip": nodo.get("ip"), "params": {"ip": ip}, "impacto": catalogo[accion_id]["impacto"]}
+    res = conector.ejecutar_orden(orden, catalogo, ejecutor, timestamp)
+    if res.get("exito"):
+        return (f"OK: {accion_id} aplicada en {dispositivo} (rc={res.get('codigo_salida')})",
+                {"accion_id": accion_id, "exito": True, "reversion_cmd": reversion_cmd, "resultado": res})
+    return (f"Error: fallo en {dispositivo} (rc={res.get('codigo_salida')})",
+            {"accion_id": accion_id, "exito": False, "reversion_cmd": reversion_cmd, "resultado": res})
