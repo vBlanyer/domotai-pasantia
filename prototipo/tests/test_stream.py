@@ -41,6 +41,59 @@ class TestBucleInmediato(unittest.TestCase):
         self.assertIn("192.168.1.10", traza["justificacion"])
 
 
+class TestModoAgente(unittest.TestCase):
+    def test_ejecutar_delega_al_mitigar_fn_y_cuenta(self):
+        buf = io.StringIO()
+        def mitigar(decision, alerta, leer):
+            return {"resultado": "mitigado", "escalado": True, "dispositivo_ejecutor": "gateway"}
+        resumen = stream.ejecutar(
+            [_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+            perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None,
+            ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
+            leer=lambda *_: "s", mitigar_fn=mitigar)
+        self.assertEqual(resumen["incidentes"], 1)
+        self.assertEqual(resumen["ejecutadas"], 1)                 # resultado mitigado -> ejecutada
+        traza = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(traza["mitigacion_agente"]["dispositivo_ejecutor"], "gateway")
+
+
+class TestModoAgenteEscalada(unittest.TestCase):
+    def test_daemon_delega_y_el_agente_escala_a_firewall(self):
+        from prototipo import agente_mitigacion as ag
+        perfil = dict(y("perfil.yml"))
+        perfil["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30"},
+                               "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}
+        perfil["ip_gestion"] = "192.168.1.100"
+
+        class EjecEscalado:                               # host caído / firewall responde (con estado)
+            def __init__(s): s.ap = set()
+            def __call__(s, ip, cmd):
+                if ip == "192.168.1.30": return (255, "refused")
+                if "grep" in cmd: return (0, "DROP") if ip in s.ap else (1, "")
+                s.ap.add(ip); return (0, "")
+
+        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
+                 'Action: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
+                 'Final: {"resultado":"mitigado","dispositivo_ejecutor":"gateway"}']
+        class Gen:
+            def __init__(s): s.i = 0
+            def __call__(s, p):
+                v = guion[s.i] if s.i < len(guion) else "ruido"; s.i += 1; return v
+
+        ejec = EjecEscalado()
+        mitigar = lambda decision, alerta, leer: ag.bucle_react(
+            alerta, decision["clase"], perfil, CAT, ejec, Gen(), leer=lambda *_: "s",
+            autonomo=False, escribir=lambda *a, **k: None)
+        buf = io.StringIO()
+        stream.ejecutar([_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=perfil,
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=ejec, justificar_fn=None,
+                        ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
+                        leer=lambda *_: "s", mitigar_fn=mitigar)
+        traza = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertTrue(traza["mitigacion_agente"]["escalado"])                       # host->firewall
+        self.assertEqual(traza["mitigacion_agente"]["dispositivo_ejecutor"], "gateway")
+
+
 class TestVentana(unittest.TestCase):
     def test_rafaga_se_colapsa_en_un_incidente(self):
         # 3 alertas de la misma clave llegan "dentro" de la ventana; luego un tick vence la ventana.
@@ -120,6 +173,13 @@ class TestCLI(unittest.TestCase):
 
     def test_sin_llm_no_construye_justificador(self):
         self.assertIsNone(stream.construir_justificar_fn(False))
+
+    def test_parsear_args_agente(self):
+        self.assertFalse(stream.parsear_args(["alerts.json"])["agente"])
+        self.assertTrue(stream.parsear_args(["-", "p.yml", "--agente"])["agente"])
+
+    def test_sin_agente_no_construye_mitigar_fn(self):
+        self.assertIsNone(stream.construir_mitigar_fn(False, {}, CAT, lambda *_: (0, "")))
 
     def test_banner_menciona_perfil_y_ruta(self):
         b = stream.banner({"perfil": "empresarial.yml", "ruta": "alerts.json", "con_llm": False,
