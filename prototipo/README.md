@@ -467,11 +467,15 @@ tocar el motor.
 Recomendación del tutor: que el RAG *"tenga un agente / no sea determinista"*. Se implementó como un
 **paso de consulta agéntico de un salto, registrado y degradable**, sin sacrificar auditabilidad:
 
-- **Corpus v2 (ATT&CK + D3FEND):** además de las fichas ATT&CK, el corpus (17 fichas) añade contramedidas
-  **D3FEND** (`D3-NTF` filtrado de tráfico, `D3-ITF` filtrado entrante, `D3-AL` bloqueo de cuenta, `D3-NI`
-  aislamiento de red — verificadas contra [d3fend.mitre.org](https://d3fend.mitre.org/)) y fichas de
-  **mapeo** que encadenan *técnica ofensiva → contramedida D3FEND → acción del catálogo* (p. ej.
-  `T1110.001 → D3-ITF/D3-NTF → BLOQUEAR_IP`). Así la justificación explica la contramedida, no solo el ataque.
+- **Corpus v2 (ATT&CK + D3FEND):** el corpus (29 fichas) se **compila** de dos fuentes con
+  `prototipo/extraer_attack.py`: las técnicas **ATT&CK** se **destilan del bundle STIX oficial**
+  (`corpus/fuentes/enterprise-attack.json`, ~54 MB, gitignored) — solo las del perímetro soportado
+  (allowlist `TECNICAS_PERIMETRO`, 15 técnicas de las 4 familias), con la descripción oficial limpia; y las
+  fichas hechas a mano (reglas Wazuh, vulns del lab, contramedidas **D3FEND** y **mapeos**) viven en
+  `corpus/curado.jsonl`. El **mapeo** encadena *técnica ofensiva → contramedida D3FEND → acción del
+  catálogo* (p. ej. `T1110.001 → D3-ITF/D3-NTF → BLOQUEAR_IP`). D3FEND (`D3-NTF`, `D3-ITF`, `D3-AL`,
+  `D3-NI`) verificado contra [d3fend.mitre.org](https://d3fend.mitre.org/). Regenerar:
+  `python3 -m prototipo.extraer_attack` → `python3 -m prototipo.rag --indexar`.
 - **Consulta agéntica** (`rag.consulta_agentica`): el 1B decide **qué añadir** a la búsqueda; se **aumenta**
   la consulta fija (conserva los anclajes estructurados, RNF-08) con la aportación del modelo — nunca es
   peor que la fija. Si la salida es vacía o inventa IPs, **degrada** a la consulta fija (RNF-09). Corre a
