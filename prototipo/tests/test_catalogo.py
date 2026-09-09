@@ -7,8 +7,13 @@ class TestCatalogo(unittest.TestCase):
     def setUp(self):
         self.cat = catalogo.cargar_catalogo(RAIZ)
 
-    def test_carga_las_14_acciones(self):
-        self.assertEqual(len(self.cat), 14)
+    def test_carga_las_15_acciones(self):
+        # 14 originales + BLOQUEAR_IP_FIREWALL (accion perimetral del agente de mitigacion)
+        self.assertEqual(len(self.cat), 15)
+
+    def test_impacto_de_bloquear_ip_firewall_es_alcanza_servicio(self):
+        # el bloqueo perimetral tiene mayor radio de daño que el local (localizado)
+        self.assertEqual(catalogo.impacto_de(self.cat, "BLOQUEAR_IP_FIREWALL"), "alcanza_servicio")
 
     def test_impacto_de_bloquear_ip_es_localizado(self):
         self.assertEqual(catalogo.impacto_de(self.cat, "BLOQUEAR_IP"), "localizado")

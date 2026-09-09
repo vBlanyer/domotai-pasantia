@@ -120,3 +120,86 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
                 {"accion_id": accion_id, "exito": True, "reversion_cmd": reversion_cmd, "resultado": res})
     return (f"Error: fallo en {dispositivo} (rc={res.get('codigo_salida')})",
             {"accion_id": accion_id, "exito": False, "reversion_cmd": reversion_cmd, "resultado": res})
+
+# --------------------------------------------------------------- bucle ReAct --
+
+def construir_prompt_sistema(alerta, topo):
+    nodos = ", ".join(f"{k}({v.get('rol')})" for k, v in topo.items() if isinstance(v, dict) and v.get("rol"))
+    return (
+        "Eres un agente de respuesta a incidentes. Objetivo: cortar el trafico del atacante "
+        f"{alerta.get('origen_ip')} hacia la victima {alerta.get('activo')}. NO escribes comandos de "
+        "shell; SOLO invocas herramientas.\n"
+        "Herramientas (unica salida permitida por paso):\n"
+        "  consultar_topologia()                     -> nodos y su rol\n"
+        "  consultar_conocimiento()                  -> conocimiento ATT&CK/D3FEND de la contramedida\n"
+        "  ejecutar_comando(dispositivo, accion)     -> accion en {\"bloquear_ip\"}\n"
+        "  verificar_mitigacion(dispositivo)         -> bloqueado|activo\n"
+        f"Nodos disponibles: {nodos}.\n"
+        "Reglas: una accion por paso; solo estas herramientas; solo accion 'bloquear_ip'; nunca toques "
+        "el plano de gestion. Si una herramienta devuelve Error, RAZONA y escala a otro dispositivo. "
+        "Cuando el trafico este bloqueado, responde con Final.\n"
+        "Formato EXACTO por paso:\nThought: <una frase>\nAction: {\"tool\": \"...\", \"args\": {...}}\n"
+        "  (o al terminar)\nFinal: {\"resultado\": \"mitigado|fallido\", \"dispositivo_ejecutor\": \"<nodo>\"}\n"
+    )
+
+def _plan(pasos, reversiones, dispositivo_ejecutor, tocados, resultado, degradado, extra=None):
+    p = {"pasos": pasos, "reversiones": reversiones, "dispositivo_ejecutor": dispositivo_ejecutor,
+         "escalado": len(set(tocados)) > 1, "resultado": resultado, "degradado": degradado}
+    if extra:
+        p.update(extra)
+    return p
+
+def degradar(alerta, clase, pasos):
+    """Red de seguridad (RNF-09): si el agente no produce una accion valida, cae al motor determinista."""
+    accion, _params = politica.proponer(clase, alerta)
+    return _plan(pasos, [], None, [], "degradado", True, {"accion_determinista": accion})
+
+def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input, autonomo=False,
+                max_pasos=6, escribir=print, timestamp="", indice=None, embedder=None, gen_conocimiento=None):
+    """Agente ReAct: itera Thought->Action->Observation, escala host->firewall al recibir un error,
+    y degrada al motor determinista si no produce accion valida. El comando lo renderiza el codigo
+    (RF-15); la ejecucion reutiliza conector.ejecutar_orden."""
+    topo = resolver_topologia(perfil)
+    ip_gestion, ip_atacante = topo.get("ip_gestion"), alerta.get("origen_ip")
+    prompt = construir_prompt_sistema(alerta, topo)
+    pasos, reversiones, tocados, dispositivo_ejecutor = [], [], [], None
+    for _ in range(max_pasos):
+        salida = generador(prompt) or ""
+        acc = parsear_accion(salida)
+        thought = _extraer_thought(salida)
+        if acc is None:
+            pasos.append({"tipo": "invalido", "bruto": salida[:200]})
+            prompt += salida + "\nObservation: Error: formato invalido; usa Action con JSON.\n"
+            continue
+        if acc["kind"] == "final":
+            pasos.append({"tipo": "final", "thought": thought, "datos": acc})
+            resultado = acc.get("resultado", "mitigado" if dispositivo_ejecutor else "fallido")
+            return _plan(pasos, reversiones, dispositivo_ejecutor, tocados, resultado, False)
+        tool, args = acc.get("tool"), acc.get("args", {}) or {}
+        if tool == "consultar_topologia":
+            obs = herramienta_consultar_topologia(topo)
+        elif tool == "consultar_conocimiento":
+            obs = herramienta_consultar_conocimiento(alerta, indice, embedder, generador=gen_conocimiento)
+        elif tool == "verificar_mitigacion":
+            obs = herramienta_verificar_mitigacion(topo, catalogo, ejecutor, args.get("dispositivo"), ip_atacante)
+        elif tool == "ejecutar_comando":
+            disp = args.get("dispositivo")
+            obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, disp, args.get("accion"),
+                        ip_atacante, ip_gestion, alerta.get("id_alerta", ""), timestamp, autonomo, leer, escribir)
+            if reg is not None:
+                tocados.append(disp)
+                if reg.get("reversion_cmd"):
+                    reversiones.append(reg["reversion_cmd"])
+                if reg.get("cancelado"):
+                    pasos.append({"tipo": "accion", "thought": thought, "tool": tool, "args": args, "observacion": obs})
+                    return _plan(pasos, reversiones, dispositivo_ejecutor, tocados, "cancelado_por_humano", False)
+                if reg.get("exito"):
+                    dispositivo_ejecutor = disp
+        else:
+            obs = f"Error: herramienta desconocida '{tool}'"
+        pasos.append({"tipo": "accion" if tool == "ejecutar_comando" else "lectura",
+                      "thought": thought, "tool": tool, "args": args, "observacion": obs})
+        prompt += salida + f"\nObservation: {obs}\n"
+    if dispositivo_ejecutor:
+        return _plan(pasos, reversiones, dispositivo_ejecutor, tocados, "mitigado", False)
+    return degradar(alerta, clase, pasos)

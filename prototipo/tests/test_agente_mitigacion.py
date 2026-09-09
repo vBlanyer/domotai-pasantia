@@ -117,5 +117,86 @@ class TestEjecutarComando(unittest.TestCase):
         self.assertTrue(obs.startswith("Error")); self.assertIsNone(reg)
 
 
+class GeneradorGuion:
+    """LLM falso: emite pasos ReAct prefijados, ignora el prompt."""
+    def __init__(self, pasos): self.pasos, self.i = list(pasos), 0
+    def __call__(self, prompt):
+        if self.i >= len(self.pasos): return "ruido sin accion"
+        p = self.pasos[self.i]; self.i += 1; return p
+
+class EjecutorEscalado:
+    """host víctima (.30) caído; firewall (.1) responde y modela el estado: verif-antes 'no está',
+    tras aplicar la re-verif da 'está'."""
+    def __init__(self): self.aplicado = set()
+    def __call__(self, nodo_ip, cmd):
+        if nodo_ip == "192.168.1.30":
+            return (255, "connect to host 192.168.1.30 port 22: Connection refused")
+        if "grep" in cmd:                                  # verificación
+            return (0, "DROP") if nodo_ip in self.aplicado else (1, "")
+        self.aplicado.add(nodo_ip)                          # aplicar
+        return (0, "")
+
+
+class TestBucleReact(unittest.TestCase):
+    def _alerta(self):
+        return {"id_alerta": "a1", "origen_ip": "192.168.1.10", "activo": "objetivo-vuln",
+                "servicio": "ssh", "regla_id": "5760", "mitre": ["T1110.001"]}
+
+    def test_escalado_host_caido_a_firewall(self):
+        guion = [
+            'Thought: intento el bloqueo local en el host victima.\nAction: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
+            'Thought: el host no responde; escalo al firewall perimetral.\nAction: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
+            'Thought: verifico el corte en el firewall.\nAction: {"tool":"verificar_mitigacion","args":{"dispositivo":"gateway"}}',
+            'Final: {"resultado":"mitigado","dispositivo_ejecutor":"gateway"}',
+        ]
+        plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil(), CAT,
+                              EjecutorEscalado(), GeneradorGuion(guion),
+                              leer=lambda *_: "s", autonomo=True, escribir=lambda *_: None)
+        self.assertTrue(plan["escalado"])
+        self.assertEqual(plan["dispositivo_ejecutor"], "gateway")
+        self.assertEqual(plan["resultado"], "mitigado")
+        self.assertFalse(plan["degradado"])
+        self.assertTrue(any("FORWARD" in r for r in plan["reversiones"]))   # RF-18
+
+    def test_rechazo_humano_cancela(self):
+        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}']
+        plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil(), CAT,
+                              lambda ip, c: (0, ""), GeneradorGuion(guion),
+                              leer=lambda *_: "n", autonomo=False, escribir=lambda *_: None)
+        self.assertEqual(plan["resultado"], "cancelado_por_humano")
+
+    def test_degrada_si_no_hay_accion_valida(self):
+        plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil(), CAT,
+                              lambda ip, c: (0, ""), GeneradorGuion(["basura", "mas basura"]),
+                              leer=lambda *_: "s", autonomo=True, escribir=lambda *_: None, max_pasos=2)
+        self.assertTrue(plan["degradado"])
+        self.assertEqual(plan["resultado"], "degradado")
+        self.assertEqual(plan["accion_determinista"], "BLOQUEAR_IP")   # politica.proponer
+
+    def test_gestion_vetada_por_codigo(self):
+        alerta = dict(self._alerta()); alerta["origen_ip"] = "192.168.1.100"   # = ip_gestion
+        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
+                 'Final: {"resultado":"fallido"}']
+        plan = ag.bucle_react(alerta, "vp_intento_acceso", y_perfil(), CAT,
+                              lambda ip, c: (0, ""), GeneradorGuion(guion),
+                              leer=lambda *_: "s", autonomo=True, escribir=lambda *_: None)
+        self.assertIsNone(plan["dispositivo_ejecutor"])                 # nada se ejecutó
+        self.assertTrue(any(p.get("observacion", "").startswith("Error") for p in plan["pasos"]))
+
+    def test_agente_consulta_conocimiento_rag(self):
+        from prototipo import rag
+        emb = lambda textos: [[1.0 if "bloquear" in t.lower() else 0.0] for t in textos]
+        indice = rag.indexar([{"id": "mapeo-acceso_credenciales", "tipo": "mapeo",
+                               "titulo": "Mapeo acceso", "texto": "bloquear ip D3-ITF"}], emb)
+        guion = ['Action: {"tool":"consultar_conocimiento","args":{}}',
+                 'Final: {"resultado":"fallido"}']
+        capturado = []
+        plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil(), CAT,
+                              lambda ip, c: (0, ""), GeneradorGuion(guion), leer=lambda *_: "s",
+                              autonomo=True, escribir=lambda *a, **k: capturado.append(" ".join(map(str, a))),
+                              indice=indice, embedder=emb)
+        self.assertTrue(any("Mapeo acceso" in p.get("observacion", "") for p in plan["pasos"]))
+
+
 if __name__ == "__main__":
     unittest.main()
