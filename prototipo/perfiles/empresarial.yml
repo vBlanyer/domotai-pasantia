@@ -14,3 +14,7 @@ continuidad:
   umbral_confianza: 0.7   # umbral de escalado (RF-07); 0.7 por defecto
 excepciones:
   - { servicio: 443, activo: servidor-web, regla: nunca_automatica }
+topologia:
+  objetivo-vuln: { rol: host_victima, ip: 192.168.1.30, gateway: gateway }
+  gateway:       { rol: firewall_perimetral, ip: 192.168.1.1 }
+ip_gestion: 192.168.1.100

@@ -6,6 +6,7 @@ OBS_ESCUCHA:     { categoria: observacion, impacto: ninguno, reversion: no_aplic
 OBS_CONFIG:      { categoria: observacion, impacto: ninguno, reversion: no_aplica, comando: "ip addr; ip route", verificacion: "salida capturada" }
 OBS_CAPTURA:     { categoria: observacion, impacto: ninguno, reversion: no_aplica, comando: "timeout 10 tcpdump -c 100 -w -", verificacion: "pcap devuelto" }
 BLOQUEAR_IP:     { categoria: contencion, impacto: localizado, reversion: definida, comando: "iptables -A INPUT -s {ip} -j DROP", reversion_cmd: "iptables -D INPUT -s {ip} -j DROP", verificacion: "iptables -L -n | grep {ip}" }
+BLOQUEAR_IP_FIREWALL: { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "iptables -A FORWARD -s {ip} -j DROP", reversion_cmd: "iptables -D FORWARD -s {ip} -j DROP", verificacion: "iptables -L FORWARD -n | grep {ip}" }
 BLOQUEAR_PUERTO: { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "iptables -A INPUT -p tcp --dport {puerto} -j DROP", reversion_cmd: "iptables -D INPUT -p tcp --dport {puerto} -j DROP", verificacion: "iptables -L -n" }
 AISLAR_NODO:     { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "iptables -A FORWARD -s {ip_nodo} -j DROP", reversion_cmd: "iptables -D FORWARD -s {ip_nodo} -j DROP", verificacion: "iptables -L -n" }
 LIMITAR_BANDA:   { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "tc qdisc add dev {if} root tbf rate {rate}", reversion_cmd: "tc qdisc del dev {if} root", verificacion: "tc qdisc show" }
