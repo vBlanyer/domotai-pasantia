@@ -289,6 +289,37 @@ eco que contiene todos los campos de la alerta y, por tanto, ancla---, que oblig
 repetición como un fallo de generación. Una métrica automática de explicabilidad debe defenderse de
 las maneras de satisfacerla sin cumplir su propósito.
 
+\subsection{El agente de mitigación, medido en condiciones válidas}
+\label{sec:agente-medido}
+
+Corregida la invocación, el agente descrito en la sección \ref{sec:agentes} pudo por fin ejercitarse
+de verdad. Los resultados llegan en tres escalones, y ninguno es el que cabría esperar.
+
+Con el modelo pequeño y sin restringir la salida, el agente \textbf{nunca} produjo una acción
+interpretable: agotaba los pasos y terminaba sin contener nada. Al restringir la salida con el
+esquema derivado del catálogo, el comportamiento cambió de golpe: el modelo emitió al primer intento
+un objeto sintácticamente impecable y conforme al esquema. Pero declaraba la mitigación
+\emph{sin haber invocado ninguna herramienta}: ninguna acción ejecutada, ninguna dirección
+bloqueada. La restricción había resuelto el problema del formato y dejado intacto el del contenido.
+Fue esa observación la que obligó a que el resultado de una mitigación se lea del registro de lo
+ejecutado y nunca de lo que el modelo afirma.
+
+Con el modelo de ocho mil millones de parámetros y la salida restringida, sobre tres ejecuciones del
+escenario de escalada, el agente \textbf{no completó el ciclo por sí mismo en ninguna} de ellas,
+aunque el esquema sí redujo el coste a la tercera parte ---de nueve a tres segundos por incidente---
+al evitar pasos malgastados en salidas inservibles. En las tres, sin embargo, \textbf{la amenaza
+quedó contenida}, porque la escalada determinista actúa cuando el agente no concluye.
+
+La lectura honesta es que \textbf{ni siquiera un modelo de ese tamaño sostiene un ciclo de
+razonamiento y acción fiable en este dominio} con el hardware y el montaje evaluados. Es un
+resultado negativo y va a contracorriente de la tendencia actual a incorporar agentes a todo, lo que
+lo hace más digno de reportarse que de omitirse. Conviene además situarlo: la capacidad que el
+tutor industrial pidió ---no quedarse sin contención cuando el equipo atacado no responde--- está
+entregada y funciona siempre, porque no depende del modelo. Lo que no está demostrado es que
+delegarla en un agente aporte algo sobre la regla determinista en un perímetro de dos dispositivos,
+y esa es exactamente la hipótesis que la sección \ref{sec:agentes} anticipaba como no verificable a
+esta escala.
+
 % ===========================================================================
 \section{Un resultado negativo: crecer el corpus empeoró la recuperación}
 \label{sec:mrr}
