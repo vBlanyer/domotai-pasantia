@@ -313,3 +313,28 @@ class TestEscaladaDeterminista(unittest.TestCase):
                                        autonomo=True, timestamp="t")
         for clave in ("pasos", "reversiones", "dispositivo_ejecutor", "escalado", "resultado", "degradado"):
             self.assertIn(clave, plan)     # intercambiable como mitigar_fn
+
+
+class TestFinalSinRespaldo(unittest.TestCase):
+    def test_no_se_cree_un_exito_que_no_ejecuto_nada(self):
+        # Con la salida restringida por json-schema, un modelo pequeno produce JSON impecable
+        # y falso: declara 'mitigado' en el primer paso sin haber invocado ninguna herramienta.
+        # El resultado lo decide el registro de lo ejecutado, no la afirmacion del modelo.
+        guion = GeneradorGuion(['{"kind":"final","resultado":"mitigado","dispositivo_ejecutor":"gateway"}'])
+        plan = ag.bucle_react({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
+                              "vp_intento_acceso", y_perfil(), CAT, EjecutorEscalado(), guion,
+                              autonomo=True, timestamp="t", escribir=lambda *a: None, max_pasos=2)
+        # Cae a la escalada determinista, que si ejecuta y verifica.
+        self.assertTrue(plan["degradado"])
+        self.assertEqual(plan["dispositivo_ejecutor"], "gateway")   # real, no declarado
+
+    def test_un_final_respaldado_por_ejecucion_si_vale(self):
+        guion = GeneradorGuion([
+            '{"kind":"action","tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
+            '{"kind":"final","resultado":"mitigado","dispositivo_ejecutor":"gateway"}'])
+        plan = ag.bucle_react({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
+                              "vp_intento_acceso", y_perfil(), CAT, EjecutorEscalado(), guion,
+                              autonomo=True, timestamp="t", escribir=lambda *a: None, max_pasos=3)
+        self.assertEqual(plan["resultado"], "mitigado")
+        self.assertFalse(plan["degradado"])
+        self.assertEqual(plan["dispositivo_ejecutor"], "gateway")

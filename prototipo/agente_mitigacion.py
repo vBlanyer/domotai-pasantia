@@ -266,8 +266,13 @@ def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input
             continue
         if acc["kind"] == "final":
             pasos.append({"tipo": "final", "thought": thought, "datos": acc})
-            resultado = acc.get("resultado", "mitigado" if dispositivo_ejecutor else "fallido")
-            return _plan(pasos, reversiones, dispositivo_ejecutor, tocados, resultado, False)
+            # El modelo NO decide si se mitigo: lo dice el registro de lo que se ejecuto. Un
+            # `final` que declara exito sin haber ejecutado ninguna accion es una afirmacion sin
+            # respaldo, y con la salida restringida por esquema es justo lo que un modelo pequeno
+            # tiende a producir: JSON impecable y falso. Se ignora la afirmacion y se contiene.
+            if dispositivo_ejecutor:
+                return _plan(pasos, reversiones, dispositivo_ejecutor, tocados, "mitigado", False)
+            break
         tool, args = acc.get("tool"), acc.get("args", {}) or {}
         if tool == "consultar_topologia":
             obs = herramienta_consultar_topologia(topo)
