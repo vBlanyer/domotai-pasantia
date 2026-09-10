@@ -50,9 +50,12 @@ def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_priori
                         "version_baseline": "baseline-0"},
     }
     if con_llm:
-        gen = generador or justificador_llm.generador_llama
+        gen = generador or justificador_llm.generador_por_defecto()
         anc = anclaje.medir(filas, hallazgos, perfil_dict, generador=gen, recuperar_fn=recuperar_fn)
-        resultados["anclaje"] = {"resumen": anclaje.resumen(anc), "detalle": anc}
+        res_anc = anclaje.resumen(anc)
+        resultados["anclaje"] = {"resumen": res_anc, "detalle": anc}
+        # Que modelo produjo estas justificaciones: sin esto la corrida no es comparable.
+        resultados["condiciones"]["version_justificador"] = res_anc.get("versiones")
     return resultados
 
 def _celda(v):
@@ -88,6 +91,8 @@ def main(argv):
     ap.add_argument("--perfil", default="empresarial")
     ap.add_argument("--sin-llm", action="store_true")
     ap.add_argument("--con-rag", action="store_true")
+    ap.add_argument("--generador", choices=("servidor", "subproceso"), default=None,
+                    help="como invocar el modelo; por defecto, el vigente (servidor residente)")
     ap.add_argument("--salida-dir", default="evaluacion/resultados")
     ap.add_argument("--hallazgos", default="lab/campañas/2026-08-31-evaluacion/hallazgos.json")
     a = ap.parse_args(argv[1:])
@@ -108,8 +113,13 @@ def main(argv):
             print("ERROR: falta el indice del RAG. Genera primero: python3 -m prototipo.rag --indexar")
             return 1
         recuperar_fn = lambda alerta: rag.recuperar(rag.construir_consulta(alerta), indice, rag.embedder_llama, k=3)
+    generador = None
+    if a.generador == "subproceso":
+        generador = justificador_llm.generador_llama
+    elif a.generador == "servidor":
+        generador = justificador_llm.generador_servidor
     resultados = evaluar(filas, hallazgos, perfil_dict, a.perfil, catalogo, tabla_prioridad,
-                         con_llm=not a.sin_llm, recuperar_fn=recuperar_fn)
+                         con_llm=not a.sin_llm, generador=generador, recuperar_fn=recuperar_fn)
 
     os.makedirs(a.salida_dir, exist_ok=True)
     fecha = datetime.date.today().isoformat()

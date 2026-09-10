@@ -69,11 +69,15 @@ def evaluar_sintesis(alertas, justificar_texto, anclado_fn):
 def _fmt(x):
     return f"{x:.2f}"
 
-def formatear_informe(rec_fija, rec_agentica, sintesis=None, ks=(1, 3, 5)):
+def formatear_informe(rec_fija, rec_agentica, sintesis=None, ks=(1, 3, 5), condiciones=None):
     af, aa = rec_fija["agregado"], rec_agentica["agregado"]
     L = ["# Evaluación del RAG por simulación de ataques", "",
          f"Sobre {rec_fija.get('n', '')} alertas sintéticas etiquetadas (perímetro MITRE). Recuperación medida "
-         "contra el `id` de ficha esperado (verdad estructural).", "",
+         "contra el `id` de ficha esperado (verdad estructural).", ""]
+    # Sin esto, dos corridas con modelos distintos se leen como si fueran comparables.
+    if condiciones:
+        L += [f"**Condiciones:** {condiciones}", ""]
+    L += [
          "## Recuperación: consulta Fija vs Agéntica", "",
          "| Métrica | Fija | Agéntica |", "|---|---|---|"]
     for k in ks:
@@ -108,7 +112,7 @@ def main(argv):
     salida_dir = argv[argv.index("--salida-dir") + 1] if "--salida-dir" in argv else DIR_RESULTADOS
     alertas = cargar_simulaciones()
     indice = rag.cargar_indice()
-    emb, gen = rag.embedder_llama, jl.generador_llama
+    emb, gen = rag.embedder_llama, jl.generador_por_defecto()
     print(f"Evaluando recuperación (fija y agéntica) sobre {len(alertas)} alertas... (usa el 1B, lento)")
     rec_fija = evaluar_recuperacion(alertas, _recuperar_ids_fijo(indice, emb, kmax), ks)
     rec_ag = evaluar_recuperacion(alertas, _recuperar_ids_agentico(indice, emb, gen, kmax), ks)
@@ -120,7 +124,9 @@ def main(argv):
             ctx = {"postura": {"expuesto": True}, "criticidad": "alta"}
             return jl.justificar_con_rag(a, ctx, "vp_intento_acceso", gen, rec_fn).get("texto", "")
         sintesis = evaluar_sintesis(alertas, _just_texto, jl.verificar_anclaje)
-    informe = formatear_informe(rec_fija, rec_ag, sintesis, ks)
+    condiciones = (f"embedder `{os.path.basename(rag.MODELO)}` · "
+                   f"generador `{jl._version_llm()}` ({gen.__name__})")
+    informe = formatear_informe(rec_fija, rec_ag, sintesis, ks, condiciones=condiciones)
     os.makedirs(salida_dir, exist_ok=True)
     ruta = os.path.join(salida_dir, f"rag-simulacion-{datetime.date.today().isoformat()}.md")
     with open(ruta, "w", encoding="utf-8") as f:
