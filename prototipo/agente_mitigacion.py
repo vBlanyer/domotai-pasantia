@@ -192,6 +192,58 @@ def degradar(alerta, clase, pasos):
     accion, _params = politica.proponer(clase, alerta)
     return _plan(pasos, [], None, [], "degradado", True, {"accion_determinista": accion})
 
+def cadena_de_contencion(topo, activo):
+    """Orden en que se intenta contener: el activo afectado y, tras el, aquel al que apunta su
+    `gateway`, y asi hasta el perimetro. Si el activo no esta en la topologia, se contiene al
+    menos en los cortafuegos perimetrales."""
+    orden, visto, actual = [], set(), activo
+    while actual and actual not in visto:
+        visto.add(actual)
+        nodo = topo.get(actual)
+        if not isinstance(nodo, dict):
+            break
+        if nodo.get("rol"):
+            orden.append(actual)
+        actual = nodo.get("gateway")
+    if not orden:
+        orden = sorted(k for k, v in topo.items()
+                       if isinstance(v, dict) and v.get("rol") == "firewall_perimetral")
+    return orden
+
+def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, autonomo=False,
+                         escribir=print, timestamp=""):
+    """Escalada de contencion **sin modelo**: recorre la cadena de dispositivos desde el activo
+    afectado hacia el perimetro y para en el primero donde el bloqueo se verifica.
+
+    Cubre la misma necesidad que el agente ReAct ---la que planteo el tutor industrial: que el
+    sistema no se quede sin contencion cuando el equipo atacado esta fuera de alcance--- pero de
+    forma instantanea, auditable y sin depender de que un modelo acierte. A cambio, no
+    generaliza a modos de fallo no previstos, que es lo que el agente si podria aportar.
+
+    Devuelve el mismo plan que `bucle_react`, asi que ambos son intercambiables como `mitigar_fn`.
+    """
+    topo = resolver_topologia(perfil)
+    ip_gestion, ip = topo.get("ip_gestion"), alerta.get("origen_ip")
+    pasos, reversiones, tocados = [], [], []
+    for dispositivo in cadena_de_contencion(topo, alerta.get("activo")):
+        obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, "bloquear_ip",
+                                                ip, ip_gestion, alerta.get("id_alerta", ""), timestamp,
+                                                autonomo, leer, escribir)
+        pasos.append({"tipo": "accion", "dispositivo": dispositivo, "observacion": obs})
+        if reg is None:                       # dispositivo o accion no aplicables: siguiente salto
+            continue
+        tocados.append(dispositivo)
+        if reg.get("reversion_cmd"):
+            reversiones.append(reg["reversion_cmd"])
+        if reg.get("cancelado"):
+            return _plan(pasos, reversiones, None, tocados, "cancelado_por_humano", False)
+        if reg.get("exito"):
+            veredicto = herramienta_verificar_mitigacion(topo, catalogo, ejecutor, dispositivo, ip)
+            pasos.append({"tipo": "verificacion", "dispositivo": dispositivo, "observacion": veredicto})
+            if veredicto == "bloqueado":
+                return _plan(pasos, reversiones, dispositivo, tocados, "mitigado", False)
+    return _plan(pasos, reversiones, None, tocados, "fallido", False)
+
 def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input, autonomo=False,
                 max_pasos=6, escribir=print, timestamp="", indice=None, embedder=None, gen_conocimiento=None):
     """Agente ReAct: itera Thought->Action->Observation, escala host->firewall al recibir un error,
@@ -243,4 +295,12 @@ def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input
         prompt += salida + f"\nObservation: {obs}\n"
     if dispositivo_ejecutor:
         return _plan(pasos, reversiones, dispositivo_ejecutor, tocados, "mitigado", False)
-    return degradar(alerta, clase, pasos)
+    # El modelo no produjo una accion valida. Antes esto dejaba la amenaza SIN contener y solo
+    # anotaba la accion que la politica habria propuesto; ahora se contiene igual recorriendo la
+    # cadena de forma determinista. El plan sigue marcado como degradado, para que la traza
+    # distinga lo que decidio el modelo de lo que decidio la regla.
+    plan = escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=leer,
+                                autonomo=autonomo, escribir=escribir, timestamp=timestamp)
+    accion, _params = politica.proponer(clase, alerta)
+    plan.update({"pasos": pasos + plan["pasos"], "degradado": True, "accion_determinista": accion})
+    return plan

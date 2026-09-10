@@ -165,12 +165,16 @@ class TestBucleReact(unittest.TestCase):
                               leer=lambda *_: "n", autonomo=False, escribir=lambda *_: None)
         self.assertEqual(plan["resultado"], "cancelado_por_humano")
 
-    def test_degrada_si_no_hay_accion_valida(self):
+    def test_si_el_modelo_no_da_accion_valida_se_contiene_igual(self):
+        # Antes esto dejaba la amenaza SIN contener y solo anotaba lo que la politica habria
+        # propuesto. Ahora cae a la escalada determinista: el plan sigue marcado como degradado
+        # ---para que la traza distinga al modelo de la regla--- pero la amenaza queda contenida.
         plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil(), CAT,
-                              lambda ip, c: (0, ""), GeneradorGuion(["basura", "mas basura"]),
+                              EjecutorEscalado(), GeneradorGuion(["basura", "mas basura"]),
                               leer=lambda *_: "s", autonomo=True, escribir=lambda *_: None, max_pasos=2)
-        self.assertTrue(plan["degradado"])
-        self.assertEqual(plan["resultado"], "degradado")
+        self.assertTrue(plan["degradado"])                             # lo decidio la regla, no el modelo
+        self.assertEqual(plan["resultado"], "mitigado")                # pero se contuvo
+        self.assertEqual(plan["dispositivo_ejecutor"], "gateway")      # escalando al perimetro
         self.assertEqual(plan["accion_determinista"], "BLOQUEAR_IP")   # politica.proponer
 
     def test_gestion_vetada_por_codigo(self):
@@ -254,3 +258,58 @@ class TestGeneradorQueFalla(unittest.TestCase):
                               "vp_intento_acceso", y_perfil(), CAT, EjecutorEscalado(),
                               revienta, autonomo=True, timestamp="t")
         self.assertTrue(plan["degradado"])       # degrada, no propaga la excepcion
+
+
+class TestCadenaDeContencion(unittest.TestCase):
+    def test_va_del_activo_al_perimetro(self):
+        topo = ag.resolver_topologia(y_perfil())
+        self.assertEqual(ag.cadena_de_contencion(topo, "objetivo-vuln"), ["objetivo-vuln", "gateway"])
+
+    def test_si_el_activo_no_esta_contiene_en_el_perimetro(self):
+        topo = ag.resolver_topologia(y_perfil())
+        self.assertEqual(ag.cadena_de_contencion(topo, "camara-desconocida"), ["gateway"])
+
+    def test_no_entra_en_bucle_si_la_topologia_se_referencia_a_si_misma(self):
+        topo = {"a": {"rol": "host_victima", "ip": "1.1.1.1", "gateway": "b"},
+                "b": {"rol": "firewall_perimetral", "ip": "1.1.1.2", "gateway": "a"}}
+        self.assertEqual(ag.cadena_de_contencion(topo, "a"), ["a", "b"])
+
+
+class TestEscaladaDeterminista(unittest.TestCase):
+    def test_escala_al_firewall_cuando_la_victima_no_responde(self):
+        # Mismo escenario que el agente ReAct, sin modelo: es lo que pidio el tutor industrial.
+        plan = ag.escalar_determinista({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
+                                       "vp_intento_acceso", y_perfil(), CAT, EjecutorEscalado(),
+                                       autonomo=True, timestamp="t")
+        self.assertEqual(plan["resultado"], "mitigado")
+        self.assertEqual(plan["dispositivo_ejecutor"], "gateway")
+        self.assertTrue(plan["escalado"])
+        self.assertFalse(plan["degradado"])
+
+    def test_registra_la_reversion_de_lo_aplicado(self):
+        plan = ag.escalar_determinista({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
+                                       "vp_intento_acceso", y_perfil(), CAT, EjecutorEscalado(),
+                                       autonomo=True, timestamp="t")
+        self.assertTrue(plan["reversiones"])                       # RF-18
+        self.assertTrue(any("-D" in r for r in plan["reversiones"]))
+
+    def test_para_en_el_primero_que_verifica(self):
+        # Si la victima responde, no se toca el perimetro: minimo impacto.
+        class TodoOk:
+            def __init__(self): self.aplicado = set()
+            def __call__(self, ip, cmd):
+                if "grep" in cmd:
+                    return (0, "DROP") if ip in self.aplicado else (1, "")
+                self.aplicado.add(ip); return (0, "")
+        plan = ag.escalar_determinista({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
+                                       "vp_intento_acceso", y_perfil(), CAT, TodoOk(),
+                                       autonomo=True, timestamp="t")
+        self.assertEqual(plan["dispositivo_ejecutor"], "objetivo-vuln")
+        self.assertFalse(plan["escalado"])
+
+    def test_devuelve_el_mismo_contrato_que_el_agente(self):
+        plan = ag.escalar_determinista({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
+                                       "vp_intento_acceso", y_perfil(), CAT, EjecutorEscalado(),
+                                       autonomo=True, timestamp="t")
+        for clave in ("pasos", "reversiones", "dispositivo_ejecutor", "escalado", "resultado", "degradado"):
+            self.assertIn(clave, plan)     # intercambiable como mitigar_fn
