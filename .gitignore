@@ -6,9 +6,27 @@ lab/campañas/prueba-*/
 *.drawio
 get-docker.sh
 
+# Marcadores de procedencia que anade Windows a los ficheros descargados
+*:Zone.Identifier
+
 # Artefactos de Python
 __pycache__/
 *.pyc
+
+# Artefactos de compilacion de LaTeX (el informe de la Fase 7).
+# Se versionan solo las fuentes (.tex/.bib), las imagenes y el PDF final.
+documentacion/report/*.aux
+documentacion/report/*.bbl
+documentacion/report/*.blg
+documentacion/report/*.log
+documentacion/report/*.out
+documentacion/report/*.toc
+documentacion/report/*.lof
+documentacion/report/*.lot
+documentacion/report/*.fls
+documentacion/report/*.fdb_latexmk
+documentacion/report/*.xdv
+documentacion/report/*.synctex.gz
 
 # Modelos de ML (grandes, se descargan aparte)
 modelos/

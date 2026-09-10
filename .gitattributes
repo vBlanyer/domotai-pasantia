@@ -1,0 +1,15 @@
+# Fin de linea: el repositorio guarda LF.
+#
+# El proyecto se edita desde WSL (LF) pero se abre tambien desde Windows, donde
+# core.autocrlf convierte a CRLF y genera diffs de solo fin de linea. Fijarlo
+# aqui evita esa oscilacion, que ya se habia manifestado en los scripts de lab/.
+* text=auto eol=lf
+
+# Los scripts deben conservar LF si o si: con CRLF el interprete falla.
+*.sh text eol=lf
+
+# Binarios: git no los toca.
+*.png binary
+*.pdf binary
+*.gz  binary
+*.img binary
