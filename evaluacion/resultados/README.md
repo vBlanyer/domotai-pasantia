@@ -44,13 +44,13 @@ python3 -m evaluacion.campana --particion evaluacion --con-rag --salida-dir eval
 ## Corridas con modelo de 8B (10/09/2026)
 
 Tras rehacer la capa de invocacion (servidor residente) y con un modelo de ocho mil millones de
-parametros, :
+parametros, `llm-2:llama-3.1-8b-instruct-q4.gguf`:
 
 | Directorio | Que contiene |
 |---|---|
-|  | Campana sin recuperacion. 18/18 ancladas, 0 degradadas |
-|  | Campana con recuperacion. 18/18 ancladas, 0 degradadas, 51 s (antes 10 m 46 s) |
-|  | Banco de calibracion. Consulta fija MRR 0.47 frente a agentica 0.32 |
+| `8b-sin-rag/` | Campana sin recuperacion. 18/18 ancladas, 0 degradadas |
+| `8b-con-rag/` | Campana con recuperacion. 18/18 ancladas, 0 degradadas, 51 s (antes 10 m 46 s) |
+| `rag-simulacion-2026-09-10.md` | Banco de calibracion. Consulta fija MRR 0.47 frente a agentica 0.32 |
 
 La clasificacion es identica a la de las corridas anteriores, como debe ser: el modelo no participa
 en ella. Lo que cambia es la justificacion.
