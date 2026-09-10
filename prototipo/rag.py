@@ -73,6 +73,13 @@ def recuperar(consulta, indice, embedder, k=3):
     if not qv or not qv[0]:
         return []
     q = qv[0]
+    # Si alguien cambia el embedder y no reindexa, `_coseno` truncaria al vector mas corto con
+    # `zip` y devolveria similitudes plausibles pero sin sentido. Un fallo silencioso en la capa
+    # de recuperacion es peor que una parada: aqui se para.
+    if indice and len(q) != len(indice[0].get("vector", ())):
+        raise ValueError(
+            f"el indice tiene vectores de {len(indice[0].get('vector', ()))} dimensiones y el "
+            f"embedder produce {len(q)}: reindexa con 'python3 -m prototipo.rag --indexar'")
     puntuados = sorted(indice, key=lambda d: _coseno(q, d["vector"]), reverse=True)
     return [{c: d[c] for c in d if c != "vector"} for d in puntuados[:k]]
 
@@ -103,11 +110,20 @@ BINARIO = os.environ.get("LLAMA_EMBED_BIN",
 # Variable propia, distinta de la del generador: si el embedder compartiera LLAMA_MODELO,
 # apuntar el justificador a otro modelo cambiaria en silencio los vectores y dejaria
 # inservible el indice ya calculado (dimensiones distintas).
-MODELO = os.environ.get("LLAMA_EMBED_MODELO", "modelos/llama-3.2-1b-q4.gguf")
+MODELO = os.environ.get("LLAMA_EMBED_MODELO", "modelos/bge-m3-q8.gguf")
+# Agrupacion del embedder: "cls" para los modelos de la familia BGE (asi se entrenaron),
+# "mean" para un modelo generativo usado como embedder. Va con el modelo, no aparte.
+POOLING = os.environ.get("LLAMA_EMBED_POOLING", "cls")
 RUTA_INDICE = os.path.join(os.path.dirname(__file__), "corpus", "indice.json")
 
-def embedder_llama(textos, modelo=MODELO, binario=BINARIO, timeout=180):
-    """Un vector por texto via llama-embedding (--pooling mean). [] ante fallo (RNF-09)."""
+def embedder_llama(textos, modelo=MODELO, binario=BINARIO, timeout=180, pooling=POOLING):
+    """Un vector por texto via llama-embedding. [] ante fallo (RNF-09).
+
+    `pooling` no es un detalle: los modelos de embeddings de la familia BGE se entrenan con
+    agrupacion por CLS y rinden peor con la media, mientras que un modelo generativo usado como
+    embedder necesita la media. Cambiar de modelo sin cambiar esto degrada la recuperacion en
+    silencio.
+    """
     # cada texto en una linea; se limpian saltos internos para no romper el conteo por linea
     limpio = [t.replace("\n", " ").strip() for t in textos]
     with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
@@ -115,7 +131,7 @@ def embedder_llama(textos, modelo=MODELO, binario=BINARIO, timeout=180):
         ruta = f.name
     try:
         cp = subprocess.run([binario, "-m", modelo, "-f", ruta,
-                             "--pooling", "mean", "--embd-output-format", "json"],
+                             "--pooling", pooling, "--embd-output-format", "json"],
                             capture_output=True, text=True, timeout=timeout)
         datos = json.loads(cp.stdout)["data"]
         vecs = [None] * len(limpio)
