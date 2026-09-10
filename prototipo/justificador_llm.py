@@ -47,9 +47,27 @@ def construir_prompt(alerta, contexto, clase, pasajes=None):
             "Escribe en espanol y no traduzcas los nombres propios.\n"
             f"{bloque}Datos: {datos}\nExplicacion:")
 
+_MODELO_SERVIDOR = None    # lo que el servidor dice estar sirviendo; se consulta una sola vez
+
+def _modelo_del_servidor(url, _abrir=urllib.request.urlopen):
+    """Nombre del modelo que sirve el servidor. Sin esto, la version se compondria con la
+    ruta de la variable de entorno, que NO tiene por que ser lo que el servidor cargo: una
+    campana con el 8B quedaria etiquetada como si fuera del 1B."""
+    global _MODELO_SERVIDOR
+    if _MODELO_SERVIDOR is None:
+        try:
+            with _abrir(url.rstrip("/") + "/props", timeout=10) as respuesta:
+                _MODELO_SERVIDOR = os.path.basename(json.load(respuesta).get("model_path") or "")
+        except Exception:
+            _MODELO_SERVIDOR = ""
+        # Se cachea la cadena vacia si no se pudo averiguar: eso deja que _version_llm
+        # caiga al valor de la variable de entorno en vez de inventar un nombre.
+    return _MODELO_SERVIDOR
+
 def _version_llm():
     # Identidad del justificador para la traza (RF-09/RNF-03): versión + modelo.
-    return f"{VERSION_JUSTIFICADOR}:{os.path.basename(MODELO)}"
+    modelo = _MODELO_SERVIDOR or os.path.basename(MODELO)
+    return f"{VERSION_JUSTIFICADOR}:{modelo}"
 
 def justificar_llm(alerta, contexto, clase, generador, fallback=analisis.justificar):
     try:
@@ -152,6 +170,7 @@ def generador_servidor(prompt, url=URL, n_tokens=200, temperatura=0, esquema=Non
     # la alerta, y se colaria como justificacion valida. Se trata como fallo -> plantilla.
     if texto[:60] and texto[:60] in prompt:
         return ""
+    _modelo_del_servidor(url, _abrir)
     return texto
 
 
