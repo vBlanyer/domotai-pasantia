@@ -217,11 +217,25 @@ interviene en la explicación y, en el caso del agente, en la elección de la es
 El coste de inferencia afecta, por tanto, a la calidad de la justificación, no al tiempo de
 respuesta ante la amenaza.
 
+La capa de invocación del modelo se rehízo al detectarse que la anterior estaba defectuosa. El
+prototipo lanzaba un proceso del motor de inferencia por cada llamada, pasándole un parámetro de
+temperatura que ese ejecutable no admite y que, en consecuencia, acababa incorporado al propio texto
+que el modelo leía; además, al no aplicarse la plantilla de conversación del modelo, la salida
+devolvía el enunciado repetido antes de la respuesta. El justificador toleraba ambos defectos porque
+su enunciado termina en un marcador por el que la salida se recorta, y ese recorte descartaba el
+sobrante; el agente, cuyo enunciado carece de ese marcador, nunca llegaba a producir una acción
+interpretable. La invocación pasó a realizarse contra un \textbf{servicio de inferencia residente},
+lo que resuelve las tres cosas a la vez ---la plantilla la aplica el servicio, la temperatura viaja
+como un campo estructurado y no puede filtrarse al enunciado, y el modelo permanece cargado entre
+llamadas--- y habilita además la generación restringida por esquema descrita en el marco teórico.
+La identificación de versión del justificador se incrementó, de modo que las campañas anteriores
+siguen atribuidas a la invocación con la que se midieron.
+
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 239 casos ---178 del motor de triaje, 28 del marco de evaluación y 33 de
-la tubería de construcción del conjunto de datos---, ejecutados con generadores y ejecutores
-simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de degradación
-sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.
+este informe, asciende a 265 casos ---204 del motor de triaje, 28 del marco de evaluación y 33 de
+la tubería de construcción del conjunto de datos---, ejecutados con generadores, ejecutores y capa
+de red simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de
+degradación sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.
 
 % ===========================================================================
 \section{Fase 6: evaluación}

@@ -200,6 +200,24 @@ siendo determinista, de modo que el agente elige la estrategia, no si hay que ac
 no es autónomo en el sentido fuerte del término: es un selector razonado sobre un espacio de
 acciones cerrado y supervisado.
 
+A esas tres cotas se añade una cuarta, de naturaleza distinta, que los motores de inferencia
+actuales permiten aplicar: la \textbf{generación restringida}. En lugar de pedir al modelo que
+respete un formato y comprobar después si lo hizo, se le impone una gramática ---o un esquema de
+datos--- durante el propio muestreo, de manera que todo token que violaría esa estructura recibe
+probabilidad nula. Si la gramática se construye a partir del catálogo de acciones y de la topología
+del cliente, el modelo deja de \emph{poder} nombrar una herramienta, un dispositivo o una acción que
+no existan. El catálogo cerrado pasa así de ser una validación posterior sobre texto libre a una
+imposibilidad estructural.
+
+Conviene, sin embargo, enunciar con precisión qué garantiza esa técnica y qué no, porque la
+diferencia es fácil de pasar por alto y en este dominio es determinante: \textbf{restringir la salida
+garantiza que la forma sea válida, no que el contenido sea cierto}. Una gramática elimina la
+respuesta malformada; no elimina la afirmación falsa. Un modelo puede emitir un objeto perfectamente
+conforme al esquema declarando que ha contenido un incidente sin haber ejecutado ninguna acción. De
+ahí que la propiedad que realmente protege al sistema no sea sintáctica sino de procedencia: el
+resultado de una mitigación debe leerse del registro de lo que efectivamente se ejecutó y verificó,
+nunca de lo que el modelo afirma haber hecho.
+
 % ===========================================================================
 \section{Riesgos de aplicar un modelo de lenguaje al triaje de seguridad}
 % ===========================================================================
