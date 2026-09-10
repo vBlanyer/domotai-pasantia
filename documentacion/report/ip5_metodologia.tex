@@ -198,11 +198,18 @@ campaña; admite tres modos de operación ---justificación por plantilla determ
 con el modelo de lenguaje y recuperación aumentada, o delegación en el agente de mitigación--- que
 permiten intercambiar latencia por riqueza de la explicación sin alterar la decisión, que es
 determinista en los tres casos. La segunda es un \textbf{agente de mitigación} que, ante un
-incidente cuya contención en el propio equipo no basta, razona la escalada hacia el siguiente nodo
-con capacidad de contención ---del anfitrión al cortafuegos--- consultando el corpus de conocimiento
-como herramienta y solicitando aprobación humana en cada paso. Para ejercitar esa escalada se añadió
-al laboratorio una topología con un equipo de borde administrable, y un banco de escenarios de
-ataque organizados por el comportamiento que deben provocar en el motor.
+incidente cuya contención en el propio equipo no basta, escala hacia el siguiente nodo con capacidad
+de contención ---del anfitrión al cortafuegos--- solicitando aprobación humana en cada paso.
+
+El origen de esta segunda pieza conviene declararlo, porque no procede de los objetivos del plan
+sino de un requisito planteado por el \textbf{tutor industrial}: en una red en producción el equipo
+atacado puede estar caído, comprometido o sin canal de administración, y el sistema no puede quedarse
+por ello sin capacidad de respuesta. La necesidad es, por tanto, operativa y está avalada por la
+empresa; lo que quedó abierto ---y se resuelve en el capítulo de resultados--- es qué mecanismo la
+implementa mejor, si una regla determinista sobre la topología o un agente que razone la estrategia.
+Para poder ejercitar y medir ambas alternativas se añadió al laboratorio una topología con un equipo
+de borde administrable y un banco de escenarios de ataque organizados por el comportamiento que deben
+provocar en el motor.
 
 Ambas piezas comparten una propiedad de diseño que conviene destacar: \textbf{la decisión y la
 contención son deterministas e instantáneas en cualquier modo}, y el modelo de lenguaje solo
