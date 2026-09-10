@@ -25,14 +25,22 @@ distintos ---una política determinista que decide, un perfil de cliente que fil
 lenguaje que solo explica--- permite obtener las ventajas de un modelo de lenguaje sin heredar su
 principal debilidad, que es decidir de forma no auditable.
 
-La incorporación de recuperación aumentada, no prevista en el diseño original y añadida al detectar
-en la propia evaluación que el justificador de menor tamaño describía correctamente los campos de
-una alerta pero se equivocaba en su significado, es la conclusión metodológica más relevante del
-trabajo: un anclaje verificable perfecto no implica una justificación correcta, y ambas propiedades
-deben medirse por separado. Corregir el conocimiento del modelo mediante un corpus curado y
-recuperación por similitud, en vez de sustituirlo por un modelo mayor que el hardware disponible no
-podía sostener con una latencia razonable, resolvió esa brecha sin añadir ningún requisito de
-cómputo significativo.
+La conclusión metodológica más relevante del trabajo se refiere a la medida de la explicabilidad:
+\textbf{un anclaje verificable perfecto no implica una justificación correcta}, y ambas propiedades
+deben medirse por separado. La verificación de anclaje comprueba que el modelo no inventa campos, y
+eso es necesario, pero se puede satisfacer sin explicar nada. Se documentaron tres maneras
+distintas de superarla vacíamente: describir al revés el significado de los campos citados, repetir
+el enunciado recibido ---que contiene por construcción todos los campos--- y, la más
+problemática, contradecir la clasificación que el propio sistema acaba de emitir. Una métrica
+automática de explicabilidad debe defenderse de las formas de cumplirla sin cumplir su propósito.
+
+De ahí se sigue una lectura más matizada de la recuperación aumentada que la que el trabajo
+esperaba encontrar. La recuperación mejora con claridad la justificación de las alertas que son
+amenazas reales, pero empeora la de los falsos positivos: el conocimiento recuperado ---fichas
+sobre técnicas de ataque--- se impone sobre la clasificación y lleva al modelo a narrar el pasaje
+en lugar de explicar la decisión. El módulo cumple el objetivo general que el plan exige y aporta
+valor donde más importa, pero no es una mejora uniforme, y esa asimetría debe tenerse presente
+antes de darlo por resuelto.
 
 El trabajo deja, con la misma honestidad con que reporta sus logros, tres límites identificados y no
 resueltos. El primero afecta a la propia señal que hizo posible el resultado principal: la
@@ -53,10 +61,17 @@ cifras exactas a un cliente con un perfil de amenazas distinto.
         antes de intentar de nuevo el ajuste fino de un clasificador. Es la condición que hoy
         bloquea la pieza más importante que falta en el prototipo, y no depende de ninguna decisión
         externa a este proyecto.
-  \item \textbf{Evaluar el prototipo con un modelo de justificación de mayor capacidad} en cuanto se
-        disponga de una unidad de procesamiento gráfico o de memoria adicional, aprovechando que la
-        interfaz de análisis ya aísla al motor de triaje del modelo concreto que la implementa: el
-        cambio no exigiría modificar la lógica de decisión.
+  \item \textbf{Impedir que el conocimiento recuperado contradiga la clasificación.} Es la
+        corrección más urgente que arroja la evaluación, y no requiere un modelo mayor: basta
+        condicionar la recuperación y el enunciado a la clase ya decidida, de modo que una alerta
+        clasificada como actividad legítima no reciba fichas sobre técnicas de ataque ni se
+        explique como si lo fuera. Mientras eso no exista, la justificación con recuperación debería
+        mostrarse al analista junto a la clase, nunca en su lugar.
+  \item \textbf{Sustituir el modelo de \emph{embeddings} por uno dedicado} antes de intentar de
+        nuevo ampliar el corpus. Está medido que ampliarlo con el modelo generativo como
+        \emph{embedder} degrada la recuperación, y también que la consulta formulada por el modelo
+        recupera peor que la consulta fija construida con los campos de la alerta. Las dos
+        observaciones apuntan al mismo componente.
   \item \textbf{Resolver, junto con Domotai C.A., si el sistema de logs propietario que
         originalmente motivó el proyecto llegará a estar disponible}, y en qué formato entrega sus
         eventos. De confirmarse, se integraría como una segunda fuente a través del mismo módulo de

@@ -40,3 +40,22 @@ python3 -m evaluacion.campana --particion todas --sin-llm --salida-dir evaluacio
 python3 -m evaluacion.campana --particion evaluacion --salida-dir evaluacion/resultados/sin-rag
 python3 -m evaluacion.campana --particion evaluacion --con-rag --salida-dir evaluacion/resultados/con-rag
 ```
+
+## Corridas con modelo de 8B (10/09/2026)
+
+Tras rehacer la capa de invocacion (servidor residente) y con un modelo de ocho mil millones de
+parametros, :
+
+| Directorio | Que contiene |
+|---|---|
+|  | Campana sin recuperacion. 18/18 ancladas, 0 degradadas |
+|  | Campana con recuperacion. 18/18 ancladas, 0 degradadas, 51 s (antes 10 m 46 s) |
+|  | Banco de calibracion. Consulta fija MRR 0.47 frente a agentica 0.32 |
+
+La clasificacion es identica a la de las corridas anteriores, como debe ser: el modelo no participa
+en ella. Lo que cambia es la justificacion.
+
+**Por que no se uso el modelo especializado en seguridad** que selecciono la Fase 4: sus dos
+cuantizaciones publicas declaran plantillas de conversacion que no corresponden a su arquitectura, y
+producen repeticion del enunciado o fuga de marcas de control. Se midio con un modelo generalista de
+referencia, lo que aisla el efecto del tamano pero deja sin comprobar el de la especializacion.

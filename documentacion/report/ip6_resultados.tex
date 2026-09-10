@@ -218,6 +218,78 @@ pasajes recuperados más que a razonar de forma original sobre la alerta concret
 preferible a inventar una explicación pero sigue estando lejos de la redacción de un analista.
 
 % ===========================================================================
+\section{Revisión de la invocación y medición con un modelo mayor}
+\label{sec:invocacion}
+% ===========================================================================
+
+Al preparar la ejecución sobre una máquina con unidad de procesamiento gráfico se detectó que la
+capa de invocación del modelo era defectuosa, en los términos descritos en el capítulo
+\ref{cap:metodologia}. El hallazgo tiene valor metodológico por encima del técnico: el justificador
+\emph{parecía} funcionar porque el recorte de su salida descartaba el sobrante, de modo que el
+defecto quedaba enmascarado precisamente en el componente que sí se medía, mientras inutilizaba por
+completo el que no se había podido ejercitar. Un componente puede pasar su batería de pruebas y
+estar inservible en ejecución si nadie recorre la ruta de llamadas real desde el punto de entrada
+que usaría una persona.
+
+Corregida la invocación, se repitió la medición con un modelo de ocho mil millones de parámetros
+servido de forma residente. La tabla \ref{tab:modelo-mayor} recoge el contraste frente a la
+medición original.
+
+\begin{table}[H]
+  \centering
+  \caption{Justificación con el modelo pequeño y con uno mayor, misma partición}
+  \label{tab:modelo-mayor}
+  \begin{tabular}{@{}p{0.34\textwidth}cc@{}}
+    \toprule
+    & \textbf{Modelo de 1B} & \textbf{Modelo de 8B} \\
+    \midrule
+    Anclaje sin recuperación & 18/18 & 18/18 \\
+    Anclaje con recuperación & 18/18 & 18/18 \\
+    Degradaciones a plantilla & 0 & 0 \\
+    Textos distintos (de 18) & 4 & 3 sin RAG · 5 con RAG \\
+    Duración de la campaña & 10\,min 46\,s & 51\,s \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+La mejora operativa es sustancial ---la campaña completa pasa de casi once minutos a menos de uno,
+porque el modelo deja de recargarse en cada invocación--- y la calidad de la explicación sube de
+forma apreciable. Pero el resultado más instructivo no está en la tabla.
+
+\subsection{La recuperación mejora los verdaderos positivos y empeora los falsos}
+
+Comparando las justificaciones de la misma alerta con y sin recuperación, con el modelo mayor, el
+efecto se separa con nitidez según la clase de la alerta.
+
+Sobre un \textbf{verdadero positivo}, la recuperación hace exactamente lo que se esperaba de ella:
+la explicación pasa de una descripción genérica del servicio ---«el servicio SSH, que es un
+protocolo de acceso remoto comúnmente utilizado, está expuesto y puede ser vulnerable a
+ataques»--- a una lectura precisa del hecho: «indica un ataque de fuerza bruta SSH en curso desde
+la IP 192.168.1.10».
+
+Sobre un \textbf{falso positivo}, en cambio, la degrada. La alerta procede de una dirección que el
+perfil del cliente declara como administración legítima, el motor la clasifica correctamente como
+actividad legítima, y esa clase viaja dentro del enunciado que recibe el modelo. Aun así, la
+justificación con recuperación afirma: «indica un ataque de fuerza bruta SSH en curso desde la IP
+192.168.1.1». El conocimiento recuperado ---fichas sobre reglas de fuerza bruta--- se impone sobre
+la clasificación, y el modelo narra el pasaje en lugar de explicar la decisión.
+
+Las consecuencias son dos, y ninguna es menor. La primera es operativa: el analista recibe una
+pantalla en la que el motor dice «actividad legítima» y la justificación dice «ataque en curso».
+Una contradicción interna erosiona la confianza en el sistema más deprisa que un error franco. La
+segunda es metodológica: \textbf{ambas justificaciones superan la verificación de anclaje}, porque
+las dos citan la dirección y el activo correctos. La métrica de anclaje mide que el modelo no
+inventa campos; no mide que respete la decisión que se le ha dado ni que su lectura sea coherente
+con ella.
+
+Esto refuerza, desde un ángulo nuevo, la conclusión de la sección anterior: el anclaje es condición
+necesaria y claramente insuficiente. Durante estas mediciones se detectó además una segunda forma
+de superarlo sin aportar nada ---un modelo que repite el enunciado en lugar de responder produce un
+eco que contiene todos los campos de la alerta y, por tanto, ancla---, que obligó a tratar esa
+repetición como un fallo de generación. Una métrica automática de explicabilidad debe defenderse de
+las maneras de satisfacerla sin cumplir su propósito.
+
+% ===========================================================================
 \section{Un resultado negativo: crecer el corpus empeoró la recuperación}
 \label{sec:mrr}
 % ===========================================================================
@@ -249,6 +321,33 @@ es que, con un modelo de este tamaño, el corpus no puede crecer de forma útil:
 antes un modelo de \emph{embeddings} dedicado. Es un resultado negativo, y se reporta como tal
 porque delimita con precisión dónde está el techo del montaje actual.
 
+Un segundo resultado, medido sobre el mismo banco de doce alertas sintéticas repartidas entre las
+cuatro familias del perímetro, apunta al mismo componente. La consulta al corpus puede construirse
+de dos maneras: fija, componiéndola con los campos estructurados de la alerta, o \emph{agéntica},
+dejando que el propio modelo formule qué conviene buscar. Esta segunda se diseñó de forma que
+\emph{añade} su aportación a la consulta fija, con la intención expresa de que nunca pudiera ser
+peor. La medición dice lo contrario, según recoge la tabla \ref{tab:consulta}.
+
+\begin{table}[H]
+  \centering
+  \caption{Calidad de la recuperación según cómo se formule la consulta}
+  \label{tab:consulta}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    \textbf{Métrica} & \textbf{Consulta fija} & \textbf{Consulta agéntica} \\
+    \midrule
+    Aciertos en la primera posición & 0,33 & 0,25 \\
+    Rango recíproco medio & 0,47 & 0,32 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+La explicación de por qué la salvaguarda no protege es instructiva: añadir texto a una consulta
+semántica no añade señal, la desplaza. La consulta se representa como un único vector, de modo que
+las palabras que el modelo agrega mueven ese vector y pueden alejarlo del documento buscado en
+lugar de acercarlo. Una intuición correcta para una búsqueda por palabras clave ---más términos,
+más posibilidades de coincidir--- resulta falsa para una búsqueda por similitud.
+
 % ===========================================================================
 \section{Verificación sobre el conjunto completo}
 % ===========================================================================
@@ -274,10 +373,16 @@ descansa en una señal determinista basada en la dirección de origen, que es su
 cuatro de las seis categorías del caso de uso. Tercero, el clasificador con ajuste fino permanece
 bloqueado por la misma concentración del conjunto de datos, así que el desajuste esperado entre un
 modelo preentrenado sobre prosa y una entrada de eventos estructurados queda documentado, pero no
-cuantificado. Cuarto, la calidad del justificador está limitada por el tamaño del modelo que el
-hardware disponible permite ejecutar con una latencia tolerable, y la recuperación no puede
-mejorarse ampliando el corpus mientras se use ese mismo modelo como \emph{embedder}
-(sección \ref{sec:mrr}). Quinto, el auditor de vulnerabilidades no es infalible: la ausencia de un
+cuantificado. Cuarto, la calidad de la justificación ya no está limitada por el hardware ---un modelo de ocho mil
+millones de parámetros responde en menos de medio segundo sobre una tarjeta gráfica de escritorio,
+sección \ref{sec:invocacion}--- sino por tres cosas distintas: que el conocimiento recuperado puede
+imponerse sobre la clasificación y contradecirla, que la recuperación no puede mejorarse ampliando
+el corpus mientras se use el mismo modelo generativo como \emph{embedder} (sección \ref{sec:mrr}),
+y que de las dos cuantizaciones públicas disponibles del modelo especializado en seguridad
+seleccionado en el diseño, ninguna resultó utilizable: ambas declaran plantillas de conversación
+que no corresponden a su arquitectura, y producen repetición del enunciado o fuga de marcas de
+control. La medición con modelo mayor debió hacerse, por tanto, con un modelo generalista de
+referencia, lo que aísla el efecto del tamaño pero deja sin comprobar el de la especialización. Quinto, el auditor de vulnerabilidades no es infalible: la ausencia de un
 hallazgo no demuestra que un activo sea seguro, y la postura de exposición usada como contexto de
 decisión se tomó de los hallazgos reales de una única campaña de escaneo.
 
