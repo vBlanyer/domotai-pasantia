@@ -9,6 +9,13 @@ get-docker.sh
 # Marcadores de procedencia que anade Windows a los ficheros descargados
 *:Zone.Identifier
 
+# El plan de trabajo firmado (CCT-002-2026) NO se versiona: lleva cedulas,
+# telefonos, correos personales y las firmas escaneadas del tutor academico y
+# del tutor industrial. Este repositorio tiene remoto publico en GitHub, y esos
+# datos son de terceros que no consintieron su publicacion. El documento se
+# conserva en local y la documentacion lo cita como fuente externa.
+/Blanyer*CCT-002-2026*.pdf
+
 # Artefactos de Python
 __pycache__/
 *.pyc
