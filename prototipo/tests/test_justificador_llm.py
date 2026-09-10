@@ -1,4 +1,4 @@
-import unittest
+import io, json, unittest
 from prototipo import justificador_llm as jl
 
 ALERTA = {"regla_id": "5763", "mitre": ["T1110"], "origen_ip": "192.168.1.10",
@@ -128,7 +128,7 @@ class TestVersionJustificador(unittest.TestCase):
     def test_llm_reporta_version_con_modelo(self):
         gen = lambda p: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
         r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen)
-        self.assertTrue(r["version_justificador"].startswith("llm-1b-0"))
+        self.assertTrue(r["version_justificador"].startswith("llm-2"))
         self.assertIn("llama-3.2-1b-q4.gguf", r["version_justificador"])
 
     def test_degradacion_reporta_plantilla(self):
@@ -142,5 +142,80 @@ class TestVersionJustificador(unittest.TestCase):
         fn = jl.justificar_fn_rag(gen, recuperar_fn)
         r = fn(ALERTA, CTX_EXP, "vp_intento_acceso")
         self.assertIn("texto", r)
-        self.assertTrue(r["version_justificador"].startswith("llm-1b-0"))
+        self.assertTrue(r["version_justificador"].startswith("llm-2"))
         self.assertEqual(r["pasajes_usados"], ["regla-5760"])
+
+
+def _respuesta(contenido="TEXTO GENERADO"):
+    return io.BytesIO(json.dumps({"choices": [{"message": {"content": contenido}}]}).encode())
+
+
+def _abridor(capturadas, contenido="TEXTO GENERADO"):
+    """_abrir falso que guarda la peticion y devuelve una respuesta valida."""
+    def _abrir(peticion, timeout=None):
+        capturadas.append(peticion)
+        return _respuesta(contenido)
+    return _abrir
+
+
+class TestGeneradorServidor(unittest.TestCase):
+    def test_devuelve_solo_lo_generado(self):
+        self.assertEqual(jl.generador_servidor("hola", _abrir=_abridor([])), "TEXTO GENERADO")
+
+    def test_el_prompt_viaja_limpio_y_la_temperatura_como_campo(self):
+        # Regresion del fallo de generador_llama: el flag de temperatura acababa DENTRO
+        # del prompt porque llama-simple no lo acepta. Aqui es un campo del JSON.
+        cap = []
+        jl.generador_servidor("PROMPT EXACTO", _abrir=_abridor(cap))
+        cuerpo = json.loads(cap[0].data.decode("utf-8"))
+        self.assertEqual(cuerpo["messages"][0]["content"], "PROMPT EXACTO")
+        self.assertEqual(cuerpo["temperature"], 0)
+        self.assertNotIn("--temp", cuerpo["messages"][0]["content"])
+
+    def test_el_esquema_viaja_como_response_format(self):
+        cap = []
+        esquema = {"type": "object", "properties": {"tool": {"enum": ["a"]}}}
+        jl.generador_servidor("p", esquema=esquema, _abrir=_abridor(cap))
+        cuerpo = json.loads(cap[0].data.decode("utf-8"))
+        self.assertEqual(cuerpo["response_format"]["type"], "json_schema")
+        self.assertEqual(cuerpo["response_format"]["json_schema"]["schema"], esquema)
+
+    def test_sin_esquema_no_se_restringe(self):
+        cap = []
+        jl.generador_servidor("p", _abrir=_abridor(cap))
+        self.assertNotIn("response_format", json.loads(cap[0].data.decode("utf-8")))
+
+    def test_fallo_de_red_devuelve_vacio(self):
+        def _cae(peticion, timeout=None):
+            raise OSError("conexion rechazada")
+        self.assertEqual(jl.generador_servidor("p", _abrir=_cae), "")
+
+    def test_json_malformado_devuelve_vacio(self):
+        self.assertEqual(jl.generador_servidor("p", _abrir=lambda p, timeout=None: io.BytesIO(b"no soy json")), "")
+
+    def test_respuesta_inesperada_devuelve_vacio(self):
+        vacia = lambda p, timeout=None: io.BytesIO(json.dumps({"error": "sin choices"}).encode())
+        self.assertEqual(jl.generador_servidor("p", _abrir=vacia), "")
+
+    def test_si_el_servidor_no_responde_se_degrada_a_plantilla(self):
+        # RNF-09 extremo a extremo: sin servidor, la alerta sigue teniendo justificacion.
+        def _cae(peticion, timeout=None):
+            raise OSError("sin servidor")
+        gen = lambda prompt: jl.generador_servidor(prompt, _abrir=_cae)
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen)
+        self.assertEqual(r["justificador"], "plantilla")
+        self.assertTrue(r["anclaje_verificado"])
+        self.assertEqual(r["version_justificador"], "plantilla-0")
+
+    def test_el_eco_del_prompt_se_trata_como_fallo(self):
+        # Un modelo que repite el prompt en vez de responder SUPERARIA la verificacion de
+        # anclaje, porque el eco contiene todos los campos de la alerta. Debe contar como
+        # fallo para que el llamador degrade a plantilla.
+        prompt = "Eres un analista de seguridad. Explica en una o dos frases por que importa."
+        eco = lambda p, timeout=None: _respuesta(prompt)
+        self.assertEqual(jl.generador_servidor(prompt, _abrir=eco), "")
+
+    def test_una_respuesta_legitima_no_se_confunde_con_eco(self):
+        prompt = "Eres un analista de seguridad. Explica en una o dos frases por que importa."
+        ok = lambda p, timeout=None: _respuesta("La alerta importa porque ssh esta expuesto.")
+        self.assertEqual(jl.generador_servidor(prompt, _abrir=ok), "La alerta importa porque ssh esta expuesto.")

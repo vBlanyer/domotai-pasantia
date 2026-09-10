@@ -100,7 +100,10 @@ def recuperar_fn_agentico(indice, embedder, generador=None, k=3, excluir_tipos=E
 
 BINARIO = os.environ.get("LLAMA_EMBED_BIN",
                          os.path.expanduser("~/miniforge3/envs/triaje-ml/bin/llama-embedding"))
-MODELO = os.environ.get("LLAMA_MODELO", "modelos/llama-3.2-1b-q4.gguf")
+# Variable propia, distinta de la del generador: si el embedder compartiera LLAMA_MODELO,
+# apuntar el justificador a otro modelo cambiaria en silencio los vectores y dejaria
+# inservible el indice ya calculado (dimensiones distintas).
+MODELO = os.environ.get("LLAMA_EMBED_MODELO", "modelos/llama-3.2-1b-q4.gguf")
 RUTA_INDICE = os.path.join(os.path.dirname(__file__), "corpus", "indice.json")
 
 def embedder_llama(textos, modelo=MODELO, binario=BINARIO, timeout=180):
