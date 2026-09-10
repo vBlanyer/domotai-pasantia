@@ -200,3 +200,57 @@ class TestBucleReact(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEsquemaAccion(unittest.TestCase):
+    def setUp(self):
+        self.topo = ag.resolver_topologia(y_perfil())
+        self.esq = ag.esquema_accion(CAT, self.topo)
+
+    def test_los_dispositivos_salen_de_la_topologia(self):
+        disp = self.esq["properties"]["args"]["properties"]["dispositivo"]["enum"]
+        self.assertEqual(disp, ["gateway", "objetivo-vuln"])
+        self.assertNotIn("ip_gestion", disp)     # no es un nodo: no tiene rol
+
+    def test_las_acciones_salen_del_catalogo(self):
+        self.assertEqual(self.esq["properties"]["args"]["properties"]["accion"]["enum"],
+                         ["bloquear_ip"])
+
+    def test_un_dispositivo_nuevo_aparece_solo(self):
+        # El esquema se DERIVA: al crecer la topologia no hay que tocarlo a mano.
+        topo = dict(self.topo, switch={"rol": "firewall_perimetral", "ip": "192.168.1.2"})
+        disp = ag.esquema_accion(CAT, topo)["properties"]["args"]["properties"]["dispositivo"]["enum"]
+        self.assertIn("switch", disp)
+
+    def test_solo_admite_las_herramientas_conocidas(self):
+        self.assertEqual(set(self.esq["properties"]["tool"]["enum"]), set(ag._HERRAMIENTAS))
+
+
+class TestParserJSONDesnudo(unittest.TestCase):
+    def test_acepta_json_sin_prefijo(self):
+        # Es lo que produce la salida restringida por json-schema.
+        a = ag.parsear_accion('{"kind": "action", "tool": "consultar_topologia", "args": {}}')
+        self.assertEqual(a["kind"], "action")
+        self.assertEqual(a["tool"], "consultar_topologia")
+
+    def test_acepta_final_sin_prefijo(self):
+        a = ag.parsear_accion('{"kind": "final", "resultado": "mitigado"}')
+        self.assertEqual(a["kind"], "final")
+        self.assertEqual(a["resultado"], "mitigado")
+
+    def test_sigue_aceptando_el_prefijo_textual(self):
+        a = ag.parsear_accion('Thought: pruebo\nAction: {"tool": "consultar_topologia", "args": {}}')
+        self.assertEqual(a["kind"], "action")
+
+    def test_json_sin_kind_no_se_confunde_con_accion(self):
+        self.assertIsNone(ag.parsear_accion('{"algo": 1}'))
+
+
+class TestGeneradorQueFalla(unittest.TestCase):
+    def test_una_excepcion_del_modelo_no_tumba_la_mitigacion(self):
+        def revienta(_prompt):
+            raise RuntimeError("el servidor del modelo se cayo")
+        plan = ag.bucle_react({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
+                              "vp_intento_acceso", y_perfil(), CAT, EjecutorEscalado(),
+                              revienta, autonomo=True, timestamp="t")
+        self.assertTrue(plan["degradado"])       # degrada, no propaga la excepcion

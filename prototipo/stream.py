@@ -211,9 +211,17 @@ def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print):
     except Exception as e:
         escribir(f"[aviso] indice RAG no disponible para el agente ({e}); sin herramienta de conocimiento.")
         indice = None
+    # El esquema se deriva del catalogo y de la topologia, y restringe el muestreo: el modelo
+    # no puede nombrar una herramienta, un dispositivo ni una accion que no existan (RF-15).
+    esquema = ag.esquema_accion(catalogo, ag.resolver_topologia(perfil))
+    base = justificador_llm.generador_por_defecto()
+    # Solo el generador por servidor entiende el esquema; con el subproceso se cae al formato
+    # textual, que `parsear_accion` sigue aceptando.
+    gen = ((lambda p: base(p, esquema=esquema))
+           if base is justificador_llm.generador_servidor else base)
     def _fn(decision, alerta, leer):
         return ag.bucle_react(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
-                              justificador_llm.generador_llama, leer=leer, autonomo=False,
+                              gen, leer=leer, autonomo=False,
                               timestamp=decision.get("timestamp", ""),
                               indice=indice, embedder=rag.embedder_llama, escribir=escribir)
     return _fn
@@ -226,9 +234,9 @@ def construir_justificar_fn(con_llm, escribir=print):
         indice = rag.cargar_indice()
         # RAG AGÉNTICO (Opción C): la consulta la decide el 1B y se excluyen las fichas regla-* del
         # conocimiento (palanca 3). La traza registra consulta_rag/recuperacion_agentica/pasajes_usados.
-        recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_llama,
-                                                 generador=justificador_llm.generador_llama, k=3)
-        return justificador_llm.justificar_fn_rag(justificador_llm.generador_llama, recuperar_fn)
+        gen = justificador_llm.generador_por_defecto()
+        recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_llama, generador=gen, k=3)
+        return justificador_llm.justificar_fn_rag(gen, recuperar_fn)
     except Exception as e:                          # sin indice/modelo -> degradar a plantilla (RNF-09)
         escribir(f"[aviso] justificador LLM/RAG no disponible ({e}); se usara la plantilla.")
         return None

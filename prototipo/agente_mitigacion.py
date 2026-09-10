@@ -45,12 +45,17 @@ def _primer_json(s):
 
 def parsear_accion(texto):
     m = _ACCION_RE.search(texto or "")
-    if not m:
-        return None
-    obj = _primer_json(m.group(2))
-    if obj is None:
-        return None
-    return {"kind": "final" if m.group(1).lower() == "final" else "action", **obj}
+    if m:
+        obj = _primer_json(m.group(2))
+        if obj is None:
+            return None
+        return {"kind": "final" if m.group(1).lower() == "final" else "action", **obj}
+    # Salida restringida por json-schema: un objeto JSON desnudo que trae su propio `kind`,
+    # sin el prefijo textual. Se sigue aceptando el prefijo para los generadores libres.
+    obj = _primer_json(texto or "")
+    if isinstance(obj, dict) and obj.get("kind") in ("action", "final"):
+        return obj
+    return None
 
 def _extraer_thought(texto):
     m = re.search(r'Thought\s*:\s*(.+)', texto or "")
@@ -62,6 +67,39 @@ _ACCION_POR_ROL = {
     ("bloquear_ip", "host_victima"): "BLOQUEAR_IP",
     ("bloquear_ip", "firewall_perimetral"): "BLOQUEAR_IP_FIREWALL",
 }
+
+_HERRAMIENTAS = ("consultar_topologia", "consultar_conocimiento",
+                 "ejecutar_comando", "verificar_mitigacion")
+
+def esquema_accion(catalogo, topo):
+    """json-schema de un paso del bucle, **derivado** del catálogo y de la topología.
+
+    No se escribe a mano a propósito: así no puede desincronizarse de lo que el sistema
+    sabe hacer realmente. Al pasarlo al generador, la restricción se aplica en el muestreo
+    y el modelo **no puede** nombrar una herramienta, un dispositivo ni una acción que no
+    estén aquí. RF-15 (catálogo cerrado) deja de ser una validación posterior y pasa a ser
+    una imposibilidad estructural.
+    """
+    dispositivos = sorted(k for k, v in topo.items() if isinstance(v, dict) and v.get("rol"))
+    acciones = sorted({a for (a, _rol), aid in _ACCION_POR_ROL.items() if aid in catalogo})
+    return {
+        "type": "object",
+        "properties": {
+            "kind": {"enum": ["action", "final"]},
+            "thought": {"type": "string"},
+            "tool": {"enum": list(_HERRAMIENTAS)},
+            "args": {
+                "type": "object",
+                "properties": {"dispositivo": {"enum": dispositivos},
+                               "accion": {"enum": acciones}},
+                "additionalProperties": False,
+            },
+            "resultado": {"enum": ["mitigado", "fallido"]},
+            "dispositivo_ejecutor": {"enum": dispositivos},
+        },
+        "required": ["kind"],
+        "additionalProperties": False,
+    }
 
 def herramienta_consultar_topologia(topo):
     dev = {k: v.get("rol") for k, v in topo.items() if isinstance(v, dict) and v.get("rol")}
@@ -164,7 +202,10 @@ def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input
     prompt = construir_prompt_sistema(alerta, topo)
     pasos, reversiones, tocados, dispositivo_ejecutor = [], [], [], None
     for _ in range(max_pasos):
-        salida = generador(prompt) or ""
+        try:
+            salida = generador(prompt) or ""
+        except Exception:      # los justificadores ya lo hacian; aqui faltaba, y una
+            salida = ""        # excepcion del modelo tumbaba la mitigacion entera
         acc = parsear_accion(salida)
         thought = _extraer_thought(salida)
         if acc is None:

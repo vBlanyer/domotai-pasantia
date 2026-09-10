@@ -153,3 +153,15 @@ def generador_servidor(prompt, url=URL, n_tokens=200, temperatura=0, esquema=Non
     if texto[:60] and texto[:60] in prompt:
         return ""
     return texto
+
+
+def generador_por_defecto():
+    """El generador vigente. Por servidor residente salvo que se pida el subproceso.
+
+    Existe para que la eleccion no quede repetida en cada punto de uso (daemon, campana,
+    demos) y para poder volver al subproceso con una variable de entorno cuando haga falta
+    reproducir una campana antigua.
+    """
+    if os.environ.get("LLAMA_MODO") == "subproceso":
+        return generador_llama
+    return generador_servidor
