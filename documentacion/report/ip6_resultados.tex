@@ -282,6 +282,54 @@ las dos citan la dirección y el activo correctos. La métrica de anclaje mide q
 inventa campos; no mide que respete la decisión que se le ha dado ni que su lectura sea coherente
 con ella.
 
+\subsection{La corrección, y el intercambio que revela}
+
+El origen del defecto resultó estar en el enunciado, no en la recuperación: se pedía al modelo que
+explicara «por qué esta alerta importa» \emph{también} cuando el motor acababa de decidir que no
+importa. Sobre esa pregunta, y con fichas sobre técnicas de ataque delante, la respuesta coherente
+para el modelo era describir un ataque. Se corrigió haciendo que la pregunta dependa de la clase ya
+decidida ---para una clase sin amenaza se pide explicar \emph{por qué no lo es}---, encuadrando los
+pasajes como descripción de la técnica que hizo saltar la regla y no de lo ocurrido, y añadiendo a
+los datos el motivo real por el que la alerta es un falso positivo: que el origen figura como
+administración declarada por el cliente.
+
+La contradicción desaparece. Sobre la misma alerta, la justificación pasa a ser: «la alerta no es
+una amenaza debido a que el origen 192.168.1.1 es declarado como administración legítima por el
+cliente». Pero la corrección tiene un coste medible, recogido en la tabla \ref{tab:correccion}.
+
+\begin{table}[H]
+  \centering
+  \caption{Efecto de condicionar el enunciado a la clase, con recuperación}
+  \label{tab:correccion}
+  \begin{tabular}{@{}p{0.40\textwidth}cc@{}}
+    \toprule
+    & \textbf{Antes} & \textbf{Después} \\
+    \midrule
+    Justificaciones ancladas & 18/18 & 11/18 \\
+    \quad de las amenazas reales & 10/10 & 10/10 \\
+    \quad de los falsos positivos & 8/8 & 1/8 \\
+    Contradicen la clasificación & 8 & 0 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Siete de los ocho falsos positivos dejan de anclar y caen a la plantilla determinista. La razón es
+que, al recibir el motivo ya formulado, el modelo lo enuncia sin necesidad de citar ningún campo
+concreto ---«el origen de la actividad es declarada como administración legítima»--- y la
+verificación, con buen criterio, lo rechaza. Pedir explícitamente en el enunciado que mencione la
+dirección y el activo recuperó solo uno de los siete.
+
+El intercambio merece leerse con cuidado, porque es contraintuitivo: \textbf{la tasa de anclaje
+bajó de 1,00 a 0,61 mientras la calidad subía}. Antes, los ocho falsos positivos producían un texto
+fluido, anclado y \emph{equivocado}; ahora producen, en su mayoría, una descripción factual generada
+por plantilla, que es correcta por construcción. Para un sistema que un analista debe poder creer,
+la segunda situación es preferible sin discusión.
+
+Es también la demostración más limpia de la tesis que atraviesa este capítulo: \textbf{la tasa de
+anclaje no es una medida de calidad}. Una intervención que mejora las justificaciones la empeora, y
+una que las empeorase podría mejorarla. Reportarla sola, sin la lectura del contenido, induce a
+error.
+
 Esto refuerza, desde un ángulo nuevo, la conclusión de la sección anterior: el anclaje es condición
 necesaria y claramente insuficiente. Durante estas mediciones se detectó además una segunda forma
 de superarlo sin aportar nada ---un modelo que repite el enunciado en lugar de responder produce un

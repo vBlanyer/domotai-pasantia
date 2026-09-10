@@ -128,7 +128,7 @@ class TestVersionJustificador(unittest.TestCase):
     def test_llm_reporta_version_con_modelo(self):
         gen = lambda p: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
         r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen)
-        self.assertTrue(r["version_justificador"].startswith("llm-2"))
+        self.assertTrue(r["version_justificador"].startswith("llm-3"))
         self.assertIn("llama-3.2-1b-q4.gguf", r["version_justificador"])
 
     def test_degradacion_reporta_plantilla(self):
@@ -142,7 +142,7 @@ class TestVersionJustificador(unittest.TestCase):
         fn = jl.justificar_fn_rag(gen, recuperar_fn)
         r = fn(ALERTA, CTX_EXP, "vp_intento_acceso")
         self.assertIn("texto", r)
-        self.assertTrue(r["version_justificador"].startswith("llm-2"))
+        self.assertTrue(r["version_justificador"].startswith("llm-3"))
         self.assertEqual(r["pasajes_usados"], ["regla-5760"])
 
 
@@ -219,3 +219,41 @@ class TestGeneradorServidor(unittest.TestCase):
         prompt = "Eres un analista de seguridad. Explica en una o dos frases por que importa."
         ok = lambda p, timeout=None: _respuesta("La alerta importa porque ssh esta expuesto.")
         self.assertEqual(jl.generador_servidor(prompt, _abrir=ok), "La alerta importa porque ssh esta expuesto.")
+
+
+class TestPromptSegunClase(unittest.TestCase):
+    """La pregunta del enunciado depende de la clase ya decidida. Preguntar 'por que importa'
+    sobre una alerta que el motor descarto llevaba al modelo a justificar un ataque inexistente."""
+
+    def test_clase_de_amenaza_pregunta_por_que_importa(self):
+        p = jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso")
+        self.assertIn("por que importa", p)
+        self.assertNotIn("NO es una amenaza", p)
+
+    def test_clase_sin_amenaza_pregunta_por_que_no_lo_es(self):
+        p = jl.construir_prompt(ALERTA, CTX_EXP, "fp_actividad_legitima")
+        self.assertIn("NO es una amenaza", p)
+        self.assertIn("por que NO lo es", p)
+
+    def test_la_clase_se_presenta_como_ya_decidida(self):
+        # El modelo explica la decision; no la reevalua.
+        for clase in ("vp_intento_acceso", "fp_exposicion_inexistente"):
+            self.assertIn("El motor ya clasifico", jl.construir_prompt(ALERTA, CTX_EXP, clase))
+
+    def test_todas_las_clases_fp_cuentan_como_sin_amenaza(self):
+        for clase in jl.CLASES_SIN_AMENAZA:
+            self.assertIn("NO es una amenaza", jl.construir_prompt(ALERTA, CTX_EXP, clase))
+
+    def test_los_pasajes_se_encuadran_como_la_tecnica_no_como_lo_ocurrido(self):
+        pasajes = [{"id": "regla-5763", "titulo": "Wazuh 5763", "texto": "fuerza bruta SSH"}]
+        p = jl.construir_prompt(ALERTA, CTX_EXP, "fp_actividad_legitima", pasajes)
+        self.assertIn("NO lo que", p)                      # ...NO lo que ocurrio en esta alerta
+        self.assertIn("clasificacion del motor manda", p)
+
+    def test_el_origen_legitimo_viaja_como_dato(self):
+        # Sin el, el modelo deduce mal el motivo del falso positivo.
+        ctx = dict(CTX_EXP, origen_legitimo=True)
+        self.assertIn("administracion legitima", jl.construir_prompt(ALERTA, ctx, "fp_actividad_legitima"))
+
+    def test_sin_origen_legitimo_no_se_menciona(self):
+        self.assertNotIn("administracion legitima", jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso"))

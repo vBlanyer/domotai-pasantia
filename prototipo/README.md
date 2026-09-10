@@ -96,7 +96,7 @@ Cada línea de la salida (`.jsonl`) es una decisión de triaje:
   "resultado_filtro": "permite",
   "accion_final": "BLOQUEAR_IP",
   "requiere_humano": false,
-  "version_justificador": "llm-2:llama-3.2-1b-q4.gguf",     // RF-09/RNF-03: versión+modelo
+  "version_justificador": "llm-3:llama-3.2-1b-q4.gguf",     // RF-09/RNF-03: versión+modelo
   "pasajes_usados": ["regla-5760"],                          // pasajes RAG (reconstruye el prompt)
   "version_baseline": "baseline-0",
   "version_perfil": "v0"

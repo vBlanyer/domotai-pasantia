@@ -133,7 +133,7 @@
   "operacion": {
     "cobertura": 0.08780487804878048,
     "tasa_escalado": 0.0,
-    "ms_medio_clasificar": 0.002413053649744564
+    "ms_medio_clasificar": 0.002915575470712899
   },
   "continuidad": {
     "disruptivas_indebidas": 0,
@@ -145,7 +145,7 @@
     "n_soportadas": 18,
     "version_baseline": "baseline-0",
     "version_justificador": [
-      "llm-2:llama-3.1-8b-instruct-q4.gguf"
+      "llm-3:llama-3.1-8b-instruct-q4.gguf"
     ]
   },
   "anclaje": {
@@ -155,7 +155,7 @@
       "degradados": 0,
       "pct_anclaje": 1.0,
       "versiones": [
-        "llm-2:llama-3.1-8b-instruct-q4.gguf"
+        "llm-3:llama-3.1-8b-instruct-q4.gguf"
       ]
     },
     "detalle": [
@@ -164,8 +164,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques, según la regla 5760.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la red.",
         "pasajes_usados": []
       },
       {
@@ -173,8 +173,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques, según la regla 5760.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio ssh expuesto en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
         "pasajes_usados": []
       },
       {
@@ -182,8 +182,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques, según la regla 5760.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio ssh expuesto en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
         "pasajes_usados": []
       },
       {
@@ -191,8 +191,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques, según la regla 5760.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio ssh expuesto en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
         "pasajes_usados": []
       },
       {
@@ -200,8 +200,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques, según la regla 5760.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio ssh expuesto en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
         "pasajes_usados": []
       },
       {
@@ -209,8 +209,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques, según la regla 5760.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio ssh expuesto en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
         "pasajes_usados": []
       },
       {
@@ -218,8 +218,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques, según la regla 5760.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio ssh expuesto en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
         "pasajes_usados": []
       },
       {
@@ -227,8 +227,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques de acceso no autorizado.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque indica un intento de acceso no autorizado a la dirección 192.168.1.10, específicamente al servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado para acceder a sistemas y redes.",
         "pasajes_usados": []
       },
       {
@@ -236,8 +236,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques, según la regla 5760.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio ssh expuesto en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
         "pasajes_usados": []
       },
       {
@@ -245,8 +245,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de acceso remoto comúnmente utilizado, está expuesto en el objetivo-vuln y puede ser vulnerable a ataques, según la regla 5760.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio ssh expuesto en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
         "pasajes_usados": []
       },
       {
@@ -254,8 +254,8 @@
         "etiqueta": "FP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de seguridad, está expuesto en el objetivo-vuln, lo que podría permitir acceso no autorizado a la red.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es declarado como administración legítima por el cliente, lo que indica que la actividad es autorizada y no una intrusión maliciosa.",
         "pasajes_usados": []
       },
       {
@@ -263,8 +263,8 @@
         "etiqueta": "FP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de seguridad, está expuesto en el objetivo-vuln, lo que podría permitir acceso no autorizado a la red.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es declarado como administración legítima por el cliente, lo que indica que la actividad es autorizada y no una intrusión maliciosa.",
         "pasajes_usados": []
       },
       {
@@ -272,8 +272,8 @@
         "etiqueta": "FP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de seguridad, está expuesto en el objetivo-vuln, lo que podría permitir acceso no autorizado a la red.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es declarado como administración legítima por el cliente, lo que indica que la actividad es autorizada y no una intrusión maliciosa.",
         "pasajes_usados": []
       },
       {
@@ -281,8 +281,8 @@
         "etiqueta": "FP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de seguridad, está expuesto en el objetivo-vuln, lo que podría permitir acceso no autorizado a la red.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es declarado como administración legítima por el cliente, lo que indica que la actividad es autorizada y no una intrusión maliciosa.",
         "pasajes_usados": []
       },
       {
@@ -290,8 +290,8 @@
         "etiqueta": "FP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de seguridad, está expuesto en el objetivo-vuln, lo que podría permitir acceso no autorizado a la red.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es declarado como administración legítima por el cliente, lo que indica que la actividad es autorizada y no una intrusión maliciosa.",
         "pasajes_usados": []
       },
       {
@@ -299,8 +299,8 @@
         "etiqueta": "FP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de seguridad, está expuesto en el objetivo-vuln, lo que podría permitir acceso no autorizado a la red.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es declarado como administración legítima por el cliente, lo que indica que la actividad es autorizada y no una intrusión maliciosa.",
         "pasajes_usados": []
       },
       {
@@ -308,8 +308,8 @@
         "etiqueta": "FP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de seguridad, está expuesto en el objetivo-vuln, lo que podría permitir acceso no autorizado a la red.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es declarado como administración legítima por el cliente, lo que indica que la actividad es autorizada y no una intrusión maliciosa.",
         "pasajes_usados": []
       },
       {
@@ -317,8 +317,8 @@
         "etiqueta": "FP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque el servicio SSH, que es un protocolo de seguridad, está expuesto en el objetivo-vuln, lo que podría permitir acceso no autorizado a la red.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es declarado como administración legítima por el cliente, lo que indica que la actividad es intencionada y no maliciosa.",
         "pasajes_usados": []
       }
     ]

@@ -133,7 +133,7 @@
   "operacion": {
     "cobertura": 0.08780487804878048,
     "tasa_escalado": 0.0,
-    "ms_medio_clasificar": 0.0024680098271701576
+    "ms_medio_clasificar": 0.0025532634292797346
   },
   "continuidad": {
     "disruptivas_indebidas": 0,
@@ -145,17 +145,19 @@
     "n_soportadas": 18,
     "version_baseline": "baseline-0",
     "version_justificador": [
-      "llm-2:llama-3.1-8b-instruct-q4.gguf"
+      "llm-3:llama-3.1-8b-instruct-q4.gguf",
+      "plantilla-0"
     ]
   },
   "anclaje": {
     "resumen": {
-      "llm_total": 18,
-      "anclados": 18,
-      "degradados": 0,
-      "pct_anclaje": 1.0,
+      "llm_total": 11,
+      "anclados": 11,
+      "degradados": 7,
+      "pct_anclaje": 0.6111111111111112,
       "versiones": [
-        "llm-2:llama-3.1-8b-instruct-q4.gguf"
+        "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "plantilla-0"
       ]
     },
     "detalle": [
@@ -164,8 +166,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -177,8 +179,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -190,8 +192,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -203,8 +205,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -216,8 +218,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -229,8 +231,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -242,8 +244,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -255,8 +257,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría permitir a un atacante acceder al sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso en el activo objetivo-vuln, servicio ssh, debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, utilizando la técnica MITRE T1110.",
         "pasajes_usados": [
           "regla-5712",
           "regla-5763",
@@ -268,8 +270,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -281,8 +283,8 @@
         "etiqueta": "VP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -292,10 +294,10 @@
       {
         "id_alerta": "1788194950.708112",
         "etiqueta": "FP",
-        "justificador": "llm",
+        "justificador": "plantilla",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.1, lo que podría ser un intento de acceso no autorizado al sistema objetivo-vuln.",
+        "version_justificador": "plantilla-0",
+        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -305,10 +307,10 @@
       {
         "id_alerta": "1788194952.708604",
         "etiqueta": "FP",
-        "justificador": "llm",
+        "justificador": "plantilla",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.1, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "plantilla-0",
+        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -318,10 +320,10 @@
       {
         "id_alerta": "1788194954.709128",
         "etiqueta": "FP",
-        "justificador": "llm",
+        "justificador": "plantilla",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.1, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "plantilla-0",
+        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -331,10 +333,10 @@
       {
         "id_alerta": "1788194958.709656",
         "etiqueta": "FP",
-        "justificador": "llm",
+        "justificador": "plantilla",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.1, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "plantilla-0",
+        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -344,10 +346,10 @@
       {
         "id_alerta": "1788194960.710148",
         "etiqueta": "FP",
-        "justificador": "llm",
+        "justificador": "plantilla",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.1, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "plantilla-0",
+        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -357,10 +359,10 @@
       {
         "id_alerta": "1788194962.710672",
         "etiqueta": "FP",
-        "justificador": "llm",
+        "justificador": "plantilla",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.1, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "plantilla-0",
+        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -370,10 +372,10 @@
       {
         "id_alerta": "1788194966.711200",
         "etiqueta": "FP",
-        "justificador": "llm",
+        "justificador": "plantilla",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.1, lo que podría comprometer la seguridad del sistema objetivo-vuln.",
+        "version_justificador": "plantilla-0",
+        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
         "pasajes_usados": [
           "regla-5763",
           "regla-5712",
@@ -385,8 +387,8 @@
         "etiqueta": "FP",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-2:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta importa porque indica un posible ataque de fuerza bruta contra el sistema objetivo-vuln, específicamente contra el servicio SSH, lo que podría comprometer la seguridad del sistema y permitir a un atacante acceder al sistema sin autorización.",
+        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen 192.168.1.1 es declarado como administración legítima por el cliente, lo que indica que el acceso desde esa dirección es autorizado y no se trata de un ataque de fuerza bruta.",
         "pasajes_usados": [
           "regla-5712",
           "regla-5763",

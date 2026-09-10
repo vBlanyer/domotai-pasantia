@@ -35,12 +35,17 @@ problemática, contradecir la clasificación que el propio sistema acaba de emit
 automática de explicabilidad debe defenderse de las formas de cumplirla sin cumplir su propósito.
 
 De ahí se sigue una lectura más matizada de la recuperación aumentada que la que el trabajo
-esperaba encontrar. La recuperación mejora con claridad la justificación de las alertas que son
-amenazas reales, pero empeora la de los falsos positivos: el conocimiento recuperado ---fichas
-sobre técnicas de ataque--- se impone sobre la clasificación y lleva al modelo a narrar el pasaje
-en lugar de explicar la decisión. El módulo cumple el objetivo general que el plan exige y aporta
-valor donde más importa, pero no es una mejora uniforme, y esa asimetría debe tenerse presente
-antes de darlo por resuelto.
+esperaba encontrar. Medida por clase, la recuperación mejoraba con claridad la justificación de las
+amenazas reales y empeoraba la de los falsos positivos, hasta el punto de contradecir la
+clasificación que el propio motor acababa de emitir. La causa no estaba en la recuperación sino en
+el enunciado, que preguntaba «por qué importa esta alerta» incluso cuando el sistema acababa de
+decidir que no importa; corregido eso, la contradicción desaparece.
+
+La corrección dejó, además, la mejor ilustración de la tesis anterior: al eliminar las
+justificaciones equivocadas, \textbf{la tasa de anclaje bajó de 1,00 a 0,61 mientras la calidad
+subía}, porque los falsos positivos pasaron de un texto fluido, anclado y falso a una descripción
+factual generada por plantilla. Una métrica que empeora cuando el sistema mejora no puede
+reportarse sola.
 
 El trabajo deja, con la misma honestidad con que reporta sus logros, tres límites identificados y no
 resueltos. El primero afecta a la propia señal que hizo posible el resultado principal: la
@@ -61,12 +66,12 @@ cifras exactas a un cliente con un perfil de amenazas distinto.
         antes de intentar de nuevo el ajuste fino de un clasificador. Es la condición que hoy
         bloquea la pieza más importante que falta en el prototipo, y no depende de ninguna decisión
         externa a este proyecto.
-  \item \textbf{Impedir que el conocimiento recuperado contradiga la clasificación.} Es la
-        corrección más urgente que arroja la evaluación, y no requiere un modelo mayor: basta
-        condicionar la recuperación y el enunciado a la clase ya decidida, de modo que una alerta
-        clasificada como actividad legítima no reciba fichas sobre técnicas de ataque ni se
-        explique como si lo fuera. Mientras eso no exista, la justificación con recuperación debería
-        mostrarse al analista junto a la clase, nunca en su lugar.
+  \item \textbf{Recuperar conocimiento adecuado a la clase, y no solo a la alerta.} Condicionar el
+        enunciado a la clase ya bastó para eliminar las contradicciones, pero la recuperación sigue
+        trayendo fichas sobre técnicas de ataque también cuando la alerta se ha descartado, y el
+        corpus no contiene material que explique por qué algo \emph{no} es una amenaza. Ampliarlo en
+        esa dirección es lo que permitiría que los falsos positivos recibieran una justificación
+        generada en lugar de la plantilla.
   \item \textbf{Sustituir el modelo de \emph{embeddings} por uno dedicado} antes de intentar de
         nuevo ampliar el corpus. Está medido que ampliarlo con el modelo generativo como
         \emph{embedder} degrada la recuperación, y también que la consulta formulada por el modelo
