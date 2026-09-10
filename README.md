@@ -12,11 +12,13 @@ ese ruido sin cortar lo que el negocio necesita.
 
 | Componente | Dónde | Estado |
 |------------|-------|--------|
-| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, 63 tests |
+| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, 178 tests |
 | **Justificador con LLM real + RAG** (Llama-3.2-1B; recuperación aumentada local sobre corpus curado de MITRE/reglas Wazuh) | [`prototipo/justificador_llm.py`](prototipo/justificador_llm.py), [`prototipo/rag.py`](prototipo/rag.py) | Funcional, verificado en vivo |
+| **Daemon en tiempo real** (agrupa en incidentes, valida con el analista; modos `--sin-llm` / `--con-llm` / `--agente`) | [`prototipo/stream.py`](prototipo/stream.py) | Funcional |
+| **Agente de mitigación** (ReAct: escala host → cortafuegos, aprueba por paso) | [`prototipo/agente_mitigacion.py`](prototipo/agente_mitigacion.py) | Funcional; exige hardware rápido |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap/Greenbone, objetivo vulnerable) | [`lab/`](lab/) | Ejecutable |
 | **Dataset etiquetado** (410 alertas reales, VP/FP/no_soportada, particionado 80/20) | [`lab/dataset/`](lab/dataset/) | Cerrado |
-| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 21 tests; campaña ejecutada |
+| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 28 tests; campaña ejecutada |
 
 **La idea intelectualmente central:** la decisión clasificación→acción **no la toma el modelo**. La toma
 una **política determinista** que *propone* una acción y un **perfil de cliente configurable** que la
@@ -57,7 +59,8 @@ laboratorio se levanta con [`lab/lab.sh`](lab/lab.sh) (requiere Docker + Contain
 
 ## Estado del proyecto
 
-Fases 1–6 completas; la 7 (informe final) pendiente. El detalle vivo del estado,
+Fases 1–6 completas; la 7 (informe final) **en curso** — borrador completo en LaTeX y compilado en
+[`documentacion/report/`](documentacion/report/). El detalle vivo del estado,
 las decisiones cerradas y los riesgos está en
 [`documentacion/00-general/estado-y-riesgos.md`](documentacion/00-general/estado-y-riesgos.md).
 

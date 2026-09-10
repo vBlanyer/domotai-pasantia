@@ -8,7 +8,7 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 
 ## 1. Estado por fase
 
-*Actualizado a 02/09/2026.*
+*Actualizado a 10/09/2026.*
 
 | Fase | Estado | Qué hay hecho / qué falta |
 |------|--------|----------------------------|
@@ -16,9 +16,9 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 | 2 — Estado del arte | **Completa** | Estado del arte MDR/XDR **y de los modelos de lenguaje aplicados a seguridad**, con la comparación reglas frente a IA. **34 requisitos** (20 RF + 14 RNF) en un [registro único](../02-fase2-estado-del-arte/requisitos.md). Encuadre de mercado reorientado del segmento PYME al cliente modelado en la Fase 1. |
 | 3 — Entorno de pruebas | **Completa** | Red del cliente de 7 nodos, Metasploitable con ground truth, Wazuh generando alertas reales, auditor Nmap normalizado, todo reproducible con `lab/lab.sh` y con [guía de instalación](../../lab/docs/instalacion.md). **Dataset de alertas etiquetado entregado** (`lab/dataset/etiquetado.jsonl`: 410 alertas, 20 VP / 16 FP, particionado). Falta solo: equipo de borde OpenWrt real (vrnetlab bloqueado). |
 | 4 — Arquitectura | **Cerrada** | Flujo, protocolos, auditoría, modelo (perfiles A/B), catálogo de acciones con impacto, métricas y baseline, arquitectura consolidada, y la [política de decisión y perfil de cliente](../04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md) (revisión RF-17 a RF-20 y RNF-14 absorbida el 31/08). Único hueco: probar el catálogo sobre OpenWrt real. |
-| 5 — Implementación | **Completa, salvo una pieza** | El prototipo vive en [`prototipo/`](../../prototipo/) (63 tests): decisión (5A), lazo en vivo con conector SSH y validación humana (5B), y justificador con LLM real (5C, Llama-3.2-**1B**). Falta solo el **clasificador con fine-tuning**, bloqueado por un dataset de una sola familia; lo cubre el baseline determinista. |
-| 6 — Evaluación | **Completa** | Marco de medición en [`evaluacion/`](../../evaluacion/) (21 tests) y campaña ejecutada. Resultado: el prototipo **elimina los FP** (tasa 0.000 vs 0.282 del nivel de regla de Wazuh) sin perder amenazas (recall 1.0) y sin acciones disruptivas indebidas, tras usar orígenes legítimos para distinguir admin de atacante (RF-03). Ver [informe](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md). |
-| 7 — Documentación final | **No iniciada** | Buena parte del material ya existe en los documentos de fase; el informe los consolida. |
+| 5 — Implementación | **Completa, salvo una pieza** | El prototipo vive en [`prototipo/`](../../prototipo/) (**178 tests**): decisión (5A), lazo en vivo con conector SSH y validación humana (5B), justificador con LLM real (5C, Llama-3.2-**1B**), **RAG local con consulta agéntica (5D)**, **daemon en tiempo real** (`stream.py`, agrupación en incidentes RF-11) y **agente de mitigación ReAct** (`agente_mitigacion.py`, escalada host→cortafuegos). Falta solo el **clasificador con fine-tuning**, bloqueado por un dataset de una sola familia; lo cubre el baseline determinista. |
+| 6 — Evaluación | **Completa** | Marco de medición en [`evaluacion/`](../../evaluacion/) (**28 tests**) y campaña ejecutada. Resultado: el prototipo **elimina los FP** (tasa 0.000 vs 0.282 del nivel de regla de Wazuh) sin perder amenazas (recall 1.0) y sin acciones disruptivas indebidas, tras usar orígenes legítimos para distinguir admin de atacante (RF-03). Ver [informe](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md). |
+| 7 — Documentación final | **Borrador entregado** | Informe final en LaTeX según la norma del Decanato de Estudios Profesionales, en [`documentacion/report/`](../report/): 43 páginas, compila limpio, con los datos administrativos del plan oficial CCT-002-2026 y las cifras sincronizadas con la Fase 6. Pendiente solo lo que no depende del proyecto: revisión de los tutores y el Acta de Evaluación. |
 
 ### Progreso del laboratorio (Fase 3, verificado)
 
@@ -55,6 +55,9 @@ la Fase 7 (informe final + matriz de trazabilidad).
 | D9 | El Perfil A incorpora un **modelo de 3B en línea** para la justificación breve de la validación humana | [modelo §3](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
 | D7 | Dos abstracciones sostienen el diseño: el **conector** (acciones abstractas) y la **interfaz de análisis** (`clasificar`/`justificar`) | [protocolos](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md), [modelo §5](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
 | D11 | La interacción humana del prototipo es **por terminal (TUI/CLI)**; **sin UI gráfica**. Una UI gráfica queda como **trabajo futuro** tras culminar el prototipo | [flujo §7](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md) |
+| D12 | La recuperación del RAG es **agéntica**: el propio modelo decide qué consultar al corpus, y la consulta y los pasajes quedan en la traza (`consulta_rag`/`pasajes_usados`). El corpus se mantiene **curado y pequeño** (29 fichas ATT&CK/D3FEND): crecerlo con el embedder 1B **degrada** la recuperación (MRR 0.41→0.19), medido y revertido | [rendimiento §hallazgo](../../docs/pruebas/06-rendimiento-y-hardware.md) |
+| D13 | El prototipo opera además como **daemon en tiempo real** (`prototipo/stream.py`): sigue la fuente sin cerrarse, agrupa la ráfaga en **incidentes** (RF-11) y valida con el analista por `/dev/tty`. **La decisión y la contención son deterministas e instantáneas en los tres modos** (`--sin-llm`/`--con-llm`/`--agente`); el LLM solo explica | [pruebas 03](../../docs/pruebas/03-lab-en-vivo.md) |
+| D14 | La mitigación multi-nodo la resuelve un **agente ReAct** (`prototipo/agente_mitigacion.py`) que escala de dispositivo (host → cortafuegos) **sobre el catálogo cerrado**, consultando ATT&CK/D3FEND como herramienta y **aprobando por paso**. No amplía el repertorio de acciones: elige dentro de él | [pruebas 04](../../docs/pruebas/04-escenarios-de-ataque.md) |
 
 ---
 
@@ -188,6 +191,37 @@ fuerza bruta SSH»), manteniendo el anclaje al 100 %. Ver [informe §5.bis](../0
 **Quién lo resuelve:** nosotros. Es la pieza que faltaba para que el prototipo cumpla su objetivo
 general, no un extra.
 
+---
+
+### I-13 · El plan oficial omite el objetivo de implementar — ~~ESTRUCTURAL~~ **RESUELTA**
+
+Detectado el 10/09/2026 al contrastar el informe final contra el **plan oficial firmado
+CCT-002-2026** (el PDF de la raíz del repositorio). Ese documento lista **seis** objetivos
+específicos y salta de *«Diseñar la arquitectura del sistema»* directamente a *«Evaluar el
+prototipo»*: **no hay ningún objetivo que mande construirlo**, aunque toda la Fase 5 existe y es el
+grueso del trabajo.
+
+Dos consecuencias que conviene dejar escritas, porque un lector externo llegará a ellas solo:
+
+- El archivo [`documentacion/archivo/planDeTrabajo.md`](../archivo/planDeTrabajo.md) —movido a
+  `archivo/` por la incongruencia **I-9** como si fuera un borrador superado— es en realidad **el
+  plan oficial**: mismos seis objetivos, misma frase cortada en el objetivo 4. Lo que I-9 trató como
+  «el plan viejo» es el documento vigente ante la Universidad.
+- [`planDeTrabajoActualizado.md`](./planDeTrabajoActualizado.md), con **siete** objetivos, es una
+  ampliación interna no firmada.
+
+**Resolución (10/09/2026):** es un **error de tipeo del documento oficial, no una decisión de
+alcance**. Lo confirma el propio plan: su **cronograma de actividades sí incluye «Desarrollar el
+prototipo (flujos, reglas e integración)»** en las semanas 8 a 15. La referencia válida para los
+objetivos del proyecto son, por tanto, **los siete** de `planDeTrabajoActualizado.md`, y el informe
+final de la Fase 7 los lista así. **No hay que alinear el informe con los seis del PDF firmado.**
+
+**Recomendación operativa:** si el plan puede corregirse y volver a firmarse antes de la entrega,
+mejor; si no, el informe ya explica la trazabilidad objetivo→fase, de modo que la diferencia queda
+justificada ante el jurado.
+
+---
+
 ## 4. Propuesta: Wazuh como generador de alertas del sandbox
 
 Una sola decisión resuelve **I-1, I-2 e I-3** a la vez: desplegar **Wazuh dentro del sandbox**, con agentes en los nodos OpenWrt y Linux, un manager que correlaciona, y sus alertas como entrada del motor de triaje.
@@ -232,5 +266,6 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-6 | Perfil A vs flujo | De diseño | Nosotros | **Parcial** — hay justificación en línea (1B, no 3B: medidos ~3,7 t/s), pero la Fase 6 midió que es poco fiable; reabierta en calidad |
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |
 | I-8 | Material con premisa superada | Menor | Nosotros | **Resuelta** — movido a documentacion/archivo/ |
-| I-9 | Dos planes conviviendo | Menor | Nosotros | **Resuelta** — plan viejo movido a documentacion/archivo/ |
+| I-9 | Dos planes conviviendo | Menor | Nosotros | **Resuelta con matiz** — el plan movido a `archivo/` resultó ser el oficial firmado; ver I-13 |
+| I-13 | El plan oficial omite el objetivo de implementar | Estructural | Nosotros | **Resuelta** — es un error de tipeo del documento oficial; el cronograma sí incluye desarrollar el prototipo. Vale la lista de 7 objetivos |
 | I-10 | El componente central se llamaba «EDR» siendo el motor de triaje de un XDR | De diseño | Nosotros | **Resuelta** — renombrado a «motor de triaje» |

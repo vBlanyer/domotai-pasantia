@@ -240,8 +240,11 @@ que **n=18 los hace provisionales**:
 - **n pequeño y de una sola familia.** 18 alertas soportadas, todas `objetivo-vuln/ssh`. Los porcentajes
   se sostienen sobre pocos casos; se reportan siempre con la matriz cruda. La priorización es casi no
   medible. Es la limitación central y estructural de toda la evaluación.
-- **Los 8 FP del prototipo son admin vs atacante.** El clasificador no usa la legitimidad del origen; con
-  esa señal (o el clasificador entrenado) la precisión subiría. Es el error sistemático dominante.
+- **La separación admin vs atacante se resolvió por configuración, no por aprendizaje.** Los 8 FP de la
+  primera medición desaparecen al declarar `origenes_legitimos` en el perfil (RF-03, §1 y §2). Pero es una
+  señal **determinista basada en `origen_ip`, suplantable**, y solo cubre **4 de las 6** categorías del
+  caso de uso: faltan `vp_acceso_consumado` y `vp_exposicion_gestion`. El error sistemático ya no está en
+  la matriz de confusión; está en la fragilidad de esa señal y en las dos categorías sin cubrir.
 - **El clasificador con fine-tuning (encoder) sigue bloqueado por datos** — no hay encoder que medir, así
   que el desajuste "encoder preentrenado sobre prosa vs eventos estructurados" queda documentado, no
   cuantificado.
