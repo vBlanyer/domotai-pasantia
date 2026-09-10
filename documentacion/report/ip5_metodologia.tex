@@ -190,10 +190,31 @@ curado a mano, en vez de indexar documentación completa, porque el objetivo era
 corregir el conocimiento del modelo mejoraba la corrección de su justificación, no maximizar la
 cobertura de la recuperación.
 
+Cerrada la evaluación, la implementación se extendió con dos piezas que convierten el procesamiento
+por lotes en una operación continua. La primera es un \textbf{servicio en tiempo real} que consume
+las alertas según la fuente las produce, las agrupa en incidentes dentro de una ventana temporal
+configurable, y presenta cada incidente al analista para su validación sin esperar al final de una
+campaña; admite tres modos de operación ---justificación por plantilla determinista, justificación
+con el modelo de lenguaje y recuperación aumentada, o delegación en el agente de mitigación--- que
+permiten intercambiar latencia por riqueza de la explicación sin alterar la decisión, que es
+determinista en los tres casos. La segunda es un \textbf{agente de mitigación} que, ante un
+incidente cuya contención en el propio equipo no basta, razona la escalada hacia el siguiente nodo
+con capacidad de contención ---del anfitrión al cortafuegos--- consultando el corpus de conocimiento
+como herramienta y solicitando aprobación humana en cada paso. Para ejercitar esa escalada se añadió
+al laboratorio una topología con un equipo de borde administrable, y un banco de escenarios de
+ataque organizados por el comportamiento que deben provocar en el motor.
+
+Ambas piezas comparten una propiedad de diseño que conviene destacar: \textbf{la decisión y la
+contención son deterministas e instantáneas en cualquier modo}, y el modelo de lenguaje solo
+interviene en la explicación y, en el caso del agente, en la elección de la estrategia de escalada.
+El coste de inferencia afecta, por tanto, a la calidad de la justificación, no al tiempo de
+respuesta ante la amenaza.
+
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a más de un centenar de casos, ejecutados con generadores y ejecutores
-simulados que permiten probar la lógica de decisión, de idempotencia y de degradación sin necesidad
-de un modelo de lenguaje cargado ni de un laboratorio en ejecución.
+este informe, asciende a 239 casos ---178 del motor de triaje, 28 del marco de evaluación y 33 de
+la tubería de construcción del conjunto de datos---, ejecutados con generadores y ejecutores
+simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de degradación
+sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.
 
 % ===========================================================================
 \section{Fase 6: evaluación}

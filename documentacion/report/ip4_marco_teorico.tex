@@ -166,6 +166,37 @@ en el centro de un contexto largo se aprovechan peor que los situados en sus ext
 mantener el número de pasajes recuperados deliberadamente bajo.
 
 % ===========================================================================
+\section{Agentes con herramientas y el patrón de razonar y actuar}
+\label{sec:agentes}
+% ===========================================================================
+
+Un \emph{agente} basado en un modelo de lenguaje es un modelo situado dentro de un bucle: en lugar
+de producir una única respuesta, alterna pasos de razonamiento con la invocación de herramientas
+externas, observa lo que estas devuelven y decide con esa información si continuar o concluir. La
+formulación que popularizó este esquema es el patrón conocido como \emph{ReAct}, contracción de
+\emph{reasoning and acting}, que entrelaza explícitamente las trazas de razonamiento con las
+acciones sobre el entorno y muestra que ambas se refuerzan: el razonamiento guía qué herramienta
+usar, y lo observado corrige el razonamiento siguiente \cite{yao2023react}.
+
+Este trabajo emplea el patrón en dos puntos distintos, y conviene separarlos porque su riesgo no es
+el mismo. El primero es la \textbf{recuperación agéntica}: en vez de construir la consulta al corpus
+con una plantilla fija sobre los campos de la alerta, es el propio modelo el que formula qué
+necesita consultar antes de justificar. El segundo es el \textbf{agente de mitigación}, que ante un
+incidente cuya contención en el equipo afectado no basta ---porque ese equipo está fuera de
+alcance--- razona la escalada hacia el siguiente dispositivo con capacidad de contención.
+
+La tensión con el resto de este marco teórico es evidente y merece enunciarse en lugar de
+disimularse: un agente que planifica libremente y encadena herramientas por su cuenta es
+precisamente lo que la exigencia de auditabilidad de la sección \ref{sec:politica-perfil} rechaza.
+La forma de conservar la utilidad del patrón sin heredar ese problema es acotarlo por construcción,
+y en este trabajo se acota de tres maneras simultáneas: el agente \textbf{selecciona} dentro de un
+catálogo cerrado de acciones y nunca inventa una nueva; cada paso de la escalada requiere
+aprobación humana explícita antes de ejecutarse; y la decisión de contener ---el qué--- sigue
+siendo determinista, de modo que el agente elige la estrategia, no si hay que actuar. Un agente así
+no es autónomo en el sentido fuerte del término: es un selector razonado sobre un espacio de
+acciones cerrado y supervisado.
+
+% ===========================================================================
 \section{Riesgos de aplicar un modelo de lenguaje al triaje de seguridad}
 % ===========================================================================
 
@@ -251,8 +282,16 @@ propuesta según lo que el negocio del cliente concreto permite, degradándola a
 o reteniéndola para validación humana. El modelo de lenguaje interviene únicamente para redactar la
 justificación de una decisión ya tomada por la política, nunca para tomarla. Esta separación es, en
 sí misma, una aplicación directa del principio de auditabilidad: un error se puede atribuir a la
-clasificación, a la política o al perfil, y se sabe cuál de los tres corregir, algo que no seria
+clasificación, a la política o al perfil, y se sabe cuál de los tres corregir, algo que no sería
 posible si toda la decisión residiera dentro de un único componente generativo.
+
+Esta separación es también la que permite incorporar el agente descrito en la sección
+\ref{sec:agentes} sin renunciar a la auditabilidad. El agente no sustituye a ninguna de las tres
+capas: actúa dentro de la tercera, eligiendo entre las acciones que el catálogo ofrece y que el
+perfil ya ha autorizado, cuando la contención en el equipo afectado resulta insuficiente. La
+frontera se mantiene, por tanto, en el mismo sitio: la política determina \emph{qué} debe ocurrir y
+el modelo, en su papel de agente, propone \emph{cómo} lograrlo dentro de lo permitido, sujeto a
+aprobación humana en cada paso.
 
 % ===========================================================================
 \section{Métricas de evaluación de un clasificador binario}

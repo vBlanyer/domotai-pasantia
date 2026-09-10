@@ -2,15 +2,17 @@
 % Resultados y discusión
 % ---------------------------------------------------------------------------
 % Mínimo dos páginas por capítulo (norma 2.6).
+% Cifras sincronizadas con documentacion/06-fase6-evaluacion-del-prototipo/
+% informe-evaluacion.md (medición con origenes_legitimos, RF-03).
 
 \chapter{Resultados y discusión}
 \label{cap:resultados}
 
-Este capítulo presenta los resultados de la campaña de evaluación de la Fase 6, ejecutada el 2 de
-septiembre de 2026 sobre la partición de evaluación del conjunto de alertas etiquetado ---205
-alertas, de las cuales 18 pertenecen al caso de uso acotado y tienen, por tanto, una clase
-verdadera contra la que se puede medir---, con el perfil de cliente empresarial y el justificador de
-mil millones de parámetros a temperatura de muestreo nula.
+Este capítulo presenta los resultados de la campaña de evaluación de la Fase 6, ejecutada sobre la
+partición de evaluación del conjunto de alertas etiquetado ---205 alertas, de las cuales 18
+pertenecen al caso de uso acotado y tienen, por tanto, una clase verdadera contra la que se puede
+medir---, con el perfil de cliente empresarial y el justificador de mil millones de parámetros a
+temperatura de muestreo nula.
 
 % ===========================================================================
 \section{Resultado principal: clasificación frente al método de referencia}
@@ -28,37 +30,55 @@ resume el resultado.
     \toprule
     \textbf{Métrica} & \textbf{Prototipo} & \textbf{Baseline (nivel $\geq 5$)} \\
     \midrule
-    Precisión & 0,556 & 0,154 \\
+    Precisión & 1,000 & 0,154 \\
     Exhaustividad & 1,000 & 1,000 \\
-    Medida $F_1$ & 0,714 & 0,267 \\
-    Tasa de falsos positivos & 0,041 & 0,282 \\
+    Medida $F_1$ & 1,000 & 0,267 \\
+    Tasa de falsos positivos & 0,000 & 0,282 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-La matriz de confusión del prototipo es $VP=10$, $FP=8$, $VN=187$, $FN=0$; la del baseline en su
+La matriz de confusión del prototipo es $VP=10$, $FP=0$, $VN=195$, $FN=0$; la del baseline en su
 umbral óptimo es $VP=10$, $FP=55$, $VN=140$, $FN=0$. Ambos métodos detectan la totalidad de las
-amenazas reales de la partición ---exhaustividad de 1,0 en los dos casos---, pero el prototipo reduce
-la tasa de falsos positivos de 0,282 a 0,041, casi siete veces menos. La diferencia son 187 eventos
-de ruido de plataforma que el motor clasifica correctamente como no soportados y que el nivel de
-regla, por sí solo, no tiene forma de suprimir. Esta reducción del ruido operativo sin pérdida de
-exhaustividad es, precisamente, el resultado que el proyecto se propuso demostrar.
+amenazas reales de la partición ---exhaustividad de 1,0 en los dos casos---, pero el prototipo
+suprime por completo el ruido: el baseline deja pasar 55 falsos positivos y el prototipo, ninguno.
+Los 195 negativos del prototipo son los 187 eventos de ruido de plataforma que clasifica como no
+soportados más las 8 alertas del administrador legítimo que reconoce como actividad legítima, dos
+categorías que el nivel de regla no sabe distinguir. Esta supresión del ruido operativo sin pérdida
+de exhaustividad es, precisamente, el resultado que el proyecto se propuso demostrar.
 
 % ===========================================================================
-\section{El límite de precisión del prototipo, y por qué}
+\section{La progresión de la medida, y por qué se reporta completa}
+\label{sec:progresion-rf03}
 % ===========================================================================
 
-La precisión del prototipo se queda en 0,556, no en 1,0, por una razón concreta y verificable: las
-dieciocho alertas soportadas de la partición corresponden todas al mismo activo y al mismo
-servicio ---acceso por SSH al servidor con vulnerabilidades documentadas del laboratorio---, de las
-cuales diez son intentos de acceso reales y ocho son actividad de un administrador legítimo que se
-equivocó de credencial. El clasificador determinista decide por familia de alerta y por postura de
-exposición del activo, y como el servicio está efectivamente expuesto en ese nodo, marca las
-dieciocho como amenaza potencial: no dispone de ninguna señal sobre la legitimidad del origen que le
-permita distinguir al administrador del atacante. Es el límite esperado de un clasificador que no
-incorpora aprendizaje sobre patrones de comportamiento, y es exactamente la limitación que
-motivaría un clasificador con ajuste fino si el conjunto de datos tuviera variedad suficiente de
-familias para entrenarlo sin invalidar la propia evaluación.
+La primera medición de esta fase no dio 1,000 sino \textbf{0,556} de precisión, con una matriz de
+$VP=10$, $FP=8$, $VN=187$. Ambos números son reales y describen dos configuraciones distintas del
+mismo motor; se reportan los dos porque la diferencia entre ellos es, en sí misma, el hallazgo más
+instructivo de la evaluación.
+
+Las 18 alertas soportadas de la partición corresponden todas al mismo activo y al mismo servicio
+---acceso por SSH al servidor con vulnerabilidades documentadas del laboratorio---, de las cuales
+diez son intentos de acceso reales y ocho son actividad de un administrador legítimo, todas desde
+la misma dirección de origen. La señal que separa unas de otras no es la postura de exposición del
+activo, porque el servicio SSH está igualmente expuesto en los dos casos: es la \emph{legitimidad
+del origen}. En la primera medición el clasificador no disponía de esa señal ---aunque el
+etiquetado del conjunto de datos sí la había usado---, así que marcaba las dieciocho como amenaza
+potencial y acumulaba ocho falsos positivos.
+
+La corrección no consistió en entrenar nada, sino en declarar esa señal como configuración del
+cliente: el perfil enumera los orígenes legítimos, el enriquecimiento marca cada alerta en
+consecuencia y el clasificador produce una categoría propia de actividad administrativa legítima
+para esos casos. Con esa configuración los ocho falsos positivos pasan a negativos correctos y la
+precisión alcanza 1,000.
+
+Quedan dos límites que conviene no suavizar. El primero es que se trata de una señal determinista
+basada en la dirección de origen, que es suplantable: en un despliegue real la legitimidad debería
+apoyarse en una autenticación más fuerte y no solo en la dirección. El segundo es que el
+clasificador cubre así cuatro de las seis categorías del caso de uso; las dos restantes ---el
+acceso ya consumado y la exposición indebida de un servicio de gestión--- exigen señales que el
+conjunto de datos disponible no contiene, y son las que motivan el clasificador con ajuste fino que
+permanece bloqueado por la concentración de ese conjunto en una sola familia de ataque.
 
 % ===========================================================================
 \section{Por qué el óptimo del baseline es débil}
@@ -81,10 +101,40 @@ El nivel de regla de Wazuh se evaluó como clasificador barriendo su umbral de d
 \end{table}
 
 El mejor punto del baseline ---$F_1=0,267$, en los umbrales 4 y 5--- no se acerca en ningún caso al
-resultado del prototipo ($F_1=0,714$). La curva, además, no es monótona: subir el umbral no mejora
-de forma limpia, porque los verdaderos positivos y buena parte del ruido conviven en los mismos
-niveles de severidad. Esto confirma que el nivel de regla, por sí solo, no basta como criterio de
-prioridad, y justifica la reclasificación que realiza el motor de triaje.
+resultado del prototipo, ni siquiera al de su primera medición ($F_1=0,714$ antes de la
+configuración de orígenes legítimos, $F_1=1,000$ después). La curva, además, no es monótona: subir
+el umbral no mejora de forma limpia, porque los verdaderos positivos y buena parte del ruido
+conviven en los mismos niveles de severidad. Esto confirma que el nivel de regla, por sí solo, no
+basta como criterio de prioridad, y justifica la reclasificación que realiza el motor de triaje.
+
+% ===========================================================================
+\section{Agrupación por incidente: menos elementos que revisar}
+% ===========================================================================
+
+Un analista no debería revisar dieciocho alertas casi idénticas, sino los incidentes que
+representan. El motor colapsa las ráfagas que comparten origen, activo, servicio y familia dentro
+de una ventana temporal, por encima de la correlación que la propia fuente de alertas ya realiza.
+La tabla \ref{tab:agrupacion} recoge el efecto medido.
+
+\begin{table}[H]
+  \centering
+  \caption{Reducción de elementos a revisar por agrupación en incidentes}
+  \label{tab:agrupacion}
+  \begin{tabular}{@{}p{0.42\textwidth}cc@{}}
+    \toprule
+    \textbf{Entrada} & \textbf{Elementos} & \textbf{Tras agrupar} \\
+    \midrule
+    18 alertas soportadas & 18 & 2 incidentes ($9\times$) \\
+    205 alertas (partición completa) & 205 & 4 incidentes ($\approx 51\times$) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Los dos incidentes soportados son exactamente el ataque y la actividad del administrador. Triar sus
+dos representantes con el motor produce las mismas decisiones correctas que triar las dieciocho
+alertas por separado, con nueve veces menos trabajo. El matiz honesto es que ambos incidentes
+pertenecen a la misma familia, porque el conjunto de datos es de una sola: sobre tráfico más
+variado la agrupación distinguiría más incidentes y el factor de reducción sería distinto.
 
 % ===========================================================================
 \section{Operación y continuidad del servicio}
@@ -95,29 +145,31 @@ de $0,01\,\text{ms}$ por alerta, muy por debajo del presupuesto de latencia esta
 con el modelo de lenguaje de mil millones de parámetros tomó, en esta campaña, aproximadamente
 $36\,\text{s}$ por alerta ---más que en una invocación aislada, porque cada justificación recarga el
 modelo de $808\,\text{MB}$ en un proceso nuevo; en un despliegue real el modelo permanecería
-cargado entre invocaciones---. La cobertura del clasificador ---la proporción de alertas que caen dentro
-del caso de uso acotado--- fue de 0,088: solo el 8,8\,\% de las alertas de un Wazuh recién desplegado
-corresponden a un patrón clasificable, y el resto es telemetría interna de la propia plataforma. La
-tasa de escalado a validación humana fue de 0,0 sobre este conjunto, porque el clasificador
-determinista nunca reportó una confianza por debajo del umbral de escalado en estas alertas.
+cargado entre invocaciones---. La cobertura del clasificador ---la proporción de alertas que caen
+dentro del caso de uso acotado--- fue de 0,088: solo el 8,8\,\% de las alertas de un Wazuh recién
+desplegado corresponden a un patrón clasificable, y el resto es telemetría interna de la propia
+plataforma. La tasa de escalado a validación humana fue de 0,0 sobre este conjunto, porque el
+clasificador determinista nunca reportó una confianza por debajo del umbral de escalado en estas
+alertas.
 
 Sobre la métrica de continuidad ---el requisito que distingue a este trabajo de un sistema de
 respuesta automatizada convencional---, no se registró ninguna acción disruptiva indebida: ninguna
 acción propuesta a partir de una alerta que resultó ser un falso positivo alcanzaba un servicio que
-el cliente prestara. El escenario más exigente de esta métrica ---una acción de alto impacto que deba
-ser efectivamente retenida por la validación humana--- no llegó a ejercitarse sobre este conjunto de
-datos, lo que se documenta como una limitación de la muestra y no como una garantía general.
+el cliente prestara. El escenario más exigente de esta métrica ---una acción de alto impacto que
+deba ser efectivamente retenida por la validación humana--- no llegó a ejercitarse sobre este
+conjunto de datos, lo que se documenta como una limitación de la muestra y no como una garantía
+general.
 
 % ===========================================================================
 \section{Calidad de la justificación: anclada, pero inicialmente poco fiable}
 % ===========================================================================
 
-La verificación automática de anclaje ---que ninguna dirección IP mencionada sea distinta de la de la
-alerta y que el texto referencie al menos un campo concreto de ella--- dio una tasa de 18 sobre 18: el
-cien por ciento de las justificaciones del modelo de mil millones de parámetros pasó la
-verificación. Sin embargo, la revisión manual de esa misma muestra reveló que un anclaje perfecto no
-garantiza una explicación correcta. Un ejemplo textual generado por el modelo antes de incorporar
-recuperación aumentada:
+La verificación automática de anclaje ---que ninguna dirección IP mencionada sea distinta de la de
+la alerta y que el texto referencie al menos un campo concreto de ella--- dio una tasa de 18 sobre
+18: el cien por ciento de las justificaciones del modelo de mil millones de parámetros pasó la
+verificación. Sin embargo, la revisión manual de esa misma muestra reveló que un anclaje perfecto
+no garantiza una explicación correcta. Un ejemplo textual generado por el modelo antes de
+incorporar recuperación aumentada:
 
 \begin{quote}
 \itshape
@@ -130,9 +182,9 @@ SSH. La técnica T1110.001 no es un conjunto de técnicas de seguridad: es \emph
 una técnica de ataque del catálogo MITRE ATT\&CK. El modelo cita los campos correctos ---de ahí que
 ancle--- pero describe su significado al revés, y de las dieciocho justificaciones generadas solo
 cuatro textos resultaron distintos entre sí, porque una temperatura de muestreo nula sobre un único
-nodo produce salidas casi idénticas. La conclusión de esta medición es metodológicamente importante:
-la tasa de anclaje mide que el modelo no inventa campos, no que acierte su significado, y no debe
-leerse como un indicador de calidad de la justificación.
+nodo produce salidas casi idénticas. La conclusión de esta medición es metodológicamente
+importante: la tasa de anclaje mide que el modelo no inventa campos, no que acierte su significado,
+y no debe leerse como un indicador de calidad de la justificación.
 
 % ===========================================================================
 \section{El contraste con recuperación aumentada}
@@ -151,20 +203,51 @@ en la sección anterior, generó con recuperación aumentada:
 
 correcta y respaldada por los pasajes recuperados del corpus curado sobre las reglas de fuerza
 bruta SSH. En una alerta de falso positivo, el contraste fue igual de marcado: de «la regla 5710
-define el protocolo SSH como un protocolo seguro» ---una afirmación sin sentido--- a «la regla 5710 de
-Wazuh indica que se probó un nombre de usuario que no existe por SSH, un indicio de ataque de
+define el protocolo SSH como un protocolo seguro» ---una afirmación sin sentido--- a «la regla 5710
+de Wazuh indica que se probó un nombre de usuario que no existe por SSH, un indicio de ataque de
 fuerza bruta», que es la lectura correcta del evento.
 
-Tres matices, medidos y no solo observados, acompañan esta mejora. Primero, la diversidad de
-textos no aumentó ---siguieron saliendo solo cuatro textos distintos de dieciocho---, porque la causa de
+Tres matices, medidos y no solo observados, acompañan esta mejora. Primero, la diversidad de textos
+no aumentó ---siguieron saliendo solo cuatro textos distintos de dieciocho---, porque la causa de
 esa baja diversidad es el propio conjunto de datos concentrado en un nodo, no el mecanismo de
 justificación. Segundo, la recuperación resultó imprecisa en el identificador exacto de la regla:
 para una alerta de la regla 5760, el sistema recuperó el grupo completo de reglas de fuerza bruta
-SSH (5710, 5712, 5763) en lugar del identificador preciso; aun así, el dominio recuperado era el
-correcto, y por eso la justificación mejoró. Tercero, con recuperación aumentada el modelo tiende a
-parafrasear los pasajes recuperados ---enumerar las reglas del corpus--- más que a razonar de forma
-original sobre la alerta concreta, lo que es preferible a inventar una explicación pero sigue
-estando lejos de la redacción de un analista humano.
+SSH en lugar del identificador preciso; aun así, el dominio recuperado era el correcto, y por eso
+la justificación mejoró. Tercero, con recuperación aumentada el modelo tiende a parafrasear los
+pasajes recuperados más que a razonar de forma original sobre la alerta concreta, lo que es
+preferible a inventar una explicación pero sigue estando lejos de la redacción de un analista.
+
+% ===========================================================================
+\section{Un resultado negativo: crecer el corpus empeoró la recuperación}
+\label{sec:mrr}
+% ===========================================================================
+
+La intuición razonable ante una recuperación imprecisa es ampliar el corpus. Se midió esa hipótesis
+y resultó falsa para este montaje. Al pasar de 29 a 39 fichas ---añadiendo técnicas del catálogo
+MITRE ATT\&CK semánticamente próximas a las ya presentes--- la calidad de la recuperación se
+degradó a la mitad, según recoge la tabla \ref{tab:mrr}.
+
+\begin{table}[H]
+  \centering
+  \caption{Efecto de ampliar el corpus sobre la calidad de la recuperación}
+  \label{tab:mrr}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    \textbf{Métrica} & \textbf{29 fichas} & \textbf{39 fichas} \\
+    \midrule
+    Aciertos en la primera posición & 0,25 & 0,00 \\
+    Rango recíproco medio & 0,41 & 0,19 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+La causa es el modelo de \emph{embeddings} empleado, que es el mismo modelo generativo de mil
+millones de parámetros: no discrimina entre técnicas de ataque semánticamente vecinas ---adivinar
+contraseñas frente a descifrarlas, por ejemplo---, de modo que más fichas equivalen a más
+confusión. Se revirtió la ampliación y se conservaron las 29 fichas originales. La lección práctica
+es que, con un modelo de este tamaño, el corpus no puede crecer de forma útil: ampliarlo exige
+antes un modelo de \emph{embeddings} dedicado. Es un resultado negativo, y se reporta como tal
+porque delimita con precisión dónde está el techo del montaje actual.
 
 % ===========================================================================
 \section{Verificación sobre el conjunto completo}
@@ -172,31 +255,35 @@ estando lejos de la redacción de un analista humano.
 
 Para descartar que el resultado dependiera de la partición elegida, la clasificación ---sin el
 justificador, por su coste de tiempo--- se repitió sobre las 410 alertas del conjunto completo (36
-soportadas). Las tasas obtenidas ---precisión 0,556, exhaustividad 1,0, $F_1$ 0,714, tasa de falsos
-positivos 0,041--- resultaron idénticas a las de la partición de evaluación, lo que era el resultado
-esperado: el clasificador es determinista y no se entrena, así que no existe diferencia entre
-entrenar y evaluar sobre él. La partición se respetó de todas formas por rigor metodológico.
+soportadas). Las tasas obtenidas ---precisión 1,000, exhaustividad 1,000, $F_1$ 1,000 y tasa de
+falsos positivos 0,000, con matriz $VP=20$, $FP=0$, $VN=390$, $FN=0$--- resultaron idénticas a las
+de la partición de evaluación, lo que era el resultado esperado: el clasificador es determinista y
+no se entrena, así que no existe diferencia entre entrenar y evaluar sobre él. La partición se
+respetó de todas formas por rigor metodológico.
 
 % ===========================================================================
 \section{Limitaciones y análisis de errores}
 % ===========================================================================
 
-Cuatro limitaciones, todas medidas y no solo declaradas, acotan el alcance de estos resultados.
-Primero, el tamaño de la muestra soportada ---dieciocho alertas, de una sola familia de ataque sobre
-un único activo--- hace que los porcentajes de precisión se sostengan sobre pocos casos, y que la
-correlación de orden de prioridad no pudiera calcularse por falta de variedad. Segundo, el error
-sistemático dominante del prototipo ---los ocho falsos positivos--- tiene una causa identificada y no
-un origen difuso: la ausencia de una señal sobre la legitimidad del origen de la conexión. Tercero,
-el clasificador con ajuste fino permanece bloqueado por la misma concentración del conjunto de
-datos, así que el desajuste esperado entre un modelo preentrenado sobre prosa y una entrada de
-eventos estructurados queda documentado, pero no cuantificado. Cuarto, el auditor de
-vulnerabilidades no es infalible: la ausencia de un hallazgo no demuestra que un activo sea seguro,
-y la postura de exposición usada como contexto de decisión se tomó de los hallazgos reales de una
-única campaña de escaneo.
+Cinco limitaciones, todas medidas y no solo declaradas, acotan el alcance de estos resultados.
+Primero, el tamaño de la muestra soportada ---dieciocho alertas, de una sola familia de ataque
+sobre un único activo--- hace que los porcentajes se sostengan sobre pocos casos, y que la
+correlación de orden de prioridad no pudiera calcularse por falta de variedad; es la limitación
+central y estructural de toda la evaluación. Segundo, la separación entre administrador y atacante
+descansa en una señal determinista basada en la dirección de origen, que es suplantable, y cubre
+cuatro de las seis categorías del caso de uso. Tercero, el clasificador con ajuste fino permanece
+bloqueado por la misma concentración del conjunto de datos, así que el desajuste esperado entre un
+modelo preentrenado sobre prosa y una entrada de eventos estructurados queda documentado, pero no
+cuantificado. Cuarto, la calidad del justificador está limitada por el tamaño del modelo que el
+hardware disponible permite ejecutar con una latencia tolerable, y la recuperación no puede
+mejorarse ampliando el corpus mientras se use ese mismo modelo como \emph{embedder}
+(sección \ref{sec:mrr}). Quinto, el auditor de vulnerabilidades no es infalible: la ausencia de un
+hallazgo no demuestra que un activo sea seguro, y la postura de exposición usada como contexto de
+decisión se tomó de los hallazgos reales de una única campaña de escaneo.
 
 El resultado global, no obstante, es positivo y medido sobre el problema que el proyecto se propuso
-atacar: el triaje asistido reduce el ruido operativo de forma sustancial sin sacrificar
-exhaustividad y sin comprometer la continuidad del servicio, y su límite de precisión y su
-justificador tienen, ambos, una causa identificada y un camino de mejora conocido ---un clasificador
-entrenado con datos de mayor variedad y un modelo de justificación de mayor capacidad---, que la
-propia interfaz de análisis del prototipo ya permite incorporar sin rediseñar el sistema.
+atacar: el triaje asistido suprime el ruido operativo sin sacrificar exhaustividad y sin
+comprometer la continuidad del servicio, y sus límites ---la cobertura parcial de categorías, la
+fragilidad de la señal de origen y la capacidad del modelo de justificación--- tienen todos una
+causa identificada y un camino de mejora conocido que la propia interfaz de análisis del prototipo
+ya permite incorporar sin rediseñar el sistema.

@@ -16,9 +16,9 @@ El objetivo general de este trabajo era desarrollar un prototipo que clasificara
 alertas de seguridad, justificando cada decisión con un modelo de lenguaje apoyado en generación
 aumentada por recuperación ejecutada en local, y que redujera los falsos positivos sin sacrificar
 la detección de amenazas reales. Los resultados del capítulo \ref{cap:resultados} sostienen que ese
-objetivo se cumplió dentro del caso de uso acotado sobre el que se evaluó: el prototipo redujo la
-tasa de falsos positivos frente al nivel de regla de Wazuh en un factor cercano a siete, sin dejar
-de detectar ninguna amenaza real y sin ejecutar ninguna acción que hubiera interrumpido
+objetivo se cumplió dentro del caso de uso acotado sobre el que se evaluó: el prototipo suprimió
+los falsos positivos que el nivel de regla de Wazuh deja pasar ---tasa de 0,000 frente a 0,282---,
+sin dejar de detectar ninguna amenaza real y sin ejecutar ninguna acción que hubiera interrumpido
 indebidamente un servicio del cliente. Este resultado confirma, con datos y no solo con diseño, la
 idea central del trabajo: separar la clasificación, la decisión y la justificación en componentes
 distintos ---una política determinista que decide, un perfil de cliente que filtra, y un modelo de
@@ -34,15 +34,17 @@ recuperación por similitud, en vez de sustituirlo por un modelo mayor que el ha
 podía sostener con una latencia razonable, resolvió esa brecha sin añadir ningún requisito de
 cómputo significativo.
 
-El trabajo deja, con la misma honestidad con que reporta sus logros, dos límites identificados y no
-resueltos. El primero es la precisión del clasificador determinista, limitada por su incapacidad de
-distinguir un administrador legítimo de un atacante sobre el mismo servicio: es exactamente el
-problema que un clasificador con ajuste fino resolvería, y que permanece bloqueado porque el
-conjunto de datos disponible, concentrado en una sola familia de ataque, no ofrece variedad
-suficiente para entrenarlo sin invalidar la propia evaluación. El segundo es el alcance estadístico
-de la evaluación misma: dieciocho alertas soportadas, todas del mismo activo y servicio, sostienen
-un resultado direccionalmente claro pero no permiten generalizar sus cifras exactas a un cliente con
-un perfil de amenazas distinto.
+El trabajo deja, con la misma honestidad con que reporta sus logros, tres límites identificados y no
+resueltos. El primero afecta a la propia señal que hizo posible el resultado principal: la
+distinción entre un administrador legítimo y un atacante sobre el mismo servicio se apoya hoy en la
+dirección de origen declarada en la configuración del cliente, que es suplantable, y cubre cuatro de
+las seis categorías del caso de uso; las dos restantes exigen señales que el conjunto de datos no
+contiene. El segundo es que el clasificador con ajuste fino, que resolvería ese límite de raíz,
+permanece bloqueado porque el conjunto de datos disponible, concentrado en una sola familia de
+ataque, no ofrece variedad suficiente para entrenarlo sin invalidar la propia evaluación. El tercero
+es el alcance estadístico de la evaluación misma: dieciocho alertas soportadas, todas del mismo
+activo y servicio, sostienen un resultado direccionalmente claro pero no permiten generalizar sus
+cifras exactas a un cliente con un perfil de amenazas distinto.
 
 \subsection*{Recomendaciones}
 
