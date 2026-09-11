@@ -39,6 +39,27 @@ más fichas = más confusión. Se hizo **rollback** a las 29 fichas. **Conclusi�
 puede crecer útilmente; **crecerlo exige un modelo de embeddings dedicado** (`bge`/`e5`, o el 7–8B en GPU) —
 otra razón para el hardware objetivo. La calibración (banco §2.4) es la que permite detectar esto antes de fijar nada.
 
+### Seguimiento (10/09/2026): con bge-m3, crecer el corpus deja de romper la recuperación
+
+Se repitió el experimento con el embedder dedicado (`bge-m3`, agrupación CLS), ampliando el corpus vigente
+de 32 fichas con 8 técnicas hermanas del perímetro (`T1110.002`, `T1078.001`, `T1078.003`, `T1021.001`,
+`T1021.002`, `T1595.003`, `T1211`, `T1212`), extraídas del bundle oficial con `prototipo/extraer_attack.py`
+y medidas en memoria sin tocar el corpus versionado:
+
+| Recuperación fija | 32 fichas | 40 fichas |
+|---|---|---|
+| Hit@1 | 0.50 | 0.42 |
+| Hit@3 | 0.83 | 0.83 |
+| Hit@5 | 1.00 | 1.00 |
+| MRR | **0.70** | **0.66** |
+
+Con el 1B la misma ampliación partía el MRR por la mitad y vaciaba el Hit@1; con bge-m3 el coste es de
+0.04 de MRR, una sola alerta pierde el primer puesto frente a su técnica hermana, y la ficha correcta sigue
+entre las tres primeras en el 83 % y entre las cinco primeras siempre. **Crecer el corpus pasa de inviable a
+viable**, que es lo que la recomendación original decía que ocurriría. No se incorporó la ampliación al
+corpus versionado porque el banco no tiene casos que la necesiten: se añadirán fichas cuando haya alertas
+del perímetro que las requieran, no antes.
+
 ## Baseline medido (hardware actual)
 
 - Portátil, **CPU sin GPU**, `llama-3.2-1b-q4` → **~3.7 t/s**.

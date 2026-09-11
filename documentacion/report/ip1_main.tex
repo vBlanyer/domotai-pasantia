@@ -22,6 +22,18 @@
 \usepackage{lmodern}
 \usepackage[T1]{fontenc}
 \usepackage[spanish,es-tabla]{babel}
+% Tectonic compila con XeTeX, que entrega a la fuente el código Unicode del carácter tal
+% cual. Con fuentes T1 eso vale para las letras acentuadas (0xC0-0xFF coincide con
+% Latin-1) pero NO para los signos de la zona 0x80-0xBF, donde T1 guarda letras de Europa
+% central: «» salían como ń ż y ¿ como £, sin ningún aviso. Se mapean explícitamente.
+\usepackage{newunicodechar}
+\newunicodechar{«}{\guillemotleft}
+\newunicodechar{»}{\guillemotright}
+\newunicodechar{¿}{\textquestiondown}
+\newunicodechar{¡}{\textexclamdown}
+\newunicodechar{·}{\textperiodcentered}
+\newunicodechar{§}{\S}
+\newunicodechar{°}{\textdegree}
 
 % --- Geometría (norma 2.1 y 2.2) -------------------------------------------
 % Papel carta. Margen izquierdo 3 cm para la encuadernación; los demás, 2 cm.

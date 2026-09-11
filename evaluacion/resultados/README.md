@@ -52,6 +52,7 @@ millones de parametros (`llama-3.1-8b-instruct-q4.gguf`):
 | `8b-con-rag/` | Campana con recuperacion, corpus y consulta dependientes de la clase. 18/18 ancladas, 0 degradadas, **0 contradicciones**, 50 s | **Vigente (`llm-4`)** |
 | `rag-simulacion-2026-09-10.md` | Banco de calibracion con el 1B como embedder. Fija MRR 0.47, agentica 0.32 | Historico |
 | `rag-simulacion-2026-09-10-bge.md` | Banco con bge-m3 como embedder y generacion reproducible. Fija MRR 0.70, agentica 0.73 | **Vigente** |
+| (sin fichero; medido en memoria) | Crecer el corpus 32 -> 40 fichas con tecnicas hermanas, embedder bge-m3: MRR 0.70 -> 0.66, Hit@5 1.00 en ambos. Con el 1B era 0.41 -> 0.19. Detalle en `docs/pruebas/06-rendimiento-y-hardware.md` | Vigente |
 
 La clasificacion es identica en todas las corridas, como debe ser: el modelo no participa en ella.
 Lo que cambia es la justificacion.

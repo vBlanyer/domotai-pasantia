@@ -96,8 +96,10 @@ Cada línea de la salida (`.jsonl`) es una decisión de triaje:
   "resultado_filtro": "permite",
   "accion_final": "BLOQUEAR_IP",
   "requiere_humano": false,
-  "version_justificador": "llm-3:llama-3.2-1b-q4.gguf",     // RF-09/RNF-03: versión+modelo
-  "pasajes_usados": ["regla-5760"],                          // pasajes RAG (reconstruye el prompt)
+  "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf", // RF-09/RNF-03: versión+modelo servido
+  "pasajes_usados": ["mapeo-acceso_credenciales", "mitre-T1021"], // pasajes RAG (reconstruye el prompt)
+  "consulta_rag": "tecnica MITRE T1110.001 acceso credenciales servicio ssh contramedida defensiva",
+  "recuperacion_agentica": false,
   "version_baseline": "baseline-0",
   "version_perfil": "v0"
 }
@@ -442,11 +444,14 @@ las reglas y técnicas al revés).
 - **Corpus curado** en `prototipo/corpus/corpus.jsonl`: fichas cortas y *correctas* de las técnicas MITRE
   (T1110, T1110.001, T1021.004), las reglas de Wazuh (5760, 5763, 5710, 5712) y las vulnerabilidades del
   laboratorio. Es dato versionado y **de confianza** (lo escribimos nosotros).
-- **Recuperación semántica**: `construir_consulta` arma la consulta con **solo campos estructurados**
-  (regla, MITRE, servicio — RNF-08, el `full_log` del atacante nunca entra); `embedder_llama` vectoriza
-  con `llama-embedding --pooling mean` sobre el mismo GGUF de 1B (sin descargas); `recuperar` ordena por
-  **coseno en Python puro** y devuelve el top-k. El índice se precomputa a `prototipo/corpus/indice.json`
-  (versionado); se regenera con `python3 -m prototipo.rag --indexar`.
+- **Recuperación semántica**: `construir_consulta(alerta, clase)` arma la consulta con **solo campos
+  estructurados** (MITRE, familia, servicio — RNF-08, el `full_log` del atacante nunca entra) **y con la
+  clase ya decidida** (§10.quater); `embedder_llama` vectoriza con `llama-embedding` sobre `bge-m3`
+  (`LLAMA_EMBED_MODELO`, agrupación CLS por `LLAMA_EMBED_POOLING`); `recuperar` ordena por **coseno en
+  Python puro** y devuelve el top-k, y **se detiene** si la dimensión de la consulta no coincide con la
+  del índice (cambiar de embedder sin reindexar producía similitudes plausibles y sin sentido). El
+  índice se precomputa a `prototipo/corpus/indice.json` (versionado); se regenera con
+  `python3 -m prototipo.rag --indexar`.
 - **Prompt aumentado**: `construir_prompt(..., pasajes)` inyecta un bloque «Conocimiento de referencia»
   con las fichas recuperadas. Sin `pasajes` es **byte-idéntico a 5C** (retrocompatible).
   `justificar_con_rag(...)` recupera, justifica y **degrada a plantilla** si el embedder o el generador
@@ -459,8 +464,8 @@ corrección semántica** de la justificación —de «la regla 5760 es un protoc
 «la regla 5760 indica un ataque de fuerza bruta SSH» (correcto)— manteniendo el anclaje al 100 %. Detalle
 y matices honestos (recuperación imprecisa en el ID exacto, el 1B parafrasea los pasajes) en el
 [informe de evaluación §5.bis](../documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
-Un modelo de embeddings dedicado y un LLM mayor son el trabajo futuro; la interfaz ya lo permite sin
-tocar el motor.
+Un modelo de embeddings dedicado y un LLM mayor eran el trabajo futuro cuando se escribió esto; ambos
+se incorporaron después sin tocar el motor (§10.quater).
 
 ### 10.bis RAG agéntico (Opción C) — consulta que decide, corpus ATT&CK+D3FEND
 
@@ -493,6 +498,30 @@ formula consultas **débiles** (p. ej. *"identificar la regla 5760"*), así que 
 todo D3FEND; por eso se **aumenta** la consulta fija en vez de reemplazarla (garantía de no-regresión), y
 la recuperación mejora con una consulta más dirigida —como la que hará el agente de mitigación al citar la
 técnica— o con un modelo mayor.
+
+### 10.quater Recuperación por clase, embedder dedicado y reproducibilidad (10/09/2026)
+
+Tres cambios posteriores a la evaluación, cada uno con su medición en
+[`evaluacion/resultados/README.md`](../evaluacion/resultados/README.md):
+
+- **Embedder dedicado.** `bge-m3` (606 MB, 1024 dims, CLS) en lugar del 1B generativo con media. En el
+  banco de 12 alertas, la consulta fija pasa de MRR 0.47 a **0.70** y la ficha correcta está **siempre**
+  entre las 5 primeras. Corrige un hallazgo anterior: la consulta agéntica pasa de recuperar peor que la
+  fija (0.32) a recuperar mejor (**0.73**). Crecer el corpus 32 → 40 con técnicas hermanas cuesta 0.04 de
+  MRR (con el 1B partía la métrica por la mitad).
+- **Recuperación dependiente de la clase.** El contrato del recuperador es `(alerta, clase)`. Para una
+  clase de `analisis.CLASES_SIN_AMENAZA` la consulta busca **el motivo del descarte** (`CONSULTA_DESCARTE`),
+  no la técnica, y el corpus se **parte en dos familias que no se mezclan** (`rag.tipos_excluidos`): una
+  amenaza no ve fichas `descarte`; un descarte no ve fichas `mitre`/`mapeo`/`d3fend`; las `vuln` valen para
+  ambas. Se añadieron tres fichas `descarte` al corpus (una por clase sin amenaza; 32 fichas en total).
+  Medido con el 8B: los 8 falsos positivos pasan de plantilla a **justificación generada y correcta**;
+  18/18 ancladas, **0 contradicciones** con el motor. La tasa de anclaje pasó por 1.00 → 0.61 → 1.00 y
+  el mismo número significó cosas opuestas; el README de resultados narra los tres estados.
+- **Reproducibilidad (RNF-03).** `generador_servidor` envía `cache_prompt: false`: con la caché de
+  prefijos del `llama-server` activa, el mismo prompt a temperatura 0 daba texto distinto según la carga
+  previa (4 de 12 consultas del banco). Verificado que sin caché el banco da cifras idénticas antes y
+  después de una campaña. `_limpiar_consulta` salta además los preámbulos que el 8B antepone
+  («La búsqueda que te recomiendo es:»). `VERSION_JUSTIFICADOR` = `llm-4`.
 
 ### 10.ter Agente de mitigación (ReAct + Tool Calling acotado)
 

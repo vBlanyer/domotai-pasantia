@@ -178,17 +178,21 @@ Sobre esa misma interfaz se añadió un cuarto componente, no previsto en el dis
 Fase 4 sino incorporado tras detectar en la Fase 6 que el justificador de mil millones de
 parámetros, aunque anclaba correctamente sus afirmaciones, las describía con un significado
 equivocado: un módulo de generación aumentada por recuperación que indexa, mediante un modelo de
-\emph{embeddings} del mismo entorno de inferencia, un corpus curado de fichas sobre las técnicas
-MITRE ATT\&CK, las reglas de Wazuh y las vulnerabilidades del laboratorio pertinentes al caso de
-uso, y recupera los tres pasajes más afines a cada alerta ---por similitud coseno, según la ecuación
-de la sección \ref{sec:problema-triaje-referencia} del marco teórico--- antes de invocar al modelo
-generativo. Dos decisiones de diseño acotan deliberadamente su alcance: la consulta de recuperación
-se construye únicamente a partir de campos estructurados de la alerta ---el identificador de la
-regla, la técnica y el servicio---, nunca del registro completo del evento, por la misma razón de
-seguridad que ya impedía tratar ese campo como instrucción; y el corpus se mantiene reducido y
-curado a mano, en vez de indexar documentación completa, porque el objetivo era verificar si
-corregir el conocimiento del modelo mejoraba la corrección de su justificación, no maximizar la
-cobertura de la recuperación.
+\emph{embeddings} ---inicialmente el propio modelo generativo, y después uno dedicado, por las
+razones que el capítulo \ref{cap:resultados} documenta---, un corpus curado de fichas sobre las
+técnicas MITRE ATT\&CK, las reglas de Wazuh, las vulnerabilidades del laboratorio pertinentes al
+caso de uso y, tras la evaluación, los motivos por los que una alerta se descarta; y recupera los
+tres pasajes más afines a cada alerta ---por similitud coseno, según la ecuación de la sección
+\ref{sec:problema-triaje-referencia} del marco teórico--- antes de invocar al modelo generativo.
+Tres decisiones de diseño acotan deliberadamente su alcance. La consulta de recuperación se
+construye únicamente a partir de campos estructurados de la alerta ---la técnica, la familia y el
+servicio--- y de la clase que el motor ya decidió, nunca del registro completo del evento, por la
+misma razón de seguridad que ya impedía tratar ese campo como instrucción. El corpus se mantiene
+reducido y curado a mano, en vez de indexar documentación completa, porque el objetivo era
+verificar si corregir el conocimiento del modelo mejoraba la corrección de su justificación, no
+maximizar la cobertura de la recuperación. Y el corpus se divide por construcción en dos familias
+según la pregunta que cada ficha responde ---por qué una amenaza importa, o por qué una alerta no
+lo es---, de modo que la clase decidida determina también en qué subconjunto se busca.
 
 Cerrada la evaluación, la implementación se extendió con dos piezas que convierten el procesamiento
 por lotes en una operación continua. La primera es un \textbf{servicio en tiempo real} que consume
@@ -228,11 +232,14 @@ interpretable. La invocación pasó a realizarse contra un \textbf{servicio de i
 lo que resuelve las tres cosas a la vez ---la plantilla la aplica el servicio, la temperatura viaja
 como un campo estructurado y no puede filtrarse al enunciado, y el modelo permanece cargado entre
 llamadas--- y habilita además la generación restringida por esquema descrita en el marco teórico.
-La identificación de versión del justificador se incrementó, de modo que las campañas anteriores
-siguen atribuidas a la invocación con la que se midieron.
+Cada petición desactiva además la caché de prefijos del servicio, porque se midió que con ella la
+salida a temperatura cero dependía de lo que el servicio hubiera procesado antes, lo que
+incumplía el requisito de reproducibilidad. La identificación de versión del justificador se
+incrementó con cada uno de estos cambios, de modo que las campañas anteriores siguen atribuidas
+a la invocación con la que se midieron.
 
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 265 casos ---204 del motor de triaje, 28 del marco de evaluación y 33 de
+este informe, asciende a 284 casos ---221 del motor de triaje, 30 del marco de evaluación y 33 de
 la tubería de construcción del conjunto de datos---, ejecutados con generadores, ejecutores y capa
 de red simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de
 degradación sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.

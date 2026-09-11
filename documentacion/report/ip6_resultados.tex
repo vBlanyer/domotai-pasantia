@@ -299,19 +299,24 @@ cliente». Pero la corrección tiene un coste medible, recogido en la tabla \ref
 
 \begin{table}[H]
   \centering
-  \caption{Efecto de condicionar el enunciado a la clase, con recuperación}
+  \caption{Los tres estados de la justificación con recuperación, misma partición y mismo modelo}
   \label{tab:correccion}
-  \begin{tabular}{@{}p{0.40\textwidth}cc@{}}
+  \begin{tabular}{@{}p{0.30\textwidth}ccc@{}}
     \toprule
-    & \textbf{Antes} & \textbf{Después} \\
+    & \textbf{Enunciado ciego} & \textbf{Enunciado} & \textbf{Enunciado, consulta} \\
+    & \textbf{a la clase} & \textbf{por clase} & \textbf{y corpus por clase} \\
     \midrule
-    Justificaciones ancladas & 18/18 & 11/18 \\
-    \quad de las amenazas reales & 10/10 & 10/10 \\
-    \quad de los falsos positivos & 8/8 & 1/8 \\
-    Contradicen la clasificación & 8 & 0 \\
+    Justificaciones ancladas & 18/18 & 11/18 & 18/18 \\
+    \quad de las amenazas reales & 10/10 & 10/10 & 10/10 \\
+    \quad de los falsos positivos & 8/8 & 1/8 & 8/8 \\
+    Contradicen la clasificación & 8 & 0 & 0 \\
+    Descartes en plantilla & 0 & 7 & 0 \\
     \bottomrule
   \end{tabular}
 \end{table}
+
+Las dos primeras columnas corresponden a la corrección del enunciado; la tercera, a la sección
+\ref{sec:cerrar-circuito}, se lee después.
 
 Siete de los ocho falsos positivos dejan de anclar y caen a la plantilla determinista. La razón es
 que, al recibir el motivo ya formulado, el modelo lo enuncia sin necesidad de citar ningún campo
@@ -336,6 +341,44 @@ de superarlo sin aportar nada ---un modelo que repite el enunciado en lugar de r
 eco que contiene todos los campos de la alerta y, por tanto, ancla---, que obligó a tratar esa
 repetición como un fallo de generación. Una métrica automática de explicabilidad debe defenderse de
 las maneras de satisfacerla sin cumplir su propósito.
+
+\subsection{Cerrar el circuito: recuperar el motivo del descarte}
+\label{sec:cerrar-circuito}
+
+Que siete de los ocho descartes cayeran a la plantilla no era un límite del modelo, sino del
+material que se le daba. El corpus contenía únicamente fichas sobre técnicas de ataque y
+contramedidas: no había una sola que explicara por qué algo \emph{no} es una amenaza. Y aunque la
+hubiera habido, no se habría recuperado, porque la consulta al índice se construía siempre con la
+técnica MITRE y la palabra «contramedida», es decir, con sabor a ataque, también para una alerta
+que el motor acababa de descartar.
+
+La corrección aplicó a la recuperación el mismo principio que ya se había aplicado al enunciado:
+\textbf{la clase ya decidida gobierna la pregunta, y la pregunta gobierna qué conocimiento hace
+falta}. Se materializó en tres capas. Se añadieron al corpus tres fichas de descarte, una por cada
+clase sin amenaza ---origen declarado como administración legítima, servicio no expuesto según el
+inventario, alerta fuera del perímetro del caso de uso---. La consulta pasó a recibir la clase, y
+para una clase sin amenaza busca el motivo del descarte en lugar de la técnica. Y el corpus se
+partió en dos familias que no se mezclan: una amenaza no ve fichas de descarte, y un descarte no
+ve fichas de ataque; las fichas sobre la postura del activo, pertinentes para las dos preguntas,
+quedan en ambas. Esta separación se impone por construcción y no se confía a la distancia entre
+vectores, porque se comprobó que, aun con la consulta de descarte, la segunda y la tercera ficha
+recuperadas seguían siendo material de ataque.
+
+El resultado es la tercera columna de la tabla \ref{tab:correccion}: las dieciocho justificaciones
+vuelven a generarse y ninguna contradice al motor. Las dieciocho se leyeron una a una. Los ocho
+descartes citan el motivo real ---«la alerta no es una amenaza debido a que el origen de la alerta
+(192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su
+perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la
+credencial, en lugar de un atacante»--- y las diez amenazas citan origen, activo y servicio
+expuesto. La clasificación no cambió en ningún estado, como corresponde a un componente en el que
+el modelo no participa.
+
+La tabla, leída de izquierda a derecha, es la formulación más precisa de la tesis de este capítulo:
+\textbf{el 1,00 de la primera columna y el 1,00 de la tercera son el mismo número significando
+cosas opuestas}. El primero medía ocho textos anclados y falsos; el tercero, dieciocho textos
+anclados y correctos. Entre ambos, el 0,61 fue una mejora. Ninguna lectura de la tasa, por sí sola,
+distingue las tres situaciones; solo el contenido lo hace, y por eso la evaluación registra ahora
+el anclaje desglosado por clase y la consulta que se usó en cada recuperación.
 
 \subsection{El agente de mitigación, medido en condiciones válidas}
 \label{sec:agente-medido}
@@ -369,7 +412,7 @@ y esa es exactamente la hipótesis que la sección \ref{sec:agentes} anticipaba 
 esta escala.
 
 % ===========================================================================
-\section{Un resultado negativo: crecer el corpus empeoró la recuperación}
+\section{La recuperación: un techo, su causa y su desplazamiento}
 \label{sec:mrr}
 % ===========================================================================
 
@@ -421,11 +464,80 @@ peor. La medición dice lo contrario, según recoge la tabla \ref{tab:consulta}.
   \end{tabular}
 \end{table}
 
-La explicación de por qué la salvaguarda no protege es instructiva: añadir texto a una consulta
-semántica no añade señal, la desplaza. La consulta se representa como un único vector, de modo que
-las palabras que el modelo agrega mueven ese vector y pueden alejarlo del documento buscado en
-lugar de acercarlo. Una intuición correcta para una búsqueda por palabras clave ---más términos,
-más posibilidades de coincidir--- resulta falsa para una búsqueda por similitud.
+La explicación que se dio entonces fue que añadir texto a una consulta semántica no añade señal
+sino que la desplaza: la consulta es un único vector, y las palabras que el modelo agrega lo mueven.
+Es una explicación plausible, y resultó ser incompleta, como muestra la subsección siguiente.
+
+\subsection{Con un modelo de \emph{embeddings} dedicado}
+
+Los dos resultados anteriores señalaban al mismo componente, así que se sustituyó. El modelo
+generativo dejó de hacer de \emph{embedder} y se incorporó \emph{bge-m3}, un modelo de
+\emph{embeddings} multilingüe de 1\,024 dimensiones, con la agrupación por CLS con la que fue
+entrenado ---detalle que no es menor: un modelo generativo usado como \emph{embedder} exige la
+media, y cambiar de modelo sin cambiar la agrupación degrada la recuperación en silencio---. La
+tabla \ref{tab:bge} recoge el efecto sobre el mismo banco, la misma consulta fija y el mismo corpus.
+
+\begin{table}[H]
+  \centering
+  \caption{Calidad de la recuperación según el modelo de \emph{embeddings}, consulta fija}
+  \label{tab:bge}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    \textbf{Métrica} & \textbf{Generativo de 1B} & \textbf{bge-m3} \\
+    \midrule
+    Aciertos en la primera posición & 0,33 & 0,50 \\
+    Aciertos entre las tres primeras & 0,58 & 0,83 \\
+    Aciertos entre las cinco primeras & 0,75 & 1,00 \\
+    Rango recíproco medio & 0,47 & 0,70 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+La ficha correcta pasa a estar siempre entre las cinco primeras. Y el cambio corrige el hallazgo
+anterior sobre la consulta agéntica: con el \emph{embedder} dedicado, la consulta que el modelo
+amplía recupera algo mejor que la fija ---rango recíproco medio de 0,73 frente a 0,70, aciertos
+entre las tres primeras de 0,92 frente a 0,83---. Que fuera peor no era una propiedad de la técnica,
+como se había interpretado, sino un artefacto del \emph{embedder} débil, y la intención de diseño
+---que aumentar la consulta nunca la empeore--- se sostiene. El informe conserva la explicación
+anterior tal como se dio, porque ilustra un riesgo real de la evaluación: una explicación
+mecanicista convincente de un resultado negativo puede estar describiendo el instrumento y no el
+fenómeno.
+
+El techo que la tabla \ref{tab:mrr} había fijado también se desplaza. Repetida la ampliación del
+corpus con técnicas hermanas del perímetro ---ocho, extraídas del catálogo oficial, de 32 a 40
+fichas--- y medida con \emph{bge-m3}, el rango recíproco medio baja de 0,70 a 0,66, una sola
+alerta pierde la primera posición frente a su técnica hermana, y los aciertos entre las tres y las
+cinco primeras no cambian. Donde el modelo pequeño partía la métrica por la mitad, el dedicado
+paga cuatro centésimas. Crecer el corpus pasa de inviable a viable, que es exactamente lo que la
+recomendación derivada del resultado negativo decía que ocurriría. La ampliación no se incorporó al
+corpus de referencia porque ninguna alerta del perímetro la necesita todavía.
+
+\subsection{Reproducibilidad de la generación (RNF-03)}
+
+Al repetir el banco dos veces sin cambiar código ni corpus, la consulta agéntica dio rangos
+recíprocos medios de 0,77 y 0,81, mientras la fija daba 0,70 las dos veces. Se descartó en cadena
+cada fuente posible de variación: el generador devolvía el mismo texto para el mismo enunciado
+cinco veces seguidas, las doce consultas coincidían en dos pasadas dentro del mismo proceso y entre
+dos procesos distintos, y el \emph{embedder} devolvía vectores idénticos bit a bit. Lo único que
+quedaba era lo que el servidor había procesado \emph{antes}: tras ejecutar una campaña completa,
+cuatro de las doce consultas cambiaron para los mismos enunciados.
+
+La causa es la caché de prefijos del servidor de inferencia, que reutiliza cómputo de peticiones
+anteriores y altera el camino numérico de la generación, de modo que a temperatura cero la salida
+depende del estado del servidor. Desactivarla en cada petición ---al coste de recalcular
+enunciados de unas decenas de \emph{tokens}--- hizo que el banco diera cifras idénticas antes y
+después de una campaña. Las cifras reproducibles son las que este capítulo reporta; las dos
+anteriores no deben citarse. La lección excede a este montaje: \textbf{la reproducibilidad de un
+modelo de lenguaje no la garantiza el muestreo determinista por sí solo, sino la infraestructura
+que lo sirve}, y un requisito no funcional de reproducibilidad debe verificarse contra esa
+infraestructura y no darse por cumplido al fijar la temperatura.
+
+De paso quedó a la vista un segundo defecto, menor: el modelo mayor antepone a veces un preámbulo
+---«la búsqueda que te recomiendo es:»--- y sitúa la consulta en la línea siguiente. La limpieza de
+la salida se quedaba con la primera línea no vacía, que era el preámbulo, y lo pegaba a la
+consulta. Es el mismo tipo de defecto que el de la invocación (sección \ref{sec:invocacion}): un
+componente que funcionaba con un modelo deja de hacerlo con otro sin que ninguna prueba lo
+detecte, porque las pruebas fijaban la salida del modelo.
 
 % ===========================================================================
 \section{Verificación sobre el conjunto completo}

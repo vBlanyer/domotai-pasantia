@@ -41,11 +41,26 @@ clasificación que el propio motor acababa de emitir. La causa no estaba en la r
 el enunciado, que preguntaba «por qué importa esta alerta» incluso cuando el sistema acababa de
 decidir que no importa; corregido eso, la contradicción desaparece.
 
-La corrección dejó, además, la mejor ilustración de la tesis anterior: al eliminar las
-justificaciones equivocadas, \textbf{la tasa de anclaje bajó de 1,00 a 0,61 mientras la calidad
-subía}, porque los falsos positivos pasaron de un texto fluido, anclado y falso a una descripción
-factual generada por plantilla. Una métrica que empeora cuando el sistema mejora no puede
-reportarse sola.
+La corrección dejó, además, la mejor ilustración de la tesis anterior, y la dejó en tres tiempos.
+Al eliminar las justificaciones equivocadas, \textbf{la tasa de anclaje bajó de 1,00 a 0,61
+mientras la calidad subía}, porque los falsos positivos pasaron de un texto fluido, anclado y
+falso a una descripción factual generada por plantilla. Y al dar a la recuperación el mismo
+tratamiento que al enunciado ---fichas que explican por qué algo no es una amenaza, una consulta
+que depende de la clase decidida y un corpus partido en dos familias que no se mezclan--- la tasa
+volvió a 1,00, esta vez con dieciocho textos leídos uno a uno y ninguno contradiciendo al motor.
+El mismo número, al principio y al final, midió dos situaciones opuestas. Una métrica que no
+distingue entre ellas no puede reportarse sola.
+
+Dos conclusiones más se derivan de la evaluación de la recuperación. La primera es que el modelo
+de \emph{embeddings} es el componente que fija el techo del conjunto: sustituir el modelo
+generativo por uno dedicado llevó la ficha correcta a estar siempre entre las cinco primeras,
+corrigió un hallazgo anterior ---la consulta ampliada por el modelo pasó de recuperar peor a
+recuperar mejor que la fija--- e hizo viable crecer el corpus, que con el modelo pequeño lo
+degradaba a la mitad. La segunda es que \textbf{la reproducibilidad de un modelo de lenguaje no la
+garantiza el muestreo determinista sino la infraestructura que lo sirve}: se midió que la caché de
+prefijos del servidor hacía que el mismo enunciado, a temperatura cero, produjera texto distinto
+según lo que el servidor hubiera procesado antes. Un requisito no funcional de reproducibilidad
+tiene que verificarse contra esa infraestructura, y así se hizo.
 
 El trabajo deja, con la misma honestidad con que reporta sus logros, tres límites identificados y no
 resueltos. El primero afecta a la propia señal que hizo posible el resultado principal: la
@@ -66,17 +81,18 @@ cifras exactas a un cliente con un perfil de amenazas distinto.
         antes de intentar de nuevo el ajuste fino de un clasificador. Es la condición que hoy
         bloquea la pieza más importante que falta en el prototipo, y no depende de ninguna decisión
         externa a este proyecto.
-  \item \textbf{Recuperar conocimiento adecuado a la clase, y no solo a la alerta.} Condicionar el
-        enunciado a la clase ya bastó para eliminar las contradicciones, pero la recuperación sigue
-        trayendo fichas sobre técnicas de ataque también cuando la alerta se ha descartado, y el
-        corpus no contiene material que explique por qué algo \emph{no} es una amenaza. Ampliarlo en
-        esa dirección es lo que permitiría que los falsos positivos recibieran una justificación
-        generada en lugar de la plantilla.
-  \item \textbf{Sustituir el modelo de \emph{embeddings} por uno dedicado} antes de intentar de
-        nuevo ampliar el corpus. Está medido que ampliarlo con el modelo generativo como
-        \emph{embedder} degrada la recuperación, y también que la consulta formulada por el modelo
-        recupera peor que la consulta fija construida con los campos de la alerta. Las dos
-        observaciones apuntan al mismo componente.
+  \item \textbf{Verificar que la técnica citada en la justificación sea la de la alerta.} La
+        verificación de anclaje comprueba direcciones y campos, pero no que el identificador de
+        técnica que el texto menciona coincida con el de la alerta, y se observó en una corrida
+        que el modelo atribuía a la alerta una técnica procedente de un pasaje recuperado. Es la
+        misma clase de defecto que las contradicciones ya corregidas ---material de referencia
+        narrado como hecho--- y se detecta con la misma facilidad, comparando contra un campo
+        estructurado.
+  \item \textbf{Crecer el corpus de descarte al ritmo de las clases, no antes.} Hoy contiene una
+        ficha por cada clase sin amenaza, y basta porque las clases son tres. Cada motivo nuevo de
+        descarte que el perfil de cliente incorpore debe llegar acompañado de su ficha, porque se
+        midió que sin ella la justificación del descarte cae a la plantilla. Con el \emph{embedder}
+        dedicado, crecer el corpus ya no degrada la recuperación de forma apreciable.
   \item \textbf{Resolver, junto con Domotai C.A., si el sistema de logs propietario que
         originalmente motivó el proyecto llegará a estar disponible}, y en qué formato entrega sus
         eventos. De confirmarse, se integraría como una segunda fuente a través del mismo módulo de
