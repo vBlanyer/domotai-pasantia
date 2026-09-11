@@ -73,9 +73,13 @@ las seis categorías del caso de uso; las dos restantes exigen señales que el c
 contiene. El segundo es que el clasificador con ajuste fino, que resolvería ese límite de raíz,
 permanece bloqueado porque el conjunto de datos disponible, concentrado en una sola familia de
 ataque, no ofrece variedad suficiente para entrenarlo sin invalidar la propia evaluación. El tercero
-es el alcance estadístico de la evaluación misma: dieciocho alertas soportadas, todas del mismo
-activo y servicio, sostienen un resultado direccionalmente claro pero no permiten generalizar sus
-cifras exactas a un cliente con un perfil de amenazas distinto.
+es el alcance estadístico de la evaluación misma: treinta y una alertas soportadas de dos
+familias, todas del mismo activo y servicio, sostienen un resultado direccionalmente claro pero no
+permiten generalizar sus cifras exactas a un cliente con un perfil de amenazas distinto. La segunda
+familia, generada al final del trabajo, mostró además que ampliar el conjunto de datos no es solo
+una cuestión de tamaño: hizo aflorar un falso positivo que la primera familia no podía revelar
+---el prototipo habría bloqueado a su propio auditor--- y un límite de la explicación que ninguna
+instrucción al modelo corrige, porque hereda las etiquetas de la fuente.
 
 \subsection*{Recomendaciones}
 
@@ -84,6 +88,14 @@ cifras exactas a un cliente con un perfil de amenazas distinto.
         antes de intentar de nuevo el ajuste fino de un clasificador. Es la condición que hoy
         bloquea la pieza más importante que falta en el prototipo, y no depende de ninguna decisión
         externa a este proyecto.
+  \item \textbf{Dar al reconocimiento una clase propia.} La familia no cambia la acción, y el
+        diseño lo previó así; pero se midió que sí cambia la explicación: con la clase común y las
+        etiquetas MITRE que Wazuh asigna a sus reglas de reconocimiento, un sondeo de puerto se
+        narra como explotación aunque la familia y el conocimiento recuperado digan lo contrario.
+        Una clase con su propio nombre, su propia prioridad ---un sondeo aislado no merece la de
+        una fuerza bruta--- y su propia pregunta al justificador resuelve el problema en el único
+        sitio donde puede resolverse. Es un cambio en la capa de decisión y por eso se propone, no
+        se hizo.
   \item \textbf{Crecer el corpus de descarte al ritmo de las clases, no antes.} Hoy contiene una
         ficha por cada clase sin amenaza, y basta porque las clases son tres. Cada motivo nuevo de
         descarte que el perfil de cliente incorpore debe llegar acompañado de su ficha, porque se

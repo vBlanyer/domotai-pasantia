@@ -1,5 +1,11 @@
 # Informe de evaluación del prototipo (Fase 6)
 
+> **Actualización (10–11/09/2026).** Este informe es el registro de la evaluación cerrada el 02/09 y se
+> conserva tal cual. Las mediciones posteriores —modelo de 8B residente, embedder dedicado, recuperación
+> dependiente de la clase, reproducibilidad del servidor y la segunda familia de ataque (reconocimiento:
+> 220 alertas, 31 soportadas, precisión 1.000 / FP 0.000)— están en
+> [`evaluacion/resultados/README.md`](../../evaluacion/resultados/README.md) y en el capítulo 4 del informe final.
+
 **Fecha:** 2026-09-02 · **Perfil:** empresarial · **Partición:** evaluación (205 alertas; 18 soportadas)
 **Baseline:** nivel de regla de Wazuh · **Justificador:** Llama-3.2-1B (q4), temp 0
 **Reproducir:** `python3 -m evaluacion.campana --particion evaluacion`

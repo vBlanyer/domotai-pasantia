@@ -12,7 +12,9 @@ Este capítulo presenta los resultados de la campaña de evaluación de la Fase 
 partición de evaluación del conjunto de alertas etiquetado ---205 alertas, de las cuales 18
 pertenecen al caso de uso acotado y tienen, por tanto, una clase verdadera contra la que se puede
 medir---, con el perfil de cliente empresarial y el justificador de mil millones de parámetros a
-temperatura de muestreo nula.
+temperatura de muestreo nula. La sección \ref{sec:segunda-familia} amplía después esa partición con
+una segunda familia de ataque generada en el mismo laboratorio, y comprueba que el resultado
+principal se sostiene sobre ella.
 
 % ===========================================================================
 \section{Resultado principal: clasificación frente al método de referencia}
@@ -562,14 +564,101 @@ no se entrena, así que no existe diferencia entre entrenar y evaluar sobre él.
 respetó de todas formas por rigor metodológico.
 
 % ===========================================================================
+\section{Segunda familia de ataque: reconocimiento}
+\label{sec:segunda-familia}
+% ===========================================================================
+
+La limitación central de la evaluación anterior era la concentración del conjunto de datos en una
+sola familia de ataque. Para empezar a levantarla se generó, en el mismo laboratorio y con la misma
+tubería de etiquetado, una segunda familia: el reconocimiento de servicios. Se eligió porque el
+adaptador de Wazuh ya la reconocía ---las reglas 5706, «no se recibió cadena de identificación», y
+5701, «identificación de protocolo incorrecta», ambas del demonio SSH y del grupo \emph{recon}--- y
+porque admite el mismo par de escenarios que la familia original: un nodo de la red escaneando al
+objetivo (amenaza), el administrador declarado comprobando que un servicio responde (falso
+positivo) y el auditor del propio servicio escaneando por programa (actividad propia).
+
+El primer hallazgo fue del propio laboratorio. La campaña original ya incluía un escaneo desde el
+auditor y no había producido una sola alerta; la causa se entendió ahora: un escaneo SYN no
+completa el establecimiento de la conexión y el demonio SSH nunca lo ve, y un escaneo de conexión
+completa con \emph{nmap} tampoco deja rastro, porque cierra con un reinicio de conexión y el
+demonio de 2007 del objetivo solo registra el cierre ordenado. Las campañas se construyeron con
+sondeos de conexión y cierre ordenado ---seis barridos de puertos y tres sondeos de protocolo
+contra el puerto 22 desde el nodo atacante, cuatro comprobaciones desde el administrador y dos barridos desde
+el auditor---, congelando únicamente la ventana temporal de cada campaña. Dos campañas idénticas en
+composición, una por partición, aportaron quince alertas cada una: nueve del atacante, cuatro del
+administrador y dos del auditor. El conjunto pasó de 410 a 440 alertas, y la partición de
+evaluación, de 18 a 31 alertas soportadas de dos familias.
+
+\begin{table}[H]
+  \centering
+  \caption{Clasificación sobre la partición ampliada ($n=220$, 31 soportadas), antes y después de
+  declarar al auditor como origen legítimo}
+  \label{tab:segunda-familia}
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    \textbf{Métrica} & \textbf{Auditor no declarado} & \textbf{Auditor declarado} & \textbf{Baseline} \\
+    \midrule
+    Precisión & 0,905 & 1,000 & 0,237 \\
+    Exhaustividad & 1,000 & 1,000 & 1,000 \\
+    Medida $F_1$ & 0,950 & 1,000 & 0,384 \\
+    Tasa de falsos positivos & 0,010 & 0,000 & 0,303 \\
+    Falsos positivos (de 220) & 2 & 0 & 61 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+El resultado de clasificación, en la tabla \ref{tab:segunda-familia}, trajo el segundo hallazgo. Los
+diecinueve verdaderos positivos ---diez de fuerza bruta y nueve de reconocimiento--- se detectan
+todos, y los cuatro sondeos del administrador declarado se descartan; pero aparecen dos falsos
+positivos, y son exactamente los dos barridos del auditor. \textbf{El prototipo habría bloqueado a
+su propio instrumento de medida.} No lo había hecho antes solo porque los escaneos del auditor no
+dejaban rastro. La corrección no tocó el código: la dirección del auditor se declaró como origen
+legítimo en el perfil de cliente, que es el lugar previsto para ello (RNF-14), y se fijó en la
+topología del laboratorio para que sea determinista. Con esa declaración la clasificación vuelve a
+precisión 1,000 y tasa de falsos positivos 0,000, con matriz $VP=19$, $FP=0$, $VN=201$, $FN=0$; el
+baseline queda en 0,237 de precisión y 0,303 de falsos positivos, peor que sobre la familia
+original porque el nivel 8 de la regla 5701 le impide subir el umbral. Sobre el conjunto completo
+de 440 alertas (62 soportadas, $VP=38$) las tasas del prototipo son idénticas.
+
+El tercer hallazgo está en la justificación, y es el más instructivo. Las treinta y una
+justificaciones se generaron y anclaron; leídas, las del reconocimiento eran incorrectas: un sondeo
+de puerto se explicaba como «intentando explotar la vulnerabilidad del servicio SSH», y una de ellas
+situaba al activo «en la dirección 192.168.1.10», que es la del atacante. La causa era doble. El
+enunciado no incluía la familia de la alerta ---la clase, \emph{vp\_intento\_acceso}, es común a
+todas las familias por diseño, así que el modelo no tenía forma de saber que se trataba de un
+escaneo--- y las etiquetas MITRE con que Wazuh marca esas dos reglas, T1021.004 (servicios remotos:
+SSH) y T1190 (explotación de aplicación expuesta), apuntan a acceso y explotación, no a
+descubrimiento. Se añadieron al enunciado la familia y los papeles explícitos de cada dirección
+(«origen de la actividad», «activo afectado»), y la ficha del corpus que describe la familia
+incorporó el vocabulario observable de Wazuh. Con ello, la regla 5706 pasa a explicarse como
+descubrimiento de servicios expuestos y la confusión de papeles desaparece; pero la regla 5701
+sigue narrándose como «T1190, explotación de aplicación expuesta», porque eso dice la etiqueta de
+la fuente y el enunciado ordena citar los datos. \textbf{La explicación hereda las etiquetas de la
+fuente}, y ninguna instrucción al modelo lo cambia sin cambiar antes lo que el motor le dice. Es el
+argumento medido a favor de una clase propia para el reconocimiento ---con la misma acción, pero su
+propio nombre, su propia prioridad y su propia explicación---, que se deja como recomendación
+porque altera la capa de decisión.
+
+El cuarto hallazgo afecta al banco de recuperación de la sección \ref{sec:mrr}: sus alertas
+sintéticas de reconocimiento llevaban las etiquetas MITRE «ideales» (T1046, T1595), no las que
+Wazuh pone de verdad, así que el banco no reproducía los datos que el sistema recibe. Se añadieron
+dos casos con las etiquetas reales. Con la ficha de la familia enriquecida, esos dos casos recuperan
+la ficha correcta en primera y segunda posición, a un coste de cuatro centésimas de rango
+recíproco medio sobre los doce casos originales; sobre los catorce, la consulta fija da 0,67 y la
+agéntica 0,77, con la ficha correcta entre las cinco primeras en el 93\,\% y el 100\,\% de los
+casos respectivamente.
+
+% ===========================================================================
 \section{Limitaciones y análisis de errores}
 % ===========================================================================
 
 Cinco limitaciones, todas medidas y no solo declaradas, acotan el alcance de estos resultados.
-Primero, el tamaño de la muestra soportada ---dieciocho alertas, de una sola familia de ataque
-sobre un único activo--- hace que los porcentajes se sostengan sobre pocos casos, y que la
-correlación de orden de prioridad no pudiera calcularse por falta de variedad; es la limitación
-central y estructural de toda la evaluación. Segundo, la separación entre administrador y atacante
+Primero, el tamaño de la muestra soportada ---dieciocho alertas de una sola familia en la
+evaluación original, treinta y una de dos familias tras la ampliación de la sección
+\ref{sec:segunda-familia}, todas sobre un único activo y un único servicio--- hace que los
+porcentajes se sostengan sobre pocos casos, y que la correlación de orden de prioridad no pudiera
+calcularse por falta de variedad; es la limitación central y estructural de toda la evaluación,
+y la segunda familia la reduce sin eliminarla. Segundo, la separación entre administrador y atacante
 descansa en una señal determinista basada en la dirección de origen, que es suplantable, y cubre
 cuatro de las seis categorías del caso de uso. Tercero, el clasificador con ajuste fino permanece
 bloqueado por la misma concentración del conjunto de datos, así que el desajuste esperado entre un

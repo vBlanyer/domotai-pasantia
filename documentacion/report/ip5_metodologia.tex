@@ -90,7 +90,9 @@ comparación ---con revisión manual, no completamente automatizable--- salía l
 falso positivo, conservando en todo momento el nivel de regla original de Wazuh como el dato que
 más adelante serviría de baseline.
 
-El resultado, cerrado el 31 de agosto de 2026, fue un conjunto de 410 alertas reales generadas
+El resultado, cerrado el 31 de agosto de 2026 y ampliado el 11 de septiembre con una segunda
+familia de ataque (sección \ref{sec:segunda-familia}), fue un conjunto de 410 alertas reales ---440
+tras la ampliación--- generadas
 sobre el propio laboratorio, etiquetadas y particionadas por campaña: 20 verdaderos positivos, 16
 falsos positivos y 374 alertas de ruido de plataforma ---telemetría de evaluación de configuración
 que no corresponde a ningún patrón del caso de uso acotado---, todas ellas concentradas, las
@@ -239,7 +241,7 @@ incrementó con cada uno de estos cambios, de modo que las campañas anteriores 
 a la invocación con la que se midieron.
 
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 288 casos ---225 del motor de triaje, 30 del marco de evaluación y 33 de
+este informe, asciende a 289 casos ---225 del motor de triaje, 31 del marco de evaluación y 33 de
 la tubería de construcción del conjunto de datos---, ejecutados con generadores, ejecutores y capa
 de red simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de
 degradación sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.
