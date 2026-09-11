@@ -11,6 +11,7 @@ refleja la última corrida de ese directorio.
 | `.` (raíz) | Partición de evaluación (300 alertas, 106 soportadas de tres familias, con la campaña de casos donde las reglas fallan) | **Vigente** — `campana-2026-09-11.json`; las corridas anteriores de la raíz son de 205/18 y 220/31 |
 | `anexo-completo/` | Partición completa (600 alertas, 212 soportadas); comprueba que no hubo fuga entre entrenar y evaluar | **Vigente** — regenerado el 11/09/2026 |
 | `entrenado-2026-09-11.md` | Árbol de decisión (CART) frente al determinista, con el árbol impreso como reglas | **Vigente** |
+| `revision-manual.csv` | Hoja para la revisión manual independiente de las 106 justificaciones (`python3 -m evaluacion.revision_manual`): una fila por texto, con la alerta, la verdad, la clase, los pasajes y tres columnas s/n para el revisor | Pendiente de rellenar |
 | `sin-rag/` · `con-rag/` | Contraste del **anclaje de la justificación** con y sin recuperación aumentada | **Históricos (02/09/2026)** — ver la nota de abajo |
 
 ## Nota sobre `sin-rag/` y `con-rag/`
