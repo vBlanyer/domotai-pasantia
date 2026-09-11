@@ -1,5 +1,5 @@
 """El conector: traduce la orden a un comando del catálogo y lo ejecuta por el ejecutor inyectado."""
-import json, sys, re
+import json, os, re, sys
 
 _SEGURO = re.compile(r'^[A-Za-z0-9._:-]+\Z')   # IPs, puertos, nombres de servicio: sin metacaracteres de shell
 # \Z (no $) para que un \n final no cuele -> separador de comandos en el shell remoto.
@@ -45,20 +45,73 @@ def _main(argv):  # lee una orden de stdin y la ejecuta (frontera de proceso; fu
     from prototipo import catalogo as catm
     orden = json.loads(sys.stdin.read())
     cat = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
-    r = ejecutar_orden(orden, cat, ejecutor_ssh_lab, argv[1] if len(argv) > 1 else "")
+    r = ejecutar_orden(orden, cat, ejecutor_por_defecto(), argv[1] if len(argv) > 1 else "")
     print(json.dumps(r, ensure_ascii=False))
 
-def ejecutor_ssh_lab(nodo_ip, comando):  # el ejecutor del laboratorio (se valida en vivo, no en unittest)
+# ------------------------------------------------------------------ ejecutores SSH --
+# Los dos ejecutan desde el auditor (el nodo de gestion) hacia el nodo objetivo. El primero es el
+# del laboratorio tal como nacio: usuario y contrasena por defecto de Metasploitable, contrasena
+# en el codigo y por la tuberia de sudo, y sin verificar la clave del host. Sirve para el
+# laboratorio y para nada mas. El segundo es el diseno de produccion: usuario dedicado, clave en
+# vez de contrasena, host conocido, y sudo restringido al sudoers que genera el catalogo
+# (catalogo.sudoers), de modo que la frontera de privilegio en el nodo es exactamente el catalogo
+# cerrado de acciones. Se aprovisiona con lab/scripts/aprovisionar-minimo-privilegio.sh.
+
+_AUDITOR = "clab-red-cliente-auditor"
+
+def _ssh_en_auditor(linea):
     import subprocess
+    cp = subprocess.run(["docker", "exec", _AUDITOR, "sh", "-c", linea], capture_output=True, text=True)
+    return (cp.returncode, cp.stdout + cp.stderr)
+
+def ejecutor_ssh_lab(nodo_ip, comando):  # el ejecutor del laboratorio (se valida en vivo, no en unittest)
     ssh = ("ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "
            "-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAuthentication=no "
            "-o PreferredAuthentications=password")
     remoto = f"echo msfadmin | sudo -S {comando}"
-    cp = subprocess.run(
-        ["docker", "exec", "clab-red-cliente-auditor", "sh", "-c",
-         f"sshpass -p msfadmin {ssh} msfadmin@{nodo_ip} \"{remoto}\""],
-        capture_output=True, text=True)
-    return (cp.returncode, cp.stdout + cp.stderr)
+    return _ssh_en_auditor(f"sshpass -p msfadmin {ssh} msfadmin@{nodo_ip} \"{remoto}\"")
+
+SSH_USUARIO = os.environ.get("TRIAJE_SSH_USUARIO", "triaje")
+SSH_CLAVE = os.environ.get("TRIAJE_SSH_CLAVE", "/root/.ssh/triaje")
+SSH_KNOWN_HOSTS = os.environ.get("TRIAJE_SSH_KNOWN_HOSTS", "/root/.ssh/known_hosts_triaje")
+
+def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS):
+    """La linea que ejecuta el auditor. Separada del ejecutor para poder probar lo que importa sin
+    laboratorio: que no viaje ninguna contrasena, que la clave del host se verifique contra un
+    fichero conocido, que ssh no pueda quedarse preguntando (BatchMode) y que sudo falle en vez
+    de esperar una contrasena (ssh -n cierra la entrada; el sudo 1.6 del objetivo no tiene -n)."""
+    # ssh -n cierra la entrada de TODA la sesion: asi sudo -S encuentra EOF y falla en vez de
+    # esperar, sin pegar un '</dev/null' al comando, que en una verificacion con tuberia
+    # ('iptables -L -n | grep ip') se lo llevaria el grep y dejaria la verificacion siempre falsa.
+    ssh = (f"ssh -n -i {clave} -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no "
+           f"-o StrictHostKeyChecking=yes -o UserKnownHostsFile={known_hosts} -o ConnectTimeout=5 "
+           "-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa")
+    remoto = f"sudo -S {comando}"
+    return f"{ssh} {usuario}@{nodo_ip} \"{remoto}\""
+
+def ejecutor_ssh_clave(nodo_ip, comando):
+    return _ssh_en_auditor(comando_ssh_clave(nodo_ip, comando))
+
+def _clave_aprovisionada():
+    import subprocess
+    try:
+        return subprocess.run(["docker", "exec", _AUDITOR, "test", "-f", SSH_CLAVE],
+                              capture_output=True).returncode == 0
+    except OSError:
+        return False
+
+def ejecutor_por_defecto(escribir=print):
+    """TRIAJE_SSH_MODO=clave|password decide; sin ella, la clave si esta aprovisionada en el auditor
+    y, si no, el ejecutor del laboratorio con un aviso. No se cae de clave a contrasena en silencio:
+    eso escondería una configuracion rota detras de una credencial que no deberia existir."""
+    modo = os.environ.get("TRIAJE_SSH_MODO")
+    if modo == "password":
+        return ejecutor_ssh_lab
+    if modo == "clave" or _clave_aprovisionada():
+        return ejecutor_ssh_clave
+    escribir("[aviso] conector con la contrasena del laboratorio: aprovisiona el minimo privilegio con "
+             "sh lab/scripts/aprovisionar-minimo-privilegio.sh")
+    return ejecutor_ssh_lab
 
 if __name__ == "__main__":
     _main(sys.argv)

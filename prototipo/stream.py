@@ -288,7 +288,7 @@ def main(argv):
         hallazgos = json.load(f)
     catalogo = catm.cargar_catalogo(os.path.join(_RAIZ, "prototipo", "catalogo.yml"))
     justificar_fn = construir_justificar_fn(cfg["con_llm"])
-    ejecutor = lazo._EjecutorAuto() if cfg["sin_lab"] else conector.ejecutor_ssh_lab
+    ejecutor = lazo._EjecutorAuto() if cfg["sin_lab"] else conector.ejecutor_por_defecto()
     mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor)
     fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
     print(banner(cfg))

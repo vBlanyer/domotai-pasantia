@@ -58,7 +58,7 @@ def main(argv):
     with open(hallazgos_path, encoding="utf-8") as f:
         hallazgos = json.load(f)
     catalogo = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
-    ejecutor = _EjecutorAuto() if auto else conector.ejecutor_ssh_lab
+    ejecutor = _EjecutorAuto() if auto else conector.ejecutor_por_defecto()
     n = 0
     with open(alertas_path, encoding="utf-8") as fin, open(salida, "w", encoding="utf-8") as fout:
         cadena = traza.Cadena(fout)               # fichero nuevo: la cadena empieza en GENESIS

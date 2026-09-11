@@ -205,6 +205,12 @@ enunciado del justificador, y que la explicación hereda las etiquetas MITRE de 
 una clase propia de reconocimiento, propuesta en el informe). Clasificación: precisión 1.000, FP 0.000
 sobre 220. Detalle en `evaluacion/resultados/README.md`.
 
+**Endurecimiento (11/09/2026):** traza encadenada por hash (`python3 -m prototipo.traza --verificar`;
+detecta alteración, borrado, inserción y reorden; no el truncado final, que exige anclar el último hash
+fuera) y conector de mínimo privilegio (usuario `triaje` con clave, host verificado, sudoers **generado
+desde el catálogo**; `lab/scripts/aprovisionar-minimo-privilegio.sh`; verificado en vivo). Embedder
+residente (`llm-server.sh --embedder`): justificación en el daemon 7.5 s → 2.8 s.
+
 **Quién lo resuelve:** nosotros. Es la pieza que faltaba para que el prototipo cumpla su objetivo
 general, no un extra.
 

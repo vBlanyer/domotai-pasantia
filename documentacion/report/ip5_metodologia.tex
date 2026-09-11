@@ -174,7 +174,16 @@ tres subproyectos:
         verificador señala en cuál; el servicio en tiempo real retoma la cadena del fichero al
         reiniciarse, para que varias sesiones formen una sola. Lo que la cadena no cubre se deja
         escrito junto a ella: el truncado del fichero por el final no se detecta, porque lo que
-        queda sigue encadenado, y cubrirlo exige anclar el último resumen fuera del fichero.
+        queda sigue encadenado, y cubrirlo exige anclar el último resumen fuera del fichero. En
+        el mismo cierre, el conector dejó de usar la credencial por defecto del nodo vulnerable
+        ---una contraseña en el código y sin verificar la identidad del equipo remoto--- y pasó a
+        un usuario dedicado con clave, verificación del equipo contra una lista propia, y
+        \textbf{privilegios en el nodo restringidos a un fichero de \emph{sudo} generado desde el
+        propio catálogo de acciones}, de modo que la frontera de lo que el conector puede ejecutar
+        y la frontera de lo que el motor puede ordenar son el mismo dato. El aprovisionamiento
+        termina comprobando que un comando del catálogo se ejecuta y que dos fuera de él ---uno
+        con otro programa y otro con el mismo programa y otros argumentos--- se deniegan, y el
+        lazo completo se verificó en vivo con esa credencial.
   \item \textbf{Justificador con modelo de lenguaje real.} Un modelo generativo de mil millones de
         parámetros, cuantizado a cuatro bits, invocado mediante un proceso independiente a un motor
         de inferencia en un entorno Conda separado del resto del prototipo. Cada justificación se
@@ -249,7 +258,7 @@ incrementó con cada uno de estos cambios, de modo que las campañas anteriores 
 a la invocación con la que se midieron.
 
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 301 casos ---237 del motor de triaje, 31 del marco de evaluación y 33 de
+este informe, asciende a 309 casos ---245 del motor de triaje, 31 del marco de evaluación y 33 de
 la tubería de construcción del conjunto de datos---, ejecutados con generadores, ejecutores y capa
 de red simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de
 degradación sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.

@@ -72,3 +72,34 @@ class TestConector(unittest.TestCase):
         self.assertIsNotNone(r["comando_ejecutado"])   # SÍ se ejecutó, no se saltó por "idempotencia"
         self.assertFalse(r["idempotente"])
         self.assertIn("ss -K", " ".join(ej.llamadas))
+
+
+class TestEjecutorClave(unittest.TestCase):
+    def test_la_linea_no_lleva_contrasena_y_verifica_el_host(self):
+        linea = conector.comando_ssh_clave("192.168.1.30", "iptables -L -n | grep 1.2.3.4",
+                                            usuario="triaje", clave="/k", known_hosts="/kh")
+        self.assertNotIn("msfadmin", linea); self.assertNotIn("sshpass", linea)
+        self.assertIn("-o StrictHostKeyChecking=yes", linea)
+        self.assertIn("-o UserKnownHostsFile=/kh", linea)
+        self.assertIn("-o BatchMode=yes", linea)
+        self.assertIn("-o PasswordAuthentication=no", linea)
+        self.assertIn("triaje@192.168.1.30", linea)
+
+    def test_sudo_sin_contrasena_y_con_la_entrada_cerrada_a_nivel_de_ssh(self):
+        # La tuberia de la verificacion debe quedar intacta: el '</dev/null' pegado al comando se
+        # lo llevaba el grep y dejaba la verificacion siempre falsa (medido en vivo).
+        linea = conector.comando_ssh_clave("10.0.0.1", "iptables -L -n | grep 1.2.3.4")
+        self.assertIn("ssh -n ", linea)
+        self.assertIn('"sudo -S iptables -L -n | grep 1.2.3.4"', linea)
+        self.assertNotIn("</dev/null", linea)
+        self.assertNotIn("echo", linea)
+
+    def test_la_variable_de_entorno_decide_el_ejecutor(self):
+        import os
+        for modo, esperado in (("password", conector.ejecutor_ssh_lab), ("clave", conector.ejecutor_ssh_clave)):
+            os.environ["TRIAJE_SSH_MODO"] = modo
+            try:
+                self.assertIs(conector.ejecutor_por_defecto(escribir=lambda *a: None), esperado)
+            finally:
+                os.environ.pop("TRIAJE_SSH_MODO", None)
+

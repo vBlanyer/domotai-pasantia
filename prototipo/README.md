@@ -273,6 +273,22 @@ el auditor; los demás nodos del plano de datos no exponen SSH. La credencial us
 dedicada y de privilegio mínimo que un despliegue real usaría (ver la nota de RNF-08/conector en la
 spec de 5B); no es la credencial de producción ni pretende serlo.
 
+**Mínimo privilegio (11/09/2026): ya existe la credencial de producción, y es la que se usa por defecto.**
+`conector.ejecutor_ssh_clave` entra como el usuario dedicado `triaje` con clave (sin contraseña en el
+código ni en la red), verifica la clave del host contra un `known_hosts` propio, no puede quedarse
+preguntando (`BatchMode`, `ssh -n`) y ejecuta con `sudo` **restringido a un sudoers generado desde el
+catálogo** (`python3 -m prototipo.catalogo --sudoers triaje --rutas …`): la frontera de privilegio en el
+nodo es exactamente el catálogo cerrado de acciones (RF-15), con los parámetros como comodines, que son
+seguros porque el conector rechaza parámetros con espacios o metacaracteres. Se aprovisiona con
+`sh lab/scripts/aprovisionar-minimo-privilegio.sh`, que termina comprobando que un comando del catálogo
+pasa y que `cat /etc/shadow` e `iptables -F` (mismo binario, otros argumentos) se deniegan.
+`conector.ejecutor_por_defecto()` elige la clave si está aprovisionada en el auditor; `TRIAJE_SSH_MODO=password`
+fuerza el sustituto de laboratorio, y nunca se cae de clave a contraseña en silencio. Verificado en vivo:
+el bloqueo del lazo completo aparece en el `auth.log` del objetivo como
+`sudo: triaje : … COMMAND=/sbin/iptables -A INPUT -s 192.168.1.10 -j DROP`. Dos rarezas del objetivo
+(2007–2008) que costaron una hora y quedan en el script: su `passwd -l` caduca la cuenta además de
+bloquear la contraseña, y su `sudo` 1.6.9 no tiene `-n` ni `sudoers.d`.
+
 **La validación humana (`validacion.py`).** Cuando el filtro del perfil marca `requiere_humano`
 (RF-08, RF-18), `lazo.procesar_lazo` no construye la orden todavía: llama a `validacion.pedir`, que
 imprime por terminal la decisión completa (activo, clase, confianza, justificación, acción

@@ -113,6 +113,18 @@ instrucción al modelo corrige, porque hereda las etiquetas de la fuente.
         método de evaluación de esa dimensión no es completamente automatizable.
 \end{itemize}
 
+\subsection*{Sobre el endurecimiento}
+
+Dos piezas de endurecimiento que el diseño dejaba para el despliegue se implementaron y verificaron
+al cierre: la traza encadenada por resumen criptográfico y el conector con usuario dedicado, clave
+y privilegios restringidos al catálogo. Ninguna cambia una cifra de la evaluación, y por eso se
+describen en la metodología y no en los resultados; pero las dos responden a la misma pregunta que
+recorre este trabajo, la de qué hace falta para que un analista pueda creer al sistema: que nadie
+pueda reescribir una decisión ya tomada, y que el sistema no pueda ejecutar en un equipo del cliente
+nada que no haya declarado poder ejecutar. Quedan fuera, y se dicen: el anclaje del último resumen
+de la traza fuera del fichero, sin el cual un truncado por el final no se detecta; y la rotación de
+la clave del conector, que el aprovisionamiento crea pero no renueva.
+
 \subsection*{Trabajo futuro}
 
 Quedan fuera del alcance de esta pasantía, y se documentan explícitamente para que no se

@@ -37,7 +37,7 @@ def main():
     lab, autonomo, con_llm = "--lab" in sys.argv, "--autonomo" in sys.argv, "--con-llm" in sys.argv
     perfil = perfilm.cargar(os.path.join(REPO, "prototipo/perfiles/empresarial.yml"))
     catalogo = catm.cargar_catalogo(os.path.join(REPO, "prototipo/catalogo.yml"))
-    ejecutor = conector.ejecutor_ssh_lab if lab else EjecutorSimulado()
+    ejecutor = conector.ejecutor_por_defecto() if lab else EjecutorSimulado()
     try:
         indice = rag.cargar_indice()
     except Exception:

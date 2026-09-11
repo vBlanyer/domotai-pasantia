@@ -98,8 +98,8 @@ def main():
     if o is None:
         print("  (la decisión no produce orden ejecutable)"); return 0
     print(f"  Orden: {o['accion_id']} params={o['params']} sobre {o['nodo_objetivo']} ({o['nodo_ip']})")
-    ejec = conector.ejecutar_orden(o, catalogo, conector.ejecutor_ssh_lab, ts)
-    verif = verificacion.confirmar(o, catalogo, conector.ejecutor_ssh_lab)
+    ejec = conector.ejecutar_orden(o, catalogo, conector.ejecutor_por_defecto(), ts)
+    verif = verificacion.confirmar(o, catalogo, conector.ejecutor_por_defecto())
     print(f"  Ejecución: éxito={ejec.get('exito')} · comando: {ejec.get('comando_ejecutado')}")
     print(f"  Verificación: verificado={verif.get('verificado')}")
 

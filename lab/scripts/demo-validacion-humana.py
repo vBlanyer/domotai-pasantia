@@ -99,8 +99,8 @@ def main():
     print(f"  veredicto -> {ver_b['veredicto']}")
     o = ordenm.construir(decision, alerta)
     print(f"  Orden ejecutable: {o['accion_id']} params={o['params']} sobre {o['nodo_objetivo']} ({o['nodo_ip']})")
-    ejec = conector.ejecutar_orden(o, catalogo, conector.ejecutor_ssh_lab, alerta.get('timestamp', ''))
-    verif = verificacion.confirmar(o, catalogo, conector.ejecutor_ssh_lab)
+    ejec = conector.ejecutar_orden(o, catalogo, conector.ejecutor_por_defecto(), alerta.get('timestamp', ''))
+    verif = verificacion.confirmar(o, catalogo, conector.ejecutor_por_defecto())
     print(f"  Ejecución por SSH: éxito={ejec.get('exito')} · comando: {ejec.get('comando_ejecutado')}")
     print(f"  Verificación: verificado={verif.get('verificado')}")
 
