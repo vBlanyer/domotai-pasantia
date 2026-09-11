@@ -17,7 +17,7 @@ ese ruido sin cortar lo que el negocio necesita.
 | **Daemon en tiempo real** (agrupa en incidentes, valida con el analista; modos `--sin-llm` / `--con-llm` / `--agente`) | [`prototipo/stream.py`](prototipo/stream.py) | Funcional |
 | **Agente de mitigación** (ReAct: escala host → cortafuegos, aprueba por paso) | [`prototipo/agente_mitigacion.py`](prototipo/agente_mitigacion.py) | Funcional con salida restringida por esquema y escalada determinista de respaldo; exige hardware rápido |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap/Greenbone, objetivo vulnerable) | [`lab/`](lab/) | Ejecutable |
-| **Dataset etiquetado** (440 alertas reales de dos familias, VP/FP/PROPIA/no_soportada, particionado 80/20) | [`lab/dataset/`](lab/dataset/) | Cerrado |
+| **Dataset etiquetado** (466 alertas reales de tres familias, VP/FP/PROPIA/no_soportada, particionado 80/20) | [`lab/dataset/`](lab/dataset/) | Cerrado |
 | **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 30 tests; campaña ejecutada |
 
 **La idea intelectualmente central:** la decisión clasificación→acción **no la toma el modelo**. La toma
@@ -66,9 +66,10 @@ desplegarlo y operarlo. El detalle vivo del estado,
 las decisiones cerradas y los riesgos está en
 [`documentacion/00-general/estado-y-riesgos.md`](documentacion/00-general/estado-y-riesgos.md).
 
-**Resultado medido (Fase 6, ampliado el 11/09/2026 a dos familias de ataque):** frente al nivel de
-regla de Wazuh, el prototipo reduce la tasa de falsos positivos **a 0.000** (vs 0.303 del baseline
-sobre 220 alertas) **sin perder ninguna amenaza** (recall 1.0) y sin acciones disruptivas indebidas.
+**Resultado medido (Fase 6, ampliado el 11/09/2026 a tres familias de ataque):** frente al nivel de
+regla de Wazuh, el prototipo reduce la tasa de falsos positivos **a 0.000** (vs 0.296 del baseline
+sobre 233 alertas) **sin perder ninguna amenaza** (recall 1.0, frente a 0.741 del baseline, que deja
+pasar las conexiones en claro de nivel 3) y sin acciones disruptivas indebidas.
 Detalle en [`evaluacion/resultados/README.md`](evaluacion/resultados/README.md) y en el
 [informe de evaluación](documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
 

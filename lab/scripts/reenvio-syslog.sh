@@ -16,13 +16,18 @@ WAZUH="${1:-$(docker inspect clab-red-cliente-wazuh --format '{{range .NetworkSe
 # El contenedor de Metasploitable no siempre arranca su syslogd; sin el, auth.log no crece y no
 # hay nada que reenviar. Se comprobo tras un despliegue limpio de la topologia con cortafuegos.
 docker exec clab-red-cliente-objetivo-vuln sh -c 'ps aux | grep -q "[s]yslogd" || { /etc/init.d/sysklogd start; /etc/init.d/klogd start; } >/dev/null 2>&1' || true
-echo "Reenviando auth.log del objetivo -> Wazuh ($WAZUH:514)"
+echo "Reenviando auth.log y daemon.log del objetivo -> Wazuh ($WAZUH:514)"
 
 # Escribir el reenviador como fichero dentro del contenedor
 docker exec clab-red-cliente-objetivo-vuln sh -c "cat > /usr/local/bin/reenvio.sh <<SCRIPT
 #!/bin/sh
+# auth.log (sshd, login, sudo) con prioridad auth.info; daemon.log (in.telnetd) con daemon.info.
+# Dos colas independientes: 'tail -F' de dos ficheros a la vez intercala cabeceras '==> f <=='.
 tail -n0 -f /var/log/auth.log | while IFS= read -r l; do
   printf '<38>%s\\n' \"\\\$l\" | nc -u -w1 $WAZUH 514
+done &
+tail -n0 -f /var/log/daemon.log | while IFS= read -r l; do
+  printf '<30>%s\\n' \"\\\$l\" | nc -u -w1 $WAZUH 514
 done
 SCRIPT
 chmod +x /usr/local/bin/reenvio.sh

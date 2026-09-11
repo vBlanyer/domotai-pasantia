@@ -674,17 +674,51 @@ recíproco medio sobre los doce casos originales; sobre los catorce, la consulta
 agéntica 0,77, con la ficha correcta entre las cinco primeras en el 93\,\% y el 100\,\% de los
 casos respectivamente.
 
+\subsection{Tercera familia: el servicio en claro, y el nivel de regla pierde amenazas}
+\label{sec:tercera-familia}
+
+Con el mismo método se generó una tercera familia, el servicio expuesto en claro: conexiones al
+telnet del objetivo desde el nodo atacante (ocho, en dos minutos), desde el administrador
+declarado (tres) y desde el auditor (dos), en dos campañas idénticas. Dos piezas de integración
+hicieron falta y las dos son hallazgos sobre la fuente, no sobre el prototipo. El demonio de telnet
+escribe en un fichero distinto del de autenticación, así que el reenvío hubo de ampliarse; y el
+decodificador de fábrica de Wazuh no extrae la dirección de origen del formato con que ese
+demonio registra la conexión ---«connect from 192.168.1.10 (192.168.1.10)», con el nombre entre
+paréntesis al final---, de modo que la alerta llegaba sin origen, y \textbf{sin origen no hay a
+quién bloquear ni a quién descartar}. Se resolvió donde corresponde, en la configuración del
+SIEM, con un decodificador local que el laboratorio instala al arrancar el gestor.
+
+El conjunto pasó a 466 alertas y la partición de evaluación a 42 soportadas de tres familias. La
+clasificación del prototipo no cambió: precisión 1,000, exhaustividad 1,000, tasa de falsos
+positivos 0,000, con matriz $VP=27$, $FP=0$, $VN=206$, $FN=0$. Lo que cambió fue el baseline, y
+en la dirección que la tabla \ref{tab:barrido-baseline} anticipaba: \textbf{por primera vez el
+nivel de regla dejó pasar amenazas}. Cada conexión al servicio en claro genera una alerta de nivel
+3, por debajo del umbral óptimo del baseline ($\geq 5$); solo la correlación de Wazuh por
+repetición ---seis conexiones en dos minutos, nivel 10--- supera el umbral. De las ocho amenazas
+de esta familia en la partición el baseline detecta una, y su exhaustividad sobre las tres
+familias cae a 0,741 ($VP=20$, $FP=61$, $VN=145$, $FN=7$), con precisión 0,247 y tasa de falsos
+positivos 0,296. Bajar el umbral para recuperarlas le costaría muchos más falsos positivos: un
+único nivel numérico no puede separar a la vez el ruido de plataforma, que es alto, de una
+conexión en claro, que es baja. El prototipo no usa el nivel: usa la familia, la postura del
+activo y el origen, y por eso detecta las ocho sin añadir un falso positivo. Las 42
+justificaciones se generaron y anclaron; las de telnet describen la conexión a un servicio en
+claro expuesto, con la ficha de la familia recuperada, y no contradicen al motor. El banco de
+recuperación incorporó dos casos con las etiquetas reales ---una de las reglas llega sin técnica
+MITRE, y la correlación llega etiquetada como fuerza bruta--- y queda en 16 casos: consulta fija
+0,64 y agéntica 0,83 de rango recíproco medio, con la ficha correcta entre las cinco primeras en
+el 94\,\% y el 100\,\% de los casos.
+
 % ===========================================================================
 \section{Limitaciones y análisis de errores}
 % ===========================================================================
 
 Cinco limitaciones, todas medidas y no solo declaradas, acotan el alcance de estos resultados.
 Primero, el tamaño de la muestra soportada ---dieciocho alertas de una sola familia en la
-evaluación original, treinta y una de dos familias tras la ampliación de la sección
-\ref{sec:segunda-familia}, todas sobre un único activo y un único servicio--- hace que los
+evaluación original, cuarenta y dos de tres familias tras las ampliaciones de las secciones
+\ref{sec:segunda-familia} y \ref{sec:tercera-familia}, todas sobre un único activo--- hace que los
 porcentajes se sostengan sobre pocos casos, y que la correlación de orden de prioridad no pudiera
 calcularse por falta de variedad; es la limitación central y estructural de toda la evaluación,
-y la segunda familia la reduce sin eliminarla. Segundo, la separación entre administrador y atacante
+y las dos familias añadidas la reducen sin eliminarla. Segundo, la separación entre administrador y atacante
 descansa en una señal determinista basada en la dirección de origen, que es suplantable, y cubre
 cuatro de las seis categorías del caso de uso. Tercero, el clasificador con ajuste fino permanece
 bloqueado por la misma concentración del conjunto de datos, así que el desajuste esperado entre un

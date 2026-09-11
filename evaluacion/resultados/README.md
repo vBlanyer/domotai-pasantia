@@ -8,8 +8,8 @@ refleja la última corrida de ese directorio.
 
 | Directorio | Qué mide | Estado de las cifras |
 |------------|----------|----------------------|
-| `.` (raíz) | Partición de evaluación (220 alertas, 31 soportadas de dos familias) | **Vigente** — `campana-2026-09-10.json`; las corridas anteriores de la raíz son de 205/18 |
-| `anexo-completo/` | Partición completa (440 alertas, 62 soportadas); comprueba que no hubo fuga entre entrenar y evaluar | **Vigente** — regenerado el 11/09/2026 |
+| `.` (raíz) | Partición de evaluación (233 alertas, 42 soportadas de tres familias) | **Vigente** — `campana-2026-09-11.json`; las corridas anteriores de la raíz son de 205/18 y 220/31 |
+| `anexo-completo/` | Partición completa (466 alertas, 84 soportadas); comprueba que no hubo fuga entre entrenar y evaluar | **Vigente** — regenerado el 11/09/2026 |
 | `sin-rag/` · `con-rag/` | Contraste del **anclaje de la justificación** con y sin recuperación aumentada | **Históricos (02/09/2026)** — ver la nota de abajo |
 
 ## Nota sobre `sin-rag/` y `con-rag/`
@@ -103,6 +103,33 @@ Banco: se añadieron 2 casos de reconocimiento con las etiquetas **reales** de W
 usaba T1046/T1595, que no es lo que llega). `rag-simulacion-2026-09-11-bge.md` (14 casos): fija MRR 0.67,
 agéntica 0.77; Hit@5 0.93 / 1.00. Los 12 originales bajan 0.04 de MRR por enriquecer la ficha
 `mapeo-reconocimiento` con el vocabulario observable; los 2 reales pasan a recuperarla en 1.ª/2.ª posición.
+
+### Tercera familia: servicio expuesto, telnet (11/09/2026)
+
+Dos campañas reales (`lab/campañas/2026-09-11-telnet-*`, `campana-telnet.sh`): 8 conexiones del atacante
+(7×5602 nivel 3 + la correlación 5631 nivel 10), 3 del admin (FP), 2 del auditor (PROPIA). Dataset 440 → **466**;
+evaluación 31 → **42 soportadas de tres familias** (27 VP, 15 FP).
+
+| Partición ampliada (n = 233) | Prototipo | Baseline (nivel ≥ 5) |
+|---|---|---|
+| Precisión | **1.000** | 0.247 |
+| Exhaustividad | **1.000** | **0.741** |
+| Tasa de FP | **0.000** | 0.296 |
+| Matriz | VP 27 · FP 0 · VN 206 · FN 0 | VP 20 · FP 61 · VN 145 · **FN 7** |
+
+**Por primera vez el baseline pierde amenazas.** Las conexiones telnet son nivel 3, por debajo de su umbral
+óptimo; solo la correlación 5631 lo supera. Un solo nivel no puede separar a la vez el ruido de plataforma
+(alto) de una conexión en claro (baja). El prototipo no usa el nivel. Anexo de 466: VP 54 · FP 0 · VN 412.
+
+Justificación (`llm-5`, con RAG): 42/42 ancladas, textos de telnet correctos («conexión a un servicio en
+claro expuesto», `mapeo-servicio_expuesto` recuperado). Banco con 2 casos reales más (5602 **sin** etiqueta
+MITRE; 5631 etiquetada T1110 por Wazuh): 16 casos, fija MRR 0.64 / agéntica 0.83, Hit@5 0.94 / 1.00.
+
+Dos hallazgos de integración con la fuente: el `in.telnetd` escribe en `daemon.log` (el reenvío solo llevaba
+`auth.log`), y **el decodificador de fábrica de Wazuh no extrae el `srcip`** del formato de tcpd
+(`connect from 1.2.3.4 (1.2.3.4)`): la alerta llegaba sin origen. Resuelto en el SIEM
+(`lab/wazuh/local_decoder_telnetd.xml`, instalado por `wazuh-run.sh`), tras descubrir que Wazuh selecciona
+el primer hijo sin `prematch` y no prueba otro si su regex falla.
 
 ### Reproducibilidad del banco (RNF-03)
 

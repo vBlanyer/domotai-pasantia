@@ -1,0 +1,25 @@
+
+<!-- Decodificadores de telnetd para el laboratorio (sustituyen a ruleset/decoders/0335, excluido en
+     ossec.conf). El in.telnetd de Metasploitable pasa por tcpd y registra
+       "connect from 192.168.1.10 (192.168.1.10)";
+     el hijo de fabrica exige que tras 'from' no haya espacios hasta el final y el parentesis lo
+     rompe: la alerta 5602 salia sin srcip, y sin origen no hay a quien bloquear ni a quien
+     descartar. Wazuh selecciona el primer hijo cuyo prematch casa (o el primero sin prematch) y
+     no prueba otro si su regex falla, asi que el hijo de tcpd va primero, con prematch estricto
+     (^connect from) para no capturar "refused connect from", que sigue en el hijo de fabrica. -->
+<decoder name="telnetd">
+  <program_name>^telnetd|^in.telnetd</program_name>
+</decoder>
+
+<decoder name="telnetd-ip-tcpd">
+  <parent>telnetd</parent>
+  <prematch>^connect from </prematch>
+  <regex offset="after_prematch">^(\S+) </regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="telnetd-ip">
+  <parent>telnetd</parent>
+  <regex>from (\S+)$</regex>
+  <order>srcip</order>
+</decoder>

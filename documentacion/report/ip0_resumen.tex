@@ -25,9 +25,10 @@ disponible, revisó el estado del arte de la detección extendida y gestionada y
 lenguaje en seguridad, construyó un laboratorio reproducible con Containerlab y Wazuh como fuente
 de alertas, diseñó una arquitectura que separa clasificación, política de decisión determinista y
 perfil de cliente configurable, e implementó y evaluó el prototipo frente al nivel de regla de
-Wazuh. Sobre 220 alertas reales de dos familias de ataque, el prototipo suprimió los falsos
-positivos ---tasa 0,000 frente a 0,303 del método por reglas--- sin dejar de detectar ninguna
-amenaza y sin acciones disruptivas indebidas. La recuperación aumentada corrigió el defecto principal del justificador: el modelo
+Wazuh. Sobre 233 alertas reales de tres familias de ataque, el prototipo suprimió los falsos
+positivos ---tasa 0,000 frente a 0,296 del método por reglas--- y detectó todas las amenazas,
+incluidas las que el nivel de regla deja pasar (exhaustividad 0,741 del baseline), sin acciones
+disruptivas indebidas. La recuperación aumentada corrigió el defecto principal del justificador: el modelo
 ancla sus explicaciones en la alerta pero, sin ella, las describe con imprecisión. Queda como
 limitación el clasificador con ajuste fino, bloqueado por un conjunto de datos con una sola
 familia de ataque.

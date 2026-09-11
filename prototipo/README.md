@@ -575,6 +575,10 @@ Tres cambios posteriores a la evaluación, cada uno con su medición en
   explotación; y la explicación **hereda las etiquetas MITRE de Wazuh** (5701 → T1190), que ninguna
   instrucción corrige: argumento medido para una clase `vp_reconocimiento`, propuesta en el informe.
   Clasificación: precisión 1.000 / FP 0.000 sobre 220 (baseline 0.237 / 0.303).
+- **Tercera familia: servicio expuesto, telnet** (11/09). `campana-telnet.sh`; reenvío de `daemon.log`;
+  decodificador local de Wazuh para el formato de tcpd (`lab/wazuh/local_decoder_telnetd.xml`). 466 alertas,
+  42 soportadas en evaluación: prototipo 1.000 / 1.000 / 0.000; **baseline exhaustividad 0.741** (las
+  conexiones telnet son nivel 3, bajo su umbral óptimo; solo la correlación 5631 nivel 10 lo supera).
 - **Embedder residente** (11/09). `rag.embedder_servidor` (POST `/v1/embeddings`, `LLAMA_EMBED_URL`,
   puerto 8082) y `rag.embedder_por_defecto()`, que cae al subproceso si el servidor no responde (mismo
   vector, más despacio). Arranque: `sh lab/scripts/llm-server.sh --embedder`. **Un texto por llamada** en

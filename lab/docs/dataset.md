@@ -33,6 +33,13 @@ Tres piezas encadenadas, todas ejecutables desde la raíz del repo:
    identification string», 3×5701 «Bad protocol version identification»), 4 del admin (FP) y 2 del
    auditor (PROPIA).
 
+   **`sh lab/scripts/campana-telnet.sh <id-campaña>`** (11/09/2026) — familia `servicio_expuesto`:
+   conexiones al telnet en claro del objetivo con `nc` desde `puesto` (ocho en dos minutos: dispara
+   además la correlación 5631 de nivel 10), `borde` (FP) y `auditor` (PROPIA). El `in.telnetd` de
+   Metasploitable escribe en `daemon.log` (el reenvío lo lleva desde este día) con el formato de tcpd,
+   que el decodificador de fábrica de Wazuh no sabe leer: `lab/wazuh/local_decoder_telnetd.xml`. 13
+   alertas por campaña: 8 del atacante (7×5602, 1×5631), 3 del admin, 2 del auditor.
+
 2. **`lab/dataset/particion.yml`** — reparto a priori de campañas a `entrenamiento` o
    `evaluacion`, fijado **antes** de construir el dataset y versionado.
 

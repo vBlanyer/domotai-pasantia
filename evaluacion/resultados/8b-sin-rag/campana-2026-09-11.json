@@ -1,0 +1,680 @@
+{
+  "clasificacion_prototipo": {
+    "matriz": {
+      "vp": 27,
+      "fp": 0,
+      "vn": 206,
+      "fn": 0
+    },
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "tasa_fp": 0.0
+  },
+  "baseline": {
+    "optimo": {
+      "umbral": 5,
+      "matriz": {
+        "vp": 20,
+        "fp": 61,
+        "vn": 145,
+        "fn": 7
+      },
+      "f1": 0.37037037037037035
+    },
+    "puntos": [
+      {
+        "umbral": 3,
+        "matriz": {
+          "vp": 27,
+          "fp": 206,
+          "vn": 0,
+          "fn": 0
+        },
+        "f1": 0.2076923076923077
+      },
+      {
+        "umbral": 4,
+        "matriz": {
+          "vp": 20,
+          "fp": 61,
+          "vn": 145,
+          "fn": 7
+        },
+        "f1": 0.37037037037037035
+      },
+      {
+        "umbral": 5,
+        "matriz": {
+          "vp": 20,
+          "fp": 61,
+          "vn": 145,
+          "fn": 7
+        },
+        "f1": 0.37037037037037035
+      },
+      {
+        "umbral": 6,
+        "matriz": {
+          "vp": 11,
+          "fp": 52,
+          "vn": 154,
+          "fn": 16
+        },
+        "f1": 0.24444444444444444
+      },
+      {
+        "umbral": 7,
+        "matriz": {
+          "vp": 5,
+          "fp": 46,
+          "vn": 160,
+          "fn": 22
+        },
+        "f1": 0.1282051282051282
+      },
+      {
+        "umbral": 8,
+        "matriz": {
+          "vp": 5,
+          "fp": 1,
+          "vn": 205,
+          "fn": 22
+        },
+        "f1": 0.303030303030303
+      },
+      {
+        "umbral": 9,
+        "matriz": {
+          "vp": 2,
+          "fp": 1,
+          "vn": 205,
+          "fn": 25
+        },
+        "f1": 0.13333333333333333
+      },
+      {
+        "umbral": 10,
+        "matriz": {
+          "vp": 2,
+          "fp": 1,
+          "vn": 205,
+          "fn": 25
+        },
+        "f1": 0.13333333333333333
+      },
+      {
+        "umbral": 11,
+        "matriz": {
+          "vp": 0,
+          "fp": 0,
+          "vn": 206,
+          "fn": 27
+        },
+        "f1": "n/d"
+      },
+      {
+        "umbral": 12,
+        "matriz": {
+          "vp": 0,
+          "fp": 0,
+          "vn": 206,
+          "fn": 27
+        },
+        "f1": "n/d"
+      }
+    ]
+  },
+  "priorizacion": {
+    "n": 42,
+    "acierto_pm1": 1.0,
+    "spearman": 1.0
+  },
+  "operacion": {
+    "cobertura": 0.19742489270386265,
+    "tasa_escalado": 0.0,
+    "ms_medio_clasificar": 0.0030157296374228345
+  },
+  "continuidad": {
+    "disruptivas_indebidas": 0,
+    "retencion_correcta": "n/d"
+  },
+  "condiciones": {
+    "perfil": "empresarial",
+    "n_alertas": 233,
+    "n_soportadas": 42,
+    "version_baseline": "baseline-0",
+    "version_justificador": [
+      "llm-5:llama-3.1-8b-instruct-q4.gguf"
+    ]
+  },
+  "anclaje": {
+    "resumen": {
+      "llm_total": 42,
+      "anclados": 42,
+      "degradados": 0,
+      "pct_anclaje": 1.0,
+      "versiones": [
+        "llm-5:llama-3.1-8b-instruct-q4.gguf"
+      ],
+      "por_clase": {
+        "vp_intento_acceso": {
+          "llm": 27,
+          "plantilla": 0,
+          "pct_anclaje": 1.0
+        },
+        "fp_actividad_legitima": {
+          "llm": 15,
+          "plantilla": 0,
+          "pct_anclaje": 1.0
+        }
+      }
+    },
+    "detalle": [
+      {
+        "id_alerta": "1788194885.702564",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la infraestructura.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194890.703041",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la infraestructura.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194898.703518",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la infraestructura.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194902.703995",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la infraestructura.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194910.704472",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la infraestructura.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194914.704949",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la infraestructura.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194920.705426",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la infraestructura.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194924.705903",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque indica un intento de acceso no autorizado a la máquina objetivo-vuln desde la dirección 192.168.1.10, específicamente a través del servicio SSH, que está expuesto en el activo objetivo-vuln.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194932.707158",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la infraestructura.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194936.707635",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante intentó acceder al servicio SSH en el activo objetivo-vuln desde la dirección de origen 192.168.1.10, lo que podría indicar un intento de acceso no autorizado a la infraestructura.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194950.708112",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que se encuentra entre los origenes permitidos (administración propia o auditoria autorizada), y está accediendo a un servicio ssh (activo afectado) que está expuesto en el objetivo-vuln.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194952.708604",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que se encuentra entre los origenes permitidos (administración propia o auditoria autorizada), y está accediendo a un servicio ssh (activo afectado) que está expuesto en el objetivo-vuln.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194954.709128",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que se encuentra entre los origenes permitidos (administración propia o auditoria autorizada), y está accediendo a un servicio ssh (activo afectado) que está expuesto en el objetivo-vuln.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194958.709656",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que se encuentra entre los origenes permitidos (administración propia o auditoria autorizada), y está accediendo a un servicio ssh (activo afectado) que está expuesto en el objetivo-vuln.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194960.710148",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que se encuentra entre los origenes permitidos (administración propia o auditoria autorizada), y está accediendo a un servicio ssh (activo afectado) que está expuesto en el objetivo-vuln.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194962.710672",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que se encuentra entre los origenes permitidos (administración propia o auditoria autorizada), y está accediendo a un servicio ssh (activo afectado) que está expuesto en el objetivo-vuln.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194966.711200",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que se encuentra entre los origenes permitidos (administración propia o auditoria autorizada), y está accediendo a un servicio ssh (activo afectado) que está expuesto en el objetivo-vuln.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1788194968.711692",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que figura entre los orígenes permitidos (administración propia o auditoría autorizada).",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089714.114605",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio SSH en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089716.114986",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio SSH en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089718.115367",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio SSH en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089720.115748",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio SSH en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089722.116129",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio SSH en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089724.116510",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el atacante (192.168.1.10) intentó acceder al servicio SSH en el activo objetivo-vuln, lo que podría permitirle acceder no autorizado al sistema.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089726.116891",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el origen de la actividad (192.168.1.10) intentó acceder al servicio SSH (activo afectado) en el objetivo-vuln, lo que podría indicar un intento de acceso no autorizado.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089728.117309",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el origen de la actividad (192.168.1.10) intentó acceder al servicio SSH (activo afectado) en el objetivo-vuln, lo que podría indicar un intento de acceso no autorizado.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089730.117727",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el origen de la actividad (192.168.1.10) intentó acceder al servicio SSH (activo afectado) en el objetivo-vuln, lo que podría indicar un intento de acceso no autorizado.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089732.118145",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que figura entre los orígenes permitidos (administración propia o auditoría autorizada).",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089734.118524",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que figura entre los orígenes permitidos (administración propia o auditoría autorizada).",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089736.118903",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que figura entre los orígenes permitidos (administración propia o auditoría autorizada).",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089738.119282",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) es un origen legítimo declarado por el cliente, que figura entre los orígenes permitidos (administración propia o auditoría autorizada).",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137565.805192",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el servicio Telnet, ubicado en la dirección de origen 192.168.1.10 y afectando al activo objetivo-vuln, está expuesto y puede ser vulnerable a ataques externos.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137569.805505",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el servicio Telnet, ubicado en la dirección de origen 192.168.1.10 y afectando al activo objetivo-vuln, está expuesto y puede ser vulnerable a ataques externos.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137573.805818",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el servicio Telnet, ubicado en la dirección de origen 192.168.1.10 y afectando al activo objetivo-vuln, está expuesto y puede ser vulnerable a ataques externos.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137577.806131",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el servicio telnet, ubicado en la dirección de origen 192.168.1.10 y afectando al activo objetivo-vuln, ha sido expuesto y es vulnerable a intentos de acceso no autorizados.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137581.806908",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el servicio Telnet, ubicado en la dirección de origen 192.168.1.10 y afectando al activo objetivo-vuln, está expuesto y puede ser vulnerable a ataques externos.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137585.807221",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el servicio Telnet, ubicado en la dirección de origen 192.168.1.10 y afectando al activo objetivo-vuln, está expuesto y puede ser vulnerable a ataques externos.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137591.807534",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el servicio Telnet, ubicado en la dirección de origen 192.168.1.10 y afectando al activo objetivo-vuln, está expuesto y puede ser vulnerable a ataques externos.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137595.807847",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso es importante porque el servicio Telnet, ubicado en la dirección de origen 192.168.1.10 y afectando al activo objetivo-vuln, está expuesto y puede ser vulnerable a ataques externos.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137600.808160",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el servicio Telnet está expuesto en el objetivo-vuln, lo cual es una configuración intencional declarada por el cliente como parte de su administración propia o auditoria autorizada, y el origen de la actividad (192.168.1.1) figura entre los orígenes legítimos declarados por el cliente.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137604.808470",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el servicio Telnet está expuesto en el objetivo-vuln, lo cual es una configuración intencional declarada por el cliente como parte de su administración propia o auditoria autorizada, y el origen de la actividad (192.168.1.1) figura entre los orígenes legítimos declarados por el cliente.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789137608.808780",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el servicio Telnet está expuesto en el objetivo-vuln, lo cual es una configuración intencional declarada por el cliente como parte de su administración propia o auditoria autorizada, y el origen de la actividad (192.168.1.1) figura entre los orígenes legítimos declarados por el cliente.",
+        "pasajes_usados": [],
+        "consulta_usada": "",
+        "recuperacion_agentica": false
+      }
+    ]
+  }
+}

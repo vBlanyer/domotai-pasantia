@@ -1,0 +1,18 @@
+id: 2026-09-11-telnet-evaluacion
+fecha: 2026-09-11
+familia: servicio_expuesto
+ataques:
+  - escenario: conexiones repetidas al telnet en claro (nc)
+    objetivo: objetivo-vuln
+    desde: puesto
+  - escenario: comprobaciones benignas del servicio (admin legitimo, nc)
+    objetivo: objetivo-vuln
+    desde: borde
+  - escenario: comprobacion del servicio (nc)
+    objetivo: objetivo-vuln
+    desde: auditor
+auditor:
+  ips: ["172.20.20.4"]
+  cuando: "2026-09-11T14:39:24+0000"
+legitimos:
+  ips: ["192.168.1.1"]

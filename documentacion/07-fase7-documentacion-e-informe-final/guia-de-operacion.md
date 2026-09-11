@@ -21,7 +21,7 @@ operarlo.
 | Python | 3.x con `pyyaml`; el resto es biblioteca estándar | sin dependencias de red ni de nube |
 | Inferencia | `llama.cpp` (`llama-server`, `llama-embedding`) en el entorno Conda `triaje-ml` | `prototipo/README.md §9` |
 | Modelos | `modelos/llama-3.1-8b-instruct-q4.gguf` (generador; cae al 1B si no está) y `modelos/bge-m3-q8.gguf` (embedder) | no se versionan; ~5,6 GB |
-| Fuente de alertas | Wazuh: el fichero `alerts.json` del manager, accesible al servicio | otra fuente = otro adaptador (RNF-06) |
+| Fuente de alertas | Wazuh: el fichero `alerts.json` del manager, accesible al servicio. `wazuh-run.sh` deja en el manager lo que el servicio necesita: recepción syslog, las reglas locales 100100/100101 (ancla y rotación) y el decodificador de telnet para el formato de tcpd (`lab/wazuh/`) | otra fuente = otro adaptador (RNF-06) |
 | Acceso a los nodos | SSH desde el nodo de gestión (el auditor) a cada nodo gestionado, con el usuario de mínimo privilegio | §3.3 |
 
 ## 2. Configuración por cliente (lo que cambia entre clientes, y solo eso)

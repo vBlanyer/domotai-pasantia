@@ -6,30 +6,34 @@ RUTA = os.path.join(os.path.dirname(__file__), "..", "simulaciones", "ataques.js
 
 
 class TestSet(unittest.TestCase):
-    def test_carga_14_alertas_de_4_familias(self):
+    def test_carga_16_alertas_de_4_familias(self):
         # 12 originales (3 por familia, etiquetas MITRE "ideales") + 2 de reconocimiento con las
         # etiquetas que Wazuh pone de verdad a las reglas 5706/5701 (T1021.004, T1190), anadidas
         # cuando la campana real mostro que el banco no reproducia los datos que llegan.
         alertas = sim.cargar_simulaciones(RUTA)
-        self.assertEqual(len(alertas), 14)
+        self.assertEqual(len(alertas), 16)
         c = Counter(a["familia"] for a in alertas)
         self.assertEqual(len(c), 4)
         self.assertEqual(c["reconocimiento"], 5)
+        self.assertEqual(c["servicio_expuesto"], 5)     # +2 con las etiquetas reales de telnet (11/09)
         self.assertTrue(all(v >= 3 for v in c.values()))
 
     def test_los_casos_reales_llevan_la_etiqueta_de_wazuh_no_la_ideal(self):
-        reales = {a["regla_id"]: a for a in sim.cargar_simulaciones(RUTA) if a["id_alerta"].startswith("sim-rc-real")}
+        reales = {a["regla_id"]: a for a in sim.cargar_simulaciones(RUTA) if "-real-" in a["id_alerta"]}
         self.assertEqual(reales["5706"]["mitre"], ["T1021.004"])
         self.assertEqual(reales["5701"]["mitre"], ["T1190"])
-        for a in reales.values():
-            self.assertIn("mapeo-reconocimiento", a["esperado"])
+        self.assertEqual(reales["5602"]["mitre"], [])                 # telnet: sin etiqueta
+        self.assertEqual(reales["5631"]["mitre"], ["T1110"])          # y la correlacion, como fuerza bruta
+        for rid, a in reales.items():
+            self.assertIn(f"mapeo-{a['familia']}", a["esperado"])
 
     def test_cada_alerta_espera_su_mapeo_y_tiene_campos_criticos(self):
         for a in sim.cargar_simulaciones(RUTA):
             self.assertTrue(a["esperado"])
             self.assertIn(f"mapeo-{a['familia']}", a["esperado"])   # verdad de referencia por familia
-            for campo in ("regla_id", "mitre", "servicio", "origen_ip", "activo"):
+            for campo in ("regla_id", "servicio", "origen_ip", "activo"):
                 self.assertTrue(a.get(campo))                       # RNF-07: sin campos vacios
+            self.assertIsInstance(a.get("mitre"), list)            # puede estar vacia: la 5602 real llega sin etiqueta
 
 
 class TestRecuperacion(unittest.TestCase):
