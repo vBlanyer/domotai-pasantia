@@ -37,7 +37,27 @@ class TestAnclajeRAG(unittest.TestCase):
         filas = [{"id_alerta":"1","etiqueta":"VP","activo":"objetivo-vuln","servicio":"ssh",
                   "familia":"acceso_credenciales","origen_ip":"192.168.1.10","regla_id":"5760","mitre":["T1110.001"]}]
         gen = lambda prompt: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln regla 5760."
-        recuperar_fn = lambda alerta: [{"id":"regla-5760","titulo":"5760","texto":"fallo SSH"}]
+        recuperar_fn = lambda alerta, clase: [{"id":"regla-5760","titulo":"5760","texto":"fallo SSH"}]
         res = anclaje.medir(filas, {}, {}, generador=gen, recuperar_fn=recuperar_fn)
         self.assertEqual(res[0]["justificador"], "llm")
         self.assertEqual(res[0]["pasajes_usados"], ["regla-5760"])
+
+
+class TestAnclajePorClase(unittest.TestCase):
+    def test_desglosa_el_anclaje_por_clase(self):
+        # La tasa global esconde el caso que importa: aqui el descarte degrada y la amenaza no.
+        from evaluacion import anclaje
+        res = [{"clase": "vp_intento_acceso", "justificador": "llm"},
+               {"clase": "vp_intento_acceso", "justificador": "llm"},
+               {"clase": "fp_actividad_legitima", "justificador": "plantilla"},
+               {"clase": "fp_actividad_legitima", "justificador": "llm"}]
+        d = anclaje.por_clase(res)
+        self.assertEqual(d["vp_intento_acceso"]["pct_anclaje"], 1.0)
+        self.assertEqual(d["fp_actividad_legitima"]["pct_anclaje"], 0.5)
+        self.assertEqual(d["fp_actividad_legitima"]["plantilla"], 1)
+
+    def test_el_resumen_incluye_el_desglose(self):
+        from evaluacion import anclaje
+        res = [{"clase": "vp_intento_acceso", "justificador": "llm",
+                "anclaje_verificado": True, "version_justificador": "llm-3:m"}]
+        self.assertIn("por_clase", anclaje.resumen(res))

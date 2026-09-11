@@ -93,8 +93,8 @@ class TestRAG(unittest.TestCase):
 
     def test_justificar_con_rag_recupera_y_marca_pasajes(self):
         gen = lambda prompt: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
-        recuperar_fn = lambda alerta: [{"id":"regla-5760","titulo":"Wazuh 5760","texto":"fallo SSH"},
-                                        {"id":"mitre-T1110.001","titulo":"T","texto":"adivinacion"}]
+        recuperar_fn = lambda alerta, clase: [{"id":"regla-5760","titulo":"Wazuh 5760","texto":"fallo SSH"},
+                                              {"id":"mitre-T1110.001","titulo":"T","texto":"adivinacion"}]
         r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen, recuperar_fn)
         self.assertEqual(r["justificador"], "llm")
         self.assertEqual(r["pasajes_usados"], ["regla-5760", "mitre-T1110.001"])
@@ -102,8 +102,8 @@ class TestRAG(unittest.TestCase):
     def test_registra_consulta_y_agentica_desde_un_recuperar_fn_dict(self):
         # Opcion C: recuperar_fn devuelve {consulta, agentica, pasajes} -> se registra en la traza (RNF-03)
         gen = lambda prompt: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
-        recuperar_fn = lambda a: {"consulta": "contramedida D3-ITF filtrado", "agentica": True,
-                                  "pasajes": [{"id": "d3fend-D3-ITF", "titulo": "D3-ITF", "texto": "filtrado"}]}
+        recuperar_fn = lambda a, c: {"consulta": "contramedida D3-ITF filtrado", "agentica": True,
+                                     "pasajes": [{"id": "d3fend-D3-ITF", "titulo": "D3-ITF", "texto": "filtrado"}]}
         r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen, recuperar_fn)
         self.assertEqual(r["pasajes_usados"], ["d3fend-D3-ITF"])
         self.assertEqual(r["consulta_usada"], "contramedida D3-ITF filtrado")
@@ -111,14 +111,25 @@ class TestRAG(unittest.TestCase):
 
     def test_recuperar_fn_lista_legado_no_es_agentica(self):
         gen = lambda prompt: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
-        recuperar_fn = lambda a: [{"id": "regla-5760", "titulo": "5760", "texto": "fallo SSH"}]
+        recuperar_fn = lambda a, c: [{"id": "regla-5760", "titulo": "5760", "texto": "fallo SSH"}]
         r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen, recuperar_fn)
         self.assertFalse(r["recuperacion_agentica"])
         self.assertEqual(r["consulta_usada"], "")
 
+    def test_pasa_la_clase_al_recuperador(self):
+        # La consulta depende de la clase ya decidida: si el recuperador no la recibe, un falso
+        # positivo recupera material sobre la tecnica de ataque, que es lo que contradice el descarte.
+        visto = {}
+        def recuperar_fn(alerta, clase):
+            visto["clase"] = clase
+            return []
+        gen = lambda p: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
+        jl.justificar_con_rag(ALERTA, CTX_EXP, "fp_actividad_legitima", gen, recuperar_fn)
+        self.assertEqual(visto["clase"], "fp_actividad_legitima")
+
     def test_justificar_con_rag_degrada_si_falla_el_generador(self):
         def gen_falla(prompt): raise RuntimeError("subprocess muerto")
-        recuperar_fn = lambda alerta: []
+        recuperar_fn = lambda alerta, clase: []
         r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen_falla, recuperar_fn)
         self.assertEqual(r["justificador"], "plantilla")
         self.assertEqual(r["pasajes_usados"], [])
@@ -138,7 +149,7 @@ class TestVersionJustificador(unittest.TestCase):
 
     def test_justificar_fn_rag_devuelve_dict_con_metadata(self):
         gen = lambda p: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
-        recuperar_fn = lambda a: [{"id": "regla-5760", "titulo": "5760", "texto": "fallo SSH"}]
+        recuperar_fn = lambda a, c: [{"id": "regla-5760", "titulo": "5760", "texto": "fallo SSH"}]
         fn = jl.justificar_fn_rag(gen, recuperar_fn)
         r = fn(ALERTA, CTX_EXP, "vp_intento_acceso")
         self.assertIn("texto", r)

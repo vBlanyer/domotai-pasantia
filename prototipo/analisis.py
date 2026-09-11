@@ -1,6 +1,11 @@
 """Interfaz de análisis (clasificar/justificar) con implementación baseline determinista."""
 from prototipo.postura import postura_de, resumen_otros_expuestos
 
+# Clases en las que la decision del motor es "esto no es una amenaza". La consumen el
+# justificador (para preguntar por que NO lo es) y el RAG (para recuperar el motivo del
+# descarte en vez de fichas sobre tecnicas de ataque).
+CLASES_SIN_AMENAZA = ("fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada")
+
 FAMILIAS_ATAQUE = {"acceso_credenciales", "reconocimiento", "servicio_expuesto", "explotacion_conocida"}
 
 _PRIORIDAD_BASE = {

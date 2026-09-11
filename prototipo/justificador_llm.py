@@ -1,13 +1,11 @@
 """Justificador con LLM real detrás de la interfaz `justificar` (5A). Subprocess o servidor residente."""
 import json, os, re, subprocess, urllib.request
 from prototipo import analisis
+from prototipo.analisis import CLASES_SIN_AMENAZA
 from prototipo import postura as postura_mod
 
 # Sube con cada cambio que altere el texto generado: el enunciado, la invocacion o el modelo.
 VERSION_JUSTIFICADOR = "llm-3"
-
-# Clases en las que la decision del motor es "esto no es una amenaza".
-CLASES_SIN_AMENAZA = ("fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada")
 
 _IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 
@@ -107,9 +105,13 @@ def justificar_llm(alerta, contexto, clase, generador, fallback=analisis.justifi
             "anclaje_verificado": True, "version_justificador": "plantilla-0"}
 
 def justificar_con_rag(alerta, contexto, clase, generador, recuperar_fn, fallback=analisis.justificar):
+    # El recuperador recibe `(alerta, clase)`, no solo la alerta: la pregunta que la justificacion
+    # tiene que responder cambia con la clase ya decidida, y con ella el conocimiento que hace
+    # falta. Recuperar material sobre la tecnica de ataque para una alerta que el motor acaba de
+    # descartar es traer justo lo que contradice la decision.
     # recuperar_fn puede devolver una lista de pasajes (legado) o un dict {consulta, agentica, pasajes}
     # (Opcion C, recuperacion agentica): se normaliza y se registra la consulta usada (RNF-03).
-    rec = recuperar_fn(alerta) or []
+    rec = recuperar_fn(alerta, clase) or []
     if isinstance(rec, dict):
         pasajes = rec.get("pasajes", []) or []
         consulta_usada, recuperacion_agentica = rec.get("consulta", ""), bool(rec.get("agentica"))

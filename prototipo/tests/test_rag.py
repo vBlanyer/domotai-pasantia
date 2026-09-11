@@ -87,6 +87,19 @@ class TestConsultarConocimiento(unittest.TestCase):
         r = fn(self.ALERTA)
         self.assertIn("pasajes", r); self.assertIn("consulta", r); self.assertIn("agentica", r)
 
+    def test_un_falso_positivo_recupera_la_ficha_de_descarte(self):
+        # El circuito completo: clase sin amenaza -> consulta de descarte -> la ficha llega.
+        emb = lambda textos: [[1.0 if "descarte" in t.lower() else 0.0,
+                               1.0 if "fuerza bruta" in t.lower() else 0.0] for t in textos]
+        indice = rag.indexar(
+            [{"id": "mitre-T1110.001", "tipo": "mitre", "titulo": "T", "texto": "fuerza bruta ssh"},
+             {"id": "descarte-origen-legitimo", "tipo": "descarte", "titulo": "d",
+              "texto": "descarte: el origen es administracion declarada"}], emb)
+        ids = lambda clase: [p["id"] for p in rag.consultar_conocimiento(
+            self.ALERTA, indice, emb, generador=None, k=1, clase=clase)["pasajes"]]
+        self.assertEqual(ids("fp_actividad_legitima"), ["descarte-origen-legitimo"])
+        self.assertEqual(ids("vp_intento_acceso"), ["mitre-T1110.001"])
+
     def test_excluye_fichas_de_regla_del_conocimiento(self):
         # las fichas 'regla-*' (reglas de Wazuh) no son conocimiento defensivo y compiten -> se excluyen
         emb = lambda textos: [[1.0] for _ in textos]      # todo empata -> orden del indice
@@ -105,6 +118,39 @@ class TestLogica(unittest.TestCase):
         self.assertIn("T1110.001", q); self.assertIn("ssh", q)
         self.assertIn("acceso credenciales", q)         # lidera con la semantica del ataque (palanca 1)
         self.assertNotIn("IGNORA ESTO", q)              # RNF-08: el full_log no entra
+
+    def test_la_consulta_de_una_clase_sin_amenaza_busca_el_motivo_del_descarte(self):
+        # Sin esto, un falso positivo pide "tecnica MITRE ... contramedida defensiva" y recupera
+        # justo el material que contradice el descarte que el motor acaba de emitir.
+        alerta = {"regla_id": "5760", "mitre": ["T1110.001"], "servicio": "ssh",
+                  "familia": "acceso_credenciales"}
+        q = rag.construir_consulta(alerta, "fp_actividad_legitima")
+        self.assertIn("descarte", q)
+        self.assertIn("administracion legitima", q)
+        self.assertNotIn("T1110.001", q)
+        self.assertNotIn("contramedida defensiva", q)
+
+    def test_la_consulta_de_una_clase_con_amenaza_no_cambia(self):
+        alerta = {"regla_id": "5760", "mitre": ["T1110.001"], "servicio": "ssh",
+                  "familia": "acceso_credenciales"}
+        self.assertEqual(rag.construir_consulta(alerta, "vp_intento_acceso"),
+                         rag.construir_consulta(alerta))
+
+    def test_las_dos_familias_del_corpus_no_se_mezclan(self):
+        # Una amenaza no ve fichas de descarte; un descarte no ve fichas de ataque.
+        amenaza = rag.tipos_excluidos("vp_intento_acceso")
+        self.assertIn("descarte", amenaza)
+        self.assertNotIn("mitre", amenaza)
+        descarte = rag.tipos_excluidos("fp_actividad_legitima")
+        self.assertNotIn("descarte", descarte)
+        for t in ("mitre", "mapeo", "d3fend"):
+            self.assertIn(t, descarte)
+        # Sin clase se recupera como antes: el camino de amenaza es el comportamiento previo.
+        self.assertIn("descarte", rag.tipos_excluidos(None))
+        # Las 'regla-*' se excluyen siempre y las 'vuln' nunca.
+        for clase in ("vp_intento_acceso", "fp_actividad_legitima", None):
+            self.assertIn("regla", rag.tipos_excluidos(clase))
+            self.assertNotIn("vuln", rag.tipos_excluidos(clase))
 
     def test_coseno(self):
         self.assertAlmostEqual(rag._coseno([1,0,0],[1,0,0]), 1.0)

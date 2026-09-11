@@ -112,7 +112,10 @@ def main(argv):
         except FileNotFoundError:
             print("ERROR: falta el indice del RAG. Genera primero: python3 -m prototipo.rag --indexar")
             return 1
-        recuperar_fn = lambda alerta: rag.recuperar(rag.construir_consulta(alerta), indice, rag.embedder_llama, k=3)
+        # Se usa el mismo recuperador que el sistema en produccion (filtro por tipo, consulta
+        # dependiente de la clase y consulta registrada en la traza) en vez de una recuperacion
+        # cruda: medir una configuracion distinta de la que se despliega no mide el sistema.
+        recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_llama, generador=None, k=3)
     generador = None
     if a.generador == "subproceso":
         generador = justificador_llm.generador_llama

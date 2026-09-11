@@ -1,6 +1,8 @@
 """RAG local para el justificador: corpus curado + recuperacion semantica por embeddings."""
 import json, math, os, re, subprocess, tempfile
 
+from prototipo.analisis import CLASES_SIN_AMENAZA
+
 _IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 
 RUTA_CORPUS = os.path.join(os.path.dirname(__file__), "corpus", "corpus.jsonl")
@@ -14,22 +16,54 @@ def cargar_corpus(ruta=RUTA_CORPUS):
                 docs.append(json.loads(linea))
     return docs
 
-def construir_consulta(alerta):
+# Que buscar cuando el motor ya decidio que NO hay amenaza. La consulta de ataque no sirve
+# aqui: pedir "tecnica MITRE T1110 fuerza bruta contramedida" para una alerta descartada
+# recupera exactamente el material que contradice el descarte. Cada frase apunta al motivo
+# real del descarte, que es lo que la ficha correspondiente del corpus explica.
+CONSULTA_DESCARTE = {
+    "fp_actividad_legitima": "descarte falso positivo el origen es administracion legitima "
+                              "declarada por el cliente, no un atacante",
+    "fp_exposicion_inexistente": "descarte falso positivo el servicio no esta expuesto en el "
+                                  "activo segun el inventario, el intento no puede prosperar",
+    "no_soportada": "alerta fuera del perimetro del caso de uso, sin criterio fundado, "
+                     "se deja a juicio humano conservando su severidad",
+}
+
+def construir_consulta(alerta, clase=None):
+    # La consulta depende de la PREGUNTA que la justificacion va a responder, y esa pregunta la
+    # fija la clase ya decidida (misma razon que en el enunciado del justificador). Sin esto, un
+    # falso positivo recupera fichas sobre la tecnica de ataque y no hay forma de que el corpus
+    # fundamente el descarte, por muchas fichas de descarte que se anadan.
+    if clase in CLASES_SIN_AMENAZA:
+        # Indexar sin .get: una clase sin amenaza a la que falte su consulta debe fallar aqui,
+        # no caer en silencio a la consulta de ataque.
+        return f"{CONSULTA_DESCARTE[clase]} servicio {alerta.get('servicio')}"
     mitre = " ".join(alerta.get("mitre", []) or [])
     familia = (alerta.get("familia") or "").replace("_", " ")
     # Lidera con la SEMANTICA del ataque (tecnica MITRE + familia + servicio) y la intencion de
     # contramedida, para recuperar las fichas mitre/mapeo/D3FEND. Se OMITE el numero de regla: sesga
-    # los embeddings del 1B hacia las fichas regla-* (medido en el banco de simulacion, palanca 1).
+    # los embeddings hacia las fichas regla-* (medido en el banco de simulacion, palanca 1).
     # SOLO campos estructurados (RNF-08): nunca el full_log/evento_crudo.
     return (f"tecnica MITRE {mitre} {familia} servicio {alerta.get('servicio')} "
             f"contramedida defensiva").strip()
 
-def construir_prompt_consulta(alerta):
-    """Prompt del paso agentico: pide UNA linea de busqueda desde campos estructurados (RNF-08)."""
+def construir_prompt_consulta(alerta, clase=None):
+    """Prompt del paso agentico: pide UNA linea de busqueda desde campos estructurados (RNF-08).
+
+    El encargo depende de la clase por el mismo motivo que la consulta fija: si se le pide
+    "conocimiento defensivo" sobre una alerta que el motor ya descarto, el modelo aumenta la
+    consulta con vocabulario de ataque y la arrastra de vuelta al material que contradice el
+    descarte, deshaciendo la correccion.
+    """
     mitre = ", ".join(alerta.get("mitre", []) or ["s/tecnica"])
-    return ("Eres un analista. Formula UNA linea de busqueda para recuperar conocimiento defensivo "
-            "sobre esta alerta, citando SOLO estos datos y, si aplica, la contramedida D3FEND. "
-            "No inventes IPs ni datos.\n"
+    if clase in CLASES_SIN_AMENAZA:
+        encargo = (f"El motor ya clasifico esta alerta como {clase}: NO es una amenaza. Formula UNA "
+                   "linea de busqueda para recuperar el criterio por el que una alerta asi se "
+                   "descarta, citando SOLO estos datos.")
+    else:
+        encargo = ("Formula UNA linea de busqueda para recuperar conocimiento defensivo sobre esta "
+                   "alerta, citando SOLO estos datos y, si aplica, la contramedida D3FEND.")
+    return (f"Eres un analista. {encargo} No inventes IPs ni datos.\n"
             f"Datos: regla {alerta.get('regla_id')}, tecnicas MITRE {mitre}, servicio {alerta.get('servicio')}.\n"
             "Busqueda:")
 
@@ -43,14 +77,14 @@ def _limpiar_consulta(texto):
             return linea
     return ""
 
-def consulta_agentica(alerta, generador, fallback=construir_consulta):
+def consulta_agentica(alerta, generador, clase=None, fallback=construir_consulta):
     """Paso de consulta agentico (1 salto): el modelo decide QUE anadir a la busqueda. **Aumenta** la
     consulta fija (conserva los anclajes estructurados) con la aportacion del modelo, para que nunca sea
     peor que la fija — un 1B formula consultas debiles. Degrada a la fija (RNF-09) si la salida es vacia
     o trae IPs inventadas (RNF-08/anclaje). Marca `agentica`."""
-    base = fallback(alerta)
+    base = fallback(alerta, clase)
     try:
-        q = _limpiar_consulta(generador(construir_prompt_consulta(alerta)))
+        q = _limpiar_consulta(generador(construir_prompt_consulta(alerta, clase)))
     except Exception:
         q = ""
     if q and not _IP.search(q):
@@ -88,21 +122,45 @@ def recuperar(consulta, indice, embedder, k=3):
 # credenciales/servicio, y expulsan a las mitre/mapeo/d3fend esperadas. Se excluyen del conocimiento.
 EXCLUIR_CONOCIMIENTO = ("regla",)
 
-def consultar_conocimiento(alerta, indice, embedder, generador=None, k=3, excluir_tipos=EXCLUIR_CONOCIMIENTO):
+# El corpus responde a dos preguntas distintas y sus fichas no son intercambiables. Las de ataque
+# explican por que una amenaza importa y que contramedida aplica; las de descarte, por que una
+# alerta NO es una amenaza. Ofrecer las primeras para justificar un descarte es servir justo el
+# material que lo contradice, y esta medido que el modelo lo usa: una alerta clasificada como
+# actividad legitima se explicaba como "ataque de fuerza bruta en curso". Se separan por
+# construccion en vez de confiar en que la distancia coseno las deje fuera. Las fichas 'vuln'
+# (postura del activo) no entran en la particion: son pertinentes para las dos preguntas.
+TIPOS_ATAQUE = ("mitre", "mapeo", "d3fend")
+TIPOS_DESCARTE = ("descarte",)
+
+def tipos_excluidos(clase, base=EXCLUIR_CONOCIMIENTO):
+    """Tipos de ficha que no compiten en la recuperacion, segun la clase ya decidida."""
+    extra = TIPOS_ATAQUE if clase in CLASES_SIN_AMENAZA else TIPOS_DESCARTE
+    return tuple(base or ()) + extra
+
+def consultar_conocimiento(alerta, indice, embedder, generador=None, k=3,
+                           excluir_tipos=EXCLUIR_CONOCIMIENTO, clase=None):
     """Herramienta de conocimiento (Opcion C): decide la consulta (agentica si hay generador) y
-    recupera del indice de conocimiento (filtrado por tipo). Devuelve {consulta, agentica, pasajes}."""
-    idx = [d for d in indice if d.get("tipo") not in (excluir_tipos or ())]
+    recupera del indice de conocimiento (filtrado por tipo). Devuelve {consulta, agentica, pasajes}.
+
+    `clase` es la clase que el motor YA decidio. Gobierna tanto la consulta como el subconjunto
+    del corpus en el que se busca: sin ella, un falso positivo recupera fichas sobre la tecnica de
+    ataque y ninguna ficha de descarte llega nunca al enunciado."""
+    excluir = tipos_excluidos(clase, excluir_tipos)
+    idx = [d for d in indice if d.get("tipo") not in excluir]
     if generador is not None:
-        ca = consulta_agentica(alerta, generador)
+        ca = consulta_agentica(alerta, generador, clase)
     else:
-        ca = {"consulta": construir_consulta(alerta), "agentica": False}
+        ca = {"consulta": construir_consulta(alerta, clase), "agentica": False}
     pasajes = recuperar(ca["consulta"], idx, embedder, k=k)
     return {"consulta": ca["consulta"], "agentica": ca["agentica"], "pasajes": pasajes}
 
 def recuperar_fn_agentico(indice, embedder, generador=None, k=3, excluir_tipos=EXCLUIR_CONOCIMIENTO):
-    """Un recuperar_fn `alerta -> {consulta, agentica, pasajes}` para el justificador y el agente."""
-    def _fn(alerta):
-        return consultar_conocimiento(alerta, indice, embedder, generador=generador, k=k, excluir_tipos=excluir_tipos)
+    """Un recuperar_fn `(alerta, clase) -> {consulta, agentica, pasajes}` para el justificador y el
+    agente. `clase` es opcional para que un llamador antiguo siga funcionando con el camino de
+    amenaza, que es el comportamiento previo."""
+    def _fn(alerta, clase=None):
+        return consultar_conocimiento(alerta, indice, embedder, generador=generador, k=k,
+                                      excluir_tipos=excluir_tipos, clase=clase)
     return _fn
 
 BINARIO = os.environ.get("LLAMA_EMBED_BIN",

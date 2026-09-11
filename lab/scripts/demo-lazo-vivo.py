@@ -50,7 +50,7 @@ def main():
     catalogo = catm.cargar_catalogo(os.path.join(REPO, "prototipo/catalogo.yml"))
     hallazgos = json.load(open(os.path.join(REPO, "lab/campañas/2026-08-31-evaluacion/hallazgos.json"), encoding="utf-8"))
     indice = rag.cargar_indice()
-    recuperar_fn = lambda a: rag.recuperar(rag.construir_consulta(a), indice, rag.embedder_llama, k=3)
+    recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_llama, generador=None, k=3)
 
     barra("0 · La alerta que Wazuh acaba de generar (fuerza bruta SSH real)")
     print(f"  regla {alerta['regla_id']} (nivel {alerta['nivel_wazuh']}) · MITRE {alerta['mitre']}")

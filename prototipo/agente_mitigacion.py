@@ -116,12 +116,13 @@ def herramienta_verificar_mitigacion(topo, catalogo, ejecutor, dispositivo, ip):
     rc, _ = ejecutor(nodo.get("ip"), cmd)
     return "bloqueado" if rc == 0 else "activo"
 
-def herramienta_consultar_conocimiento(alerta, indice=None, embedder=None, generador=None, k=3):
+def herramienta_consultar_conocimiento(alerta, indice=None, embedder=None, generador=None, k=3,
+                                       clase=None):
     """Read-only: consulta el RAG (ATT&CK+D3FEND) para fundamentar la contramedida. Reutiliza
     rag.consultar_conocimiento (Opcion C). Tolerante: sin indice devuelve un aviso, no rompe."""
     if indice is None:
         return "sin indice de conocimiento"
-    r = rag.consultar_conocimiento(alerta, indice, embedder, generador=generador, k=k)
+    r = rag.consultar_conocimiento(alerta, indice, embedder, generador=generador, k=k, clase=clase)
     if not r.get("pasajes"):
         return "sin conocimiento recuperado"
     return "conocimiento: " + "; ".join(p.get("titulo", "") for p in r["pasajes"])
@@ -277,7 +278,8 @@ def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input
         if tool == "consultar_topologia":
             obs = herramienta_consultar_topologia(topo)
         elif tool == "consultar_conocimiento":
-            obs = herramienta_consultar_conocimiento(alerta, indice, embedder, generador=gen_conocimiento)
+            obs = herramienta_consultar_conocimiento(alerta, indice, embedder,
+                                                    generador=gen_conocimiento, clase=clase)
         elif tool == "verificar_mitigacion":
             obs = herramienta_verificar_mitigacion(topo, catalogo, ejecutor, args.get("dispositivo"), ip_atacante)
         elif tool == "ejecutar_comando":
