@@ -16,9 +16,9 @@ Su propósito principal es preparar la reunión con la empresa: las incongruenci
 | 2 — Estado del arte | **Completa** | Estado del arte MDR/XDR **y de los modelos de lenguaje aplicados a seguridad**, con la comparación reglas frente a IA. **34 requisitos** (20 RF + 14 RNF) en un [registro único](../02-fase2-estado-del-arte/requisitos.md). Encuadre de mercado reorientado del segmento PYME al cliente modelado en la Fase 1. |
 | 3 — Entorno de pruebas | **Completa** | Red del cliente de 7 nodos, Metasploitable con ground truth, Wazuh generando alertas reales, auditor Nmap normalizado, todo reproducible con `lab/lab.sh` y con [guía de instalación](../../lab/docs/instalacion.md). **Dataset de alertas etiquetado entregado** (`lab/dataset/etiquetado.jsonl`: 410 alertas, 20 VP / 16 FP, particionado). Falta solo: equipo de borde OpenWrt real (vrnetlab bloqueado). |
 | 4 — Arquitectura | **Cerrada** | Flujo, protocolos, auditoría, modelo (perfiles A/B), catálogo de acciones con impacto, métricas y baseline, arquitectura consolidada, y la [política de decisión y perfil de cliente](../04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md) (revisión RF-17 a RF-20 y RNF-14 absorbida el 31/08). Único hueco: probar el catálogo sobre OpenWrt real. |
-| 5 — Implementación | **Completa, salvo una pieza** | El prototipo vive en [`prototipo/`](../../prototipo/) (**178 tests**): decisión (5A), lazo en vivo con conector SSH y validación humana (5B), justificador con LLM real (5C, Llama-3.2-**1B**), **RAG local con consulta agéntica (5D)**, **daemon en tiempo real** (`stream.py`, agrupación en incidentes RF-11) y **agente de mitigación ReAct** (`agente_mitigacion.py`, escalada host→cortafuegos). Falta solo el **clasificador con fine-tuning**, bloqueado por un dataset de una sola familia; lo cubre el baseline determinista. |
-| 6 — Evaluación | **Completa** | Marco de medición en [`evaluacion/`](../../evaluacion/) (**28 tests**) y campaña ejecutada. Resultado: el prototipo **elimina los FP** (tasa 0.000 vs 0.282 del nivel de regla de Wazuh) sin perder amenazas (recall 1.0) y sin acciones disruptivas indebidas, tras usar orígenes legítimos para distinguir admin de atacante (RF-03). Ver [informe](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md). |
-| 7 — Documentación final | **Borrador entregado** | Informe final en LaTeX según la norma del Decanato de Estudios Profesionales, en [`documentacion/report/`](../report/): 43 páginas, compila limpio, con los datos administrativos del plan oficial CCT-002-2026 y las cifras sincronizadas con la Fase 6. Pendiente solo lo que no depende del proyecto: revisión de los tutores y el Acta de Evaluación. |
+| 5 — Implementación | **Completa, salvo una pieza** | El prototipo vive en [`prototipo/`](../../prototipo/) (**225 tests**): decisión (5A), lazo en vivo con conector SSH y validación humana (5B), justificador con LLM real (5C, servidor residente con Llama-3.1-**8B**; el 1B sigue disponible), **RAG local con embedder dedicado bge-m3, consulta agéntica y recuperación dependiente de la clase (5D)**, **daemon en tiempo real** (`stream.py`, agrupación en incidentes RF-11) y **agente de mitigación ReAct** (`agente_mitigacion.py`, escalada host→cortafuegos). Falta solo el **clasificador con fine-tuning**, bloqueado por un dataset de una sola familia; lo cubre el baseline determinista. |
+| 6 — Evaluación | **Completa** | Marco de medición en [`evaluacion/`](../../evaluacion/) (**30 tests**) y campaña ejecutada. Resultado: el prototipo **elimina los FP** (tasa 0.000 vs 0.282 del nivel de regla de Wazuh) sin perder amenazas (recall 1.0) y sin acciones disruptivas indebidas, tras usar orígenes legítimos para distinguir admin de atacante (RF-03). Ver [informe](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md). |
+| 7 — Documentación final | **Borrador entregado** | Informe final en LaTeX según la norma del Decanato de Estudios Profesionales, en [`documentacion/report/`](../report/): 53 páginas, compila limpio, con los datos administrativos del plan oficial CCT-002-2026 y las cifras sincronizadas con la Fase 6. Pendiente solo lo que no depende del proyecto: revisión de los tutores y el Acta de Evaluación. |
 
 ### Progreso del laboratorio (Fase 3, verificado)
 
@@ -186,7 +186,17 @@ El **objetivo general oficial** del proyecto exige «un módulo de generación a
 y vulnerabilidades del lab; embeddings con `llama-embedding` del entorno conda de 5C; coseno en Python
 puro. **Contraste medido** con RAG vs sin RAG sobre las 18 soportadas: RAG corrige la corrección
 semántica de la justificación (de «la regla 5760 es un protocolo de seguridad» a «indica un ataque de
-fuerza bruta SSH»), manteniendo el anclaje al 100 %. Ver [informe §5.bis](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md) y `prototipo/README.md §10`. Trabajo futuro (no bloqueante): modelo de embeddings dedicado y LLM mayor para afinar recuperación y razonamiento.
+fuerza bruta SSH»), manteniendo el anclaje al 100 %. Ver [informe §5.bis](../06-fase6-evaluacion-del-prototipo/informe-evaluacion.md) y `prototipo/README.md §10`.
+
+**Seguimiento (10/09/2026):** lo que entonces era trabajo futuro se hizo y se midió, en
+[`evaluacion/resultados/README.md`](../../evaluacion/resultados/README.md) y `prototipo/README.md §10.quater`:
+modelo de 8B servido de forma residente (campaña de 51 s en vez de 11 min); embedder dedicado **bge-m3**
+(MRR 0.47 → 0.70, la ficha correcta siempre entre las 5 primeras; crecer el corpus ya no degrada la
+recuperación); enunciado, consulta y corpus **dependientes de la clase decidida**, con tres fichas de
+descarte, de modo que los falsos positivos reciben una justificación generada y correcta en lugar de la
+plantilla (18/18 ancladas, **0 contradicciones** con el motor; la tasa pasó por 1.00 → 0.61 → 1.00 y el
+mismo número significó cosas opuestas); reproducibilidad garantizada desactivando la caché de prefijos del
+servidor (RNF-03); y el anclaje verifica también que las técnicas MITRE citadas sean las de la alerta.
 
 **Quién lo resuelve:** nosotros. Es la pieza que faltaba para que el prototipo cumpla su objetivo
 general, no un extra.
