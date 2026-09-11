@@ -574,6 +574,17 @@ Tres cambios posteriores a la evaluación, cada uno con su medición en
   los dos caminos: se midió que el vector cambia según el lote (coseno 0.99975 consigo mismo) y eso
   volteaba un empate del banco. Justificación en vivo 7.5 s → 2.8 s; banco 48 s → 29 s.
 
+### 10.ter.bis La escalada determinista es el camino por defecto (11/09/2026)
+
+`lazo.procesar_lazo` ya no se queda en `exito=False` cuando el activo no responde: si el perfil tiene
+`topologia`, llama a `agente_mitigacion.escalar_determinista(desde=<activo>)` y recorre la cadena de
+contención hacia el perímetro. **Cada salto pasa por `perfil.filtrar`** (veto duro → se salta el dispositivo;
+degrada → la alternativa; `requiere_humano` → se pregunta; el agente ReAct conserva su aprobación por paso
+con `siempre_humano=True`). El plan queda en la traza como `escalada`, con `orden_efectiva`, y
+`prototipo.revertir` la usa cuando la ejecución en el host no tuvo éxito. Verificado en vivo con
+`red-cliente-firewall` y el conector con clave (escenario C: 5,2 s del ataque a la regla verificada en el
+borde). Sin `topologia` en el perfil no hay a dónde escalar.
+
 ### 10.ter Agente de mitigación (ReAct + Tool Calling acotado)
 
 `prototipo/agente_mitigacion.py` es un **agente ReAct** que **determina la estrategia de mitigación y

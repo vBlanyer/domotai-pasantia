@@ -55,6 +55,10 @@ sh lab/lab.sh status
 sh lab/lab.sh down red-cliente-firewall
 ```
 
-> **Nota:** `red-cliente-firewall` está validada como fichero (YAML correcto, mismos nodos/enlaces que
-> `red-cliente`, `borde` con sshd+msfadmin). Su arranque completo en vivo es incremental: bájala y súbela
-> cuando quieras ejercer la escalada real, y usa `sh lab/lab.sh test` para la prueba de humo de extremo a extremo.
+> **Ejercida en vivo el 11/09/2026:** desplegada, ambos nodos gestionados aprovisionados con mínimo
+> privilegio (`aprovisionar-minimo-privilegio.sh` para `objetivo-vuln` y para `borde`), y el escenario C
+> ejecutado por el lazo por defecto (sin `--agente`): sshd del objetivo parado → paso en el host rc=255 →
+> validación humana para el cortafuegos → `iptables -A FORWARD -s 192.168.1.10 -j DROP` real en el borde,
+> verificado → reversión desde la traza. Dos rarezas del despliegue limpio que ya cubren los scripts: el
+> contenedor de Metasploitable no arranca su syslogd (lo arranca `reenvio-syslog.sh`), y el sshd de Alpine
+> rechaza cuentas con `!` en `/etc/shadow` aunque la clave valga (el aprovisionamiento pone `*`).

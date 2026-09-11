@@ -105,6 +105,20 @@ de control (`/dev/tty`, no la entrada de alertas):
 - `rechazar` → no ejecuta; queda anotado con veredicto.
 - `reclasificar` → no ejecuta y anota la clase que el analista considera correcta (feedback, RF-12).
 
+**Escalada cuando el equipo afectado no responde.** Si el bloqueo en el activo no se ejecuta (equipo
+caído, sin SSH) o no se verifica, el servicio recorre la cadena de contención del perfil (`topologia`:
+activo → `gateway` → …) y aplica en el siguiente dispositivo la acción del catálogo para su rol
+(`BLOQUEAR_IP_FIREWALL` en un cortafuegos). Cada salto pasa por el filtro del perfil: un veto duro salta el
+dispositivo, una degradación cambia la acción, y se pide validación humana cuando el perfil la exige para
+ese impacto (en `empresarial`, siempre para el cortafuegos). Queda en la traza como `escalada`, con la
+orden efectiva, y se ve así:
+```
+  Escalada (el activo no respondio): mitigado · contenido en gateway
+```
+Para que funcione, el cortafuegos debe estar aprovisionado como cualquier nodo gestionado (§3.3, con su IP)
+y figurar en la `topologia` del perfil. Sin `topologia`, no hay a dónde escalar y la traza deja
+`exito=False`.
+
 **Parar:** `Ctrl+C`. Imprime el resumen (alertas, incidentes, aprobadas, rechazadas, reclasificadas,
 ejecutadas) y cierra la traza limpiamente. Al volver a arrancar con el mismo `--salida`, la cadena de la
 traza continúa donde quedó.
@@ -161,8 +175,8 @@ en el código. Para repetir una campaña completa: `python3 -m evaluacion.campan
   embedder actual crecerlo no degrada la recuperación de forma apreciable.
 - **La explicación hereda las etiquetas de la fuente.** Si Wazuh etiqueta una regla de reconocimiento como
   T1190, la justificación lo dirá. La clase y la acción no dependen de eso.
-- **El agente de escalada (`--agente`) es opcional** y exige GPU: sin ella degrada al motor determinista, que
-  ya escala host → cortafuegos por sí mismo.
+- **La escalada host → cortafuegos es el comportamiento por defecto** (§4); el agente (`--agente`) es
+  opcional, exige GPU y, medido, no aporta sobre la regla determinista en un perímetro de dos dispositivos.
 - **La traza no detecta su propio truncado final** sin el anclaje de §5.
 - **El equipo de borde con firmware real no está validado**; el laboratorio usa un sustituto Linux.
 
@@ -179,6 +193,9 @@ en el código. Para repetir una campaña completa: `python3 -m evaluacion.campan
 [x] python3 -m prototipo.traza --verificar       → cadena valida: 1 registros
 [x] python3 -m prototipo.revertir … s1 --motivo … → revertida; cadena valida: 2 registros
 [x] segunda reversión                            → "ya fue revertida"
+[x] escenario C (topología red-cliente-firewall, ambos nodos aprovisionados): sshd del activo parado
+    → paso en el host rc=255 → pregunta para el cortafuegos → BLOQUEAR_IP_FIREWALL aplicado y
+    verificado en el borde (5,2 s) → traza válida → reversión desde la traza → regla eliminada
 ```
 Tiempo total del lazo, del ataque al bloqueo verificado: unos 45 s, de los que ~40 son el reenvío syslog
 del nodo (un datagrama por línea) y ~3 la decisión con justificación.

@@ -211,7 +211,8 @@ fuera) y conector de mínimo privilegio (usuario `triaje` con clave, host verifi
 desde el catálogo**; `lab/scripts/aprovisionar-minimo-privilegio.sh`; verificado en vivo). Embedder
 residente (`llm-server.sh --embedder`): justificación en el daemon 7.5 s → 2.8 s. Reversión desde la traza
 (`python3 -m prototipo.revertir`, RF-18) y **guía de operación** en la Fase 7, validada con un ensayo
-completo del modo tiempo real.
+completo del modo tiempo real. **Escalada determinista por defecto** con el filtro del perfil en cada salto
+(cierra la Fase 3 del plan de excelencia técnica), verificada en vivo con la topología de cortafuegos.
 
 **Quién lo resuelve:** nosotros. Es la pieza que faltaba para que el prototipo cumpla su objetivo
 general, no un extra.

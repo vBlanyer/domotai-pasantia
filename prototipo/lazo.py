@@ -28,8 +28,19 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
                 "orden": None, "ejecucion": None, "verificacion": None}
     ejecucion = conector.ejecutar_orden(o, catalogo, ejecutor, timestamp)
     verif = verificacion.confirmar(o, catalogo, ejecutor)
+    # Escalada por defecto (requisito del tutor industrial): si el paso en el activo no se pudo
+    # ejecutar o no se verifica y el perfil describe una topologia, se sigue la cadena de
+    # contencion hacia el perimetro, con el filtro del perfil en cada salto. Sin topologia no hay
+    # a donde escalar y la traza lo deja como esta: exito=False, verificado=False.
+    escalada = None
+    if not (ejecucion.get("exito") and verif.get("verificado")) and perfil.get("topologia"):
+        from prototipo import agente_mitigacion as ag
+        escalada = ag.escalar_determinista(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
+                                           leer=leer, timestamp=timestamp, desde=o.get("nodo_objetivo"),
+                                           confianza=decision.get("confianza", 1.0), siempre_humano=False,
+                                           decision_id=id_decision)
     return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
-            "orden": o, "ejecucion": ejecucion, "verificacion": verif}
+            "orden": o, "ejecucion": ejecucion, "verificacion": verif, "escalada": escalada}
 
 class _EjecutorAuto:
     """Ejecutor falso para --auto (sin laboratorio), con estado como el EjecutorFalso de los tests:

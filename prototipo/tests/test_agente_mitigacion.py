@@ -338,3 +338,62 @@ class TestFinalSinRespaldo(unittest.TestCase):
         self.assertEqual(plan["resultado"], "mitigado")
         self.assertFalse(plan["degradado"])
         self.assertEqual(plan["dispositivo_ejecutor"], "gateway")
+
+
+def y_perfil_empresarial():
+    """Como empresarial.yml: localizado automatico con confianza alta; alcanza_servicio, humano."""
+    return {**y_perfil(),
+            "continuidad": {"impacto_ninguno": "automatica", "impacto_localizado": "automatica_si_confianza",
+                            "impacto_alcanza_servicio": "humano_siempre", "reversibilidad_obligatoria": True,
+                            "no_cortar_gestion": True}}
+
+
+class TestEscaladaConPerfil(unittest.TestCase):
+    ALERTA = {"id_alerta": "a1", "origen_ip": "192.168.1.10", "activo": "objetivo-vuln", "servicio": "ssh"}
+
+    def test_el_salto_al_cortafuegos_pregunta_al_humano_porque_el_perfil_lo_exige(self):
+        # BLOQUEAR_IP_FIREWALL alcanza servicio: humano_siempre. Sin siempre_humano, manda el perfil.
+        preguntas = []
+        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", y_perfil_empresarial(), CAT,
+                                       EjecutorEscalado(), leer=lambda p: (preguntas.append(p), "s")[1],
+                                       escribir=lambda *a: None, siempre_humano=False, confianza=1.0)
+        self.assertEqual(plan["resultado"], "mitigado")
+        self.assertEqual(len(preguntas), 1)                 # solo el cortafuegos; el host fallo antes de preguntar? no:
+        # el host (localizado, automatica_si_confianza, 1.0) NO pregunta; el cortafuegos si.
+
+    def test_el_humano_puede_negar_el_salto_al_cortafuegos(self):
+        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", y_perfil_empresarial(), CAT,
+                                       EjecutorEscalado(), leer=lambda p: "n", escribir=lambda *a: None,
+                                       siempre_humano=False)
+        self.assertEqual(plan["resultado"], "cancelado_por_humano")
+
+    def test_un_veto_duro_del_perfil_salta_el_dispositivo(self):
+        # Sin reversion definida en el cortafuegos y reversibilidad obligatoria: veto duro -> se salta.
+        cat = {k: dict(v) for k, v in CAT.items()}
+        cat["BLOQUEAR_IP_FIREWALL"] = {**cat["BLOQUEAR_IP_FIREWALL"], "reversion": "no_aplica"}
+        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", y_perfil_empresarial(), cat,
+                                       EjecutorEscalado(), autonomo=True, siempre_humano=False)
+        self.assertEqual(plan["resultado"], "fallido")
+        self.assertNotIn("gateway", [d for d in plan["pasos"] if d.get("tipo") == "verificacion"])
+        self.assertTrue(any("Vetado por el perfil" in p["observacion"] for p in plan["pasos"]))
+
+    def test_desde_empieza_despues_del_dispositivo_ya_intentado(self):
+        ej = EjecutorEscalado()
+        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", y_perfil(), CAT, ej,
+                                       autonomo=True, desde="objetivo-vuln")
+        dispositivos = [p["dispositivo"] for p in plan["pasos"] if p["tipo"] == "accion"]
+        self.assertEqual(dispositivos, ["gateway"])
+        self.assertEqual(plan["orden_efectiva"]["nodo_objetivo"], "gateway")
+        self.assertEqual(plan["orden_efectiva"]["accion_id"], "BLOQUEAR_IP_FIREWALL")
+
+    def test_el_agente_conserva_la_aprobacion_por_paso(self):
+        # siempre_humano por defecto en la herramienta: el agente pregunta aunque el perfil automatice.
+        preguntas = []
+        topo = ag.resolver_topologia(y_perfil_empresarial())
+        ag.herramienta_ejecutar_comando(topo, CAT, EjecutorEscalado(), "gateway", "bloquear_ip",
+                                        "192.168.1.10", topo["ip_gestion"], "d", "t", False,
+                                        lambda p: (preguntas.append(p), "s")[1], lambda *a: None,
+                                        perfil=y_perfil_empresarial(), activo="objetivo-vuln", servicio="ssh",
+                                        confianza=1.0)   # siempre_humano=True por defecto
+        self.assertEqual(len(preguntas), 1)
+

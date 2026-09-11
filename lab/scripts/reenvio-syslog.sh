@@ -13,6 +13,9 @@
 
 WAZUH="${1:-$(docker inspect clab-red-cliente-wazuh --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)}"
 [ -z "$WAZUH" ] && { echo "No encuentro el manager de Wazuh. Arrancalo con: sh lab/scripts/wazuh-run.sh up"; exit 1; }
+# El contenedor de Metasploitable no siempre arranca su syslogd; sin el, auth.log no crece y no
+# hay nada que reenviar. Se comprobo tras un despliegue limpio de la topologia con cortafuegos.
+docker exec clab-red-cliente-objetivo-vuln sh -c 'ps aux | grep -q "[s]yslogd" || { /etc/init.d/sysklogd start; /etc/init.d/klogd start; } >/dev/null 2>&1' || true
 echo "Reenviando auth.log del objetivo -> Wazuh ($WAZUH:514)"
 
 # Escribir el reenviador como fichero dentro del contenedor

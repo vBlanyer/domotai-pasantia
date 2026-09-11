@@ -228,7 +228,10 @@ con el modelo de lenguaje y recuperación aumentada, o delegación en el agente 
 permiten intercambiar latencia por riqueza de la explicación sin alterar la decisión, que es
 determinista en los tres casos. La segunda es un \textbf{agente de mitigación} que, ante un
 incidente cuya contención en el propio equipo no basta, escala hacia el siguiente nodo con capacidad
-de contención ---del anfitrión al cortafuegos--- solicitando aprobación humana en cada paso.
+de contención ---del anfitrión al cortafuegos--- solicitando aprobación humana en cada paso. Al
+cierre del trabajo, esa escalada, en su forma determinista y con el filtro del perfil aplicado a
+cada salto, se convirtió en el comportamiento por defecto del servicio cuando el paso en el equipo
+afectado falla (sección \ref{sec:agente-medido}).
 
 El origen de esta segunda pieza conviene declararlo, porque no procede de los objetivos del plan
 sino de un requisito planteado por el \textbf{tutor industrial}: en una red en producción el equipo
@@ -264,7 +267,7 @@ incrementó con cada uno de estos cambios, de modo que las campañas anteriores 
 a la invocación con la que se midieron.
 
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 315 casos ---251 del motor de triaje, 31 del marco de evaluación y 33 de
+este informe, asciende a 325 casos ---261 del motor de triaje, 31 del marco de evaluación y 33 de
 la tubería de construcción del conjunto de datos---, ejecutados con generadores, ejecutores y capa
 de red simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de
 degradación sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.

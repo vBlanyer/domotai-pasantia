@@ -423,6 +423,22 @@ delegarla en un agente aporte algo sobre la regla determinista en un perímetro 
 y esa es exactamente la hipótesis que la sección \ref{sec:agentes} anticipaba como no verificable a
 esta escala.
 
+Esa conclusión tuvo una consecuencia de diseño que se aplicó al cierre del trabajo: la escalada
+determinista dejó de ser solo el respaldo del agente y pasó a ser \textbf{el camino por defecto} del
+servicio. Cuando la contención en el equipo afectado no se ejecuta o no se verifica, el lazo recorre
+la cadena de contención hacia el perímetro sin necesidad del modo agente. Cablearla exigió una
+pieza que faltaba: cada salto pasa ahora por el filtro del perfil de cliente, de modo que un veto
+duro ---cortar el plano de gestión, una acción sin reversión--- salta el dispositivo, una degradación
+sustituye la acción, y la validación humana se pide cuando el perfil la exige para ese impacto, y no
+en todos los casos. Sin esa pieza, la escalada habría podido ejecutar en el cortafuegos algo que el
+perfil prohíbe. Se verificó en vivo sobre la topología con equipo de borde administrable, con la
+credencial de mínimo privilegio: detenido el demonio SSH del equipo atacado tras un ataque real,
+el paso en el anfitrión falló (código 255), el servicio pidió aprobación para el cortafuegos
+---impacto que alcanza el servicio, humano siempre en el perfil empresarial---, aplicó y verificó
+la regla de filtrado en el equipo de borde, dejó la decisión encadenada en la traza con la orden
+efectiva, y la reversión posterior, derivada de esa misma traza, eliminó la regla y quedó anotada
+en la cadena. Cinco segundos entre la alerta y la contención verificada en el perímetro.
+
 % ===========================================================================
 \section{La recuperación: un techo, su causa y su desplazamiento}
 \label{sec:mrr}

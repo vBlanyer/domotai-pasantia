@@ -33,6 +33,12 @@ def revertir(registro, catalogo, ejecutor, timestamp, motivo=""):
     base = {"tipo": "reversion", "id_decision_revertida": registro.get("id_decision"),
             "motivo": motivo, "timestamp": timestamp}
     orden, ejec = registro.get("orden"), registro.get("ejecucion") or {}
+    # Si el paso en el activo fallo y contuvo la escalada (o el agente), lo que hay que revertir
+    # es la orden EFECTIVA: la del dispositivo donde el bloqueo se verifico.
+    plan = registro.get("escalada") or registro.get("mitigacion_agente") or {}
+    if not ejec.get("exito") and plan.get("orden_efectiva"):
+        orden, ejec = plan["orden_efectiva"], {"exito": True}
+        base["escalada"] = True
     if not orden:
         return {**base, "accion_id": None, "nodo": None, "comando_ejecutado": None, "codigo_salida": -1,
                 "salida": "la decision no ejecuto ninguna orden", "exito": False}

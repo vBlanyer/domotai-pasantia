@@ -4,6 +4,7 @@ pide aprobación humana y lo ejecuta de forma reversible reutilizando conector.e
 """
 import json, re
 from prototipo import conector, politica, rag
+from prototipo import perfil as perfilm
 
 def resolver_topologia(perfil):
     topo = dict(perfil.get("topologia", {}) or {})
@@ -134,21 +135,41 @@ def _aprobar(dispositivo, nodo_ip, accion_id, ip, leer, escribir):
     return leer("¿aprobar la ejecución? [s/N] ").strip().lower().startswith("s")
 
 def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, ip, ip_gestion,
-                                 decision_id, timestamp, autonomo, leer, escribir):
-    """Única herramienta que muta: renderiza del catálogo (RF-15) -> valida (RF-19) -> aprobación
-    humana (RF-08, salvo autonomo) -> conector.ejecutar_orden -> registra reversión (RF-18)."""
+                                 decision_id, timestamp, autonomo, leer, escribir,
+                                 perfil=None, activo=None, servicio=None, confianza=1.0, siempre_humano=True):
+    """Única herramienta que muta: renderiza del catálogo (RF-15) -> filtro del perfil (RF-17/19,
+    RNF-14) -> valida (RF-19) -> aprobación humana (RF-08) -> conector.ejecutar_orden -> registra
+    reversión (RF-18).
+
+    El filtro del perfil se aplica a CADA salto si se pasa `perfil`: sin el, la escalada podia
+    ejecutar en el cortafuegos una accion que el perfil del cliente prohibe (no cortar gestion,
+    reversibilidad obligatoria, excepciones, reglas por impacto). Un veto salta el dispositivo; una
+    degradacion sustituye la accion. Quien pregunta al humano: el perfil (`requiere_humano`), o
+    siempre si `siempre_humano` (el agente ReAct conserva su aprobacion por paso); `autonomo` lo
+    anula solo en demos y pruebas."""
     nodo = topo.get(dispositivo)
     if not isinstance(nodo, dict):
         return (f"Error: dispositivo desconocido '{dispositivo}'", None)
     accion_id = _ACCION_POR_ROL.get((accion, nodo.get("rol")))
     if accion_id is None or accion_id not in catalogo:
         return (f"Error: accion '{accion}' no valida para el rol '{nodo.get('rol')}'", None)
+    requiere_humano = True
+    if perfil is not None:
+        f = perfilm.filtrar(perfil, accion_id, {"ip": ip}, catalogo, activo, servicio, confianza)
+        # En este diseno 'veta' con accion_final es 'retenida para validacion humana'; el veto
+        # duro (fuera del catalogo, corta gestion, sin reversion) es accion_final=None.
+        if not f.get("accion_final"):
+            return (f"Vetado por el perfil: {accion_id} en {dispositivo} ({f['resultado']})",
+                    {"accion_id": accion_id, "vetado": True, "por_perfil": True, "reversion_cmd": ""})
+        accion_id = f["accion_final"]              # la misma, o la degradada
+        requiere_humano = bool(f.get("requiere_humano"))
     comando = catalogo[accion_id]["comando"].format(ip=ip)
     ok, motivo = validar_comando(comando, ip_gestion)
     reversion_cmd = catalogo[accion_id].get("reversion_cmd", "").format(ip=ip)
     if not ok:
         return (f"Error: {motivo}", {"accion_id": accion_id, "vetado": True, "reversion_cmd": reversion_cmd})
-    if not autonomo and not _aprobar(dispositivo, nodo.get("ip"), accion_id, ip, leer, escribir):
+    preguntar = (siempre_humano or requiere_humano) and not autonomo
+    if preguntar and not _aprobar(dispositivo, nodo.get("ip"), accion_id, ip, leer, escribir):
         return (f"Cancelado por el humano: {accion_id} en {dispositivo}",
                 {"accion_id": accion_id, "cancelado": True, "reversion_cmd": reversion_cmd})
     orden = {"decision_id": decision_id, "accion_id": accion_id, "nodo_objetivo": dispositivo,
@@ -156,9 +177,11 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
     res = conector.ejecutar_orden(orden, catalogo, ejecutor, timestamp)
     if res.get("exito"):
         return (f"OK: {accion_id} aplicada en {dispositivo} (rc={res.get('codigo_salida')})",
-                {"accion_id": accion_id, "exito": True, "reversion_cmd": reversion_cmd, "resultado": res})
+                {"accion_id": accion_id, "exito": True, "reversion_cmd": reversion_cmd, "resultado": res,
+                 "orden": orden})
     return (f"Error: fallo en {dispositivo} (rc={res.get('codigo_salida')})",
-            {"accion_id": accion_id, "exito": False, "reversion_cmd": reversion_cmd, "resultado": res})
+            {"accion_id": accion_id, "exito": False, "reversion_cmd": reversion_cmd, "resultado": res,
+             "orden": orden})
 
 # --------------------------------------------------------------- bucle ReAct --
 
@@ -212,7 +235,8 @@ def cadena_de_contencion(topo, activo):
     return orden
 
 def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, autonomo=False,
-                         escribir=print, timestamp=""):
+                         escribir=print, timestamp="", desde=None, confianza=1.0, siempre_humano=False,
+                         decision_id=""):
     """Escalada de contencion **sin modelo**: recorre la cadena de dispositivos desde el activo
     afectado hacia el perimetro y para en el primero donde el bloqueo se verifica.
 
@@ -222,16 +246,27 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
     generaliza a modos de fallo no previstos, que es lo que el agente si podria aportar.
 
     Devuelve el mismo plan que `bucle_react`, asi que ambos son intercambiables como `mitigar_fn`.
+    Cada salto pasa por el filtro del perfil (veta -> siguiente salto; degrada -> la alternativa;
+    el humano se pregunta si el perfil lo exige). `desde` permite empezar DESPUES de un
+    dispositivo ya intentado (el lazo la invoca asi cuando el paso en el host fallo). El plan lleva
+    `orden_efectiva`, la orden del dispositivo que contuvo, para que la reversion salga de la traza.
     """
     topo = resolver_topologia(perfil)
     ip_gestion, ip = topo.get("ip_gestion"), alerta.get("origen_ip")
     pasos, reversiones, tocados = [], [], []
-    for dispositivo in cadena_de_contencion(topo, alerta.get("activo")):
+    cadena = cadena_de_contencion(topo, alerta.get("activo"))
+    if desde in cadena:
+        cadena = cadena[cadena.index(desde) + 1:]
+        tocados.append(desde)     # el lazo ya lo intento: cuenta para decir que hubo escalada
+    for dispositivo in cadena:
         obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, "bloquear_ip",
-                                                ip, ip_gestion, alerta.get("id_alerta", ""), timestamp,
-                                                autonomo, leer, escribir)
+                                                ip, ip_gestion, decision_id or alerta.get("id_alerta", ""),
+                                                timestamp, autonomo, leer, escribir,
+                                                perfil=perfil, activo=alerta.get("activo"),
+                                                servicio=alerta.get("servicio"), confianza=confianza,
+                                                siempre_humano=siempre_humano)
         pasos.append({"tipo": "accion", "dispositivo": dispositivo, "observacion": obs})
-        if reg is None:                       # dispositivo o accion no aplicables: siguiente salto
+        if reg is None or reg.get("vetado"):  # no aplicable o vetado por el perfil: siguiente salto
             continue
         tocados.append(dispositivo)
         if reg.get("reversion_cmd"):
@@ -242,7 +277,8 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
             veredicto = herramienta_verificar_mitigacion(topo, catalogo, ejecutor, dispositivo, ip)
             pasos.append({"tipo": "verificacion", "dispositivo": dispositivo, "observacion": veredicto})
             if veredicto == "bloqueado":
-                return _plan(pasos, reversiones, dispositivo, tocados, "mitigado", False)
+                return _plan(pasos, reversiones, dispositivo, tocados, "mitigado", False,
+                             extra={"orden_efectiva": reg.get("orden")})
     return _plan(pasos, reversiones, None, tocados, "fallido", False)
 
 def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input, autonomo=False,

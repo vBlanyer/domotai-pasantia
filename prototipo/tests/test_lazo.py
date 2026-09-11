@@ -97,3 +97,74 @@ class TestEjecutorAuto(unittest.TestCase):
                                "prueba", CAT, lazo._EjecutorAuto(), "d4", "2026-08-31T00:00:00Z")
         self.assertTrue(r["ejecucion"]["exito"])
         self.assertTrue(r["verificacion"]["verificado"])
+
+
+class TestEscaladaPorDefecto(unittest.TestCase):
+    """Requisito del tutor industrial: si no se puede cortar en el host, saltar al cortafuegos."""
+
+    def _perfil_con_topologia(self):
+        p = dict(y("perfil.yml"))
+        p["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
+                          "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}
+        p["ip_gestion"] = "192.168.1.100"
+        return p
+
+    class HostCaido:
+        def __init__(self): self.aplicado = set()
+        def __call__(self, nodo_ip, cmd):
+            if nodo_ip == "192.168.1.30":
+                return (255, "Connection refused")
+            if "grep" in cmd:
+                return (0, "DROP") if nodo_ip in self.aplicado else (1, "")
+            self.aplicado.add(nodo_ip); return (0, "")
+
+    def test_si_el_host_no_responde_escala_al_cortafuegos_y_lo_anota(self):
+        preguntas = []
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil_con_topologia(),
+                               "prueba", CAT, self.HostCaido(), "d1", "t",
+                               leer=lambda p: (preguntas.append(p), "s")[1])
+        self.assertFalse(r["ejecucion"]["exito"])                 # el host fallo, y consta
+        self.assertEqual(r["escalada"]["resultado"], "mitigado")
+        self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "gateway")
+        self.assertEqual(r["escalada"]["orden_efectiva"]["accion_id"], "BLOQUEAR_IP_FIREWALL")
+        self.assertEqual(len(preguntas), 1)                       # el perfil exige humano en el cortafuegos
+
+    def test_sin_topologia_no_hay_a_donde_escalar(self):
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),
+                               "prueba", CAT, self.HostCaido(), "d1", "t")
+        self.assertFalse(r["ejecucion"]["exito"])
+        self.assertIsNone(r["escalada"])
+
+    def test_si_el_host_responde_y_verifica_no_se_escala(self):
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil_con_topologia(),
+                               "prueba", CAT, lazo._EjecutorAuto(), "d1", "t")
+        self.assertTrue(r["ejecucion"]["exito"]); self.assertTrue(r["verificacion"]["verificado"])
+        self.assertIsNone(r["escalada"])
+
+    def test_si_el_host_ejecuta_pero_no_se_verifica_tambien_se_escala(self):
+        # Contencion no verificada = no contencion: el cortafuegos entra, con la pregunta del perfil.
+        preguntas = []
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil_con_topologia(),
+                               "prueba", CAT, ejecutor_ok, "d1", "t",
+                               leer=lambda p: (preguntas.append(p), "n")[1])
+        self.assertFalse(r["verificacion"]["verificado"])
+        self.assertEqual(r["escalada"]["resultado"], "cancelado_por_humano")
+        self.assertEqual(len(preguntas), 1)
+
+    def test_la_reversion_de_una_escalada_sale_de_la_orden_efectiva(self):
+        from prototipo import revertir
+        ej = self.HostCaido()
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil_con_topologia(),
+                               "prueba", CAT, ej, "d1", "t", leer=lambda p: "s")
+        llamadas = []
+        def ej_rev(nodo_ip, cmd):
+            llamadas.append((nodo_ip, cmd))
+            if cmd.startswith("iptables -D"):
+                ej.aplicado.discard(nodo_ip); return (0, "")
+            return ej(nodo_ip, cmd)
+        rev = revertir.revertir(r, CAT, ej_rev, "t2", motivo="prueba")
+        self.assertTrue(rev["exito"]); self.assertTrue(rev.get("escalada"))
+        self.assertEqual(rev["nodo"], "gateway")
+        self.assertIn("iptables -D FORWARD -s 192.168.1.10 -j DROP", rev["comando_ejecutado"])
+        self.assertTrue(all(ip == "192.168.1.1" for ip, _ in llamadas))   # nunca toca al host caido
+

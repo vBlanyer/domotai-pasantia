@@ -38,6 +38,10 @@ def _linea_decision(d):
     if mit:
         base += (f"\n  Agente: {mit.get('resultado')} · ejecutor {mit.get('dispositivo_ejecutor')} · "
                  f"escalado {mit.get('escalado')}")
+    esc = d.get("escalada")
+    if esc:
+        base += (f"\n  Escalada (el activo no respondio): {esc.get('resultado')} · "
+                 f"contenido en {esc.get('dispositivo_ejecutor')}")
     return base
 
 # --------------------------------------------------------------------- bucle --
@@ -63,6 +67,8 @@ def _contar(resumen, d):
     elif v == "reclasificar": resumen["reclasificadas"] += 1
     elif v == "rechazar": resumen["rechazadas"] += 1
     if (d.get("ejecucion") or {}).get("exito"):                    # camino determinista
+        resumen["ejecutadas"] += 1
+    elif (d.get("escalada") or {}).get("resultado") == "mitigado":   # el activo no respondio: escalada
         resumen["ejecutadas"] += 1
     if (d.get("mitigacion_agente") or {}).get("resultado") == "mitigado":   # camino agente
         resumen["ejecutadas"] += 1

@@ -84,6 +84,8 @@ topology:
 
     auditor:
       labels: {graph-icon: controller, graph-group: "Gestion", graph-level: 1}
+      # IP de gestion FIJA: el perfil la declara como origen legitimo (ver red-cliente.clab.yml).
+      mgmt-ipv4: 172.20.20.4
       exec:
         - apk add --no-cache nmap nmap-scripts
         - ip route add 192.168.1.0/24 via 172.20.20.100
