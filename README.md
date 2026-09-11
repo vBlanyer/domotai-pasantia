@@ -60,13 +60,16 @@ laboratorio se levanta con [`lab/lab.sh`](lab/lab.sh) (requiere Docker + Contain
 ## Estado del proyecto
 
 Fases 1–6 completas; la 7 (informe final) **en curso** — borrador completo en LaTeX y compilado en
-[`documentacion/report/`](documentacion/report/). El detalle vivo del estado,
+[`documentacion/report/`](documentacion/report/), y la
+**[guía de operación](documentacion/07-fase7-documentacion-e-informe-final/guia-de-operacion.md)** para
+desplegarlo y operarlo. El detalle vivo del estado,
 las decisiones cerradas y los riesgos está en
 [`documentacion/00-general/estado-y-riesgos.md`](documentacion/00-general/estado-y-riesgos.md).
 
-**Resultado medido (Fase 6):** frente al nivel de regla de Wazuh, el prototipo reduce la tasa de
-falsos positivos **a 0.000** (vs 0.282 del baseline) **sin perder ninguna amenaza** (recall 1.0) y sin
-acciones disruptivas indebidas. Detalle en el
+**Resultado medido (Fase 6, ampliado el 11/09/2026 a dos familias de ataque):** frente al nivel de
+regla de Wazuh, el prototipo reduce la tasa de falsos positivos **a 0.000** (vs 0.303 del baseline
+sobre 220 alertas) **sin perder ninguna amenaza** (recall 1.0) y sin acciones disruptivas indebidas.
+Detalle en [`evaluacion/resultados/README.md`](evaluacion/resultados/README.md) y en el
 [informe de evaluación](documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
 
 Limitación conocida y documentada: el clasificador con fine-tuning (encoder) sigue bloqueado por un

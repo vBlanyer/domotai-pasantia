@@ -245,10 +245,16 @@ def construir_justificar_fn(con_llm, escribir=print):
         escribir(f"[aviso] justificador LLM/RAG no disponible ({e}); se usara la plantilla.")
         return None
 
-def banner(cfg):
+_NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
+                    "ejecutor_ssh_lab": "conector SSH del laboratorio (contrasena por defecto)"}
+
+def banner(cfg, ejecutor=None):
     fuente = "stdin (canalizado)" if cfg["ruta"] == "-" else cfg["ruta"]
     just = "LLM+RAG" if cfg["con_llm"] else "plantilla"
-    lab = "simulado (--sin-lab)" if cfg["sin_lab"] else "conector SSH (lab)"
+    # El banner dice QUE ejecutor se usa de verdad: con cual credencial entra al nodo importa
+    # tanto como con que perfil decide, y se vio un ensayo con la clave anunciando 'lab'.
+    nombre = getattr(ejecutor, "__name__", "")
+    lab = "simulado (--sin-lab)" if cfg["sin_lab"] else _NOMBRE_EJECUTOR.get(nombre, "conector SSH")
     return ("\n" + "=" * 72 +
             "\n  Monitor MDR en tiempo real — ACTIVO"
             f"\n  Perfil: {os.path.basename(cfg['perfil'])} · Justificador: {just} · Ejecutor: {lab}"
@@ -291,7 +297,7 @@ def main(argv):
     ejecutor = lazo._EjecutorAuto() if cfg["sin_lab"] else conector.ejecutor_por_defecto()
     mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor)
     fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
-    print(banner(cfg))
+    print(banner(cfg, ejecutor))
     resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
                "reclasificadas": 0, "ejecutadas": 0}
     try:

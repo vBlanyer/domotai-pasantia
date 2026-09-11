@@ -62,6 +62,11 @@ sh lab/lab.sh up && python3 lab/scripts/demo-agente-escalado.py --autonomo
 - **Todo es local** (RNF-01): ninguna alerta sale a servicios externos; el LLM corre por subprocess a un
   binario local.
 
+## Para operarlo, no solo probarlo
+
+La [guía de operación](../../documentacion/07-fase7-documentacion-e-informe-final/guia-de-operacion.md)
+cubre arranque, configuración por cliente, mínimo privilegio, verificación de la traza y reversión.
+
 ## Más detalle
 
 - [`README.md`](../../README.md) — qué es el proyecto y qué hay construido.

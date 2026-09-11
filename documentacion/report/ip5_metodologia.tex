@@ -183,7 +183,13 @@ tres subproyectos:
         y la frontera de lo que el motor puede ordenar son el mismo dato. El aprovisionamiento
         termina comprobando que un comando del catálogo se ejecuta y que dos fuera de él ---uno
         con otro programa y otro con el mismo programa y otros argumentos--- se deniegan, y el
-        lazo completo se verificó en vivo con esa credencial.
+        lazo completo se verificó en vivo con esa credencial. La reversión de una acción (RF-18)
+        pasó también de promesa del catálogo a operación: se deriva del registro de la decisión
+        y del catálogo, la ejecuta el mismo conector, se verifica que el estado desapareció y se
+        anota en la misma cadena de la traza. Todo ello, junto con la configuración por cliente,
+        el arranque, la verificación periódica y la conducta ante fallos, quedó recogido en una
+        guía de operación para la empresa, escrita sobre un ensayo completo del modo en tiempo
+        real y no sobre lo que el código debería hacer.
   \item \textbf{Justificador con modelo de lenguaje real.} Un modelo generativo de mil millones de
         parámetros, cuantizado a cuatro bits, invocado mediante un proceso independiente a un motor
         de inferencia en un entorno Conda separado del resto del prototipo. Cada justificación se
@@ -258,7 +264,7 @@ incrementó con cada uno de estos cambios, de modo que las campañas anteriores 
 a la invocación con la que se midieron.
 
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 309 casos ---245 del motor de triaje, 31 del marco de evaluación y 33 de
+este informe, asciende a 315 casos ---251 del motor de triaje, 31 del marco de evaluación y 33 de
 la tubería de construcción del conjunto de datos---, ejecutados con generadores, ejecutores y capa
 de red simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de
 degradación sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.

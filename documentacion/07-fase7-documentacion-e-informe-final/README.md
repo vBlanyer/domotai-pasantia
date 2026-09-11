@@ -24,7 +24,8 @@ el módulo de ingesta ocupa el papel del playbook; Wazuh ocupa el del sistema de
 baseline.
 
 **Las limitaciones, sin suavizar.** El auditor no es infalible; el modelo tiene corte de
-conocimiento; el corpus del RAG no se puede crecer con el embedder actual; la señal que separa al
+conocimiento; el corpus del RAG no se podía crecer con el embedder original (se sustituyó al final y
+ahora sí); la señal que separa al
 administrador del atacante se apoya en una IP suplantable; el equipo de borde del laboratorio fue
 provisional; y las cifras de mercado de la Fase 2 vienen de informes de acceso restringido, por lo
 que el informe las trata de forma cualitativa y **no las cita como fuente verificada**.
@@ -86,6 +87,15 @@ la [Fase 6](../06-fase6-evaluacion-del-prototipo/), y el registro de decisiones 
 de [estado-y-riesgos.md](../00-general/estado-y-riesgos.md).
 
 **Entrega a:** nadie dentro del proyecto. Es la salida.
+
+## La guía de operación
+
+Además del informe, la fase entrega **[`guia-de-operacion.md`](guia-de-operacion.md)**: cómo se configura
+por cliente, se arranca, se opera, se verifica y se revierte el prototipo, para el operador de Domotai.
+No es una guía de prueba (esas están en `docs/pruebas/`): es el documento que responde a «¿con qué
+configuración queda en producción?». Cada comando y cada salida esperada que cita se ejecutaron el
+11/09/2026 sobre el laboratorio en un ensayo completo del modo tiempo real (servidores residentes,
+mínimo privilegio, ataque real, traza encadenada, reversión desde la traza).
 
 ---
 
