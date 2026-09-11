@@ -22,6 +22,17 @@ Tres piezas encadenadas, todas ejecutables desde la raíz del repo:
    invocando `auditar.sh`, que escanea los nodos y produce `hallazgos.json` — la postura real de
    cada activo, con la versión de Nmap registrada.
 
+   **`sh lab/scripts/campana-recon.sh <id-campaña>`** (11/09/2026) — la misma estructura para la
+   familia `reconocimiento`: barridos de puertos y sondeos de protocolo contra el 22 desde `puesto`,
+   comprobaciones benignas desde `borde` y un barrido desde `auditor`. Dos diferencias medidas: los
+   sondeos se hacen con `nc` porque **nmap no deja rastro en el sshd de Metasploitable** (un escaneo
+   SYN no completa la conexión y sshd no lo ve; `nmap -sT` cierra con RST y ese sshd de 2007 solo
+   registra el cierre limpio con FIN) —por eso la campaña original, que escaneaba desde el auditor,
+   no produjo ni una alerta de esta familia—; y se congela **solo la ventana temporal** de la campaña,
+   no `alerts.json` entero. Cada campaña deja 15 alertas: 9 del atacante (6×5706 «Did not receive
+   identification string», 3×5701 «Bad protocol version identification»), 4 del admin (FP) y 2 del
+   auditor (PROPIA).
+
 2. **`lab/dataset/particion.yml`** — reparto a priori de campañas a `entrenamiento` o
    `evaluacion`, fijado **antes** de construir el dataset y versionado.
 

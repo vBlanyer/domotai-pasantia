@@ -1,9 +1,9 @@
 {
   "clasificacion_prototipo": {
     "matriz": {
-      "vp": 10,
+      "vp": 19,
       "fp": 0,
-      "vn": 195,
+      "vn": 201,
       "fn": 0
     },
     "precision": 1.0,
@@ -15,101 +15,101 @@
     "optimo": {
       "umbral": 5,
       "matriz": {
-        "vp": 10,
-        "fp": 55,
+        "vp": 19,
+        "fp": 61,
         "vn": 140,
         "fn": 0
       },
-      "f1": 0.2666666666666667
+      "f1": 0.3838383838383838
     },
     "puntos": [
       {
         "umbral": 3,
         "matriz": {
-          "vp": 10,
-          "fp": 195,
+          "vp": 19,
+          "fp": 201,
           "vn": 0,
           "fn": 0
         },
-        "f1": 0.09302325581395349
+        "f1": 0.1589958158995816
       },
       {
         "umbral": 4,
         "matriz": {
-          "vp": 10,
-          "fp": 55,
+          "vp": 19,
+          "fp": 61,
           "vn": 140,
           "fn": 0
         },
-        "f1": 0.2666666666666667
+        "f1": 0.3838383838383838
       },
       {
         "umbral": 5,
         "matriz": {
-          "vp": 10,
-          "fp": 55,
+          "vp": 19,
+          "fp": 61,
           "vn": 140,
           "fn": 0
         },
-        "f1": 0.2666666666666667
+        "f1": 0.3838383838383838
       },
       {
         "umbral": 6,
         "matriz": {
-          "vp": 1,
-          "fp": 46,
+          "vp": 10,
+          "fp": 52,
           "vn": 149,
           "fn": 9
         },
-        "f1": 0.03508771929824561
+        "f1": 0.2469135802469136
       },
       {
         "umbral": 7,
         "matriz": {
-          "vp": 1,
+          "vp": 4,
           "fp": 46,
-          "vn": 149,
-          "fn": 9
+          "vn": 155,
+          "fn": 15
         },
-        "f1": 0.03508771929824561
+        "f1": 0.11594202898550725
       },
       {
         "umbral": 8,
         "matriz": {
-          "vp": 1,
+          "vp": 4,
           "fp": 1,
-          "vn": 194,
-          "fn": 9
+          "vn": 200,
+          "fn": 15
         },
-        "f1": 0.16666666666666669
+        "f1": 0.3333333333333333
       },
       {
         "umbral": 9,
         "matriz": {
           "vp": 1,
           "fp": 1,
-          "vn": 194,
-          "fn": 9
+          "vn": 200,
+          "fn": 18
         },
-        "f1": 0.16666666666666669
+        "f1": 0.09523809523809525
       },
       {
         "umbral": 10,
         "matriz": {
           "vp": 1,
           "fp": 1,
-          "vn": 194,
-          "fn": 9
+          "vn": 200,
+          "fn": 18
         },
-        "f1": 0.16666666666666669
+        "f1": 0.09523809523809525
       },
       {
         "umbral": 11,
         "matriz": {
           "vp": 0,
           "fp": 0,
-          "vn": 195,
-          "fn": 10
+          "vn": 201,
+          "fn": 19
         },
         "f1": "n/d"
       },
@@ -118,22 +118,22 @@
         "matriz": {
           "vp": 0,
           "fp": 0,
-          "vn": 195,
-          "fn": 10
+          "vn": 201,
+          "fn": 19
         },
         "f1": "n/d"
       }
     ]
   },
   "priorizacion": {
-    "n": 18,
+    "n": 31,
     "acierto_pm1": 1.0,
     "spearman": 1.0
   },
   "operacion": {
-    "cobertura": 0.08780487804878048,
+    "cobertura": 0.15,
     "tasa_escalado": 0.0,
-    "ms_medio_clasificar": 0.0025453559717833543
+    "ms_medio_clasificar": 0.002968677191264843
   },
   "continuidad": {
     "disruptivas_indebidas": 0,
@@ -141,30 +141,30 @@
   },
   "condiciones": {
     "perfil": "empresarial",
-    "n_alertas": 205,
-    "n_soportadas": 18,
+    "n_alertas": 220,
+    "n_soportadas": 31,
     "version_baseline": "baseline-0",
     "version_justificador": [
-      "llm-4:llama-3.1-8b-instruct-q4.gguf"
+      "llm-5:llama-3.1-8b-instruct-q4.gguf"
     ]
   },
   "anclaje": {
     "resumen": {
-      "llm_total": 18,
-      "anclados": 18,
+      "llm_total": 31,
+      "anclados": 31,
       "degradados": 0,
       "pct_anclaje": 1.0,
       "versiones": [
-        "llm-4:llama-3.1-8b-instruct-q4.gguf"
+        "llm-5:llama-3.1-8b-instruct-q4.gguf"
       ],
       "por_clase": {
         "vp_intento_acceso": {
-          "llm": 10,
+          "llm": 19,
           "plantilla": 0,
           "pct_anclaje": 1.0
         },
         "fp_actividad_legitima": {
-          "llm": 8,
+          "llm": 12,
           "plantilla": 0,
           "pct_anclaje": 1.0
         }
@@ -177,8 +177,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mapeo-acceso_credenciales",
           "mitre-T1021",
@@ -193,8 +193,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mapeo-acceso_credenciales",
           "mitre-T1021",
@@ -209,8 +209,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mapeo-acceso_credenciales",
           "mitre-T1021",
@@ -225,8 +225,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mapeo-acceso_credenciales",
           "mitre-T1021",
@@ -241,8 +241,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mapeo-acceso_credenciales",
           "mitre-T1021",
@@ -257,8 +257,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mapeo-acceso_credenciales",
           "mitre-T1021",
@@ -273,8 +273,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mapeo-acceso_credenciales",
           "mitre-T1021",
@@ -289,8 +289,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se debe a que el motor ha detectado un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mitre-T1021",
           "mapeo-acceso_credenciales",
@@ -305,8 +305,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mapeo-acceso_credenciales",
           "mitre-T1021",
@@ -321,8 +321,8 @@
         "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
           "mapeo-acceso_credenciales",
           "mitre-T1021",
@@ -337,8 +337,8 @@
         "clase": "fp_actividad_legitima",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
         "pasajes_usados": [
           "descarte-origen-legitimo",
           "descarte-sin-exposicion",
@@ -353,8 +353,8 @@
         "clase": "fp_actividad_legitima",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
         "pasajes_usados": [
           "descarte-origen-legitimo",
           "descarte-sin-exposicion",
@@ -369,8 +369,8 @@
         "clase": "fp_actividad_legitima",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
         "pasajes_usados": [
           "descarte-origen-legitimo",
           "descarte-sin-exposicion",
@@ -385,8 +385,8 @@
         "clase": "fp_actividad_legitima",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
         "pasajes_usados": [
           "descarte-origen-legitimo",
           "descarte-sin-exposicion",
@@ -401,8 +401,8 @@
         "clase": "fp_actividad_legitima",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
         "pasajes_usados": [
           "descarte-origen-legitimo",
           "descarte-sin-exposicion",
@@ -417,8 +417,8 @@
         "clase": "fp_actividad_legitima",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
         "pasajes_usados": [
           "descarte-origen-legitimo",
           "descarte-sin-exposicion",
@@ -433,8 +433,8 @@
         "clase": "fp_actividad_legitima",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
         "pasajes_usados": [
           "descarte-origen-legitimo",
           "descarte-sin-exposicion",
@@ -449,8 +449,216 @@
         "clase": "fp_actividad_legitima",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente, lo que sugiere que se trata de un administrador que erró la credencial en lugar de un atacante.",
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza porque el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la actividad corresponde a una acción esperada y no a un ataque.",
+        "pasajes_usados": [
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089714.114605",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a la máquina objetivo-vuln desde la dirección IP 192.168.1.10, que está intentando descubrir servicios expuestos en la máquina objetivo-vuln, específicamente el servicio ssh.",
+        "pasajes_usados": [
+          "d3fend-D3-NTF",
+          "mapeo-reconocimiento",
+          "mitre-T1046"
+        ],
+        "consulta_usada": "tecnica MITRE T1021.004 reconocimiento servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089716.114986",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a la máquina objetivo-vuln desde la dirección IP 192.168.1.10, que está intentando descubrir servicios expuestos en la máquina objetivo-vuln, específicamente el servicio ssh.",
+        "pasajes_usados": [
+          "d3fend-D3-NTF",
+          "mapeo-reconocimiento",
+          "mitre-T1046"
+        ],
+        "consulta_usada": "tecnica MITRE T1021.004 reconocimiento servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089718.115367",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a la máquina objetivo-vuln desde la dirección IP 192.168.1.10, que está intentando descubrir servicios expuestos en la máquina objetivo-vuln, específicamente el servicio ssh.",
+        "pasajes_usados": [
+          "d3fend-D3-NTF",
+          "mapeo-reconocimiento",
+          "mitre-T1046"
+        ],
+        "consulta_usada": "tecnica MITRE T1021.004 reconocimiento servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089720.115748",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a la máquina objetivo-vuln desde la dirección IP 192.168.1.10, que está intentando descubrir servicios expuestos en la máquina objetivo-vuln, específicamente el servicio ssh.",
+        "pasajes_usados": [
+          "d3fend-D3-NTF",
+          "mapeo-reconocimiento",
+          "mitre-T1046"
+        ],
+        "consulta_usada": "tecnica MITRE T1021.004 reconocimiento servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089722.116129",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a la máquina objetivo-vuln desde la dirección IP 192.168.1.10, que está intentando descubrir servicios expuestos en la máquina objetivo-vuln, específicamente el servicio ssh.",
+        "pasajes_usados": [
+          "d3fend-D3-NTF",
+          "mapeo-reconocimiento",
+          "mitre-T1046"
+        ],
+        "consulta_usada": "tecnica MITRE T1021.004 reconocimiento servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089724.116510",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor de seguridad detectó un intento de acceso no autorizado a la máquina objetivo-vuln desde la dirección IP 192.168.1.10, que está intentando descubrir servicios expuestos en la máquina objetivo-vuln, específicamente el servicio ssh.",
+        "pasajes_usados": [
+          "d3fend-D3-NTF",
+          "mapeo-reconocimiento",
+          "mitre-T1046"
+        ],
+        "consulta_usada": "tecnica MITRE T1021.004 reconocimiento servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089726.116891",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el origen 192.168.1.10 está utilizando la técnica MITRE T1190 (Exploit Public-Facing Application) para intentar acceder al servicio SSH expuesto en el activo objetivo-vuln.",
+        "pasajes_usados": [
+          "mapeo-reconocimiento",
+          "d3fend-D3-NTF",
+          "mapeo-acceso_credenciales"
+        ],
+        "consulta_usada": "tecnica MITRE T1190 reconocimiento servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089728.117309",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el origen 192.168.1.10 está utilizando la técnica MITRE T1190 (Exploit Public-Facing Application) para intentar acceder al servicio SSH expuesto en el activo objetivo-vuln.",
+        "pasajes_usados": [
+          "mapeo-reconocimiento",
+          "d3fend-D3-NTF",
+          "mapeo-acceso_credenciales"
+        ],
+        "consulta_usada": "tecnica MITRE T1190 reconocimiento servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089730.117727",
+        "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el origen 192.168.1.10 está utilizando la técnica MITRE T1190 (Exploit Public-Facing Application) para intentar acceder al servicio SSH expuesto en el activo objetivo-vuln.",
+        "pasajes_usados": [
+          "mapeo-reconocimiento",
+          "d3fend-D3-NTF",
+          "mapeo-acceso_credenciales"
+        ],
+        "consulta_usada": "tecnica MITRE T1190 reconocimiento servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089732.118145",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
+        "pasajes_usados": [
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089734.118524",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
+        "pasajes_usados": [
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089736.118903",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
+        "pasajes_usados": [
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
+      },
+      {
+        "id_alerta": "1789089738.119282",
+        "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
+        "anclaje_verificado": true,
+        "version_justificador": "llm-5:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la actividad (192.168.1.1) figura entre los origenes legitimos declarados por el cliente (administracion propia o auditoria autorizada), lo que indica que la senal corresponde a actividad esperada y no a un atacante.",
         "pasajes_usados": [
           "descarte-origen-legitimo",
           "descarte-sin-exposicion",

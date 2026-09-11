@@ -1,0 +1,18 @@
+id: 2026-09-11-recon-evaluacion
+fecha: 2026-09-11
+familia: reconocimiento
+ataques:
+  - escenario: barridos de puertos y sondeos de protocolo contra ssh (nc)
+    objetivo: objetivo-vuln
+    desde: puesto
+  - escenario: comprobaciones de servicio benignas (admin legitimo, nc -z)
+    objetivo: objetivo-vuln
+    desde: borde
+  - escenario: barrido de puertos (nc)
+    objetivo: objetivo-vuln
+    desde: auditor
+auditor:
+  ips: ["172.20.20.4"]
+  cuando: "2026-09-11T01:21:53+0000"
+legitimos:
+  ips: ["192.168.1.1"]

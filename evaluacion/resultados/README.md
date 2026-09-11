@@ -8,8 +8,8 @@ refleja la última corrida de ese directorio.
 
 | Directorio | Qué mide | Estado de las cifras |
 |------------|----------|----------------------|
-| `.` (raíz) | Partición de evaluación (205 alertas, 18 soportadas) | **Vigente** — posterior a RF-03 |
-| `anexo-completo/` | Partición completa (410 alertas, 36 soportadas); comprueba que no hubo fuga entre entrenar y evaluar | **Vigente** — regenerado el 10/09/2026 |
+| `.` (raíz) | Partición de evaluación (220 alertas, 31 soportadas de dos familias) | **Vigente** — `campana-2026-09-10.json`; las corridas anteriores de la raíz son de 205/18 |
+| `anexo-completo/` | Partición completa (440 alertas, 62 soportadas); comprueba que no hubo fuga entre entrenar y evaluar | **Vigente** — regenerado el 11/09/2026 |
 | `sin-rag/` · `con-rag/` | Contraste del **anclaje de la justificación** con y sin recuperación aumentada | **Históricos (02/09/2026)** — ver la nota de abajo |
 
 ## Nota sobre `sin-rag/` y `con-rag/`
@@ -74,6 +74,35 @@ no ve fichas de descarte; un descarte no ve fichas de ataque). Las 18 justificac
 a una: los descartes citan el motivo real (el origen figura como administracion declarada) y las
 amenazas citan origen, activo y servicio expuesto. El desglose por clase esta en el JSON
 (`anclaje.resumen.por_clase`).
+
+### Segunda familia: reconocimiento (11/09/2026)
+
+Dos campañas reales de reconocimiento (`lab/campañas/2026-09-11-recon-*`, ver `lab/docs/dataset.md`)
+llevan la partición de evaluación de 18 a **31 alertas soportadas de dos familias** (dataset: 410 → 440).
+
+| Clasificación, partición ampliada (n = 220) | Auditor no declarado | Auditor declarado | Baseline |
+|---|---|---|---|
+| Precisión | 0.905 | **1.000** | 0.237 |
+| Tasa de FP | 0.010 | **0.000** | 0.303 |
+| FP (de 220) | 2 | 0 | 61 |
+
+Los 2 FP eran **los barridos del propio auditor** (172.20.20.4): el prototipo habría bloqueado a su
+instrumento de medida. Antes no se vio porque el auditor escaneaba en modo SYN y no dejaba rastro. Se
+corrigió por configuración: el auditor se declara en `origenes_legitimos` del perfil (RNF-14) y su IP de
+gestión queda fija en la topología. Matriz vigente VP=19 · FP=0 · VN=201 · FN=0.
+
+Justificación (`llm-5`): las 31 anclan, pero leídas, las de reconocimiento narraban un sondeo como
+«intento de explotar el SSH» y situaban al activo en la IP del atacante. Causa: la familia no iba en el
+enunciado, y Wazuh etiqueta 5706/5701 como T1021.004/T1190. Con la familia y los roles en el enunciado, el
+5706 se explica como descubrimiento de servicios; el 5701 sigue narrando T1190 **porque eso dice la
+etiqueta de la fuente** y el enunciado manda citar los datos. Es el argumento medido para una clase propia
+de reconocimiento (misma acción, otro nombre/prioridad/pregunta): cambia la capa de decisión y queda como
+recomendación.
+
+Banco: se añadieron 2 casos de reconocimiento con las etiquetas **reales** de Wazuh (el banco original
+usaba T1046/T1595, que no es lo que llega). `rag-simulacion-2026-09-11-bge.md` (14 casos): fija MRR 0.67,
+agéntica 0.77; Hit@5 0.93 / 1.00. Los 12 originales bajan 0.04 de MRR por enriquecer la ficha
+`mapeo-reconocimiento` con el vocabulario observable; los 2 reales pasan a recuperarla en 1.ª/2.ª posición.
 
 ### Reproducibilidad del banco (RNF-03)
 

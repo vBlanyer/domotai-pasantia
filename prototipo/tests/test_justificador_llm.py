@@ -160,7 +160,7 @@ class TestVersionJustificador(unittest.TestCase):
     def test_llm_reporta_version_con_modelo(self):
         gen = lambda p: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
         r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen)
-        self.assertTrue(r["version_justificador"].startswith("llm-4"))
+        self.assertTrue(r["version_justificador"].startswith("llm-5"))
         self.assertIn("llama-3.2-1b-q4.gguf", r["version_justificador"])
 
     def test_degradacion_reporta_plantilla(self):
@@ -174,7 +174,7 @@ class TestVersionJustificador(unittest.TestCase):
         fn = jl.justificar_fn_rag(gen, recuperar_fn)
         r = fn(ALERTA, CTX_EXP, "vp_intento_acceso")
         self.assertIn("texto", r)
-        self.assertTrue(r["version_justificador"].startswith("llm-4"))
+        self.assertTrue(r["version_justificador"].startswith("llm-5"))
         self.assertEqual(r["pasajes_usados"], ["regla-5760"])
 
 
@@ -292,7 +292,7 @@ class TestPromptSegunClase(unittest.TestCase):
     def test_el_origen_legitimo_viaja_como_dato(self):
         # Sin el, el modelo deduce mal el motivo del falso positivo.
         ctx = dict(CTX_EXP, origen_legitimo=True)
-        self.assertIn("administracion legitima", jl.construir_prompt(ALERTA, ctx, "fp_actividad_legitima"))
+        self.assertIn("origenes legitimos declarados", jl.construir_prompt(ALERTA, ctx, "fp_actividad_legitima"))
 
     def test_sin_origen_legitimo_no_se_menciona(self):
         self.assertNotIn("administracion legitima", jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso"))

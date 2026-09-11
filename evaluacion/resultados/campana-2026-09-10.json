@@ -1,9 +1,9 @@
 {
   "clasificacion_prototipo": {
     "matriz": {
-      "vp": 38,
+      "vp": 19,
       "fp": 0,
-      "vn": 402,
+      "vn": 201,
       "fn": 0
     },
     "precision": 1.0,
@@ -15,9 +15,9 @@
     "optimo": {
       "umbral": 5,
       "matriz": {
-        "vp": 38,
-        "fp": 122,
-        "vn": 280,
+        "vp": 19,
+        "fp": 61,
+        "vn": 140,
         "fn": 0
       },
       "f1": 0.3838383838383838
@@ -26,8 +26,8 @@
       {
         "umbral": 3,
         "matriz": {
-          "vp": 38,
-          "fp": 402,
+          "vp": 19,
+          "fp": 201,
           "vn": 0,
           "fn": 0
         },
@@ -36,9 +36,9 @@
       {
         "umbral": 4,
         "matriz": {
-          "vp": 38,
-          "fp": 122,
-          "vn": 280,
+          "vp": 19,
+          "fp": 61,
+          "vn": 140,
           "fn": 0
         },
         "f1": 0.3838383838383838
@@ -46,9 +46,9 @@
       {
         "umbral": 5,
         "matriz": {
-          "vp": 38,
-          "fp": 122,
-          "vn": 280,
+          "vp": 19,
+          "fp": 61,
+          "vn": 140,
           "fn": 0
         },
         "f1": 0.3838383838383838
@@ -56,50 +56,50 @@
       {
         "umbral": 6,
         "matriz": {
-          "vp": 20,
-          "fp": 104,
-          "vn": 298,
-          "fn": 18
+          "vp": 10,
+          "fp": 52,
+          "vn": 149,
+          "fn": 9
         },
         "f1": 0.2469135802469136
       },
       {
         "umbral": 7,
         "matriz": {
-          "vp": 8,
-          "fp": 92,
-          "vn": 310,
-          "fn": 30
+          "vp": 4,
+          "fp": 46,
+          "vn": 155,
+          "fn": 15
         },
         "f1": 0.11594202898550725
       },
       {
         "umbral": 8,
         "matriz": {
-          "vp": 8,
-          "fp": 2,
-          "vn": 400,
-          "fn": 30
+          "vp": 4,
+          "fp": 1,
+          "vn": 200,
+          "fn": 15
         },
         "f1": 0.3333333333333333
       },
       {
         "umbral": 9,
         "matriz": {
-          "vp": 2,
-          "fp": 2,
-          "vn": 400,
-          "fn": 36
+          "vp": 1,
+          "fp": 1,
+          "vn": 200,
+          "fn": 18
         },
         "f1": 0.09523809523809525
       },
       {
         "umbral": 10,
         "matriz": {
-          "vp": 2,
-          "fp": 2,
-          "vn": 400,
-          "fn": 36
+          "vp": 1,
+          "fp": 1,
+          "vn": 200,
+          "fn": 18
         },
         "f1": 0.09523809523809525
       },
@@ -108,8 +108,8 @@
         "matriz": {
           "vp": 0,
           "fp": 0,
-          "vn": 402,
-          "fn": 38
+          "vn": 201,
+          "fn": 19
         },
         "f1": "n/d"
       },
@@ -118,22 +118,22 @@
         "matriz": {
           "vp": 0,
           "fp": 0,
-          "vn": 402,
-          "fn": 38
+          "vn": 201,
+          "fn": 19
         },
         "f1": "n/d"
       }
     ]
   },
   "priorizacion": {
-    "n": 62,
+    "n": 31,
     "acierto_pm1": 1.0,
     "spearman": 1.0
   },
   "operacion": {
     "cobertura": 0.15,
     "tasa_escalado": 0.0,
-    "ms_medio_clasificar": 0.002998936245355501
+    "ms_medio_clasificar": 0.0027293181615691124
   },
   "continuidad": {
     "disruptivas_indebidas": 0,
@@ -141,8 +141,8 @@
   },
   "condiciones": {
     "perfil": "empresarial",
-    "n_alertas": 440,
-    "n_soportadas": 62,
+    "n_alertas": 220,
+    "n_soportadas": 31,
     "version_baseline": "baseline-0"
   }
 }

@@ -5,7 +5,7 @@ from prototipo.analisis import CLASES_SIN_AMENAZA
 from prototipo import postura as postura_mod
 
 # Sube con cada cambio que altere el texto generado: el enunciado, la invocacion o el modelo.
-VERSION_JUSTIFICADOR = "llm-4"
+VERSION_JUSTIFICADOR = "llm-5"
 
 _IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 _TECNICA = re.compile(r'\bT\d{4}(?:\.\d{3})?\b')
@@ -42,13 +42,21 @@ def construir_prompt(alerta, contexto, clase, pasajes=None):
     else:
         verd = f"el auditor no confirma exposicion de {alerta.get('servicio')} en {alerta.get('activo')}"
     mitre = ", ".join(alerta.get("mitre", []) or ["s/tecnica"])
+    familia = (alerta.get("familia") or "desconocida").replace("_", " ")
     # SOLO campos estructurados (parseados por Wazuh). El full_log/evento_crudo NO entra (RNF-08).
-    datos = (f"regla {alerta.get('regla_id')}, tecnica MITRE {mitre}, origen {alerta.get('origen_ip')}, "
-             f"activo {alerta.get('activo')}, servicio {alerta.get('servicio')}, clase {clase}. {verd}")
+    # La familia va en los datos: sin ella, un barrido de puertos se explicaba como "intento de
+    # explotar la vulnerabilidad del SSH", porque la clase (vp_intento_acceso) es comun a todas
+    # las familias y las etiquetas MITRE de Wazuh para el reconocimiento (T1021.004, T1190)
+    # apuntan a acceso y explotacion. Los roles se nombran (origen de la actividad / activo
+    # afectado) porque se vio al modelo situar al activo "en la direccion" del atacante.
+    datos = (f"regla {alerta.get('regla_id')}, familia de la alerta: {familia}, tecnica MITRE {mitre}, "
+             f"origen de la actividad {alerta.get('origen_ip')}, activo afectado {alerta.get('activo')}, "
+             f"servicio {alerta.get('servicio')}, clase {clase}. {verd}")
     # El motivo real por el que una alerta asi es falso positivo. Sin este dato el modelo lo
     # deduce mal: se le vio argumentar que el origen "es una IP interna", que no es la razon.
     if contexto.get("origen_legitimo"):
-        datos += "; el origen figura como administracion legitima declarada por el cliente"
+        datos += ("; el origen figura entre los origenes legitimos declarados por el cliente "
+                  "(administracion propia o auditoria autorizada)")
     # La pregunta depende de la clase ya decidida. Preguntar "por que importa" sobre una alerta
     # que el motor acaba de descartar induce al modelo a justificar un ataque que no hay, y con
     # conocimiento recuperado sobre tecnicas de ataque lo hace de forma sistematica: se midio que

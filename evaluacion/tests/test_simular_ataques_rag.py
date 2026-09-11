@@ -6,12 +6,23 @@ RUTA = os.path.join(os.path.dirname(__file__), "..", "simulaciones", "ataques.js
 
 
 class TestSet(unittest.TestCase):
-    def test_carga_12_alertas_3_por_familia(self):
+    def test_carga_14_alertas_de_4_familias(self):
+        # 12 originales (3 por familia, etiquetas MITRE "ideales") + 2 de reconocimiento con las
+        # etiquetas que Wazuh pone de verdad a las reglas 5706/5701 (T1021.004, T1190), anadidas
+        # cuando la campana real mostro que el banco no reproducia los datos que llegan.
         alertas = sim.cargar_simulaciones(RUTA)
-        self.assertEqual(len(alertas), 12)
+        self.assertEqual(len(alertas), 14)
         c = Counter(a["familia"] for a in alertas)
         self.assertEqual(len(c), 4)
-        self.assertEqual(set(c.values()), {3})
+        self.assertEqual(c["reconocimiento"], 5)
+        self.assertTrue(all(v >= 3 for v in c.values()))
+
+    def test_los_casos_reales_llevan_la_etiqueta_de_wazuh_no_la_ideal(self):
+        reales = {a["regla_id"]: a for a in sim.cargar_simulaciones(RUTA) if a["id_alerta"].startswith("sim-rc-real")}
+        self.assertEqual(reales["5706"]["mitre"], ["T1021.004"])
+        self.assertEqual(reales["5701"]["mitre"], ["T1190"])
+        for a in reales.values():
+            self.assertIn("mapeo-reconocimiento", a["esperado"])
 
     def test_cada_alerta_espera_su_mapeo_y_tiene_campos_criticos(self):
         for a in sim.cargar_simulaciones(RUTA):

@@ -175,8 +175,9 @@ python3 -m prototipo.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empr
   "lab/campañas/2026-08-31-evaluacion/hallazgos.json" /tmp/trazas-emp.jsonl
 ```
 
-Sobre las 410 alertas del dataset etiquetado (`lab/dataset/etiquetado.jsonl`), con el perfil
-`empresarial` y los hallazgos de la campaña `2026-08-31-evaluacion`:
+Sobre las 410 alertas del dataset etiquetado original (`lab/dataset/etiquetado.jsonl`; 440 desde el
+11/09/2026 con la familia `reconocimiento`, ver §10.quater), con el perfil `empresarial` y los hallazgos
+de la campaña `2026-08-31-evaluacion`:
 
 - **Clases:** `no_soportada`: 374, `vp_intento_acceso`: 36.
 - **`resultado_filtro`:** `sin_accion`: 374, `permite`: 36.
@@ -526,6 +527,13 @@ Tres cambios posteriores a la evaluación, cada uno con su medición en
   no sea de la alerta (o el padre de uno de los suyos): bajo `llm-3` se vio al modelo atribuir a la
   alerta la `T1021.004` de un pasaje recuperado. Mismo criterio que para las IPs. Efecto sobre la
   corrida vigente: 0 de 18 (ningún texto cita identificadores).
+- **Segunda familia: reconocimiento** (11/09). Dos campañas reales (`lab/scripts/campana-recon.sh`) → 440
+  alertas, 31 soportadas en evaluación. Hallazgos: el prototipo habría bloqueado a su propio auditor
+  (172.20.20.4 no estaba en `origenes_legitimos`; corregido por configuración y IP fijada en la topología);
+  la **familia entra en el enunciado** del justificador (`llm-5`) porque sin ella un sondeo se narraba como
+  explotación; y la explicación **hereda las etiquetas MITRE de Wazuh** (5701 → T1190), que ninguna
+  instrucción corrige: argumento medido para una clase `vp_reconocimiento`, propuesta en el informe.
+  Clasificación: precisión 1.000 / FP 0.000 sobre 220 (baseline 0.237 / 0.303).
 
 ### 10.ter Agente de mitigación (ReAct + Tool Calling acotado)
 

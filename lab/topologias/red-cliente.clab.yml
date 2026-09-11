@@ -93,6 +93,10 @@ topology:
       labels: {graph-icon: controller, graph-group: "Gestion", graph-level: 1}
       # Solo esta en el plano de gestion: no aparece en ningun enlace.
       # Para escanear el plano de datos encamina a traves del equipo de borde.
+      # IP de gestion FIJA: el perfil de cliente la declara como origen legitimo. Se
+      # midio que, sin declararla, el prototipo clasificaba los barridos del propio
+      # auditor como ataque y habria bloqueado a su instrumento de medida.
+      mgmt-ipv4: 172.20.20.4
       exec:
         - apk add --no-cache nmap nmap-scripts
         - ip route add 192.168.1.0/24 via 172.20.20.100
