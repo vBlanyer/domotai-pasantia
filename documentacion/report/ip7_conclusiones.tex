@@ -71,8 +71,12 @@ distinción entre un administrador legítimo y un atacante sobre el mismo servic
 dirección de origen declarada en la configuración del cliente, que es suplantable, y cubre cuatro de
 las seis categorías del caso de uso; las dos restantes exigen señales que el conjunto de datos no
 contiene. El segundo es que el clasificador con ajuste fino, que resolvería ese límite de raíz,
-permanece bloqueado porque el conjunto de datos disponible, concentrado en una sola familia de
-ataque, no ofrece variedad suficiente para entrenarlo sin invalidar la propia evaluación. El tercero
+permanece bloqueado porque el conjunto de datos disponible no ofrece variedad suficiente para
+entrenarlo sin invalidar la propia evaluación; pero el límite se acotó mejor de lo que se
+esperaba: cuando se generaron datos cuya verdad no venía de la heurística, un árbol de decisión
+mostró que el aprendizaje supervisado aporta a esta escala exactamente una regla ---la ráfaga
+pesa más que el origen declarado---, y esa regla se adoptó como código auditable, con lo que la
+señal de origen dejó de ser el único criterio y su suplantación dejó de ser invisible. El tercero
 es el alcance estadístico de la evaluación misma: cuarenta y dos alertas soportadas de tres
 familias, todas del mismo activo, sostienen un resultado direccionalmente claro pero no permiten
 generalizar sus cifras exactas a un cliente con un perfil de amenazas distinto. Las dos familias
@@ -87,10 +91,12 @@ prototipo no usa el nivel: decide con la familia, la postura del activo y el ori
 \subsection*{Recomendaciones}
 
 \begin{itemize}
-  \item \textbf{Ampliar el conjunto de datos etiquetado con más familias de ataque y más activos},
-        antes de intentar de nuevo el ajuste fino de un clasificador. Es la condición que hoy
-        bloquea la pieza más importante que falta en el prototipo, y no depende de ninguna decisión
-        externa a este proyecto.
+  \item \textbf{Ampliar el conjunto de datos con casos cuya verdad no venga de la heurística},
+        antes de intentar de nuevo el ajuste fino de un clasificador: más activos, más servicios,
+        ataques lentos que no formen ráfaga, y usuarios legítimos desde orígenes no declarados. La
+        campaña de casos difíciles y el árbol de decisión son el método: cada regla que el árbol
+        descubra con evidencia estable se adopta como código; el codificador entrenado competirá
+        contra ese árbol, no contra las reglas a secas.
   \item \textbf{Dar al reconocimiento una clase propia.} La familia no cambia la acción, y el
         diseño lo previó así; pero se midió que sí cambia la explicación: con la clase común y las
         etiquetas MITRE que Wazuh asigna a sus reglas de reconocimiento, un sondeo de puerto se

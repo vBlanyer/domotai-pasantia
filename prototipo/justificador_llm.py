@@ -5,7 +5,7 @@ from prototipo.analisis import CLASES_SIN_AMENAZA
 from prototipo import postura as postura_mod
 
 # Sube con cada cambio que altere el texto generado: el enunciado, la invocacion o el modelo.
-VERSION_JUSTIFICADOR = "llm-5"
+VERSION_JUSTIFICADOR = "llm-6"
 
 _IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 _TECNICA = re.compile(r'\bT\d{4}(?:\.\d{3})?\b')
@@ -57,14 +57,26 @@ def construir_prompt(alerta, contexto, clase, pasajes=None):
     if contexto.get("origen_legitimo"):
         datos += ("; el origen figura entre los origenes legitimos declarados por el cliente "
                   "(administracion propia o auditoria autorizada)")
+    umbral = contexto.get("umbral_rafaga")
+    if umbral and (contexto.get("rafaga") or 0) >= umbral:
+        datos += (f"; rafaga de {contexto['rafaga']} alertas del mismo origen en un minuto (umbral {umbral}), "
+                  "que pesa mas que la procedencia declarada")
     # La pregunta depende de la clase ya decidida. Preguntar "por que importa" sobre una alerta
     # que el motor acaba de descartar induce al modelo a justificar un ataque que no hay, y con
     # conocimiento recuperado sobre tecnicas de ataque lo hace de forma sistematica: se midio que
     # una alerta clasificada como actividad legitima se explicaba como "ataque de fuerza bruta en
     # curso". La justificacion explica la decision; no la reevalua.
+    en_rafaga = bool(umbral) and (contexto.get("rafaga") or 0) >= umbral
     if clase in CLASES_SIN_AMENAZA:
         tarea = (f"El motor ya clasifico esta alerta como {clase}: NO es una amenaza. "
                  "Explica en una o dos frases por que NO lo es")
+    elif contexto.get("origen_legitimo") and en_rafaga:
+        # La razon decisiva tiene que estar en la PREGUNTA, no solo en los datos: con la rafaga
+        # solo en los datos, el modelo explicaba que el origen era legitimo y no decia por que
+        # aun asi es amenaza. Un lector se quedaba sin la unica razon que importa.
+        tarea = (f"El motor ya clasifico esta alerta como {clase} A PESAR de que el origen esta declarado "
+                 "como legitimo, porque la rafaga pesa mas que la procedencia (origen suplantado o equipo "
+                 "comprometido). Explica en una o dos frases por que importa, nombrando la rafaga")
     else:
         tarea = (f"El motor ya clasifico esta alerta como {clase}. "
                  "Explica en una o dos frases por que importa")

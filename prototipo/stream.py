@@ -7,7 +7,7 @@ testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Waz
 contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.stream -`.
 """
 import io, json, os, select, sys, time
-from prototipo import ingesta, adaptador_wazuh, agrupacion, lazo, traza
+from prototipo import ingesta, adaptador_wazuh, agrupacion, lazo, rafaga, traza
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
 
@@ -92,9 +92,13 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     cadena = (traza.Cadena(salida_traza, hash_previo, n=n_previos, nombre=nombre_traza, linaje=linaje)
               if salida_traza is not None else None)
     seq = [0]
+    ventana_rafaga = rafaga.Ventana()
     def _procesa_lote(lote):
         for inc in agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1)):
             seq[0] += 1
+            # La rafaga del representante se toma al emitir el incidente, cuando la ventana ya
+            # contiene toda la rafaga, no al llegar la primera alerta.
+            inc["representante"][rafaga.CAMPO] = ventana_rafaga.contar(inc["representante"].get("origen_ip"))
             _contar(resumen, _procesar_incidente(
                 inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
                 f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn))
@@ -115,14 +119,14 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             alerta = _parsear(linea)
             if alerta is None:
                 continue
-            resumen["alertas"] += 1
+            resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
             _procesa_lote([alerta])
             continue
         # modo con ventana
         if linea is not None:
             alerta = _parsear(linea)
             if alerta is not None:
-                resumen["alertas"] += 1
+                resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
                 if t0 is None:
                     t0 = reloj()
                 buffer.append(alerta)

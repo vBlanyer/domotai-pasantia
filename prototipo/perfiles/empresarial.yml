@@ -8,6 +8,10 @@ activos:
 # aparente desde ellos es FP (RF-03). Medido: sin declarar al auditor, sus barridos de puertos
 # se clasificaban como ataque y el prototipo lo habría bloqueado (campaña de reconocimiento).
 origenes_legitimos: ["192.168.1.1", "172.20.20.4"]
+# Ráfaga: a partir de cuántas alertas del mismo origen en un minuto se considera ataque aunque el
+# origen esté declarado (suplantación o equipo comprometido). Umbral tomado del clasificador
+# entrenado (corte en 8,5, estable); sin esta clave, la regla no actúa.
+rafaga: { umbral: 9, ventana_s: 60 }
 continuidad:
   impacto_ninguno:          automatica
   impacto_localizado:       automatica_si_confianza

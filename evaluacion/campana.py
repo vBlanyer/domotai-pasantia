@@ -1,11 +1,15 @@
 """Orquesta la campana de evaluacion: prototipo vs baseline, todas las metricas, y el informe."""
 import argparse, json, os, datetime
 from evaluacion import cargar, prediccion, baseline, prioridad, anclaje, metricas
+from prototipo import rafaga
 from prototipo import catalogo as catm, perfil as perfilm, triaje, justificador_llm
 
 def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_prioridad,
             con_llm=True, generador=None, recuperar_fn=None, _procesar=triaje.procesar):
     verd = [f["etiqueta"] == "VP" for f in filas]
+    # La rafaga se calcula sobre todas las filas de la particion (cada campana esta entera en una),
+    # incluidas las no soportadas: el acceso correcto que sigue a un error de tecleo es una de ellas.
+    rafaga.contar_en_lote(filas)
     preds = prediccion.predecir_todas(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, _procesar=_procesar)
 
     # Clasificacion del prototipo

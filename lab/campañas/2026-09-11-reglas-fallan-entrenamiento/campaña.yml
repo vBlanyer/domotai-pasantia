@@ -1,0 +1,27 @@
+id: 2026-09-11-reglas-fallan-entrenamiento
+fecha: 2026-09-11
+familia: acceso_credenciales
+proposito: casos en que las reglas del clasificador determinista fallan; verdad declarada por el experimento
+ataques:
+  - escenario: E1 fuerza bruta root@ desde la IP declarada del administrador
+    objetivo: objetivo-vuln
+    desde: borde
+  - escenario: E2 error de contrasena y acceso correcto de un usuario legitimo desde un origen no declarado
+    objetivo: objetivo-vuln
+    desde: puesto
+  - escenario: E3 un solo error de contrasena del administrador (root@)
+    objetivo: objetivo-vuln
+    desde: borde
+  - escenario: E4 fuerza bruta con usuario inexistente (admin@) desde el atacante
+    objetivo: objetivo-vuln
+    desde: puesto
+auditor:
+  ips: ["172.20.20.4"]
+  cuando: "2026-09-11T15:02:29+0000"
+legitimos:
+  ips: ["192.168.1.1"]
+verdad:
+  - { origen: "192.168.1.1",  desde: "2026-09-11T15:02:30", hasta: "2026-09-11T15:04:23", etiqueta: VP, motivo: "E1: fuerza bruta lanzada desde la IP del admin (suplantacion o equipo comprometido)" }
+  - { origen: "192.168.1.10", desde: "2026-09-11T15:02:30", hasta: "2026-09-11T15:04:23", etiqueta: FP, motivo: "E2: usuario legitimo que erro la contrasena y entro despues, desde un puesto no declarado" }
+  - { origen: "192.168.1.1",  desde: "2026-09-11T15:04:23", hasta: "2026-09-11T15:06:19", etiqueta: FP, motivo: "E3: el administrador se equivoca una vez" }
+  - { origen: "192.168.1.10", desde: "2026-09-11T15:04:23", hasta: "2026-09-11T15:06:19", etiqueta: VP, motivo: "E4: fuerza bruta con usuario inexistente desde el atacante" }

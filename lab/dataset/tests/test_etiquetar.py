@@ -97,3 +97,33 @@ class TestEtiquetar(unittest.TestCase):
         r = etiquetar.etiquetar(reg, self.h, self.ficha, {reg["id_alerta"]: "VP"})
         self.assertEqual(r["etiqueta"], "VP")
         self.assertEqual(r["etiqueta_por"], "humano")
+
+
+class TestVerdadDeclarada(unittest.TestCase):
+    HALL = {"nodos": {"objetivo-vuln": [{"puerto": 22, "servicio": "ssh", "estado": "open"}]}}
+    FICHA = {"auditor": {"ips": ["172.20.20.4"]}, "legitimos": {"ips": ["192.168.1.1"]},
+             "verdad": [{"origen": "192.168.1.1", "desde": "2026-09-11T10:00:00", "hasta": "2026-09-11T10:05:00",
+                         "etiqueta": "VP", "motivo": "fuerza bruta lanzada desde la IP del admin"}]}
+
+    def _reg(self, origen, ts):
+        return {"id_alerta": "x", "origen_ip": origen, "timestamp": ts, "familia": "acceso_credenciales",
+                "activo": "objetivo-vuln", "servicio": "ssh"}
+
+    def test_la_verdad_declarada_manda_sobre_el_origen_legitimo(self):
+        r = etiquetar.etiquetar(self._reg("192.168.1.1", "2026-09-11T10:02:00+0000"), self.HALL, self.FICHA, {})
+        self.assertEqual(r["etiqueta"], "VP"); self.assertEqual(r["etiqueta_por"], "campaña")
+
+    def test_fuera_de_la_ventana_rigen_las_reglas(self):
+        r = etiquetar.etiquetar(self._reg("192.168.1.1", "2026-09-11T11:00:00+0000"), self.HALL, self.FICHA, {})
+        self.assertEqual(r["etiqueta"], "FP"); self.assertEqual(r["etiqueta_por"], "regla")
+
+    def test_el_auditor_sigue_siendo_propio_aunque_haya_verdad(self):
+        ficha = dict(self.FICHA, verdad=[dict(self.FICHA["verdad"][0], origen="172.20.20.4")])
+        r = etiquetar.etiquetar(self._reg("172.20.20.4", "2026-09-11T10:02:00+0000"), self.HALL, ficha, {})
+        self.assertEqual(r["etiqueta"], "PROPIA")
+
+    def test_fuera_del_caso_de_uso_no_se_declara(self):
+        reg = dict(self._reg("192.168.1.1", "2026-09-11T10:02:00+0000"), familia="plataforma")
+        r = etiquetar.etiquetar(reg, self.HALL, self.FICHA, {})
+        self.assertEqual(r["etiqueta"], "no_soportada")
+

@@ -13,26 +13,21 @@
 
 \seccionSinNumerar{Resumen}
 
-Las organizaciones enfrentan un volumen de alertas de seguridad que supera la capacidad de
-análisis manual de sus equipos, en buena parte porque los sistemas basados en reglas y firmas
-generan un alto volumen de falsos positivos sin justificar sus decisiones. Este trabajo,
-realizado como pasantía larga en Domotai C.A., desarrolla un motor de triaje que clasifica y
-prioriza alertas de seguridad, justifica cada decisión con un modelo de lenguaje de gran escala
-(LLM) apoyado en generación aumentada por recuperación (RAG) ejecutada en local, y propone una
-acción de respuesta contenida sujeta a validación humana: el modelo justifica, no decide. La
-metodología partió de modelar un cliente genérico ante la ausencia de un módulo propietario
-disponible, revisó el estado del arte de la detección extendida y gestionada y de los modelos de
-lenguaje en seguridad, construyó un laboratorio reproducible con Containerlab y Wazuh como fuente
-de alertas, diseñó una arquitectura que separa clasificación, política de decisión determinista y
-perfil de cliente configurable, e implementó y evaluó el prototipo frente al nivel de regla de
-Wazuh. Sobre 233 alertas reales de tres familias de ataque, el prototipo suprimió los falsos
-positivos ---tasa 0,000 frente a 0,296 del método por reglas--- y detectó todas las amenazas,
-incluidas las que el nivel de regla deja pasar (exhaustividad 0,741 del baseline), sin acciones
-disruptivas indebidas. La recuperación aumentada corrigió el defecto principal del justificador: el modelo
-ancla sus explicaciones en la alerta pero, sin ella, las describe con imprecisión. Queda como
-limitación el clasificador con ajuste fino, bloqueado por un conjunto de datos con una sola
-familia de ataque.
-
+Los sistemas de seguridad basados en reglas generan más alertas de las que un equipo puede
+analizar, muchas falsas y ninguna justificada. Este trabajo, realizado como pasantía larga en
+Domotai C.A., desarrolla un motor de triaje que clasifica y prioriza alertas, justifica cada
+decisión con un modelo de lenguaje (LLM) apoyado en generación aumentada por recuperación (RAG)
+en local, y propone una acción de respuesta contenida sujeta a validación
+humana: el modelo justifica, no decide. Se modeló un cliente genérico, se revisó el estado del arte, se construyó un
+laboratorio reproducible con Containerlab y Wazuh, se diseñó una arquitectura que separa
+clasificación, política determinista y perfil de cliente configurable, y se evaluó el prototipo
+frente al nivel de regla de Wazuh. Sobre 300 alertas reales de tres familias,
+incluidos casos diseñados para que las reglas fallaran, el prototipo redujo la tasa de falsos
+positivos a 0,009 frente a 0,310 del método por reglas y detectó todas las amenazas, incluidas las
+que el nivel de regla deja pasar (exhaustividad 0,920 del baseline), sin acciones disruptivas. Un árbol de decisión entrenado sobre esos datos redescubrió las reglas escritas a mano
+y aportó una, la de la ráfaga, adoptada como regla auditable. La recuperación aumentada corrigió
+la imprecisión de las explicaciones. Queda como limitación el clasificador con ajuste fino, que
+exige más variedad de datos de la que el laboratorio produce.
 \vspace{1.5\baselineskip}
 
 \noindent\textbf{Palabras clave:} triaje de alertas de seguridad, modelos de lenguaje de gran

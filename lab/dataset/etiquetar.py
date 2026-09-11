@@ -19,10 +19,27 @@ def _con(registro, etiqueta, por, postura):
     r["particion"] = None  # la puebla Task 7 desde particion.yml
     return r
 
+def _verdad_declarada(registro, ficha):
+    """Etiqueta que la campana declara para un origen en una ventana temporal, o None.
+
+    Es la verdad del EXPERIMENTO ('esto lo lance yo como ataque desde la IP del admin'), no la de
+    la heuristica. Sin ella, las etiquetas las generan las mismas senales que usa el clasificador
+    determinista (origen declarado, postura), y un modelo entrenado solo podria copiarlas."""
+    for v in ficha.get("verdad") or []:
+        if (registro.get("origen_ip") == v.get("origen")
+                and v.get("desde", "") <= (registro.get("timestamp") or "") <= v.get("hasta", "~")):
+            return v.get("etiqueta")
+    return None
+
 def etiquetar(registro, hallazgos, ficha, resoluciones):
     # 1. ¿Actividad de nuestro propio auditor?
     if registro.get("origen_ip") in _ips_auditor(ficha):
         return _con(registro, "PROPIA", "regla", None)
+    # 1b. ¿La campana declara la verdad de este escenario? Manda sobre las reglas de abajo, y solo
+    #     dentro del caso de uso: fuera de el, 'no_soportada' sigue siendo la etiqueta correcta.
+    declarada = _verdad_declarada(registro, ficha)
+    if declarada and registro.get("familia") in FAMILIAS_SOPORTADAS:
+        return _con(registro, declarada, "campaña", postura_de(hallazgos, registro.get("activo"), registro.get("servicio")))
     # 2. ¿Dentro del caso de uso acotado?
     if registro.get("familia") not in FAMILIAS_SOPORTADAS:
         return _con(registro, "no_soportada", "regla", None)

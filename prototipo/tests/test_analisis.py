@@ -101,3 +101,41 @@ class TestJustificar(unittest.TestCase):
     def test_sin_otros_servicios_no_anade_ruido(self):
         txt = analisis.justificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"}, "vp_intento_acceso")
         self.assertNotIn("también expone", txt)
+
+
+class TestRafaga(unittest.TestCase):
+    """Sexta regla: una rafaga es ataque venga de donde venga; desde el origen declarado, con
+    confianza reducida para que un humano confirme. Sin umbral en el perfil no actua."""
+    ALERTA = {"familia": "acceso_credenciales", "origen_ip": "192.168.1.1", "activo": "objetivo-vuln",
+              "servicio": "ssh", "regla_id": "5760"}
+    HALL = {"nodos": {"objetivo-vuln": [{"puerto": 22, "servicio": "ssh", "estado": "open"}]}}
+    PERFIL = {"origenes_legitimos": ["192.168.1.1"], "rafaga": {"umbral": 9}, "activos": {}}
+
+    def test_rafaga_desde_el_origen_declarado_es_amenaza_con_confianza_baja(self):
+        a = dict(self.ALERTA, rafaga_60s=12)
+        r = analisis.clasificar(a, analisis.enriquecer(a, self.HALL, self.PERFIL))
+        self.assertEqual(r["clase"], "vp_intento_acceso"); self.assertEqual(r["confianza"], 0.6)
+
+    def test_sin_rafaga_el_origen_declarado_sigue_siendo_fp(self):
+        a = dict(self.ALERTA, rafaga_60s=3)
+        r = analisis.clasificar(a, analisis.enriquecer(a, self.HALL, self.PERFIL))
+        self.assertEqual(r["clase"], "fp_actividad_legitima")
+
+    def test_sin_umbral_en_el_perfil_la_regla_no_actua(self):
+        a = dict(self.ALERTA, rafaga_60s=50)
+        perfil = {"origenes_legitimos": ["192.168.1.1"], "activos": {}}
+        r = analisis.clasificar(a, analisis.enriquecer(a, self.HALL, perfil))
+        self.assertEqual(r["clase"], "fp_actividad_legitima")
+
+    def test_la_rafaga_no_cambia_un_origen_no_declarado(self):
+        a = dict(self.ALERTA, origen_ip="192.168.1.10", rafaga_60s=12)
+        r = analisis.clasificar(a, analisis.enriquecer(a, self.HALL, self.PERFIL))
+        self.assertEqual(r["clase"], "vp_intento_acceso"); self.assertEqual(r["confianza"], 1.0)
+
+    def test_la_plantilla_y_el_prompt_mencionan_la_rafaga(self):
+        from prototipo import justificador_llm as jl
+        a = dict(self.ALERTA, rafaga_60s=12)
+        ctx = analisis.enriquecer(a, self.HALL, self.PERFIL)
+        self.assertIn("ráfaga de 12", analisis.justificar(a, ctx, "vp_intento_acceso"))
+        self.assertIn("rafaga de 12", jl.construir_prompt(a, ctx, "vp_intento_acceso"))
+

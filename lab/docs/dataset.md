@@ -40,6 +40,12 @@ Tres piezas encadenadas, todas ejecutables desde la raíz del repo:
    que el decodificador de fábrica de Wazuh no sabe leer: `lab/wazuh/local_decoder_telnetd.xml`. 13
    alertas por campaña: 8 del atacante (7×5602, 1×5631), 3 del admin, 2 del auditor.
 
+   **`sh lab/scripts/campana-reglas-fallan.sh <id-campaña>`** (11/09/2026) — los casos en que las cinco
+   reglas fallan, con la **verdad declarada por el experimento**: la ficha lleva un bloque `verdad:` con
+   `origen`, `desde`, `hasta`, `etiqueta` y `motivo`, que el etiquetador aplica antes que las reglas
+   (`etiqueta_por: campaña`). Sin esto, las etiquetas las generaban las mismas señales que usa el
+   clasificador y un modelo entrenado solo podía copiarlas.
+
 2. **`lab/dataset/particion.yml`** — reparto a priori de campañas a `entrenamiento` o
    `evaluacion`, fijado **antes** de construir el dataset y versionado.
 

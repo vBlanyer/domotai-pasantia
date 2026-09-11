@@ -184,7 +184,7 @@ el clasificador y el justificador de la Fase 5.
 | Campo | Valores | Para qué |
 |-------|---------|----------|
 | `etiqueta` | `VP` · `FP` · `PROPIA` · `no_soportada` | El ground truth |
-| `etiqueta_por` | `regla` · `humano` | Automático vs. manual (auditabilidad) |
+| `etiqueta_por` | `regla` · `humano` · `campaña` | Automático, manual, o declarado por el diseño del experimento (bloque `verdad:` de la ficha; 11/09/2026) |
 | `postura_activo` | qué expone el nodo (del auditor) | Evidencia que justifica la etiqueta |
 | `particion` | `entrenamiento` · `evaluacion` | Corte fijo, del fichero de reparto |
 

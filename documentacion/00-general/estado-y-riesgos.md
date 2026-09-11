@@ -218,6 +218,9 @@ truncada / rehecha / alterada, los tres reproducidos en vivo. **Rotación de la 
 nada (`rotar-clave-conector.sh`), verificada en vivo con su camino de aborto. **Tercera familia** (telnet,
 `servicio_expuesto`): 466 alertas, 42 soportadas en evaluación; el prototipo mantiene 1.000/1.000/0.000 y el
 baseline **pierde 7 amenazas** (exhaustividad 0.741): las conexiones en claro son nivel 3, bajo su umbral.
+**Nivel 4 (clasificador entrenado):** campaña de casos donde las reglas fallan con verdad declarada por el
+experimento (600 alertas, 106 soportadas en evaluación); las 5 reglas caen a exhaustividad 0.770; un árbol CART
+redescubre las reglas y añade la de ráfaga; adoptada como sexta regla determinista → 1.000 / 0.978 / 0.009.
 
 **Quién lo resuelve:** nosotros. Es la pieza que faltaba para que el prototipo cumpla su objetivo
 general, no un extra.

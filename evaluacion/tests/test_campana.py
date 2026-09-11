@@ -34,3 +34,19 @@ class TestCampana(unittest.TestCase):
         md = campana.tabla_markdown(res)
         self.assertIn("Prototipo", md)
         self.assertIn("Baseline", md)
+
+
+class TestRafagaEnCampana(unittest.TestCase):
+    def test_la_campana_calcula_la_rafaga_antes_de_clasificar(self):
+        from evaluacion import campana
+        filas = [{"id_alerta": str(i), "etiqueta": "VP", "familia": "acceso_credenciales", "origen_ip": "1.1.1.1",
+                  "timestamp": f"2026-09-11T10:00:{i:02d}.000+0000", "activo": "a", "servicio": "ssh",
+                  "regla_id": "5760", "nivel_wazuh": 5} for i in range(12)]
+        vistas = []
+        def _proc(alerta, *a, **k):
+            vistas.append(alerta.get("rafaga_60s"))
+            return {"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 1.0, "accion_final": None,
+                    "impacto": None, "requiere_humano": False, "resultado_filtro": "sin_accion"}
+        campana.evaluar(filas, {}, {"activos": {}}, "p", {}, {}, con_llm=False, _procesar=_proc)
+        self.assertEqual(vistas, [12] * 12)
+

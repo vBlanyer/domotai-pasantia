@@ -7,7 +7,9 @@ entrenamiento:
   - 2026-08-31-entrenamiento
   - 2026-09-11-recon-entrenamiento
   - 2026-09-11-telnet-entrenamiento
+  - 2026-09-11-reglas-fallan-entrenamiento
 evaluacion:
   - 2026-08-31-evaluacion
   - 2026-09-11-recon-evaluacion
   - 2026-09-11-telnet-evaluacion
+  - 2026-09-11-reglas-fallan-evaluacion

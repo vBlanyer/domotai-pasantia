@@ -709,6 +709,68 @@ MITRE, y la correlación llega etiquetada como fuerza bruta--- y queda en 16 cas
 el 94\,\% y el 100\,\% de los casos.
 
 % ===========================================================================
+\section{El clasificador entrenado, y lo único que aportó}
+\label{sec:entrenado}
+% ===========================================================================
+
+El clasificador con ajuste fino previsto en el diseño quedó bloqueado durante todo el trabajo por
+la concentración del conjunto de datos, y la ampliación a tres familias no lo desbloqueaba por una
+razón más profunda que el tamaño: \textbf{las etiquetas las generaban las mismas señales que usa
+el clasificador determinista}. El etiquetado marcaba como falso positivo lo que venía de un origen
+declarado y como verdadero positivo lo que iba contra un servicio expuesto; las cinco reglas
+hacen exactamente eso; así que su 1,000 era una tautología y cualquier modelo entrenado sobre
+esos datos solo podía aprender a copiar las reglas. Había además un confundido: en las campañas
+el administrador fallaba con un usuario inexistente (reglas 5710 y 5712 de Wazuh) y el atacante
+con \emph{root} (5760 y 5763), de modo que la propia regla de Wazuh delataba el origen.
+
+Se generó por eso una cuarta campaña, en dos réplicas, diseñada para que las reglas fallaran, con
+la verdad declarada por el experimento y no por la heurística ---quién lanzó qué, desde dónde,
+con qué intención---: una fuerza bruta con \emph{root} \textbf{desde la dirección declarada del
+administrador} (las reglas dicen falso positivo; es una amenaza, por suplantación o por equipo
+comprometido); un error de contraseña seguido de un acceso correcto desde un puesto no declarado
+(las reglas dicen amenaza; es un usuario legítimo que se equivocó); y sus dos simétricos, que
+rompen el confundido. Sobre la partición resultante ---300 alertas, 106 soportadas--- las cinco
+reglas cayeron a exhaustividad 0,770 con 20 falsos negativos, todos la fuerza bruta desde la
+dirección del administrador, y el baseline de Wazuh, que ignora el origen, las superó en
+exhaustividad (0,920). La señal de origen, que hasta aquí solo había aportado, mostró su otra cara.
+
+Con esos datos se entrenó un árbol de decisión ---CART sobre Gini, sin dependencias, porque a la
+escala de cien filas un modelo grande memoriza y no puede validarse--- con rasgos estructurados:
+los que ya usa el determinista, la regla y el nivel de Wazuh, y tres rasgos de \emph{ráfaga}
+calculados sobre el flujo de alertas del mismo origen (cuántas en un minuto, cuántas reglas
+distintas, si hubo un acceso correcto después). La dirección de origen no es un rasgo: memorizaría
+direcciones, no comportamientos. Entrenado sobre la partición de entrenamiento y medido sobre la
+de evaluación, el árbol alcanzó precisión 1,000 y exhaustividad 0,989, corrigiendo los veinte
+falsos negativos y los dos falsos positivos. Y lo que aprendió cabe en cuatro líneas: si hay más
+de ocho alertas del mismo origen en un minuto, es amenaza, venga de donde venga; si no, un origen
+declarado es falso positivo, y una conexión al servicio en claro desde un origen no declarado es
+amenaza. \textbf{El árbol redescubrió las reglas escritas a mano y añadió una}, la de la ráfaga,
+que fue la raíz del árbol con cualquier profundidad y cualquier tamaño mínimo de hoja, y que
+apareció idéntica al intercambiar las particiones. Sin los rasgos de ráfaga, el árbol se aferraba
+a las reglas de Wazuh ---el confundido--- y empeoraba.
+
+La consecuencia se aplicó al motor, no como modelo sino como \textbf{sexta regla determinista}:
+una ráfaga por encima del umbral del perfil es amenaza aunque el origen esté declarado, con la
+confianza reducida a 0,6 para que la contención pase por validación humana antes de bloquear al
+administrador. La única aportación del aprendizaje supervisado con evidencia fuerte se adoptó como
+una regla auditable; la otra hoja del árbol ---el error seguido de acceso, con tres casos y
+etiquetas mezcladas--- no tenía evidencia para cambiar el diseño, y se dejó. Con la sexta regla,
+sobre la misma partición, el prototipo recupera exhaustividad 1,000 con precisión 0,978 y tasa de
+falsos positivos 0,009; los dos falsos positivos que quedan son el error de tecleo, que el diseño
+trata como intento de acceso y que aquí se cuenta contra él. Se verificó en vivo: una fuerza bruta
+desde la dirección del administrador produce una amenaza retenida para validación humana, con la
+ráfaga en la justificación, y la justificación generada la nombra como la razón que pesa más que
+la procedencia. Sobre el conjunto completo de 600 alertas (212 soportadas) las cifras son las
+mismas ($VP=174$, $FP=4$, $VN=422$, $FN=0$).
+
+La lectura para el trabajo futuro es distinta de la que el diseño anticipaba. El aprendizaje
+supervisado no aportó aquí un componente en tiempo de ejecución sino una \emph{herramienta de
+descubrimiento de reglas}: con datos cuya verdad no venga de la heurística, un modelo pequeño e
+interpretable dice qué regla falta, y esa regla se adopta como código auditable. El codificador
+con ajuste fino sigue teniendo sentido solo cuando el conjunto de datos tenga la variedad que
+hoy no tiene, y su primer competidor será este árbol.
+
+% ===========================================================================
 \section{Limitaciones y análisis de errores}
 % ===========================================================================
 
@@ -723,7 +785,9 @@ descansa en una señal determinista basada en la dirección de origen, que es su
 cuatro de las seis categorías del caso de uso. Tercero, el clasificador con ajuste fino permanece
 bloqueado por la misma concentración del conjunto de datos, así que el desajuste esperado entre un
 modelo preentrenado sobre prosa y una entrada de eventos estructurados queda documentado, pero no
-cuantificado. Cuarto, la calidad de la justificación ya no está limitada por el hardware ---un modelo de ocho mil
+cuantificado; lo que sí se cuantificó, con un árbol sobre datos cuya verdad no venía de la
+heurística, es que el aprendizaje supervisado aporta a esta escala una sola regla, la de la
+ráfaga, que se adoptó (sección \ref{sec:entrenado}). Cuarto, la calidad de la justificación ya no está limitada por el hardware ---un modelo de ocho mil
 millones de parámetros responde en menos de medio segundo sobre una tarjeta gráfica de escritorio,
 sección \ref{sec:invocacion}--- sino por tres cosas distintas: que el conocimiento recuperado puede
 imponerse sobre la clasificación y contradecirla, que la recuperación no puede mejorarse ampliando

@@ -46,6 +46,14 @@ Cada paso vive en su propio módulo, con una responsabilidad y un motivo de camb
 
 ## 2. El clasificador es un baseline, no un modelo
 
+> **Sexta regla (11/09/2026): la ráfaga.** Si el perfil declara `rafaga: {umbral: N}` y llegan ≥ N alertas del
+> mismo origen en 60 s (`alerta["rafaga_60s"]`, calculado por `prototipo/rafaga.py` en la campaña y en el
+> daemon), la alerta es `vp_intento_acceso` **aunque el origen esté declarado legítimo**, con confianza 0.6 para
+> que el humano confirme antes de bloquear al administrador. Es lo único que aportó el clasificador entrenado
+> (`evaluacion/entrenado.py`, árbol CART) con evidencia fuerte: raíz `n_origen_60s > 8.5`, estable con las
+> particiones intercambiadas. Sin la clave en el perfil, la regla no actúa.
+
+
 `analisis.clasificar` y `analisis.justificar` son la **interfaz** que el resto del motor consume.
 Hoy, detrás de esa interfaz hay una implementación **determinista y explicable** (sin ML): mira si
 la alerta pertenece a una familia de ataque soportada y si el hallazgo de Nmap/Greenbone (postura

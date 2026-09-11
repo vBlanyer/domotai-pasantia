@@ -8,8 +8,9 @@ refleja la última corrida de ese directorio.
 
 | Directorio | Qué mide | Estado de las cifras |
 |------------|----------|----------------------|
-| `.` (raíz) | Partición de evaluación (233 alertas, 42 soportadas de tres familias) | **Vigente** — `campana-2026-09-11.json`; las corridas anteriores de la raíz son de 205/18 y 220/31 |
-| `anexo-completo/` | Partición completa (466 alertas, 84 soportadas); comprueba que no hubo fuga entre entrenar y evaluar | **Vigente** — regenerado el 11/09/2026 |
+| `.` (raíz) | Partición de evaluación (300 alertas, 106 soportadas de tres familias, con la campaña de casos donde las reglas fallan) | **Vigente** — `campana-2026-09-11.json`; las corridas anteriores de la raíz son de 205/18 y 220/31 |
+| `anexo-completo/` | Partición completa (600 alertas, 212 soportadas); comprueba que no hubo fuga entre entrenar y evaluar | **Vigente** — regenerado el 11/09/2026 |
+| `entrenado-2026-09-11.md` | Árbol de decisión (CART) frente al determinista, con el árbol impreso como reglas | **Vigente** |
 | `sin-rag/` · `con-rag/` | Contraste del **anclaje de la justificación** con y sin recuperación aumentada | **Históricos (02/09/2026)** — ver la nota de abajo |
 
 ## Nota sobre `sin-rag/` y `con-rag/`
@@ -130,6 +131,29 @@ Dos hallazgos de integración con la fuente: el `in.telnetd` escribe en `daemon.
 (`connect from 1.2.3.4 (1.2.3.4)`): la alerta llegaba sin origen. Resuelto en el SIEM
 (`lab/wazuh/local_decoder_telnetd.xml`, instalado por `wazuh-run.sh`), tras descubrir que Wazuh selecciona
 el primer hijo sin `prematch` y no prueba otro si su regex falla.
+
+### Nivel 4: casos donde las reglas fallan → árbol → sexta regla (11/09/2026)
+
+Las etiquetas del dataset las generaban las mismas señales que usa el clasificador (origen declarado, postura):
+su 1.000 era tautológico. `campana-reglas-fallan.sh` genera cuatro escenarios con **verdad declarada por el
+experimento** (`verdad:` en la ficha, `etiqueta_por: campaña`): fuerza bruta `root@` desde la IP del admin (VP),
+error+acceso de `msfadmin@` desde el puesto (FP), y sus simétricos, que rompen el confundido «5710 = admin».
+Dataset 466 → **600**; evaluación 42 → **106 soportadas**.
+
+| Partición de evaluación (n = 300) | 5 reglas | Baseline | Árbol (CART) | **6 reglas (ráfaga)** |
+|---|---|---|---|---|
+| Precisión | 0.971 | 0.548 | 1.000 | **0.978** |
+| Exhaustividad | 0.770 | 0.920 | 0.989 | **1.000** |
+| Tasa de FP (con no_soportada como negativos) | 0.009 | 0.310 | — | **0.009** |
+| Matriz | VP 67 · FP 2 · FN 20 | VP 80 · FP 66 · FN 7 | VP 86 · FP 0 · FN 1 (sobre 106) | VP 87 · FP 2 · FN 0 |
+
+El árbol (`python3 -m evaluacion.entrenado`), profundidad 3, redescubre las reglas y añade una:
+`n_origen_60s > 8.5 → VP` (raíz estable con toda profundidad/hoja y con las particiones intercambiadas; sin
+rasgos de ráfaga el árbol se agarra a las reglas de Wazuh y empeora). Se adoptó como **sexta regla determinista**
+(`analisis.clasificar`, umbral en el perfil: `rafaga: {umbral: 9}`; confianza 0.6 → validación humana antes de
+bloquear al admin). Los 2 FP que quedan son el error+acceso (hoja de 3 casos mezclados: sin evidencia para
+cambiar el diseño). Verificado en vivo: fuerza bruta desde .1 → VP 0.6 → `veta` → humano → ejecutado; la
+justificación (`llm-6`) nombra la ráfaga como la razón que pesa más que la procedencia.
 
 ### Reproducibilidad del banco (RNF-03)
 
