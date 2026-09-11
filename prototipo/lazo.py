@@ -1,6 +1,6 @@
 """Orquestador del lazo en vivo: decisión (5A) -> validación -> orden -> conector -> verificación -> traza."""
 import json, os, sys, yaml
-from prototipo import triaje, orden as ordenm, conector, validacion, verificacion, perfil as perfilm, catalogo as catm, analisis
+from prototipo import traza, triaje, orden as ordenm, conector, validacion, verificacion, perfil as perfilm, catalogo as catm, analisis
 
 def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp,
                   leer=input, justificar_fn=analisis.justificar, mitigar_fn=None):
@@ -61,6 +61,7 @@ def main(argv):
     ejecutor = _EjecutorAuto() if auto else conector.ejecutor_ssh_lab
     n = 0
     with open(alertas_path, encoding="utf-8") as fin, open(salida, "w", encoding="utf-8") as fout:
+        cadena = traza.Cadena(fout)               # fichero nuevo: la cadena empieza en GENESIS
         for i, linea in enumerate(fin):
             linea = linea.strip()
             if not linea:
@@ -71,7 +72,7 @@ def main(argv):
                 continue
             r = procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                               f"d{i}", alerta.get("timestamp", ""))
-            fout.write(json.dumps(r, ensure_ascii=False) + "\n")
+            cadena.escribir(r)
             n += 1
     print(f"{n} pasos del lazo -> {salida}")
 

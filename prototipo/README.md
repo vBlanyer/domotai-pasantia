@@ -113,6 +113,24 @@ métricas de la Fase 6 qué decisiones vinieron de cuál.
 perfil, `v0` mientras no cambie el esquema), para poder distinguir en las trazas y en las métricas
 qué versión de la regla de negocio produjo cada decisión.
 
+### 3.bis La traza está encadenada por hash (11/09/2026)
+
+Cada registro que escriben `stream.py` y `lazo.py` lleva dos campos más: `hash_previo` (el `hash` del
+registro anterior; `000…0` para el primero) y `hash` = SHA-256(`hash_previo` + registro en JSON canónico,
+claves ordenadas, sin los dos campos de la cadena). Alterar un campo, borrar, insertar o reordenar un
+registro rompe la cadena desde ahí. El daemon retoma la cadena del fichero al reiniciarse
+(`traza.ultimo_hash`), así que varias sesiones forman una sola.
+
+```bash
+python3 -m prototipo.traza --verificar trazas-stream.jsonl
+#   cadena valida: 3 registros · ultimo hash c3d6825c38bdce71...
+#   CADENA ROTA en el registro 1 (de 3): el hash no corresponde al contenido (registro alterado)
+#   149 registros anteriores a la cadena (sin proteccion); se verifica desde el 149   <- trazas viejas
+```
+
+**Lo que NO cubre**, y está escrito en el módulo: truncar el fichero por el final (lo que queda sigue
+encadenado). Cubrirlo exige anclar el último hash fuera del fichero; `ultimo_hash` existe para eso.
+
 ## 4. Cómo correr el CLI
 
 Desde la raíz del repo (para que `import prototipo` y `from lab.dataset...` resuelvan):

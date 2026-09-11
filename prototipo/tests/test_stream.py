@@ -38,6 +38,10 @@ class TestBucleInmediato(unittest.TestCase):
         self.assertEqual(len(lineas), 1)
         traza = json.loads(lineas[0])
         self.assertEqual(traza["clase"], "vp_intento_acceso")
+        # RF-09: lo que escribe el daemon esta encadenado y verifica
+        from prototipo import traza as traza_mod
+        self.assertEqual(traza["hash_previo"], traza_mod.GENESIS)
+        self.assertTrue(traza_mod.verificar([traza])["valida"])
         self.assertIn("192.168.1.10", traza["justificacion"])
 
 

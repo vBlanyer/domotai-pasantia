@@ -167,6 +167,14 @@ tres subproyectos:
         de ejecutarla; y el registro de traza auditable de cada decisión. El ejecutor SSH real se
         inyecta como una función sustituible, de forma que la lógica de idempotencia y de
         verificación se pudo probar con un ejecutor simulado sin necesidad del laboratorio activo.
+        Al cierre del trabajo, la traza pasó a escribirse \textbf{encadenada por resumen
+        criptográfico}: cada registro lleva el resumen SHA-256 del registro anterior y el suyo
+        propio, calculado sobre su contenido en forma canónica, de modo que alterar un campo,
+        borrar, insertar o reordenar cualquier registro rompe la cadena a partir de ese punto y un
+        verificador señala en cuál; el servicio en tiempo real retoma la cadena del fichero al
+        reiniciarse, para que varias sesiones formen una sola. Lo que la cadena no cubre se deja
+        escrito junto a ella: el truncado del fichero por el final no se detecta, porque lo que
+        queda sigue encadenado, y cubrirlo exige anclar el último resumen fuera del fichero.
   \item \textbf{Justificador con modelo de lenguaje real.} Un modelo generativo de mil millones de
         parámetros, cuantizado a cuatro bits, invocado mediante un proceso independiente a un motor
         de inferencia en un entorno Conda separado del resto del prototipo. Cada justificación se
@@ -241,7 +249,7 @@ incrementó con cada uno de estos cambios, de modo que las campañas anteriores 
 a la invocación con la que se midieron.
 
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 292 casos ---228 del motor de triaje, 31 del marco de evaluación y 33 de
+este informe, asciende a 301 casos ---237 del motor de triaje, 31 del marco de evaluación y 33 de
 la tubería de construcción del conjunto de datos---, ejecutados con generadores, ejecutores y capa
 de red simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de
 degradación sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.

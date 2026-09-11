@@ -7,7 +7,7 @@ testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Waz
 contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.stream -`.
 """
 import io, json, os, select, sys, time
-from prototipo import ingesta, adaptador_wazuh, agrupacion, lazo
+from prototipo import ingesta, adaptador_wazuh, agrupacion, lazo, traza
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
 
@@ -43,7 +43,7 @@ def _linea_decision(d):
 # --------------------------------------------------------------------- bucle --
 
 def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
-                        id_decision, salida_traza, escribir, leer, mitigar_fn=None):
+                        id_decision, cadena, escribir, leer, mitigar_fn=None):
     rep = inc["representante"]
     escribir(_resumen_incidente(inc))
     kw = {} if justificar_fn is None else {"justificar_fn": justificar_fn}
@@ -52,9 +52,8 @@ def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecuto
     d = lazo.procesar_lazo(rep, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                            id_decision, rep.get("timestamp", ""), leer=leer, **kw)
     escribir(_linea_decision(d))
-    if salida_traza is not None:
-        salida_traza.write(json.dumps(d, ensure_ascii=False) + "\n")
-        salida_traza.flush()
+    if cadena is not None:
+        cadena.escribir(d)          # traza.Cadena: cada registro encadenado al anterior
     return d
 
 def _contar(resumen, d):
@@ -70,8 +69,12 @@ def _contar(resumen, d):
 
 def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
-             escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None):
+             escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None,
+             hash_previo=traza.GENESIS):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
+
+    `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
+    a partir de `hash_previo`, que es el ultimo hash del fichero si se retoma uno existente.
 
     ventana_agrupacion == 0  -> cada alerta se procesa al instante (un incidente por alerta).
     ventana_agrupacion  > 0  -> se acumulan las alertas y, cuando pasan N segundos de pared desde la
@@ -80,13 +83,14 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     """
     resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
                "reclasificadas": 0, "ejecutadas": 0}
+    cadena = traza.Cadena(salida_traza, hash_previo) if salida_traza is not None else None
     seq = [0]
     def _procesa_lote(lote):
         for inc in agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1)):
             seq[0] += 1
             _contar(resumen, _procesar_incidente(
                 inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
-                f"s{seq[0]}", salida_traza, escribir, leer, mitigar_fn=mitigar_fn))
+                f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn))
 
     buffer, t0 = [], None
     def _vencio():
@@ -291,10 +295,14 @@ def main(argv):
     resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
                "reclasificadas": 0, "ejecutadas": 0}
     try:
+        # Se retoma la cadena del fichero si ya existe: el ultimo hash escrito es el primer
+        # hash_previo de esta sesion, asi que la traza de varias sesiones es una sola cadena.
+        hash_previo = traza.ultimo_hash(cfg["salida"])
         with open(cfg["salida"], "a", encoding="utf-8") as traza_f:
             resumen = ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                                justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
-                               salida_traza=traza_f, leer=_leer_interactivo(), mitigar_fn=mitigar_fn)
+                               salida_traza=traza_f, leer=_leer_interactivo(), mitigar_fn=mitigar_fn,
+                               hash_previo=hash_previo)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))
