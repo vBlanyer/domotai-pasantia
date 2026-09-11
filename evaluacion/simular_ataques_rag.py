@@ -112,7 +112,7 @@ def main(argv):
     salida_dir = argv[argv.index("--salida-dir") + 1] if "--salida-dir" in argv else DIR_RESULTADOS
     alertas = cargar_simulaciones()
     indice = rag.cargar_indice()
-    emb, gen = rag.embedder_llama, jl.generador_por_defecto()
+    emb, gen = rag.embedder_por_defecto(), jl.generador_por_defecto()
     print(f"Evaluando recuperación (fija y agéntica) sobre {len(alertas)} alertas... (usa el 1B, lento)")
     rec_fija = evaluar_recuperacion(alertas, _recuperar_ids_fijo(indice, emb, kmax), ks)
     rec_ag = evaluar_recuperacion(alertas, _recuperar_ids_agentico(indice, emb, gen, kmax), ks)
@@ -124,7 +124,7 @@ def main(argv):
             ctx = {"postura": {"expuesto": True}, "criticidad": "alta"}
             return jl.justificar_con_rag(a, ctx, "vp_intento_acceso", gen, rec_fn).get("texto", "")
         sintesis = evaluar_sintesis(alertas, _just_texto, jl.verificar_anclaje)
-    condiciones = (f"embedder `{os.path.basename(rag.MODELO)}` · "
+    condiciones = (f"embedder `{os.path.basename(rag.MODELO)}` ({emb.__name__}) · "
                    f"generador `{jl._version_llm()}` ({gen.__name__})")
     informe = formatear_informe(rec_fija, rec_ag, sintesis, ks, condiciones=condiciones)
     os.makedirs(salida_dir, exist_ok=True)

@@ -133,7 +133,7 @@
   "operacion": {
     "cobertura": 0.15,
     "tasa_escalado": 0.0,
-    "ms_medio_clasificar": 0.002968677191264843
+    "ms_medio_clasificar": 0.0029554726510964842
   },
   "continuidad": {
     "disruptivas_indebidas": 0,

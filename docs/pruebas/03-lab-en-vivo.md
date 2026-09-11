@@ -74,6 +74,8 @@ La escalada **real** se ejerce con la topología `red-cliente-firewall` (ver [05
 ```bash
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
     | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
+    # con los servidores residentes arrancados (sh lab/scripts/llm-server.sh y --embedder) la justificación
+    # tarda ~3 s por incidente; sin ellos, el daemon sigue funcionando pero más despacio
 ```
 (en otra terminal, lanza el ataque; p. ej. corre `demo-lazo-vivo.py` o la fuerza bruta a mano)
 

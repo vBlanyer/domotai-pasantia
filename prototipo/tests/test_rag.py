@@ -1,4 +1,4 @@
-import os, unittest
+import io, json, os, unittest
 from prototipo import rag
 
 RUTA_CORPUS = os.path.join(os.path.dirname(__file__), "..", "corpus", "corpus.jsonl")
@@ -191,3 +191,38 @@ class TestLogica(unittest.TestCase):
         docs = rag.recuperar("regla 5760 ssh", indice, emb, k=2)
         self.assertEqual(docs[0]["id"], "regla-5760")
         self.assertNotIn("vector", docs[0])             # se devuelve el doc limpio
+
+
+class TestEmbedderServidor(unittest.TestCase):
+    def _abridor(self, capturadas, vector=None):
+        def _abrir(peticion, timeout=None):
+            capturadas.append(json.loads(peticion.data.decode("utf-8")))
+            cuerpo = {"data": [{"index": 0, "embedding": vector or [1.0, 0.0]}]}
+            return io.BytesIO(json.dumps(cuerpo).encode("utf-8"))
+        return _abrir
+
+    def test_una_peticion_por_texto_y_en_orden(self):
+        # RNF-03: se midio que el vector de un texto cambia segun que otros vayan en el mismo
+        # lote; por eso cada texto viaja solo. Aqui se comprueba que asi es.
+        cap = []
+        vecs = rag.embedder_servidor(["a", "b\nc"], _abrir=self._abridor(cap))
+        self.assertEqual(len(cap), 2)
+        self.assertEqual([p["input"] for p in cap], ["a", "b c"])   # un texto por peticion, sin saltos
+        self.assertEqual(vecs, [[1.0, 0.0], [1.0, 0.0]])
+
+    def test_fallo_de_red_devuelve_lista_vacia(self):
+        def _cae(peticion, timeout=None):
+            raise OSError("sin servidor")
+        self.assertEqual(rag.embedder_servidor(["a"], _abrir=_cae), [])
+
+    def test_por_defecto_cae_al_subproceso_si_el_servidor_no_responde(self):
+        # A diferencia del generador, aqui la caida es al mismo resultado mas despacio.
+        import os
+        original = (rag.embedder_servidor, rag.embedder_llama)
+        try:
+            rag.embedder_servidor = lambda textos, **kw: []
+            rag.embedder_llama = lambda textos, **kw: [[9.0] for _ in textos]
+            os.environ.pop("LLAMA_EMBED_MODO", None)
+            self.assertEqual(rag.embedder_por_defecto()(["x", "y"]), [[9.0], [9.0]])
+        finally:
+            rag.embedder_servidor, rag.embedder_llama = original

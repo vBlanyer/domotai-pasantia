@@ -1,5 +1,5 @@
 """RAG local para el justificador: corpus curado + recuperacion semantica por embeddings."""
-import json, math, os, re, subprocess, tempfile
+import json, math, os, re, subprocess, tempfile, urllib.request
 
 from prototipo.analisis import CLASES_SIN_AMENAZA
 
@@ -177,34 +177,81 @@ MODELO = os.environ.get("LLAMA_EMBED_MODELO", "modelos/bge-m3-q8.gguf")
 POOLING = os.environ.get("LLAMA_EMBED_POOLING", "cls")
 RUTA_INDICE = os.path.join(os.path.dirname(__file__), "corpus", "indice.json")
 
+# Por que UN texto por llamada, en el subproceso y en el servidor: se midio que el vector de un
+# texto cambia (coseno 0,99975 consigo mismo) segun que otros textos vayan en el mismo lote, en
+# los dos caminos, porque el empaquetado altera la aritmetica. Con un texto por llamada, el
+# subproceso y el servidor dan el mismo vector hasta la ultima cifra, el indice de uno vale para
+# el otro, y el vector es funcion del texto y de nada mas (RNF-03). El coste lo paga la
+# indexacion (una llamada por ficha), no la consulta, que siempre fue de un texto.
+
+def _embedder_llama_uno(texto, modelo, binario, timeout, pooling):
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+        f.write(texto + "\n")
+        ruta = f.name
+    try:
+        cp = subprocess.run([binario, "-m", modelo, "-f", ruta,
+                             "--pooling", pooling, "--embd-output-format", "json"],
+                            capture_output=True, text=True, timeout=timeout)
+        return json.loads(cp.stdout)["data"][0]["embedding"]
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError, KeyError, IndexError):
+        return None
+    finally:
+        os.unlink(ruta)
+
 def embedder_llama(textos, modelo=MODELO, binario=BINARIO, timeout=180, pooling=POOLING):
-    """Un vector por texto via llama-embedding. [] ante fallo (RNF-09).
+    """Un vector por texto via llama-embedding, una invocacion por texto. [] ante fallo (RNF-09).
 
     `pooling` no es un detalle: los modelos de embeddings de la familia BGE se entrenan con
     agrupacion por CLS y rinden peor con la media, mientras que un modelo generativo usado como
     embedder necesita la media. Cambiar de modelo sin cambiar esto degrada la recuperacion en
     silencio.
     """
-    # cada texto en una linea; se limpian saltos internos para no romper el conteo por linea
-    limpio = [t.replace("\n", " ").strip() for t in textos]
-    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
-        f.write("\n".join(limpio) + "\n")
-        ruta = f.name
-    try:
-        cp = subprocess.run([binario, "-m", modelo, "-f", ruta,
-                             "--pooling", pooling, "--embd-output-format", "json"],
-                            capture_output=True, text=True, timeout=timeout)
-        datos = json.loads(cp.stdout)["data"]
-        vecs = [None] * len(limpio)
-        for item in datos:
-            vecs[item["index"]] = item["embedding"]
-        if any(v is None for v in vecs):
+    vecs = []
+    for t in textos:
+        v = _embedder_llama_uno(t.replace("\n", " ").strip(), modelo, binario, timeout, pooling)
+        if v is None:
             return []
-        return vecs
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError, KeyError, IndexError):
-        return []
-    finally:
-        os.unlink(ruta)
+        vecs.append(v)
+    return vecs
+
+# Servidor residente de embeddings (llama-server --embedding --pooling cls). El subproceso
+# carga bge-m3 en cada llamada: unos 5 s de los 7,5 s que tardaba una justificacion en el
+# daemon, cuando el generador ya respondia en 0,4 s. Con el modelo cargado, milisegundos.
+EMBED_URL = os.environ.get("LLAMA_EMBED_URL", "http://127.0.0.1:8082")
+
+def embedder_servidor(textos, url=EMBED_URL, timeout=60, _abrir=urllib.request.urlopen):
+    """Un vector por texto via POST /v1/embeddings. [] ante fallo (RNF-09), como el subproceso.
+
+    El servidor debe arrancarse con el mismo modelo y la misma agrupacion que el subproceso
+    (lab/scripts/llm-server.sh --embedder): se verifico que entonces, a un texto por peticion,
+    produce exactamente los mismos vectores, asi que el indice construido con uno vale para el
+    otro. Si el modelo no coincide, la guarda de dimensiones de `recuperar` para; una diferencia
+    de agrupacion no la pararia nadie.
+    """
+    vecs = []
+    for t in textos:
+        peticion = urllib.request.Request(url.rstrip("/") + "/v1/embeddings",
+                                          json.dumps({"input": t.replace("\n", " ").strip()}).encode("utf-8"),
+                                          {"Content-Type": "application/json"})
+        try:
+            with _abrir(peticion, timeout=timeout) as respuesta:
+                vecs.append(json.load(respuesta)["data"][0]["embedding"])
+        except Exception:
+            return []
+    return vecs
+
+def embedder_por_defecto():
+    """El servidor si responde; si no, el subproceso, que da el mismo vector mas despacio.
+
+    A diferencia del generador, aqui SI se cae al subproceso: el resultado es identico y solo
+    cambia el tiempo, asi que degradar no altera ninguna decision. LLAMA_EMBED_MODO=subproceso
+    fuerza el camino lento (para reproducir mediciones antiguas)."""
+    if os.environ.get("LLAMA_EMBED_MODO") == "subproceso":
+        return embedder_llama
+    def _fn(textos):
+        return embedder_servidor(textos) or embedder_llama(textos)
+    _fn.__name__ = "embedder_por_defecto"
+    return _fn
 
 def guardar_indice(indice, ruta=RUTA_INDICE):
     with open(ruta, "w", encoding="utf-8") as f:
@@ -217,7 +264,7 @@ def cargar_indice(ruta=RUTA_INDICE):
 def _main(argv):
     import sys
     if "--indexar" in argv:
-        indice = indexar(cargar_corpus(), embedder_llama)
+        indice = indexar(cargar_corpus(), embedder_por_defecto())
         if not indice:
             print("ERROR: el embedder no devolvio vectores"); return 1
         guardar_indice(indice)
@@ -225,7 +272,7 @@ def _main(argv):
         return 0
     if "--consulta" in argv:
         consulta = argv[argv.index("--consulta") + 1]
-        docs = recuperar(consulta, cargar_indice(), embedder_llama, k=3)
+        docs = recuperar(consulta, cargar_indice(), embedder_por_defecto(), k=3)
         for d in docs:
             print(f"[{d['id']}] {d['titulo']}: {d['texto'][:120]}...")
         return 0

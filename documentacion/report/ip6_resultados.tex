@@ -544,6 +544,16 @@ modelo de lenguaje no la garantiza el muestreo determinista por sí solo, sino l
 que lo sirve}, y un requisito no funcional de reproducibilidad debe verificarse contra esa
 infraestructura y no darse por cumplido al fijar la temperatura.
 
+El mismo fenómeno reapareció en el otro componente numérico al servir el modelo de
+\emph{embeddings} de forma residente, por la misma razón de tiempo que el generador ---cargarlo en
+cada llamada costaba unos dos segundos por vector; residente, cien milisegundos---. Al comparar
+los vectores del servidor con los del subproceso, el mismo texto daba vectores distintos según
+qué otros textos viajaran en el mismo lote, en los dos caminos, con una similitud coseno consigo
+mismo de 0,99975; y esa diferencia bastó para voltear un empate del banco de recuperación. La
+regla que lo resuelve es la misma: un texto por llamada, siempre, de modo que el vector sea
+función del texto y de nada más. Con ella, subproceso y servidor coinciden hasta la última cifra,
+el índice construido por uno vale para el otro, y el banco reproduce las cifras publicadas.
+
 De paso quedó a la vista un segundo defecto, menor: el modelo mayor antepone a veces un preámbulo
 ---«la búsqueda que te recomiendo es:»--- y sitúa la consulta en la línea siguiente. La limpieza de
 la salida se quedaba con la primera línea no vacía, que era el preámbulo, y lo pegaba a la

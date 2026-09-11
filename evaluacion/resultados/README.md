@@ -115,6 +115,13 @@ agenticas anteriores a `llm-4` (0,72 en el commit `20b88e7`) eran dependientes d
 servidor y no deben citarse.** La consulta fija nunca tuvo este problema: no pasa por el
 generador.
 
+El mismo fenomeno aparecio en el **embedder** al servirlo residente (`llm-server.sh --embedder`,
+puerto 8082): el vector de un texto cambiaba segun que otros textos fueran en el mismo lote (coseno
+0.99975 consigo mismo), tanto en el servidor como en el subproceso, y eso volteaba un empate del
+banco (fija Hit@1 0.50 -> 0.43). Regla: **un texto por llamada** en los dos caminos; asi coinciden
+hasta la ultima cifra y el indice vale para ambos. El banco tarda 29 s (antes 48) y una
+justificacion en vivo 2.8 s (antes 7.5). La cabecera del banco registra ahora que embedder se uso.
+
 **Por que no se uso el modelo especializado en seguridad** que selecciono la Fase 4: sus dos
 cuantizaciones publicas declaran plantillas de conversacion que no corresponden a su arquitectura, y
 producen repeticion del enunciado o fuga de marcas de control. Se midio con un modelo generalista de

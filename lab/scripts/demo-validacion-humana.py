@@ -62,7 +62,7 @@ def main():
     perfil = perfilm.cargar(os.path.join(REPO, "prototipo/perfiles/empresarial.yml"))
     catalogo = catm.cargar_catalogo(os.path.join(REPO, "prototipo/catalogo.yml"))
     indice = rag.cargar_indice()
-    recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_llama, generador=None, k=3)
+    recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_por_defecto(), generador=None, k=3)
 
     barra("1 · TRIAJE — confianza baja (el auditor no tiene postura del activo)")
     ctx = analisis.enriquecer(alerta, {}, perfil)          # hallazgos vacíos -> postura None -> confianza 0.5

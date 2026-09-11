@@ -223,7 +223,7 @@ def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print):
         return ag.bucle_react(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
                               gen, leer=leer, autonomo=False,
                               timestamp=decision.get("timestamp", ""),
-                              indice=indice, embedder=rag.embedder_llama, escribir=escribir)
+                              indice=indice, embedder=rag.embedder_por_defecto(), escribir=escribir)
     return _fn
 
 def construir_justificar_fn(con_llm, escribir=print):
@@ -235,7 +235,7 @@ def construir_justificar_fn(con_llm, escribir=print):
         # RAG AGÉNTICO (Opción C): la consulta la decide el 1B y se excluyen las fichas regla-* del
         # conocimiento (palanca 3). La traza registra consulta_rag/recuperacion_agentica/pasajes_usados.
         gen = justificador_llm.generador_por_defecto()
-        recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_llama, generador=gen, k=3)
+        recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_por_defecto(), generador=gen, k=3)
         return justificador_llm.justificar_fn_rag(gen, recuperar_fn)
     except Exception as e:                          # sin indice/modelo -> degradar a plantilla (RNF-09)
         escribir(f"[aviso] justificador LLM/RAG no disponible ({e}); se usara la plantilla.")

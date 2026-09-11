@@ -57,7 +57,7 @@ def main():
               "servicio": "ssh", "regla_id": "5760", "mitre": ["T1110.001"]}
     print("== DEMO Agente de Mitigación — escalado host -> firewall (Tool Calling acotado) ==")
     plan = ag.bucle_react(alerta, "vp_intento_acceso", perfil, catalogo, ejecutor, generador,
-                          autonomo=autonomo, timestamp="demo", indice=indice, embedder=rag.embedder_llama)
+                          autonomo=autonomo, timestamp="demo", indice=indice, embedder=rag.embedder_por_defecto())
     for p in plan["pasos"]:
         if p.get("thought"): print("  Thought:", p["thought"])
         if p.get("observacion"): print("  Observation:", p["observacion"])

@@ -534,6 +534,11 @@ Tres cambios posteriores a la evaluación, cada uno con su medición en
   explotación; y la explicación **hereda las etiquetas MITRE de Wazuh** (5701 → T1190), que ninguna
   instrucción corrige: argumento medido para una clase `vp_reconocimiento`, propuesta en el informe.
   Clasificación: precisión 1.000 / FP 0.000 sobre 220 (baseline 0.237 / 0.303).
+- **Embedder residente** (11/09). `rag.embedder_servidor` (POST `/v1/embeddings`, `LLAMA_EMBED_URL`,
+  puerto 8082) y `rag.embedder_por_defecto()`, que cae al subproceso si el servidor no responde (mismo
+  vector, más despacio). Arranque: `sh lab/scripts/llm-server.sh --embedder`. **Un texto por llamada** en
+  los dos caminos: se midió que el vector cambia según el lote (coseno 0.99975 consigo mismo) y eso
+  volteaba un empate del banco. Justificación en vivo 7.5 s → 2.8 s; banco 48 s → 29 s.
 
 ### 10.ter Agente de mitigación (ReAct + Tool Calling acotado)
 

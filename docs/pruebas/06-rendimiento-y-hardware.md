@@ -81,6 +81,21 @@ números reales, `llama-bench` en la máquina objetivo.
 por llamada** (el diseño actual lanza `llama-simple`/`llama-embedding` por invocación, ~0.5–1 s c/u). Con un
 **servidor residente** (`llama-server`, modelo ya en VRAM) → **sub-segundo por incidente**.
 
+### Hecho (10–11/09/2026): los dos modelos residentes, medidos en el 9800X3D + RTX 5070
+
+```bash
+sh lab/scripts/llm-server.sh             # generador: llama-3.1-8b-instruct-q4 en :8080 (cae al 1B si no está)
+sh lab/scripts/llm-server.sh --embedder  # embedder: bge-m3 con --pooling cls en :8082
+```
+
+`justificador_llm.generador_por_defecto()` y `rag.embedder_por_defecto()` usan los servidores si responden;
+el embedder cae al subproceso si no (mismo vector, más despacio); el generador cae a la plantilla (RNF-09).
+Medido: 110 t/s con el 8B; justificación 0.4 s; campaña de 31 justificaciones con RAG ~1 min (antes 10 m 46 s
+con el 1B por subproceso); justificación en vivo en el daemon 2.8 s (antes 7.5 s con el embedder por
+subproceso); banco de recuperación 29 s (antes 48 s). Dos reglas de reproducibilidad que salieron de
+medir esto y que cualquier despliegue debe respetar: `cache_prompt: false` en cada petición al generador y
+**un texto por llamada** al embedder (ver `evaluacion/resultados/README.md`).
+
 ## Recomendación para la máquina objetivo (para testear el MDR cómodo)
 
 1. **Deja `--con-llm` siempre activo.** A ~1–6 s por incidente ya no penaliza la interacción, así pruebas
