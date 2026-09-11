@@ -27,6 +27,20 @@ case "${1:-up}" in
     docker exec "$NAME" sh -c '
       grep -q "<connection>syslog" /var/ossec/etc/ossec.conf 2>/dev/null || \
       sed -i "s|</ossec_config>|  <remote>\n    <connection>syslog</connection>\n    <port>514</port>\n    <protocol>udp</protocol>\n    <allowed-ips>172.20.20.0/24</allowed-ips>\n  </remote>\n</ossec_config>|" /var/ossec/etc/ossec.conf
+      # Regla local del ANCLA de la traza (prototipo/traza.py): el servicio envia el hash de cada
+      # registro como syslog y el manager lo guarda en alerts.json, fuera del alcance de quien
+      # pueda tocar el fichero de la traza. program_name, no match: el pre-decodificador quita el
+      # nombre del programa del cuerpo. Sin el "--" en el comentario: es XML invalido.
+      grep -q "id=\"100100\"" /var/ossec/etc/rules/local_rules.xml 2>/dev/null || cat >> /var/ossec/etc/rules/local_rules.xml <<XML
+
+<group name="triaje,">
+  <!-- Ancla de la traza encadenada del triaje asistido (prototipo/traza.py, TRIAJE_ANCLA). -->
+  <rule id="100100" level="3">
+    <program_name>^triaje-ancla\$</program_name>
+    <description>Triaje asistido: ancla de la traza (hash del ultimo registro)</description>
+  </rule>
+</group>
+XML
       /var/ossec/bin/wazuh-control restart >/dev/null 2>&1
     '
     until docker exec "$NAME" sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-analysisd is running"' 2>/dev/null; do sleep 4; done

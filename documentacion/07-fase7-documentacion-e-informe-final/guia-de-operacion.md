@@ -75,16 +75,19 @@ Si cualquiera de los dos «denegado» no aparece, el aprovisionamiento **falla a
 
 ### 3.4 El servicio
 ```bash
-# fuente real: el alerts.json de Wazuh
+# fuente real: el alerts.json de Wazuh. TRIAJE_ANCLA = syslog del manager: cada registro de la traza
+# se ancla alli (§5); sin la variable, el banner avisa "SIN ancla".
+TRIAJE_ANCLA=<ip-del-manager>:514 \
 python3 -m prototipo.stream /var/ossec/logs/alerts/alerts.json prototipo/perfiles/<cliente>.yml \
         --con-llm --ventana-agrupacion 10 --salida /var/lib/triaje/trazas.jsonl
 # en el laboratorio (el fichero vive dentro del contenedor):
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
-    | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
+    | TRIAJE_ANCLA=127.0.0.1:514 python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
 ```
-Lee el banner antes de nada. Debe decir **con qué credencial entra**:
+Lee el banner antes de nada. Debe decir **con qué credencial entra** y **que la traza se ancla**:
 ```
 Perfil: empresarial.yml · Justificador: LLM+RAG · Ejecutor: conector SSH con clave (usuario dedicado, sudo acotado)
+Escuchando: … · ventana de agrupacion: 10s · traza anclada en 127.0.0.1:514
 ```
 Si dice `conector SSH del laboratorio (contraseña por defecto)`, el mínimo privilegio no está aprovisionado
 en el auditor: vuelve a §3.3. (`TRIAJE_SSH_MODO=password` lo fuerza a propósito, solo para el laboratorio.)
@@ -136,8 +139,8 @@ revierten acciones con `reversion: definida`; las transitorias y las de observac
 
 | Qué | Cómo | Cuándo |
 |---|---|---|
-| Integridad de la traza | `python3 -m prototipo.traza --verificar trazas.jsonl` → `cadena valida: N registros · ultimo hash …` | diario, y antes de cualquier revisión |
-| Anclaje del último hash | copia el `ultimo hash` que imprime el verificador a un sitio fuera del fichero (otro sistema, un registro firmado, un correo al cliente) | con cada verificación. **Sin esto, un truncado por el final no se detecta** |
+| Integridad de la traza | `python3 -m prototipo.traza --verificar trazas.jsonl --anclas <alerts.json de Wazuh>` → `cadena valida: N registros` y `anclas: el ancla coincide: N registros` | diario, y antes de cualquier revisión |
+| Anclaje | es automático: con `TRIAJE_ANCLA`, cada registro envía su hash al manager y queda en `alerts.json` (regla local 100100, que `wazuh-run.sh` instala). El verificador distingue **TRUNCADA** (mismo linaje, faltan registros al final), **REHECHA** (el fichero se borró y se volvió a crear con el mismo nombre) y **ALTERADA** | nunca borres ni recrees el fichero de la traza: si necesitas otro, usa otro nombre |
 | Servidores vivos | `curl -s 127.0.0.1:8080/health`, `…:8082/health` → `{"status":"ok"}` | al arrancar y si las justificaciones salen «de plantilla» |
 | Mínimo privilegio vigente | re-ejecuta `aprovisionar-minimo-privilegio.sh` (es idempotente) | tras cambiar el catálogo o rotar la clave |
 | Postura de los activos | regenera `hallazgos.json` con el auditor | tras cambios en el inventario |
@@ -177,7 +180,10 @@ en el código. Para repetir una campaña completa: `python3 -m evaluacion.campan
   T1190, la justificación lo dirá. La clase y la acción no dependen de eso.
 - **La escalada host → cortafuegos es el comportamiento por defecto** (§4); el agente (`--agente`) es
   opcional, exige GPU y, medido, no aporta sobre la regla determinista en un perímetro de dos dispositivos.
-- **La traza no detecta su propio truncado final** sin el anclaje de §5.
+- **La traza detecta su truncado final solo si se ancla** (`TRIAJE_ANCLA`); sin ella, la cadena prueba
+  la integridad de lo que hay y no de lo que falta.
+- **Verás incidentes `no_soportada` del propio conector**: cada contención abre sesiones SSH y `sudo` en
+  el nodo, y el SIEM del cliente las ve (reglas 5715, 5501, 5502, 5402). Es correcto que consten.
 - **El equipo de borde con firmware real no está validado**; el laboratorio usa un sustituto Linux.
 
 ## 9. Lista de comprobación de puesta en marcha (lo que se ejecutó el 11/09/2026)
@@ -193,6 +199,8 @@ en el código. Para repetir una campaña completa: `python3 -m evaluacion.campan
 [x] python3 -m prototipo.traza --verificar       → cadena valida: 1 registros
 [x] python3 -m prototipo.revertir … s1 --motivo … → revertida; cadena valida: 2 registros
 [x] segunda reversión                            → "ya fue revertida"
+[x] anclaje: sesión con TRIAJE_ANCLA → 8 registros, 8 anclas en Wazuh → "el ancla coincide";
+    un registro menos → TRUNCADA; fichero rehecho con el mismo nombre → REHECHA
 [x] escenario C (topología red-cliente-firewall, ambos nodos aprovisionados): sshd del activo parado
     → paso en el host rc=255 → pregunta para el cortafuegos → BLOQUEAR_IP_FIREWALL aplicado y
     verificado en el borde (5,2 s) → traza válida → reversión desde la traza → regla eliminada

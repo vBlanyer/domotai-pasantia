@@ -172,9 +172,17 @@ tres subproyectos:
         propio, calculado sobre su contenido en forma canónica, de modo que alterar un campo,
         borrar, insertar o reordenar cualquier registro rompe la cadena a partir de ese punto y un
         verificador señala en cuál; el servicio en tiempo real retoma la cadena del fichero al
-        reiniciarse, para que varias sesiones formen una sola. Lo que la cadena no cubre se deja
-        escrito junto a ella: el truncado del fichero por el final no se detecta, porque lo que
-        queda sigue encadenado, y cubrirlo exige anclar el último resumen fuera del fichero. En
+        reiniciarse, para que varias sesiones formen una sola. Lo que la cadena sola no cubre ---el
+        truncado del fichero por el final, porque lo que queda sigue encadenado--- lo cubre un
+        \textbf{ancla}: tras cada registro, el servicio envía el resumen y el número de registros
+        como un evento de \emph{syslog} al propio Wazuh, que lo conserva en su fichero de alertas
+        bajo una regla local; Wazuh es otro sistema, ya es la fuente de verdad del triaje, y su
+        fichero no lo controla quien controla la traza. El verificador contrasta la traza con las
+        anclas y distingue tres fallos: truncada, rehecha ---el fichero borrado y creado de nuevo
+        con el mismo nombre, que se reconoce por un identificador de linaje derivado del primer
+        registro--- y alterada. Los tres se reprodujeron en vivo. Una consecuencia se detectó y
+        se corrigió en el mismo ensayo: las anclas vuelven al servicio como alertas, y sin
+        descartarlas en la ingesta cada ancla generaba una decisión, y cada decisión un ancla. En
         el mismo cierre, el conector dejó de usar la credencial por defecto del nodo vulnerable
         ---una contraseña en el código y sin verificar la identidad del equipo remoto--- y pasó a
         un usuario dedicado con clave, verificación del equipo contra una lista propia, y
@@ -267,7 +275,7 @@ incrementó con cada uno de estos cambios, de modo que las campañas anteriores 
 a la invocación con la que se midieron.
 
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 325 casos ---261 del motor de triaje, 31 del marco de evaluación y 33 de
+este informe, asciende a 336 casos ---272 del motor de triaje, 31 del marco de evaluación y 33 de
 la tubería de construcción del conjunto de datos---, ejecutados con generadores, ejecutores y capa
 de red simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de
 degradación sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.

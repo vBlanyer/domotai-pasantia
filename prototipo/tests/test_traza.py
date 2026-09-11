@@ -152,3 +152,91 @@ class TestCadena(unittest.TestCase):
         a = traza.encadenar({"x": 1, "y": 2}, traza.GENESIS)
         b = traza.encadenar({"y": 2, "x": 1}, traza.GENESIS)
         self.assertEqual(a["hash"], b["hash"])
+
+
+class TestAncla(unittest.TestCase):
+    def test_la_cadena_ancla_cada_registro_con_su_numero_y_su_hash(self):
+        import io as _io
+        enviados = []
+        original = traza._enviar_udp
+        traza._enviar_udp = lambda linea, destino: enviados.append((linea, destino))
+        try:
+            # anclar() toma _enviar por defecto en la firma: se inyecta a traves de anclar directamente
+            buf = _io.StringIO()
+            cadena = traza.Cadena(buf, nombre="t.jsonl", ancla="127.0.0.1:514")
+            # sustituimos anclar para capturar sin red
+            capturas = []
+            traza_anclar = traza.anclar
+            traza.anclar = lambda nombre, lin, n, h, destino=None, _enviar=None: capturas.append((nombre, lin, n, h, destino)) or True
+            try:
+                r1 = cadena.escribir({"id_decision": "a"}); r2 = cadena.escribir({"id_decision": "b"})
+            finally:
+                traza.anclar = traza_anclar
+        finally:
+            traza._enviar_udp = original
+        lin = r1["hash"][:16]                                   # el linaje es el primer registro
+        self.assertEqual(capturas, [("t.jsonl", lin, 1, r1["hash"], "127.0.0.1:514"),
+                                    ("t.jsonl", lin, 2, r2["hash"], "127.0.0.1:514")])
+        self.assertEqual(cadena.anclados, 2)
+
+    def test_sin_destino_no_se_ancla_y_no_falla(self):
+        import io as _io
+        cadena = traza.Cadena(_io.StringIO(), nombre="t.jsonl", ancla="")
+        cadena.escribir({"id_decision": "a"})
+        self.assertEqual(cadena.anclados, 0)
+
+    def test_anclar_nunca_lanza(self):
+        def _cae(linea, destino):
+            raise OSError("red caida")
+        self.assertFalse(traza.anclar("t.jsonl", "0" * 16, 1, "0" * 64, "127.0.0.1:514", _enviar=_cae))
+
+    def test_formato_del_ancla_es_syslog_con_los_tres_campos(self):
+        linea = traza.formatear_ancla("t.jsonl", "c" * 16, 7, "ab" * 32)
+        self.assertTrue(linea.startswith("<38>"))
+        m = traza._ANCLA_RE.search(linea)
+        self.assertEqual((m.group(1), m.group(2), int(m.group(3)), m.group(4)), ("t.jsonl", "c" * 16, 7, "ab" * 32))
+
+    def _regs(self, n=4):
+        import io as _io
+        buf = _io.StringIO(); c = traza.Cadena(buf, ancla="")
+        for i in range(n):
+            c.escribir({"id_decision": f"d{i}"})
+        return [json.loads(l) for l in buf.getvalue().splitlines()]
+
+    def test_verificar_contra_anclas_detecta_el_truncado_final(self):
+        regs = self._regs(4)
+        lin = traza.linaje_de(regs)
+        anclas = [(i + 1, regs[i]["hash"], lin) for i in range(4)]
+        self.assertTrue(traza.verificar_contra_anclas(regs, anclas)["valida"])
+        v = traza.verificar_contra_anclas(regs[:2], anclas)          # alguien borro los dos ultimos
+        self.assertFalse(v["valida"]); self.assertIn("TRUNCADA", v["motivo"])
+
+    def test_verificar_contra_anclas_detecta_un_hash_distinto(self):
+        regs = self._regs(3)
+        lin = traza.linaje_de(regs)
+        v = traza.verificar_contra_anclas(regs, [(3, "f" * 64, lin)])   # mismo linaje, otro hash
+        self.assertFalse(v["valida"]); self.assertIn("ALTERADA", v["motivo"])
+
+    def test_una_traza_rehecha_se_distingue_de_una_truncada(self):
+        # Se midio: borrar y recrear el fichero con el mismo nombre deja en Wazuh anclas que no
+        # coinciden con nada. No es un truncado, pero tampoco es aceptable, y se dice cual es.
+        regs = self._regs(3)
+        v = traza.verificar_contra_anclas(regs, [(5, "e" * 64, "0" * 16), (2, "d" * 64, "0" * 16)])
+        self.assertFalse(v["valida"]); self.assertIn("REHECHA", v["motivo"])
+
+    def test_sin_anclas_no_se_puede_afirmar_nada_y_se_dice(self):
+        v = traza.verificar_contra_anclas(self._regs(2), [])
+        self.assertTrue(v["valida"]); self.assertIn("sin anclas", v["motivo"])
+
+    def test_leer_anclas_filtra_por_fichero(self):
+        import os, tempfile
+        ruta = tempfile.mktemp(suffix=".json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"rule": {"id": "100100"}, "full_log": traza.formatear_ancla("a.jsonl", "a" * 16, 1, "1" * 64)}) + "\n")
+            f.write(json.dumps({"rule": {"id": "100100"}, "full_log": traza.formatear_ancla("b.jsonl", "b" * 16, 5, "2" * 64)}) + "\n")
+            f.write(json.dumps({"rule": {"id": "5760"}, "full_log": "Failed password"}) + "\n")
+        try:
+            self.assertEqual(traza.leer_anclas(ruta, "b.jsonl"), [(5, "2" * 64, "b" * 16)])
+        finally:
+            os.unlink(ruta)
+

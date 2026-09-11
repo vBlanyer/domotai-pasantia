@@ -76,7 +76,7 @@ def _contar(resumen, d):
 def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None,
-             hash_previo=traza.GENESIS):
+             hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -89,7 +89,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     """
     resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
                "reclasificadas": 0, "ejecutadas": 0}
-    cadena = traza.Cadena(salida_traza, hash_previo) if salida_traza is not None else None
+    cadena = (traza.Cadena(salida_traza, hash_previo, n=n_previos, nombre=nombre_traza, linaje=linaje)
+              if salida_traza is not None else None)
     seq = [0]
     def _procesa_lote(lote):
         for inc in agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1)):
@@ -261,10 +262,11 @@ def banner(cfg, ejecutor=None):
     # tanto como con que perfil decide, y se vio un ensayo con la clave anunciando 'lab'.
     nombre = getattr(ejecutor, "__name__", "")
     lab = "simulado (--sin-lab)" if cfg["sin_lab"] else _NOMBRE_EJECUTOR.get(nombre, "conector SSH")
+    ancla = f"anclada en {traza.ANCLA_DESTINO}" if traza.ANCLA_DESTINO else "SIN ancla (TRIAJE_ANCLA no definida)"
     return ("\n" + "=" * 72 +
             "\n  Monitor MDR en tiempo real — ACTIVO"
             f"\n  Perfil: {os.path.basename(cfg['perfil'])} · Justificador: {just} · Ejecutor: {lab}"
-            f"\n  Escuchando: {fuente} · ventana de agrupacion: {cfg['ventana']}s"
+            f"\n  Escuchando: {fuente} · ventana de agrupacion: {cfg['ventana']}s · traza {ancla}"
             "\n  (Ctrl+C para detener)\n" + "=" * 72)
 
 def _resumen_final(r):
@@ -310,11 +312,17 @@ def main(argv):
         # Se retoma la cadena del fichero si ya existe: el ultimo hash escrito es el primer
         # hash_previo de esta sesion, asi que la traza de varias sesiones es una sola cadena.
         hash_previo = traza.ultimo_hash(cfg["salida"])
+        try:
+            previos = traza.leer_registros(cfg["salida"])
+        except FileNotFoundError:
+            previos = []
+        n_previos, linaje = len(previos), traza.linaje_de(previos)
         with open(cfg["salida"], "a", encoding="utf-8") as traza_f:
             resumen = ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                                justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
                                salida_traza=traza_f, leer=_leer_interactivo(), mitigar_fn=mitigar_fn,
-                               hash_previo=hash_previo)
+                               hash_previo=hash_previo, n_previos=n_previos,
+                               nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))

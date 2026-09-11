@@ -68,3 +68,28 @@ class TestAgnostico(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTelemetriaPropia(unittest.TestCase):
+    def test_las_anclas_de_la_traza_no_son_alertas(self):
+        # Sin esto: ancla -> alerta -> decision -> ancla -> ... (medido: 14 registros por un ataque).
+        from prototipo import adaptador_wazuh
+        cruda = {"id": "x", "rule": {"id": "100100", "level": 3, "groups": ["triaje"]},
+                 "predecoder": {"hostname": "triaje", "program_name": "triaje-ancla"},
+                 "full_log": "fichero=t.jsonl registros=3 hash=abc"}
+        self.assertIsNone(ingesta.normalizar(cruda, adaptador_wazuh.adaptador("c")))
+
+    def test_ingerir_fichero_salta_la_telemetria_propia(self):
+        import json, os, tempfile
+        from prototipo import adaptador_wazuh
+        ruta = tempfile.mktemp(suffix=".json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"id": "1", "rule": {"id": "100100", "groups": ["triaje"]}}) + "\n")
+            f.write(json.dumps({"id": "2", "rule": {"id": "5760", "groups": ["sshd", "authentication_failed"]},
+                                "data": {"srcip": "1.2.3.4"}}) + "\n")
+        try:
+            regs = ingesta.ingerir_fichero(ruta, adaptador_wazuh.adaptador("c"))
+        finally:
+            os.unlink(ruta)
+        self.assertEqual([r["id_alerta"] for r in regs], ["2"])
+

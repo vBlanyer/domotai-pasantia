@@ -15,6 +15,8 @@ def construir(campañas, particion_map, resoluciones):
         parte = particion_map[cid]
         for cruda in c["alertas"]:
             reg = esquema.normalizar_alerta(cruda, cid)
+            if reg is None:                 # telemetria del propio triaje (anclas): no es una alerta
+                continue
             reg = etq.etiquetar(reg, c["hallazgos"], ficha, resoluciones)
             reg["particion"] = parte
             salida.append(reg)

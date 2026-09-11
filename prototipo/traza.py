@@ -6,17 +6,28 @@ sin espacios, sin los dos campos de la cadena). Alterar cualquier campo de cualq
 borrar uno, insertar uno o cambiar el orden rompe la cadena desde ese punto, y `verificar`
 dice en cual.
 
-Lo que la cadena NO cubre, y conviene decirlo: truncar el fichero por el final. Los registros
-que quedan siguen encadenados entre si, asi que la cadena prueba la integridad de lo que hay,
-no que no falte nada al final. Cubrir eso exige anclar el ultimo hash fuera del fichero (otro
-sistema, un registro firmado, un tercero); la funcion `ultimo_hash` existe para poder hacerlo.
+Lo que la cadena sola NO cubre: truncar el fichero por el final. Los registros que quedan
+siguen encadenados entre si, asi que la cadena prueba la integridad de lo que hay, no que no
+falte nada al final. Para eso esta el ANCLA: tras cada registro, la cadena envia el hash y el
+numero de registros como un evento syslog al manager de Wazuh (TRIAJE_ANCLA=host:puerto), que
+lo guarda con su regla local 100100 en alerts.json. Wazuh es otro sistema, ya es la fuente de
+verdad del triaje, y el fichero que escribe no lo controla quien controla la traza. Verificar
+con `--anclas <alerts.json>` compara la traza con el ancla mas reciente: si el ancla cuenta mas
+registros de los que hay, la traza esta truncada; si el registro que el ancla senala tiene otro
+hash, esta alterada o no es ese fichero.
 """
 import hashlib
 import json
+import os
+import re
+import socket
+import time
 
 VERSION_BASELINE = "baseline-0"
 GENESIS = "0" * 64
 _CAMPOS_CADENA = ("hash", "hash_previo")
+ANCLA_DESTINO = os.environ.get("TRIAJE_ANCLA")          # "host:puerto" del syslog del manager; sin ella no se ancla
+_ANCLA_RE = re.compile(r"triaje-ancla: fichero=(\S+) linaje=([0-9a-f]{16}) registros=(\d+) hash=([0-9a-f]{64})")
 
 def _canonico(registro):
     limpio = {k: v for k, v in registro.items() if k not in _CAMPOS_CADENA}
@@ -59,15 +70,89 @@ def ultimo_hash(ruta):
         return GENESIS
     return regs[-1].get("hash", GENESIS) if regs else GENESIS
 
+def linaje_de(registros):
+    """Identidad de un fichero de traza: los 16 primeros caracteres del hash de su primer registro.
+    Un fichero borrado y rehecho con el mismo nombre tiene otro linaje; uno truncado, el mismo."""
+    return registros[0]["hash"][:16] if registros and registros[0].get("hash") else None
+
+def formatear_ancla(nombre, linaje, n, hash_):
+    """Linea syslog (prioridad 38 = auth.info, como el resto del laboratorio) con el ancla."""
+    return (f"<38>{time.strftime('%b %d %H:%M:%S')} triaje triaje-ancla: fichero={nombre} linaje={linaje} "
+            f"registros={n} hash={hash_}")
+
+def _enviar_udp(linea, destino):
+    host, puerto = destino.rsplit(":", 1)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.sendto(linea.encode("utf-8"), (host, int(puerto)))
+
+def anclar(nombre, linaje, n, hash_, destino=None, _enviar=_enviar_udp):
+    """Envia el ancla al manager. Nunca lanza: anclar es lo mejor posible, y que falle el ancla no
+    debe parar la traza (que es lo que esta protegiendo). Devuelve si se envio."""
+    destino = destino or ANCLA_DESTINO
+    if not destino:
+        return False
+    try:
+        _enviar(formatear_ancla(nombre, linaje, n, hash_), destino)
+        return True
+    except (OSError, ValueError):
+        return False
+
+def leer_anclas(ruta_alerts, nombre):
+    """[(registros, hash, linaje)] de las anclas de `nombre` en un alerts.json de Wazuh."""
+    anclas = []
+    with open(ruta_alerts, encoding="utf-8", errors="replace") as f:
+        for l in f:
+            if "triaje-ancla" not in l:
+                continue
+            m = _ANCLA_RE.search(l)
+            if m and m.group(1) == nombre:
+                anclas.append((int(m.group(3)), m.group(4), m.group(2)))
+    return anclas
+
+def verificar_contra_anclas(registros, anclas):
+    """Compara la traza con las anclas que Wazuh guarda para su nombre de fichero.
+
+    Tres fallos distintos, y conviene nombrarlos: TRUNCADA (las anclas de este mismo linaje
+    cuentan mas registros de los que hay), REHECHA (hay anclas para ese nombre y ninguna
+    coincide con ningun registro: el fichero se borro y se volvio a crear, que es perder lo
+    anclado) y ALTERADA (el registro que el ancla senala tiene otro hash)."""
+    if not anclas:
+        return {"valida": True, "motivo": "sin anclas para este fichero", "ancla": None}
+    linaje = linaje_de(registros)
+    mias = [(n, h) for n, h, lin in anclas if lin == linaje]
+    if not mias:
+        n, h, _ = max(anclas)
+        return {"valida": False, "ancla": (n, h),
+                "motivo": f"REHECHA: Wazuh tiene {len(anclas)} anclas para este nombre (hasta {n} registros) y "
+                          f"ninguna es de este linaje; el fichero se borro y se volvio a crear"}
+    n, h = max(mias)
+    if n > len(registros):
+        return {"valida": False, "ancla": (n, h),
+                "motivo": f"TRUNCADA: el ancla mas reciente de este linaje cuenta {n} registros y la traza "
+                          f"tiene {len(registros)}"}
+    if registros[n - 1].get("hash") != h:
+        return {"valida": False, "ancla": (n, h),
+                "motivo": f"ALTERADA: el registro {n - 1} no tiene el hash que el ancla senala"}
+    return {"valida": True, "ancla": (n, h),
+            "motivo": f"el ancla coincide: {n} registros" + (f" (la traza tiene {len(registros) - n} mas, aun sin anclar)"
+                                                            if len(registros) > n else "")}
+
 class Cadena:
-    """Escribe registros encadenados, una linea JSON por registro, sobre un objeto fichero."""
-    def __init__(self, fichero, hash_previo=GENESIS):
-        self.fichero, self.ultimo = fichero, hash_previo
+    """Escribe registros encadenados, una linea JSON por registro, sobre un objeto fichero, y
+    ancla cada uno en el manager si hay destino (`ancla`). `n` y `nombre` retoman un fichero."""
+    def __init__(self, fichero, hash_previo=GENESIS, n=0, nombre="", ancla=None, linaje=None):
+        self.fichero, self.ultimo, self.n, self.nombre = fichero, hash_previo, n, nombre
+        self.ancla = ancla if ancla is not None else ANCLA_DESTINO
+        self.linaje, self.anclados = linaje, 0
     def escribir(self, registro):
         reg = encadenar(registro, self.ultimo)
         self.fichero.write(json.dumps(reg, ensure_ascii=False) + "\n")
         self.fichero.flush()
-        self.ultimo = reg["hash"]
+        self.ultimo, self.n = reg["hash"], self.n + 1
+        if self.linaje is None:
+            self.linaje = reg["hash"][:16]        # fichero nuevo: el primer registro fija el linaje
+        if self.ancla and anclar(self.nombre, self.linaje, self.n, self.ultimo, self.ancla):
+            self.anclados += 1
         return reg
 
 def _main(argv):
@@ -83,13 +168,18 @@ def _main(argv):
         if k:
             print(f"{k} registros anteriores a la cadena (sin proteccion); se verifica desde el {k}")
         v = verificar(regs[k:])
-        if v["valida"]:
-            print(f"cadena valida: {v['n']} registros · ultimo hash {regs[-1]['hash'][:16]}..." if regs[k:]
-                  else "sin registros encadenados: cadena trivialmente valida")
-            return 0
-        print(f"CADENA ROTA en el registro {k + v['primer_fallo']} (de {len(regs)}): {v['motivo']}")
-        return 1
-    print("uso: python3 -m prototipo.traza --verificar <traza.jsonl>")
+        if not v["valida"]:
+            print(f"CADENA ROTA en el registro {k + v['primer_fallo']} (de {len(regs)}): {v['motivo']}")
+            return 1
+        print(f"cadena valida: {v['n']} registros · ultimo hash {regs[-1]['hash'][:16]}..." if regs[k:]
+              else "sin registros encadenados: cadena trivialmente valida")
+        if "--anclas" in argv:
+            anclas = leer_anclas(argv[argv.index("--anclas") + 1], os.path.basename(argv[1]))
+            a = verificar_contra_anclas(regs[k:], anclas)
+            print(("anclas: " if a["valida"] else "ANCLAS: ") + a["motivo"])
+            return 0 if a["valida"] else 1
+        return 0
+    print("uso: python3 -m prototipo.traza --verificar <traza.jsonl> [--anclas <alerts.json de Wazuh>]")
     return 2
 
 if __name__ == "__main__":

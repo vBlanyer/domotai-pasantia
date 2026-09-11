@@ -39,7 +39,17 @@ def familia_de(rule):
         return "plataforma"
     return "otra"
 
+# Grupos de reglas que son telemetria del PROPIO triaje y no alertas del cliente: hoy, las anclas
+# de la traza (regla local 100100, grupo 'triaje'). Si entraran como alertas, cada ancla generaria
+# una decision, la decision un ancla, y asi sin fin: se midio (14 registros por un solo ataque).
+GRUPOS_PROPIOS = {"triaje"}
+
+def es_propia(cruda):
+    return bool(set(cruda.get("rule", {}).get("groups", [])) & GRUPOS_PROPIOS)
+
 def normalizar_alerta(cruda, campaña):
+    if es_propia(cruda):
+        return None
     rule = cruda.get("rule", {})
     data = cruda.get("data", {})
     return {

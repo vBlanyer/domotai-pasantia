@@ -72,7 +72,7 @@ def main(argv):
     ejecutor = _EjecutorAuto() if auto else conector.ejecutor_por_defecto()
     n = 0
     with open(alertas_path, encoding="utf-8") as fin, open(salida, "w", encoding="utf-8") as fout:
-        cadena = traza.Cadena(fout)               # fichero nuevo: la cadena empieza en GENESIS
+        cadena = traza.Cadena(fout, nombre=os.path.basename(salida))   # fichero nuevo: empieza en GENESIS
         for i, linea in enumerate(fin):
             linea = linea.strip()
             if not linea:

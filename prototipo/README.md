@@ -128,8 +128,13 @@ python3 -m prototipo.traza --verificar trazas-stream.jsonl
 #   149 registros anteriores a la cadena (sin proteccion); se verifica desde el 149   <- trazas viejas
 ```
 
-**Lo que NO cubre**, y está escrito en el módulo: truncar el fichero por el final (lo que queda sigue
-encadenado). Cubrirlo exige anclar el último hash fuera del fichero; `ultimo_hash` existe para eso.
+**El truncado final lo cubre el ancla** (11/09): con `TRIAJE_ANCLA=host:puerto`, `Cadena` envía tras cada
+registro un evento syslog `triaje-ancla: fichero=… linaje=… registros=N hash=…` al manager de Wazuh, que lo
+guarda en `alerts.json` con la regla local 100100 (la instala `wazuh-run.sh`). `--verificar … --anclas
+alerts.json` diagnostica **TRUNCADA** (mismo linaje —los 16 primeros caracteres del hash del primer
+registro—, faltan registros), **REHECHA** (anclas para ese nombre, ninguna de este linaje) o **ALTERADA**.
+Verificado en vivo con los tres casos. El adaptador de Wazuh descarta las alertas del grupo `triaje`
+(las anclas): sin eso, ancla → alerta → decisión → ancla, sin fin (medido: 14 registros por un ataque).
 
 ## 4. Cómo correr el CLI
 

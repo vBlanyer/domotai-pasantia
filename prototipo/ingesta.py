@@ -33,7 +33,9 @@ def ingerir_fichero(ruta, adaptador):
                 cruda = json.loads(linea)
             except json.JSONDecodeError:
                 continue
-            regs.append(normalizar(cruda, adaptador))
+            reg = normalizar(cruda, adaptador)
+            if reg is not None:            # el adaptador descarta la telemetria propia
+                regs.append(reg)
     return regs
 
 def main(argv):
