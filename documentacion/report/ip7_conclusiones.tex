@@ -28,10 +28,13 @@ principal debilidad, que es decidir de forma no auditable.
 La conclusión metodológica más relevante del trabajo se refiere a la medida de la explicabilidad:
 \textbf{un anclaje verificable perfecto no implica una justificación correcta}, y ambas propiedades
 deben medirse por separado. La verificación de anclaje comprueba que el modelo no inventa campos, y
-eso es necesario, pero se puede satisfacer sin explicar nada. Se documentaron tres maneras
+eso es necesario, pero se puede satisfacer sin explicar nada. Se documentaron cuatro maneras
 distintas de superarla vacíamente: describir al revés el significado de los campos citados, repetir
-el enunciado recibido ---que contiene por construcción todos los campos--- y, la más
-problemática, contradecir la clasificación que el propio sistema acaba de emitir. Una métrica
+el enunciado recibido ---que contiene por construcción todos los campos---, atribuir a la alerta
+una técnica que procede de un pasaje recuperado y, la más problemática, contradecir la
+clasificación que el propio sistema acaba de emitir. Las dos últimas se cerraron con la misma
+regla: la clase y las técnicas son datos estructurados de la alerta, y el texto no puede
+desmentirlos. Una métrica
 automática de explicabilidad debe defenderse de las formas de cumplirla sin cumplir su propósito.
 
 De ahí se sigue una lectura más matizada de la recuperación aumentada que la que el trabajo
@@ -81,13 +84,6 @@ cifras exactas a un cliente con un perfil de amenazas distinto.
         antes de intentar de nuevo el ajuste fino de un clasificador. Es la condición que hoy
         bloquea la pieza más importante que falta en el prototipo, y no depende de ninguna decisión
         externa a este proyecto.
-  \item \textbf{Verificar que la técnica citada en la justificación sea la de la alerta.} La
-        verificación de anclaje comprueba direcciones y campos, pero no que el identificador de
-        técnica que el texto menciona coincida con el de la alerta, y se observó en una corrida
-        que el modelo atribuía a la alerta una técnica procedente de un pasaje recuperado. Es la
-        misma clase de defecto que las contradicciones ya corregidas ---material de referencia
-        narrado como hecho--- y se detecta con la misma facilidad, comparando contra un campo
-        estructurado.
   \item \textbf{Crecer el corpus de descarte al ritmo de las clases, no antes.} Hoy contiene una
         ficha por cada clase sin amenaza, y basta porque las clases son tres. Cada motivo nuevo de
         descarte que el perfil de cliente incorpore debe llegar acompañado de su ficha, porque se

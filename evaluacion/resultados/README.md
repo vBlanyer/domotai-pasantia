@@ -48,7 +48,7 @@ millones de parametros (`llama-3.1-8b-instruct-q4.gguf`):
 
 | Directorio / fichero | Que contiene | Estado |
 |---|---|---|
-| `8b-sin-rag/` | Campana sin recuperacion. 18/18 ancladas, 0 degradadas | Vigente (`llm-3`) |
+| `8b-sin-rag/` | Campana sin recuperacion. 18/18 ancladas, 0 degradadas | **Vigente (`llm-4`)** |
 | `8b-con-rag/` | Campana con recuperacion, corpus y consulta dependientes de la clase. 18/18 ancladas, 0 degradadas, **0 contradicciones**, 50 s | **Vigente (`llm-4`)** |
 | `rag-simulacion-2026-09-10.md` | Banco de calibracion con el 1B como embedder. Fija MRR 0.47, agentica 0.32 | Historico |
 | `rag-simulacion-2026-09-10-bge.md` | Banco con bge-m3 como embedder y generacion reproducible. Fija MRR 0.70, agentica 0.73 | **Vigente** |

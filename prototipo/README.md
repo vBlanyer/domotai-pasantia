@@ -522,6 +522,10 @@ Tres cambios posteriores a la evaluación, cada uno con su medición en
   previa (4 de 12 consultas del banco). Verificado que sin caché el banco da cifras idénticas antes y
   después de una campaña. `_limpiar_consulta` salta además los preámbulos que el 8B antepone
   («La búsqueda que te recomiendo es:»). `VERSION_JUSTIFICADOR` = `llm-4`.
+- **Anclaje de técnicas.** `verificar_anclaje` rechaza además cualquier identificador MITRE citado que
+  no sea de la alerta (o el padre de uno de los suyos): bajo `llm-3` se vio al modelo atribuir a la
+  alerta la `T1021.004` de un pasaje recuperado. Mismo criterio que para las IPs. Efecto sobre la
+  corrida vigente: 0 de 18 (ningún texto cita identificadores).
 
 ### 10.ter Agente de mitigación (ReAct + Tool Calling acotado)
 

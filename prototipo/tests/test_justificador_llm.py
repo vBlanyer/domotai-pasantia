@@ -42,6 +42,27 @@ class TestAnclaje(unittest.TestCase):
         txt = "Esta alerta es importante y debe revisarse con cuidado."
         self.assertFalse(jl.verificar_anclaje(txt, ALERTA))
 
+class TestAnclajeTecnica(unittest.TestCase):
+    ALERTA = {**ALERTA, "mitre": ["T1110.001"]}
+
+    def test_rechaza_una_tecnica_que_no_es_de_la_alerta(self):
+        # Observado con recuperacion: el pasaje sobre T1021.004 acaba atribuido a la alerta.
+        txt = "Acceso desde 192.168.1.10 a objetivo-vuln mediante la tecnica T1021.004."
+        self.assertFalse(jl.verificar_anclaje(txt, self.ALERTA))
+
+    def test_admite_la_tecnica_de_la_alerta_y_su_padre(self):
+        txt = "Fuerza bruta (T1110.001, subtecnica de T1110) desde 192.168.1.10 a objetivo-vuln."
+        self.assertTrue(jl.verificar_anclaje(txt, self.ALERTA))
+
+    def test_sin_tecnicas_en_la_alerta_no_se_admite_ninguna(self):
+        txt = "Alerta desde 192.168.1.10 a objetivo-vuln, tecnica T1110."
+        self.assertFalse(jl.verificar_anclaje(txt, {**self.ALERTA, "mitre": []}))
+
+    def test_un_texto_sin_tecnicas_sigue_anclando(self):
+        txt = "Intento de acceso SSH desde 192.168.1.10 contra objetivo-vuln."
+        self.assertTrue(jl.verificar_anclaje(txt, self.ALERTA))
+
+
 class TestJustificarLLM(unittest.TestCase):
     def _gen_bueno(self, prompt):
         return "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln; servicio ssh expuesto."

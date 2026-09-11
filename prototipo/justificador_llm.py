@@ -8,12 +8,23 @@ from prototipo import postura as postura_mod
 VERSION_JUSTIFICADOR = "llm-4"
 
 _IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
+_TECNICA = re.compile(r'\bT\d{4}(?:\.\d{3})?\b')
 
 def verificar_anclaje(texto, alerta):
     origen = alerta.get("origen_ip")
     # 1. Toda IP mencionada debe ser la de la alerta; si aparece otra, es alucinación.
     for ip in _IP.findall(texto):
         if ip != origen:
+            return False
+    # 1b. Toda tecnica citada debe ser de la alerta, o la tecnica padre de una de ellas (citar
+    # T1110 cuando la alerta trae T1110.001 es correcto). Mismo criterio que para las IPs: se
+    # vio al modelo atribuir a la alerta una tecnica que venia de un pasaje recuperado, y eso
+    # es material de referencia narrado como hecho. Con recuperacion, los pasajes traen
+    # identificadores de tecnicas vecinas, asi que la tentacion existe por construccion.
+    propias = set(alerta.get("mitre", []) or [])
+    padres = {t.split(".")[0] for t in propias}
+    for tecnica in _TECNICA.findall(texto):
+        if tecnica not in propias and tecnica not in padres:
             return False
     # 2. Debe referenciar al menos un dato concreto de la alerta.
     campos = [str(alerta.get(k)) for k in ("origen_ip", "activo", "servicio", "regla_id")]
