@@ -214,7 +214,8 @@ residente (`llm-server.sh --embedder`): justificación en el daemon 7.5 s → 2.
 completo del modo tiempo real. **Escalada determinista por defecto** con el filtro del perfil en cada salto
 (cierra la Fase 3 del plan de excelencia técnica), verificada en vivo con la topología de cortafuegos.
 **Ancla de la traza en Wazuh** (`TRIAJE_ANCLA`): el truncado final ya se detecta; el verificador distingue
-truncada / rehecha / alterada, los tres reproducidos en vivo.
+truncada / rehecha / alterada, los tres reproducidos en vivo. **Rotación de la clave del conector** todo o
+nada (`rotar-clave-conector.sh`), verificada en vivo con su camino de aborto.
 
 **Quién lo resuelve:** nosotros. Es la pieza que faltaba para que el prototipo cumpla su objetivo
 general, no un extra.

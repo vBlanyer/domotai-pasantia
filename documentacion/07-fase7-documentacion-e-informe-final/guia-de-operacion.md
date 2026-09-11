@@ -142,7 +142,8 @@ revierten acciones con `reversion: definida`; las transitorias y las de observac
 | Integridad de la traza | `python3 -m prototipo.traza --verificar trazas.jsonl --anclas <alerts.json de Wazuh>` → `cadena valida: N registros` y `anclas: el ancla coincide: N registros` | diario, y antes de cualquier revisión |
 | Anclaje | es automático: con `TRIAJE_ANCLA`, cada registro envía su hash al manager y queda en `alerts.json` (regla local 100100, que `wazuh-run.sh` instala). El verificador distingue **TRUNCADA** (mismo linaje, faltan registros al final), **REHECHA** (el fichero se borró y se volvió a crear con el mismo nombre) y **ALTERADA** | nunca borres ni recrees el fichero de la traza: si necesitas otro, usa otro nombre |
 | Servidores vivos | `curl -s 127.0.0.1:8080/health`, `…:8082/health` → `{"status":"ok"}` | al arrancar y si las justificaciones salen «de plantilla» |
-| Mínimo privilegio vigente | re-ejecuta `aprovisionar-minimo-privilegio.sh` (es idempotente) | tras cambiar el catálogo o rotar la clave |
+| Mínimo privilegio vigente | re-ejecuta `aprovisionar-minimo-privilegio.sh` (es idempotente) | tras cambiar el catálogo |
+| Rotación de la clave del conector | `sh lab/scripts/rotar-clave-conector.sh nodo1:ip1 nodo2:ip2 …` — todo o nada: añade la nueva en todos los nodos, la verifica en todos con un comando del catálogo, y solo entonces retira la vieja; si un nodo falla, deshace y la vieja sigue valiendo. La rotación queda anotada en Wazuh (regla 100101, con la huella nueva). El servicio no se reinicia | periódicamente (p. ej. trimestral), y siempre que se sospeche de la clave |
 | Postura de los activos | regenera `hallazgos.json` con el auditor | tras cambios en el inventario |
 | Versiones en la traza | `version_justificador`, `version_perfil`, `version_baseline` en cada registro | al comparar decisiones de fechas distintas |
 
@@ -201,6 +202,8 @@ en el código. Para repetir una campaña completa: `python3 -m evaluacion.campan
 [x] segunda reversión                            → "ya fue revertida"
 [x] anclaje: sesión con TRIAJE_ANCLA → 8 registros, 8 anclas en Wazuh → "el ancla coincide";
     un registro menos → TRUNCADA; fichero rehecho con el mismo nombre → REHECHA
+[x] rotación de clave en los dos nodos: nueva verificada en ambos → vieja retirada y denegada → anotada en Wazuh;
+    con un nodo inalcanzable en la lista → ABORTADA, la vigente sigue entrando, nada añadido
 [x] escenario C (topología red-cliente-firewall, ambos nodos aprovisionados): sshd del activo parado
     → paso en el host rc=255 → pregunta para el cortafuegos → BLOQUEAR_IP_FIREWALL aplicado y
     verificado en el borde (5,2 s) → traza válida → reversión desde la traza → regla eliminada

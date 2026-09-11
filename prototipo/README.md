@@ -292,7 +292,9 @@ fuerza el sustituto de laboratorio, y nunca se cae de clave a contraseña en sil
 el bloqueo del lazo completo aparece en el `auth.log` del objetivo como
 `sudo: triaje : … COMMAND=/sbin/iptables -A INPUT -s 192.168.1.10 -j DROP`. Dos rarezas del objetivo
 (2007–2008) que costaron una hora y quedan en el script: su `passwd -l` caduca la cuenta además de
-bloquear la contraseña, y su `sudo` 1.6.9 no tiene `-n` ni `sudoers.d`.
+bloquear la contraseña, y su `sudo` 1.6.9 no tiene `-n` ni `sudoers.d`. **Rotación** (11/09):
+`lab/scripts/rotar-clave-conector.sh nodo:ip …`, todo o nada (añade → verifica en todos → retira; si uno
+falla, deshace), anotada en Wazuh (regla 100101); verificada en vivo en los dos nodos y en su camino de aborto.
 
 **La validación humana (`validacion.py`).** Cuando el filtro del perfil marca `requiere_humano`
 (RF-08, RF-18), `lazo.procesar_lazo` no construye la orden todavía: llama a `validacion.pedir`, que

@@ -191,7 +191,9 @@ tres subproyectos:
         y la frontera de lo que el motor puede ordenar son el mismo dato. El aprovisionamiento
         termina comprobando que un comando del catálogo se ejecuta y que dos fuera de él ---uno
         con otro programa y otro con el mismo programa y otros argumentos--- se deniegan, y el
-        lazo completo se verificó en vivo con esa credencial. La reversión de una acción (RF-18)
+        lazo completo se verificó en vivo con esa credencial, igual que su rotación: la clave nueva se
+        añade en todos los nodos, se verifica en todos, y solo entonces se retira la anterior, con
+        el cambio anotado en el SIEM; si un nodo falla, nada cambia. La reversión de una acción (RF-18)
         pasó también de promesa del catálogo a operación: se deriva del registro de la decisión
         y del catálogo, la ejecuta el mismo conector, se verifica que el estado desapareció y se
         anota en la misma cadena de la traza. Todo ello, junto con la configuración por cliente,

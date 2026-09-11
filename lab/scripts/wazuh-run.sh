@@ -39,6 +39,10 @@ case "${1:-up}" in
     <program_name>^triaje-ancla\$</program_name>
     <description>Triaje asistido: ancla de la traza (hash del ultimo registro)</description>
   </rule>
+  <rule id="100101" level="5">
+    <program_name>^triaje-rotacion$</program_name>
+    <description>Triaje asistido: rotacion de la clave del conector</description>
+  </rule>
 </group>
 XML
       /var/ossec/bin/wazuh-control restart >/dev/null 2>&1
