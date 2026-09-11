@@ -32,12 +32,19 @@ def preparar_ataque():
                       f"-o PreferredAuthentications=password msfadmin@{VICT_IP} id 2>/dev/null")
     time.sleep(5)
 
-def alerta_fresca():
-    for l in reversed(dexec(WAZUH_C, "tail -60 /var/ossec/logs/alerts/alerts.json").splitlines()):
-        try: d = json.loads(l)
-        except Exception: continue
-        if str(d.get("rule", {}).get("id")) in ("5760","5763","5710","5712","5716") and d.get("data", {}).get("srcip"):
-            return ingesta.normalizar(d, adaptador_wazuh.adaptador("demo-humano"))
+def alerta_fresca(desde_ts, origen=ATAC_IP, espera_max=90):
+    """La alerta del ataque que ESTE demo lanzo: del atacante y posterior al lanzamiento. El
+    reenvio syslog tarda ~45 s en entregar la rafaga, asi que se sondea (ver demo-lazo-vivo)."""
+    limite = time.time() + espera_max
+    while time.time() < limite:
+        for l in reversed(dexec(WAZUH_C, "tail -80 /var/ossec/logs/alerts/alerts.json").splitlines()):
+            try: d = json.loads(l)
+            except Exception: continue
+            if (str(d.get("rule", {}).get("id")) in ("5760","5763","5710","5712","5716")
+                    and d.get("data", {}).get("srcip") == origen
+                    and d.get("timestamp", "") >= desde_ts):
+                return ingesta.normalizar(d, adaptador_wazuh.adaptador("demo-humano"))
+        time.sleep(3)
     return None
 
 def iptables():
@@ -45,10 +52,12 @@ def iptables():
 
 def main():
     print("Lanzando fuerza bruta SSH real...")
+    desde_ts = dexec(WAZUH_C, "date -u +%Y-%m-%dT%H:%M:%S")
     preparar_ataque()
-    alerta = alerta_fresca()
+    print(f"Esperando la alerta de {ATAC_IP} en Wazuh (el reenvio tarda ~45 s)...")
+    alerta = alerta_fresca(desde_ts)
     if not alerta:
-        print("Sin alerta SSH fresca."); return 1
+        print(f"Sin alerta SSH de {ATAC_IP} posterior al ataque: revisa el reenvio."); return 1
 
     perfil = perfilm.cargar(os.path.join(REPO, "prototipo/perfiles/empresarial.yml"))
     catalogo = catm.cargar_catalogo(os.path.join(REPO, "prototipo/catalogo.yml"))
@@ -58,7 +67,7 @@ def main():
     barra("1 · TRIAJE — confianza baja (el auditor no tiene postura del activo)")
     ctx = analisis.enriquecer(alerta, {}, perfil)          # hallazgos vacíos -> postura None -> confianza 0.5
     clas = analisis.clasificar(alerta, ctx)
-    rag_r = justificador_llm.justificar_con_rag(alerta, ctx, clas["clase"], justificador_llm.generador_llama, recuperar_fn)
+    rag_r = justificador_llm.justificar_con_rag(alerta, ctx, clas["clase"], justificador_llm.generador_por_defecto(), recuperar_fn)
     print(f"  Alerta: regla {alerta['regla_id']} · origen {alerta['origen_ip']} -> {alerta['activo']} ({alerta['servicio']})")
     print(f"  Clase: {clas['clase']} · Confianza: {clas['confianza']} (postura={ctx['postura']})")
     print(f"  Justificación RAG ({rag_r['justificador']}, pasajes {rag_r['pasajes_usados']}):")

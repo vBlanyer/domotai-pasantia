@@ -42,8 +42,17 @@ def main():
         indice = rag.cargar_indice()
     except Exception:
         indice = None
-    generador = (__import__("prototipo.justificador_llm", fromlist=["generador_llama"]).generador_llama
-                 if con_llm else generador_guion)
+    if con_llm:
+        # Misma invocacion que stream.construir_mitigar_fn: generador por defecto (servidor si
+        # esta arrancado) con el esquema derivado del catalogo y la topologia, para que el
+        # modelo no pueda nombrar nada fuera del catalogo (RF-15).
+        from prototipo import justificador_llm
+        esquema = ag.esquema_accion(catalogo, ag.resolver_topologia(perfil))
+        base = justificador_llm.generador_por_defecto()
+        generador = ((lambda p: base(p, esquema=esquema))
+                     if base is justificador_llm.generador_servidor else base)
+    else:
+        generador = generador_guion
     alerta = {"id_alerta": "demo1", "origen_ip": "192.168.1.10", "activo": "objetivo-vuln",
               "servicio": "ssh", "regla_id": "5760", "mitre": ["T1110.001"]}
     print("== DEMO Agente de Mitigación — escalado host -> firewall (Tool Calling acotado) ==")

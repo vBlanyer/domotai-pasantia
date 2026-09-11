@@ -31,20 +31,34 @@ def preparar_ataque():
                       f"-o PreferredAuthentications=password msfadmin@{VICT_IP} id 2>/dev/null")
     time.sleep(5)
 
-def alerta_fresca():
-    for l in reversed(dexec(WAZUH_C, "tail -60 /var/ossec/logs/alerts/alerts.json").splitlines()):
-        try: d = json.loads(l)
-        except Exception: continue
-        if str(d.get("rule", {}).get("id")) in ("5760","5763","5710","5712","5716") and d.get("data", {}).get("srcip"):
-            return ingesta.normalizar(d, adaptador_wazuh.adaptador("demo-vivo"))
+def alerta_fresca(desde_ts, origen=ATAC_IP, espera_max=90):
+    """La alerta del ataque que ESTE demo lanzo: del atacante, posterior al lanzamiento.
+
+    Sin las dos condiciones el demo tomaba 'la ultima 5760 que hubiera' y se llevo una vez la
+    alerta sintetica de la prueba de humo. Y el reenvio syslog del objetivo tarda unos 45 s por
+    datagrama en entregar la rafaga, asi que se sondea en vez de dormir un numero fijo."""
+    limite = time.time() + espera_max
+    while time.time() < limite:
+        for l in reversed(dexec(WAZUH_C, "tail -80 /var/ossec/logs/alerts/alerts.json").splitlines()):
+            try: d = json.loads(l)
+            except Exception: continue
+            if (str(d.get("rule", {}).get("id")) in ("5760","5763","5710","5712","5716")
+                    and d.get("data", {}).get("srcip") == origen
+                    and d.get("timestamp", "") >= desde_ts):
+                return ingesta.normalizar(d, adaptador_wazuh.adaptador("demo-vivo"))
+        time.sleep(3)
     return None
 
 def main():
     print("Lanzando fuerza bruta SSH real desde el atacante...")
+    # Marca de tiempo en el reloj de Wazuh (UTC, formato de alerts.json), tomada ANTES del ataque.
+    desde_ts = dexec(WAZUH_C, "date -u +%Y-%m-%dT%H:%M:%S")
     preparar_ataque()
-    alerta = alerta_fresca()
+    print(f"Esperando la alerta de {ATAC_IP} en Wazuh (el reenvio tarda ~45 s)...")
+    alerta = alerta_fresca(desde_ts)
     if not alerta:
-        print("No hay alerta SSH fresca en Wazuh."); return 1
+        print(f"No llego a Wazuh ninguna alerta SSH de {ATAC_IP} posterior al ataque: revisa el reenvio "
+              "(sh lab/scripts/reenvio-syslog.sh)."); return 1
 
     perfil = perfilm.cargar(os.path.join(REPO, "prototipo/perfiles/empresarial.yml"))
     catalogo = catm.cargar_catalogo(os.path.join(REPO, "prototipo/catalogo.yml"))
@@ -67,7 +81,7 @@ def main():
           dexec(ATAC_C, f"nc -z -w3 {VICT_IP} 22 && echo ALCANZABLE || echo no"))
 
     barra("3 · TRIAJE — clasifica y justifica CON RAG")
-    just_rag = justificador_llm.justificar_fn_rag(justificador_llm.generador_llama, recuperar_fn)
+    just_rag = justificador_llm.justificar_fn_rag(justificador_llm.generador_por_defecto(), recuperar_fn)
     ts = alerta.get("timestamp", "")
     decision = triaje.procesar(alerta, hallazgos, perfil, "empresarial", catalogo, "demo-vivo", ts, justificar_fn=just_rag)
     print(f"  Clase: {decision['clase']} · Prioridad: {decision['prioridad']} · Confianza: {decision['confianza']}")
