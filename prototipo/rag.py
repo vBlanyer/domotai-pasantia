@@ -72,8 +72,11 @@ def _limpiar_consulta(texto):
     if "Busqueda:" in t:                     # quedarse con lo generado tras el prompt
         t = t.split("Busqueda:", 1)[-1]
     for linea in t.splitlines():
-        linea = linea.strip()
-        if linea:
+        # Un modelo instruido antepone a veces un preambulo ("La busqueda que te propongo es:")
+        # y pone la busqueda en la linea siguiente, entre acentos graves. Quedarse con la primera
+        # linea no vacia devolvia el preambulo, que no busca nada, y lo pegaba a la consulta.
+        linea = linea.strip().strip("`").strip()
+        if linea and not linea.endswith(":"):
             return linea
     return ""
 

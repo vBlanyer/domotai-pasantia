@@ -152,6 +152,19 @@ class TestLogica(unittest.TestCase):
             self.assertIn("regla", rag.tipos_excluidos(clase))
             self.assertNotIn("vuln", rag.tipos_excluidos(clase))
 
+    def test_limpiar_consulta_salta_el_preambulo(self):
+        # Salida real del 8B: preambulo, linea en blanco, la busqueda entre acentos graves, y
+        # una explicacion. Se quiere la busqueda, no el preambulo.
+        crudo = ("La busqueda que te recomiendo es:\n\n"
+                 "`\"regla 31151\" AND \"T1190\" AND \"servicio http\"`\n\n"
+                 "Esta busqueda combina los siguientes terminos:")
+        self.assertEqual(rag._limpiar_consulta(crudo), '"regla 31151" AND "T1190" AND "servicio http"')
+
+    def test_limpiar_consulta_una_linea_sigue_igual(self):
+        self.assertEqual(rag._limpiar_consulta("Busqueda: T1110.001 contramedida D3-ITF"),
+                         "T1110.001 contramedida D3-ITF")
+        self.assertEqual(rag._limpiar_consulta("Solo preambulo:"), "")
+
     def test_coseno(self):
         self.assertAlmostEqual(rag._coseno([1,0,0],[1,0,0]), 1.0)
         self.assertAlmostEqual(rag._coseno([1,0],[0,1]), 0.0)

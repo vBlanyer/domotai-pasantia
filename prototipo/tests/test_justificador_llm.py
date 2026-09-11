@@ -139,7 +139,7 @@ class TestVersionJustificador(unittest.TestCase):
     def test_llm_reporta_version_con_modelo(self):
         gen = lambda p: "Fuerza bruta SSH desde 192.168.1.10 contra objetivo-vuln (regla 5760)."
         r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen)
-        self.assertTrue(r["version_justificador"].startswith("llm-3"))
+        self.assertTrue(r["version_justificador"].startswith("llm-4"))
         self.assertIn("llama-3.2-1b-q4.gguf", r["version_justificador"])
 
     def test_degradacion_reporta_plantilla(self):
@@ -153,7 +153,7 @@ class TestVersionJustificador(unittest.TestCase):
         fn = jl.justificar_fn_rag(gen, recuperar_fn)
         r = fn(ALERTA, CTX_EXP, "vp_intento_acceso")
         self.assertIn("texto", r)
-        self.assertTrue(r["version_justificador"].startswith("llm-3"))
+        self.assertTrue(r["version_justificador"].startswith("llm-4"))
         self.assertEqual(r["pasajes_usados"], ["regla-5760"])
 
 
@@ -190,6 +190,13 @@ class TestGeneradorServidor(unittest.TestCase):
         cuerpo = json.loads(cap[0].data.decode("utf-8"))
         self.assertEqual(cuerpo["response_format"]["type"], "json_schema")
         self.assertEqual(cuerpo["response_format"]["json_schema"]["schema"], esquema)
+
+    def test_la_peticion_desactiva_la_cache_de_prefijos(self):
+        # RNF-03: con la cache activa, el mismo prompt a temperatura 0 devolvia texto distinto
+        # segun lo que el servidor habia procesado antes (medido: 4 de 12 consultas del banco).
+        cap = []
+        jl.generador_servidor("p", _abrir=_abridor(cap))
+        self.assertIs(json.loads(cap[0].data.decode("utf-8"))["cache_prompt"], False)
 
     def test_sin_esquema_no_se_restringe(self):
         cap = []

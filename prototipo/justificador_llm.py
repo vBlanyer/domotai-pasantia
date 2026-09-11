@@ -5,7 +5,7 @@ from prototipo.analisis import CLASES_SIN_AMENAZA
 from prototipo import postura as postura_mod
 
 # Sube con cada cambio que altere el texto generado: el enunciado, la invocacion o el modelo.
-VERSION_JUSTIFICADOR = "llm-3"
+VERSION_JUSTIFICADOR = "llm-4"
 
 _IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 
@@ -178,8 +178,13 @@ def generador_servidor(prompt, url=URL, n_tokens=200, temperatura=0, esquema=Non
 
     Devuelve "" ante cualquier fallo -> el llamador degrada a plantilla (RNF-09).
     """
+    # cache_prompt=False es un requisito de reproducibilidad (RNF-03), no una optimizacion. Con
+    # la cache de prefijos del servidor activa, la salida a temperatura 0 depende de lo que el
+    # servidor proceso ANTES: el mismo prompt devolvio consultas distintas segun la carga previa
+    # (4 de 12 en el banco de recuperacion). Sin cache, el mismo prompt da siempre el mismo
+    # texto. El coste es recalcular un prompt de unas decenas de tokens: despreciable.
     cuerpo = {"messages": [{"role": rol, "content": prompt}],
-              "temperature": temperatura, "max_tokens": n_tokens}
+              "temperature": temperatura, "max_tokens": n_tokens, "cache_prompt": False}
     if esquema is not None:
         cuerpo["response_format"] = {"type": "json_schema",
                                      "json_schema": {"name": "accion", "schema": esquema}}

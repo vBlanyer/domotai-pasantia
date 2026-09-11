@@ -43,19 +43,55 @@ python3 -m evaluacion.campana --particion evaluacion --con-rag --salida-dir eval
 
 ## Corridas con modelo de 8B (10/09/2026)
 
-Tras rehacer la capa de invocacion (servidor residente) y con un modelo de ocho mil millones de
-parametros, `llm-2:llama-3.1-8b-instruct-q4.gguf`:
+Tras rehacer la capa de invocacion (servidor residente) y con un modelo generalista de ocho mil
+millones de parametros (`llama-3.1-8b-instruct-q4.gguf`):
 
-| Directorio | Que contiene |
-|---|---|
-| `8b-sin-rag/` | Campana sin recuperacion. 18/18 ancladas, 0 degradadas |
-| `8b-con-rag/` | Campana con recuperacion. 18/18 ancladas, 0 degradadas, 51 s (antes 10 m 46 s) |
-| `rag-simulacion-2026-09-10.md` | Banco de calibracion. Consulta fija MRR 0.47 frente a agentica 0.32 |
+| Directorio / fichero | Que contiene | Estado |
+|---|---|---|
+| `8b-sin-rag/` | Campana sin recuperacion. 18/18 ancladas, 0 degradadas | Vigente (`llm-3`) |
+| `8b-con-rag/` | Campana con recuperacion, corpus y consulta dependientes de la clase. 18/18 ancladas, 0 degradadas, **0 contradicciones**, 50 s | **Vigente (`llm-4`)** |
+| `rag-simulacion-2026-09-10.md` | Banco de calibracion con el 1B como embedder. Fija MRR 0.47, agentica 0.32 | Historico |
+| `rag-simulacion-2026-09-10-bge.md` | Banco con bge-m3 como embedder y generacion reproducible. Fija MRR 0.70, agentica 0.73 | **Vigente** |
 
-La clasificacion es identica a la de las corridas anteriores, como debe ser: el modelo no participa
-en ella. Lo que cambia es la justificacion.
+La clasificacion es identica en todas las corridas, como debe ser: el modelo no participa en ella.
+Lo que cambia es la justificacion.
+
+### La tasa de anclaje de `8b-con-rag/` paso por tres estados, y el mismo numero significo dos cosas
+
+| Estado | Version | Anclaje | Contradicciones con el motor | Descartes en plantilla | Donde |
+|---|---|---|---|---|---|
+| Enunciado ciego a la clase | `llm-2` | 18/18 (1,00) | **8 de 8** falsos positivos explicados como ataque | 0 | historial, `9a2db51` |
+| Enunciado por clase, corpus solo de ataque | `llm-3` | 11/18 (0,61) | 0 | 7 de 8 | historial, `ac36a92` |
+| Enunciado, consulta y corpus por clase | `llm-4` | 18/18 (1,00) | 0 | 0 | `8b-con-rag/` |
+
+El primer 1,00 era vacio: la justificacion citaba todos los campos y contradecia la decision. El
+0,61 fue una mejora: desaparecieron las contradicciones a costa de que los descartes cayeran a la
+plantilla, porque el corpus no tenia nada que explicara por que algo NO es una amenaza. El segundo
+1,00 se obtuvo anadiendo tres fichas de descarte al corpus, haciendo que la consulta de recuperacion
+dependa de la clase decidida y separando el corpus en dos familias que no se mezclan (una amenaza
+no ve fichas de descarte; un descarte no ve fichas de ataque). Las 18 justificaciones se leyeron una
+a una: los descartes citan el motivo real (el origen figura como administracion declarada) y las
+amenazas citan origen, activo y servicio expuesto. El desglose por clase esta en el JSON
+(`anclaje.resumen.por_clase`).
+
+### Reproducibilidad del banco (RNF-03)
+
+Con la cache de prefijos del `llama-server` activa, el mismo prompt a temperatura 0 devolvia
+consultas distintas segun lo que el servidor habia procesado antes: 4 de las 12 consultas
+agenticas del banco cambiaban tras correr una campana, y el MRR agentico oscilo entre 0,72 y 0,81
+sin que cambiara ni el codigo ni el corpus. El generador ya envia `cache_prompt: false`; se
+verifico que con eso el banco da cifras identicas antes y despues de una campana. **Las cifras
+agenticas anteriores a `llm-4` (0,72 en el commit `20b88e7`) eran dependientes del estado del
+servidor y no deben citarse.** La consulta fija nunca tuvo este problema: no pasa por el
+generador.
 
 **Por que no se uso el modelo especializado en seguridad** que selecciono la Fase 4: sus dos
 cuantizaciones publicas declaran plantillas de conversacion que no corresponden a su arquitectura, y
 producen repeticion del enunciado o fuga de marcas de control. Se midio con un modelo generalista de
 referencia, lo que aisla el efecto del tamano pero deja sin comprobar el de la especializacion.
+
+```bash
+# Con el servidor residente arrancado (lab/scripts/llm-server.sh):
+python3 -m evaluacion.campana --particion evaluacion --con-rag --generador servidor --salida-dir evaluacion/resultados/8b-con-rag
+python3 -m evaluacion.simular_ataques_rag --salida-dir evaluacion/resultados
+```

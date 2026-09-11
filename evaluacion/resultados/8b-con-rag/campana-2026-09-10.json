@@ -133,7 +133,7 @@
   "operacion": {
     "cobertura": 0.08780487804878048,
     "tasa_escalado": 0.0,
-    "ms_medio_clasificar": 0.0025532634292797346
+    "ms_medio_clasificar": 0.002677531780890848
   },
   "continuidad": {
     "disruptivas_indebidas": 0,
@@ -145,255 +145,319 @@
     "n_soportadas": 18,
     "version_baseline": "baseline-0",
     "version_justificador": [
-      "llm-3:llama-3.1-8b-instruct-q4.gguf",
-      "plantilla-0"
+      "llm-4:llama-3.1-8b-instruct-q4.gguf"
     ]
   },
   "anclaje": {
     "resumen": {
-      "llm_total": 11,
-      "anclados": 11,
-      "degradados": 7,
-      "pct_anclaje": 0.6111111111111112,
+      "llm_total": 18,
+      "anclados": 18,
+      "degradados": 0,
+      "pct_anclaje": 1.0,
       "versiones": [
-        "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "plantilla-0"
-      ]
+        "llm-4:llama-3.1-8b-instruct-q4.gguf"
+      ],
+      "por_clase": {
+        "vp_intento_acceso": {
+          "llm": 10,
+          "plantilla": 0,
+          "pct_anclaje": 1.0
+        },
+        "fp_actividad_legitima": {
+          "llm": 8,
+          "plantilla": 0,
+          "pct_anclaje": 1.0
+        }
+      }
     },
     "detalle": [
       {
         "id_alerta": "1788194885.702564",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "mapeo-acceso_credenciales",
+          "mitre-T1021",
+          "mitre-T1021.004"
+        ],
+        "consulta_usada": "tecnica MITRE T1110.001 T1021.004 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194890.703041",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "mapeo-acceso_credenciales",
+          "mitre-T1021",
+          "mitre-T1021.004"
+        ],
+        "consulta_usada": "tecnica MITRE T1110.001 T1021.004 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194898.703518",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "mapeo-acceso_credenciales",
+          "mitre-T1021",
+          "mitre-T1021.004"
+        ],
+        "consulta_usada": "tecnica MITRE T1110.001 T1021.004 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194902.703995",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "mapeo-acceso_credenciales",
+          "mitre-T1021",
+          "mitre-T1021.004"
+        ],
+        "consulta_usada": "tecnica MITRE T1110.001 T1021.004 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194910.704472",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "mapeo-acceso_credenciales",
+          "mitre-T1021",
+          "mitre-T1021.004"
+        ],
+        "consulta_usada": "tecnica MITRE T1110.001 T1021.004 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194914.704949",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "mapeo-acceso_credenciales",
+          "mitre-T1021",
+          "mitre-T1021.004"
+        ],
+        "consulta_usada": "tecnica MITRE T1110.001 T1021.004 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194920.705426",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "mapeo-acceso_credenciales",
+          "mitre-T1021",
+          "mitre-T1021.004"
+        ],
+        "consulta_usada": "tecnica MITRE T1110.001 T1021.004 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194924.705903",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso en el activo objetivo-vuln, servicio ssh, debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, utilizando la técnica MITRE T1110.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se debe a que el motor ha detectado un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10.",
         "pasajes_usados": [
-          "regla-5712",
-          "regla-5763",
-          "d3fend-D3-AL"
-        ]
+          "mitre-T1021",
+          "mapeo-acceso_credenciales",
+          "mitre-T1110"
+        ],
+        "consulta_usada": "tecnica MITRE T1110 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194932.707158",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "mapeo-acceso_credenciales",
+          "mitre-T1021",
+          "mitre-T1021.004"
+        ],
+        "consulta_usada": "tecnica MITRE T1110.001 T1021.004 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194936.707635",
         "etiqueta": "VP",
+        "clase": "vp_intento_acceso",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta vp_intento_acceso se ha disparado debido a un ataque de fuerza bruta SSH en curso desde la IP 192.168.1.10, que intenta acceder al sistema objetivo-vuln, que expone el servicio SSH.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta vp_intento_acceso se produjo debido a un intento de acceso no autorizado a través del servicio SSH en el activo objetivo-vuln, proveniente de la dirección IP 192.168.1.10. Esto se debe a que el servicio SSH está expuesto en el activo objetivo-vuln, lo que permite a un atacante intentar acceder al sistema utilizando credenciales válidas.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "mapeo-acceso_credenciales",
+          "mitre-T1021",
+          "mitre-T1021.004"
+        ],
+        "consulta_usada": "tecnica MITRE T1110.001 T1021.004 acceso credenciales servicio ssh contramedida defensiva",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194950.708112",
         "etiqueta": "FP",
-        "justificador": "plantilla",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "plantilla-0",
-        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194952.708604",
         "etiqueta": "FP",
-        "justificador": "plantilla",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "plantilla-0",
-        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194954.709128",
         "etiqueta": "FP",
-        "justificador": "plantilla",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "plantilla-0",
-        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194958.709656",
         "etiqueta": "FP",
-        "justificador": "plantilla",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "plantilla-0",
-        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194960.710148",
         "etiqueta": "FP",
-        "justificador": "plantilla",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "plantilla-0",
-        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194962.710672",
         "etiqueta": "FP",
-        "justificador": "plantilla",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "plantilla-0",
-        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194966.711200",
         "etiqueta": "FP",
-        "justificador": "plantilla",
+        "clase": "fp_actividad_legitima",
+        "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "plantilla-0",
-        "texto": "Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como fp_actividad_legitima. [justificación de plantilla — baseline, no modelo]",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente en su perfil, lo que indica que el intento de acceso es realizado por un administrador que ha errado la credencial, en lugar de un atacante.",
         "pasajes_usados": [
-          "regla-5763",
-          "regla-5712",
-          "d3fend-D3-AL"
-        ]
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
       },
       {
         "id_alerta": "1788194968.711692",
         "etiqueta": "FP",
+        "clase": "fp_actividad_legitima",
         "justificador": "llm",
         "anclaje_verificado": true,
-        "version_justificador": "llm-3:llama-3.1-8b-instruct-q4.gguf",
-        "texto": "La alerta no es una amenaza debido a que el origen 192.168.1.1 es declarado como administración legítima por el cliente, lo que indica que el acceso desde esa dirección es autorizado y no se trata de un ataque de fuerza bruta.",
+        "version_justificador": "llm-4:llama-3.1-8b-instruct-q4.gguf",
+        "texto": "La alerta no es una amenaza debido a que el origen de la alerta (192.168.1.1) figura entre las direcciones de administración declaradas por el cliente, lo que sugiere que se trata de un administrador que erró la credencial en lugar de un atacante.",
         "pasajes_usados": [
-          "regla-5712",
-          "regla-5763",
-          "d3fend-D3-AL"
-        ]
+          "descarte-origen-legitimo",
+          "descarte-sin-exposicion",
+          "vuln-objetivo-ssh"
+        ],
+        "consulta_usada": "descarte falso positivo el origen es administracion legitima declarada por el cliente, no un atacante servicio ssh",
+        "recuperacion_agentica": false
       }
     ]
   }
