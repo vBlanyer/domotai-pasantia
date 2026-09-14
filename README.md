@@ -73,6 +73,9 @@ pasar las conexiones en claro de nivel 3) y sin acciones disruptivas indebidas.
 Detalle en [`evaluacion/resultados/README.md`](evaluacion/resultados/README.md) y en el
 [informe de evaluación](documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
 
-Limitación conocida y documentada: el clasificador con fine-tuning (encoder) sigue bloqueado por
-muestras insuficientes (el dataset tiene 3 familias de ataque, dos con pocas muestras); el baseline
-determinista lo cubre mientras tanto, y el justificador LLM sí es real.
+Decisión de diseño documentada: el clasificador **no** es un codificador con ajuste fino, sino un
+**árbol de decisión** (`arbol.py`) que **valida y descubre reglas** para el baseline determinista
+auditable — la escala honesta para un dataset de unos cientos de filas (un modelo grande memoriza y no
+se valida sin fuga). El sistema clasifica a la granularidad **VP/FP/no_soportada** que soportan las
+etiquetas del dataset; las 6 clases finas exigirían etiquetas finas de las que hoy no se dispone
+(límite de datos, no pieza pendiente). El justificador LLM sí es real.

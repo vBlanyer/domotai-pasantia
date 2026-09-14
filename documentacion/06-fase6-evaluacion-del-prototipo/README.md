@@ -66,11 +66,12 @@ la implementación arranca con valores provisionales.
 **Hecha.** El marco de medición vive en [`evaluacion/`](../../evaluacion/) y la campaña corre con
 `python3 -m evaluacion.campana --particion evaluacion`. Resultado principal: sobre la partición de
 evaluación el prototipo **elimina los falsos positivos** (tasa 0.000 vs 0.282 del nivel de regla de Wazuh; con la configuración de orígenes legítimos que distingue admin de atacante, RF-03) **sin perder ninguna amenaza** (recall 1.0) y sin acciones disruptivas indebidas; sus
-límites —cubre 4 de las 6 categorías (falta el encoder bloqueado por datos), la legitimidad se apoya en la IP (suplantable), y el 1B justifica mal sin RAG—
+límites —cubre 4 de las 6 categorías (las 2 finas exigen etiquetas de las que el dataset no dispone, no una pieza pendiente), la legitimidad se apoya en la IP (suplantable), y el 1B justifica mal sin RAG—
 están medidos y documentados. Los números y el análisis completo están en el
 [informe](informe-evaluacion.md).
 
 **Criterio de cierre** (roadmap): cumplido — existen resultados cuantitativos (tabla comparativa,
 curva del baseline) y cualitativos (lectura de las justificaciones) que demuestran el valor y las
 limitaciones del enfoque. Queda pendiente para un dataset mayor: la calibración del umbral de escalado
-(RF-07) y el clasificador con fine-tuning.
+(RF-07) y la granularidad fina de 6 clases (que exige etiquetas finas; el clasificador determinista
+nutrido por el árbol de decisión ya cubre VP/FP/no_soportada).
