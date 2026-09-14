@@ -9,8 +9,8 @@ La Fase 5 completa se divide en tres subproyectos:
 - **5A (este paquete)** — el núcleo de decisión: ingesta → análisis → política → perfil → traza.
 - **5B** — el lazo en vivo: conector SSH que ejecuta las acciones, validación humana por TUI/CLI,
   verificación por reescaneo del auditor.
-- **5C** — el clasificador y el justificador reales (encoder con fine-tuning + modelo generativo
-  pequeño), enchufados detrás de la misma interfaz que hoy usa el baseline.
+- **5C** — el clasificador y el justificador reales (árbol de decisión que nutre el baseline
+  determinista + modelo generativo), enchufados detrás de la misma interfaz que hoy usa el baseline.
 
 Diseño completo: [`docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md`](../docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md).
 Regla de negocio (política + perfil): [`documentacion/04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md`](../documentacion/04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md).
@@ -474,17 +474,25 @@ configurable), documentado aquí como decisión honesta de rendimiento medido, n
 interfaz (`justificar_llm`/`adaptador`) no cambia si más adelante se sustituye el binario o el modelo
 por uno mayor en hardware con GPU — es la misma frontera de generador inyectable descrita arriba.
 
-### El clasificador con fine-tuning sigue bloqueado
+### El clasificador: árbol de decisión, no codificador con ajuste fino
 
-A diferencia del justificador, el **clasificador** de 5C (encoder ajustado sobre la partición de
-entrenamiento, ver tabla del [README de la Fase 5](../documentacion/05-fase5-implementacion-del-prototipo/README.md))
-sigue **sin construirse**: el dataset etiquetado de la Fase 3 (`lab/dataset/etiquetado.jsonl`) tiene
-hoy 3 familias de ataque (`acceso_credenciales`, `reconocimiento`, `servicio_expuesto`, §6), pero dos
-con muy pocas muestras — aún sin variedad de clases suficiente para entrenar ni validar un clasificador
-que generalice. El baseline determinista
-de 5A (§2) sigue siendo lo que produce `clase`/`prioridad`/`confianza` en el lazo completo; el
-justificador con LLM de esta sección es una pieza independiente que ya sustituye la plantilla de
-`analisis.justificar` cuando se le pasa `justificar_fn` a `triaje.procesar`.
+El **clasificador** que la tabla de 5C contemplaba como un *encoder ajustado* sobre la partición de
+entrenamiento (ver [README de la Fase 5](../documentacion/05-fase5-implementacion-del-prototipo/README.md))
+**se descartó a propósito** a favor de un **árbol de decisión** (`arbol.py`). La razón está en el propio
+docstring del módulo: con unos cientos de filas, un modelo grande **memoriza** y no se puede validar sin
+fuga; un árbol de profundidad acotada es la **escala honesta** para este conjunto de datos. Y no es una
+pieza inerte: el árbol **valida y descubre reglas** que se promueven al baseline determinista auditable
+— así salió la **6ª regla** (la de ráfaga con origen legítimo), que el árbol respaldó con evidencia
+**79/79** antes de escribirla a mano en `analisis.clasificar` (§2).
+
+Lo que sí queda fuera de alcance por datos es la **granularidad fina**: el sistema clasifica a
+**VP/FP/no_soportada**, que es lo que las etiquetas de la Fase 3 (`lab/dataset/etiquetado.jsonl`, 3
+familias `acceso_credenciales`/`reconocimiento`/`servicio_expuesto`, §6) soportan. Distinguir las 6
+clases finas (p. ej. `vp_acceso_consumado` vs `vp_exposicion_gestion`) exigiría **etiquetas finas** de
+las que hoy no se dispone — un **límite de datos, no una pieza pendiente**. El baseline determinista de
+5A (§2) es lo que produce `clase`/`prioridad`/`confianza` en el lazo completo; el justificador con LLM
+de esta sección es una pieza independiente que ya sustituye la plantilla de `analisis.justificar` cuando
+se le pasa `justificar_fn` a `triaje.procesar`.
 
 ## 10. RAG — recuperación aumentada local (5D)
 

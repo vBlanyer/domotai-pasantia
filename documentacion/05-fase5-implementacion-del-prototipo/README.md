@@ -18,8 +18,8 @@ propio: el perímetro lo fija la [Fase 1](../01-fase1-analisis-del-modulo/), los
 El trabajo se ordena en cinco piezas, que son los **pasos 11 a 15** del
 [camino paso a paso](../00-general/camino-paso-a-paso.md), agrupadas en tres subproyectos: **5A**
 (núcleo de decisión, offline, hecho), **5B** (lazo en vivo: conector + validación humana, hecho) y
-**5C** (ML real detrás de la interfaz — el justificador hecho con matiz, el clasificador bloqueado
-por datos).
+**5C** (ML real detrás de la interfaz — el justificador hecho con matiz, y el clasificador resuelto
+con un árbol de decisión que nutre el baseline determinista, no con un codificador con ajuste fino).
 
 | Pieza | Qué hace | Se da por hecha cuando | Estado |
 |-------|----------|------------------------|--------|
@@ -103,16 +103,18 @@ diseño original, porque el rendimiento medido en la máquina de desarrollo (~3.
 que un modelo mayor sea intolerablemente lento para una validación interactiva; la interfaz queda
 lista para un modelo mayor cuando haya hardware con GPU. Detalle completo, comandos y resultado real
 en [`prototipo/README.md §9`](../../prototipo/README.md#9-5c--el-justificador-con-llm). El
-**clasificador con fine-tuning sigue bloqueado**: el dataset etiquetado de la Fase 3 tiene una sola
-familia de ataque con soporte de acción, sin variedad de clases suficiente para entrenar ni validar un
-clasificador que generalice; el baseline determinista de **5A** sigue cubriendo `clasificar` en el
-lazo completo. Con esto, la Fase 5 queda **cerrada salvo esa pieza**, documentada aquí como límite y
-no como trabajo olvidado.
+**clasificador se resolvió con un árbol de decisión** (`arbol.py`), no con un codificador con ajuste
+fino: con unos cientos de filas un modelo grande memoriza y no se valida sin fuga, así que el árbol es
+la escala honesta para este dataset y, además, **valida y descubre reglas** que se promueven al
+baseline determinista auditable de **5A** (así salió la 6ª regla, la de ráfaga, con evidencia 79/79).
+La granularidad fina (las 6 clases) sí queda fuera por datos: el sistema clasifica a **VP/FP/no_soportada**,
+que es lo que las etiquetas de la Fase 3 soportan — un límite de datos, no una pieza pendiente. Con esto
+la Fase 5 queda **cerrada**.
 
 **Criterio de cierre** (roadmap): el prototipo procesa el dataset de prueba completo y produce
-clasificaciones priorizadas con justificación explicable. Se cumple para el justificador; para el
-clasificador el criterio queda cubierto por el baseline determinista de 5A mientras el dataset no
-tenga variedad suficiente de clases.
+clasificaciones priorizadas con justificación explicable. Se cumple: el justificador con LLM+RAG y el
+clasificador determinista (nutrido por el árbol) producen la clase, la prioridad y la justificación
+sobre el dataset completo; la granularidad fina de 6 clases queda como límite de datos documentado.
 
 >**Decisión de stack pendiente.** El prototipo es Python (atado por el ecosistema ML del
 >clasificador y el justificador). Queda abierto evaluar **Go para el conector SSH** —binario
