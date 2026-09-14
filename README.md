@@ -73,6 +73,6 @@ pasar las conexiones en claro de nivel 3) y sin acciones disruptivas indebidas.
 Detalle en [`evaluacion/resultados/README.md`](evaluacion/resultados/README.md) y en el
 [informe de evaluación](documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
 
-Limitación conocida y documentada: el clasificador con fine-tuning (encoder) sigue bloqueado por un
-dataset de una sola familia de ataque; el baseline determinista lo cubre mientras tanto, y el
-justificador LLM sí es real.
+Limitación conocida y documentada: el clasificador con fine-tuning (encoder) sigue bloqueado por
+muestras insuficientes (el dataset tiene 3 familias de ataque, dos con pocas muestras); el baseline
+determinista lo cubre mientras tanto, y el justificador LLM sí es real.

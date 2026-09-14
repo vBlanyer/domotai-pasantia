@@ -213,9 +213,9 @@ de la campaña `2026-08-31-evaluacion`:
 - **Clases:** `no_soportada`: 374, `vp_intento_acceso`: 36.
 - **`resultado_filtro`:** `sin_accion`: 374, `permite`: 36.
 
-El dataset actual es de una sola familia con soporte de acción (`acceso_credenciales`); no incluye
-todavía alertas que disparen `veta` o `degrada` sobre este perfil (esos casos están cubiertos por
-`test_rnf14.py` con datos sintéticos). Detalle completo de la corrida y del criterio de cierre de
+El dataset actual tiene 3 familias de ataque (`acceso_credenciales`, `reconocimiento`,
+`servicio_expuesto`), dos con pocas muestras; no incluye todavía alertas que disparen `veta` o `degrada`
+sobre este perfil (esos casos están cubiertos por `test_rnf14.py` con datos sintéticos). Detalle completo de la corrida y del criterio de cierre de
 5A en `.superpowers/sdd/2026-08-31-fase5a-nucleo-decision/task-11-report.md`.
 
 ## 7. Tests
@@ -479,8 +479,9 @@ por uno mayor en hardware con GPU — es la misma frontera de generador inyectab
 A diferencia del justificador, el **clasificador** de 5C (encoder ajustado sobre la partición de
 entrenamiento, ver tabla del [README de la Fase 5](../documentacion/05-fase5-implementacion-del-prototipo/README.md))
 sigue **sin construirse**: el dataset etiquetado de la Fase 3 (`lab/dataset/etiquetado.jsonl`) tiene
-hoy una sola familia de ataque con soporte de acción (`acceso_credenciales`, §6) — no hay variedad de
-clases suficiente para entrenar ni validar un clasificador que generalice. El baseline determinista
+hoy 3 familias de ataque (`acceso_credenciales`, `reconocimiento`, `servicio_expuesto`, §6), pero dos
+con muy pocas muestras — aún sin variedad de clases suficiente para entrenar ni validar un clasificador
+que generalice. El baseline determinista
 de 5A (§2) sigue siendo lo que produce `clase`/`prioridad`/`confianza` en el lazo completo; el
 justificador con LLM de esta sección es una pieza independiente que ya sustituye la plantilla de
 `analisis.justificar` cuando se le pasa `justificar_fn` a `triaje.procesar`.

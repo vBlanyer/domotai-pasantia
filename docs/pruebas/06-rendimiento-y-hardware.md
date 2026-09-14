@@ -9,7 +9,7 @@ al pasar a una máquina con GPU. Útil para decidir dónde correr las pruebas c�
 |---|---|---|---|
 | **`--sin-llm`** (default) | plantilla determinista (más vaga) | **instantánea** | lazo humano ágil, iterar rápido |
 | **`--con-llm`** | 1B local + RAG agéntico (enriquecida) | **~30–60 s / incidente** | inspeccionar el anclaje y los pasajes RAG |
-| **`--agente`** | 1B para el ReAct (decide + escala) | **impráctico en CPU** (medido: >4 min/incidente, no terminó en 260 s) | mitigación multi-nodo (host → firewall) — **requiere hardware rápido** |
+| **`--agente`** | ReAct sobre el LLM (decide + escala) | lento con 1B por subproceso en CPU (>4 min, medido); con **servidor residente** (hecho, ver abajo) baja mucho, y la **escalada por defecto es determinista** (rápida, sin LLM) | mitigación multi-nodo (host → firewall) |
 
 La **decisión y el bloqueo son deterministas e instantáneos en cualquier modo/hardware** (RF-15); el LLM/RAG
 solo **explica** (y, en el agente, decide la estrategia de escalada). El coste del LLM afecta a la
@@ -97,6 +97,10 @@ medir esto y que cualquier despliegue debe respetar: `cache_prompt: false` en ca
 **un texto por llamada** al embedder (ver `evaluacion/resultados/README.md`).
 
 ## Recomendación para la máquina objetivo (para testear el MDR cómodo)
+
+> **Al día (10–11/09):** los puntos **2 (servidor residente)** y **4 (modelo 7–8B)** ya están
+> **implementados y medidos** en el 9800X3D + RTX 5070 — ver la sección **"Hecho"** de arriba. Quedan aquí
+> como la guía que se cumplió.
 
 1. **Deja `--con-llm` siempre activo.** A ~1–6 s por incidente ya no penaliza la interacción, así pruebas
    siempre con la justificación enriquecida.
