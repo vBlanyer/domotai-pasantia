@@ -518,6 +518,59 @@ y matices honestos (recuperación imprecisa en el ID exacto, el 1B parafrasea lo
 Un modelo de embeddings dedicado y un LLM mayor eran el trabajo futuro cuando se escribió esto; ambos
 se incorporaron después sin tocar el motor (§10.quater).
 
+### 10.quinquies · La vectorización y el almacén vectorial, en detalle
+
+Las cuatro piezas del RAG y qué es cada una en este código:
+
+| Pieza | Qué es aquí | Dónde |
+|---|---|---|
+| **Orquestador** | `justificar_con_rag` / `recuperar_fn_agentico` (recuperar → aumentar el prompt → generar); en vivo lo monta el daemon `stream.py` | `justificador_llm.py`, `rag.py`, `stream.py` |
+| **Modelo de incrustación (embeddings)** | **`bge-m3`** (606 MB, **1024 dimensiones**, pooling `CLS`), vía `llama-embedding` (subproceso) o el servidor residente | `rag.py` |
+| **Almacén vectorial** | `prototipo/corpus/indice.json` (los vectores) + **coseno en Python puro** | `rag.py` (`recuperar`, `_coseno`) |
+| **LLM local** | el generador de la justificación (Llama 1B / 8B) | `justificador_llm.py` |
+
+**Qué es un vector (embedding).** Un *embedding* traduce un texto a una lista de números —aquí **1024**—
+que codifica su **significado**: dos textos que hablan de lo mismo caen **cerca** en ese espacio de 1024
+dimensiones aunque no compartan ni una palabra. Lo produce `bge-m3`, un modelo entrenado **solo** para eso
+(a diferencia del Llama generativo, que redacta texto). El vector es **función solo del texto**: el mismo
+texto da siempre el mismo vector.
+
+**Indexado (una vez, `python3 -m prototipo.rag --indexar`).** `rag.indexar(corpus, embedder)` embebe el
+`texto` de cada ficha del corpus y guarda `{…campos…, "vector": [1024 números]}` en `corpus/indice.json`
+(versionado). Ese fichero **es** el almacén: las ~32 fichas (técnicas ATT&CK, contramedidas D3FEND, reglas
+de Wazuh, vulns, descartes) con su vector al lado. Se regenera al tocar el corpus.
+
+**Recuperación (en cada alerta).** `rag.recuperar(consulta, indice, embedder, k)` hace tres pasos:
+1. **Vectoriza la consulta** con el mismo `bge-m3` → un vector de 1024 dims. La consulta se arma de campos
+   estructurados y la clase decidida (`construir_consulta(alerta, clase)`, RNF-08; nunca el `full_log`), y
+   en modo agéntico se aumenta (§10.bis).
+2. **Compara** ese vector contra el de **cada** ficha por **similitud coseno** (`_coseno`): el coseno del
+   ángulo entre dos vectores, `producto_punto / (norma·norma)`. Vale **1** si apuntan igual (mismo
+   significado), **0** si son perpendiculares (nada que ver). No cuenta palabras: mide **cercanía semántica**.
+3. **Ordena** por coseno descendente y devuelve las **k** fichas más cercanas (sin el campo `vector`).
+
+**El matiz honesto — NO es una "base de datos vectorial".** Es un **índice vectorial en memoria**: un
+fichero JSON + una búsqueda por **fuerza bruta** (se calcula el coseno contra las ~32 fichas y se ordena).
+**No hay motor de BD** (ni FAISS, Chroma, Qdrant, pgvector) — y es lo correcto a esta escala:
+- Con **decenas de fichas**, la búsqueda **exacta** por fuerza bruta es **instantánea**, **sin
+  dependencias** (encaja con el "solo stdlib + PyYAML") y **auditable** (ves el vector y el número del coseno).
+- Una **BD vectorial real** usa índices **aproximados (ANN)** pensados para **millones** de vectores, donde
+  recorrerlos todos sería lento. Aquí introduciría una dependencia y una aproximación para un problema que no
+  existe. Solo se justificaría si el corpus creciera a **miles o decenas de miles** de fichas.
+
+**Salvaguardas de la recuperación.**
+- **Guardarraíl de dimensión:** `recuperar` **aborta** si la consulta y el índice no tienen el mismo nº de
+  dimensiones. Cambiar de embebedor sin reindexar daba similitudes plausibles pero sin sentido (el coseno
+  truncaba al vector más corto); ahora falla ruidoso en vez de mentir en silencio.
+- **Reproducibilidad (RNF-03):** un texto por llamada al embebedor; el subproceso y el servidor residente dan
+  el **mismo** vector hasta la última cifra, así que el índice de uno vale para el otro y una consulta
+  idéntica recupera lo mismo.
+- **Degradación (RNF-09):** si el embebedor falla, `justificar_con_rag` cae a la plantilla anclada.
+
+En una frase: **`bge-m3` convierte cada ficha y cada consulta en un vector de 1024 dimensiones, y la
+recuperación es coseno por fuerza bruta sobre un índice JSON en memoria** —rápido, exacto y auditable a esta
+escala—; es un **índice vectorial**, no una base de datos vectorial.
+
 ### 10.bis RAG agéntico (Opción C) — consulta que decide, corpus ATT&CK+D3FEND
 
 Recomendación del tutor: que el RAG *"tenga un agente / no sea determinista"*. Se implementó como un
