@@ -9,15 +9,17 @@ nueva en el Acer Aspire 3** (la máquina de trabajo de hoy), tomada el 14/09/202
 
 | Perfil | CPU / RAM / GPU | Modelos que sostiene | Papel |
 |---|---|---|---|
-| **Acer Aspire 3 (hoy)** | CPU móvil, **8 GB** (11 GiB en WSL2), **sin GPU** | solo el **1B por subproceso**; sin `bge-m3`, sin 8B | desarrollo e iteración deterministas |
+| **Acer Aspire 3 (hoy)** | CPU móvil, **8 GB** (11 GiB en WSL2), **sin GPU** | **1B + `bge-m3` residentes** (los dos caben, ~2 GB); el 8B no | desarrollo e iteración; test de arquitectura |
 | **Portátil 16 GB (histórico)** | CPU sin GPU, 16 GB | 1B por subproceso, `bge-m3` por subproceso | mediciones de la Fase 6 |
 | **Objetivo (9800X3D + RTX 5070)** | Zen5, **12 GB VRAM** | **8B residente + `bge-m3` residente** | producción / demos cómodas |
 
 **El stack de producción íntegro** (generador 8B residente + embedder `bge-m3` residente + índice vectorial
-+ orquestador) **solo corre en la máquina objetivo**. En el Acer de hoy corre el **perfil degradado**
-(RNF-09): el 1B por subproceso genera la justificación y, al **faltar el modelo `bge-m3`**, la recuperación
-RAG devuelve `[]` sin romper (guardia de dimensión y degradación limpia), así que la justificación se produce
-**sin pasajes**. La decisión de seguridad es idéntica en las tres máquinas.
++ orquestador) rinde a su velocidad **solo en la máquina objetivo**, pero su **arquitectura se reproduce en el
+Acer** (con el 1B en vez del 8B): ver [«Probar como en la máquina objetivo, desde el Acer»](#probar-como-en-la-máquina-objetivo-desde-el-acer-14092026).
+Si no se arrancan los servidores residentes, el Acer cae al **perfil degradado** (RNF-09): 1B por subproceso y,
+si además falta el modelo `bge-m3`, la recuperación RAG devuelve `[]` sin romper (guardia de dimensión y
+degradación limpia) y la justificación se produce **sin pasajes**. La decisión de seguridad es idéntica en las
+tres máquinas y en los dos perfiles.
 
 ## El roadmap del incidente, etapa por etapa
 
@@ -98,12 +100,14 @@ tomadas de las mediciones de [06 · Rendimiento](06-rendimiento-y-hardware.md).
    **carga sostenida** el Acer, de refrigeración pasiva, cae a **~35–40 s por generación** (≈1,7 t/s). El
    estado estable de un incidente se asienta en **~75 s**, no en los ~28 s que sugerirían las primeras
    generaciones. Es el número honesto para operar.
-3. **El RAG no está disponible aquí, y degrada limpio.** Sin el modelo `bge-m3` en `modelos/`, el embedder
-   devuelve `[]` en 0,1 s y el justificador sigue **sin pasajes** (RNF-09) en vez de romper. La guardia de
-   dimensión de `recuperar()` (índice a 1024-d) evita cualquier recuperación con vectores incompatibles.
-4. **Aun degradado, el 1B ancla.** La justificación generada supera la verificación de anclaje (RNF-02): la
-   traza registra `justificador=llm-6:llama-3.2-1b-q4.gguf`, no la plantilla. La calidad es pobre (es un 1B
-   sin RAG), pero está anclada a los datos de la alerta.
+3. **Esta medición se tomó sin `bge-m3` (degrada limpio).** En ese momento el embedder no estaba en
+   `modelos/`, así que devolvía `[]` en 0,1 s y el justificador seguía **sin pasajes** (RNF-09) en vez de
+   romper. La guardia de dimensión de `recuperar()` (índice a 1024-d) evita cualquier recuperación con
+   vectores incompatibles. *(Después se bajó `bge-m3` y el RAG sí corre en vivo — ver la sección de abajo.)*
+4. **Sin pasajes, el 1B ancla; con pasajes, no.** En esta medición (sin RAG) la justificación supera la
+   verificación de anclaje (RNF-02) y la traza registra `justificador=llm-6:llama-3.2-1b-q4.gguf`. Con RAG en
+   vivo (sección siguiente) el 1B narra técnicas de los pasajes como propias, **falla el anclaje y degrada a
+   plantilla** — la razón por la que el objetivo usa el 8B.
 
 ## Qué pasa detrás de cada llamada al LLM (y por qué el servidor residente)
 
@@ -136,10 +140,59 @@ LLAMA_MODO=subproceso python3 -c "from prototipo import justificador_llm as j; \
     print(f'{time.time()-t:.1f} s')"
 ```
 
+## Probar como en la máquina objetivo, desde el Acer (14/09/2026)
+
+Se puede reproducir la **arquitectura** de producción en el Acer —servidores residentes + RAG en vivo— aunque
+no su velocidad (GPU) ni la calidad del 8B (RAM). Son **dos palancas**:
+
+**Palanca 1 — servidores residentes** (en vez del subproceso). El script arranca el 1B como generador (no hay
+8B) y `bge-m3` como embedder; el código pasa a `generador_servidor`/`embedder_servidor`, la ruta **exacta** de
+producción (plantilla de chat, temperatura por JSON, json-schema del agente, modelo cargado entre llamadas).
+
+```bash
+sh lab/scripts/llm-server.sh --embedder   # bge-m3 residente en :8082
+sh lab/scripts/llm-server.sh              # 1B residente en :8080
+```
+
+**Palanca 2 — el modelo `bge-m3`** (para el RAG en vivo). No se versiona (`modelos/` es pesado); se baja una
+vez (~606 MB) a `modelos/bge-m3-q8.gguf`. Se verificó que el modelo público de `gpustack/bge-m3-GGUF` (Q8_0)
+**coincide con el índice versionado**: re-embeber una ficha y compararla con su vector guardado da coseno
+**0,999485**, así que la recuperación es fiel **sin reindexar** (la diferencia es el ruido de cuantización que
+`rag.py` ya documenta). Cabe en RAM junto al 1B (~2 GB de los 8).
+
+### Qué demostró la prueba (y qué no)
+
+Con las dos palancas activas se pasó un incidente real (fuerza bruta SSH, regla 5760) por la ruta de producción:
+
+- **El RAG recupera en vivo los pasajes correctos.** La consulta agéntica del 1B + el embedder `bge-m3`
+  residente + el coseno devolvieron las tres fichas defensivas pertinentes: `mitre-T1110` (Brute Force),
+  `mapeo-acceso_credenciales` y `d3fend-D3-NTF` (Network Traffic Filtering). Comportamiento idéntico al de
+  producción.
+- **El 1B con RAG no sabe usar ese conocimiento sin alucinar, y el salvaguarda lo atrapa.** La justificación
+  generada **falló la verificación de anclaje** (RNF-02) —los pasajes traen identificadores de técnicas
+  vecinas y el 1B los narra como propios— y el sistema **degradó a la plantilla anclada** (RNF-09). Es decir:
+  la tubería y las defensas funcionan; la pieza que falta es la **calidad del modelo**. Exactamente el motivo
+  por el que la máquina objetivo usa el **8B** (con él la justificación con RAG sí ancla; medido en Fase 6).
+- **El throttling térmico domina el tiempo.** Con el CPU ya caliente de la batería de pruebas, cada generación
+  del 1B residente subió a ~60 s, así que la recuperación tardó **61,6 s** y el incidente completo **135,6 s**
+  — más que el subproceso en frío (~75 s). La ventaja del servidor residente (10 s/generación con el CPU frío,
+  medida antes) **se la come la refrigeración pasiva** bajo carga sostenida.
+
+| Ruta en el Acer | 1 generación | Incidente `--con-llm` | RAG |
+|---|---|---|---|
+| Subproceso, CPU frío | ~14 s | ~75 s | sin pasajes (sin `bge-m3`) |
+| **Residente, CPU frío** | **~10 s** | ~20–30 s (est.) | — |
+| **Residente, CPU caliente (medido)** | **~60 s** | **135,6 s** | **3 pasajes en vivo** |
+| Objetivo (8B+GPU, medido) | 0,4 s | 2,8 s | 3 pasajes en vivo |
+
+**Conclusión del experimento:** el Acer sirve para **validar el flujo de producción de extremo a extremo**
+(RAG real, anclaje, degradación, agente con salida restringida) — comportamiento y corrección, no tiempos ni
+calidad de prosa. Para lo segundo hace falta la máquina objetivo (8B + GPU).
+
 ## Conclusión operativa por máquina
 
-- **Acer Aspire 3 (hoy):** trabaja en **`--sin-llm`**. La decisión, la política, el perfil y la traza —lo que
-  importa— son instantáneos y completos. El LLM aquí es un 1B degradado a ~75 s/incidente y sin RAG: sirve
-  para verificar que la tubería LLM enchufa, no para juzgar la calidad de la explicación.
+- **Acer Aspire 3 (hoy):** para **trabajar**, `--sin-llm` (decisión completa e instantánea). Para **validar el
+  flujo de producción**, arranca los servidores residentes + `bge-m3` y usa `--con-llm`: verás el RAG real y
+  las defensas actuar, asumiendo ~1–2 min por incidente por el throttling y que el 1B degradará a plantilla.
 - **Máquina objetivo:** deja **`--con-llm` siempre activo** (8B + `bge-m3` residentes, ~2,8 s/incidente). Es
   donde la justificación enriquecida y el RAG rinden como el diseño previó.
