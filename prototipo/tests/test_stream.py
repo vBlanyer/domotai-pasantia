@@ -225,5 +225,15 @@ class TestLecturaInteractiva(unittest.TestCase):
             builtins.open = orig
 
 
+class TestStream(unittest.TestCase):
+    def test_linea_decision_muestra_encaminamiento(self):
+        from prototipo import stream
+        d = {"clase": "amenaza_enrutada", "prioridad": 3, "confianza": 1.0,
+             "accion_propuesta": None, "accion_final": None, "resultado_filtro": "sin_accion",
+             "version_justificador": "plantilla-0", "ruta": "cola-appsec-banco"}
+        linea = stream._linea_decision(d)
+        self.assertIn("Enrutado a: cola-appsec-banco", linea)
+
+
 if __name__ == "__main__":
     unittest.main()

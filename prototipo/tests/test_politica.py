@@ -20,6 +20,12 @@ class TestProponer(unittest.TestCase):
         acc, _ = politica.proponer("fp_exposicion_inexistente", alerta())
         self.assertIsNone(acc)
 
+    def test_amenaza_enrutada_no_propone_accion(self):
+        from prototipo import politica
+        accion, params = politica.proponer("amenaza_enrutada", {"origen_ip": "1.2.3.4"})
+        self.assertIsNone(accion)
+        self.assertEqual(params, {})
+
     def test_nunca_propone_remediacion_de_alto_impacto(self):
         # ninguna clase mapea a REINICIAR_NODO ni RESTAURAR_CONFIG (principio de mínimo impacto)
         acciones = {politica.proponer(c, alerta())[0] for c in politica.ACCION_POR_CLASE}

@@ -7,6 +7,7 @@ ACCION_POR_CLASE = {
     "fp_actividad_legitima": None,
     "fp_exposicion_inexistente": None,
     "no_soportada": None,
+    "amenaza_enrutada": None,   # se tria y encamina; sin contencion automatica
 }
 
 def proponer(clase, alerta):

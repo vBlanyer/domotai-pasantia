@@ -105,6 +105,22 @@ equivoca tres veces de contraseña produce la misma señal que un ataque, y es l
 ruido en este dominio. Distinguirlo exige exactamente lo que el sistema base no tiene: contexto del
 activo, del origen y del momento.
 
+### Los tres niveles de respuesta y el registro de familias
+
+La familia de una alerta determina no sólo su clase sino **qué hace el motor con ella**, según el
+registro extensible `prototipo/familias.yml` (familia → técnica MITRE + nivel):
+
+- **actuar** — el motor clasifica VP/FP y propone contención del catálogo cerrado. Las familias de
+  plano de gestión (`acceso_credenciales`, `reconocimiento`, `servicio_expuesto`).
+- **triar_y_enrutar** — el motor clasifica, prioriza y **encamina** a un equipo con contexto MITRE,
+  **sin** contener automáticamente (p. ej. `explotacion_conocida` → AppSec). Para amenazas que no
+  deben auto-contenerse (romperían el servicio) pero sí triarse.
+- **no soportada** — familia ausente del registro: a cola manual con su severidad.
+
+Añadir una familia = una línea en el registro. La cobertura real por cliente es *registro ∩ lo que
+detecta su SIEM*. **Fuera de alcance conocido** (hoy → no soportada, por decisión, no por olvido):
+malware/C2, movimiento lateral, manipulación de red (MITM/ARP), DoS, y fraude de pagos/ATM.
+
 ---
 
 ## 7. Criticidad de los activos

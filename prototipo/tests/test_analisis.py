@@ -139,3 +139,25 @@ class TestRafaga(unittest.TestCase):
         self.assertIn("ráfaga de 12", analisis.justificar(a, ctx, "vp_intento_acceso"))
         self.assertIn("rafaga de 12", jl.construir_prompt(a, ctx, "vp_intento_acceso"))
 
+class TestClasificarRegistro(unittest.TestCase):
+    def _ctx(self, **kw):
+        base = {"postura": None, "criticidad": "media", "origen_legitimo": False,
+                "rafaga": 0, "umbral_rafaga": 9}
+        base.update(kw); return base
+
+    def test_familia_ausente_es_no_soportada(self):
+        r = analisis.clasificar({"familia": "plataforma"}, self._ctx())
+        self.assertEqual(r["clase"], "no_soportada")
+
+    def test_familia_enrutada_produce_amenaza_enrutada_con_ruta(self):
+        r = analisis.clasificar({"familia": "explotacion_conocida"}, self._ctx())
+        self.assertEqual(r["clase"], "amenaza_enrutada")
+        self.assertEqual(r["ruta"], "appsec")
+
+    def test_familia_actuar_conserva_la_logica_vp(self):
+        # postura None + familia de ataque -> vp_intento_acceso 0.5 (sin cambios)
+        r = analisis.clasificar({"familia": "acceso_credenciales"}, self._ctx())
+        self.assertEqual(r["clase"], "vp_intento_acceso")
+        self.assertEqual(r["confianza"], 0.5)
+        self.assertNotIn("ruta", r)
+

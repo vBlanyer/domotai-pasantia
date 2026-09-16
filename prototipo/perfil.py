@@ -13,6 +13,13 @@ def cargar(ruta):
 def criticidad_de(perfil, activo):
     return perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")
 
+def ruta_de(perfil, rol):
+    """Rol logico de ruta (p. ej. 'appsec') -> destino real del cliente. Sin binding, el rol mismo.
+    El registro de familias es agnostico; el binding a la cola/equipo del cliente vive en el perfil."""
+    if not rol:
+        return None
+    return perfil.get("rutas", {}).get(rol, rol)
+
 def _res(resultado, accion_final, requiere_humano):
     return {"resultado": resultado, "accion_final": accion_final, "requiere_humano": requiere_humano}
 
