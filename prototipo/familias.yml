@@ -1,0 +1,7 @@
+# Registro de familias de ataque: familia -> {mitre, nivel, ruta}. Extensible y alineado a MITRE.
+# nivel: 'actuar' (contener con el catalogo) | 'triar_y_enrutar' (clasificar + encaminar, sin contener).
+# Una familia AUSENTE de este registro -> no_soportada (frontera honesta). 'plataforma'/'otra' no se listan.
+acceso_credenciales:  { mitre: [T1110, T1078], nivel: actuar }
+reconocimiento:       { mitre: [T1595, T1046], nivel: actuar }
+servicio_expuesto:    { mitre: [T1190],        nivel: actuar }
+explotacion_conocida: { mitre: [T1190, T1210, T1203], nivel: triar_y_enrutar, ruta: appsec }
