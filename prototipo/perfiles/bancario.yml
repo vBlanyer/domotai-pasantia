@@ -49,3 +49,7 @@ topologia:
   atm:         { rol: host_victima,        ip: 10.210.0.10, gateway: fw-core }
   fw-core:     { rol: firewall_perimetral, ip: 10.0.0.1,    gateway: fw-edge }
   fw-edge:     { rol: firewall_perimetral, ip: 10.0.0.254 }
+
+# Binding de rutas logicas -> destinos reales del cliente (nivel triar_y_enrutar).
+rutas:
+  appsec: cola-appsec-banco

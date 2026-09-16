@@ -20,6 +20,15 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["resultado_filtro"], "permite")
         self.assertIn("192.168.1.10", r["justificacion"])
 
+    def test_amenaza_enrutada_lleva_ruta_en_la_traza_sin_accion(self):
+        alerta = {"familia": "explotacion_conocida", "origen_ip": "203.0.113.9",
+                  "activo": "web-banking", "servicio": "https", "mitre": ["T1190"]}
+        perfil = {"activos": {}, "continuidad": {}, "rutas": {"appsec": "cola-appsec-banco"}}
+        tr = triaje.procesar(alerta, {"nodos": {}}, perfil, "bancario", CAT, "d1", "t")
+        self.assertEqual(tr["clase"], "amenaza_enrutada")
+        self.assertEqual(tr["ruta"], "cola-appsec-banco")
+        self.assertIsNone(tr["accion_propuesta"])
+
 class TestJustificarFn(unittest.TestCase):
     def test_procesar_usa_el_justificar_fn_inyectado(self):
         r = triaje.procesar(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,

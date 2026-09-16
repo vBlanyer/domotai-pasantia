@@ -18,8 +18,9 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
     impacto = catalogo[accion]["impacto"] if accion else "ninguno"
     filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),
                              alerta.get("servicio"), clas["confianza"])
+    ruta = perfilm.ruta_de(perfil_dict, clas.get("ruta"))
     analisis_out = {**clas, "justificacion": just, "version_justificador": version_just, "pasajes_usados": pasajes,
-                    "consulta_rag": consulta_rag, "recuperacion_agentica": recuperacion_agentica}
+                    "consulta_rag": consulta_rag, "recuperacion_agentica": recuperacion_agentica, "ruta": ruta}
     version_perfil = perfil_dict.get("version", "v0")
     return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro,
                             version_perfil=version_perfil)

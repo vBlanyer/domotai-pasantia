@@ -118,3 +118,9 @@ class TestPerfilBancario(unittest.TestCase):
         # bloquear la IP que ataca al HSM es seguro (no toca el HSM) -> auto con confianza alta.
         r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "203.0.113.9"}, CAT, "hsm", "9000", 0.99)
         self.assertEqual(r["resultado"], "permite")
+
+    def test_ruta_de_resuelve_con_binding_y_cae_al_rol(self):
+        p = {"rutas": {"appsec": "cola-appsec-banco"}}
+        self.assertEqual(perfil.ruta_de(p, "appsec"), "cola-appsec-banco")
+        self.assertEqual(perfil.ruta_de({}, "appsec"), "appsec")   # sin binding -> rol logico
+        self.assertIsNone(perfil.ruta_de(p, None))
