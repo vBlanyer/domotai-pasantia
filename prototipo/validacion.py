@@ -24,25 +24,42 @@ def mostrar(decision, alerta):
         f"Acción final: {decision.get('accion_final')}\n"
     )
 
+def _menu(escribir, leer, titulo, etiquetas):
+    """Menú numerado cerrado, compartido por el prompt de veredicto y el de clase. Devuelve el índice
+    0-based elegido, o None si el analista deja la respuesta en blanco (se echa atrás). Entrada
+    inválida (no es un número de la lista) -> repregunta. Números, no texto libre: sin typos ni
+    opciones inexistentes (misma filosofía de catálogo cerrado que RF-15)."""
+    cuerpo = titulo + "\n" + "\n".join(f"  {i}) {e}" for i, e in enumerate(etiquetas, 1))
+    while True:
+        escribir(cuerpo)
+        resp = leer(f"Elige [1-{len(etiquetas)}]: ").strip()
+        if not resp:
+            return None
+        if resp.isdigit() and 1 <= int(resp) <= len(etiquetas):
+            return int(resp) - 1
+        escribir("  opción no válida; elige un número de la lista")
+
+_VEREDICTOS = ("aprobar", "rechazar", "reclasificar")
+_ETIQUETAS_VEREDICTO = ("aprobar       — ejecuta la acción propuesta",
+                        "rechazar      — retiene sin ejecutar",
+                        "reclasificar  — corrige la clase")
+
 def pedir(decision, alerta, leer=input, escribir=print):
     escribir(mostrar(decision, alerta))
-    resp = leer("¿aprobar / rechazar / reclasificar? ").strip().lower()
-    if resp.startswith("a"):
+    i = _menu(escribir, leer, "¿Qué hacer con este incidente?", _ETIQUETAS_VEREDICTO)
+    veredicto = _VEREDICTOS[i] if i is not None else "rechazar"   # en blanco -> rechazar seguro
+    if veredicto == "aprobar":
         return {"veredicto": "aprobar", "clase_nueva": None}
-    if resp.startswith("recl"):
+    if veredicto == "reclasificar":
         return _elegir_clase(decision, leer, escribir)
-    return {"veredicto": "rechazar", "clase_nueva": None}   # por defecto, seguro
+    return {"veredicto": "rechazar", "clase_nueva": None}
 
 def _elegir_clase(decision, leer, escribir):
-    """Menú numerado de las clases válidas menos la actual. Número válido -> reclasificar con esa
-    clase; entrada inválida -> repregunta; Enter en blanco -> rechazar (seguro, sin corregir)."""
+    """Submenú de clases: las de `analisis.CLASES` menos la actual del incidente (reclasificar es
+    cambiarla, no repetirla). Índice válido -> reclasificar con esa clase; en blanco -> rechazar
+    (se echa atrás, sin corregir)."""
     opciones = [c for c in CLASES if c != decision.get("clase")]
-    menu = "Nueva clase:\n" + "\n".join(f"  {i}) {c}" for i, c in enumerate(opciones, 1))
-    while True:
-        escribir(menu)
-        resp = leer(f"Elige [1-{len(opciones)}]: ").strip()
-        if not resp:                                       # se echa atrás -> rechazar seguro
-            return {"veredicto": "rechazar", "clase_nueva": None}
-        if resp.isdigit() and 1 <= int(resp) <= len(opciones):
-            return {"veredicto": "reclasificar", "clase_nueva": opciones[int(resp) - 1]}
-        escribir("  opción no válida; elige un número de la lista")
+    i = _menu(escribir, leer, "Nueva clase:", opciones)
+    if i is None:
+        return {"veredicto": "rechazar", "clase_nueva": None}
+    return {"veredicto": "reclasificar", "clase_nueva": opciones[i]}

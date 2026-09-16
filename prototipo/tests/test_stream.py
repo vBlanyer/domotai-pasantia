@@ -31,7 +31,7 @@ class TestBucleInmediato(unittest.TestCase):
             hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"), perfil_nombre="prueba",
             catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None,
             ventana_agrupacion=0, salida_traza=buf,
-            escribir=lambda *a, **k: salidas.append(" ".join(str(x) for x in a)), leer=lambda *_: "rechazar")
+            escribir=lambda *a, **k: salidas.append(" ".join(str(x) for x in a)), leer=lambda *_: "2")
         self.assertEqual(resumen["alertas"], 1)      # la vacía y la corrupta se saltan (RNF-07)
         self.assertEqual(resumen["incidentes"], 1)
         lineas = [l for l in buf.getvalue().splitlines() if l.strip()]
@@ -108,7 +108,7 @@ class TestVentana(unittest.TestCase):
             fuente, hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"), perfil_nombre="prueba",
             catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None,
             ventana_agrupacion=10, salida_traza=buf,
-            escribir=lambda *a, **k: None, leer=lambda *_: "rechazar", reloj=reloj)
+            escribir=lambda *a, **k: None, leer=lambda *_: "2", reloj=reloj)
         self.assertEqual(resumen["alertas"], 3)
         self.assertEqual(resumen["incidentes"], 1)          # las 3 -> un incidente (misma clave)
         self.assertEqual(len([l for l in buf.getvalue().splitlines() if l.strip()]), 1)
@@ -119,7 +119,7 @@ class TestVentana(unittest.TestCase):
             [_linea_wazuh(), _linea_wazuh()], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
             perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
             ventana_agrupacion=10, salida_traza=None,
-            escribir=lambda *a, **k: None, leer=lambda *_: "rechazar", reloj=reloj)
+            escribir=lambda *a, **k: None, leer=lambda *_: "2", reloj=reloj)
         self.assertEqual(resumen["incidentes"], 1)          # se descarga al agotar la fuente
 
 
