@@ -189,6 +189,66 @@ Con las dos palancas activas se pasó un incidente real (fuerza bruta SSH, regla
 (RAG real, anclaje, degradación, agente con salida restringida) — comportamiento y corrección, no tiempos ni
 calidad de prosa. Para lo segundo hace falta la máquina objetivo (8B + GPU).
 
+## El lazo humano de validación (etapa 9: aprobar / rechazar / reclasificar)
+
+Cuando un incidente **requiere criterio humano** (RF-08), el daemon para y pregunta al analista con un
+**menú cerrado numerado** (sin texto libre: sólo números, para que no entren typos ni clases inexistentes al
+feedback — misma filosofía de catálogo cerrado que RF-15):
+
+```
+── Validación humana requerida ──
+Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
+Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
+Justificación: Ráfaga de autenticaciones SSH fallidas desde 192.168.1.10 ...
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+¿Qué hacer con este incidente?
+  1) aprobar       — ejecuta la acción propuesta
+  2) rechazar      — retiene sin ejecutar
+  3) reclasificar  — corrige la clase
+Elige [1-3]: 3
+Nueva clase:
+  1) fp_actividad_legitima
+  2) fp_exposicion_inexistente
+  3) no_soportada
+Elige [1-3]: 1
+```
+
+Entrada inválida → repregunta; Enter en blanco → `rechazar` (seguro). El submenú de clase muestra las de
+`analisis.CLASES` **menos la actual** del incidente (reclasificar es cambiarla, no repetirla). Qué hace cada
+veredicto:
+
+| Veredicto | ¿Ejecuta acción? | ¿Corrige la clase? | Nota |
+|---|---|---|---|
+| **1 · aprobar** | **Sí** (`accion_final`; aquí BLOQUEAR_IP = corta la IP de origen) | no | única que actúa sobre la red |
+| **2 · rechazar** | no | no | veta la acción, deja la clase como está |
+| **3 · reclasificar** | no | **sí** (feedback RF-12) | guarda `clase_reclasificada` en la traza; **NO** alimenta el RAG ni reentrena |
+
+Los tres quedan en la traza encadenada por hash (RF-09), se ejecute o no. La reclasificación es feedback
+auditable **sin reentrenamiento**: la misma alerta al día siguiente se clasifica igual y vuelve a preguntar —
+la recurrencia se corta con un cambio de **configuración** (dar postura al auditor, añadir un origen a
+`origenes_legitimos`, recalibrar umbrales), no con el motor mutándose solo (RNF-03, reproducibilidad).
+
+### Provocar el lazo para probarlo
+
+Con los perfiles y el dataset actuales **ninguna** alerta requiere humano (el motor auto-gestiona el catálogo;
+es el "escalado 0.0" de la Fase 6). Para **ejercitar** el lazo se usa un perfil de cliente conservador que
+exige visto bueno en todo bloqueo localizado:
+
+```bash
+# perfil de demo: como empresarial pero con impacto_localizado: humano_siempre
+sed 's/impacto_localizado:       automatica_si_confianza/impacto_localizado:       humano_siempre/' \
+    prototipo/perfiles/empresarial.yml > /tmp/empresarial-humano-demo.yml
+
+# una alerta (fuerza bruta SSH) por el daemon; --sin-llm lo hace instantáneo, el menú es idéntico
+sed -n '188p' lab/campañas/2026-08-31-evaluacion/alerts.json | \
+  python3 -m prototipo.stream - /tmp/empresarial-humano-demo.yml \
+    lab/campañas/2026-08-31-evaluacion/hallazgos.json \
+    --sin-llm --sin-lab --ventana-agrupacion 2 --salida /tmp/traza-menu.jsonl
+```
+
+El teclado responde por `/dev/tty` aunque la alerta entre por la tubería. Con `--con-llm` (y los servidores
+residentes) se ve además la justificación LLM+RAG real, asumiendo ~2 min por incidente en el Acer.
+
 ## Conclusión operativa por máquina
 
 - **Acer Aspire 3 (hoy):** para **trabajar**, `--sin-llm` (decisión completa e instantánea). Para **validar el
