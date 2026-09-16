@@ -5,6 +5,10 @@ class TestMapeo(unittest.TestCase):
     def test_es_amenaza(self):
         self.assertTrue(prediccion.es_amenaza("vp_intento_acceso"))
         self.assertTrue(prediccion.es_amenaza("vp_acceso_consumado"))
+        # amenaza_enrutada es una amenaza reconocida (se encamina en vez de contenerse): cuenta
+        # como amenaza para la métrica de detección, no como benigno (si no, un exploit enrutado
+        # se puntuaría como amenaza NO detectada, falso negativo).
+        self.assertTrue(prediccion.es_amenaza("amenaza_enrutada"))
         self.assertFalse(prediccion.es_amenaza("fp_exposicion_inexistente"))
         self.assertFalse(prediccion.es_amenaza("no_soportada"))
 
