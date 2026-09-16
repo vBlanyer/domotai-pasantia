@@ -218,6 +218,18 @@ la orden de acción, pendiente de aplicar.
   día. Es la última en dar resultados útiles.
 - **No cubre el compromiso ya persistente.** Si el acceso no autorizado ocurrió antes de que el
   sistema estuviera en marcha, no hay evento de acceso que triar.
+- **El MDR tría lo detectado; no detecta.** El sistema es la capa de **triaje y respuesta aguas
+  abajo** del SIEM del cliente: solo actúa sobre alertas que el SIEM ya generó. Cualquier capacidad
+  que exija *detectar* (en vez de triar lo detectado) queda fuera por diseño. Caso concreto: la
+  **contención lateral / este-oeste** (aislar a un atacante interno que pivota entre segmentos hacia
+  activos críticos) se estudió y **se descartó del alcance** porque presupone dos cosas ajenas al
+  MDR: (1) **detección este-oeste** —telemetría interna: NetFlow, EDR, IDS interno— que es del SIEM
+  y del cliente; y (2) **puntos de aplicación internos** —switches gestionables/NAC más la
+  resolución de identidad en capa 2 (IP→puerto→endpoint) y sus conectores— que es infraestructura y
+  producción. En consecuencia, el movimiento lateral se trata **honestamente**: si el SIEM no manda
+  la alerta, el MDR no la ve; si la manda, cae en `no soportada` o se **encamina** (nivel
+  `triar_y_enrutar`) a NetEng/SOC con su contexto MITRE, sin fingir una contención que el sistema no
+  posee. Mismo techo comparten malware/C2 y DoS.
 - **El perímetro es del prototipo, no del riesgo del cliente.** Que una alerta quede fuera no
   significa que la empresa esté cubierta en ese frente.
 
