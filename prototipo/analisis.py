@@ -4,6 +4,11 @@ from prototipo.postura import postura_de, resumen_otros_expuestos
 # Clases en las que la decision del motor es "esto no es una amenaza". La consumen el
 # justificador (para preguntar por que NO lo es) y el RAG (para recuperar el motivo del
 # descarte en vez de fichas sobre tecnicas de ataque).
+# Las clases que el motor produce hoy (fuente de verdad, p. ej. para el menú de reclasificación).
+# Las 2 clases finas del caso de uso (vp_acceso_consumado, vp_exposicion_gestion) no entran: el
+# baseline no las emite por falta de etiquetas finas (límite de datos, ver README).
+CLASES = ("vp_intento_acceso", "fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada")
+
 CLASES_SIN_AMENAZA = ("fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada")
 
 FAMILIAS_ATAQUE = {"acceso_credenciales", "reconocimiento", "servicio_expuesto", "explotacion_conocida"}

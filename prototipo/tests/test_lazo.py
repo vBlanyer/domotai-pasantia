@@ -29,7 +29,7 @@ class TestLazo(unittest.TestCase):
         # forzamos requiere_humano con confianza baja: activo desconocido -> postura None -> confianza 0.5 -> veta
         a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"
         r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
-                               ejecutor_ok, "d2", "2026-08-31T00:00:00Z", leer=lambda _: "rechazar")
+                               ejecutor_ok, "d2", "2026-08-31T00:00:00Z", leer=lambda _: "2")  # 2) rechazar
         self.assertEqual(r["veredicto_humano"], "rechazar")
         self.assertIsNone(r["ejecucion"])          # rechazada -> no se ejecuta
 
@@ -38,7 +38,7 @@ class TestLazo(unittest.TestCase):
         def just_dict(a, c, cl):
             return {"texto": "TEXTO-LLM", "version_justificador": "llm-1b-0:m.gguf", "pasajes_usados": ["p1"]}
         r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
-                               lazo._EjecutorAuto(), "d5", "t", leer=lambda *_: "rechazar",
+                               lazo._EjecutorAuto(), "d5", "t", leer=lambda *_: "2",  # 2) rechazar
                                justificar_fn=just_dict)
         self.assertEqual(r["justificacion"], "TEXTO-LLM")
         self.assertEqual(r["version_justificador"], "llm-1b-0:m.gguf")
@@ -47,7 +47,8 @@ class TestLazo(unittest.TestCase):
     def test_lazo_reclasificar_registra_la_clase_y_no_ejecuta(self):
         # RF-08: "reclasificar" retiene sin ejecutar y registra la clase corregida como feedback (RF-12).
         a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"
-        leer = lambda p: "reclasificar" if "aprobar" in p else "fp_actividad_legitima"
+        # menú cerrado por número: 3) reclasificar, luego 1) la 1ª clase distinta de la actual
+        guion = iter(["3", "1"]); leer = lambda *_: next(guion)
         r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
                                ejecutor_ok, "d3", "2026-08-31T00:00:00Z", leer=leer)
         self.assertEqual(r["veredicto_humano"], "reclasificar")
