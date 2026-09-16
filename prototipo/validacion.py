@@ -4,7 +4,12 @@ Veredictos: "aprobar" ejecuta la acción propuesta; "rechazar" retiene sin ejecu
 retiene sin ejecutar y captura la **clase corregida** por el analista, que el lazo registra como
 feedback (RF-12) — si el triaje se equivocó de clase, no se ejecuta su acción. `pedir` devuelve un
 dict `{"veredicto", "clase_nueva"}` (`clase_nueva` solo con "reclasificar").
+
+La clase corregida se elige de un **menú cerrado** (las clases de `analisis.CLASES` menos la actual
+del incidente), no por texto libre: así no entran typos ni clases inexistentes al feedback (misma
+filosofía de catálogo cerrado que RF-15).
 """
+from prototipo.analisis import CLASES
 
 def mostrar(decision, alerta):
     est = decision.get("justificacion_estructurada", {}) or {}
@@ -25,6 +30,19 @@ def pedir(decision, alerta, leer=input, escribir=print):
     if resp.startswith("a"):
         return {"veredicto": "aprobar", "clase_nueva": None}
     if resp.startswith("recl"):
-        nueva = leer("nueva clase: ").strip() or None
-        return {"veredicto": "reclasificar", "clase_nueva": nueva}
+        return _elegir_clase(decision, leer, escribir)
     return {"veredicto": "rechazar", "clase_nueva": None}   # por defecto, seguro
+
+def _elegir_clase(decision, leer, escribir):
+    """Menú numerado de las clases válidas menos la actual. Número válido -> reclasificar con esa
+    clase; entrada inválida -> repregunta; Enter en blanco -> rechazar (seguro, sin corregir)."""
+    opciones = [c for c in CLASES if c != decision.get("clase")]
+    menu = "Nueva clase:\n" + "\n".join(f"  {i}) {c}" for i, c in enumerate(opciones, 1))
+    while True:
+        escribir(menu)
+        resp = leer(f"Elige [1-{len(opciones)}]: ").strip()
+        if not resp:                                       # se echa atrás -> rechazar seguro
+            return {"veredicto": "rechazar", "clase_nueva": None}
+        if resp.isdigit() and 1 <= int(resp) <= len(opciones):
+            return {"veredicto": "reclasificar", "clase_nueva": opciones[int(resp) - 1]}
+        escribir("  opción no válida; elige un número de la lista")

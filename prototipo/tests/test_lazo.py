@@ -47,7 +47,8 @@ class TestLazo(unittest.TestCase):
     def test_lazo_reclasificar_registra_la_clase_y_no_ejecuta(self):
         # RF-08: "reclasificar" retiene sin ejecutar y registra la clase corregida como feedback (RF-12).
         a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"
-        leer = lambda p: "reclasificar" if "aprobar" in p else "fp_actividad_legitima"
+        # menú cerrado: "1" es la 1ª clase distinta de la actual (fp_actividad_legitima)
+        leer = lambda p: "reclasificar" if "aprobar" in p else "1"
         r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
                                ejecutor_ok, "d3", "2026-08-31T00:00:00Z", leer=leer)
         self.assertEqual(r["veredicto_humano"], "reclasificar")
