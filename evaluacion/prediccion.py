@@ -3,8 +3,10 @@ import time
 from prototipo import triaje
 
 # Nota: una traza sin clase (None) cuenta como no-amenaza (negativo benigno).
+# `amenaza_enrutada` (nivel triar_y_enrutar) es una amenaza reconocida que se encamina en vez de
+# contenerse: cuenta como amenaza para la detección (no es vp_* pero sí es positivo verdadero).
 def es_amenaza(clase):
-    return str(clase).startswith("vp_")
+    return str(clase).startswith("vp_") or clase == "amenaza_enrutada"
 
 def predecir_todas(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, _procesar=triaje.procesar):
     res = []

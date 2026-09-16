@@ -1,6 +1,11 @@
 """Árbol de decisión del etiquetado: asigna el ground truth a cada alerta."""
 from prototipo.postura import postura_de  # noqa: F401  (re-exportación: la lógica vive en el producto)
 
+# Familias dentro del caso de uso. El ground truth aquí es la pregunta amenaza/no-amenaza (VP/FP),
+# ORTOGONAL a cómo el producto responde: `explotacion_conocida` es una familia soportada (su VP/FP
+# por postura sigue siendo el ground truth correcto), aunque el motor la trate en el nivel
+# `triar_y_enrutar` (la encamina en vez de contenerla; ver prototipo/familias.yml). El mapeo de esa
+# respuesta a la métrica de detección vive en evaluacion/prediccion.es_amenaza, no aquí.
 FAMILIAS_SOPORTADAS = {
     "acceso_credenciales", "reconocimiento", "servicio_expuesto", "explotacion_conocida",
 }
