@@ -1,0 +1,51 @@
+# Cliente bancario: continuidad extrema. La respuesta automatica NUNCA corta un servicio ni toca
+# las joyas de la corona (HSM, SWIFT, core DB) ni el plano de gestion; el unico automatismo posible
+# es un bloqueo de IP de origen (localizado y reversible) y solo con confianza muy alta (Opcion A).
+version: v0
+
+# criticidad gobierna la prioridad (critica/alta suben); servicios_prestados es documental.
+activos:
+  web-banking:    { criticidad: alta,    servicios_prestados: [443, 80] }   # DMZ VLAN 10
+  api-movil:      { criticidad: alta,    servicios_prestados: [443] }       # DMZ VLAN 20
+  swift-alliance: { criticidad: critica, servicios_prestados: [] }          # DMZ SWIFT Alliance
+  middleware:     { criticidad: alta,    servicios_prestados: [8443] }      # Core VLAN 40
+  core-db:        { criticidad: critica, servicios_prestados: [1521] }      # Core VLAN 50 (Cluster DB)
+  hsm:            { criticidad: critica, servicios_prestados: [] }          # Core VLAN 60 (cifrado)
+  mdr-siem:       { criticidad: critica, servicios_prestados: [] }          # SOC VLAN 100 (gestion)
+  atm:            { criticidad: alta,    servicios_prestados: [] }          # Sucursal VLAN 210
+  taquilla:       { criticidad: media,   servicios_prestados: [] }          # Sucursal VLAN 200
+
+# Origenes cuya actividad es legitima (RNF-14). Match EXACTO por IP (el motor no interpreta CIDR):
+# la administracion del banco (SOC/MDR) y el auditor autorizado.
+origenes_legitimos: ["10.100.0.10", "10.100.0.20"]
+# Plano de gestion: RF-19 (no_cortar_gestion) impide que ninguna accion lo afecte.
+ip_gestion: 10.100.0.10
+
+# A partir de cuantas alertas del mismo origen en la ventana se considera ataque aunque el origen
+# este declarado legitimo (suplantacion o equipo comprometido): la 6a regla, confianza 0.6.
+rafaga: { umbral: 9, ventana_s: 60 }
+
+continuidad:
+  impacto_ninguno:            automatica            # observar/enriquecer: siempre
+  impacto_localizado:         automatica_si_confianza  # Opcion A: bloqueo de IP auto solo si confianza alta
+  impacto_alcanza_servicio:   humano_siempre        # nada que roce un servicio se corta solo
+  reversibilidad_obligatoria: true                  # RF-18: solo acciones reversibles y verificables
+  no_cortar_gestion:          true                  # RF-19: jamas el plano SOC/gestion
+  umbral_confianza:           0.9                   # barra alta para cualquier automatismo (RF-07)
+
+# Servicios de las joyas de la corona: nunca de forma automatica (refuerza humano_siempre; RF-17).
+# Su bloqueo de puerto degrada a bloqueo de la IP atacante, que no corta el servicio del banco.
+excepciones:
+  - { servicio: 1521, activo: core-db,    regla: nunca_automatica }   # DB Core
+  - { servicio: 8443, activo: middleware, regla: nunca_automatica }   # Middleware
+
+# Cadena de contencion host -> firewall core -> firewall perimetral (dos firewalls HA de la
+# topologia). Roles reconocidos por el motor: host_victima (BLOQUEAR_IP) y firewall_perimetral
+# (BLOQUEAR_IP_FIREWALL). Las joyas de la corona NO se listan como host: una contencion sobre
+# ellas escala directa al firewall (contener aguas arriba, nunca tocar el activo critico).
+topologia:
+  web-banking: { rol: host_victima,        ip: 10.10.0.10,  gateway: fw-core }
+  api-movil:   { rol: host_victima,        ip: 10.20.0.10,  gateway: fw-core }
+  atm:         { rol: host_victima,        ip: 10.210.0.10, gateway: fw-core }
+  fw-core:     { rol: firewall_perimetral, ip: 10.0.0.1,    gateway: fw-edge }
+  fw-edge:     { rol: firewall_perimetral, ip: 10.0.0.254 }

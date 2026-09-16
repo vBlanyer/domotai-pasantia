@@ -76,3 +76,45 @@ class TestFiltro(unittest.TestCase):
         r = perfil.filtrar(p, "BLOQUEAR_PUERTO", {"puerto": 443, "ip": "1.2.3.4"}, CAT, "servidor-web", "https", 1.0)
         self.assertEqual(r["resultado"], "degrada")
         self.assertEqual(r["accion_final"], "BLOQUEAR_IP")
+
+
+class TestPerfilBancario(unittest.TestCase):
+    """Garantías de continuidad del perfil de cliente bancario (perfiles/bancario.yml, Opción A):
+    ningún servicio ni joya de la corona se corta automáticamente; el plano de gestión es intocable;
+    el único automatismo es bloquear la IP del atacante externo evidente (localizado y reversible)."""
+    def setUp(self):
+        with open(os.path.join(FX, "..", "..", "perfiles", "bancario.yml"), encoding="utf-8") as f:
+            self.p = yaml.safe_load(f)
+
+    def test_umbral_de_automatismo_es_alto_0_9(self):
+        # RF-07: un bloqueo de IP a 0.85 no basta; a 0.95 sí.
+        veta = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "203.0.113.9"}, CAT, "web-banking", "443", 0.85)
+        self.assertEqual(veta["resultado"], "veta")
+        self.assertTrue(veta["requiere_humano"])
+        auto = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "203.0.113.9"}, CAT, "web-banking", "443", 0.95)
+        self.assertEqual(auto["resultado"], "permite")
+        self.assertFalse(auto["requiere_humano"])
+
+    def test_joya_de_la_corona_nunca_corta_su_servicio(self):
+        # core-db: el corte de puerto (mataría la DB, 1521) degrada a bloquear la IP atacante.
+        r = perfil.filtrar(self.p, "BLOQUEAR_PUERTO", {"puerto": 1521, "ip": "203.0.113.9"},
+                           CAT, "core-db", "1521", 0.99)
+        self.assertEqual(r["resultado"], "degrada")
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")   # nunca CERRAR/BLOQUEAR el servicio 1521
+
+    def test_cortar_un_servicio_del_banco_exige_humano(self):
+        # cerrar el servicio de banca online no es automático jamás (impacto alcanza_servicio).
+        r = perfil.filtrar(self.p, "CERRAR_SERVICIO", {"servicio": "https"}, CAT, "web-banking", "443", 0.99)
+        self.assertEqual(r["resultado"], "veta")
+        self.assertTrue(r["requiere_humano"])
+
+    def test_plano_de_gestion_es_intocable(self):
+        # RF-19: el MDR no corta el plano SOC/gestión ni con humano (accion_final None).
+        r = perfil.filtrar(self.p, "CERRAR_SERVICIO", {"servicio": "ssh"}, CAT, "mdr-siem", "ssh", 0.99)
+        self.assertEqual(r["resultado"], "veta")
+        self.assertIsNone(r["accion_final"])
+
+    def test_bloquear_ip_del_atacante_a_una_joya_es_reversible_y_auto(self):
+        # bloquear la IP que ataca al HSM es seguro (no toca el HSM) -> auto con confianza alta.
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "203.0.113.9"}, CAT, "hsm", "9000", 0.99)
+        self.assertEqual(r["resultado"], "permite")
