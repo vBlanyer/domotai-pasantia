@@ -12,19 +12,27 @@ ese ruido sin cortar lo que el negocio necesita.
 
 | Componente | Dónde | Estado |
 |------------|-------|--------|
-| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, 225 tests |
+| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, 306 tests |
 | **Justificador con LLM real + RAG** (Llama-3.1-8B en servidor residente; recuperación aumentada local con embedder bge-m3 sobre corpus curado de MITRE/D3FEND/reglas Wazuh/descartes, dependiente de la clase decidida) | [`prototipo/justificador_llm.py`](prototipo/justificador_llm.py), [`prototipo/rag.py`](prototipo/rag.py) | Funcional, verificado en vivo |
 | **Daemon en tiempo real** (agrupa en incidentes, valida con el analista; modos `--sin-llm` / `--con-llm` / `--agente`) | [`prototipo/stream.py`](prototipo/stream.py) | Funcional |
 | **Agente de mitigación** (ReAct: escala host → cortafuegos, aprueba por paso) | [`prototipo/agente_mitigacion.py`](prototipo/agente_mitigacion.py) | Funcional con salida restringida por esquema y escalada determinista de respaldo; exige hardware rápido |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap/Greenbone, objetivo vulnerable) | [`lab/`](lab/) | Ejecutable |
 | **Dataset etiquetado** (466 alertas reales de tres familias, VP/FP/PROPIA/no_soportada, particionado 80/20) | [`lab/dataset/`](lab/dataset/) | Cerrado |
-| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 30 tests; campaña ejecutada |
+| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 32 tests; campaña ejecutada |
 
 **La idea intelectualmente central:** la decisión clasificación→acción **no la toma el modelo**. La toma
 una **política determinista** que *propone* una acción y un **perfil de cliente configurable** que la
 *filtra* (permite / degrada / veta). Ejemplo probado: la misma acción de bloquear el puerto 443 se
 permite en un perfil residencial pero se degrada en uno bancario, porque ese puerto presta el servicio.
 El LLM justifica; no manda.
+
+**Y una segunda idea, la del alcance honesto:** qué hace el motor con cada alerta lo decide un **registro de
+familias extensible** ([`prototipo/familias.yml`](prototipo/familias.yml)) alineado a MITRE ATT&CK, con tres
+niveles de respuesta — **actuar** (contener con el catálogo cerrado), **triar y encaminar** (clasificar,
+priorizar y derivar a un equipo con contexto MITRE, sin contener) y **no soportada** (a juicio humano,
+severidad intacta). Añadir una familia es una línea; la cobertura real por cliente es *lo que su SIEM
+detecta ∩ lo que el registro cubre*. Así el sistema **dice la verdad** en el borde de su competencia en vez
+de inventar una respuesta.
 
 ## Cómo se corre
 
