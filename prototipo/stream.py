@@ -42,6 +42,8 @@ def _linea_decision(d):
     if esc:
         base += (f"\n  Escalada (el activo no respondio): {esc.get('resultado')} · "
                  f"contenido en {esc.get('dispositivo_ejecutor')}")
+    if d.get("clase") == "amenaza_enrutada":
+        base += f"\n  Enrutado a: {d.get('ruta')} (triaje sin contencion automatica)"
     return base
 
 # --------------------------------------------------------------------- bucle --
