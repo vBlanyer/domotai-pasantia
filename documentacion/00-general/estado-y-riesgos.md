@@ -303,3 +303,38 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-9 | Dos planes conviviendo | Menor | Nosotros | **Resuelta con matiz** — el plan movido a `archivo/` resultó ser el oficial firmado; ver I-13 |
 | I-13 | El plan oficial omite el objetivo de implementar | Estructural | Nosotros | **Resuelta** — es un error de tipeo del documento oficial; el cronograma sí incluye desarrollar el prototipo. Vale la lista de 7 objetivos |
 | I-10 | El componente central se llamaba «EDR» siendo el motor de triaje de un XDR | De diseño | Nosotros | **Resuelta** — renombrado a «motor de triaje» |
+
+## 7. Trabajo futuro y cabos sueltos conocidos
+
+Lista **consolidada** de lo pendiente y de los límites conscientes (para la defensa: nada de esto es un
+olvido, cada punto es una decisión). El detalle de cada uno vive donde se indica.
+
+### Trabajo futuro (extendería el sistema)
+
+- **IP del activo desde la topología del perfil.** `orden.construir` resuelve la IP del host para la acción
+  *en el activo* de un mapa fijo del laboratorio (`orden.IP_DE_NODO`), no de la `topologia` del perfil (la
+  **escalada** sí usa la topología). Un perfil de producción/banco no resuelve la IP del activo end-to-end;
+  el arreglo acotado es que `orden.construir` lea la IP de la topología. Acotado.
+- **Filtrado VP/FP dentro del nivel `triar_y_enrutar`.** El nivel enrutado clasifica y encamina sin adjudicar
+  VP/FP; un WAF ruidoso se encamina igual. Detalle en el spec de familias (`docs/superpowers/specs/2026-09-16-taxonomia-familias-extensible-design.md`, §7).
+- **Entrega real de la ruta.** La traza registra la ruta (`ruta`), pero ningún conector la **entrega** a la
+  cola/equipo del cliente (correo/ticket). Es la misma capa de producción que el conector SSH.
+- **Consumo automático del feedback (RF-12).** El «cosechador» que lee las reclasificaciones del periodo y
+  propone cambios de perfil/corpus/reglas. Diseño en [bucle-de-feedback-rf12.md](bucle-de-feedback-rf12.md).
+- **Calibración del umbral de escalado (RF-07).** `continuidad.umbral_confianza` sin calibrar (la Fase 6
+  midió escalado 0.0 con los perfiles actuales).
+- **Clases finas (6 categorías).** `vp_acceso_consumado` y `vp_exposicion_gestion` exigen etiquetas finas que
+  el dataset no aporta — límite de datos, no pieza pendiente (ver Fase 5, arriba).
+
+### Fuera de alcance por diseño (no se hará, y por qué)
+
+- **Contención lateral / este-oeste y, en general, cualquier capacidad que exija *detectar*** (malware/C2,
+  DoS, MITM/ARP). El MDR **tría lo detectado, no detecta**: es capa aguas abajo del SIEM. Detalle y defensa
+  en [caso-de-uso-acotado.md §11](../01-fase1-analisis-del-modulo/caso-de-uso-acotado.md#11-límites-conocidos-de-este-perímetro).
+
+### Menores (cosméticos)
+
+- **Caché de `familias.py`.** `registro()` solo cachea desde la ruta por defecto; `cargar_registro(otra_ruta)`
+  no se refleja. Sin impacto (el camino productivo usa el registro por defecto; `clasificar` acepta `registro=`).
+- **`lab/dataset/etiquetar.py`** lista `explotacion_conocida` como familia soportada: es correcto (su VP/FP es
+  el ground truth), y ya lleva una nota de coherencia con el nivel enrutado del producto.
