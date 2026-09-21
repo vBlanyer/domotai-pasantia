@@ -16,7 +16,12 @@ def mostrar(decision, alerta):
     mitre = ", ".join(est.get("tecnica_mitre") or []) or "—"
     # La consecuencia de aprobar: a quién bloquea y qué servicios detiene (impacto determinado, RF-17).
     det = decision.get("impacto_determinado") or {}
-    consecuencia = f"Consecuencia: {det['motivo']}\n" if det.get("motivo") else ""
+    motivo = det.get("motivo")
+    if motivo and decision.get("accion_final") is None:
+        # Sin acción final no hay nada que aprobar: la consecuencia es la del veto duro, no la de
+        # una acción que se fuera a ejecutar. Sin el prefijo se lee como si ya hubiera pasado.
+        motivo = f"(vetada) {motivo}"
+    consecuencia = f"Consecuencia: {motivo}\n" if motivo else ""
     return (
         "── Validación humana requerida ──\n"
         f"Activo: {alerta.get('activo')}  ·  Origen: {alerta.get('origen_ip')}  ·  Servicio: {alerta.get('servicio')}\n"

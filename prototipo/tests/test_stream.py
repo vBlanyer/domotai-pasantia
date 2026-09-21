@@ -241,6 +241,13 @@ class TestStream(unittest.TestCase):
              "impacto_determinado": {"motivo": "bloquea a puesto (activo interno) · 0 servicios detenidos"}}
         self.assertIn("\n  Consecuencia: bloquea a puesto", stream._linea_decision(d))
 
+    def test_linea_decision_prefija_vetada_si_no_hay_accion_final(self):   # F5
+        d = {"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 1.0,
+             "accion_propuesta": "BLOQUEAR_IP", "accion_final": None, "resultado_filtro": "veta",
+             "version_justificador": "plantilla-0",
+             "impacto_determinado": {"motivo": "bloquea a puesto (activo interno) · 0 servicios detenidos"}}
+        self.assertIn("\n  Consecuencia: (vetada) bloquea a puesto", stream._linea_decision(d))
+
     def test_mitigar_fn_pasa_los_hallazgos_al_agente(self):
         from unittest import mock
         from prototipo import agente_mitigacion as ag, justificador_llm, rag

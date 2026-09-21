@@ -35,8 +35,11 @@ def _linea_decision(d):
             f"accion {d['accion_propuesta']} -> {d['accion_final']} (filtro {d['resultado_filtro']}) · "
             f"justificador {d.get('version_justificador')}")
     det = d.get("impacto_determinado") or {}
-    if det.get("motivo"):
-        base += f"\n  Consecuencia: {det['motivo']}"
+    motivo = det.get("motivo")
+    if motivo:
+        if d.get("accion_final") is None:   # veto duro: la consecuencia no llegó a ejecutarse
+            motivo = f"(vetada) {motivo}"
+        base += f"\n  Consecuencia: {motivo}"
     mit = d.get("mitigacion_agente")
     if mit:
         base += (f"\n  Agente: {mit.get('resultado')} · ejecutor {mit.get('dispositivo_ejecutor')} · "
