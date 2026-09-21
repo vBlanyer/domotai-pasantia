@@ -38,6 +38,9 @@ python3 -m evaluacion.campana --particion evaluacion --sin-llm
 # Vigente: partición completa (anexo)
 python3 -m evaluacion.campana --particion todas --sin-llm --salida-dir evaluacion/resultados/anexo-completo
 
+# Ablación de postura: margen para un LLM en los casos grises (sin modelo, segundos)
+python3 -m evaluacion.ablacion_postura                      # --particion todas para el dataset entero
+
 # Contraste de justificación (exige el modelo local; ~11 min cada una)
 python3 -m evaluacion.campana --particion evaluacion --salida-dir evaluacion/resultados/sin-rag
 python3 -m evaluacion.campana --particion evaluacion --con-rag --salida-dir evaluacion/resultados/con-rag
@@ -155,6 +158,38 @@ rasgos de ráfaga el árbol se agarra a las reglas de Wazuh y empeora). Se adopt
 bloquear al admin). Los 2 FP que quedan son el error+acceso (hoja de 3 casos mezclados: sin evidencia para
 cambiar el diseño). Verificado en vivo: fuerza bruta desde .1 → VP 0.6 → `veta` → humano → ejecutado; la
 justificación (`llm-6`) nombra la ráfaga como la razón que pesa más que la procedencia.
+
+### Ablación de postura: ¿margen para un LLM en la decisión? (21/09/2026)
+
+Pregunta: el objetivo 5 del plan pide clasificación *asistida por modelos de lenguaje*, y el clasificador es
+determinista. ¿Mejoraría la decisión un LLM como **segunda opinión en los casos grises** (confianza bajo el
+umbral)? `python3 -m evaluacion.ablacion_postura` lo mide replicando el pipeline de la campaña (ráfaga incluida)
+en dos escenarios: la postura real del auditor y la postura **retirada** (el auditor no escaneó nada, peor caso
+para el determinista). El margen de una segunda opinión es lo que falla el fallback «todo gris es VP».
+
+| Escenario | Partición | Grises (conf < 0,7) | Verdad | Fallback «gris = VP» | **Margen** |
+|---|---|---|---|---|---|
+| Postura real | evaluación (300) | 20 | 20 VP | 20/20 | **0** |
+| Postura retirada | evaluación (300) | 89 | 87 VP + 2 FP | 87/89 | **2** |
+| Postura real | todas (600) | 40 | 40 VP | 40/40 | **0** |
+| Postura retirada | todas (600) | 178 | 174 VP + 4 FP | 174/178 | **4** |
+
+- **Con la configuración real no hay margen.** Los 20 grises son las ráfagas desde el origen de administración
+  (6ª regla, confianza 0,6): el sistema ya los manda al humano y el fallback los acierta todos. Es también la
+  cifra de escalado vigente: **20/300 = 0,067** (antes de la 6ª regla era 0,0).
+- **Sin postura, el margen es de 2 alertas y no es recuperable.** Son los casos *error + acceso* de la sección
+  anterior (error de contraseña y acceso correcto desde el puesto, FP por verdad declarada): ni las reglas ni el
+  árbol entrenado los separan («hoja de 3 casos mezclados»). Ningún campo estructurado de la alerta —lo único
+  que el modelo puede ver (RNF-08)— los distingue.
+- **Y el único gris real es el más peligroso para un LLM.** Son ataques desde la IP del administrador. En el
+  desarrollo del justificador se midió que, con la ráfaga solo en los datos, el modelo explicaba el origen
+  como legítimo (`prototipo/justificador_llm.py`, rama de ráfaga): una segunda opinión abierta sobre esos casos
+  tiende a proponer «actividad del admin» y a empujar al analista a no contener un equipo comprometido.
+
+**Conclusión:** el clasificador determinista **satura** las métricas de este dataset; un LLM en la decisión no
+tendría margen medible y operaría justo donde se mostró sesgado. Sostiene la **decisión D15** (los modelos de
+lenguaje asisten el triaje, no deciden la clase) y deja la segunda opinión como trabajo futuro con diseño de
+seguridad (`documentacion/00-general/estado-y-riesgos.md` §7).
 
 ### Reproducibilidad del banco (RNF-03)
 

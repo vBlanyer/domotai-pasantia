@@ -111,6 +111,39 @@ La granularidad fina (las 6 clases) sí queda fuera por datos: el sistema clasif
 que es lo que las etiquetas de la Fase 3 soportan — un límite de datos, no una pieza pendiente. Con esto
 la Fase 5 queda **cerrada**.
 
+### Cómo se cumple la «clasificación asistida por modelos de lenguaje» (objetivo 5) — decisión D15
+
+El objetivo 5 pide *clasificación y priorización asistida por modelos de lenguaje*. Los modelos de lenguaje
+**asisten el triaje en cuatro puntos**, y **no deciden la clase ni la prioridad**, por decisión de diseño:
+
+| Dónde asiste un modelo de lenguaje | Pieza |
+|---|---|
+| Justifica cada clasificación, anclada a la alerta y con conocimiento recuperado (RAG) | `justificador_llm` + `rag` (8B residente; 1B sin GPU) |
+| Formula la consulta de recuperación a partir de la alerta y la clase decidida | `rag.consulta_agentica` |
+| Vectoriza consultas y corpus para la recuperación semántica | embedder `bge-m3` |
+| Decide la estrategia de escalada (host → cortafuegos), con la salida cerrada por esquema al catálogo | `agente_mitigacion` (`--agente`) |
+
+**Por qué la clase la decide un clasificador determinista.** El diseño de la Fase 4 cumplía el objetivo
+literalmente con un *encoder* ajustado —un modelo de lenguaje—; se descartó porque con unos cientos de filas
+memoriza y no se valida sin fuga, y lo sustituye el árbol que descubre reglas. Que no sea el *generativo* quien
+decida responde a cuatro razones:
+
+1. **Confianza comparable:** el umbral que manda una decisión al humano (RF-07) necesita una confianza numérica
+   comparable entre alertas; un generativo solo puede autodeclararla.
+2. **Reproducibilidad (RNF-03), medida:** el mismo prompt a temperatura 0 devolvió salidas distintas en 4 de 12
+   casos con la caché de prefijos del servidor activa (por eso `cache_prompt: false`).
+3. **Seguridad (RNF-08):** el contenido de la alerta lo escribe el atacante. Un LLM que decide la clase es una
+   superficie de inyección para que un log fabricado se clasifique como actividad legítima y **evada la
+   contención**. El determinista solo lee campos estructurados y es inmune por construcción.
+4. **Evidencia:** la [ablación de postura](../../evaluacion/resultados/README.md) mide que, con la configuración
+   real, un LLM como segunda opinión tendría **margen 0** (los 20 casos grises son ataques desde la IP del
+   administrador, que el sistema ya escala al humano), y que los únicos errores sin postura (2) no los distingue
+   ningún campo que el modelo pueda ver.
+
+El camino del encoder sigue abierto: la interfaz `clasificar` no cambia, y el bucle de feedback (RF-12) acumula
+precisamente los datos etiquetados que necesitaría. La segunda opinión del LLM queda como trabajo futuro con su
+diseño de seguridad ([estado §7](../00-general/estado-y-riesgos.md)).
+
 **Criterio de cierre** (roadmap): el prototipo procesa el dataset de prueba completo y produce
 clasificaciones priorizadas con justificación explicable. Se cumple: el justificador con LLM+RAG y el
 clasificador determinista (nutrido por el árbol) producen la clase, la prioridad y la justificación

@@ -230,9 +230,14 @@ la recurrencia se corta con un cambio de **configuración** (dar postura al audi
 
 ### Provocar el lazo para probarlo
 
-Con los perfiles y el dataset actuales **ninguna** alerta requiere humano (el motor auto-gestiona el catálogo;
-es el "escalado 0.0" de la Fase 6). Para **ejercitar** el lazo se usa un perfil de cliente conservador que
-exige visto bueno en todo bloqueo localizado:
+El lazo humano **sí se dispara con el perfil real**: en la campaña vigente, el **6,7 %** de las alertas (20 de
+300) van al analista. Son las **ráfagas desde el origen de administración** (`192.168.1.1`), que la 6ª regla
+clasifica como VP con confianza 0,6 para que un humano confirme antes de bloquear al admin (puede estar
+suplantado o comprometido). Verlo en vivo exige una ráfaga de **9 o más** alertas del admin en un minuto; el
+fichero de campaña de abajo solo trae 8 del `.1`, por debajo del umbral.
+
+Para ejercitar el menú con **cualquier** alerta, sin montar una ráfaga, se usa un perfil de cliente conservador
+que exige visto bueno en todo bloqueo localizado:
 
 ```bash
 # perfil de demo: como empresarial pero con impacto_localizado: humano_siempre
