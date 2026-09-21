@@ -193,7 +193,7 @@ todos).
 Esto está verificado en `prototipo/tests/test_rnf14.py` (`test_localizado_sobre_origen_externo_coincide_en_ambos`,
 `test_bloquear_un_activo_interno_diverge_por_perfil` y `test_misma_accion_alcanza_servicio_diverge_por_perfil`),
 llamando `perfil.filtrar(...)`
-directamente con `BLOQUEAR_PUERTO`.
+directamente con `BLOQUEAR_PUERTO` y con `BLOQUEAR_IP` (la accion en la que degrada).
 
 **Por qué la divergencia no se ve corriendo el CLI.** El baseline (§2) solo produce
 `vp_intento_acceso`, `fp_exposicion_inexistente` y `no_soportada`; nunca produce
@@ -233,7 +233,9 @@ Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado
 
 El agente de mitigación ve lo mismo en `consultar_topologia` (función, criticidad y servicios de cada
 dispositivo), y su prompt nombra la IP de gestión concreta. La IP de ejecución sale también del perfil
-(`perfil.ip_de`); `orden.IP_DE_NODO` queda como respaldo heredado.
+(`perfil.ip_de`); `orden.IP_DE_NODO` queda como respaldo heredado. En `--agente`, cada paso del bucle
+ReAct también pasa por `perfil.filtrar` (no solo la escalada determinista de respaldo), y la
+aprobación humana muestra la misma línea **Consecuencia** antes de que el analista decida.
 
 **Reconciliación** — lo declarado frente a lo descubierto:
 
