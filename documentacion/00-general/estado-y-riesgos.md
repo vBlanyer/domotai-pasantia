@@ -48,7 +48,7 @@ la Fase 7 (informe final + matriz de trazabilidad).
 | D2 | El sandbox es **la red del cliente desde el ODF hacia dentro** (borde, red interna, servidores, puestos); los objetivos prioritarios son los **servicios de gestión expuestos**. *Sustituye al encuadre FTTx/CPE de agosto 2026.* | [sandbox](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) · [Fase 1](../01-fase1-analisis-del-modulo/) |
 | D3 | Plataforma de laboratorio: **Containerlab**. Descartados Packet Tracer (simula, no virtualiza) y CML (tope de nodos) | [sandbox §2](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
 | D4 | Canal motor de triaje → sandbox: **SSH**, acotado a un **catálogo cerrado de acciones**. TR-069/TR-369 como evolución | [protocolos](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md) |
-| D5 | Auditoría limitada a **escaneo de red**: Nmap inventaría, Greenbone dictamina. Sin análisis de firmware | [auditoría](../04-fase4-diseno-de-arquitectura/auditoria-de-vulnerabilidades-del-sandbox.md) |
+| D5 | Auditoría limitada a **escaneo de red**: Nmap inventaría, Greenbone dictamina. Sin análisis de firmware. **Implementado: solo Nmap** — Greenbone no cabe en memoria junto al resto (Fase 3); la postura (expuesto sí/no) sale de Nmap, sin dictamen de CVE | [auditoría](../04-fase4-diseno-de-arquitectura/auditoria-de-vulnerabilidades-del-sandbox.md) |
 | D6 | Modelo en **dos perfiles**: A híbrido (equipo actual), B con Foundation-Sec-8B (si hay hardware) | [modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) |
 | D10 | El **módulo de ingesta ocupa el papel del playbook** en el laboratorio; no se crea una caja aparte | [flujo §3](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md) |
 | D8 | **Wazuh dentro del sandbox** como fuente de alertas y **su nivel de regla como baseline** | [sandbox §5.1](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
@@ -117,7 +117,7 @@ Los requisitos funcionales y no funcionales de la Fase 2 se derivaron del primer
 
 ---
 
-### I-6 · El Perfil A contradice el diseño del flujo — ~~DE DISEÑO~~ **RESUELTA EN FORMA, REABIERTA EN CALIDAD**
+### I-6 · El Perfil A contradice el diseño del flujo — ~~DE DISEÑO~~ **RESUELTA** (forma; calidad en el hardware objetivo)
 
 Dos choques directos entre [selección del modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md) y el [flujo de operación](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md):
 
@@ -138,9 +138,23 @@ ese rendimiento el 3B interactivo no cabe en el presupuesto de latencia, así qu
   revés). Un validador humano que se apoye en ellas recibe un texto que cita los campos correctos y
   los explica mal. El problema que I-6 atacaba —decidir sin criterio— **no está del todo cerrado**.
 
-**Quién puede resolverlo:** nosotros, sustituyendo el generador por un modelo mayor (la interfaz
-`justificar_llm`/`adaptador` ya lo permite sin tocar el motor), lo que exige hardware con GPU o más
-memoria — que es la pregunta 7 de la §5.
+**Actualización (10/09/2026) — resuelta en calidad en el hardware objetivo.** Con el generador como
+**servidor residente** y un modelo generalista de 8B (`llama-3.1-8b-instruct-q4`) en la máquina objetivo
+(9800X3D + RTX 5070), la campaña de evaluación midió **18/18 justificaciones ancladas, 0 degradadas y
+0 contradicciones con la decisión del motor** (`llm-4`, con RAG cuya consulta y corpus dependen de la
+clase decidida; ver [resultados](../../evaluacion/resultados/README.md#corridas-con-modelo-de-8b-10092026)).
+Las 18 se leyeron una a una: los descartes citan el motivo real y las amenazas citan origen, activo y
+servicio expuesto. El problema que I-6 atacaba —que el validador humano decida sin criterio— **queda
+cerrado donde el sistema está pensado para operar**. Dos matices que se mantienen:
+
+- En hardware **sin GPU** (la máquina de desarrollo) el 1B sigue siendo poco fiable: ahí la calidad no
+  está resuelta, y la vía honesta es la plantilla determinista (`--sin-llm`).
+- La lectura de las 18 la hizo quien construyó el sistema; la **revisión manual independiente** de las
+  justificaciones (`evaluacion/resultados/revision-manual.csv`) sigue pendiente.
+
+**Resuelto por:** nosotros, sustituyendo el generador por el 8B residente. La interfaz
+`justificar_llm`/`adaptador` lo permitió **sin tocar el motor**, como estaba previsto; exigía GPU, que es
+lo que aportó la máquina objetivo (pregunta 7 de la §5).
 
 ---
 
@@ -297,7 +311,7 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-3 | Sin baseline | Bloqueante | Nosotros | **Resuelta** — nivel de regla de Wazuh |
 | I-4 | Identidad del módulo propietario | Estructural | Empresa | **Parcial** — Fase 1 hecha por modelado; solo queda la pregunta de identidad, que depende de la empresa |
 | I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos contra el contexto del cliente |
-| I-6 | Perfil A vs flujo | De diseño | Nosotros | **Parcial** — hay justificación en línea (1B, no 3B: medidos ~3,7 t/s), pero la Fase 6 midió que es poco fiable; reabierta en calidad |
+| I-6 | Perfil A vs flujo | De diseño | Nosotros | **Resuelta** — justificación en línea (forma) y, con el 8B residente + RAG en la máquina objetivo, 18/18 ancladas y 0 contradicciones (calidad). Sin GPU, el 1B sigue siendo poco fiable; revisión manual independiente pendiente |
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |
 | I-8 | Material con premisa superada | Menor | Nosotros | **Resuelta** — movido a documentacion/archivo/ |
 | I-9 | Dos planes conviviendo | Menor | Nosotros | **Resuelta con matiz** — el plan movido a `archivo/` resultó ser el oficial firmado; ver I-13 |
