@@ -92,7 +92,7 @@ Orden de precedencia (la primera que encaja):
 |---|---|---|---|
 | 1 | `gestion` | `ip == ip_gestion` | **veto duro** (RF-19, C4) |
 | 2 | `dispositivo_red` | IP de un nodo de `topologia` con rol `firewall_perimetral` | `continuidad.actores.dispositivo_red` |
-| 3 | `activo_interno` | IP de un activo del inventario, **o** dentro de `redes_internas`, **o** en `origenes_legitimos` | `continuidad.actores.activo_interno` |
+| 3 | `activo_interno` | IP de un activo del inventario, **o** de otro nodo de `topologia`, **o** dentro de `redes_internas`, **o** en `origenes_legitimos` | `continuidad.actores.activo_interno` |
 | 4 | `desconocido` | ninguna de las anteriores | reglas de continuidad por impacto, como hoy |
 
 CIDR con `ipaddress` (stdlib). Un perfil sin inventario con IPs resuelve todo a `desconocido`: su
@@ -166,10 +166,14 @@ alcanzan un servicio (cierra también la solución B del análisis #4).
 
 ### 4.8 Perfiles
 
-- **`empresarial.yml`** pasa a describir **la red real del laboratorio**: `gateway` (192.168.1.1, el
-  equipo de borde; mismo nombre que en la topología, C6), `puesto` (.10), `iot` (.20) y `objetivo-vuln`
-  (.30), con función, servicios declarados y criticidad `media` (la efectiva hoy, C6);
-  `redes_internas: ["192.168.1.0/24"]`; **`ip_gestion: 172.20.20.4`** (repara RF-19). Se retiran
+- **`empresarial.yml`** pasa a describir **la red real del laboratorio**: `borde` (192.168.1.1), `puesto`
+  (.10), `iot` (.20) y `objetivo-vuln` (.30), con función, servicios declarados y criticidad `media` (la
+  efectiva hoy, C6); `redes_internas: ["192.168.1.0/24"]`; **`ip_gestion: 172.20.20.4`** (repara RF-19).
+  **Un nombre por equipo (C6):** el laboratorio, el auditor y `orden.IP_DE_NODO` llaman `borde` a la `.1`,
+  y la topología de `empresarial` la llamaba `gateway`; se renombra el nodo de la topología a `borde`. Sin
+  eso, la reconciliación (§4.6) mostraría una discrepancia falsa («`borde` no inventariado» y «`gateway` no
+  escaneado»). Arrastra cambios mecánicos: el guion de `demo-agente-escalado.py` y los textos de
+  `demo-escalada-determinista.py` y de `docs/pruebas` que nombran `gateway`. Se retiran
   `servidor-web` y `controlador-ot` (y su excepción del 443), que no existen en el laboratorio; el patrón
   «nunca automática» sigue demostrado en `bancario.yml`.
 - **`bancario.yml`** gana `ip` y `funcion` en cada activo (hoy van en comentarios) y
