@@ -397,3 +397,54 @@ class TestEscaladaConPerfil(unittest.TestCase):
                                         confianza=1.0)   # siempre_humano=True por defecto
         self.assertEqual(len(preguntas), 1)
 
+
+def y_perfil_inventariado():
+    return {**y_perfil(),
+            "activos": {"objetivo-vuln": {"ip": "192.168.1.30", "funcion": "servidor con servicios expuestos",
+                                          "criticidad": "media", "servicios_prestados": [22, 80]}}}
+
+
+class TestVistaDelAgente(unittest.TestCase):
+    """Spec de conciencia de impacto §4.5: el agente ve a quien toca, no solo su rol."""
+
+    def test_la_topologia_se_enriquece_con_el_inventario(self):
+        topo = ag.resolver_topologia(y_perfil_inventariado())
+        self.assertEqual(topo["objetivo-vuln"]["funcion"], "servidor con servicios expuestos")
+        self.assertEqual(topo["objetivo-vuln"]["servicios_prestados"], [22, 80])
+        self.assertEqual(topo["objetivo-vuln"]["rol"], "host_victima")      # lo de siempre sigue
+
+    def test_con_hallazgos_ve_los_servicios_abiertos(self):
+        h = {"nodos": {"objetivo-vuln": [{"puerto": 21, "servicio": "ftp", "estado": "open"},
+                                         {"puerto": 22, "servicio": "ssh", "estado": "open"}]}}
+        topo = ag.resolver_topologia(y_perfil_inventariado(), h)
+        self.assertEqual(topo["objetivo-vuln"]["servicios_abiertos"], [21, 22])
+
+    def test_no_muta_el_perfil(self):
+        p = y_perfil_inventariado()
+        ag.resolver_topologia(p)
+        self.assertNotIn("funcion", p["topologia"]["objetivo-vuln"])
+
+    def test_consultar_topologia_describe_a_quien_toca(self):
+        obs = ag.herramienta_consultar_topologia(ag.resolver_topologia(y_perfil_inventariado()))
+        self.assertIn("objetivo-vuln=host_victima (servidor con servicios expuestos; criticidad media; "
+                      "servicios declarados: 22, 80)", obs)
+        self.assertIn("canal de gestion (intocable): 192.168.1.100", obs)
+
+    def test_el_prompt_nombra_la_ip_de_gestion(self):
+        prompt = ag.construir_prompt_sistema({"origen_ip": "203.0.113.9", "activo": "objetivo-vuln"},
+                                             ag.resolver_topologia(y_perfil()))
+        self.assertIn("nunca actues sobre el canal de gestion (192.168.1.100)", prompt)
+
+    def test_sin_ip_de_gestion_conserva_la_consigna_generica(self):
+        topo = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30"}, "ip_gestion": None}
+        self.assertIn("nunca toques el plano de gestion", ag.construir_prompt_sistema({}, topo))
+
+    def test_el_agente_ve_los_servicios_abiertos_al_consultar_la_topologia(self):
+        h = {"nodos": {"objetivo-vuln": [{"puerto": 22, "servicio": "ssh", "estado": "open"}]}}
+        guion = GeneradorGuion(['Action: {"tool":"consultar_topologia","args":{}}'])
+        plan = ag.bucle_react({"origen_ip": "203.0.113.9", "activo": "objetivo-vuln"}, "vp_intento_acceso",
+                              y_perfil_inventariado(), CAT, EjecutorEscalado(), guion, autonomo=True,
+                              timestamp="t", escribir=lambda *a: None, max_pasos=1, hallazgos=h)
+        lectura = next(p for p in plan["pasos"] if p.get("tool") == "consultar_topologia")
+        self.assertIn("abiertos segun el auditor: 22", lectura["observacion"])
+

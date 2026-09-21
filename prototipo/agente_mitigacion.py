@@ -3,11 +3,29 @@ dispositivo eligiendo acciones de un catálogo CERRADO; el código renderiza el 
 pide aprobación humana y lo ejecuta de forma reversible reutilizando conector.ejecutar_orden.
 """
 import json, re
-from prototipo import conector, politica, rag
+from prototipo import conector, impacto, politica, rag
 from prototipo import perfil as perfilm
 
-def resolver_topologia(perfil):
-    topo = dict(perfil.get("topologia", {}) or {})
+def resolver_topologia(perfil, hallazgos=None):
+    """Topologia de contencion del perfil, con cada dispositivo enriquecido con lo que el inventario
+    sabe de el (funcion, criticidad, servicios declarados) y, si hay hallazgos del auditor, sus
+    servicios abiertos: el agente ve a quien toca, no solo su rol (RF-17). Copia los nodos: no muta
+    el perfil."""
+    activos = perfil.get("activos") or {}
+    topo = {}
+    for nombre, nodo in (perfil.get("topologia", {}) or {}).items():
+        if not isinstance(nodo, dict):
+            topo[nombre] = nodo
+            continue
+        info = activos.get(nombre) or {}
+        enriquecido = dict(nodo)
+        for campo in ("funcion", "criticidad", "servicios_prestados"):
+            if campo in info:
+                enriquecido[campo] = info[campo]
+        abiertos = impacto.puertos_abiertos(hallazgos, nombre)
+        if abiertos is not None:
+            enriquecido["servicios_abiertos"] = sorted(abiertos)
+        topo[nombre] = enriquecido
     topo["ip_gestion"] = perfil.get("ip_gestion")
     return topo
 
@@ -102,9 +120,26 @@ def esquema_accion(catalogo, topo):
         "additionalProperties": False,
     }
 
+def _describir_nodo(nombre, nodo):
+    """`nombre=rol` y, entre parentesis, lo que el inventario sabe del equipo (si sabe algo)."""
+    detalles = []
+    if nodo.get("funcion"):
+        detalles.append(nodo["funcion"])
+    if nodo.get("criticidad"):
+        detalles.append(f"criticidad {nodo['criticidad']}")
+    if "servicios_prestados" in nodo:
+        detalles.append("servicios declarados: " + (", ".join(map(str, nodo["servicios_prestados"])) or "ninguno"))
+    if "servicios_abiertos" in nodo:
+        detalles.append("abiertos segun el auditor: " + (", ".join(map(str, nodo["servicios_abiertos"])) or "ninguno"))
+    base = f"{nombre}={nodo.get('rol')}"
+    return f"{base} ({'; '.join(detalles)})" if detalles else base
+
 def herramienta_consultar_topologia(topo):
-    dev = {k: v.get("rol") for k, v in topo.items() if isinstance(v, dict) and v.get("rol")}
-    return "nodos: " + ", ".join(f"{k}={r}" for k, r in dev.items())
+    dev = [_describir_nodo(k, v) for k, v in topo.items() if isinstance(v, dict) and v.get("rol")]
+    obs = "nodos: " + ", ".join(dev)
+    if topo.get("ip_gestion"):
+        obs += f" · canal de gestion (intocable): {topo['ip_gestion']}"
+    return obs
 
 def herramienta_verificar_mitigacion(topo, catalogo, ejecutor, dispositivo, ip):
     nodo = topo.get(dispositivo)
@@ -187,18 +222,21 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
 
 def construir_prompt_sistema(alerta, topo):
     nodos = ", ".join(f"{k}({v.get('rol')})" for k, v in topo.items() if isinstance(v, dict) and v.get("rol"))
+    gestion = topo.get("ip_gestion")
+    regla_gestion = (f"nunca actues sobre el canal de gestion ({gestion}): cortarlo impide responder y verificar"
+                     if gestion else "nunca toques el plano de gestion")
     return (
         "Eres un agente de respuesta a incidentes. Objetivo: cortar el trafico del atacante "
         f"{alerta.get('origen_ip')} hacia la victima {alerta.get('activo')}. NO escribes comandos de "
         "shell; SOLO invocas herramientas.\n"
         "Herramientas (unica salida permitida por paso):\n"
-        "  consultar_topologia()                     -> nodos y su rol\n"
+        "  consultar_topologia()                     -> nodos, su rol y que sabe el inventario de cada uno\n"
         "  consultar_conocimiento()                  -> conocimiento ATT&CK/D3FEND de la contramedida\n"
         "  ejecutar_comando(dispositivo, accion)     -> accion en {\"bloquear_ip\"}\n"
         "  verificar_mitigacion(dispositivo)         -> bloqueado|activo\n"
         f"Nodos disponibles: {nodos}.\n"
-        "Reglas: una accion por paso; solo estas herramientas; solo accion 'bloquear_ip'; nunca toques "
-        "el plano de gestion. Si una herramienta devuelve Error, RAZONA y escala a otro dispositivo. "
+        f"Reglas: una accion por paso; solo estas herramientas; solo accion 'bloquear_ip'; {regla_gestion}. "
+        "Si una herramienta devuelve Error, RAZONA y escala a otro dispositivo. "
         "Cuando el trafico este bloqueado, responde con Final.\n"
         "Formato EXACTO por paso:\nThought: <una frase>\nAction: {\"tool\": \"...\", \"args\": {...}}\n"
         "  (o al terminar)\nFinal: {\"resultado\": \"mitigado|fallido\", \"dispositivo_ejecutor\": \"<nodo>\"}\n"
@@ -282,11 +320,12 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
     return _plan(pasos, reversiones, None, tocados, "fallido", False)
 
 def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input, autonomo=False,
-                max_pasos=6, escribir=print, timestamp="", indice=None, embedder=None, gen_conocimiento=None):
+                max_pasos=6, escribir=print, timestamp="", indice=None, embedder=None, gen_conocimiento=None,
+                hallazgos=None):
     """Agente ReAct: itera Thought->Action->Observation, escala host->firewall al recibir un error,
     y degrada al motor determinista si no produce accion valida. El comando lo renderiza el codigo
     (RF-15); la ejecucion reutiliza conector.ejecutar_orden."""
-    topo = resolver_topologia(perfil)
+    topo = resolver_topologia(perfil, hallazgos)
     ip_gestion, ip_atacante = topo.get("ip_gestion"), alerta.get("origen_ip")
     prompt = construir_prompt_sistema(alerta, topo)
     pasos, reversiones, tocados, dispositivo_ejecutor = [], [], [], None
