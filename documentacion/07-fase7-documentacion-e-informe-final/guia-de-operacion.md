@@ -98,7 +98,7 @@ en el auditor: vuelve a §3.3. (`TRIAJE_SSH_MODO=password` lo fuerza a propósit
 `empresarial` automatiza el impacto localizado con confianza alta):
 ```
 ⚠ Incidente: 4 alerta(s) · 192.168.1.10 -> objetivo-vuln (ssh) · reglas [5503x2, 5760x2]
-  Clase: vp_intento_acceso · Prioridad: 3 · Confianza: 1.0 · accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro permite) · justificador llm-5:llama-3.1-8b-instruct-q4.gguf
+  Clase: vp_intento_acceso · Prioridad: 3 · Confianza: 1.0 · accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro: automática) · justificador llm-5:llama-3.1-8b-instruct-q4.gguf
 ```
 
 **Validación humana.** Cuando el perfil la exige (impacto que alcanza un servicio, confianza baja, acción
