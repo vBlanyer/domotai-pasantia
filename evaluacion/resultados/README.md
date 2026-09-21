@@ -12,6 +12,8 @@ refleja la última corrida de ese directorio.
 | `anexo-completo/` | Partición completa (600 alertas, 212 soportadas); comprueba que no hubo fuga entre entrenar y evaluar | **Vigente** — regenerado el 11/09/2026 |
 | `entrenado-2026-09-11.md` | Árbol de decisión (CART) frente al determinista, con el árbol impreso como reglas | **Vigente** |
 | `revision-manual.csv` | Hoja para la revisión manual independiente de las 106 justificaciones (`python3 -m evaluacion.revision_manual`): una fila por texto, con la alerta, la verdad, la clase, los pasajes y tres columnas s/n para el revisor | Pendiente de rellenar |
+| `revision-escalados.csv` | Hoja **ciega** (sin etiqueta verdadera) con una muestra estratificada de 24 de las 89 decisiones que piden validación humana (`python3 -m evaluacion.revision_escalados`): la pantalla que vería el analista y columnas para su decisión | Pendiente de rellenar |
+| `revision-independiente.md` | Resumen de las dos hojas una vez rellenadas (`python3 -m evaluacion.puntuar_revision`): tasas por criterio y decisión del revisor frente a la verdad. Guía para el revisor: [guia-revision-independiente.md](../../documentacion/06-fase6-evaluacion-del-prototipo/guia-revision-independiente.md) | Se genera al puntuar |
 | `sin-rag/` · `con-rag/` | Contraste del **anclaje de la justificación** con y sin recuperación aumentada | **Históricos (02/09/2026)** — ver la nota de abajo |
 
 ## Nota sobre `sin-rag/` y `con-rag/`
