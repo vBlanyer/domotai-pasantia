@@ -134,6 +134,17 @@ class TestCascada(unittest.TestCase):
     def test_sin_dependencias(self):
         self.assertEqual(impacto.afectados_en_cascada("a", {"activos": {"a": {}}}), [])
 
+    def test_depende_de_escalar_se_normaliza_a_lista(self):
+        # M1: en YAML, `depende_de: a` (sin corchetes) llega como str, no como lista de un elemento.
+        p = {"activos": {"a": {}, "b": {"depende_de": "a"}}}
+        self.assertEqual(impacto.afectados_en_cascada("a", p), ["b"])
+
+    def test_depende_de_escalar_no_hace_falso_match_por_caracter(self):
+        # Sin normalizar, iterar la cadena "middleware" caracter a caracter emparejaria de más
+        # con un activo llamado "m" (dependientes.setdefault('m', ...)): falso positivo.
+        p = {"activos": {"m": {}, "x": {"depende_de": "middleware"}}}
+        self.assertEqual(impacto.afectados_en_cascada("m", p), [])
+
     def test_determinar_la_incluye_para_nodos_y_servicios_no_para_ips(self):
         p = {"activos": {"db": {"servicios_prestados": [5432]}, "app": {"depende_de": ["db"]}}}
         nodo = impacto.determinar("AISLAR_NODO", {}, "db", p, CAT)

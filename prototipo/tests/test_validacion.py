@@ -1,10 +1,13 @@
-import unittest
-from prototipo import validacion
+import os, unittest
+from prototipo import validacion, impacto, catalogo, perfil
 
 DECISION = {"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 0.5,
             "justificacion": "Alerta 5760 desde 192.168.1.10 ...", "accion_propuesta": "BLOQUEAR_IP",
             "accion_final": "BLOQUEAR_IP", "impacto": "localizado", "resultado_filtro": "veta"}
 ALERTA = {"activo": "objetivo-vuln", "origen_ip": "192.168.1.10", "servicio": "ssh"}
+
+CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
+PERFIL_BANCARIO = perfil.cargar(os.path.join(os.path.dirname(__file__), "..", "perfiles", "bancario.yml"))
 
 
 class _Leer:
@@ -54,6 +57,22 @@ class TestValidacion(unittest.TestCase):
         txt = validacion.mostrar(dec, ALERTA)
         self.assertIn("Consecuencia: bloquea a puesto", txt)
         self.assertNotIn("(vetada)", txt)
+
+    def test_mostrar_incluye_la_cascada_del_perfil_bancario(self):   # M4: guardia end-to-end
+        # Aislar el middleware del banco afecta en cascada a la API móvil y a la banca en línea
+        # (bancario.yml declara depende_de: [middleware] en ambos): la traza debe llegar hasta el
+        # texto que ve el analista, no solo hasta el dict interno.
+        det = impacto.determinar("AISLAR_NODO", {}, "middleware", PERFIL_BANCARIO, CAT)
+        dec = dict(DECISION, impacto_determinado=det, accion_final="AISLAR_NODO")
+        txt = validacion.mostrar(dec, ALERTA)
+        self.assertIn("en cascada: api-movil, web-banking", txt)
+
+    def test_mostrar_cascada_se_ve_incluso_vetada(self):   # M4
+        det = impacto.determinar("AISLAR_NODO", {}, "middleware", PERFIL_BANCARIO, CAT)
+        dec = dict(DECISION, impacto_determinado=det, accion_final=None)
+        txt = validacion.mostrar(dec, ALERTA)
+        self.assertIn("(vetada)", txt)
+        self.assertIn("en cascada: api-movil, web-banking", txt)
 
     # --- primer prompt (veredicto) por número: 1) aprobar 2) rechazar 3) reclasificar ---
     def test_pedir_aprobar_por_numero(self):

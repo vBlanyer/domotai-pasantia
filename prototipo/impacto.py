@@ -57,7 +57,12 @@ def afectados_en_cascada(activo, perfil):
     dependencia no declarada da un falso «sin cascada»: es un límite del inventario (Nivel 2)."""
     dependientes = {}
     for nombre, info in ((perfil or {}).get("activos") or {}).items():
-        for dep in (info or {}).get("depende_de") or []:
+        deps = (info or {}).get("depende_de") or []
+        if isinstance(deps, str):
+            # YAML sin corchetes ("depende_de: a") llega como str, no como lista de un elemento:
+            # sin normalizar, iterarla caracter a caracter produce falsos matches (M1).
+            deps = [deps]
+        for dep in deps:
             dependientes.setdefault(dep, set()).add(nombre)
     vistos, pendientes = set(), [activo]
     while pendientes:
@@ -156,7 +161,7 @@ def _motivo(det, perfil):
 
 def determinar(accion_id, params, activo, perfil, catalogo, hallazgos=None):
     """Impacto determinado de `accion_id` sobre `activo`: {nivel, nivel_catalogo,
-    servicios_afectados, actor, activo, accion_id, motivo}."""
+    servicios_afectados, actor, activo, accion_id, activos_afectados_en_cascada, motivo}."""
     params = params or {}
     nivel_catalogo = (catalogo.get(accion_id) or {}).get("impacto", "ninguno")
     nivel, servicios, actor = nivel_catalogo, [], None
