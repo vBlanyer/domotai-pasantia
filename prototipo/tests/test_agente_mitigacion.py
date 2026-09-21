@@ -116,6 +116,21 @@ class TestEjecutarComando(unittest.TestCase):
         obs, reg = ag.herramienta_ejecutar_comando(**self._args(lambda ip, c: (0, ""), dispositivo="marte"))
         self.assertTrue(obs.startswith("Error")); self.assertIsNone(reg)
 
+    def test_la_aprobacion_muestra_la_consecuencia_si_hay_perfil(self):   # F2
+        capturado = []
+        args = self._args(lambda ip, c: (0, ""), autonomo=False, leer=lambda *_: "s",
+                          escribir=capturado.append, perfil=y_perfil_inventariado(),
+                          activo="objetivo-vuln", servicio="ssh", confianza=1.0)
+        ag.herramienta_ejecutar_comando(**args)
+        self.assertTrue(any(s.startswith("Consecuencia:") for s in capturado))
+
+    def test_la_aprobacion_no_inventa_consecuencia_sin_perfil(self):
+        capturado = []
+        args = self._args(lambda ip, c: (0, ""), autonomo=False, leer=lambda *_: "s",
+                          escribir=capturado.append)   # sin perfil=
+        ag.herramienta_ejecutar_comando(**args)
+        self.assertFalse(any("Consecuencia" in s for s in capturado))
+
 
 class GeneradorGuion:
     """LLM falso: emite pasos ReAct prefijados, ignora el prompt."""
@@ -177,7 +192,7 @@ class TestBucleReact(unittest.TestCase):
         self.assertEqual(plan["dispositivo_ejecutor"], "gateway")      # escalando al perimetro
         self.assertEqual(plan["accion_determinista"], "BLOQUEAR_IP")   # politica.proponer
 
-    def test_gestion_vetada_por_codigo(self):
+    def test_gestion_vetada_por_el_perfil(self):   # F2: cada paso del agente pasa por perfil.filtrar
         alerta = dict(self._alerta()); alerta["origen_ip"] = "192.168.1.100"   # = ip_gestion
         guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
                  'Final: {"resultado":"fallido"}']
@@ -185,7 +200,12 @@ class TestBucleReact(unittest.TestCase):
                               lambda ip, c: (0, ""), GeneradorGuion(guion),
                               leer=lambda *_: "s", autonomo=True, escribir=lambda *_: None)
         self.assertIsNone(plan["dispositivo_ejecutor"])                 # nada se ejecutó
-        self.assertTrue(any(p.get("observacion", "").startswith("Error") for p in plan["pasos"]))
+        # El paso lo produce el propio bucle ReAct (tool == ejecutar_comando), no la escalada
+        # determinista de respaldo (que ya pasaba por el perfil desde antes y contaminaría la
+        # aserción): el perfil lo veta (a quien_es le sale "gestion") antes de llegar a
+        # validar_comando, con su propio mensaje.
+        paso = next(p for p in plan["pasos"] if p.get("tool") == "ejecutar_comando")
+        self.assertTrue(paso["observacion"].startswith("Vetado por el perfil"))
 
     def test_agente_consulta_conocimiento_rag(self):
         from prototipo import rag

@@ -165,8 +165,10 @@ def herramienta_consultar_conocimiento(alerta, indice=None, embedder=None, gener
 
 # ------------------------------------------------------ herramienta mutante --
 
-def _aprobar(dispositivo, nodo_ip, accion_id, ip, leer, escribir):
+def _aprobar(dispositivo, nodo_ip, accion_id, ip, leer, escribir, motivo=None):
     escribir(f"── Validación humana ── {accion_id} en {dispositivo} ({nodo_ip}) contra {ip}")
+    if motivo:
+        escribir(f"Consecuencia: {motivo}")
     return leer("¿aprobar la ejecución? [s/N] ").strip().lower().startswith("s")
 
 def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, ip, ip_gestion,
@@ -189,6 +191,7 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
     if accion_id is None or accion_id not in catalogo:
         return (f"Error: accion '{accion}' no valida para el rol '{nodo.get('rol')}'", None)
     requiere_humano = True
+    consecuencia = None
     if perfil is not None:
         f = perfilm.filtrar(perfil, accion_id, {"ip": ip}, catalogo, activo, servicio, confianza)
         # En este diseno 'veta' con accion_final es 'retenida para validacion humana'; el veto
@@ -198,13 +201,16 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
                     {"accion_id": accion_id, "vetado": True, "por_perfil": True, "reversion_cmd": ""})
         accion_id = f["accion_final"]              # la misma, o la degradada
         requiere_humano = bool(f.get("requiere_humano"))
+        consecuencia = (f.get("impacto") or {}).get("motivo")
     comando = catalogo[accion_id]["comando"].format(ip=ip)
-    ok, motivo = validar_comando(comando, ip_gestion)
+    ok, motivo_invalido = validar_comando(comando, ip_gestion)
     reversion_cmd = catalogo[accion_id].get("reversion_cmd", "").format(ip=ip)
     if not ok:
-        return (f"Error: {motivo}", {"accion_id": accion_id, "vetado": True, "reversion_cmd": reversion_cmd})
+        return (f"Error: {motivo_invalido}",
+                {"accion_id": accion_id, "vetado": True, "reversion_cmd": reversion_cmd})
     preguntar = (siempre_humano or requiere_humano) and not autonomo
-    if preguntar and not _aprobar(dispositivo, nodo.get("ip"), accion_id, ip, leer, escribir):
+    if preguntar and not _aprobar(dispositivo, nodo.get("ip"), accion_id, ip, leer, escribir,
+                                  motivo=consecuencia):
         return (f"Cancelado por el humano: {accion_id} en {dispositivo}",
                 {"accion_id": accion_id, "cancelado": True, "reversion_cmd": reversion_cmd})
     orden = {"decision_id": decision_id, "accion_id": accion_id, "nodo_objetivo": dispositivo,
@@ -360,7 +366,9 @@ def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input
         elif tool == "ejecutar_comando":
             disp = args.get("dispositivo")
             obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, disp, args.get("accion"),
-                        ip_atacante, ip_gestion, alerta.get("id_alerta", ""), timestamp, autonomo, leer, escribir)
+                        ip_atacante, ip_gestion, alerta.get("id_alerta", ""), timestamp, autonomo, leer, escribir,
+                        perfil=perfil, activo=alerta.get("activo"), servicio=alerta.get("servicio"),
+                        confianza=1.0)
             if reg is not None:
                 tocados.append(disp)
                 if reg.get("reversion_cmd"):
