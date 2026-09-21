@@ -14,6 +14,14 @@ def cargar(ruta):
 def criticidad_de(perfil, activo):
     return perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")
 
+def ip_de(perfil, nodo):
+    """IP de ejecución de `nodo` declarada en el perfil: la del inventario (`activos`) o, si no la
+    tiene, la de la `topologia`. None si el perfil no la declara (orden.construir cae entonces al
+    mapa heredado del laboratorio)."""
+    activo = ((perfil or {}).get("activos") or {}).get(nodo) or {}
+    nodo_top = ((perfil or {}).get("topologia") or {}).get(nodo)
+    return activo.get("ip") or (nodo_top.get("ip") if isinstance(nodo_top, dict) else None)
+
 def ruta_de(perfil, rol):
     """Rol logico de ruta (p. ej. 'appsec') -> destino real del cliente. Sin binding, el rol mismo.
     El registro de familias es agnostico; el binding a la cola/equipo del cliente vive en el perfil."""

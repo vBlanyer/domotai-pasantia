@@ -138,6 +138,22 @@ PERFIL_INV = {
 }
 
 
+class TestIpDe(unittest.TestCase):
+    def test_del_inventario_antes_que_de_la_topologia(self):
+        p = {"activos": {"web": {"ip": "10.10.0.10"}},
+             "topologia": {"web": {"rol": "host_victima", "ip": "10.10.0.99"}}}
+        self.assertEqual(perfil.ip_de(p, "web"), "10.10.0.10")
+
+    def test_de_la_topologia_si_el_inventario_no_la_tiene(self):
+        p = {"activos": {"web": {"criticidad": "alta"}},
+             "topologia": {"web": {"rol": "host_victima", "ip": "10.10.0.99"}}}
+        self.assertEqual(perfil.ip_de(p, "web"), "10.10.0.99")
+
+    def test_none_si_el_perfil_no_la_declara(self):
+        self.assertIsNone(perfil.ip_de({"activos": {}}, "web"))
+        self.assertIsNone(perfil.ip_de({}, "web"))
+
+
 class TestConcienciaDeActores(unittest.TestCase):
     """Spec de conciencia de impacto §4.4: a quién bloquea la acción FINAL gobierna el filtro."""
 

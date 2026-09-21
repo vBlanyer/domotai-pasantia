@@ -22,7 +22,7 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
             # no se ejecuta su acción.
             return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
                     "orden": None, "ejecucion": None, "verificacion": None}
-    o = ordenm.construir(decision, alerta)
+    o = ordenm.construir(decision, alerta, perfil)
     if o is None:
         return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
                 "orden": None, "ejecucion": None, "verificacion": None}
