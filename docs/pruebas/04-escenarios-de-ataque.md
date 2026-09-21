@@ -20,7 +20,7 @@ familia), `rule.mitre.id`, `predecoder.hostname` (→ activo), `data.srcip` (→
 |---|---|---|---|
 | **A. Auto-bloqueo** | credenciales · T1110.001 | vivo (fuerza bruta SSH) o inyección | `permite`, `requiere_humano=false`, `Ejecutadas: 1` |
 | **B. Confirmación humana** | credenciales, activo sin postura | **vivo** (hallazgos sin perfilar) o inyección | conf 0.5, `veta`, abre `[aprobar/rechazar/reclasificar]` |
-| **C. Escalada a firewall** | cualquiera, víctima inalcanzable | agente (`demo-agente-escalado.py`) **o daemon `--agente`** | `BLOQUEAR_IP_FIREWALL`, `escalado: True` |
+| **C. Escalada a firewall** | cualquiera, víctima inalcanzable | **determinista** (`demo-escalada-determinista.py`), agente (`demo-agente-escalado.py`) **o daemon `--agente`** | `BLOQUEAR_IP_FIREWALL`, `escalado: True` |
 | **D. Falso positivo** | admin declarado (origen legítimo) | **vivo** (ataque desde .1) o inyección | `fp_actividad_legitima`, sin acción |
 | **E. `no_soportada`** | fuera de perímetro | inyección | `no_soportada`, sin acción |
 
@@ -131,10 +131,15 @@ Rechazadas: 1 · Ejecutadas: 0
 
 ## C · Escalada a firewall (víctima inalcanzable → el XDR sube al perímetro)
 
-El **agente de mitigación** intenta el bloqueo local; si el host no responde, **razona y escala** al firewall
-perimetral (`BLOQUEAR_IP_FIREWALL`). Reproducible sin lab (ejecutores simulados):
+Si el host atacado no responde, la contención **escala al firewall perimetral**
+(`BLOQUEAR_IP_FIREWALL`) y la traza queda con `escalado: True`. Dos formas de verlo, sin lab
+(ejecutores simulados):
 
 ```bash
+# Determinista (por defecto, sin modelo): el lazo real; te pide aprobar el firewall
+python3 lab/scripts/demo-escalada-determinista.py          # (--auto para no interactivo)
+
+# Con el agente ReAct (el LLM razona y decide la escalada)
 python3 lab/scripts/demo-agente-escalado.py --autonomo
 ```
 (en vivo con firewall real: `sh lab/lab.sh up red-cliente-firewall` y `--lab` — ver [05 · Topologías](05-topologias.md))
