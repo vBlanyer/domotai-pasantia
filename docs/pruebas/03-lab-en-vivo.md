@@ -110,7 +110,7 @@ python3 lab/scripts/demo-agente-escalado.py --autonomo
 
 **Esperado:** consulta el conocimiento → intenta el bloqueo local (falla: *Connection refused*) → **escala
 al firewall** (`BLOQUEAR_IP_FIREWALL`) → verifica el corte → registra ambas reversiones; `escalado: True`,
-`dispositivo ejecutor: gateway`.
+`dispositivo ejecutor: borde`.
 
 ## 3.5 · Demo manual en vivo: monitoreo vs ataque (multi-terminal)
 
@@ -162,5 +162,5 @@ docker exec clab-red-cliente-objetivo-vuln iptables -D INPUT -s 192.168.1.10 -j 
 ```
 
 > El flujo típico: en **A1** arranca el daemon → en **B1** lanza la fuerza bruta → el daemon emite el
-> incidente, justifica con RAG y pide **[Aprobar/Rechazar/Reclasificar]** → al aprobar, en **A3** ves la
+> incidente, justifica con RAG y pide **[Aprobar/Rechazar/Reclasificar]** (el bloqueo recae sobre `puesto`, un activo interno: verás la línea **Consecuencia**) → al aprobar, en **A3** ves la
 > regla `iptables` y en **B2** el puerto pasa a BLOQUEADO.

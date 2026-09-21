@@ -41,6 +41,9 @@ Cada paso vive en su propio módulo, con una responsabilidad y un motivo de camb
 | `prototipo/catalogo.py` | El catálogo de acciones como dato (impacto, reversión, comando) — carga `catalogo.yml` |
 | `prototipo/politica.py` | Tabla determinista clase → acción candidata (principio de mínimo impacto) |
 | `prototipo/perfil.py` | El perfil de cliente (V3/V4) y el filtro `permite`/`degrada`/`veta` (RNF-14, RF-17 a RF-19) |
+| `prototipo/actores.py` | ¿Quién es esta IP para el cliente? Gestión, dispositivo de red, activo interno o desconocido, resuelto solo desde el perfil (RF-17/19) |
+| `prototipo/impacto.py` | Impacto **determinado** de una acción: a quién bloquea y qué servicios detiene, nunca por debajo del catálogo (RF-17) |
+| `prototipo/inventario.py` | Reconciliación del inventario declarado con lo que ve el auditor (CLI) |
 | `prototipo/traza.py` | Construye el registro de decisión auditable (RF-09) |
 | `prototipo/triaje.py` | Orquesta el lazo completo y expone el CLI |
 
@@ -172,22 +175,25 @@ lo cumple con dos perfiles de ejemplo, `empresarial.yml` y `residencial.yml`, qu
 tratan el impacto de una acción, no en qué acción proponen (eso lo decide la política, igual para
 todos).
 
-- **Acciones de impacto `localizado` (p. ej. `BLOQUEAR_IP`) — los perfiles COINCIDEN.** Ambos
-  perfiles fijan `impacto_localizado: automatica_si_confianza`: con confianza sobre el umbral del perfil
-  (`continuidad.umbral_confianza`, 0.7 por defecto — RF-07, configurable), ambos permiten
-  la acción sin intervención humana. Es el caso mayoritario en la corrida real (ver §6).
+- **Bloquear un origen externo (`BLOQUEAR_IP`, localizado) — los perfiles COINCIDEN.** Ambos fijan
+  `impacto_localizado: automatica_si_confianza`: con confianza sobre el umbral del perfil
+  (`continuidad.umbral_confianza`, 0.7 por defecto — RF-07), ambos lo permiten sin humano.
 
-- **Acciones de impacto `alcanza_servicio` (p. ej. `BLOQUEAR_PUERTO` sobre el 443 de
-  `servidor-web`) — los perfiles DIVERGEN.** El perfil `residencial` trata ese impacto igual que el
-  localizado (`automatica_si_confianza`): con confianza alta, permite. El perfil `empresarial`
-  declara una **excepción** explícita — el 443 de `servidor-web` es "nunca automática" porque es el
-  puerto público del banco — y en su lugar **degrada** a `BLOQUEAR_IP` (localizado), reteniendo para
-  humano si la confianza no alcanza. Es el ejemplo del banco: la misma alerta, el mismo hallazgo, dos
-  decisiones distintas, ambas trazables a una regla del perfil y no a un capricho del modelo.
+- **Bloquear un activo interno — los perfiles DIVERGEN.** `empresarial` inventaría la red del
+  laboratorio y retiene para el humano el bloqueo de lo propio (`continuidad.actores`, §5.bis);
+  `residencial` no tiene inventario con IPs, así que para él la `192.168.1.10` es un origen cualquiera
+  y la bloquea solo.
 
-Esto está verificado en `prototipo/tests/test_rnf14.py` (`test_localizado_coincide_en_ambos` y
-`test_misma_accion_alcanza_servicio_diverge_por_perfil`), llamando `perfil.filtrar(...)`
-directamente con `BLOQUEAR_PUERTO`.
+- **Acciones de impacto `alcanza_servicio` (p. ej. `BLOQUEAR_PUERTO`) — los perfiles DIVERGEN.**
+  `residencial` trata ese impacto como el localizado (`automatica_si_confianza`): con confianza alta,
+  permite. `empresarial` lo tiene en `humano_siempre` y **degrada** a `BLOQUEAR_IP`. El patrón de
+  **excepción** «nunca automática» por servicio (el puerto público de un banco) vive en `bancario.yml`
+  (`core-db:1521`, `middleware:8443`).
+
+Esto está verificado en `prototipo/tests/test_rnf14.py` (`test_localizado_sobre_origen_externo_coincide_en_ambos`,
+`test_bloquear_un_activo_interno_diverge_por_perfil` y `test_misma_accion_alcanza_servicio_diverge_por_perfil`),
+llamando `perfil.filtrar(...)`
+directamente con `BLOQUEAR_PUERTO` y con `BLOQUEAR_IP` (la accion en la que degrada).
 
 **Por qué la divergencia no se ve corriendo el CLI.** El baseline (§2) solo produce
 `vp_intento_acceso`, `fp_exposicion_inexistente` y `no_soportada`; nunca produce
@@ -198,7 +204,46 @@ las decisiones **coinciden** siempre: toda la actividad que el baseline sabe cla
 `BLOQUEAR_IP` (impacto `localizado`), y ningún perfil degrada ni veta ese impacto. La divergencia
 demostrada arriba es real y trazable a una regla del perfil, pero hoy solo se ejercita a nivel de
 filtro (unit); la divergencia end-to-end por CLI llega con **5C**, cuando el clasificador real
-produzca `vp_exposicion_gestion`.
+produzca `vp_exposicion_gestion`. Desde la conciencia de impacto (21/09) sí se ve: sobre el dataset,
+`empresarial` retiene para el humano cada bloqueo del puesto (`veta` con acción) y `residencial` lo
+permite.
+
+## 5.bis Conciencia de impacto: a quién bloquea cada acción (21/09/2026)
+
+El catálogo declara un impacto fijo por tipo de acción; `impacto.determinar` lo **determina** con el
+inventario del perfil (`activos` con `ip`, `funcion`, `criticidad`, `servicios_prestados`) y los hallazgos del
+auditor, y nunca lo deja por debajo del catálogo:
+
+| La acción es sobre… | Qué se determina |
+|---|---|
+| una IP (`BLOQUEAR_IP`, `BLOQUEAR_IP_FIREWALL`, `MATAR_CONEXION`) | **a quién** bloquea (`actores.quien_es`); un dispositivo de red sube a `alcanza_servicio` |
+| un puerto o servicio (`BLOQUEAR_PUERTO`, `CERRAR_SERVICIO`) | qué servicio detiene, si está **declarado** y si está **abierto** según el auditor |
+| un nodo (`AISLAR_NODO`, `REINICIAR_NODO`) | el **radio**: declarados ∪ abiertos (cota superior) |
+
+`actores.quien_es` resuelve, en este orden: `gestion` (la `ip_gestion`) > `dispositivo_red` (cortafuegos de la
+topología) > `activo_interno` (inventario, otro nodo de la topología, `redes_internas` u origen legítimo) >
+`desconocido`. `perfil.filtrar` lo aplica a la acción **final**: la gestión es **veto duro** (RF-19); un activo
+interno o un dispositivo de red se retiene para el humano salvo que el perfil diga
+`continuidad.actores.<tipo>: automatica_si_confianza` (D16). La traza guarda `impacto_determinado` y el
+analista ve la línea **Consecuencia**:
+
+```
+Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
+```
+
+El agente de mitigación ve lo mismo en `consultar_topologia` (función, criticidad y servicios de cada
+dispositivo), y su prompt nombra la IP de gestión concreta. La IP de ejecución sale también del perfil
+(`perfil.ip_de`); `orden.IP_DE_NODO` queda como respaldo heredado. En `--agente`, cada paso del bucle
+ReAct también pasa por `perfil.filtrar` (no solo la escalada determinista de respaldo), y la
+aprobación humana muestra la misma línea **Consecuencia** antes de que el analista decida.
+
+**Reconciliación** — lo declarado frente a lo descubierto:
+
+```bash
+python3 -m prototipo.inventario prototipo/perfiles/empresarial.yml lab/campañas/2026-08-31-evaluacion/hallazgos.json
+```
+
+Efecto medido y reconciliación del laboratorio: [`../evaluacion/resultados/README.md`](../evaluacion/resultados/README.md).
 
 ## 6. Corrida sobre el dataset real de la Fase 3
 
@@ -218,6 +263,9 @@ El dataset actual tiene 3 familias de ataque (`acceso_credenciales`, `reconocimi
 `servicio_expuesto`), dos con pocas muestras; no incluye todavía alertas que disparen `veta` o `degrada`
 sobre este perfil (esos casos están cubiertos por `test_rnf14.py` con datos sintéticos). Detalle completo de la corrida y del criterio de cierre de
 5A en `.superpowers/sdd/2026-08-31-fase5a-nucleo-decision/task-11-report.md`.
+
+> Desde la conciencia de impacto (21/09, §5.bis) el perfil `empresarial` sí produce `veta` sobre el dataset:
+> retiene para el humano cada bloqueo del puesto (`192.168.1.10`), que es un activo interno.
 
 ## 7. Tests
 
@@ -684,7 +732,8 @@ que pidió el requerimiento — **sin** que el LLM redacte shell:
   `autonomo=True` la salta. Las herramientas read-only nunca piden nada.
 - **Escalado:** si el bloqueo en el host falla (host inalcanzable), el agente **razona y escala al firewall
   perimetral** (`BLOQUEAR_IP_FIREWALL`, de impacto mayor). La topología (`topologia:`/`ip_gestion:`) vive
-  en el perfil.
+  en el perfil; `consultar_topologia` devuelve además la función, criticidad y servicios de cada
+  dispositivo (del inventario, §5.bis) y el prompt nombra la IP de gestión concreta.
 - **Degradación (RNF-09):** si el agente no produce una acción válida en `max_pasos`, cae al motor
   determinista (`politica.proponer`), marcado `degradado`.
 - **Invocable** desde `lab/scripts/demo-agente-escalado.py` (ver

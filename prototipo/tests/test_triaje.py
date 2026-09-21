@@ -55,3 +55,33 @@ class TestJustificarFn(unittest.TestCase):
                             id_decision="d4", timestamp="t", justificar_fn=just_dict)
         self.assertEqual(r["consulta_rag"], "D3-ITF filtrado")
         self.assertTrue(r["recuperacion_agentica"])
+
+class TestImpactoDeterminado(unittest.TestCase):
+    def test_la_traza_lleva_el_impacto_determinado(self):
+        r = triaje.procesar(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),
+                            "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["impacto_determinado"]["accion_id"], "BLOQUEAR_IP")
+        self.assertEqual(r["impacto_determinado"]["actor"]["tipo"], "desconocido")   # la fixture no declara IPs
+
+    def test_con_inventario_el_bloqueo_del_puesto_va_al_humano(self):
+        p = y("perfil.yml")
+        p["activos"]["puesto"]["ip"] = "192.168.1.10"
+        r = triaje.procesar(j("alerta_vp.json"), j("hallazgos.json"), p, "prueba", CAT,
+                            id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_intento_acceso")            # la clasificación no cambia
+        self.assertEqual((r["resultado_filtro"], r["requiere_humano"]), ("veta", True))
+        self.assertEqual(r["impacto_determinado"]["actor"]["nombre"], "puesto")
+
+    def test_pasa_los_hallazgos_al_filtro(self):
+        from unittest import mock
+        from prototipo import perfil as perfilm
+        h = j("hallazgos.json")
+        with mock.patch.object(perfilm, "filtrar", wraps=perfilm.filtrar) as f:
+            triaje.procesar(j("alerta_vp.json"), h, y("perfil.yml"), "prueba", CAT, "d1", "t")
+        self.assertIs(f.call_args.kwargs["hallazgos"], h)
+
+    def test_sin_accion_no_hay_impacto_determinado(self):
+        alerta = {"familia": "explotacion_conocida", "origen_ip": "203.0.113.9",
+                  "activo": "web-banking", "servicio": "https", "mitre": ["T1190"]}
+        tr = triaje.procesar(alerta, {"nodos": {}}, {"activos": {}, "continuidad": {}}, "p", CAT, "d1", "t")
+        self.assertIsNone(tr["impacto_determinado"])

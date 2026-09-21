@@ -14,6 +14,14 @@ from prototipo.analisis import CLASES
 def mostrar(decision, alerta):
     est = decision.get("justificacion_estructurada", {}) or {}
     mitre = ", ".join(est.get("tecnica_mitre") or []) or "—"
+    # La consecuencia de aprobar: a quién bloquea y qué servicios detiene (impacto determinado, RF-17).
+    det = decision.get("impacto_determinado") or {}
+    motivo = det.get("motivo")
+    if motivo and decision.get("accion_final") is None:
+        # Sin acción final no hay nada que aprobar: la consecuencia es la del veto duro, no la de
+        # una acción que se fuera a ejecutar. Sin el prefijo se lee como si ya hubiera pasado.
+        motivo = f"(vetada) {motivo}"
+    consecuencia = f"Consecuencia: {motivo}\n" if motivo else ""
     return (
         "── Validación humana requerida ──\n"
         f"Activo: {alerta.get('activo')}  ·  Origen: {alerta.get('origen_ip')}  ·  Servicio: {alerta.get('servicio')}\n"
@@ -21,6 +29,7 @@ def mostrar(decision, alerta):
         f"Técnica MITRE: {mitre}\n"
         f"Justificación: {decision.get('justificacion')}\n"
         f"Acción sugerida: {est.get('accion_sugerida', decision.get('accion_propuesta'))}  ·  Impacto: {decision.get('impacto')}  ·  Filtro: {decision.get('resultado_filtro')}\n"
+        f"{consecuencia}"
         f"Acción final: {decision.get('accion_final')}\n"
     )
 

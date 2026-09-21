@@ -18,7 +18,7 @@ familia), `rule.mitre.id`, `predecoder.hostname` (→ activo), `data.srcip` (→
 
 | Comportamiento | Familia / técnica (ejemplo) | Disparo | Qué observar en la traza |
 |---|---|---|---|
-| **A. Auto-bloqueo** | credenciales · T1110.001 | vivo (fuerza bruta SSH) o inyección | `permite`, `requiere_humano=false`, `Ejecutadas: 1` |
+| **A. Auto-bloqueo** | credenciales · T1110.001, **origen externo** | inyección (origen externo) o vivo con `activo_interno: automatica_si_confianza` | `permite`, `requiere_humano=false`, `Ejecutadas: 1` |
 | **B. Confirmación humana** | credenciales, activo sin postura | **vivo** (hallazgos sin perfilar) o inyección | conf 0.5, `veta`, abre `[aprobar/rechazar/reclasificar]` |
 | **C. Escalada a firewall** | cualquiera, víctima inalcanzable | **determinista** (`demo-escalada-determinista.py`), agente (`demo-agente-escalado.py`) **o daemon `--agente`** | `BLOQUEAR_IP_FIREWALL`, `escalado: True` |
 | **D. Falso positivo** | admin declarado (origen legítimo) | **vivo** (ataque desde .1) o inyección | `fp_actividad_legitima`, sin acción |
@@ -26,7 +26,7 @@ familia), `rule.mitre.id`, `predecoder.hostname` (→ activo), `data.srcip` (→
 
 **En vivo vs inyección (qué reproduce este lab):**
 
-- **A, B, C, D → en vivo.** A = fuerza bruta SSH a la víctima; B = la misma fuerza bruta pero con un
+- **A, B, C, D → en vivo.** A = fuerza bruta SSH a la víctima (el atacante del lab es interno: en vivo, A pide confirmación salvo con el perfil de abajo); B = la misma fuerza bruta pero con un
   **auditor que aún no perfiló el activo** (hallazgos vacíos) → confianza 0.5 → prompt al analista;
   C = el agente (host caído → firewall); D = fuerza bruta **desde el borde** (.1, origen legítimo). Todos
   verificados contra el laboratorio.
@@ -50,10 +50,20 @@ familia), `rule.mitre.id`, `predecoder.hostname` (→ activo), `data.srcip` (→
 
 ## A · Auto-bloqueo (credenciales sobre activo con postura)
 
-Fuerza bruta SSH contra un activo cuyo auditor confirma exposición (`objetivo-vuln`) → confianza 1.0 →
-`BLOQUEAR_IP` localizado → el perfil **permite** sin humano.
+Fuerza bruta SSH desde un **origen externo** contra un activo cuyo auditor confirma exposición
+(`objetivo-vuln`) → confianza 1.0 → `BLOQUEAR_IP` localizado sobre una IP no inventariada → el perfil
+**permite** sin humano.
 
-**En vivo** (requiere el lab; ver [03 · Lab en vivo](03-lab-en-vivo.md) §3.5, terminal B):
+> **Desde el `puesto` (.10) la misma alerta va al analista:** el bloqueo recaería sobre un activo interno del
+> cliente, y el perfil `empresarial` exige humano para bloquear lo propio (D16). Para ver el auto-bloqueo en
+> vivo con el atacante del lab, usa un perfil que automatice los activos internos (decisión del cliente):
+> ```bash
+> sed 's/activo_interno:  humano_siempre/activo_interno:  automatica_si_confianza/' \
+>     prototipo/perfiles/empresarial.yml > /tmp/empresarial-auto-interno.yml
+> ```
+
+**En vivo** (requiere el lab; ver [03 · Lab en vivo](03-lab-en-vivo.md) §3.5, terminal B; daemon con
+`/tmp/empresarial-auto-interno.yml`):
 ```bash
 for i in $(seq 1 8); do
   docker exec clab-red-cliente-puesto sh -c "sshpass -p mal_$i ssh -o StrictHostKeyChecking=no \
@@ -61,15 +71,16 @@ for i in $(seq 1 8); do
     -o PreferredAuthentications=password msfadmin@192.168.1.30 id 2>/dev/null"; done
 ```
 
-**Por inyección** (sin lab):
+**Por inyección** (sin lab, origen externo):
 ```bash
-printf '%s\n' '{"id":"A1","rule":{"id":"5760","level":10,"groups":["sshd","authentication_failed"],"mitre":{"id":["T1110.001"]}},"predecoder":{"hostname":"objetivo-vuln","program_name":"sshd"},"data":{"srcip":"192.168.1.10"},"timestamp":"2026-09-09T00:00:00Z","full_log":"Failed password for root from 192.168.1.10"}' \
+printf '%s\n' '{"id":"A1","rule":{"id":"5760","level":10,"groups":["sshd","authentication_failed"],"mitre":{"id":["T1110.001"]}},"predecoder":{"hostname":"objetivo-vuln","program_name":"sshd"},"data":{"srcip":"203.0.113.9"},"timestamp":"2026-09-09T00:00:00Z","full_log":"Failed password for root from 203.0.113.9"}' \
   | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
 ```
 
 **Esperado** (salida real):
 ```
 Clase: vp_intento_acceso · Prioridad: 3 · Confianza: 1.0 · accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro permite)
+Consecuencia: bloquea a 203.0.113.9 (origen no inventariado) · 0 servicios detenidos
 Ejecutadas: 1
 ```
 
@@ -152,8 +163,8 @@ el agente escala al firewall, pidiendo aprobación por paso. La traza registra `
 **Esperado** (salida real):
 ```
 Observation: Error: fallo en objetivo-vuln (rc=255)
-Observation: OK: BLOQUEAR_IP_FIREWALL aplicada en gateway (rc=0)
-Resultado: mitigado · dispositivo ejecutor: gateway · escalado: True · degradado: False
+Observation: OK: BLOQUEAR_IP_FIREWALL aplicada en borde (rc=0)
+Resultado: mitigado · dispositivo ejecutor: borde · escalado: True · degradado: False
 ```
 
 ---

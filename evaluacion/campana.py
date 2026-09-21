@@ -39,9 +39,12 @@ def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_priori
 
     # Continuidad
     # impacto = de la accion PROPUESTA (lo que expone la traza); requiere_humano es del filtro posterior.
-    regs = [{"impacto": p["impacto"], "etiqueta": f["etiqueta"], "requiere_humano": p["requiere_humano"]}
+    regs = [{"impacto": p["impacto"], "etiqueta": f["etiqueta"], "requiere_humano": p["requiere_humano"],
+             "accion_final": p["accion_final"]}
             for f, p in zip(filas, preds)]
     cont = metricas.continuidad(regs)
+    # Automatizacion: cuanto se ejecuta sin humano y cuanto de eso cae sobre un FP (cualquier impacto).
+    autom = metricas.bloqueos_automaticos_indebidos(regs)
 
     resultados = {
         "clasificacion_prototipo": clas_proto,
@@ -49,6 +52,7 @@ def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_priori
         "priorizacion": prioriz,
         "operacion": oper,
         "continuidad": cont,
+        "automatizacion": autom,
         "condiciones": {"perfil": perfil_nombre, "n_alertas": len(filas),
                         "n_soportadas": sum(1 for f in filas if f["etiqueta"] in ("VP", "FP")),
                         "version_baseline": "baseline-0"},
@@ -85,6 +89,10 @@ def tabla_markdown(resultados):
            "|---------|-----------|--------------------------|"]
     out += [f"| {n} | {p} | {q} |" for n, p, q in filas]
     out += ["", f"Matriz prototipo: {c['matriz']}", f"Matriz baseline: {bm}"]
+    if "automatizacion" in resultados:
+        a = resultados["automatizacion"]
+        out += ["", f"Contenciones automáticas (sin humano): {a['automaticos']} · indebidas (FP/PROPIA): "
+                    f"{a['indebidos']} · tasa de escalado al humano: {_celda(resultados['operacion']['tasa_escalado'])}"]
     if "anclaje" in resultados:
         out += ["", f"Anclaje LLM (RNF-02): {resultados['anclaje']['resumen']}"]
     return "\n".join(out)

@@ -31,6 +31,30 @@ class TestValidacion(unittest.TestCase):
         self.assertIn("T1110.001", txt)
         self.assertIn("Acción sugerida", txt)
 
+    def test_mostrar_incluye_la_consecuencia(self):
+        dec = dict(DECISION)
+        dec["impacto_determinado"] = {"motivo": "bloquea a puesto (activo interno: puesto de trabajo de un "
+                                                "empleado) · 0 servicios detenidos"}
+        txt = validacion.mostrar(dec, ALERTA)
+        self.assertIn("Consecuencia: bloquea a puesto (activo interno", txt)
+
+    def test_mostrar_sin_impacto_determinado_no_la_inventa(self):
+        self.assertNotIn("Consecuencia", validacion.mostrar(DECISION, ALERTA))
+
+    def test_mostrar_prefija_vetada_si_no_hay_accion_final(self):   # F5
+        dec = dict(DECISION)
+        dec["accion_final"] = None
+        dec["impacto_determinado"] = {"motivo": "bloquea a la gestion del MDR"}
+        txt = validacion.mostrar(dec, ALERTA)
+        self.assertIn("Consecuencia: (vetada) bloquea a la gestion del MDR", txt)
+
+    def test_mostrar_no_prefija_vetada_si_hay_accion_final(self):
+        dec = dict(DECISION)
+        dec["impacto_determinado"] = {"motivo": "bloquea a puesto · 0 servicios detenidos"}
+        txt = validacion.mostrar(dec, ALERTA)
+        self.assertIn("Consecuencia: bloquea a puesto", txt)
+        self.assertNotIn("(vetada)", txt)
+
     # --- primer prompt (veredicto) por número: 1) aprobar 2) rechazar 3) reclasificar ---
     def test_pedir_aprobar_por_numero(self):
         v = validacion.pedir(DECISION, ALERTA, leer=_Leer("1"), escribir=lambda _: None)

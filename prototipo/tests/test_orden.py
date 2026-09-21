@@ -19,3 +19,11 @@ class TestConstruir(unittest.TestCase):
     def test_sin_accion_devuelve_none(self):
         d = dict(DECISION_VP); d["accion_final"] = None
         self.assertIsNone(orden.construir(d, ALERTA))
+
+    def test_la_ip_del_nodo_sale_del_perfil(self):
+        d = dict(DECISION_VP, activo="web-banking")
+        self.assertEqual(orden.construir(d, ALERTA, {"activos": {"web-banking": {"ip": "10.10.0.10"}}})["nodo_ip"],
+                         "10.10.0.10")
+
+    def test_sin_ip_en_el_perfil_cae_al_mapa_heredado(self):
+        self.assertEqual(orden.construir(DECISION_VP, ALERTA, {"activos": {}})["nodo_ip"], "192.168.1.30")

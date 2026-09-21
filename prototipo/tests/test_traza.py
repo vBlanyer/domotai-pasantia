@@ -19,6 +19,21 @@ class TestConstruir(unittest.TestCase):
         self.assertEqual(r["version_baseline"], "baseline-0")
         self.assertEqual(r["version_perfil"], "v0")
 
+    def test_registra_el_impacto_determinado(self):
+        det = {"nivel": "localizado", "actor": {"tipo": "activo_interno", "nombre": "puesto"},
+               "motivo": "bloquea a puesto (activo interno) · 0 servicios detenidos"}
+        r = traza.construir("d1", "t", {"id_alerta": "a1"}, {"clase": "vp_intento_acceso"},
+                            "BLOQUEAR_IP", "localizado", "empresarial",
+                            {"resultado": "veta", "accion_final": "BLOQUEAR_IP", "requiere_humano": True,
+                             "impacto": det}, "v0")
+        self.assertEqual(r["impacto_determinado"], det)
+
+    def test_sin_impacto_determinado_queda_none(self):
+        r = traza.construir("d1", "t", {"id_alerta": "a1"}, {"clase": "no_soportada"}, None, "ninguno",
+                            "empresarial", {"resultado": "sin_accion", "accion_final": None,
+                                            "requiere_humano": False}, "v0")
+        self.assertIsNone(r["impacto_determinado"])
+
 
 class TestJustificacionEstructurada(unittest.TestCase):
     ALERTA = {"id_alerta": "a1", "regla_id": "5760", "origen_ip": "192.168.1.10",

@@ -100,6 +100,21 @@ class TestEjecutorAuto(unittest.TestCase):
         self.assertTrue(r["verificacion"]["verificado"])
 
 
+class TestIpDelActivoDesdeElPerfil(unittest.TestCase):
+    def test_la_orden_usa_la_ip_del_inventario(self):
+        # Un activo que el mapa heredado del laboratorio no conoce: su IP sale del perfil.
+        a = dict(j("alerta_vp.json")); a["activo"] = "web-banking"
+        h = {"nodos": {"web-banking": [{"puerto": 22, "servicio": "ssh", "estado": "open"}]}}
+        p = y("perfil.yml"); p["activos"]["web-banking"] = {"ip": "10.10.0.10", "criticidad": "alta"}
+        llamadas = []
+        def ej(nodo_ip, cmd):
+            llamadas.append(nodo_ip)
+            return ejecutor_ok(nodo_ip, cmd)
+        r = lazo.procesar_lazo(a, h, p, "prueba", CAT, ej, "d1", "t")
+        self.assertEqual(r["orden"]["nodo_ip"], "10.10.0.10")
+        self.assertIn("10.10.0.10", llamadas)
+
+
 class TestEscaladaPorDefecto(unittest.TestCase):
     """Requisito del tutor industrial: si no se puede cortar en el host, saltar al cortafuegos."""
 

@@ -34,6 +34,12 @@ def _linea_decision(d):
     base = (f"  Clase: {d['clase']} · Prioridad: {d['prioridad']} · Confianza: {d['confianza']} · "
             f"accion {d['accion_propuesta']} -> {d['accion_final']} (filtro {d['resultado_filtro']}) · "
             f"justificador {d.get('version_justificador')}")
+    det = d.get("impacto_determinado") or {}
+    motivo = det.get("motivo")
+    if motivo:
+        if d.get("accion_final") is None:   # veto duro: la consecuencia no llegó a ejecutarse
+            motivo = f"(vetada) {motivo}"
+        base += f"\n  Consecuencia: {motivo}"
     mit = d.get("mitigacion_agente")
     if mit:
         base += (f"\n  Agente: {mit.get('resultado')} · ejecutor {mit.get('dispositivo_ejecutor')} · "
@@ -216,7 +222,7 @@ def parsear_args(argv):
             "hallazgos": pos[2] if len(pos) > 2 else _HALLAZGOS_DEF,
             "con_llm": con_llm, "ventana": ventana, "salida": salida, "sin_lab": sin_lab, "agente": agente}
 
-def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print):
+def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hallazgos=None):
     """Modo --agente: devuelve un `mitigar_fn(decision, alerta, leer) -> plan` que delega en el agente
     ReAct (decide estrategia, ESCALA host->firewall, aprueba POR PASO, consulta ATT&CK/D3FEND). Usa el 1B
     para el ReAct; sin modelo/indice, bucle_react degrada al motor determinista (RNF-09)."""
@@ -240,7 +246,8 @@ def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print):
         return ag.bucle_react(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
                               gen, leer=leer, autonomo=False,
                               timestamp=decision.get("timestamp", ""),
-                              indice=indice, embedder=rag.embedder_por_defecto(), escribir=escribir)
+                              indice=indice, embedder=rag.embedder_por_defecto(), escribir=escribir,
+                              hallazgos=hallazgos)
     return _fn
 
 def construir_justificar_fn(con_llm, escribir=print):
@@ -309,7 +316,7 @@ def main(argv):
     catalogo = catm.cargar_catalogo(os.path.join(_RAIZ, "prototipo", "catalogo.yml"))
     justificar_fn = construir_justificar_fn(cfg["con_llm"])
     ejecutor = lazo._EjecutorAuto() if cfg["sin_lab"] else conector.ejecutor_por_defecto()
-    mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor)
+    mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor, hallazgos=hallazgos)
     fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
     print(banner(cfg, ejecutor))
     resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,

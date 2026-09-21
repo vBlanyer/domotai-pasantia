@@ -234,6 +234,36 @@ class TestStream(unittest.TestCase):
         linea = stream._linea_decision(d)
         self.assertIn("Enrutado a: cola-appsec-banco", linea)
 
+    def test_linea_decision_muestra_la_consecuencia(self):
+        d = {"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 1.0,
+             "accion_propuesta": "BLOQUEAR_IP", "accion_final": "BLOQUEAR_IP", "resultado_filtro": "veta",
+             "version_justificador": "plantilla-0",
+             "impacto_determinado": {"motivo": "bloquea a puesto (activo interno) · 0 servicios detenidos"}}
+        self.assertIn("\n  Consecuencia: bloquea a puesto", stream._linea_decision(d))
+
+    def test_linea_decision_prefija_vetada_si_no_hay_accion_final(self):   # F5
+        d = {"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 1.0,
+             "accion_propuesta": "BLOQUEAR_IP", "accion_final": None, "resultado_filtro": "veta",
+             "version_justificador": "plantilla-0",
+             "impacto_determinado": {"motivo": "bloquea a puesto (activo interno) · 0 servicios detenidos"}}
+        self.assertIn("\n  Consecuencia: (vetada) bloquea a puesto", stream._linea_decision(d))
+
+    def test_mitigar_fn_pasa_los_hallazgos_al_agente(self):
+        from unittest import mock
+        from prototipo import agente_mitigacion as ag, justificador_llm, rag
+        vistos = {}
+        def falso_bucle(*a, **k):
+            vistos.update(k)
+            return {"resultado": "mitigado"}
+        with mock.patch.object(rag, "cargar_indice", return_value=None), \
+             mock.patch.object(rag, "embedder_por_defecto", return_value=None), \
+             mock.patch.object(justificador_llm, "generador_por_defecto", return_value=lambda p: ""), \
+             mock.patch.object(ag, "bucle_react", side_effect=falso_bucle):
+            fn = stream.construir_mitigar_fn(True, y("perfil.yml"), CAT, lambda ip, c: (0, ""),
+                                             escribir=lambda *a: None, hallazgos={"nodos": {}})
+            fn({"clase": "vp_intento_acceso", "timestamp": "t"}, {"origen_ip": "203.0.113.9"}, lambda *_: "s")
+        self.assertEqual(vistos["hallazgos"], {"nodos": {}})
+
 
 if __name__ == "__main__":
     unittest.main()

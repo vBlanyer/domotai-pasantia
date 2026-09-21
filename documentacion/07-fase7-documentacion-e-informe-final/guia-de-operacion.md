@@ -102,7 +102,7 @@ en el auditor: vuelve a §3.3. (`TRIAJE_SSH_MODO=password` lo fuerza a propósit
 ```
 
 **Validación humana.** Cuando el perfil la exige (impacto que alcanza un servicio, confianza baja, acción
-degradada), el servicio muestra alerta, clase, prioridad, justificación y acción, y espera en la terminal
+degradada), el servicio muestra alerta, clase, prioridad, justificación, acción y su **consecuencia** (a quién bloquea y qué servicios detiene; en `empresarial`, todo bloqueo de un activo interno pasa por aquí), y espera en la terminal
 de control (`/dev/tty`, no la entrada de alertas):
 - `aprobar` → ejecuta, verifica, anota.
 - `rechazar` → no ejecuta; queda anotado con veredicto.
@@ -110,13 +110,13 @@ de control (`/dev/tty`, no la entrada de alertas):
 
 **Escalada cuando el equipo afectado no responde.** Si el bloqueo en el activo no se ejecuta (equipo
 caído, sin SSH) o no se verifica, el servicio recorre la cadena de contención del perfil (`topologia`:
-activo → `gateway` → …) y aplica en el siguiente dispositivo la acción del catálogo para su rol
+activo → `borde` → …) y aplica en el siguiente dispositivo la acción del catálogo para su rol
 (`BLOQUEAR_IP_FIREWALL` en un cortafuegos). Cada salto pasa por el filtro del perfil: un veto duro salta el
 dispositivo, una degradación cambia la acción, y se pide validación humana cuando el perfil la exige para
 ese impacto (en `empresarial`, siempre para el cortafuegos). Queda en la traza como `escalada`, con la
 orden efectiva, y se ve así:
 ```
-  Escalada (el activo no respondio): mitigado · contenido en gateway
+  Escalada (el activo no respondio): mitigado · contenido en borde
 ```
 Para que funcione, el cortafuegos debe estar aprovisionado como cualquier nodo gestionado (§3.3, con su IP)
 y figurar en la `topologia` del perfil. Sin `topologia`, no hay a dónde escalar y la traza deja

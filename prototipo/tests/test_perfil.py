@@ -124,3 +124,186 @@ class TestPerfilBancario(unittest.TestCase):
         self.assertEqual(perfil.ruta_de(p, "appsec"), "cola-appsec-banco")
         self.assertEqual(perfil.ruta_de({}, "appsec"), "appsec")   # sin binding -> rol logico
         self.assertIsNone(perfil.ruta_de(p, None))
+
+    def test_bloquear_la_consola_del_soc_es_veto_duro(self):   # RF-19: mdr-siem es la IP de gestión
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "10.100.0.10"}, CAT, "core-db", "1521", 0.99)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+
+    def test_bloquear_un_activo_interno_del_banco_exige_humano(self):   # C1
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "10.200.0.10"}, CAT, "core-db", "1521", 0.99)
+        self.assertEqual((r["accion_final"], r["requiere_humano"]), ("BLOQUEAR_IP", True))
+        self.assertEqual(r["impacto"]["actor"]["nombre"], "taquilla")
+
+    def test_una_ip_interna_no_inventariada_tambien_es_interna(self):   # redes_internas
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "10.55.3.7"}, CAT, "core-db", "1521", 0.99)
+        self.assertTrue(r["requiere_humano"])
+        self.assertEqual(r["impacto"]["actor"]["por"], "redes_internas")
+
+    def test_bloquear_un_firewall_del_banco_alcanza_servicio(self):
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "10.0.0.1"}, CAT, "web-banking", "443", 0.99)
+        self.assertEqual(r["impacto"]["actor"]["tipo"], "dispositivo_red")
+        self.assertEqual(r["impacto"]["nivel"], "alcanza_servicio")
+        self.assertTrue(r["requiere_humano"])
+
+    def test_cada_activo_declara_ip_y_funcion(self):
+        for nombre, a in self.p["activos"].items():
+            self.assertIn("ip", a, nombre)
+            self.assertIn("funcion", a, nombre)
+
+    def test_la_topologia_y_el_inventario_coinciden_en_las_ips(self):
+        for nombre, nodo in self.p["topologia"].items():
+            if nombre in self.p["activos"]:
+                self.assertEqual(nodo["ip"], self.p["activos"][nombre]["ip"], nombre)
+
+
+class TestPerfilEmpresarial(unittest.TestCase):
+    """empresarial.yml describe la red REAL del laboratorio (spec de conciencia de impacto §4.8)."""
+    def setUp(self):
+        self.p = perfil.cargar(os.path.join(FX, "..", "..", "perfiles", "empresarial.yml"))
+
+    def test_el_canal_de_gestion_es_el_auditor_y_es_intocable(self):   # RF-19 reparado
+        self.assertEqual(self.p["ip_gestion"], "172.20.20.4")
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "172.20.20.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+
+    def test_el_inventario_es_el_del_laboratorio(self):   # C6: un nombre por equipo
+        from prototipo import orden
+        self.assertEqual(set(self.p["activos"]), set(orden.IP_DE_NODO))
+        for nombre, ip in orden.IP_DE_NODO.items():
+            self.assertEqual(self.p["activos"][nombre]["ip"], ip, nombre)
+
+    def test_bloquear_el_puesto_exige_humano(self):   # C1: el atacante del laboratorio es interno
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "192.168.1.10"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", "BLOQUEAR_IP", True))
+
+    def test_un_atacante_externo_se_bloquea_solo(self):
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "203.0.113.9"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual((r["resultado"], r["requiere_humano"]), ("permite", False))
+
+    def test_la_criticidad_de_los_nodos_es_la_efectiva_de_siempre(self):   # C6: priorización intacta
+        for nombre in ("borde", "puesto", "iot", "objetivo-vuln"):
+            self.assertEqual(perfil.criticidad_de(self.p, nombre), "media", nombre)
+
+    def test_la_topologia_y_el_inventario_coinciden_en_las_ips(self):
+        for nombre, nodo in self.p["topologia"].items():
+            self.assertEqual(nodo["ip"], self.p["activos"][nombre]["ip"], nombre)
+
+    def test_la_politica_de_actores_esta_declarada(self):
+        self.assertEqual(self.p["continuidad"]["actores"],
+                         {"activo_interno": "humano_siempre", "dispositivo_red": "humano_siempre"})
+
+
+PERFIL_INV = {
+    "ip_gestion": "172.20.20.4",
+    "activos": {"puesto": {"ip": "192.168.1.10", "funcion": "puesto de trabajo de un empleado"},
+                "borde": {"ip": "192.168.1.1", "funcion": "equipo de borde"}},
+    "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
+                  "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}},
+    "continuidad": {"impacto_ninguno": "automatica", "impacto_localizado": "automatica_si_confianza",
+                    "impacto_alcanza_servicio": "humano_siempre", "reversibilidad_obligatoria": True,
+                    "no_cortar_gestion": True},
+}
+
+
+class TestIpDe(unittest.TestCase):
+    def test_del_inventario_antes_que_de_la_topologia(self):
+        p = {"activos": {"web": {"ip": "10.10.0.10"}},
+             "topologia": {"web": {"rol": "host_victima", "ip": "10.10.0.99"}}}
+        self.assertEqual(perfil.ip_de(p, "web"), "10.10.0.10")
+
+    def test_de_la_topologia_si_el_inventario_no_la_tiene(self):
+        p = {"activos": {"web": {"criticidad": "alta"}},
+             "topologia": {"web": {"rol": "host_victima", "ip": "10.10.0.99"}}}
+        self.assertEqual(perfil.ip_de(p, "web"), "10.10.0.99")
+
+    def test_none_si_el_perfil_no_la_declara(self):
+        self.assertIsNone(perfil.ip_de({"activos": {}}, "web"))
+        self.assertIsNone(perfil.ip_de({}, "web"))
+
+
+class TestConcienciaDeActores(unittest.TestCase):
+    """Spec de conciencia de impacto §4.4: a quién bloquea la acción FINAL gobierna el filtro."""
+
+    def _filtrar(self, accion, params, p=PERFIL_INV, **kw):
+        return perfil.filtrar(p, accion, params, CAT, "objetivo-vuln", "ssh", 1.0, **kw)
+
+    def test_bloquear_la_gestion_es_veto_duro(self):   # RF-19, C4
+        r = self._filtrar("BLOQUEAR_IP", {"ip": "172.20.20.4"})
+        self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", None, True))
+
+    def test_bloquear_un_activo_interno_se_retiene_para_el_humano(self):   # C1
+        r = self._filtrar("BLOQUEAR_IP", {"ip": "192.168.1.10"})
+        self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", "BLOQUEAR_IP", True))
+
+    def test_bloquear_un_dispositivo_de_red_se_retiene(self):
+        r = self._filtrar("BLOQUEAR_IP", {"ip": "192.168.1.1"})
+        self.assertEqual((r["accion_final"], r["requiere_humano"]), ("BLOQUEAR_IP", True))
+        self.assertEqual(r["impacto"]["nivel"], "alcanza_servicio")
+
+    def test_un_origen_externo_sigue_automatico(self):
+        r = self._filtrar("BLOQUEAR_IP", {"ip": "203.0.113.9"})
+        self.assertEqual((r["resultado"], r["requiere_humano"]), ("permite", False))
+
+    def test_la_politica_por_actor_es_configurable(self):
+        p = {**PERFIL_INV, "continuidad": {**PERFIL_INV["continuidad"],
+                                            "actores": {"activo_interno": "automatica_si_confianza"}}}
+        r = self._filtrar("BLOQUEAR_IP", {"ip": "192.168.1.10"}, p=p)
+        self.assertEqual((r["resultado"], r["requiere_humano"]), ("permite", False))
+
+    def test_con_politica_permisiva_el_dispositivo_de_red_sigue_protegido_por_su_nivel(self):   # C2
+        p = {**PERFIL_INV, "continuidad": {**PERFIL_INV["continuidad"],
+                                            "actores": {"dispositivo_red": "automatica_si_confianza"}}}
+        r = self._filtrar("BLOQUEAR_IP", {"ip": "192.168.1.1"}, p=p)
+        self.assertTrue(r["requiere_humano"])      # alcanza_servicio -> humano_siempre en este perfil
+
+    def test_la_retencion_mira_la_accion_final_tras_degradar(self):
+        # BLOQUEAR_PUERTO degrada a BLOQUEAR_IP; si esa IP es un activo interno, pide humano
+        r = self._filtrar("BLOQUEAR_PUERTO", {"puerto": 22, "ip": "192.168.1.10"})
+        self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]),
+                         ("degrada", "BLOQUEAR_IP", True))
+        self.assertEqual(r["impacto"]["accion_id"], "BLOQUEAR_IP")
+
+    def test_el_resultado_lleva_el_impacto_determinado(self):
+        r = self._filtrar("BLOQUEAR_IP", {"ip": "192.168.1.10"})
+        self.assertEqual(r["impacto"]["actor"]["nombre"], "puesto")
+        self.assertIn("puesto", r["impacto"]["motivo"])
+
+    def test_los_hallazgos_llegan_al_impacto(self):
+        h = {"nodos": {"objetivo-vuln": [{"puerto": 22, "servicio": "ssh", "estado": "open"}]}}
+        r = self._filtrar("CERRAR_SERVICIO", {"servicio": "ssh"}, hallazgos=h)
+        self.assertIsNone(r["accion_final"])       # corta_gestion_si: ssh -> veto duro (RF-19), como siempre
+        self.assertTrue(r["impacto"]["servicios_afectados"][0]["abierto"])
+
+    def test_perfil_sin_ips_se_comporta_como_antes(self):   # regresión: las fixtures no declaran IPs
+        r = perfil.filtrar(perfil_fx(), "BLOQUEAR_IP", {"ip": "192.168.1.10"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("permite", "BLOQUEAR_IP", False))
+        self.assertEqual(r["impacto"]["actor"]["tipo"], "desconocido")
+
+    def test_sin_accion_no_lleva_impacto(self):
+        self.assertNotIn("impacto", self._filtrar(None, {}))
+
+    def test_la_degradacion_reaplica_la_continuidad_al_nivel_final(self):   # F1, C2
+        # BLOQUEAR_PUERTO degrada a BLOQUEAR_IP; esa IP resulta ser un dispositivo de red (sube a
+        # alcanza_servicio). El perfil permite automatica_si_confianza a los dispositivos de red Y
+        # a impacto_localizado, pero exige humano para impacto_alcanza_servicio: la reglas de
+        # continuidad tienen que reaplicarse sobre el nivel FINAL, no quedarse con el del salto
+        # localizado con el que se decidio degradar.
+        p = {
+            "activos": {"puesto": {"ip": "192.168.1.10"}},
+            "topologia": {
+                "objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
+                "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"},
+            },
+            "continuidad": {
+                "impacto_localizado": "automatica_si_confianza",
+                "impacto_alcanza_servicio": "humano_siempre",
+                "reversibilidad_obligatoria": True,
+                "actores": {"dispositivo_red": "automatica_si_confianza"},
+            },
+        }
+        r = perfil.filtrar(p, "BLOQUEAR_PUERTO", {"puerto": 22, "ip": "192.168.1.1"}, CAT,
+                           "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual(r["resultado"], "degrada")
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")
+        self.assertEqual(r["impacto"]["nivel"], "alcanza_servicio")
+        self.assertTrue(r["requiere_humano"])   # hoy da False: bug del salto degradado (F1)

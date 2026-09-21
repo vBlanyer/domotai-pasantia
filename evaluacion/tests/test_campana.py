@@ -14,7 +14,7 @@ def _procesar_falso(fila, *a, **k):
     amenaza = fila["familia"] == "acceso_credenciales"
     return {"clase":"vp_intento_acceso" if amenaza else "no_soportada",
             "prioridad":3 if amenaza else 1,"confianza":1.0,
-            "accion_final":"BLOQUEAR_IP" if amenaza else "NINGUNA",
+            "accion_final":"BLOQUEAR_IP" if amenaza else None,   # como el motor real: sin acción es None
             "impacto":"localizado","requiere_humano":False}
 
 class TestCampana(unittest.TestCase):
@@ -22,7 +22,7 @@ class TestCampana(unittest.TestCase):
         res = campana.evaluar(FILAS, {}, {}, "prueba", None,
                               tabla_prioridad={"objetivo-vuln":{"VP":4,"FP":1}},
                               con_llm=False, _procesar=_procesar_falso)
-        for k in ("clasificacion_prototipo","baseline","priorizacion","operacion","continuidad","condiciones"):
+        for k in ("clasificacion_prototipo","baseline","priorizacion","operacion","continuidad","automatizacion","condiciones"):
             self.assertIn(k, res)
         # el prototipo marca las 2 soportadas como amenaza -> 1 VP, 1 FP
         self.assertEqual(res["clasificacion_prototipo"]["matriz"], {"vp":1,"fp":1,"vn":1,"fn":0})
@@ -34,6 +34,14 @@ class TestCampana(unittest.TestCase):
         md = campana.tabla_markdown(res)
         self.assertIn("Prototipo", md)
         self.assertIn("Baseline", md)
+
+    def test_automatizacion_cuenta_los_bloqueos_sin_humano(self):
+        res = campana.evaluar(FILAS, {}, {}, "prueba", None,
+                              tabla_prioridad={"objetivo-vuln":{"VP":4,"FP":1}},
+                              con_llm=False, _procesar=_procesar_falso)
+        # filas 1 (VP) y 2 (FP) se bloquean sin humano; la 2 es indebida
+        self.assertEqual(res["automatizacion"], {"automaticos": 2, "indebidos": 1, "tasa_indebidos": 0.5})
+        self.assertIn("Contenciones automáticas (sin humano): 2", campana.tabla_markdown(res))
 
 
 class TestRafagaEnCampana(unittest.TestCase):
