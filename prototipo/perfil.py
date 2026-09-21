@@ -1,8 +1,9 @@
 """El perfil de cliente (V3/V4) y el filtro permite/degrada/veta (RNF-14, RF-17/18/19)."""
 import yaml
+from prototipo import actores, impacto as impactom
 from prototipo import catalogo as _cat
 
-UMBRAL_CONFIANZA = 0.7   # default; configurable por perfil en continuidad.umbral_confianza (RF-07). Sin calibrar aún (Fase 6 midió escalado 0.0)
+UMBRAL_CONFIANZA = 0.7   # default; configurable por perfil en continuidad.umbral_confianza (RF-07). Sin calibrar aún (barrido pendiente)
 DEGRADACION = {"BLOQUEAR_PUERTO": "BLOQUEAR_IP"}   # alcanza_servicio -> localizado
 _REVERSION_OK = {"definida", "auto", "transitoria"}
 
@@ -48,11 +49,9 @@ def _permite_localizado(perfil, confianza):
         return confianza >= _umbral(perfil)
     return False
 
-def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza):
-    if accion_id is None:
-        return _res("sin_accion", None, False)
-    if accion_id not in catalogo:
-        return _res("veta", None, True)
+def _filtrar_reglas(perfil, accion_id, params, catalogo, activo, servicio, confianza, nivel):
+    """Las reglas de continuidad de siempre (RF-17 a RF-19), aplicadas con el nivel de impacto
+    DETERMINADO (`nivel`, nunca por debajo del catálogo: C2)."""
     acc = catalogo[accion_id]
     cont = perfil.get("continuidad", {})
     # Precondición dura RF-19: no cortar el plano de gestión.
@@ -67,8 +66,7 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza):
         if alt is not None:
             return _res("degrada", alt, not _permite_localizado(perfil, confianza))
         return _res("veta", accion_id, True)
-    impacto = acc["impacto"]
-    regla = cont.get(f"impacto_{impacto}", "humano_siempre")
+    regla = cont.get(f"impacto_{nivel}", "humano_siempre")
     if regla == "automatica":
         return _res("permite", accion_id, False)
     if regla == "automatica_si_confianza":
@@ -82,3 +80,32 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza):
             return _res("degrada", alt, False)
         return _res("degrada", alt, True)
     return _res("veta", accion_id, True)
+
+def _aplicar_actor(res, perfil, det):
+    """A quién bloquea la acción FINAL (C1, C4). El canal de gestión es veto duro (RF-19): cortarlo
+    impide la siguiente respuesta y la verificación. Un activo interno o un dispositivo de red con
+    política `humano_siempre` queda retenido para validación humana (el analista puede aprobarlo)."""
+    actor = det.get("actor")
+    if not res["accion_final"] or not actor:
+        return res
+    if actor["tipo"] == "gestion":
+        return _res("veta", None, True)
+    if (actor["tipo"] in actores.TIPOS_CON_POLITICA
+            and actores.politica(perfil, actor["tipo"]) == "humano_siempre"):
+        return _res("degrada" if res["resultado"] == "degrada" else "veta", res["accion_final"], True)
+    return res
+
+def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, hallazgos=None):
+    """permite / degrada / veta. El resultado lleva `impacto`: el impacto DETERMINADO de la acción
+    final (a quién bloquea y qué servicios detiene, `impacto.determinar`). Quien no lo use sigue
+    funcionando igual. La conciencia de actores vive aquí (C5) para que ningún punto de decisión
+    —tampoco un salto de la escalada— pueda saltársela."""
+    if accion_id is None:
+        return _res("sin_accion", None, False)
+    if accion_id not in catalogo:
+        return _res("veta", None, True)
+    det = impactom.determinar(accion_id, params, activo, perfil, catalogo, hallazgos)
+    res = _filtrar_reglas(perfil, accion_id, params, catalogo, activo, servicio, confianza, det["nivel"])
+    if res["accion_final"] and res["accion_final"] != accion_id:   # degradada: se ejecuta otra acción
+        det = impactom.determinar(res["accion_final"], params, activo, perfil, catalogo, hallazgos)
+    return {**_aplicar_actor(res, perfil, det), "impacto": det}
