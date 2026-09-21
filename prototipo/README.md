@@ -245,6 +245,12 @@ python3 -m prototipo.inventario prototipo/perfiles/empresarial.yml lab/campañas
 
 Efecto medido y reconciliación del laboratorio: [`../evaluacion/resultados/README.md`](../evaluacion/resultados/README.md).
 
+**Dependencias (Nivel 2).** Un activo puede declarar `depende_de: [...]`; `impacto.afectados_en_cascada`
+calcula quién depende, directa o indirectamente, del activo tocado (con guardia de ciclos) y
+`impacto_determinado.activos_afectados_en_cascada` lo lleva a la traza, al analista y al agente. En
+`bancario.yml`: aislar el middleware afecta en cascada a la banca en línea y a la API móvil. Una
+dependencia no declarada da un falso «sin cascada»: es un límite del inventario, no del motor.
+
 ## 6. Corrida sobre el dataset real de la Fase 3
 
 ```bash

@@ -155,6 +155,16 @@ class TestPerfilBancario(unittest.TestCase):
             if nombre in self.p["activos"]:
                 self.assertEqual(nodo["ip"], self.p["activos"][nombre]["ip"], nombre)
 
+    def test_aislar_el_middleware_afecta_en_cascada_a_la_banca(self):   # Nivel 2
+        from prototipo import impacto
+        d = impacto.determinar("AISLAR_NODO", {}, "middleware", self.p, CAT)
+        self.assertEqual(d["activos_afectados_en_cascada"], ["api-movil", "web-banking"])
+
+    def test_caer_el_hsm_arrastra_al_core_y_a_swift(self):
+        from prototipo import impacto
+        self.assertEqual(impacto.afectados_en_cascada("hsm", self.p),
+                         ["api-movil", "middleware", "swift-alliance", "web-banking"])
+
 
 class TestPerfilEmpresarial(unittest.TestCase):
     """empresarial.yml describe la red REAL del laboratorio (spec de conciencia de impacto §4.8)."""

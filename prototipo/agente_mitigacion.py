@@ -25,6 +25,9 @@ def resolver_topologia(perfil, hallazgos=None):
         abiertos = impacto.puertos_abiertos(hallazgos, nombre)
         if abiertos is not None:
             enriquecido["servicios_abiertos"] = sorted(abiertos)
+        cascada = impacto.afectados_en_cascada(nombre, perfil)
+        if cascada:
+            enriquecido["afecta_en_cascada"] = cascada
         topo[nombre] = enriquecido
     topo["ip_gestion"] = perfil.get("ip_gestion")
     return topo
@@ -131,6 +134,8 @@ def _describir_nodo(nombre, nodo):
         detalles.append("servicios declarados: " + (", ".join(map(str, nodo["servicios_prestados"])) or "ninguno"))
     if "servicios_abiertos" in nodo:
         detalles.append("abiertos segun el auditor: " + (", ".join(map(str, nodo["servicios_abiertos"])) or "ninguno"))
+    if nodo.get("afecta_en_cascada"):
+        detalles.append("si cae, afecta a: " + ", ".join(nodo["afecta_en_cascada"]))
     base = f"{nombre}={nodo.get('rol')}"
     return f"{base} ({'; '.join(detalles)})" if detalles else base
 
