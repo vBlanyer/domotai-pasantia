@@ -11,6 +11,18 @@ filosofía de catálogo cerrado que RF-15).
 """
 from prototipo.analisis import CLASES
 
+def filtro_legible(decision):
+    """Qué significa para el analista el `resultado_filtro` (el valor de la traza no cambia). `veta`
+    tiene dos lecturas según haya acción final: RETENIDA (se ejecuta si el analista aprueba) o VETADA
+    (veto duro: gestión, sin reversión o fuera del catálogo; no se ejecuta aunque se apruebe)."""
+    r, final = decision.get("resultado_filtro"), decision.get("accion_final")
+    if r == "veta":
+        return "retenida — espera tu aprobación" if final else "vetada — no se puede ejecutar"
+    if r == "degrada":
+        txt = f"degradada — se sustituye por {final}"
+        return txt + "; espera tu aprobación" if decision.get("requiere_humano") else txt
+    return {"permite": "automática", "sin_accion": "sin acción"}.get(r, str(r))
+
 def mostrar(decision, alerta):
     est = decision.get("justificacion_estructurada", {}) or {}
     mitre = ", ".join(est.get("tecnica_mitre") or []) or "—"
@@ -28,7 +40,7 @@ def mostrar(decision, alerta):
         f"Clase: {decision.get('clase')}  ·  Prioridad: {decision.get('prioridad')}  ·  Confianza: {decision.get('confianza')}\n"
         f"Técnica MITRE: {mitre}\n"
         f"Justificación: {decision.get('justificacion')}\n"
-        f"Acción sugerida: {est.get('accion_sugerida', decision.get('accion_propuesta'))}  ·  Impacto: {decision.get('impacto')}  ·  Filtro: {decision.get('resultado_filtro')}\n"
+        f"Acción sugerida: {est.get('accion_sugerida', decision.get('accion_propuesta'))}  ·  Impacto: {decision.get('impacto')}  ·  Filtro: {filtro_legible(decision)}\n"
         f"{consecuencia}"
         f"Acción final: {decision.get('accion_final')}\n"
     )

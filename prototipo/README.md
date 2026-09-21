@@ -118,6 +118,10 @@ Cada línea de la salida (`.jsonl`) es una decisión de triaje:
 ```
 
 `resultado_filtro` es siempre uno de `permite` | `degrada` | `veta` | `sin_accion`.
+El analista no ve ese valor en crudo, sino lo que significa (`validacion.filtro_legible`). `veta` tiene
+dos lecturas: con acción final es **retenida — espera tu aprobación** (se ejecuta si apruebas); sin ella es
+**vetada — no se puede ejecutar** (veto duro por gestión, reversión o catálogo). `permite` se muestra como
+**automática** y `degrada` como **degradada — se sustituye por <acción>**.
 `version_baseline` deja constancia en la propia traza de que la clasificación es placeholder — se
 incrementará cuando 5C sustituya el baseline por el modelo real, para poder distinguir en las
 métricas de la Fase 6 qué decisiones vinieron de cuál.

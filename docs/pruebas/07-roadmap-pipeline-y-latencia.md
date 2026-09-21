@@ -200,7 +200,7 @@ feedback — misma filosofía de catálogo cerrado que RF-15):
 Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Justificación: Ráfaga de autenticaciones SSH fallidas desde 192.168.1.10 ...
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 ¿Qué hacer con este incidente?
   1) aprobar       — ejecuta la acción propuesta
   2) rechazar      — retiene sin ejecutar

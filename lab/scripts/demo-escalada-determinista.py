@@ -25,7 +25,7 @@ Qué observar/evaluar:
 import os, sys
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, REPO)
-from prototipo import lazo, catalogo as catm, perfil as perfilm
+from prototipo import lazo, validacion, catalogo as catm, perfil as perfilm
 
 AUTO = "--auto" in sys.argv
 
@@ -71,7 +71,7 @@ def main():
     print("\n── TRAZA ──")
     print(f"clase            : {r['clase']}  (confianza {r['confianza']})")
     print(f"accion propuesta : {r['accion_propuesta']} -> final {r['accion_final']} "
-          f"(filtro {r['resultado_filtro']})")
+          f"(filtro: {validacion.filtro_legible(r)})")
     print("\n1) INTENTO EN EL ACTIVO ATACADO (objetivo-vuln, 192.168.1.30):")
     print(f"     ejecucion.exito   = {r['ejecucion']['exito']}   <- host caído / sin acceso")
     print(f"     verificacion      = {r['verificacion']['verificado']}")

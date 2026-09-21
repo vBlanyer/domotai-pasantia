@@ -20,6 +20,38 @@ class _Leer:
         return self.respuestas.pop(0)
 
 
+class TestFiltroLegible(unittest.TestCase):
+    """El valor de la traza (`resultado_filtro`) no cambia; lo que se muestra al analista dice qué
+    pasa de verdad: `veta` con acción final es RETENIDA (se ejecuta si apruebas), sin ella es VETADA."""
+    def _d(self, resultado, final="BLOQUEAR_IP", humano=True):
+        return {"resultado_filtro": resultado, "accion_final": final, "requiere_humano": humano}
+
+    def test_veta_con_accion_final_es_retenida(self):
+        self.assertEqual(validacion.filtro_legible(self._d("veta")), "retenida — espera tu aprobación")
+
+    def test_veta_sin_accion_final_es_vetada(self):
+        self.assertEqual(validacion.filtro_legible(self._d("veta", final=None)),
+                         "vetada — no se puede ejecutar")
+
+    def test_permite_es_automatica(self):
+        self.assertEqual(validacion.filtro_legible(self._d("permite", humano=False)), "automática")
+
+    def test_degrada_dice_por_que_se_sustituye_y_si_espera(self):
+        self.assertEqual(validacion.filtro_legible(self._d("degrada", final="CERRAR_PUERTO", humano=False)),
+                         "degradada — se sustituye por CERRAR_PUERTO")
+        self.assertEqual(validacion.filtro_legible(self._d("degrada", final="CERRAR_PUERTO")),
+                         "degradada — se sustituye por CERRAR_PUERTO; espera tu aprobación")
+
+    def test_sin_accion_y_valor_desconocido(self):
+        self.assertEqual(validacion.filtro_legible(self._d("sin_accion", final=None, humano=False)), "sin acción")
+        self.assertEqual(validacion.filtro_legible(self._d("otro")), "otro")
+
+    def test_mostrar_ya_no_dice_veta_a_secas(self):
+        txt = validacion.mostrar(DECISION, ALERTA)
+        self.assertIn("Filtro: retenida — espera tu aprobación", txt)
+        self.assertNotIn("Filtro: veta", txt)
+
+
 class TestValidacion(unittest.TestCase):
     def test_mostrar_incluye_lo_esencial(self):
         txt = validacion.mostrar(DECISION, ALERTA)

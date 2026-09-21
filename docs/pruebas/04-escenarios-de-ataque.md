@@ -79,7 +79,7 @@ printf '%s\n' '{"id":"A1","rule":{"id":"5760","level":10,"groups":["sshd","authe
 
 **Esperado** (salida real):
 ```
-Clase: vp_intento_acceso · Prioridad: 3 · Confianza: 1.0 · accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro permite)
+Clase: vp_intento_acceso · Prioridad: 3 · Confianza: 1.0 · accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro: automática)
 Consecuencia: bloquea a 203.0.113.9 (origen no inventariado) · 0 servicios detenidos
 Ejecutadas: 1
 ```
@@ -110,8 +110,8 @@ for i in $(seq 1 4); do
     -o PreferredAuthentications=password msfadmin@192.168.1.30 id 2>/dev/null"; done
 ```
 
-A los pocos segundos, en la Terminal A el daemon emite el incidente, muestra `Confianza: 0.5 · filtro veta`
-y abre el prompt: **escribe `aprobar`, `rechazar` o `reclasificar` con el teclado** (el daemon lee tu
+A los pocos segundos, en la Terminal A el daemon emite el incidente, muestra `Confianza: 0.5 · filtro: retenida — espera tu aprobación`
+y abre el menú: **elige `1` (aprobar), `2` (rechazar) o `3` (reclasificar) con el teclado** (el daemon lee tu
 respuesta del terminal, `/dev/tty`, no del flujo de alertas) y observa el resultado. Con `--sin-lab` la
 ejecución es simulada; quita `--sin-lab` para que `aprobar` bloquee de verdad por SSH.
 
@@ -131,7 +131,7 @@ printf '%s\nrechazar\n' '{"id":"B1","rule":{"id":"5760","level":10,"groups":["ss
 ── Validación humana requerida ──
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.5
 ¿aprobar / rechazar / reclasificar?
-… accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro veta)
+… accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro: retenida — espera tu aprobación)
 Rechazadas: 1 · Ejecutadas: 0
 ```
 
@@ -198,7 +198,7 @@ printf '%s\n' '{"id":"D1","rule":{"id":"5760","level":10,"groups":["sshd","authe
 
 **Esperado** (salida real, verificado en vivo y por inyección):
 ```
-Clase: fp_actividad_legitima · Prioridad: 1 · Confianza: 1.0 · accion None -> None (filtro sin_accion)
+Clase: fp_actividad_legitima · Prioridad: 1 · Confianza: 1.0 · accion None -> None (filtro: sin acción)
 Ejecutadas: 0
 ```
 
@@ -216,7 +216,7 @@ printf '%s\n' '{"id":"E1","rule":{"id":"510","level":7,"groups":["rootcheck"]},"
 
 **Esperado** (salida real):
 ```
-Clase: no_soportada · Prioridad: 1 · Confianza: 1.0 · accion None -> None (filtro sin_accion)
+Clase: no_soportada · Prioridad: 1 · Confianza: 1.0 · accion None -> None (filtro: sin acción)
 Ejecutadas: 0
 ```
 

@@ -7,7 +7,7 @@ testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Waz
 contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.stream -`.
 """
 import io, json, os, select, sys, time
-from prototipo import ingesta, adaptador_wazuh, agrupacion, lazo, rafaga, traza
+from prototipo import ingesta, adaptador_wazuh, agrupacion, lazo, rafaga, traza, validacion
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
 
@@ -32,7 +32,7 @@ def _resumen_incidente(inc):
 
 def _linea_decision(d):
     base = (f"  Clase: {d['clase']} · Prioridad: {d['prioridad']} · Confianza: {d['confianza']} · "
-            f"accion {d['accion_propuesta']} -> {d['accion_final']} (filtro {d['resultado_filtro']}) · "
+            f"accion {d['accion_propuesta']} -> {d['accion_final']} (filtro: {validacion.filtro_legible(d)}) · "
             f"justificador {d.get('version_justificador')}")
     det = d.get("impacto_determinado") or {}
     motivo = det.get("motivo")
