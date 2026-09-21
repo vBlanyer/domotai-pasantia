@@ -74,6 +74,15 @@ class TestQuienEs(unittest.TestCase):
         with self.assertRaises(ValueError):
             actores.quien_es("10.0.0.1", {"redes_internas": ["10.0.0.0/33"]})
 
+    def test_ipv4_mapeada_en_ipv6_coincide_con_el_activo(self):   # F3
+        a = actores.quien_es("::ffff:192.168.1.10", PERFIL)
+        self.assertEqual((a["tipo"], a["nombre"]), ("activo_interno", "puesto"))
+
+    def test_espacios_alrededor_de_la_ip_no_rompen_la_coincidencia(self):   # F3
+        a = actores.quien_es(" 192.168.1.10 ", PERFIL)
+        self.assertEqual((a["tipo"], a["nombre"]), ("activo_interno", "puesto"))
+        self.assertEqual(a["ip"], " 192.168.1.10 ")   # el "ip" devuelto es la entrada tal cual
+
 
 class TestPolitica(unittest.TestCase):
     def test_por_defecto_humano_siempre(self):   # C1
