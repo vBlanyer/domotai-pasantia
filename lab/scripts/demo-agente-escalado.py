@@ -27,9 +27,9 @@ def generador_guion(_prompt, _estado={"i": 0}):
     pasos = [
         'Thought: consulto el conocimiento defensivo de la tecnica.\nAction: {"tool":"consultar_conocimiento","args":{}}',
         'Thought: intento el bloqueo local en el host victima.\nAction: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
-        'Thought: el host no responde; escalo al firewall perimetral.\nAction: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
-        'Thought: verifico el corte en el firewall.\nAction: {"tool":"verificar_mitigacion","args":{"dispositivo":"gateway"}}',
-        'Final: {"resultado":"mitigado","dispositivo_ejecutor":"gateway"}']
+        'Thought: el host no responde; escalo al firewall perimetral.\nAction: {"tool":"ejecutar_comando","args":{"dispositivo":"borde","accion":"bloquear_ip"}}',
+        'Thought: verifico el corte en el firewall.\nAction: {"tool":"verificar_mitigacion","args":{"dispositivo":"borde"}}',
+        'Final: {"resultado":"mitigado","dispositivo_ejecutor":"borde"}']
     i = _estado["i"]; _estado["i"] = min(i + 1, len(pasos) - 1); return pasos[i]
 
 

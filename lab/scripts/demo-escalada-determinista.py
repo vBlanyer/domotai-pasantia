@@ -5,12 +5,12 @@ que el MDR no se quede sin respuesta cuando no puede actuar sobre la máquina at
 A diferencia de `demo-agente-escalado.py` (que usa el agente ReAct + LLM), esto ejerce el lazo real
 `lazo.procesar_lazo` con la escalada determinista por defecto: instantánea, auditable, sin modelo.
 
-Usa la topología del laboratorio (perfil empresarial: objetivo-vuln -> gateway) y un ejecutor
-SIMULADO: la víctima (objetivo-vuln, 192.168.1.30) rechaza la conexión; el firewall (gateway,
+Usa la topología del laboratorio (perfil empresarial: objetivo-vuln -> borde) y un ejecutor
+SIMULADO: la víctima (objetivo-vuln, 192.168.1.30) rechaza la conexión; el firewall (borde,
 192.168.1.1) responde. La contención salta al firewall y la traza queda con `escalado: True`.
 
-  (En el banco es idéntico con más saltos —web-banking -> FW-core -> FW-edge—; aquí se usa el lab
-   porque la IP del activo se resuelve de un mapa del lab, orden.IP_DE_NODO.)
+  (En el banco es idéntico con más saltos —web-banking -> FW-core -> FW-edge—: la IP del activo sale
+   del inventario del perfil, perfil.ip_de. Aquí se usa el lab porque el ejecutor simulado conoce sus IPs.)
 
 Uso:  python3 lab/scripts/demo-escalada-determinista.py            (interactivo: apruebas el firewall)
       python3 lab/scripts/demo-escalada-determinista.py --auto     (auto-aprueba, no interactivo)
@@ -18,7 +18,7 @@ Uso:  python3 lab/scripts/demo-escalada-determinista.py            (interactivo:
 Qué observar/evaluar:
   - ejecucion.exito = False          -> el host caído no se pudo contener
   - escalado        = True           -> se escaló la contención
-  - dispositivo_ejecutor = gateway   -> se contuvo en el firewall, NO en la máquina inaccesible
+  - dispositivo_ejecutor = borde     -> se contuvo en el firewall, NO en la máquina inaccesible
   - la validación humana se pide en el firewall (impacto alcanza_servicio -> humano_siempre)
   - la traza guarda el comando de reversión (RF-18, reversibilidad)
 """
@@ -31,7 +31,7 @@ AUTO = "--auto" in sys.argv
 
 
 class HostCaido:
-    """La víctima (objetivo-vuln, 192.168.1.30) está caída/inaccesible; el firewall (gateway,
+    """La víctima (objetivo-vuln, 192.168.1.30) está caída/inaccesible; el firewall (borde,
     192.168.1.1) responde y modela el estado del bloqueo (verif-antes 'no está'; tras aplicar,
     'está')."""
     def __init__(self):

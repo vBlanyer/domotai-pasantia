@@ -1,8 +1,25 @@
-# Cliente empresarial: servidores publicados, continuidad estricta.
+# Cliente empresarial: la red del laboratorio (red-cliente), continuidad estricta.
+# El inventario describe la red REAL vigilada: los nodos que el auditor escanea y el canal por el
+# que el MDR actúa. Un nombre por equipo (C6): el laboratorio, el auditor y orden.IP_DE_NODO
+# llaman `borde` a la .1.
 version: v0
+
+# Inventario de la red protegida (RF-17). criticidad gobierna la prioridad (media: la efectiva
+# hasta ahora, C6); servicios_prestados son los puertos que el cliente reconoce como su servicio
+# (lo demás abierto es exposición no reconocida: python3 -m prototipo.inventario); funcion dice qué
+# es el equipo, para que el analista y el agente sepan a quién tocan.
 activos:
-  servidor-web:   { criticidad: alta, servicios_prestados: [443, 80] }
-  controlador-ot: { criticidad: critica, servicios_prestados: [502] }
+  borde:         { ip: 192.168.1.1,  funcion: "equipo de borde: enruta la LAN hacia el proveedor",
+                   criticidad: media, servicios_prestados: [] }
+  puesto:        { ip: 192.168.1.10, funcion: "puesto de trabajo de un empleado",
+                   criticidad: media, servicios_prestados: [] }
+  iot:           { ip: 192.168.1.20, funcion: "dispositivo IoT con panel web",
+                   criticidad: media, servicios_prestados: [80] }
+  objetivo-vuln: { ip: 192.168.1.30, funcion: "servidor con servicios expuestos",
+                   criticidad: media, servicios_prestados: [22, 80] }
+# Una IP de estos rangos que no esté en el inventario también es un activo interno.
+redes_internas: ["192.168.1.0/24"]
+
 # Orígenes declarados cuya actividad es legítima: la administración del cliente (192.168.1.1)
 # y el auditor del propio servicio (172.20.20.4), que escanea la red a propósito. Un ataque
 # aparente desde ellos es FP (RF-03). Medido: sin declarar al auditor, sus barridos de puertos
@@ -19,9 +36,15 @@ continuidad:
   reversibilidad_obligatoria: true
   no_cortar_gestion: true
   umbral_confianza: 0.7   # umbral de escalado (RF-07); 0.7 por defecto
-excepciones:
-  - { servicio: 443, activo: servidor-web, regla: nunca_automatica }
+  # A quién bloquea la acción (C1): bloquear un activo interno o un dispositivo de red exige
+  # humano. Un cliente que prefiera automatizarlo lo declara con automatica_si_confianza.
+  actores:
+    activo_interno:  humano_siempre
+    dispositivo_red: humano_siempre
+excepciones: []
 topologia:
-  objetivo-vuln: { rol: host_victima, ip: 192.168.1.30, gateway: gateway }
-  gateway:       { rol: firewall_perimetral, ip: 192.168.1.1 }
-ip_gestion: 192.168.1.100
+  objetivo-vuln: { rol: host_victima, ip: 192.168.1.30, gateway: borde }
+  borde:         { rol: firewall_perimetral, ip: 192.168.1.1 }
+# Canal de gestión (RF-19): el auditor, desde el que el conector lanza el SSH
+# (conector._ssh_en_auditor). Bloquearlo es veto duro: impediría responder y verificar.
+ip_gestion: 172.20.20.4
