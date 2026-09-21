@@ -146,9 +146,16 @@ def _motivo_base(det, perfil):
     if accion in ACCIONES_SOBRE_NODO:
         criticidad = _activo(perfil, det["activo"]).get("criticidad", "media")
         if not servicios:
-            return f"detendría {det['activo']} (criticidad {criticidad}): sin servicios conocidos"
-        return (f"detendría {len(servicios)} servicio(s) de {det['activo']} (criticidad {criticidad}): "
-                f"{_lista(servicios)}")
+            texto = f"detendría {det['activo']} (criticidad {criticidad}): sin servicios conocidos"
+        else:
+            texto = (f"detendría {len(servicios)} servicio(s) de {det['activo']} (criticidad {criticidad}): "
+                     f"{_lista(servicios)}")
+        tipo = (actor or {}).get("tipo")
+        if tipo == "gestion":
+            texto += " · es el canal de gestión del MDR: cortarlo impide responder y verificar"
+        elif tipo == "dispositivo_red":
+            texto += " · es un dispositivo de red: puede cortar todo lo que enruta"
+        return texto
     return f"impacto del catálogo: {det['nivel']}"
 
 
@@ -174,6 +181,11 @@ def determinar(accion_id, params, activo, perfil, catalogo, hallazgos=None):
         servicios = _servicios_de_puerto(accion_id, params, activo, perfil, hallazgos)
     elif accion_id in ACCIONES_SOBRE_NODO:
         servicios = _servicios_del_nodo(activo, perfil, hallazgos)
+        # Aislar o reiniciar un nodo afecta al propio nodo: su actor gobierna el veto de gestión
+        # (RF-19) y la política de actores (C1) igual que al bloquear su IP.
+        actor = actores.quien_es(params.get("ip_nodo") or actores.ip_de(perfil, activo), perfil)
+        if actor and actor["tipo"] == "dispositivo_red":
+            nivel = _max_nivel(nivel, "alcanza_servicio")
     cascada = (afectados_en_cascada(activo, perfil)
                if accion_id in ACCIONES_SOBRE_PUERTO or accion_id in ACCIONES_SOBRE_NODO else [])
     det = {"nivel": nivel, "nivel_catalogo": nivel_catalogo, "servicios_afectados": servicios,

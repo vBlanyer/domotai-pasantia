@@ -17,6 +17,13 @@ def _procesar_falso(fila, *a, **k):
             "accion_final":"BLOQUEAR_IP" if amenaza else None,   # como el motor real: sin acción es None
             "impacto":"localizado","requiere_humano":False}
 
+def _procesar_router(fila, *a, **k):
+    # FP cuya acción final bloquea al router: el catálogo dice «localizado», el impacto determinado
+    # dice «alcanza_servicio». La continuidad debe contar lo que de verdad cortaría.
+    return {"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 1.0, "accion_final": "BLOQUEAR_IP",
+            "impacto": "localizado", "requiere_humano": True,
+            "impacto_determinado": {"nivel": "alcanza_servicio"}}
+
 class TestCampana(unittest.TestCase):
     def test_evaluar_produce_las_secciones(self):
         res = campana.evaluar(FILAS, {}, {}, "prueba", None,
@@ -26,6 +33,12 @@ class TestCampana(unittest.TestCase):
             self.assertIn(k, res)
         # el prototipo marca las 2 soportadas como amenaza -> 1 VP, 1 FP
         self.assertEqual(res["clasificacion_prototipo"]["matriz"], {"vp":1,"fp":1,"vn":1,"fn":0})
+
+    def test_continuidad_usa_el_impacto_determinado(self):
+        res = campana.evaluar(FILAS[1:2], {}, {}, "prueba", None, tabla_prioridad={},
+                              con_llm=False, _procesar=_procesar_router)
+        self.assertEqual(res["continuidad"]["disruptivas_indebidas"], 1)
+        self.assertEqual(res["continuidad"]["retencion_correcta"], 1.0)
 
     def test_tabla_markdown_menciona_ambos(self):
         res = campana.evaluar(FILAS, {}, {}, "prueba", None,

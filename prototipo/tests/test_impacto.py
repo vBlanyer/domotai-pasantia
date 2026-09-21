@@ -98,6 +98,26 @@ class TestAccionesSobreNodo(unittest.TestCase):
         self.assertIn("sin servicios conocidos", d["motivo"])
 
 
+    def test_el_actor_de_un_nodo_sale_de_su_ip(self):
+        # Aislar un nodo también «bloquea a alguien»: el propio nodo. Sin actor, el veto de gestión
+        # (RF-19) y la política de actores (C1) no lo veían.
+        d = impacto.determinar("AISLAR_NODO", {}, "puesto", PERFIL, CAT, HALLAZGOS)
+        self.assertEqual((d["actor"]["tipo"], d["actor"]["nombre"]), ("activo_interno", "puesto"))
+
+    def test_ip_nodo_explicita_manda_sobre_el_inventario(self):
+        d = impacto.determinar("REINICIAR_NODO", {"ip_nodo": "172.20.20.4"}, "auditor", PERFIL, CAT)
+        self.assertEqual(d["actor"]["tipo"], "gestion")
+        self.assertIn("canal de gestión del MDR", d["motivo"])
+
+    def test_aislar_el_router_dice_que_corta_lo_que_enruta(self):
+        d = impacto.determinar("AISLAR_NODO", {}, "borde", PERFIL, CAT, HALLAZGOS)
+        self.assertEqual(d["actor"]["tipo"], "dispositivo_red")
+        self.assertIn("puede cortar todo lo que enruta", d["motivo"])
+
+    def test_nodo_sin_ip_declarada_no_tiene_actor(self):
+        d = impacto.determinar("AISLAR_NODO", {}, "fantasma", PERFIL, CAT)
+        self.assertIsNone(d["actor"])
+
 class TestObservacion(unittest.TestCase):
     def test_observar_no_tiene_impacto(self):
         d = impacto.determinar("OBS_CONEXIONES", {}, "objetivo-vuln", PERFIL, CAT, HALLAZGOS)

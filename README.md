@@ -12,13 +12,13 @@ ese ruido sin cortar lo que el negocio necesita.
 
 | Componente | Dónde | Estado |
 |------------|-------|--------|
-| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, 420 tests |
+| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, 427 tests |
 | **Justificador con LLM real + RAG** (Llama-3.1-8B en servidor residente; recuperación aumentada local con embedder bge-m3 sobre corpus curado de MITRE/D3FEND/reglas Wazuh/descartes, dependiente de la clase decidida) | [`prototipo/justificador_llm.py`](prototipo/justificador_llm.py), [`prototipo/rag.py`](prototipo/rag.py) | Funcional, verificado en vivo |
 | **Daemon en tiempo real** (agrupa en incidentes, valida con el analista; modos `--sin-llm` / `--con-llm` / `--agente`) | [`prototipo/stream.py`](prototipo/stream.py) | Funcional |
 | **Agente de mitigación** (ReAct: escala host → cortafuegos, aprueba por paso) | [`prototipo/agente_mitigacion.py`](prototipo/agente_mitigacion.py) | Funcional con salida restringida por esquema y escalada determinista de respaldo; exige hardware rápido |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap, objetivo vulnerable) | [`lab/`](lab/) | Ejecutable |
 | **Dataset etiquetado** (466 alertas reales de tres familias, VP/FP/PROPIA/no_soportada, particionado 80/20) | [`lab/dataset/`](lab/dataset/) | Cerrado |
-| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 55 tests; campaña ejecutada |
+| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 56 tests; campaña ejecutada |
 
 **La idea intelectualmente central:** la decisión clasificación→acción **no la toma el modelo**. La toma
 una **política determinista** que *propone* una acción y un **perfil de cliente configurable** que la

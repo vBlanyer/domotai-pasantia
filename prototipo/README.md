@@ -222,14 +222,14 @@ auditor, y nunca lo deja por debajo del catálogo:
 |---|---|
 | una IP (`BLOQUEAR_IP`, `BLOQUEAR_IP_FIREWALL`, `MATAR_CONEXION`) | **a quién** bloquea (`actores.quien_es`); un dispositivo de red sube a `alcanza_servicio` |
 | un puerto o servicio (`BLOQUEAR_PUERTO`, `CERRAR_SERVICIO`) | qué servicio detiene, si está **declarado** y si está **abierto** según el auditor |
-| un nodo (`AISLAR_NODO`, `REINICIAR_NODO`) | el **radio**: declarados ∪ abiertos (cota superior) |
+| un nodo (`AISLAR_NODO`, `REINICIAR_NODO`) | el **radio**: declarados ∪ abiertos (cota superior), y **a quién** afecta: el propio nodo, por su IP (`ip_nodo` o la del perfil). Aislar la gestión es veto duro y aislar un activo propio pide humano, como al bloquear su IP |
 
 `actores.quien_es` resuelve, en este orden: `gestion` (la `ip_gestion`) > `dispositivo_red` (cortafuegos de la
 topología) > `activo_interno` (inventario, otro nodo de la topología, `redes_internas` u origen legítimo) >
 `desconocido`. `perfil.filtrar` lo aplica a la acción **final**: la gestión es **veto duro** (RF-19); un activo
 interno o un dispositivo de red se retiene para el humano salvo que el perfil diga
 `continuidad.actores.<tipo>: automatica_si_confianza` (D16). La traza guarda `impacto_determinado` y el
-analista ve la línea **Consecuencia**:
+analista ve la línea **Consecuencia**. La métrica de continuidad de la evaluación usa este nivel determinado de la acción final, no el del catálogo:
 
 ```
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos

@@ -284,6 +284,23 @@ class TestConcienciaDeActores(unittest.TestCase):
         self.assertIsNone(r["accion_final"])       # corta_gestion_si: ssh -> veto duro (RF-19), como siempre
         self.assertTrue(r["impacto"]["servicios_afectados"][0]["abierto"])
 
+    def test_aislar_el_nodo_de_gestion_es_veto_duro(self):   # RF-19 también para acciones sobre nodo
+        r = perfil.filtrar(PERFIL_INV, "AISLAR_NODO", {"ip_nodo": "172.20.20.4"}, CAT, "auditor", "ssh", 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", None, True))
+
+    def test_aislar_un_nodo_propio_con_politica_permisiva_sigue_pidiendo_humano(self):   # C1
+        # Aunque el perfil deje automático alcanza_servicio, aislar un activo interno exige humano.
+        p = {**PERFIL_INV, "continuidad": {**PERFIL_INV["continuidad"],
+                                            "impacto_alcanza_servicio": "automatica_si_confianza"}}
+        r = perfil.filtrar(p, "AISLAR_NODO", {}, CAT, "puesto", None, 1.0)
+        self.assertEqual((r["accion_final"], r["requiere_humano"]), ("AISLAR_NODO", True))
+
+    def test_una_alerta_sin_servicio_no_se_confunde_con_cortar_la_gestion(self):
+        # corta_gestion_si ausente (None) no puede casar con un servicio ausente (None): antes
+        # vetaba en duro cualquier acción de una alerta sin servicio.
+        r = perfil.filtrar(PERFIL_INV, "BLOQUEAR_IP", {"ip": "203.0.113.9"}, CAT, "objetivo-vuln", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("permite", "BLOQUEAR_IP"))
+
     def test_perfil_sin_ips_se_comporta_como_antes(self):   # regresión: las fixtures no declaran IPs
         r = perfil.filtrar(perfil_fx(), "BLOQUEAR_IP", {"ip": "192.168.1.10"}, CAT, "objetivo-vuln", "ssh", 1.0)
         self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("permite", "BLOQUEAR_IP", False))

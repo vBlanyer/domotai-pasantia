@@ -38,8 +38,10 @@ def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_priori
             "ms_medio_clasificar": sum(ms) / len(ms) if ms else 0.0}
 
     # Continuidad
-    # impacto = de la accion PROPUESTA (lo que expone la traza); requiere_humano es del filtro posterior.
-    regs = [{"impacto": p["impacto"], "etiqueta": f["etiqueta"], "requiere_humano": p["requiere_humano"],
+    # impacto = el DETERMINADO de la accion final (bloquear el router alcanza servicio aunque el
+    # catalogo diga localizado); si la traza no lo trae, el del catalogo. requiere_humano es del filtro.
+    regs = [{"impacto": p.get("impacto_determinado") or p["impacto"], "etiqueta": f["etiqueta"],
+             "requiere_humano": p["requiere_humano"],
              "accion_final": p["accion_final"]}
             for f, p in zip(filas, preds)]
     cont = metricas.continuidad(regs)

@@ -23,6 +23,9 @@ def predecir_todas(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, _proc
             "confianza": traza.get("confianza"),
             "accion_final": traza.get("accion_final"),
             "impacto": traza.get("impacto"),
+            # Nivel DETERMINADO de la acción final (a quién bloquea de verdad); el de arriba es el
+            # del catálogo para la acción propuesta.
+            "impacto_determinado": (traza.get("impacto_determinado") or {}).get("nivel"),
             "requiere_humano": traza.get("requiere_humano"),
             "ms": ms,
         })
