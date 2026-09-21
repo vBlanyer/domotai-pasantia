@@ -249,7 +249,9 @@ Efecto medido y reconciliación del laboratorio: [`../evaluacion/resultados/READ
 calcula quién depende, directa o indirectamente, del activo tocado (con guardia de ciclos) y
 `impacto_determinado.activos_afectados_en_cascada` lo lleva a la traza, al analista y al agente. En
 `bancario.yml`: aislar el middleware afecta en cascada a la banca en línea y a la API móvil. Una
-dependencia no declarada da un falso «sin cascada»: es un límite del inventario, no del motor.
+dependencia no declarada da un falso «sin cascada»: es un límite del inventario, no del motor. La
+cascada es por activo, no por servicio: cerrar cualquier puerto del middleware reporta a todos sus
+dependientes, así que también es una cota superior.
 
 ## 6. Corrida sobre el dataset real de la Fase 3
 
