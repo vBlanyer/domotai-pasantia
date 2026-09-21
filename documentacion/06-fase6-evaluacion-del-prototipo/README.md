@@ -65,9 +65,9 @@ la implementación arranca con valores provisionales.
 
 **Hecha.** El marco de medición vive en [`evaluacion/`](../../evaluacion/) y la campaña corre con
 `python3 -m evaluacion.campana --particion evaluacion`. Resultado principal: sobre la partición de
-evaluación el prototipo **elimina los falsos positivos** (tasa 0.000 vs 0.282 del nivel de regla de Wazuh; con la configuración de orígenes legítimos que distingue admin de atacante, RF-03) **sin perder ninguna amenaza** (recall 1.0) y sin acciones disruptivas indebidas; sus
-límites —cubre 4 de las 6 categorías (las 2 finas exigen etiquetas de las que el dataset no dispone, no una pieza pendiente), la legitimidad se apoya en la IP (suplantable), y el 1B justifica mal sin RAG—
-están medidos y documentados. Los números y el análisis completo están en el
+evaluación el prototipo **elimina los falsos positivos** (tasa 0.000 vs 0.282 del nivel de regla de Wazuh en la campaña original de una familia; con la configuración de orígenes legítimos que distingue admin de atacante, RF-03) **sin perder ninguna amenaza** (recall 1.0) y sin acciones disruptivas indebidas. **Ampliada el 11/09/2026 a tres familias** (233 alertas): FP 0.000 vs **0.296** y recall 1.000 vs **0.741** — el baseline deja pasar amenazas reales de baja severidad que el prototipo sí reconoce (ver [resultados vigentes](../../evaluacion/resultados/README.md)). Sus
+límites —cubre 4 de las 6 categorías (las 2 finas exigen etiquetas de las que el dataset no dispone, no una pieza pendiente), la legitimidad se apoya en la IP (suplantable), y el 1B justifica mal sin RAG (el 8B con RAG sí: 18/18 ancladas, 0 contradicciones)—
+están medidos y documentados. Los números de la campaña original y su análisis están en el
 [informe](informe-evaluacion.md).
 
 **Criterio de cierre** (roadmap): cumplido — existen resultados cuantitativos (tabla comparativa,
