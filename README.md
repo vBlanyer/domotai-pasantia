@@ -18,7 +18,7 @@ ese ruido sin cortar lo que el negocio necesita.
 | **Agente de mitigación** (ReAct: escala host → cortafuegos, aprueba por paso) | [`prototipo/agente_mitigacion.py`](prototipo/agente_mitigacion.py) | Funcional con salida restringida por esquema y escalada determinista de respaldo; exige hardware rápido |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap, objetivo vulnerable) | [`lab/`](lab/) | Ejecutable |
 | **Dataset etiquetado** (466 alertas reales de tres familias, VP/FP/PROPIA/no_soportada, particionado 80/20) | [`lab/dataset/`](lab/dataset/) | Cerrado |
-| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 43 tests; campaña ejecutada |
+| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, 55 tests; campaña ejecutada |
 
 **La idea intelectualmente central:** la decisión clasificación→acción **no la toma el modelo**. La toma
 una **política determinista** que *propone* una acción y un **perfil de cliente configurable** que la

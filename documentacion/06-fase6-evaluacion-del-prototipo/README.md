@@ -45,6 +45,8 @@ estructurados — un desajuste que es barato medir comparándolos contra un mode
 
 - [informe-evaluacion.md](informe-evaluacion.md) — el informe con la tabla comparativa prototipo vs
   baseline, la curva del barrido, el análisis de errores y los umbrales calibrados devueltos a la Fase 5.
+- [guia-revision-independiente.md](guia-revision-independiente.md) — la guía para quien haga la
+  revisión independiente: juzgar las justificaciones y decidir, a ciegas, las decisiones escaladas al humano.
 
 ---
 
