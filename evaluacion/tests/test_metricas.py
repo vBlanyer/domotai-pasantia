@@ -44,3 +44,25 @@ class TestContinuidad(unittest.TestCase):
         r = m.continuidad(regs)
         self.assertEqual(r["disruptivas_indebidas"], 2)
         self.assertAlmostEqual(r["retencion_correcta"], 1/2)
+
+class TestBloqueosAutomaticosIndebidos(unittest.TestCase):
+    def test_cuenta_los_automaticos_sobre_fp_y_propia_sea_cual_sea_el_impacto(self):
+        regs = [
+            {"accion_final": "BLOQUEAR_IP", "requiere_humano": False, "etiqueta": "FP", "impacto": "localizado"},      # indebido
+            {"accion_final": "BLOQUEAR_IP", "requiere_humano": False, "etiqueta": "PROPIA", "impacto": "localizado"},  # indebido
+            {"accion_final": "BLOQUEAR_IP", "requiere_humano": False, "etiqueta": "VP", "impacto": "localizado"},      # correcto
+            {"accion_final": "BLOQUEAR_IP", "requiere_humano": True, "etiqueta": "FP", "impacto": "localizado"},       # lo retuvo el humano
+            {"accion_final": None, "requiere_humano": False, "etiqueta": "FP", "impacto": "ninguno"},                  # sin acción
+        ]
+        self.assertEqual(m.bloqueos_automaticos_indebidos(regs),
+                         {"automaticos": 3, "indebidos": 2, "tasa_indebidos": 2 / 3})
+
+    def test_sin_automaticos_la_tasa_es_nd(self):
+        self.assertEqual(m.bloqueos_automaticos_indebidos([]),
+                         {"automaticos": 0, "indebidos": 0, "tasa_indebidos": "n/d"})
+
+    def test_cubre_el_punto_ciego_de_continuidad(self):
+        # un bloqueo localizado indebido no es «disruptivo» para continuidad(); para esta métrica sí cuenta
+        regs = [{"accion_final": "BLOQUEAR_IP", "requiere_humano": False, "etiqueta": "FP", "impacto": "localizado"}]
+        self.assertEqual(m.continuidad(regs)["disruptivas_indebidas"], 0)
+        self.assertEqual(m.bloqueos_automaticos_indebidos(regs)["indebidos"], 1)

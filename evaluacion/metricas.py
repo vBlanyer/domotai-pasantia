@@ -66,3 +66,11 @@ def continuidad(registros):
     retenidas = sum(1 for r in disruptivas if r["requiere_humano"])
     return {"disruptivas_indebidas": len(disruptivas),
             "retencion_correcta": _div(retenidas, len(disruptivas))}
+
+def bloqueos_automaticos_indebidos(registros):
+    """Contenciones ejecutadas SIN humano (hay `accion_final` y no `requiere_humano`) cuya verdad es
+    FP o PROPIA, sea cual sea su impacto. Cubre el punto ciego de `continuidad`, que solo cuenta las
+    que alcanzan un servicio: bloquear a un empleado inocente es localizado y también es indebido."""
+    auto = [r for r in registros if r.get("accion_final") and not r.get("requiere_humano")]
+    indebidos = sum(1 for r in auto if r.get("etiqueta") in ("FP", "PROPIA"))
+    return {"automaticos": len(auto), "indebidos": indebidos, "tasa_indebidos": _div(indebidos, len(auto))}
