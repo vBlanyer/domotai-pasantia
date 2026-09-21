@@ -8,7 +8,7 @@ refleja la última corrida de ese directorio.
 
 | Directorio | Qué mide | Estado de las cifras |
 |------------|----------|----------------------|
-| `.` (raíz) | Partición de evaluación (300 alertas, 106 soportadas de tres familias, con la campaña de casos donde las reglas fallan) | **Vigente** — `campana-2026-09-11.json`; las corridas anteriores de la raíz son de 205/18 y 220/31 |
+| `.` (raíz) | Partición de evaluación (300 alertas, 106 soportadas de tres familias, con la campaña de casos donde las reglas fallan) | **Vigente** — `campana-2026-09-21.json` (clasificación y priorización idénticas a `campana-2026-09-11.json`; añade la conciencia de impacto); las corridas anteriores de la raíz son de 205/18 y 220/31 |
 | `anexo-completo/` | Partición completa (600 alertas, 212 soportadas); comprueba que no hubo fuga entre entrenar y evaluar | **Vigente** — regenerado el 11/09/2026 |
 | `entrenado-2026-09-11.md` | Árbol de decisión (CART) frente al determinista, con el árbol impreso como reglas | **Vigente** |
 | `revision-manual.csv` | Hoja para la revisión manual independiente de las 106 justificaciones (`python3 -m evaluacion.revision_manual`): una fila por texto, con la alerta, la verdad, la clase, los pasajes y tres columnas s/n para el revisor | Pendiente de rellenar |
@@ -176,7 +176,7 @@ para el determinista). El margen de una segunda opinión es lo que falla el fall
 
 - **Con la configuración real no hay margen.** Los 20 grises son las ráfagas desde el origen de administración
   (6ª regla, confianza 0,6): el sistema ya los manda al humano y el fallback los acierta todos. Es también la
-  cifra de escalado vigente: **20/300 = 0,067** (antes de la 6ª regla era 0,0).
+  escalada **por confianza**: **20/300 = 0,067** (antes de la 6ª regla era 0,0). Desde la conciencia de impacto el escalado total es 89/300 (sección siguiente).
 - **Sin postura, el margen es de 2 alertas y no es recuperable.** Son los casos *error + acceso* de la sección
   anterior (error de contraseña y acceso correcto desde el puesto, FP por verdad declarada): ni las reglas ni el
   árbol entrenado los separan («hoja de 3 casos mezclados»). Ningún campo estructurado de la alerta —lo único
@@ -190,6 +190,41 @@ para el determinista). El margen de una segunda opinión es lo que falla el fall
 tendría margen medible y operaría justo donde se mostró sesgado. Sostiene la **decisión D15** (los modelos de
 lenguaje asisten el triaje, no deciden la clase) y deja la segunda opinión como trabajo futuro con diseño de
 seguridad (`documentacion/00-general/estado-y-riesgos.md` §7).
+
+### Conciencia de impacto: a quién bloquea cada contención (21/09/2026)
+
+Pregunta: el catálogo declaraba el impacto de una acción por su tipo (`BLOQUEAR_IP` siempre «localizado»,
+bloquee a quien bloquee). ¿A quién bloqueaban de verdad las contenciones automáticas? Se midió sobre la
+partición de evaluación con el perfil `empresarial` corregido para describir la red real del laboratorio
+(spec: `docs/superpowers/specs/2026-09-21-conciencia-de-impacto-design.md`).
+
+| Métrica | 11/09 | 21/09 |
+|---|---|---|
+| Recall · tasa de FP (clasificación) | 1,000 · 0,009 | **idénticos** |
+| Priorización ±1 · Spearman | 0,981 · 0,935 | **idénticos** |
+| Contenciones automáticas (sin humano) | 69 | **0** |
+| — de ellas sobre un FP (indebidas) | 2 | **0** |
+| Escalado al humano | 20/300 (0,067) | **89/300 (0,297)** |
+
+- **Las 69 automáticas bloqueaban `192.168.1.10`, el puesto de un empleado.** En el laboratorio el atacante es
+  interno. Dos eran falsos positivos (los casos *error + acceso*): un empleado desconectado sin que nadie lo
+  aprobara. El indicador de continuidad (`disruptivas_indebidas`) los contaba como 0 porque solo mira las
+  acciones que alcanzan un servicio. La nueva métrica `bloqueos_automaticos_indebidos` cubre ese punto ciego.
+- **Ahora el filtro sabe a quién bloquea.** Bloquear un activo interno o un dispositivo de red exige humano
+  por defecto (decisión D16). Las 20 de antes siguen siendo las ráfagas desde el origen de administración
+  (confianza 0,6); las 69 nuevas son retenciones por actor interno.
+- **El coste es real:** el analista revisa 4,5 veces más decisiones. Un cliente que prefiera automatizar el
+  bloqueo de sus activos internos lo declara (`continuidad.actores.activo_interno: automatica_si_confianza`).
+  La automatización sigue disponible para orígenes externos desconocidos con confianza alta.
+- **Reconciliación del inventario del laboratorio** (`python3 -m prototipo.inventario`), que muestra la
+  exposición no reconocida:
+
+```
+borde: coincide con lo declarado
+iot: 1 abierto(s) no declarado(s) (exposición no reconocida): telnet/23
+objetivo-vuln: 14 abierto(s) no declarado(s) (exposición no reconocida): ftp/21, telnet/23, smtp/25, rpcbind/111, netbios-ssn/139, microsoft-ds/445, login/513, shell/514, ccproxy-ftp/2121, mysql/3306, postgresql/5432, vnc/5900, X11/6000, ajp13/8009
+puesto: coincide con lo declarado
+```
 
 ### Reproducibilidad del banco (RNF-03)
 

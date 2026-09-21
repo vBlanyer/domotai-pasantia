@@ -9,7 +9,7 @@ Ejemplo:   sh lab/lab.sh up red-cliente-firewall     # escalada host->firewall R
 ```
 
 Todas las topologías conservan `name: red-cliente`, así que los contenedores mantienen el prefijo
-`clab-red-cliente-*` que usan los scripts, el conector SSH y el perfil (`topologia.gateway.ip = 192.168.1.1`).
+`clab-red-cliente-*` que usan los scripts, el conector SSH y el perfil (`topologia.borde.ip = 192.168.1.1`).
 
 ## Mapa de nodos (común a las variantes de red-cliente)
 

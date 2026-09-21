@@ -10,3 +10,5 @@ n = 300 alertas (106 soportadas)  ·  baseline en su umbral optimo (nivel >= 5)
 
 Matriz prototipo: {'vp': 87, 'fp': 2, 'vn': 211, 'fn': 0}
 Matriz baseline: {'vp': 80, 'fp': 66, 'vn': 147, 'fn': 7}
+
+Contenciones automáticas (sin humano): 0 · indebidas (FP/PROPIA): 0 · tasa de escalado al humano: 0.297
