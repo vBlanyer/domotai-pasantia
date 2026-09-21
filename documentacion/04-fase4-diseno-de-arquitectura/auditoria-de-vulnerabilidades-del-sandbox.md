@@ -2,6 +2,13 @@
 
 El auditor es la **contraparte del motor de triaje**: mientras el motor de triaje reacciona a eventos, el auditor observa el estado del sistema y determina qué exposiciones existen. Este documento define su alcance, herramientas, salida y encaje en el flujo.
 
+> **Estado de implementación.** Este documento es el **diseño**. Lo implementado usa **solo Nmap**
+> (`lab/scripts/auditar.sh` + `lab/scripts/auditor.py`): Greenbone **no se desplegó** porque no cabe en
+> memoria junto al resto del laboratorio (ver [Fase 3](../03-fase3-entorno-de-pruebas/README.md)). La
+> postura que consume el triaje —¿el servicio atacado está expuesto?— sale del inventario de Nmap; lo que
+> se pierde es el **dictamen de vulnerabilidad** (CVE y severidad) que aportaría Greenbone. Como la salida
+> del auditor está **normalizada** (§4), incorporar Greenbone más adelante no obliga a tocar el motor.
+
 ---
 
 ## 1. Alcance

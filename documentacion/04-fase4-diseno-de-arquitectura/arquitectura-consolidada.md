@@ -88,9 +88,25 @@ frontera**:
 - **En vivo:** sandbox + Wazuh + encoder + modelo 1B. El lazo interactivo, demostrable.
 - **En lote:** Greenbone + modelo 8B, con el sandbox apagado. Postura, justificación extensa y métricas.
 
-> **Diseño vs implementación:** el diseño previó un 3B interactivo + 8B en lote (Perfil A); el prototipo
-> implementado usa el **1B** (`llama-3.2-1b-q4`) en vivo y deja el **8B en lote como trabajo futuro** (no
-> viable en el portátil). Ver [`seleccion-del-modelo.md`](./seleccion-del-modelo.md).
+> **Diseño vs implementación** (actualizado 21/09/2026). El diagrama y los modos de arriba son el
+> **diseño**; lo implementado difiere en cuatro puntos, todos por mediciones:
+>
+> - **Modelo generador.** El diseño previó un 3B interactivo + 8B en lote. Implementado: el 8B
+>   (`llama-3.1-8b-instruct-q4`) **no en lote sino como servidor residente**, en la máquina objetivo con GPU,
+>   donde justifica en ~0,4 s y midió **18/18 ancladas y 0 contradicciones** con RAG. En la máquina de
+>   desarrollo sin GPU se usa el **1B** (`llama-3.2-1b-q4`) o la plantilla determinista. El servidor
+>   residente eliminó la separación temporal que el 8B en lote exigía.
+> - **Clasificador.** El «encoder» del modo en vivo **se descartó** a favor de un **árbol de decisión** que
+>   descubre y valida reglas para el clasificador determinista (escala honesta para unos cientos de filas).
+> - **Auditor.** **Greenbone no se desplegó**: no cabe en memoria junto al resto (ver
+>   [Fase 3](../03-fase3-entorno-de-pruebas/README.md)). El auditor opera **solo con Nmap**, que inventaría
+>   servicios expuestos — suficiente para la postura que usa el triaje (expuesto sí/no), pero **sin dictamen
+>   de CVE ni severidad**. La salida normalizada del auditor permite incorporar Greenbone después sin tocar el
+>   motor.
+> - **Embedder del RAG.** Se añadió `bge-m3` (1024 dim.) como embedder dedicado, también residente.
+>
+> Ver [`seleccion-del-modelo.md`](./seleccion-del-modelo.md) y los
+> [resultados de evaluación](../../evaluacion/resultados/README.md).
 
 ---
 

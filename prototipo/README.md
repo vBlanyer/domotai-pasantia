@@ -56,8 +56,9 @@ Cada paso vive en su propio módulo, con una responsabilidad y un motivo de camb
 
 `analisis.clasificar` y `analisis.justificar` son la **interfaz** que el resto del motor consume.
 Hoy, detrás de esa interfaz hay una implementación **determinista y explicable** (sin ML): mira si
-la alerta pertenece a una familia de ataque soportada y si el hallazgo de Nmap/Greenbone (postura
-del activo) confirma que el servicio está expuesto. No aprende, no generaliza y no tiene ningún
+la alerta pertenece a una familia de ataque soportada y si el hallazgo del auditor Nmap (postura
+del activo) confirma que el servicio está expuesto (Greenbone estaba en el diseño pero no se
+desplegó: no cabe en memoria; ver Fase 3). No aprende, no generaliza y no tiene ningún
 parámetro ajustado sobre el dataset — es una regla fija, elegida como placeholder honesto para
 poder construir y probar el resto del lazo (política, perfil, traza) sin depender de `torch`,
 `transformers` ni de un runtime de LLM, que la máquina de desarrollo no tiene.
