@@ -37,6 +37,16 @@ class TestReconciliar(unittest.TestCase):
         self.assertEqual(self.r["activos"]["puesto"],
                          {"abiertos_no_declarados": [], "declarados_no_abiertos": []})
 
+    def test_puerto_declarado_como_texto_coincide_con_el_abierto(self):   # F6
+        # "80" (texto, como puede llegar de un YAML mal tipado) debe cruzar con el 80 (entero)
+        # que ve el auditor, igual que ya hace impacto.determinar con servicios_prestados.
+        perfil = {"activos": {"objetivo-vuln": {"servicios_prestados": ["22", "80"]}}}
+        r = inventario.reconciliar(perfil, HALLAZGOS)
+        abiertos_no_declarados = [s["puerto"] for s in r["activos"]["objetivo-vuln"]["abiertos_no_declarados"]]
+        self.assertNotIn(80, abiertos_no_declarados)
+        self.assertNotIn(22, abiertos_no_declarados)
+        self.assertEqual(r["activos"]["objetivo-vuln"]["declarados_no_abiertos"], [])
+
 
 class TestCLI(unittest.TestCase):
     def test_imprime_el_informe(self):

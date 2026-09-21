@@ -20,7 +20,7 @@ def reconciliar(perfil, hallazgos):
         abiertos = impacto.puertos_abiertos(hallazgos, nombre)
         if abiertos is None:
             continue
-        declarados = set((activos[nombre] or {}).get("servicios_prestados") or [])
+        declarados = {impacto.como_puerto(p) for p in (activos[nombre] or {}).get("servicios_prestados") or []}
         por_activo[nombre] = {
             "abiertos_no_declarados": [{"puerto": p, "servicio": abiertos[p]}
                                        for p in sorted(set(abiertos) - declarados)],

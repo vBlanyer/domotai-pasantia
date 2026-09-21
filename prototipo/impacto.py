@@ -30,8 +30,11 @@ def _activo(perfil, nombre):
     return ((perfil or {}).get("activos") or {}).get(nombre) or {}
 
 
-def _puerto(valor):
-    # Los hallazgos y servicios_prestados son enteros; un puerto puede llegar como texto ("80").
+def como_puerto(valor):
+    """Normaliza un puerto a entero para poder cruzarlo (los hallazgos y servicios_prestados son
+    enteros, pero un puerto puede declararse o llegar como texto, p. ej. "80"). Pública: también
+    la usa `inventario.reconciliar` para que declarado y abierto se comparen igual en los dos
+    sitios (F6)."""
     try:
         return int(valor)
     except (TypeError, ValueError):
@@ -56,13 +59,13 @@ def _servicio(puerto, nombre, declarados, abiertos):
 
 
 def _declarados(perfil, activo):
-    return {_puerto(p) for p in _activo(perfil, activo).get("servicios_prestados") or []}
+    return {como_puerto(p) for p in _activo(perfil, activo).get("servicios_prestados") or []}
 
 
 def _servicios_de_puerto(accion_id, params, activo, perfil, hallazgos):
     declarados, abiertos = _declarados(perfil, activo), puertos_abiertos(hallazgos, activo)
     if accion_id == "BLOQUEAR_PUERTO":
-        return [_servicio(_puerto(params.get("puerto")), None, declarados, abiertos)]
+        return [_servicio(como_puerto(params.get("puerto")), None, declarados, abiertos)]
     # CERRAR_SERVICIO llega por nombre: el puerto sale de los hallazgos.
     nombre = params.get("servicio")
     puertos = sorted(p for p, s in (abiertos or {}).items() if s == nombre)
