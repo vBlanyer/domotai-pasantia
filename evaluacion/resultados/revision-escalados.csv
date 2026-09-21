@@ -5,7 +5,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110.001
 Justificación: Alerta 5503 (técnica T1110.001) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 2;1789139382.874333;"── Validación humana requerida ──
@@ -13,7 +13,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 40 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 3;1788194932.707158;"── Validación humana requerida ──
@@ -21,7 +21,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5760 (técnica T1110.001, T1021.004) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 10 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 4;1789139213.847356;"── Validación humana requerida ──
@@ -29,7 +29,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110.001
 Justificación: Alerta 5503 (técnica T1110.001) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 5;1789139217.848426;"── Validación humana requerida ──
@@ -37,7 +37,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5760 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 6;1789139215.847886;"── Validación humana requerida ──
@@ -45,7 +45,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001
 Justificación: Alerta 5503 (técnica T1110.001) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 7;1789139219.848901;"── Validación humana requerida ──
@@ -53,7 +53,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5760 (técnica T1110.001, T1021.004) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 8;1789139424.883891;"── Validación humana requerida ──
@@ -61,7 +61,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 26 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 9;1789139255.858583;"── Validación humana requerida ──
@@ -69,7 +69,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110
 Justificación: Alerta 5763 (técnica T1110) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 10;1789139253.856918;"── Validación humana requerida ──
@@ -77,7 +77,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110
 Justificación: Alerta 5551 (técnica T1110) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 11;1789139249.855913;"── Validación humana requerida ──
@@ -85,7 +85,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110.001
 Justificación: Alerta 5503 (técnica T1110.001) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 12;1789139342.865399;"── Validación humana requerida ──
@@ -93,7 +93,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 28 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 13;1789139356.868676;"── Validación humana requerida ──
@@ -101,7 +101,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001
 Justificación: Alerta 5503 (técnica T1110.001) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 34 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 14;1789139221.849386;"── Validación humana requerida ──
@@ -109,7 +109,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110.001
 Justificación: Alerta 5503 (técnica T1110.001) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 15;1789139332.863338;"── Validación humana requerida ──
@@ -117,7 +117,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 26 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 16;1789139223.849916;"── Validación humana requerida ──
@@ -125,7 +125,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5760 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 17;1789139261.860834;"── Validación humana requerida ──
@@ -133,7 +133,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110.001
 Justificación: Alerta 5503 (técnica T1110.001) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 18;1789139330.862844;"── Validación humana requerida ──
@@ -141,7 +141,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 25 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 19;1789139263.861364;"── Validación humana requerida ──
@@ -149,7 +149,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5760 (técnica T1110.001, T1021.004) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 20;1789139392.876394;"── Validación humana requerida ──
@@ -157,7 +157,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5710 (técnica T1110.001, T1021.004) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 39 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 21;1789139245.854908;"── Validación humana requerida ──
@@ -165,7 +165,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.1  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 0.6
 Técnica MITRE: T1110.001
 Justificación: Alerta 5503 (técnica T1110.001) desde 192.168.1.1 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 20 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a borde (dispositivo de red: equipo de borde: enruta la LAN hacia el proveedor) · sube de localizado a alcanza_servicio: un dispositivo de red puede cortar todo lo que enruta
 Acción final: BLOQUEAR_IP";;;;;
 22;1789089726.116891;"── Validación humana requerida ──
@@ -173,7 +173,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1190
 Justificación: Alerta 5701 (técnica T1190) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 9 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 23;1789137581.806908;"── Validación humana requerida ──
@@ -181,7 +181,7 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: telnet
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: —
 Justificación: Alerta 5602 (técnica s/téc.) desde 192.168.1.10 contra objetivo-vuln (telnet). el auditor confirma que telnet está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más). Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
 24;1788194920.705426;"── Validación humana requerida ──
@@ -189,6 +189,6 @@ Activo: objetivo-vuln  ·  Origen: 192.168.1.10  ·  Servicio: ssh
 Clase: vp_intento_acceso  ·  Prioridad: 3  ·  Confianza: 1.0
 Técnica MITRE: T1110.001, T1021.004
 Justificación: Alerta 5760 (técnica T1110.001, T1021.004) desde 192.168.1.10 contra objetivo-vuln (ssh). el auditor confirma que ssh está expuesto en objetivo-vuln (el activo también expone: X11, ajp13, ccproxy-ftp, ftp y 11 más); ráfaga de 10 alertas del mismo origen en un minuto. Clasificada como vp_intento_acceso. [justificación de plantilla — baseline, no modelo]
-Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: veta
+Acción sugerida: BLOQUEAR_IP  ·  Impacto: localizado  ·  Filtro: retenida — espera tu aprobación
 Consecuencia: bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos
 Acción final: BLOQUEAR_IP";;;;;
