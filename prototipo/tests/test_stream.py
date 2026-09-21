@@ -234,6 +234,13 @@ class TestStream(unittest.TestCase):
         linea = stream._linea_decision(d)
         self.assertIn("Enrutado a: cola-appsec-banco", linea)
 
+    def test_linea_decision_muestra_la_consecuencia(self):
+        d = {"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 1.0,
+             "accion_propuesta": "BLOQUEAR_IP", "accion_final": "BLOQUEAR_IP", "resultado_filtro": "veta",
+             "version_justificador": "plantilla-0",
+             "impacto_determinado": {"motivo": "bloquea a puesto (activo interno) · 0 servicios detenidos"}}
+        self.assertIn("\n  Consecuencia: bloquea a puesto", stream._linea_decision(d))
+
 
 if __name__ == "__main__":
     unittest.main()

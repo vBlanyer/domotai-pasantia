@@ -226,6 +226,7 @@ def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto
         "resultado_filtro": filtro_out.get("resultado"),
         "accion_final": filtro_out.get("accion_final"),
         "requiere_humano": filtro_out.get("requiere_humano"),
+        "impacto_determinado": filtro_out.get("impacto"),   # a quién bloquea y qué detiene (RF-17)
         "version_baseline": VERSION_BASELINE,
         "version_perfil": version_perfil,
     }
