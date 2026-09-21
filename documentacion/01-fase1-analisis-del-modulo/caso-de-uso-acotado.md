@@ -218,16 +218,23 @@ la orden de acción, pendiente de aplicar.
   día. Es la última en dar resultados útiles.
 - **No cubre el compromiso ya persistente.** Si el acceso no autorizado ocurrió antes de que el
   sistema estuviera en marcha, no hay evento de acceso que triar.
-- **El MDR tría lo detectado; no detecta.** El sistema es la capa de **triaje y respuesta aguas
-  abajo** del SIEM del cliente: solo actúa sobre alertas que el SIEM ya generó. Cualquier capacidad
-  que exija *detectar* (en vez de triar lo detectado) queda fuera por diseño. Caso concreto: la
-  **contención lateral / este-oeste** (aislar a un atacante interno que pivota entre segmentos hacia
-  activos críticos) se estudió y **se descartó del alcance** porque presupone dos cosas ajenas al
-  MDR: (1) **detección este-oeste** —telemetría interna: NetFlow, EDR, IDS interno— que es del SIEM
-  y del cliente; y (2) **puntos de aplicación internos** —switches gestionables/NAC más la
-  resolución de identidad en capa 2 (IP→puerto→endpoint) y sus conectores— que es infraestructura y
-  producción. En consecuencia, el movimiento lateral se trata **honestamente**: si el SIEM no manda
-  la alerta, el MDR no la ve; si la manda, cae en `no soportada` o se **encamina** (nivel
+- **No genera la detección primaria; la refina.** En seguridad, «detección» tiene dos sentidos, y el
+  proyecto los distingue a propósito: la **detección primaria** es generar la alerta a partir de
+  telemetría cruda (reglas, firmas, anomalías); el **veredicto** es decidir si una alerta es una amenaza
+  real. El sistema **no hace la primera** —la hace el SIEM del cliente (Wazuh en el prototipo), y la
+  integración multicapa queda fuera por el propio plan de trabajo—: es la capa de **triaje y respuesta
+  aguas abajo** del SIEM. **Sí hace la segunda**: detecta **cuáles de esas alertas son amenazas reales**,
+  y se mide con métricas de detección. Frente al nivel de regla de Wazuh, los falsos positivos bajan de
+  0,296 a 0,000 y la exhaustividad sube de 0,741 a 1,000: el baseline deja pasar amenazas reales de baja
+  severidad que el prototipo reconoce (ver [resultados](../../evaluacion/resultados/README.md)).
+  Lo que queda fuera por diseño es cualquier capacidad que exija **detección primaria nueva**. Caso
+  concreto: la **contención lateral / este-oeste** (aislar a un atacante interno que pivota entre
+  segmentos hacia activos críticos) se estudió y **se descartó del alcance** porque presupone dos cosas
+  ajenas al MDR: (1) **detección primaria este-oeste** —telemetría interna: NetFlow, EDR, IDS interno—
+  que es del SIEM y del cliente; y (2) **puntos de aplicación internos** —switches gestionables/NAC más
+  la resolución de identidad en capa 2 (IP→puerto→endpoint) y sus conectores— que es infraestructura y
+  producción. En consecuencia, el movimiento lateral se trata **honestamente**: si el SIEM no manda la
+  alerta, el MDR no la ve; si la manda, cae en `no soportada` o se **encamina** (nivel
   `triar_y_enrutar`) a NetEng/SOC con su contexto MITRE, sin fingir una contención que el sistema no
   posee. Mismo techo comparten malware/C2 y DoS.
 - **El perímetro es del prototipo, no del riesgo del cliente.** Que una alerta quede fuera no
