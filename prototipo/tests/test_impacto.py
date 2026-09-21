@@ -115,5 +115,35 @@ class TestPuertosAbiertos(unittest.TestCase):
                          {21: "ftp", 22: "ssh", 3306: "mysql"})
 
 
+class TestCascada(unittest.TestCase):
+    def _perfil(self, deps):
+        return {"activos": {n: {"depende_de": d} for n, d in deps.items()}}
+
+    def test_cadena(self):
+        p = self._perfil({"a": [], "b": ["a"], "c": ["b"]})
+        self.assertEqual(impacto.afectados_en_cascada("a", p), ["b", "c"])
+
+    def test_diamante_cuenta_cada_activo_una_vez(self):
+        p = self._perfil({"a": [], "b": ["a"], "c": ["a"], "d": ["b", "c"]})
+        self.assertEqual(impacto.afectados_en_cascada("a", p), ["b", "c", "d"])
+
+    def test_ciclo_termina_y_no_se_incluye_a_si_mismo(self):
+        p = self._perfil({"a": ["b"], "b": ["a"]})
+        self.assertEqual(impacto.afectados_en_cascada("a", p), ["b"])
+
+    def test_sin_dependencias(self):
+        self.assertEqual(impacto.afectados_en_cascada("a", {"activos": {"a": {}}}), [])
+
+    def test_determinar_la_incluye_para_nodos_y_servicios_no_para_ips(self):
+        p = {"activos": {"db": {"servicios_prestados": [5432]}, "app": {"depende_de": ["db"]}}}
+        nodo = impacto.determinar("AISLAR_NODO", {}, "db", p, CAT)
+        self.assertEqual(nodo["activos_afectados_en_cascada"], ["app"])
+        self.assertIn("en cascada: app", nodo["motivo"])
+        puerto = impacto.determinar("BLOQUEAR_PUERTO", {"puerto": 5432}, "db", p, CAT)
+        self.assertEqual(puerto["activos_afectados_en_cascada"], ["app"])
+        ip = impacto.determinar("BLOQUEAR_IP", {"ip": "203.0.113.9"}, "db", p, CAT)
+        self.assertEqual(ip["activos_afectados_en_cascada"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

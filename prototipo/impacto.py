@@ -51,6 +51,23 @@ def puertos_abiertos(hallazgos, activo):
             if s.get("estado") == "open" and s.get("puerto") is not None}
 
 
+def afectados_en_cascada(activo, perfil):
+    """Activos que dependen, directa o indirectamente, de `activo` según `depende_de` (cierre
+    transitivo inverso), en orden alfabético. Guardia de ciclos: cada activo se visita una vez. Una
+    dependencia no declarada da un falso «sin cascada»: es un límite del inventario (Nivel 2)."""
+    dependientes = {}
+    for nombre, info in ((perfil or {}).get("activos") or {}).items():
+        for dep in (info or {}).get("depende_de") or []:
+            dependientes.setdefault(dep, set()).add(nombre)
+    vistos, pendientes = set(), [activo]
+    while pendientes:
+        for d in dependientes.get(pendientes.pop(), ()):
+            if d not in vistos and d != activo:
+                vistos.add(d)
+                pendientes.append(d)
+    return sorted(vistos)
+
+
 def _servicio(puerto, nombre, declarados, abiertos):
     return {"puerto": puerto,
             "servicio": nombre if nombre else (abiertos or {}).get(puerto),
@@ -104,7 +121,7 @@ def _lista(servicios):
     return ", ".join(etiquetas[:_TOPE_LISTA]) + f" y {len(etiquetas) - _TOPE_LISTA} más"
 
 
-def _motivo(det, perfil):
+def _motivo_base(det, perfil):
     """Una línea para el analista y el daemon: la consecuencia de ejecutar la acción."""
     accion, actor, servicios = det["accion_id"], det["actor"], det["servicios_afectados"]
     if accion in ACCIONES_SOBRE_IP:
@@ -130,6 +147,13 @@ def _motivo(det, perfil):
     return f"impacto del catálogo: {det['nivel']}"
 
 
+def _motivo(det, perfil):
+    texto = _motivo_base(det, perfil)
+    if det.get("activos_afectados_en_cascada"):
+        texto += " · en cascada: " + ", ".join(det["activos_afectados_en_cascada"])
+    return texto
+
+
 def determinar(accion_id, params, activo, perfil, catalogo, hallazgos=None):
     """Impacto determinado de `accion_id` sobre `activo`: {nivel, nivel_catalogo,
     servicios_afectados, actor, activo, accion_id, motivo}."""
@@ -145,7 +169,9 @@ def determinar(accion_id, params, activo, perfil, catalogo, hallazgos=None):
         servicios = _servicios_de_puerto(accion_id, params, activo, perfil, hallazgos)
     elif accion_id in ACCIONES_SOBRE_NODO:
         servicios = _servicios_del_nodo(activo, perfil, hallazgos)
+    cascada = (afectados_en_cascada(activo, perfil)
+               if accion_id in ACCIONES_SOBRE_PUERTO or accion_id in ACCIONES_SOBRE_NODO else [])
     det = {"nivel": nivel, "nivel_catalogo": nivel_catalogo, "servicios_afectados": servicios,
-           "actor": actor, "activo": activo, "accion_id": accion_id}
+           "actor": actor, "activo": activo, "accion_id": accion_id, "activos_afectados_en_cascada": cascada}
     det["motivo"] = _motivo(det, perfil)
     return det
