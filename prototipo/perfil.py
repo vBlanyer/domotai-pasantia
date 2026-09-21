@@ -15,12 +15,9 @@ def criticidad_de(perfil, activo):
     return perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")
 
 def ip_de(perfil, nodo):
-    """IP de ejecución de `nodo` declarada en el perfil: la del inventario (`activos`) o, si no la
-    tiene, la de la `topologia`. None si el perfil no la declara (orden.construir cae entonces al
-    mapa heredado del laboratorio)."""
-    activo = ((perfil or {}).get("activos") or {}).get(nodo) or {}
-    nodo_top = ((perfil or {}).get("topologia") or {}).get(nodo)
-    return activo.get("ip") or (nodo_top.get("ip") if isinstance(nodo_top, dict) else None)
+    """IP de ejecución de `nodo` declarada en el perfil (ver `actores.ip_de`). None si el perfil no
+    la declara (orden.construir cae entonces al mapa heredado del laboratorio)."""
+    return actores.ip_de(perfil, nodo)
 
 def ruta_de(perfil, rol):
     """Rol logico de ruta (p. ej. 'appsec') -> destino real del cliente. Sin binding, el rol mismo.
@@ -37,7 +34,10 @@ def _umbral(perfil):
     return perfil.get("continuidad", {}).get("umbral_confianza", UMBRAL_CONFIANZA)
 
 def _corta_gestion(catalogo, accion_id, servicio):
-    return catalogo.get(accion_id, {}).get("corta_gestion_si") == servicio
+    # Sin `corta_gestion_si` la acción no corta la gestión: una alerta sin servicio (None) no puede
+    # casar con la clave ausente (None), o cualquier acción suya quedaría vetada en duro.
+    corta = catalogo.get(accion_id, {}).get("corta_gestion_si")
+    return corta is not None and corta == servicio
 
 def _excepcion_nunca_automatica(perfil, activo, params):
     # La excepción del perfil marca un puerto/servicio de un activo como no-automatico.

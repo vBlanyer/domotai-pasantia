@@ -56,6 +56,15 @@ def _en_redes(ip, redes):
     return any(direccion in ipaddress.ip_network(red, strict=False) for red in redes or [])
 
 
+def ip_de(perfil, nodo):
+    """IP de `nodo` declarada en el perfil: la del inventario (`activos`) o, si no la tiene, la de la
+    `topologia`. None si el perfil no la declara. Vive aquí (y `perfil.ip_de` la reexporta) porque
+    `impacto` la necesita para saber a quién afecta una acción sobre un nodo."""
+    activo = ((perfil or {}).get("activos") or {}).get(nodo) or {}
+    nodo_top = ((perfil or {}).get("topologia") or {}).get(nodo)
+    return activo.get("ip") or (nodo_top.get("ip") if isinstance(nodo_top, dict) else None)
+
+
 def quien_es(ip, perfil):
     """Actor al que afecta bloquear `ip`: {tipo, nombre, funcion, ip, por}, o None si no hay IP.
 
