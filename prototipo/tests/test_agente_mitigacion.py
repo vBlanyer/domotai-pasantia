@@ -468,3 +468,9 @@ class TestVistaDelAgente(unittest.TestCase):
         lectura = next(p for p in plan["pasos"] if p.get("tool") == "consultar_topologia")
         self.assertIn("abiertos segun el auditor: 22", lectura["observacion"])
 
+    def test_consultar_topologia_muestra_la_cascada(self):
+        p = {"topologia": {"db": {"rol": "host_victima", "ip": "10.0.0.5"}},
+             "activos": {"db": {"ip": "10.0.0.5"}, "app": {"depende_de": ["db"]}}}
+        obs = ag.herramienta_consultar_topologia(ag.resolver_topologia(p))
+        self.assertIn("si cae, afecta a: app", obs)
+

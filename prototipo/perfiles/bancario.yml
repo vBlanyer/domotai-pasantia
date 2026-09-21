@@ -6,11 +6,12 @@ version: v0
 # Inventario (RF-17): criticidad gobierna la prioridad (critica/alta suben); servicios_prestados son
 # los puertos del servicio; ip y funcion dicen a quien toca cada accion. IPs con el patron
 # 10.<VLAN>.0.10 (SWIFT no tenia VLAN numerada: se usa la 30, libre entre la DMZ 20 y el Core 40).
+# depende_de (Nivel 2): si cae uno de esos activos, este se ve afectado.
 activos:
-  web-banking:    { ip: 10.10.0.10,  funcion: "banca en linea (portal web de clientes)",       criticidad: alta,    servicios_prestados: [443, 80] }   # DMZ VLAN 10
-  api-movil:      { ip: 10.20.0.10,  funcion: "API de la aplicacion movil",                    criticidad: alta,    servicios_prestados: [443] }       # DMZ VLAN 20
-  swift-alliance: { ip: 10.30.0.10,  funcion: "pasarela SWIFT Alliance (transferencias)",      criticidad: critica, servicios_prestados: [] }          # DMZ SWIFT
-  middleware:     { ip: 10.40.0.10,  funcion: "middleware del core bancario",                  criticidad: alta,    servicios_prestados: [8443] }      # Core VLAN 40
+  web-banking:    { ip: 10.10.0.10,  funcion: "banca en linea (portal web de clientes)",       criticidad: alta,    servicios_prestados: [443, 80], depende_de: [middleware] }   # DMZ VLAN 10
+  api-movil:      { ip: 10.20.0.10,  funcion: "API de la aplicacion movil",                    criticidad: alta,    servicios_prestados: [443], depende_de: [middleware] }       # DMZ VLAN 20
+  swift-alliance: { ip: 10.30.0.10,  funcion: "pasarela SWIFT Alliance (transferencias)",      criticidad: critica, servicios_prestados: [], depende_de: [hsm] }          # DMZ SWIFT
+  middleware:     { ip: 10.40.0.10,  funcion: "middleware del core bancario",                  criticidad: alta,    servicios_prestados: [8443], depende_de: [core-db, hsm] }      # Core VLAN 40
   core-db:        { ip: 10.50.0.10,  funcion: "base de datos del core bancario (cluster)",     criticidad: critica, servicios_prestados: [1521] }      # Core VLAN 50
   hsm:            { ip: 10.60.0.10,  funcion: "modulo de seguridad de hardware (cifrado)",     criticidad: critica, servicios_prestados: [] }          # Core VLAN 60
   mdr-siem:       { ip: 10.100.0.10, funcion: "consola SOC/MDR (plano de gestion)",            criticidad: critica, servicios_prestados: [] }          # SOC VLAN 100
