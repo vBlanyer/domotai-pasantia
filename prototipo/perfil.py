@@ -48,14 +48,18 @@ def _excepcion_nunca_automatica(perfil, activo, params):
             return True
     return False
 
-def _permite_localizado(perfil, confianza):
-    # regla impacto_localizado del perfil aplicada a una acción ya localizada
-    regla = perfil.get("continuidad", {}).get("impacto_localizado", "humano_siempre")
+def _permite_nivel(perfil, nivel, confianza):
+    # regla impacto_<nivel> del perfil: ¿la deja en automático con esta confianza?
+    regla = perfil.get("continuidad", {}).get(f"impacto_{nivel}", "humano_siempre")
     if regla == "automatica":
         return True
     if regla == "automatica_si_confianza":
         return confianza >= _umbral(perfil)
     return False
+
+def _permite_localizado(perfil, confianza):
+    # regla impacto_localizado del perfil aplicada a una acción ya localizada
+    return _permite_nivel(perfil, "localizado", confianza)
 
 def _filtrar_reglas(perfil, accion_id, params, catalogo, activo, servicio, confianza, nivel):
     """Las reglas de continuidad de siempre (RF-17 a RF-19), aplicadas con el nivel de impacto
@@ -116,4 +120,10 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
     res = _filtrar_reglas(perfil, accion_id, params, catalogo, activo, servicio, confianza, det["nivel"])
     if res["accion_final"] and res["accion_final"] != accion_id:   # degradada: se ejecuta otra acción
         det = impactom.determinar(res["accion_final"], params, activo, perfil, catalogo, hallazgos)
+        # C2: `_filtrar_reglas` decidió con el nivel de la acción PROPUESTA; la acción degradada
+        # puede resultar en un nivel MAYOR (p. ej. bloquear IP de un dispositivo de red sube a
+        # alcanza_servicio). Si la regla de continuidad para ese nivel final no lo autoriza en
+        # automático, la acción sigue ejecutándose (sigue "degrada"), pero retenida para el humano.
+        if not _permite_nivel(perfil, det["nivel"], confianza):
+            res = {**res, "requiere_humano": True}
     return {**_aplicar_actor(res, perfil, det), "impacto": det}

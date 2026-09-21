@@ -281,3 +281,29 @@ class TestConcienciaDeActores(unittest.TestCase):
 
     def test_sin_accion_no_lleva_impacto(self):
         self.assertNotIn("impacto", self._filtrar(None, {}))
+
+    def test_la_degradacion_reaplica_la_continuidad_al_nivel_final(self):   # F1, C2
+        # BLOQUEAR_PUERTO degrada a BLOQUEAR_IP; esa IP resulta ser un dispositivo de red (sube a
+        # alcanza_servicio). El perfil permite automatica_si_confianza a los dispositivos de red Y
+        # a impacto_localizado, pero exige humano para impacto_alcanza_servicio: la reglas de
+        # continuidad tienen que reaplicarse sobre el nivel FINAL, no quedarse con el del salto
+        # localizado con el que se decidio degradar.
+        p = {
+            "activos": {"puesto": {"ip": "192.168.1.10"}},
+            "topologia": {
+                "objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
+                "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"},
+            },
+            "continuidad": {
+                "impacto_localizado": "automatica_si_confianza",
+                "impacto_alcanza_servicio": "humano_siempre",
+                "reversibilidad_obligatoria": True,
+                "actores": {"dispositivo_red": "automatica_si_confianza"},
+            },
+        }
+        r = perfil.filtrar(p, "BLOQUEAR_PUERTO", {"puerto": 22, "ip": "192.168.1.1"}, CAT,
+                           "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual(r["resultado"], "degrada")
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")
+        self.assertEqual(r["impacto"]["nivel"], "alcanza_servicio")
+        self.assertTrue(r["requiere_humano"])   # hoy da False: bug del salto degradado (F1)
