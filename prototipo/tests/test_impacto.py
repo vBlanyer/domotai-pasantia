@@ -37,6 +37,9 @@ class TestAccionesSobreIP(unittest.TestCase):
         self.assertEqual(d["actor"]["tipo"], "dispositivo_red")
         self.assertEqual((d["nivel_catalogo"], d["nivel"]), ("localizado", "alcanza_servicio"))
         self.assertIn("todo lo que enruta", d["motivo"])
+        # F4: bloquear un gateway no detiene "0 servicios" -- justo lo contrario de lo que dice
+        # la frase que sigue ("puede cortar todo lo que enruta"); la contradiccion no debe verse.
+        self.assertNotIn("0 servicios detenidos", d["motivo"])
 
     def test_un_origen_externo_queda_como_en_el_catalogo(self):
         d = impacto.determinar("BLOQUEAR_IP", {"ip": "203.0.113.9"}, "objetivo-vuln", PERFIL, CAT)

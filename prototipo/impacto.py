@@ -107,7 +107,11 @@ def _motivo(det, perfil):
     if accion in ACCIONES_SOBRE_IP:
         if actor is None:
             return "sin IP que bloquear"
-        texto = f"bloquea a {_quien(actor)} · 0 servicios detenidos"
+        texto = f"bloquea a {_quien(actor)}"
+        if actor["tipo"] != "dispositivo_red":
+            # Un dispositivo de red no "detiene 0 servicios": puede cortar todo lo que enruta
+            # (la frase que sigue cuando sube de nivel). Decir las dos cosas se contradice.
+            texto += " · 0 servicios detenidos"
         if det["nivel"] != det["nivel_catalogo"]:
             texto += (f" · sube de {det['nivel_catalogo']} a {det['nivel']}: "
                       "un dispositivo de red puede cortar todo lo que enruta")
