@@ -180,7 +180,9 @@ for i in $(seq 1 10); do docker exec clab-banco-internet sh -c "sshpass -p mal_$
 1. El bloqueo automático en `web-banking` falla, porque el conector no llega.
 2. El sistema **escala** a `fw-core` y te pide aprobación, porque bloquear en un cortafuegos alcanza a un
    servicio.
-3. Aprueba (`1`): la regla queda en `fw-core` (`docker exec clab-banco-fw-core iptables -S FORWARD`).
+3. La escalada **no usa el menú numerado**: pregunta `¿aprobar la ejecución? [s/N]`. Contesta **`s`**
+   (un `1` o Enter se leen como rechazo). La regla queda en `fw-core`
+   (`docker exec clab-banco-fw-core iptables -S FORWARD`).
 
 > Este caso no está incluido en las verificaciones automáticas de la fase 0, que probaron la escalada
 > con el conector de forma aislada (V6). Si no se comporta así, guarda la salida de la terminal 2: es un
