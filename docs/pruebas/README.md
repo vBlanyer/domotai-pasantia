@@ -36,6 +36,10 @@ python3 -m evaluacion.campana --particion evaluacion --sin-llm
 
 # 3) Lab en vivo (necesita Docker + Containerlab + modelo)
 sh lab/lab.sh up && python3 lab/scripts/demo-agente-escalado.py --autonomo
+
+# 4) Banco de pruebas del laboratorio del banco (catálogo de casos con veredicto)
+python3 -m lab.banco.pruebas              # decision/inyectada/perfil, sin lab, segundos
+sh lab/lab.sh up banco && python3 -m lab.banco.pruebas --con-vivo   # además los casos de extremo a extremo
 ```
 
 ---
@@ -49,7 +53,7 @@ sh lab/lab.sh up && python3 lab/scripts/demo-agente-escalado.py --autonomo
 - [05 · Topologías del laboratorio](05-topologias.md)
 - [06 · Rendimiento y hardware](06-rendimiento-y-hardware.md)
 - [07 · Roadmap del pipeline y latencia medida](07-roadmap-pipeline-y-latencia.md)
-- [08 · Prueba manual en el laboratorio del banco](08-laboratorio-banco.md)
+- [08 · Prueba manual en el laboratorio del banco](08-laboratorio-banco.md) — su apartado 10 remite al **banco de pruebas automático** (`python3 -m lab.banco.pruebas`, catálogo de casos con veredicto OK/FALLO/BLOQUEADO/OMITIDO y guías por caso en [banco/](banco/))
 
 ---
 
