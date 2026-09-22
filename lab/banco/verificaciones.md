@@ -78,10 +78,34 @@ se disparó para el atacante externo (`internet` → `web-banking`); ni `taquill
 corrida.
 
 Se investigó la causa antes de concluir «no detectado»: la regla nativa de Wazuh
-(`/var/ossec/ruleset/rules/0095-sshd_rules.xml`) es
-`id="5763" level="10" frequency="8" timeframe="120" ignore="60"` con `<same_source_ip/>`
-sobre `if_matched_sid=5760`. Repitiendo el ataque de `taquilla` en solitario (sin las otras
-dos ráfagas superpuestas en la misma ventana):
+(`/var/ossec/ruleset/rules/0095-sshd_rules.xml` ~479-481) es
+
+```
+<rule id="5763" level="10" frequency="8" timeframe="120" ignore="60">
+  <if_matched_sid>5760</if_matched_sid>
+  <same_source_ip/>
+```
+
+`same_source_ip` gobierna el *conteo* (hace falta 8 `5760` del mismo origen en 120 s), pero
+`ignore="60"` es una supresión aparte: una vez que la regla 5763 dispara, Wazuh la silencia
+durante 60 s para **cualquier** origen, no solo para el que la disparó. Los timestamps
+literales (recorte de `grep -a` sobre `alerts.json`, mismo comando de conteo de la sección
+anterior pero imprimiendo el timestamp) lo confirman:
+
+```
+2026-09-22T15:08:20.474+0000 198.51.100.10 web-banking 5763 10   <- dispara, abre la ventana de silencio hasta 15:09:20.474
+2026-09-22T15:08:21.287+0000 10.200.0.10   core-db     5760 5    <- taquilla, dentro de la ventana
+...
+2026-09-22T15:08:24.294+0000 10.200.0.10   core-db     5760 5    <- taquilla, 10/10 intentos, sin 5763 (dentro de la ventana)
+2026-09-22T15:08:24.695+0000 10.40.0.10    core-db     5760 5    <- middleware, dentro de la ventana
+...
+2026-09-22T15:08:27.502+0000 10.40.0.10    core-db     5760 5    <- middleware, 10/10 intentos, sin 5763 (dentro de la ventana)
+```
+
+taquilla y middleware acumularon 10 `5760` cada uno — por encima del umbral `frequency=8` —
+y aun así ninguno disparó `5763`, porque los dos cayeron dentro de los 60 s posteriores al
+disparo de `198.51.100.10`. Repitiendo el ataque de `taquilla` en solitario, ya fuera de esa
+ventana:
 
 ```sh
 for i in $(seq 11 20); do docker exec clab-banco-taquilla sh -c \
@@ -89,25 +113,30 @@ for i in $(seq 11 20); do docker exec clab-banco-taquilla sh -c \
 ```
 
 ```
-2026-09-22T15:09:37.998+0000 10.200.0.10 core-db 5763 10
+2026-09-22T15:09:36.194+0000 10.200.0.10 core-db 5760 5   <- 15:09:20.474 (fin de la ventana) ya pasó
+...
+2026-09-22T15:09:37.998+0000 10.200.0.10 core-db 5763 10  <- dispara con normalidad
 ```
 
-`5763` sí se dispara con normalidad cuando la ráfaga corre aislada.
+**Conclusión:** la detección de fuerza bruta SSH funciona (D1/A1/K1 confirmados): el
+`5760` de cada intento y el `hostname` son correctos en el 100 % de los eventos
+(`reenviador.desde_sshd` no tiene ningún defecto de parseo), y `5763` dispara con
+normalidad cuando se prueba en solitario. Lo observado en la corrida combinada no es una
+«dilución de conteo por búfer compartido»: es el comportamiento documentado de
+`ignore="60"` en la regla nativa 5763 — tras el primer disparo (de cualquier origen), la
+regla queda silenciada 60 s para *todos* los orígenes, así tengan de sobra los 8 eventos
+del umbral. No es un fallo de `reenviador.py` ni algo que corresponda arreglar en
+`prototipo/`: es un límite operativo real del ruleset estándar de Wazuh — un ataque de
+fuerza bruta correlacionado silencia la alerta de fuerza bruta para cualquier otro origen
+durante el minuto siguiente. Esto importa en particular para el caso O2 (ataques
+simultáneos desde varios orígenes): con la regla nativa tal cual está, solo el primero en
+llegar produce la alerta correlacionada; los demás, aunque superen el umbral, quedan sin
+`5763` mientras dure la ventana de silencio.
 
-**Conclusión:** la detección de fuerza bruta SSH funciona (D1/A1/K1 confirmados) para el
-caso simple de un único atacante. Lo observado en la corrida combinada es un límite del
-motor de correlación nativo de Wazuh: el conteo `frequency`/`same_source_ip` de la regla
-5763 comparte una ventana/búfer por regla, y cuando varios orígenes atacan casi al mismo
-tiempo (segundos de diferencia), el conteo de un origen puede diluirse entre eventos de
-otro y no llegar al umbral de 8. No es un fallo de `reenviador.py` (el parseo y el
-`hostname` son correctos en el 100 % de los eventos) ni algo que corresponda arreglar en
-`prototipo/`: es un límite del ruleset estándar de Wazuh ante ataques concurrentes
-multiorigen, documentado aquí como tal.
-
-**Casos afectados:** D1, A1, K1 — **confirmados** para ataque de un solo origen;
-**límite de detección** documentado para ráfagas concurrentes multiorigen dentro de la
-misma ventana de correlación (no aplicable a K1 tal como está planteado, que usa un solo
-origen).
+**Casos afectados:** D1, A1, K1 — **confirmados** (5760 y 5763 funcionan correctamente
+para un ataque probado de forma aislada). **Límite operativo documentado** para O2
+(orígenes simultáneos): la ventana `ignore="60"` de la regla 5763 silencia la alerta
+correlacionada para cualquier origen adicional durante 60 s tras el primer disparo.
 
 ---
 
@@ -138,17 +167,75 @@ la única `31106`.) Log crudo de acceso de `web-banking` con las tres peticiones
 198.51.100.10 - - [22/Sep/2026:15:10:00 +0000] "GET /?q=<script>alert(1)</script> HTTP/1.1" 200 27 "-" "curl/8.14.1"
 ```
 
-De las tres peticiones craftadas, solo **una** produjo alerta (`31106`, disparada por la
-regla hija `31103`/`31104` que reconoce el patrón SQLi `OR '1'='1` y luego `31106` que
-exige código `200`). Las otras dos no dispararon nada:
+De las tres peticiones craftadas, solo **una** produjo alerta (`31106`). Para saber cuál
+de las tres la disparó (la atribución inicial a "SQLi" era una suposición, no verificada)
+se alimentó cada línea del `access.log`, ya envuelta con `reenviador.desde_web` (mismo
+formato que sale por el reenviador real: `<30>{fecha} web-banking apache: {línea}`, sin el
+prefijo `<30>` que `wazuh-logtest` no necesita), a `wazuh-logtest` (herramienta de solo
+lectura, no genera alertas reales ni toca el laboratorio):
 
-- la ruta `/../../etc/passwd` llegó al servidor ya normalizada por `curl` como
-  `/etc/passwd` (sin el patrón `../` en el log), así que ninguna regla de recorrido de
-  directorios (que busca `../` literal en la URL) tenía nada que emparejar — no es que
-  Wazuh la dejara pasar, es que la señal nunca llegó al log en esa forma;
-- el XSS se envió sin codificar (`<script>alert(1)</script>` literal), y la regla nativa
-  `31105` busca los patrones URL-codificados (`%3Cscript`, `script%3E`, etc.), así que
-  tampoco emparejó.
+```sh
+docker exec -i clab-red-cliente-wazuh /var/ossec/bin/wazuh-logtest <<'EOF'
+Sep 22 15:29:40 web-banking apache: 198.51.100.10 - - [22/Sep/2026:15:10:00 +0000] "GET /?id=1'%20OR%20'1'='1 HTTP/1.1" 200 27 "-" "curl/8.14.1"
+EOF
+```
+
+```
+**Phase 3: Completed filtering (rules).
+	id: '31100'
+	level: '0'
+	description: 'Access log messages grouped.'
+```
+
+El SQLi (`?id=1' OR '1'='1`) **no llega a ninguna regla de ataque**: se queda en `31100`
+(el rule padre, nivel 0). Revisando `0245-web_rules.xml` (~62-64), la regla `31103`
+(SQLi) exige alguna de estas palabras clave en la URL: `select%20|select+|insert%20|
+%20from%20|%20where%20|union%20|union+|where+|null,null|xp_cmdshell` — el payload usado
+(`' OR '1'='1`) no contiene ninguna. No es un límite del reenviador ni de la ingesta: el
+patrón elegido para el ensayo simplemente no coincide con la firma que Wazuh usa para
+SQLi.
+
+```sh
+docker exec -i clab-red-cliente-wazuh /var/ossec/bin/wazuh-logtest <<'EOF'
+Sep 22 15:29:40 web-banking apache: 198.51.100.10 - - [22/Sep/2026:15:10:00 +0000] "GET /etc/passwd HTTP/1.1" 200 27 "-" "curl/8.14.1"
+EOF
+```
+
+```
+**Phase 3: Completed filtering (rules).
+	id: '31108'
+	level: '0'
+	description: 'Ignored URLs (simple queries).'
+```
+
+La ruta `/../../etc/passwd` llegó al servidor ya normalizada por `curl` como `/etc/passwd`
+(sin el patrón `../` en el log): la regla `31108` («ignored URLs, simple queries») la
+clasifica como una consulta simple porque no queda rastro del patrón sospechoso en la
+URL registrada — la señal nunca llegó al log en la forma que cualquier regla de recorrido
+de directorios necesita.
+
+```sh
+docker exec -i clab-red-cliente-wazuh /var/ossec/bin/wazuh-logtest <<'EOF'
+Sep 22 15:29:40 web-banking apache: 198.51.100.10 - - [22/Sep/2026:15:10:00 +0000] "GET /?q=<script>alert(1)</script> HTTP/1.1" 200 27 "-" "curl/8.14.1"
+EOF
+```
+
+```
+**Phase 3: Completed filtering (rules).
+	id: '31106'
+	level: '6'
+	description: 'A web attack returned code 200 (success).'
+	groups: '['web', 'accesslog', 'attack']'
+**Alert to be generated.
+```
+
+El XSS (`<script>alert(1)</script>`, enviado **sin** codificar) es el que dispara `31106`.
+La regla `31105` (`0245-web_rules.xml` ~66-68) incluye en su lista de patrones el literal
+**sin codificar** `script>` (`<url>%3Cscript|%3C%2Fscript|script>|script%3E|SRC=javascript|
+IMG%20|</url>`) — no solo variantes URL-codificadas como se había anotado antes; ese
+literal empareja directamente con `<script>alert(1)</script>`, dispara `31105` y encadena
+a `31106` (código `200`). La única alerta `31106` observada en la corrida real es, por
+tanto, del **XSS**, no del SQLi.
 
 Para el escaneo de reconocimiento:
 
@@ -160,19 +247,25 @@ No aparece **ninguna** alerta asociada al escaneo (ni grupo `recon`, `ids`, ni n
 distinto de las tres anteriores) en los logs de Wazuh para `198.51.100.10` tras el nmap.
 
 **Conclusión:**
-- **D5 (ataque web):** parcialmente confirmado y parcialmente límite. El SQLi clásico sí
-  se detecta con el ruleset estándar de Wazuh. El XSS y el recorrido de directorios, tal
-  como se los craftó en este ensayo (sin codificación URL / normalizados por el cliente
-  antes de salir), **no se detectan** — límite de detección del ruleset estándar frente a
-  variantes de payload, no un fallo del reenviador (el log de acceso se parsea y llega
-  correctamente).
+- **D5 (ataque web):** parcialmente confirmado y parcialmente límite, pero al revés de lo
+  anotado en el primer borrador. El XSS sin codificar (`<script>alert(1)</script>`) sí se
+  detecta (`31105`→`31106`), porque la regla nativa incluye el literal `script>` sin
+  codificar en su lista de patrones. El SQLi clásico usado en el ensayo (`' OR '1'='1`),
+  en cambio, **no se detecta**: no contiene ninguna de las palabras clave que exige la
+  regla `31103` (`select`, `union`, `where`, `insert`, `from`...) — es un límite del
+  *payload elegido* frente a la firma de la regla, no del reenviador ni de la ingesta (el
+  log de acceso se parsea y llega correctamente; verificado con `wazuh-logtest`). El
+  recorrido de directorios tampoco se detecta, pero por una causa distinta y ya
+  correcta desde el primer borrador: `curl` normalizó `/../../etc/passwd` a `/etc/passwd`
+  antes de enviarlo, así que el patrón `../` nunca llegó al log.
 - **D7 (reconocimiento con nmap):** **límite de detección** (R3). Ninguna regla del
   grupo `web`/`attack`/`recon` salta para el escaneo de puertos porque el laboratorio no
   ingiere logs de firewall/IDS de red (solo syslog de aplicación vía el reenviador); Wazuh,
   tal como está desplegado aquí, no ve tráfico de red crudo.
 
-**Casos afectados:** D5 — confirmado (SQLi) / límite de detección (XSS, path traversal sin
-codificar). D7 — límite de detección.
+**Casos afectados:** D5 — confirmado (XSS sin codificar) / límite de detección (SQLi con
+el payload usado, sin las palabras clave de la regla 31103; path traversal normalizado por
+el cliente antes de salir). D7 — límite de detección.
 
 ---
 
@@ -257,8 +350,21 @@ orden sobre: 10.60.0.10 | IPs contactadas: ['10.60.0.10', '10.60.0.10', '10.60.0
 **Conclusión:** la primera (y única, en este ensayo) IP contactada por el ejecutor es
 `10.60.0.10` — el propio HSM, la víctima, no el firewall. El mensaje de validación humana
 que se imprime sí habla de `BLOQUEAR_IP_FIREWALL en fw-core`, pero la orden ejecutada
-(`orden sobre: 10.60.0.10`) y las llamadas reales al ejecutor van contra el activo. Esto
-confirma **C4 como fallo esperado**: `prototipo/perfiles/bancario.yml` documenta
+(`orden sobre: 10.60.0.10`) y las llamadas reales al ejecutor van contra el activo.
+
+Precisión sobre ese mensaje: el paso de `fw-core` **sí se alcanzó y se preguntó**
+(`_aprobar` en `prototipo/agente_mitigacion.py:177` imprime exactamente esa línea antes de
+leer la respuesta). Pero `_aprobar` exige que la respuesta empiece por «s»
+(`leer(...).strip().lower().startswith("s")`), y el ensayo usó `leer=lambda _: "1"` para
+**todas** las lecturas del lazo — válido para otro prompt del mismo flujo (elegir `[1-N]`
+de una lista, en `prototipo/validacion.py:56`), pero no para el `[s/N]` de la aprobación de
+`fw-core`, donde `"1"` no empieza por «s» y se interpreta como rechazo. El código no se
+saltó el firewall por diseño; el guion de prueba respondió «no» sin querer a esa pregunta
+concreta. Lo que sí queda como hallazgo (y es lo que muestra V5) es que el primer contacto
+real del ejecutor es la víctima (el HSM), no el firewall — con independencia de esa
+respuesta de prueba.
+
+Esto confirma **C4 como fallo esperado**: `prototipo/perfiles/bancario.yml` documenta
 explícitamente («las joyas de la corona NO se listan como host: una contención sobre ellas
 escala directa al firewall, contener aguas arriba, nunca tocar el activo crítico») una
 garantía que el código de `lazo.py` no cumple — el lazo intenta primero contactar/consultar
@@ -346,13 +452,38 @@ predice `activos_afectados_en_cascada: []` y un motivo (`bloquea a middleware...
 menciona ninguna cascada. El bloqueo revertió correctamente (segundo `0`) y, tras la
 reversión, `sh lab/banco/banco.sh test` confirmó todos los servicios sanos otra vez.
 
-**Conclusión (K1):** confirma el hallazgo previo (D16/N2): la cadena `depende_de` en el
-perfil describe `web-banking → middleware`, `api-movil → middleware`, `middleware →
-core-db, hsm`, pero **no** en sentido inverso (qué depende de `middleware`); la fusión N2 de
-`depende_de` en cascada cubre la propagación cuando el activo *caído* es el ancestro
-consultado hacia adelante, no cuando la acción de contención recae sobre un nodo intermedio
-como `middleware` y hay que mirar quién depende de él. El resultado real es que 4 servicios
-caen y el módulo de impacto no lo anticipa: fallo esperado, documentado.
+**Conclusión (K1) — causa verificada en el código, no en la dirección de `depende_de`:**
+la hipótesis inicial (que `afectados_en_cascada` no camina la dependencia en sentido
+inverso) es incorrecta. `prototipo/impacto.py:54-72` construye explícitamente un mapa
+`dependientes` invertido (`dependientes.setdefault(dep, set()).add(nombre)` por cada
+`nombre: {depende_de: [dep, ...]}` del perfil) y hace el cierre transitivo sobre ese mapa
+invertido — si se la invoca con `activo="middleware"`, sí encuentra a `web-banking`,
+`api-movil` y `atm` como dependientes. El problema real está un nivel más arriba, en
+`determinar()` (`prototipo/impacto.py:189-190`):
+
+```python
+cascada = (afectados_en_cascada(activo, perfil)
+           if accion_id in ACCIONES_SOBRE_PUERTO or accion_id in ACCIONES_SOBRE_NODO else [])
+```
+
+y en la clasificación de acciones (`prototipo/impacto.py:15-17`):
+
+```python
+ACCIONES_SOBRE_IP     = frozenset({"BLOQUEAR_IP", "BLOQUEAR_IP_FIREWALL", "MATAR_CONEXION"})
+ACCIONES_SOBRE_PUERTO = frozenset({"BLOQUEAR_PUERTO", "CERRAR_SERVICIO"})
+ACCIONES_SOBRE_NODO   = frozenset({"AISLAR_NODO", "REINICIAR_NODO"})
+```
+
+`BLOQUEAR_IP_FIREWALL` (la acción usada en V7) es una `ACCION_SOBRE_IP`, no una
+`ACCION_SOBRE_PUERTO` ni `ACCION_SOBRE_NODO`. `determinar()` solo llama a
+`afectados_en_cascada` para esas dos últimas categorías, así que para **cualquier**
+bloqueo de IP —a un activo crítico o no, con o sin dependientes reales— la cascada
+calculada es siempre `[]`, sin que la función que sí sabe caminar el grafo invertido
+llegue a ejecutarse. El resultado real es que 4 servicios caen y el módulo de impacto no
+lo anticipa: fallo esperado, documentado. La corrección futura (fuera de esta fase) no es
+tocar la dirección de `depende_de` — ya es correcta — sino extender el cálculo de cascada
+en `determinar()` para cubrir también `ACCIONES_SOBRE_IP` cuando el activo bloqueado es un
+activo interno (H2 en el plan).
 
 **Casos afectados:** K1 — fallo esperado (H2), evidencia completa arriba.
 
@@ -386,21 +517,25 @@ El laboratorio queda arriba (`UP`), en el mismo estado base que al comenzar la F
 
 | Caso | Estado tras la fase 0 |
 |---|---|
-| D1, A1, K1 (fuerza bruta SSH) | confirmado para ataque de un solo origen (V2); límite de correlación de Wazuh ante ráfagas concurrentes multiorigen dentro de la misma ventana |
-| D5 (ataque web) | confirmado (SQLi clásico) / límite de detección (XSS y path traversal sin codificar, según V3) |
+| D1, A1, K1 (fuerza bruta SSH) | confirmado, probado de forma aislada (V2); límite operativo documentado para O2 (`ignore="60"` de la regla 5763 silencia la alerta correlacionada para cualquier otro origen durante 60 s tras el primer disparo) |
+| D5 (ataque web) | confirmado (XSS sin codificar, vía regla 31105) / límite de detección (SQLi con el payload usado, sin las palabras clave de la regla 31103; path traversal normalizado por el cliente, según V3) |
 | D7 (reconocimiento nmap) | límite de detección (según V3): no hay ingesta de tráfico de red/firewall, solo syslog de aplicación |
-| C4 (víctima joya de la corona) | fallo esperado (según V5): el lazo contacta primero al activo crítico, no garantiza «nunca tocar» pese a lo documentado en el perfil |
+| C4 (víctima joya de la corona) | fallo esperado (según V5): el primer contacto real del ejecutor es el activo crítico (HSM), no el firewall, pese a lo documentado en el perfil |
 | E1, E2 (escalada real entre cortafuegos) | confirmado (según V6): `BLOQUEAR_IP_FIREWALL` funciona y revierte limpio en `fw-core` y `fw-edge` |
-| K1 (cascada real vs. predicha, H2) | fallo esperado (según V7): caen 4 servicios reales, la predicción de impacto da `[]` sin mención de cascada |
+| K1 (cascada real vs. predicha, H2) | fallo esperado (según V7): caen 4 servicios reales, la predicción de impacto da `[]` porque `determinar()` solo calcula cascada para `ACCIONES_SOBRE_PUERTO`/`ACCIONES_SOBRE_NODO`, nunca para bloqueos de IP |
 
 ## Hallazgos adicionales fuera de la lista original
 
 - **V4:** `atm:8080` (además de `hsm:9000` y `swift-alliance:48002`) sale como puerto
   nominal no declarado — misma causa raíz (puertos nominales pendientes de la Task 9),
   anotado aquí para que la Task 9 los cubra los tres.
-- **V2:** la dilución del conteo `frequency`/`same_source_ip` de la regla nativa 5763 ante
-  ráfagas concurrentes multiorigen es un límite del ruleset estándar de Wazuh, no de
-  `reenviador.py`; no se tocó el reenviador porque el parseo (`5760`, `hostname`) ya
-  funcionaba al 100 %. **Decisión pendiente:** si conviene, en una fase posterior, espaciar
-  deliberadamente los ataques simulados en las campañas para no toparse con este límite del
-  motor de correlación, o documentarlo como comportamiento esperado del SIEM del cliente.
+- **V2:** `ignore="60"` en la regla nativa 5763 silencia la alerta correlacionada para
+  *cualquier* origen (no solo el que disparó) durante 60 s tras el primer disparo — no es
+  una «dilución de conteo por búfer compartido» como se anotó en un primer borrador (los
+  timestamps de `alerts.json` lo descartan: taquilla y middleware acumularon 10/10
+  eventos por encima del umbral `frequency=8` y aun así no dispararon, porque cayeron
+  dentro de la ventana de 60 s). No se tocó el reenviador porque el parseo (`5760`,
+  `hostname`) ya funcionaba al 100 %. **Decisión pendiente:** si conviene, en una fase
+  posterior, espaciar deliberadamente los ataques simulados en las campañas para no
+  toparse con esta ventana de silencio, o documentarlo como comportamiento esperado del
+  SIEM del cliente (relevante para el caso O2, orígenes simultáneos).
