@@ -1,0 +1,170 @@
+[
+  {
+    "id": "CASCADA",
+    "titulo": "Tumbar core-db (sin el prototipo): cascada real del laboratorio",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 15,
+    "nivel": "vivo"
+  },
+  {
+    "id": "D1",
+    "titulo": "Atacante externo contra web-banking: bloqueo automatico",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 33,
+    "nivel": "vivo"
+  },
+  {
+    "id": "A1",
+    "titulo": "Equipo interno (taquilla) contra web-banking: retenida, el analista rechaza",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 32,
+    "nivel": "vivo"
+  },
+  {
+    "id": "K1",
+    "titulo": "middleware comprometido contra core-db: aprobado; cascada no avisada (fallo conocido K1)",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 45,
+    "nivel": "vivo"
+  },
+  {
+    "id": "E1",
+    "titulo": "La victima no responde al MDR: escalada a fw-core, aprobada",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 56,
+    "nivel": "vivo"
+  },
+  {
+    "id": "D2",
+    "titulo": "Servicio no expuesto según el auditor -> FP exposición inexistente",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "decision"
+  },
+  {
+    "id": "D3",
+    "titulo": "Origen legítimo (gestión) -> FP actividad legítima",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "decision"
+  },
+  {
+    "id": "D4",
+    "titulo": "Ráfaga desde origen legítimo -> VP conf 0.6, humano",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "decision"
+  },
+  {
+    "id": "D6",
+    "titulo": "Familia no soportada -> no_soportada",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "decision"
+  },
+  {
+    "id": "A2",
+    "titulo": "Origen aparente = un cortafuegos -> retenida, alcanza_servicio",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "decision"
+  },
+  {
+    "id": "A3",
+    "titulo": "Origen aparente = la gestión -> veto duro",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "decision"
+  },
+  {
+    "id": "A4",
+    "titulo": "IP interna no inventariada -> activo interno, humano",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "decision"
+  },
+  {
+    "id": "K5",
+    "titulo": "Ataque desde taquilla (nadie depende de ella) -> humano, sin cascada",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "decision"
+  },
+  {
+    "id": "C1",
+    "titulo": "BLOQUEAR_PUERTO 1521 en core-db (excepción nunca_automatica) -> degrada a BLOQUEAR_IP",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "inyectada"
+  },
+  {
+    "id": "C2",
+    "titulo": "BLOQUEAR_PUERTO 8443 en middleware -> degrada a BLOQUEAR_IP",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "inyectada"
+  },
+  {
+    "id": "C3",
+    "titulo": "AISLAR_NODO de web-banking (alcanza servicio) -> humano",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "inyectada"
+  },
+  {
+    "id": "K2",
+    "titulo": "AISLAR_NODO de core-db -> predice la cascada transitiva",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "inyectada"
+  },
+  {
+    "id": "K3",
+    "titulo": "AISLAR_NODO de middleware -> la cascada NO incluye atm (dependencia no declarada)",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "inyectada"
+  },
+  {
+    "id": "A5",
+    "titulo": "AISLAR_NODO del nodo de gestión (mdr-siem) -> veto duro",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "inyectada"
+  },
+  {
+    "id": "C5",
+    "titulo": "Acción sin reversión definida (OBS_PROCESOS) -> se veta como contención",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "perfil"
+  },
+  {
+    "id": "K4",
+    "titulo": "afectados_en_cascada termina aunque haya dependencias (guardia de ciclos)",
+    "resultado": "OK",
+    "detalle": [],
+    "segundos": 0.0,
+    "nivel": "perfil"
+  }
+]
