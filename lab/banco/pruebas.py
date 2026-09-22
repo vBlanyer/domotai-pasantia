@@ -448,10 +448,16 @@ def informe(resultados, cuando):
     for r in resultados:
         detalle = "; ".join(r["detalle"]) if r["detalle"] else r["titulo"]
         lineas.append(f"| {r['id']} | {r.get('nivel','')} | {r['resultado']} | {r['segundos']} s | {detalle} |")
-    lineas += ["", "**Notas:** K1 y C4 declaran `fallo_esperado` (fallos conocidos del prototipo): cuentan "
-               "OK mientras el fallo persista. Los casos que requieren el modelo LLM (E6) salen OMITIDO: el "
-               "banco corre con la plantilla determinista."]
+    lineas += ["", "**Notas:** K1 codifica un fallo conocido del prototipo (predice cascada `[]` aunque "
+               "middleware, web-banking, api-movil y atm caen de verdad); cuenta OK mientras el fallo "
+               "persista, y su título lo señala. Los casos de nivel `vivo` requieren `--con-vivo` con el "
+               "banco levantado; sin esa bandera salen OMITIDO."]
     return "\n".join(lineas) + "\n"
+
+
+def con_vivo_forzado(caso, bandera):
+    """--caso de un caso vivo implica --con-vivo: correr un solo caso vivo sin la bandera no tiene sentido."""
+    return bool(bandera) or (caso is not None and caso["nivel"] == "vivo")
 
 
 def main(argv=None):
@@ -470,11 +476,8 @@ def main(argv=None):
         return 0
     if a.paso_a_paso and a.caso is None:
         ap.error("--paso-a-paso requiere --caso")
-    con_vivo = a.con_vivo
-    if a.caso is not None:
-        elegido = next(c for c in casos.CASOS if c["id"] == a.caso)
-        if elegido["nivel"] == "vivo":
-            con_vivo = True
+    elegido = next(c for c in casos.CASOS if c["id"] == a.caso) if a.caso is not None else None
+    con_vivo = con_vivo_forzado(elegido, a.con_vivo)
     os.environ["TRIAJE_NODO_GESTION"] = f"{P}-mdr-siem"
     from prototipo import conector, perfil as perfilm, catalogo as catm
     perfil = perfilm.cargar(PERFIL)

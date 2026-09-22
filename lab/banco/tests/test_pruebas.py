@@ -227,5 +227,20 @@ class TestInforme(unittest.TestCase):
         self.assertIn("| D1 |", txt)
 
 
+class TestConVivoForzado(unittest.TestCase):
+    def test_caso_vivo_fuerza_con_vivo_sin_la_bandera(self):
+        vivo = {"id": "K1", "nivel": "vivo"}
+        self.assertTrue(rg.con_vivo_forzado(vivo, False))
+
+    def test_caso_no_vivo_respeta_la_bandera(self):
+        decision = {"id": "D2", "nivel": "decision"}
+        self.assertFalse(rg.con_vivo_forzado(decision, False))
+        self.assertTrue(rg.con_vivo_forzado(decision, True))
+
+    def test_sin_caso_respeta_la_bandera(self):
+        self.assertFalse(rg.con_vivo_forzado(None, False))
+        self.assertTrue(rg.con_vivo_forzado(None, True))
+
+
 if __name__ == "__main__":
     unittest.main()
