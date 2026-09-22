@@ -1,5 +1,6 @@
 import unittest
 
+from lab.scripts import auditor
 from lab.scripts.auditor import parsear_puertos, resultado_nodo
 
 NMAP_SALIDA = """
@@ -35,6 +36,17 @@ class TestResultadoNodo(unittest.TestCase):
         # postura_de lo trate como desconocido/gris, nunca como "no expuesto".
         r = resultado_nodo(1, "")
         self.assertIsNone(r)
+
+
+class TestArgumentosNmap(unittest.TestCase):
+    def test_por_defecto_top_100(self):
+        self.assertEqual(auditor.argumentos_nmap("10.0.0.1", None),
+                         ["nmap", "-Pn", "--top-ports", "100", "10.0.0.1"])
+
+    def test_lista_explicita_de_puertos(self):
+        # R2: el 1521 no esta en el top-100; el banco pasa la lista.
+        self.assertEqual(auditor.argumentos_nmap("10.50.0.10", "22,1521"),
+                         ["nmap", "-Pn", "-p", "22,1521", "10.50.0.10"])
 
 
 if __name__ == "__main__":

@@ -11,10 +11,10 @@
 # contra Docker. Se ejecuta desde la raíz del repo para que el módulo resuelva.
 set -e
 SALIDA="${1:?uso: sh lab/scripts/auditar.sh <salida.json>}"
-AUDITOR=clab-red-cliente-auditor
+AUDITOR="${TRIAJE_AUDITOR:-clab-red-cliente-auditor}"
 TS=$(date -u +%Y-%m-%dT%H:%M:%S+0000)
 
-# Nodos del plano de datos y su IP
-NODOS="objetivo-vuln:192.168.1.30 puesto:192.168.1.10 iot:192.168.1.20 borde:192.168.1.1"
+# Nodos del plano de datos y su IP (el banco los pasa por AUDITOR_NODOS; ver lab/banco/banco.sh)
+NODOS="${AUDITOR_NODOS:-objetivo-vuln:192.168.1.30 puesto:192.168.1.10 iot:192.168.1.20 borde:192.168.1.1}"
 
 python3 -m lab.scripts.auditor "$SALIDA" "$AUDITOR" "$TS" $NODOS

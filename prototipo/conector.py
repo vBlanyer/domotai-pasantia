@@ -57,11 +57,16 @@ def _main(argv):  # lee una orden de stdin y la ejecuta (frontera de proceso; fu
 # (catalogo.sudoers), de modo que la frontera de privilegio en el nodo es exactamente el catalogo
 # cerrado de acciones. Se aprovisiona con lab/scripts/aprovisionar-minimo-privilegio.sh.
 
-_AUDITOR = "clab-red-cliente-auditor"
+_AUDITOR = "clab-red-cliente-auditor"   # valor por defecto: la red pequena
+
+def nodo_gestion():
+    """Contenedor desde el que el conector lanza el SSH (el nodo de gestion del cliente). Por defecto
+    el auditor de la red pequena; el banco usa TRIAJE_NODO_GESTION=clab-banco-mdr-siem (H3)."""
+    return os.environ.get("TRIAJE_NODO_GESTION", _AUDITOR)
 
 def _ssh_en_auditor(linea):
     import subprocess
-    cp = subprocess.run(["docker", "exec", _AUDITOR, "sh", "-c", linea], capture_output=True, text=True)
+    cp = subprocess.run(["docker", "exec", nodo_gestion(), "sh", "-c", linea], capture_output=True, text=True)
     return (cp.returncode, cp.stdout + cp.stderr)
 
 def ejecutor_ssh_lab(nodo_ip, comando):  # el ejecutor del laboratorio (se valida en vivo, no en unittest)
@@ -95,7 +100,7 @@ def ejecutor_ssh_clave(nodo_ip, comando):
 def _clave_aprovisionada():
     import subprocess
     try:
-        return subprocess.run(["docker", "exec", _AUDITOR, "test", "-f", SSH_CLAVE],
+        return subprocess.run(["docker", "exec", nodo_gestion(), "test", "-f", SSH_CLAVE],
                               capture_output=True).returncode == 0
     except OSError:
         return False

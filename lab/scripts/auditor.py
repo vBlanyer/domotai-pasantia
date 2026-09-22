@@ -5,6 +5,7 @@ probadas con unittest) de la E/S contra Docker (validada ejecutando el
 script contra el laboratorio en vivo).
 """
 import json
+import os
 import re
 import subprocess
 import sys
@@ -42,10 +43,17 @@ def version_nmap(auditor):
     return r.stdout.splitlines()[0].split(" (")[0]
 
 
-def escanear_nodo(auditor, ip):
-    r = subprocess.run(
-        ["docker", "exec", auditor, "nmap", "-Pn", "--top-ports", "100", ip],
-        capture_output=True, text=True)
+def argumentos_nmap(ip, puertos=None):
+    """Orden de nmap para un nodo. Sin `puertos`, el top-100 de siempre; con ellos (p. ej. "22,1521"),
+    exactamente esos: el top-100 no incluye puertos del banco como el 1521 (R2)."""
+    if puertos:
+        return ["nmap", "-Pn", "-p", puertos, ip]
+    return ["nmap", "-Pn", "--top-ports", "100", ip]
+
+
+def escanear_nodo(auditor, ip, puertos=None):
+    r = subprocess.run(["docker", "exec", auditor] + argumentos_nmap(ip, puertos),
+                       capture_output=True, text=True)
     return resultado_nodo(r.returncode, r.stdout)
 
 
@@ -64,7 +72,7 @@ def main(argv):
     omitidos = []
     for par in pares:
         nombre, ip = par.split(":")
-        r = escanear_nodo(auditor, ip)
+        r = escanear_nodo(auditor, ip, os.environ.get("AUDITOR_PUERTOS"))
         if r is None:
             omitidos.append(nombre)  # escaneo fallido: se omite, no se escribe []
             continue

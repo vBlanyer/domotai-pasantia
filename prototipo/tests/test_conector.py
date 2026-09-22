@@ -103,3 +103,34 @@ class TestEjecutorClave(unittest.TestCase):
             finally:
                 os.environ.pop("TRIAJE_SSH_MODO", None)
 
+
+class TestNodoGestion(unittest.TestCase):
+    """H3: el nodo desde el que ejecuta el conector es configurable; por defecto, el de la red pequeña."""
+    def test_por_defecto_el_auditor_de_la_red_pequena(self):
+        import os
+        from unittest import mock
+        from prototipo import conector
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TRIAJE_NODO_GESTION", None)
+            self.assertEqual(conector.nodo_gestion(), "clab-red-cliente-auditor")
+
+    def test_configurable_por_entorno(self):
+        import os
+        from unittest import mock
+        from prototipo import conector
+        with mock.patch.dict(os.environ, {"TRIAJE_NODO_GESTION": "clab-banco-mdr-siem"}):
+            self.assertEqual(conector.nodo_gestion(), "clab-banco-mdr-siem")
+
+    def test_el_ssh_se_lanza_en_el_nodo_configurado(self):
+        import os, subprocess
+        from unittest import mock
+        from prototipo import conector
+        visto = {}
+        def falso_run(args, **kw):
+            visto["args"] = args
+            return subprocess.CompletedProcess(args, 0, "ok", "")
+        with mock.patch.dict(os.environ, {"TRIAJE_NODO_GESTION": "clab-banco-mdr-siem"}), \
+             mock.patch("subprocess.run", falso_run):
+            conector._ssh_en_auditor("true")
+        self.assertEqual(visto["args"][:3], ["docker", "exec", "clab-banco-mdr-siem"])
+

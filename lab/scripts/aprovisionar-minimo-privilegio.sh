@@ -20,7 +20,7 @@
 set -e
 NODO="${1:-clab-red-cliente-objetivo-vuln}"
 IP="${2:-192.168.1.30}"
-AUDITOR=clab-red-cliente-auditor
+AUDITOR="${TRIAJE_NODO_GESTION:-clab-red-cliente-auditor}"
 USUARIO="${TRIAJE_SSH_USUARIO:-triaje}"
 CLAVE="${TRIAJE_SSH_CLAVE:-/root/.ssh/triaje}"
 KNOWN="${TRIAJE_SSH_KNOWN_HOSTS:-/root/.ssh/known_hosts_triaje}"
