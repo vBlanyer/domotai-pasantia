@@ -5,6 +5,7 @@ lo que la prediccion avisa se compara con lo que el monitor ve caer. Autonomo (b
 import argparse
 import json
 import time
+import urllib.error
 import urllib.request
 
 
@@ -18,6 +19,9 @@ def sondear(servicios, abrir=urllib.request.urlopen, plazo=1.0):
         try:
             with abrir(f"http://{destino}/salud", timeout=plazo) as r:
                 estados[nombre] = "ok" if r.status == 200 else "caido"
+        except urllib.error.HTTPError as e:
+            e.close()
+            estados[nombre] = "caido"
         except Exception:
             estados[nombre] = "caido"
     return estados

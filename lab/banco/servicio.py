@@ -8,6 +8,7 @@ import http.server
 import json
 import threading
 import time
+import urllib.error
 import urllib.request
 
 
@@ -19,6 +20,9 @@ def comprobar_dependencias(dependencias, abrir=urllib.request.urlopen, plazo=1.0
             with abrir(f"http://{dep}/salud", timeout=plazo) as r:
                 if r.status != 200:
                     fallan.append(dep)
+        except urllib.error.HTTPError as e:
+            e.close()
+            fallan.append(dep)
         except Exception:
             fallan.append(dep)
     return fallan

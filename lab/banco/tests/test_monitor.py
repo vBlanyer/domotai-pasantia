@@ -1,5 +1,6 @@
 import json
 import unittest
+import urllib.error
 from lab.banco import monitor
 
 
@@ -19,11 +20,27 @@ class TestMonitor(unittest.TestCase):
             if "10.0.0.1" in url:
                 return _Resp(200)
             if "10.0.0.2" in url:
-                import urllib.error
                 raise urllib.error.HTTPError(url, 503, "degradado", None, None)
             raise OSError("sin ruta")
         estados = monitor.sondear({"a": "10.0.0.1:1", "b": "10.0.0.2:1", "c": "10.0.0.3:1"}, abrir=abrir)
         self.assertEqual(estados, {"a": "ok", "b": "caido", "c": "caido"})
+
+    def test_sondear_cierra_httperror(self):
+        """Verifica que HTTPError se cierra cuando urlopen lo lanza."""
+        import io
+        cerrados = []
+        def abrir(url, timeout):
+            fp = io.BytesIO(b"")
+            e = urllib.error.HTTPError(url, 503, "caido", {}, fp)
+            # Wrap close to track calls
+            original_close = e.close
+            def tracked_close():
+                cerrados.append(True)
+                original_close()
+            e.close = tracked_close
+            raise e
+        monitor.sondear({"x": "10.0.0.1:1"}, abrir=abrir)
+        self.assertEqual(len(cerrados), 1)
 
     def test_cambios(self):
         self.assertEqual(monitor.cambios({"a": "ok", "b": "ok", "c": "caido"}, {"a": "caido", "b": "ok", "c": "ok"}),

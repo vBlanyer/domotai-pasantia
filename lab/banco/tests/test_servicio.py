@@ -65,6 +65,23 @@ class TestFunciones(unittest.TestCase):
             raise OSError("sin ruta")
         self.assertEqual(servicio.comprobar_dependencias(["10.0.0.9:1"], abrir=abrir), ["10.0.0.9:1"])
 
+    def test_comprobar_dependencias_cierra_httperror(self):
+        """Verifica que HTTPError se cierra cuando urlopen lo lanza."""
+        import io
+        cerrados = []
+        def abrir(url, timeout):
+            fp = io.BytesIO(b"")
+            e = urllib.error.HTTPError(url, 503, "caido", {}, fp)
+            # Wrap close to track calls
+            original_close = e.close
+            def tracked_close():
+                cerrados.append(True)
+                original_close()
+            e.close = tracked_close
+            raise e
+        servicio.comprobar_dependencias(["10.0.0.1:1"], abrir=abrir)
+        self.assertEqual(len(cerrados), 1)
+
     def test_linea_de_acceso_formato_combined(self):
         l = servicio.linea_acceso("198.51.100.10", "GET", "/x?id=1", 200, 42, "curl/8", 0)
         self.assertEqual(l, '198.51.100.10 - - [01/Jan/1970:00:00:00 +0000] "GET /x?id=1 HTTP/1.1" 200 42 "-" "curl/8"')
