@@ -13,6 +13,8 @@ actúa. Diseño: `docs/superpowers/specs/2026-09-21-laboratorio-banco-design.md`
     sh lab/banco/banco.sh cascada core-db # ver una cascada real y su recuperación
     sh lab/lab.sh down banco
 
+Prueba manual completa (casos, limpieza y reinicio): [`docs/pruebas/08-laboratorio-banco.md`](../../docs/pruebas/08-laboratorio-banco.md).
+
 `aprovisionar` es necesario después de **cada** `up`: containerlab recrea los contenedores desde
 cero, así que el usuario `triaje` y su `sudoers` (que deja el aprovisionamiento) no sobreviven de
 una sesión a otra. Ejecuta `lab/scripts/aprovisionar-minimo-privilegio.sh` contra los nodos sobre

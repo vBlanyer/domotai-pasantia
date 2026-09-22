@@ -49,6 +49,7 @@ sh lab/lab.sh up && python3 lab/scripts/demo-agente-escalado.py --autonomo
 - [05 · Topologías del laboratorio](05-topologias.md)
 - [06 · Rendimiento y hardware](06-rendimiento-y-hardware.md)
 - [07 · Roadmap del pipeline y latencia medida](07-roadmap-pipeline-y-latencia.md)
+- [08 · Prueba manual en el laboratorio del banco](08-laboratorio-banco.md)
 
 ---
 
