@@ -179,6 +179,27 @@ class TestNivelInyectadaPerfil(unittest.TestCase):
         self.assertEqual(rg.correr_perfil(caso, self.p, self.c)["resultado"], "OK")
 
 
+class TestGuias(unittest.TestCase):
+    def test_guia_incluye_ataque_y_esperado(self):
+        caso = {"id": "D1", "titulo": "Externo contra web-banking", "nivel": "vivo",
+                "ataque": ("internet", "sshpass -p x ssh ... cliente@10.10.0.10 id"),
+                "origen": "198.51.100.10", "esperado": {"accion_final": "BLOQUEAR_IP"},
+                "deshacer": [("web-banking", "iptables -D INPUT -s 198.51.100.10 -j DROP")]}
+        g = rg.guia_markdown(caso)
+        self.assertIn("# D1", g)
+        self.assertIn("Externo contra web-banking", g)
+        self.assertIn("sshpass", g)
+        self.assertIn("iptables -D INPUT", g)
+
+    def test_guia_de_caso_de_decision(self):
+        caso = {"id": "A3", "titulo": "Gestión = veto", "nivel": "decision",
+                "alerta": {"origen_ip": "10.100.0.10", "activo": "web-banking"},
+                "esperado": {"accion_final": None}}
+        g = rg.guia_markdown(caso)
+        self.assertIn("nivel: decision", g)
+        self.assertIn("10.100.0.10", g)
+
+
 class TestInforme(unittest.TestCase):
     def test_resume_por_resultado_y_nivel(self):
         res = [{"id": "D1", "titulo": "a", "resultado": "OK", "detalle": [], "segundos": 1, "nivel": "decision"},

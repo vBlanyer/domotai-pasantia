@@ -131,6 +131,43 @@ def _requisito_ok(requisito):
     return False   # ningun requisito se da por satisfecho: los casos que lo declaran se omiten
 
 
+def _json_seguro(obj):
+    """default= de json.dumps: los `esperado` traen sets (p. ej. `caen`) y tuplas (`regla`), que
+    json no serializa de forma nativa."""
+    if isinstance(obj, (set, frozenset)):
+        return sorted(obj)
+    return str(obj)
+
+
+def guia_markdown(caso):
+    """Guia manual de un caso, en markdown: preparar/atacar (o la alerta inyectada), lo esperado y
+    como deshacer. Tolera casos sin `preparar`/`ataque`/`alerta`/`deshacer` (niveles decision/inyectada/
+    perfil no los tienen)."""
+    l = [f"# {caso['id']} · {caso['titulo']}", "", f"- nivel: {caso['nivel']}"]
+    if caso.get("preparar"):
+        l += ["", "## Preparar", "```bash"] + [f"docker exec clab-banco-{n} sh -c {cmd!r}" for n, cmd in caso["preparar"]] + ["```"]
+    if caso.get("ataque"):
+        origen, cmd = caso["ataque"]
+        l += ["", f"## Atacar (desde {origen})", "```bash", f"docker exec clab-banco-{origen} sh -c {cmd!r}", "```"]
+    if caso.get("alerta"):
+        l += ["", "## Alerta (nivel decision)", "```json",
+              json.dumps(caso["alerta"], ensure_ascii=False, default=_json_seguro), "```"]
+    l += ["", "## Esperado", "```json",
+          json.dumps(caso["esperado"], ensure_ascii=False, indent=1, default=_json_seguro), "```"]
+    if caso.get("deshacer"):
+        l += ["", "## Deshacer", "```bash"] + [f"docker exec clab-banco-{n} {cmd}" for n, cmd in caso["deshacer"]] + ["```"]
+    return "\n".join(l) + "\n"
+
+
+def generar_guias(destino):
+    """Escribe una guia markdown por caso del catalogo en `destino`; devuelve cuantas escribio."""
+    os.makedirs(destino, exist_ok=True)
+    for caso in casos.CASOS:
+        with open(os.path.join(destino, f"{caso['id']}.md"), "w", encoding="utf-8") as f:
+            f.write(guia_markdown(caso))
+    return len(casos.CASOS)
+
+
 # ------------------------------------------------------------------ E/S con el laboratorio --
 
 def _exec(nodo, cmd, contenedor=None):
@@ -189,10 +226,13 @@ def _lineas_wazuh(proc):
         yield linea
 
 
-def decidir(caso, ruta_traza, ejecutor, perfil, hallazgos, catalogo, escribir):
-    """Lanza el ataque y deja decidir al prototipo; devuelve (primer registro de la traza o None, lector)."""
+def decidir(caso, ruta_traza, ejecutor, perfil, hallazgos, catalogo, escribir, leer=None):
+    """Lanza el ataque y deja decidir al prototipo; devuelve (primer registro de la traza o None, lector).
+
+    `leer` permite sustituir el `Lector` guionizado (usado en las corridas automaticas) por un lector
+    interactivo real (p. ej. `stream._leer_interactivo()`, usado por `--paso-a-paso`)."""
     from prototipo import stream
-    lector = Lector(menu=caso.get("menu"), escalada=caso.get("escalada"))
+    lector = leer if leer is not None else Lector(menu=caso.get("menu"), escalada=caso.get("escalada"))
     tail = subprocess.Popen(["docker", "exec", WAZUH, "tail", "-n0", "-F", ALERTAS],
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     try:
@@ -330,6 +370,55 @@ def correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo, escribi
     return {**res, "resultado": resultado, "detalle": detalle, "segundos": round(time.time() - t0)}
 
 
+def _pausar(fase):
+    print(f"\n== {fase} ==")
+    input("   (Enter para continuar) ")
+
+
+def paso_a_paso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo):
+    """Corre un caso solo, deteniendose entre fases para que el analista confirme antes de seguir.
+    Para los casos `vivo`, el menu real de la validacion (y la aprobacion de la escalada, si toca) lo
+    contesta el analista de verdad por /dev/tty (`stream._leer_interactivo`), no un `Lector` guionizado.
+    Los niveles sin laboratorio (decision/inyectada/perfil) no tienen fases de laboratorio que recorrer:
+    se corren directamente."""
+    res = {"id": caso["id"], "titulo": caso["titulo"]}
+    if caso["nivel"] != "vivo":
+        r = correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo)
+        print(f"-> {r['resultado']}" + "".join(f"\n   - {d}" for d in r["detalle"]))
+        return r
+    from prototipo import stream
+    _pausar("estado base")
+    problemas = estado_base()
+    if problemas:
+        print(f"   BLOQUEADO: {problemas}")
+        return {**res, "resultado": "BLOQUEADO", "detalle": problemas, "segundos": 0}
+    fallos = []
+    try:
+        if caso.get("preparar"):
+            _pausar("preparar")
+            for nodo, cmd in caso["preparar"]:
+                _exec(nodo, cmd)
+        registro, preguntas = None, []
+        if caso.get("ataque"):
+            _pausar(f"atacar (desde {caso['ataque'][0]})")
+            _pausar("esperando decision (conteste el menu real en esta misma terminal)")
+            registro, lector = decidir(caso, os.path.join(dir_salida, f"traza-{caso['id']}.jsonl"),
+                                       ejecutor, perfil, hallazgos, catalogo, print,
+                                       leer=stream._leer_interactivo())
+            preguntas = getattr(lector, "preguntas", [])
+        _pausar("verificar")
+        caen = caso["esperado"].get("caen", set())
+        c = esperar_salud(caen, plazo=40 if caen else 10)
+        reglas = leer_reglas()
+        fallos = evaluar(caso["esperado"], registro, reglas, c, preguntas)
+    finally:
+        _pausar("deshacer")
+        deshacer(caso)
+    resultado, detalle = veredicto_caso(caso["esperado"], fallos)
+    print(f"-> {resultado}" + "".join(f"\n   - {d}" for d in detalle))
+    return {**res, "resultado": resultado, "detalle": detalle}
+
+
 def informe(resultados, cuando):
     from collections import Counter
     por_res = Counter(r["resultado"] for r in resultados)
@@ -352,7 +441,17 @@ def main(argv=None):
     ap.add_argument("--caso", choices=[c["id"] for c in casos.CASOS])
     ap.add_argument("--con-vivo", action="store_true",
                     help="corre tambien los casos de nivel vivo (requiere el laboratorio levantado)")
+    ap.add_argument("--guias", action="store_true",
+                    help="genera una guia markdown por caso en docs/pruebas/banco/ y termina")
+    ap.add_argument("--paso-a-paso", action="store_true",
+                    help="corre --caso solo, deteniendose entre fases (requiere --caso)")
     a = ap.parse_args(argv)
+    if a.guias:
+        n = generar_guias(os.path.join(RAIZ, "docs", "pruebas", "banco"))
+        print(f"{n} guías -> docs/pruebas/banco/")
+        return 0
+    if a.paso_a_paso and a.caso is None:
+        ap.error("--paso-a-paso requiere --caso")
     con_vivo = a.con_vivo
     if a.caso is not None:
         elegido = next(c for c in casos.CASOS if c["id"] == a.caso)
@@ -371,6 +470,9 @@ def main(argv=None):
     for f in os.listdir(dir_salida):
         if f.startswith("traza-"):
             os.remove(os.path.join(dir_salida, f))
+    if a.paso_a_paso:
+        r = paso_a_paso(elegido, dir_salida, ejecutor, perfil, hallazgos, catalogo)
+        return 0 if r["resultado"] not in ("FALLO", "BLOQUEADO") else 1
     casos_a_correr = [c for c in casos.CASOS if a.caso in (None, c["id"])]
     resultados, ultimo_ataque = [], 0.0
     for caso in casos_a_correr:
