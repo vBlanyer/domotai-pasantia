@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -55,6 +56,12 @@ class TestSaludTransitiva(unittest.TestCase):
         _, a = self._nuevo("web-banking")
         _salud(a)
         urllib.request.urlopen(f"http://{a}/login", timeout=3).read()
+        # el servidor registra el acceso en su propio hilo, DESPUES de enviar el cuerpo, asi que el
+        # cliente puede llegar aqui antes de que aparezca: esperar a que se registre (carrera cliente
+        # /servidor). /salud no registra nada, asi que el conteo llega a 1 solo por el /login.
+        fin = time.time() + 2
+        while len(self.registro) < 1 and time.time() < fin:
+            time.sleep(0.01)
         self.assertEqual(len(self.registro), 1)
         self.assertIn('"GET /login HTTP/1.1" 200', self.registro[0])
 
