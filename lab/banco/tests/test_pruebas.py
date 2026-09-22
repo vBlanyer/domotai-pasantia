@@ -94,5 +94,49 @@ class TestFalloEsperado(unittest.TestCase):
         self.assertEqual(rg.veredicto_caso({}, []), ("OK", []))
 
 
+class TestNivelDecision(unittest.TestCase):
+    def setUp(self):
+        import os
+        from prototipo import perfil, catalogo
+        raiz = rg.RAIZ
+        self.p = perfil.cargar(os.path.join(raiz, "prototipo/perfiles/bancario.yml"))
+        self.c = catalogo.cargar_catalogo(os.path.join(raiz, "prototipo/catalogo.yml"))
+        import json
+        with open(rg.HALLAZGOS, encoding="utf-8") as f:
+            self.h = json.load(f)
+
+    def _correr(self, caso):
+        return rg.correr_decision(caso, self.p, self.h, self.c)
+
+    def test_d1_externo_automatico(self):
+        caso = {"id": "D1d", "titulo": "x", "nivel": "decision",
+                "alerta": {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "ssh",
+                           "familia": "acceso_credenciales", "regla_id": "5763"},
+                "esperado": {"clase": "vp_intento_acceso", "requiere_humano": False, "accion_final": "BLOQUEAR_IP"}}
+        self.assertEqual(self._correr(caso)["resultado"], "OK")
+
+    def test_a3_gestion_es_veto(self):
+        # Sin ráfaga, el origen de gestión con una sola alerta es fp_actividad_legitima SIN acción
+        # propuesta (nada que vetar). El veto duro (RF-19) solo entra en juego cuando SÍ hay una
+        # acción propuesta contra la IP de gestión, que aquí exige ráfaga (>= umbral del perfil,
+        # ver bancario.yml rafaga.umbral=9) para clasificar como vp_intento_acceso — el mismo
+        # escenario que el caso A3 de casos.py. Sin este campo el caso no ejercita ningún veto.
+        caso = {"id": "A3d", "titulo": "x", "nivel": "decision",
+                "alerta": {"origen_ip": "10.100.0.10", "activo": "web-banking", "servicio": "ssh",
+                           "familia": "acceso_credenciales", "regla_id": "5763"},
+                "rafaga_60s": 12,
+                "esperado": {"requiere_humano": True, "accion_final": None}}
+        self.assertEqual(self._correr(caso)["resultado"], "OK")
+
+    def test_detecta_diferencia(self):
+        caso = {"id": "Xd", "titulo": "x", "nivel": "decision",
+                "alerta": {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "ssh",
+                           "familia": "acceso_credenciales", "regla_id": "5763"},
+                "esperado": {"requiere_humano": True}}   # es automatico, no humano
+        r = self._correr(caso)
+        self.assertEqual(r["resultado"], "FALLO")
+        self.assertIn("requiere_humano", r["detalle"][0])
+
+
 if __name__ == "__main__":
     unittest.main()

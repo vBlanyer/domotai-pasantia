@@ -21,6 +21,14 @@ def _fuerza_bruta(origen, destino_ip):
                     f"cliente@{destino_ip} id >/dev/null 2>&1; done; true")
 
 
+def _dec(id_, titulo, alerta, esperado, rafaga=None):
+    a = {"familia": "acceso_credenciales", **alerta}
+    c = {"id": id_, "titulo": titulo, "nivel": "decision", "alerta": a, "esperado": esperado}
+    if rafaga is not None:
+        c["rafaga_60s"] = rafaga
+    return c
+
+
 CASOS = [
     {"nivel": "vivo", "id": "CASCADA", "titulo": "Tumbar core-db (sin el prototipo): cascada real del laboratorio",
      "preparar": [("core-db", "pkill -f 'servicio.py --nombre core-db'")],
@@ -49,4 +57,34 @@ CASOS = [
      "deshacer": [("fw-core", "iptables -D FORWARD -s 198.51.100.10 -j DROP"),
                   ("web-banking", "iptables -D INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP"),
                   ("web-banking", "iptables -D INPUT -s 198.51.100.10 -j DROP")]},
+
+    _dec("D2", "Servicio no expuesto según el auditor -> FP exposición inexistente",
+         {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "rdp", "regla_id": "5763"},
+         {"clase": "fp_exposicion_inexistente", "accion_final": None}),
+    # D3: sin ráfaga, el origen legítimo (gestión) cae en fp_actividad_legitima SIN acción propuesta
+    # (resultado_filtro "sin_accion"): perfil.filtrar devuelve _res("sin_accion", None, False) antes
+    # de llegar a la conciencia de actores, así que requiere_humano es SIEMPRE False en ese camino.
+    # El diseño original esperaba True; corregido a False tras verificar contra el motor real (informe).
+    _dec("D3", "Origen legítimo (gestión) -> FP actividad legítima",
+         {"origen_ip": "10.100.0.10", "activo": "web-banking", "servicio": "ssh", "regla_id": "5763"},
+         {"clase": "fp_actividad_legitima", "accion_final": None, "requiere_humano": False}),
+    _dec("D4", "Ráfaga desde origen legítimo -> VP conf 0.6, humano",
+         {"origen_ip": "10.100.0.10", "activo": "web-banking", "servicio": "ssh", "regla_id": "5763"},
+         {"clase": "vp_intento_acceso", "confianza": 0.6, "requiere_humano": True}, rafaga=12),
+    _dec("D6", "Familia no soportada -> no_soportada",
+         {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "desconocido",
+          "familia": "plataforma", "regla_id": "502"},
+         {"clase": "no_soportada", "accion_final": None}),
+    _dec("A2", "Origen aparente = un cortafuegos -> retenida, alcanza_servicio",
+         {"origen_ip": "10.0.0.1", "activo": "web-banking", "servicio": "ssh", "regla_id": "5763"},
+         {"requiere_humano": True, "accion_final": "BLOQUEAR_IP"}),
+    _dec("A3", "Origen aparente = la gestión -> veto duro",
+         {"origen_ip": "10.100.0.10", "activo": "web-banking", "servicio": "ssh", "regla_id": "5763"},
+         {"requiere_humano": True, "accion_final": None}, rafaga=12),
+    _dec("A4", "IP interna no inventariada -> activo interno, humano",
+         {"origen_ip": "10.77.3.9", "activo": "web-banking", "servicio": "ssh", "regla_id": "5763"},
+         {"requiere_humano": True, "accion_final": "BLOQUEAR_IP"}),
+    _dec("K5", "Ataque desde taquilla (nadie depende de ella) -> humano, sin cascada",
+         {"origen_ip": "10.200.0.10", "activo": "web-banking", "servicio": "ssh", "regla_id": "5763"},
+         {"requiere_humano": True, "prediccion_cascada": []}),
 ]

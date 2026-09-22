@@ -219,12 +219,41 @@ def deshacer(caso):
             _exec(nodo, cmd)
 
 
+def _comparar_decision(esperado, traza):
+    """Diferencias entre lo esperado y la traza de triaje.procesar (para nivel decision)."""
+    from prototipo import validacion
+    obs = {"clase": traza.get("clase"), "confianza": traza.get("confianza"),
+           "accion_final": traza.get("accion_final"), "requiere_humano": traza.get("requiere_humano"),
+           "filtro": validacion.filtro_legible(traza),
+           "prediccion_cascada": (traza.get("impacto_determinado") or {}).get("activos_afectados_en_cascada")}
+    return [f"{k}: esperado {esperado[k]!r}, obtenido {obs[k]!r}"
+            for k in obs if k in esperado and obs[k] != esperado[k]]
+
+
+def correr_decision(caso, perfil, hallazgos, catalogo):
+    import time
+    from prototipo import triaje, rafaga
+    t0 = time.time()
+    a = dict(caso["alerta"]); a.setdefault("timestamp", "2026-09-22T00:00:00Z"); a.setdefault("mitre", [])
+    a.setdefault("id_alerta", caso["id"])
+    if "rafaga_60s" in caso:
+        a[rafaga.CAMPO] = caso["rafaga_60s"]
+    traza = triaje.procesar(a, hallazgos, perfil, "bancario", catalogo, id_decision=caso["id"],
+                            timestamp=a["timestamp"])
+    fallos = _comparar_decision(caso["esperado"], traza)
+    resultado, detalle = veredicto_caso(caso["esperado"], fallos)
+    return {"id": caso["id"], "titulo": caso["titulo"], "resultado": resultado, "detalle": detalle,
+            "segundos": round(time.time() - t0, 2)}
+
+
 def correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo, escribir=print):
     t0 = time.time()
     res = {"id": caso["id"], "titulo": caso["titulo"]}
     falta = caso.get("requiere")
     if falta and not _requisito_ok(falta):
         return {**res, "resultado": "OMITIDO", "detalle": [f"requiere {falta}"], "segundos": 0}
+    if caso["nivel"] == "decision":
+        return correr_decision(caso, perfil, hallazgos, catalogo)
     problemas = estado_base()
     if problemas:
         return {**res, "resultado": "BLOQUEADO", "detalle": problemas, "segundos": round(time.time() - t0)}
