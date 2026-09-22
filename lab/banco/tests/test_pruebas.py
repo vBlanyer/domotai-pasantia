@@ -169,6 +169,27 @@ class TestNivelInyectadaPerfil(unittest.TestCase):
                 "activo": "core-db", "esperado": {"termina": True}}
         self.assertEqual(rg.correr_perfil(caso, self.p, self.c)["resultado"], "OK")
 
+    def test_k4_ciclo_sintetico_termina(self):
+        # bancario.yml no tiene un ciclo real en depende_de; con un perfil_sintetico a->b->a
+        # el caso ejercita de verdad la guardia de ciclos (sin colgarse ni RecursionError).
+        caso = {"id": "K4s", "titulo": "x", "nivel": "perfil", "comprobacion": "ciclo_depende_de",
+                "activo": "a",
+                "perfil_sintetico": {"activos": {"a": {"depende_de": ["b"]}, "b": {"depende_de": ["a"]}}},
+                "esperado": {"termina": True}}
+        self.assertEqual(rg.correr_perfil(caso, self.p, self.c)["resultado"], "OK")
+
+
+class TestInforme(unittest.TestCase):
+    def test_resume_por_resultado_y_nivel(self):
+        res = [{"id": "D1", "titulo": "a", "resultado": "OK", "detalle": [], "segundos": 1, "nivel": "decision"},
+               {"id": "K1", "titulo": "b", "resultado": "OK", "detalle": ["fallo conocido"], "segundos": 2, "nivel": "vivo"},
+               {"id": "E6", "titulo": "c", "resultado": "OMITIDO", "detalle": ["requiere modelo"], "segundos": 0, "nivel": "vivo"}]
+        txt = rg.informe(res, "2026-09-22 10:00")
+        self.assertIn("2 OK", txt)
+        self.assertIn("1 OMITIDO", txt)
+        self.assertIn("decision", txt)
+        self.assertIn("| D1 |", txt)
+
 
 if __name__ == "__main__":
     unittest.main()

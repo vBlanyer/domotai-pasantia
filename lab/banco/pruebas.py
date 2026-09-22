@@ -1,14 +1,17 @@
-"""Prueba de regresion del laboratorio del banco: los cinco casos de la guia manual
-(docs/pruebas/08-laboratorio-banco.md), ejecutados solos contra la red real.
+"""Banco de pruebas del laboratorio del banco: casos de niveles decision/inyectada/perfil (sin
+laboratorio, segundos) y vivo (los cinco de la guia manual docs/pruebas/08-laboratorio-banco.md,
+ataques reales contra la red).
 
-    python3 -m lab.banco.pruebas              (los cinco casos, ~10 min)
-    python3 -m lab.banco.pruebas --caso K1    (uno solo)
+    python3 -m lab.banco.pruebas                 (decision+inyectada+perfil; los vivos OMITIDO)
+    python3 -m lab.banco.pruebas --con-vivo       (todos los niveles, requiere el banco levantado, ~10 min)
+    python3 -m lab.banco.pruebas --caso K1        (uno solo; si es vivo, fuerza --con-vivo)
 
-Para cada caso: comprueba el estado base (servicios sanos, cortafuegos sin reglas anadidas), prepara,
-ataca desde un nodo del laboratorio, deja decidir al prototipo REAL (el mismo stream.ejecutar del
-daemon, con el perfil bancario, el conector real desde mdr-siem y un lector que contesta al menu
+Para cada caso vivo: comprueba el estado base (servicios sanos, cortafuegos sin reglas anadidas),
+prepara, ataca desde un nodo del laboratorio, deja decidir al prototipo REAL (el mismo stream.ejecutar
+del daemon, con el perfil bancario, el conector real desde mdr-siem y un lector que contesta al menu
 como lo haria el analista), comprueba la decision en la traza, las reglas aplicadas y la salud que
-mide el monitor, y deshace. El informe queda en lab/campañas/<fecha>-banco-regresion/.
+mide el monitor, y deshace. Los de decision/inyectada/perfil llaman directamente al motor con el
+perfil bancario, sin laboratorio. El informe queda en lab/campañas/<fecha>-banco-regresion/.
 
 K1 se comprueba tal como es HOY (fallo conocido: la prediccion de cascada esta vacia y caen cuatro
 servicios). Si algun dia se corrige, este caso fallara y habra que actualizar lo esperado.
@@ -278,8 +281,9 @@ def correr_perfil(caso, perfil, catalogo):
         if "filtro_resultado" in esp and filtro["resultado"] != esp["filtro_resultado"]:
             fallos.append(f"filtro_resultado: esperado {esp['filtro_resultado']!r}, obtenido {filtro['resultado']!r}")
     elif caso["comprobacion"] == "ciclo_depende_de":
+        perfil_usado = caso.get("perfil_sintetico", perfil)
         try:
-            impacto.afectados_en_cascada(caso["activo"], perfil)   # no debe colgarse (guardia de ciclos)
+            impacto.afectados_en_cascada(caso["activo"], perfil_usado)   # no debe colgarse (guardia de ciclos)
             termino = True
         except RecursionError:
             termino = False
@@ -327,23 +331,33 @@ def correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo, escribi
 
 
 def informe(resultados, cuando):
-    ok = sum(1 for r in resultados if r["resultado"] == "OK")
-    lineas = [f"# Regresión del laboratorio del banco — {cuando}", "",
-              f"**{ok} de {len(resultados)} casos OK.** Guía de los casos: `docs/pruebas/08-laboratorio-banco.md`.", "",
-              "| Caso | Resultado | Tiempo | Qué se comprobó / qué falló |", "|---|---|---|---|"]
+    from collections import Counter
+    por_res = Counter(r["resultado"] for r in resultados)
+    orden = ["OK", "FALLO", "BLOQUEADO", "OMITIDO"]
+    cab = " · ".join(f"{por_res.get(k, 0)} {k}" for k in orden if por_res.get(k))
+    lineas = [f"# Banco de pruebas del laboratorio del banco — {cuando}", "",
+              f"**{cab}** de {len(resultados)} casos. Catálogo: `docs/superpowers/specs/2026-09-21-laboratorio-banco-design.md` §4.", "",
+              "| Caso | Nivel | Resultado | Tiempo | Qué se comprobó / qué falló |", "|---|---|---|---|---|"]
     for r in resultados:
         detalle = "; ".join(r["detalle"]) if r["detalle"] else r["titulo"]
-        lineas.append(f"| {r['id']} | {r['resultado']} | {r['segundos']} s | {detalle} |")
-    lineas += ["", "K1 comprueba el comportamiento de HOY, que es un fallo conocido del prototipo: la "
-               "predicción de cascada está vacía y caen cuatro servicios. Si se corrige, K1 fallará aquí "
-               "y habrá que actualizar lo esperado en `lab/banco/casos.py`."]
+        lineas.append(f"| {r['id']} | {r.get('nivel','')} | {r['resultado']} | {r['segundos']} s | {detalle} |")
+    lineas += ["", "**Notas:** K1 y C4 declaran `fallo_esperado` (fallos conocidos del prototipo): cuentan "
+               "OK mientras el fallo persista. Los casos que requieren el modelo LLM (E6) salen OMITIDO: el "
+               "banco corre con la plantilla determinista."]
     return "\n".join(lineas) + "\n"
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Regresion del laboratorio del banco (5 casos de la guia manual)")
+    ap = argparse.ArgumentParser(description="Banco de pruebas del laboratorio del banco")
     ap.add_argument("--caso", choices=[c["id"] for c in casos.CASOS])
+    ap.add_argument("--con-vivo", action="store_true",
+                    help="corre tambien los casos de nivel vivo (requiere el laboratorio levantado)")
     a = ap.parse_args(argv)
+    con_vivo = a.con_vivo
+    if a.caso is not None:
+        elegido = next(c for c in casos.CASOS if c["id"] == a.caso)
+        if elegido["nivel"] == "vivo":
+            con_vivo = True
     os.environ["TRIAJE_NODO_GESTION"] = f"{P}-mdr-siem"
     from prototipo import conector, perfil as perfilm, catalogo as catm
     perfil = perfilm.cargar(PERFIL)
@@ -360,15 +374,21 @@ def main(argv=None):
     casos_a_correr = [c for c in casos.CASOS if a.caso in (None, c["id"])]
     resultados, ultimo_ataque = [], 0.0
     for caso in casos_a_correr:
-        if "ataque" in caso:
+        if caso["nivel"] == "vivo" and not con_vivo:
+            resultados.append({"id": caso["id"], "titulo": caso["titulo"], "nivel": "vivo",
+                               "resultado": "OMITIDO", "detalle": ["nivel vivo: usa --con-vivo con el banco levantado"],
+                               "segundos": 0})
+            continue
+        if caso["nivel"] == "vivo" and caso.get("ataque"):
             espera = ESPERA_WAZUH - (time.time() - ultimo_ataque)
             if ultimo_ataque and espera > 0:
                 print(f"   (esperando {int(espera)} s: la regla 5763 de Wazuh se silencia 60 s tras dispararse)")
                 time.sleep(espera)
-        print(f"== {caso['id']}: {caso['titulo']}")
+        print(f"== {caso['id']} [{caso['nivel']}]: {caso['titulo']}")
         r = correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo,
                         escribir=lambda s: print("   | " + s.replace("\n", "\n   | ")))
-        if "ataque" in caso:
+        r["nivel"] = caso["nivel"]
+        if caso["nivel"] == "vivo" and caso.get("ataque"):
             ultimo_ataque = time.time()
         print(f"   -> {r['resultado']} ({r['segundos']} s)" + "".join(f"\n      - {d}" for d in r["detalle"]))
         resultados.append(r)
@@ -378,7 +398,9 @@ def main(argv=None):
     with open(os.path.join(dir_salida, "informe.md"), "w", encoding="utf-8") as f:
         f.write(texto)
     print("\n" + texto + f"\n-> {dir_salida}")
-    return 0 if all(r["resultado"] == "OK" for r in resultados) else 1
+    # OMITIDO no es un fallo (nivel vivo sin --con-vivo, o requisito ausente como el modelo LLM):
+    # el proceso solo termina en error por FALLO (diferencia no esperada) o BLOQUEADO (lab no en estado base).
+    return 0 if not any(r["resultado"] in ("FALLO", "BLOQUEADO") for r in resultados) else 1
 
 
 if __name__ == "__main__":

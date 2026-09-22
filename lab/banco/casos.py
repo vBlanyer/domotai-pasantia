@@ -115,5 +115,9 @@ CASOS = [
      "nivel": "perfil", "comprobacion": "sin_reversion", "accion": "OBS_PROCESOS", "activo": "core-db",
      "esperado": {"filtro_resultado": "veta"}},
     {"id": "K4", "titulo": "afectados_en_cascada termina aunque haya dependencias (guardia de ciclos)",
-     "nivel": "perfil", "comprobacion": "ciclo_depende_de", "activo": "core-db", "esperado": {"termina": True}},
+     "nivel": "perfil", "comprobacion": "ciclo_depende_de", "activo": "a",
+     # bancario.yml no tiene un ciclo real en depende_de (es un DAG); este perfil sintetico a->b->a
+     # ejercita de verdad la guardia de ciclos de impacto.afectados_en_cascada.
+     "perfil_sintetico": {"activos": {"a": {"depende_de": ["b"]}, "b": {"depende_de": ["a"]}}},
+     "esperado": {"termina": True}},
 ]
