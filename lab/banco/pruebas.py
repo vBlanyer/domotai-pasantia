@@ -70,6 +70,21 @@ class Lector:
         return resp
 
 
+class LectorContador:
+    """Envuelve un lector real (`input`, o el `_leer_interactivo` de stream que lee de /dev/tty) y
+    anota cada pregunta igual que `Lector` (mismo formato `(tipo, respuesta)`), para que `evaluar`
+    pueda comparar `preguntas` tambien en el camino interactivo de `--paso-a-paso` (el lector real no
+    trae `.preguntas` por si solo: es una funcion corriente, no un objeto que las cuente)."""
+    def __init__(self, leer):
+        self.leer, self.preguntas = leer, []
+
+    def __call__(self, prompt=""):
+        tipo = "escalada" if "[s/N]" in prompt else "menu"
+        resp = self.leer(prompt)
+        self.preguntas.append((tipo, resp))
+        return resp
+
+
 def fuente_filtrada(lineas, ip, parar):
     """Las lineas de alerts.json del atacante `ip` (y los ticks None), hasta que `parar()`."""
     patron = f'"srcip":"{ip}"'
@@ -132,8 +147,8 @@ def _requisito_ok(requisito):
 
 
 def _json_seguro(obj):
-    """default= de json.dumps: los `esperado` traen sets (p. ej. `caen`) y tuplas (`regla`), que
-    json no serializa de forma nativa."""
+    """default= de json.dumps: los `esperado` traen sets (p. ej. `caen`), que json no serializa de
+    forma nativa (las tuplas, como `regla`, sí las serializa json.dumps por su cuenta, como listas)."""
     if isinstance(obj, (set, frozenset)):
         return sorted(obj)
     return str(obj)
@@ -401,11 +416,14 @@ def paso_a_paso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo):
         registro, preguntas = None, []
         if caso.get("ataque"):
             _pausar(f"atacar (desde {caso['ataque'][0]})")
+            # Un solo `decidir()`: lanza el ataque Y espera la decision (no hay una pausa real entre
+            # ambas cosas); esta segunda etiqueta solo marca que, a partir de aqui, el prototipo ya
+            # esta corriendo y puede aparecer el menu real que el analista debe contestar.
             _pausar("esperando decision (conteste el menu real en esta misma terminal)")
+            lector = LectorContador(stream._leer_interactivo())
             registro, lector = decidir(caso, os.path.join(dir_salida, f"traza-{caso['id']}.jsonl"),
-                                       ejecutor, perfil, hallazgos, catalogo, print,
-                                       leer=stream._leer_interactivo())
-            preguntas = getattr(lector, "preguntas", [])
+                                       ejecutor, perfil, hallazgos, catalogo, print, leer=lector)
+            preguntas = lector.preguntas
         _pausar("verificar")
         caen = caso["esperado"].get("caen", set())
         c = esperar_salud(caen, plazo=40 if caen else 10)

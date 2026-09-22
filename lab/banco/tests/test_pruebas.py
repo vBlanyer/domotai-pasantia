@@ -34,6 +34,21 @@ class TestLector(unittest.TestCase):
         self.assertEqual(leer.preguntas, [("menu", "")])
 
 
+class TestLectorContador(unittest.TestCase):
+    def test_anota_la_pregunta_del_lector_real_que_envuelve(self):
+        # simula el lector interactivo real (input / stream._leer_interactivo()): una funcion
+        # corriente sin .preguntas propio.
+        contador = rg.LectorContador(lambda prompt="": "1")
+        self.assertEqual(contador("Elige [1-3]: "), "1")
+        self.assertEqual(contador.preguntas, [("menu", "1")])
+
+    def test_distingue_escalada_igual_que_lector(self):
+        contador = rg.LectorContador(lambda prompt="": "s")
+        contador("Elige [1-3]: ")
+        contador("¿aprobar la ejecución? [s/N] ")
+        self.assertEqual([p for p, _ in contador.preguntas], ["menu", "escalada"])
+
+
 class TestFuente(unittest.TestCase):
     def test_filtra_por_ip_del_atacante_y_para(self):
         lineas = ['{"data":{"srcip":"198.51.100.10"}}', '{"data":{"srcip":"10.0.0.9"}}', None,
