@@ -1,8 +1,8 @@
 """Prueba de regresion del laboratorio del banco: los cinco casos de la guia manual
 (docs/pruebas/08-laboratorio-banco.md), ejecutados solos contra la red real.
 
-    python3 -m lab.banco.regresion              (los cinco casos, ~10 min)
-    python3 -m lab.banco.regresion --caso K1    (uno solo)
+    python3 -m lab.banco.pruebas              (los cinco casos, ~10 min)
+    python3 -m lab.banco.pruebas --caso K1    (uno solo)
 
 Para cada caso: comprueba el estado base (servicios sanos, cortafuegos sin reglas anadidas), prepara,
 ataca desde un nodo del laboratorio, deja decidir al prototipo REAL (el mismo stream.ejecutar del
@@ -24,7 +24,7 @@ import subprocess
 import sys
 import time
 
-from lab.banco import red
+from lab.banco import casos, red
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 P = "clab-banco"
@@ -37,44 +37,6 @@ NODOS_CON_REGLAS = ["web-banking", "api-movil", "swift-alliance", "middleware", 
 ESPERA_WAZUH = 65          # > ignore="60" de la regla 5763
 PLAZO_DECISION = 150       # s desde que empieza el ataque hasta que debe haber decision
 TODOS = set(red.SERVICIOS)
-K1_CAEN = {"middleware", "web-banking", "api-movil", "atm"}
-
-
-def _fuerza_bruta(origen, destino_ip):
-    return (origen, "for i in $(seq 1 10); do sshpass -p mal_$i ssh -o StrictHostKeyChecking=no "
-                    "-o ConnectTimeout=4 -o PubkeyAuthentication=no -o PreferredAuthentications=password "
-                    f"cliente@{destino_ip} id >/dev/null 2>&1; done; true")
-
-
-CASOS = [
-    {"id": "CASCADA", "titulo": "Tumbar core-db (sin el prototipo): cascada real del laboratorio",
-     "preparar": [("core-db", "pkill -f 'servicio.py --nombre core-db'")],
-     "esperado": {"caen": K1_CAEN | {"core-db"}},
-     "deshacer": [("core-db", "REARRANCAR")]},
-    {"id": "D1", "titulo": "Atacante externo contra web-banking: bloqueo automatico",
-     "ataque": _fuerza_bruta("internet", "10.10.0.10"), "origen": "198.51.100.10",
-     "esperado": {"requiere_humano": False, "accion_final": "BLOQUEAR_IP", "preguntas": 0,
-                  "regla": ("web-banking", "-A INPUT -s 198.51.100.10/32 -j DROP"), "caen": set()},
-     "deshacer": [("web-banking", "iptables -D INPUT -s 198.51.100.10 -j DROP")]},
-    {"id": "A1", "titulo": "Equipo interno (taquilla) contra web-banking: retenida, el analista rechaza",
-     "ataque": _fuerza_bruta("taquilla", "10.10.0.10"), "origen": "10.200.0.10", "menu": "2",
-     "esperado": {"requiere_humano": True, "veredicto": "rechazar", "preguntas": 1,
-                  "sin_reglas": True, "caen": set()},
-     "deshacer": []},
-    {"id": "K1", "titulo": "middleware comprometido contra core-db: aprobado; cascada no avisada (fallo conocido K1)",
-     "ataque": _fuerza_bruta("middleware", "10.50.0.10"), "origen": "10.40.0.10", "menu": "1",
-     "esperado": {"requiere_humano": True, "veredicto": "aprobar", "preguntas": 1, "prediccion_cascada": [],
-                  "regla": ("core-db", "-A INPUT -s 10.40.0.10/32 -j DROP"), "caen": K1_CAEN},
-     "deshacer": [("core-db", "iptables -D INPUT -s 10.40.0.10 -j DROP")]},
-    {"id": "E1", "titulo": "La victima no responde al MDR: escalada a fw-core, aprobada",
-     "preparar": [("web-banking", "iptables -I INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP")],
-     "ataque": _fuerza_bruta("internet", "10.10.0.10"), "origen": "198.51.100.10", "escalada": "s",
-     "esperado": {"escalado": True, "dispositivo_ejecutor": "fw-core",
-                  "regla": ("fw-core", "-A FORWARD -s 198.51.100.10/32 -j DROP"), "caen": set()},
-     "deshacer": [("fw-core", "iptables -D FORWARD -s 198.51.100.10 -j DROP"),
-                  ("web-banking", "iptables -D INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP"),
-                  ("web-banking", "iptables -D INPUT -s 198.51.100.10 -j DROP")]},
-]
 
 
 # ------------------------------------------------------------------ funciones puras --
@@ -279,13 +241,13 @@ def informe(resultados, cuando):
         lineas.append(f"| {r['id']} | {r['resultado']} | {r['segundos']} s | {detalle} |")
     lineas += ["", "K1 comprueba el comportamiento de HOY, que es un fallo conocido del prototipo: la "
                "predicción de cascada está vacía y caen cuatro servicios. Si se corrige, K1 fallará aquí "
-               "y habrá que actualizar lo esperado en `lab/banco/regresion.py`."]
+               "y habrá que actualizar lo esperado en `lab/banco/casos.py`."]
     return "\n".join(lineas) + "\n"
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Regresion del laboratorio del banco (5 casos de la guia manual)")
-    ap.add_argument("--caso", choices=[c["id"] for c in CASOS])
+    ap.add_argument("--caso", choices=[c["id"] for c in casos.CASOS])
     a = ap.parse_args(argv)
     os.environ["TRIAJE_NODO_GESTION"] = f"{P}-mdr-siem"
     from prototipo import conector, perfil as perfilm, catalogo as catm
@@ -300,9 +262,9 @@ def main(argv=None):
     for f in os.listdir(dir_salida):
         if f.startswith("traza-"):
             os.remove(os.path.join(dir_salida, f))
-    casos = [c for c in CASOS if a.caso in (None, c["id"])]
+    casos_a_correr = [c for c in casos.CASOS if a.caso in (None, c["id"])]
     resultados, ultimo_ataque = [], 0.0
-    for caso in casos:
+    for caso in casos_a_correr:
         if "ataque" in caso:
             espera = ESPERA_WAZUH - (time.time() - ultimo_ataque)
             if ultimo_ataque and espera > 0:

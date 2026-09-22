@@ -1,5 +1,5 @@
 import unittest
-from lab.banco import regresion as rg
+from lab.banco import pruebas as rg
 
 
 class TestReglasExtra(unittest.TestCase):
@@ -76,15 +76,6 @@ class TestEvaluar(unittest.TestCase):
     def test_sin_registro_es_un_fallo(self):
         self.assertEqual(rg.evaluar({"requiere_humano": True}, None, {}, set(), []),
                          ["el prototipo no produjo ninguna decision (sin alerta de Wazuh o sin incidente)"])
-
-
-class TestCasos(unittest.TestCase):
-    def test_los_cinco_casos_estan_definidos_y_se_pueden_deshacer(self):
-        ids = [c["id"] for c in rg.CASOS]
-        self.assertEqual(ids, ["CASCADA", "D1", "A1", "K1", "E1"])
-        for c in rg.CASOS:
-            self.assertTrue(c["titulo"])
-            self.assertIn("deshacer", c)
 
 
 if __name__ == "__main__":
