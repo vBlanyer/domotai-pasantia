@@ -58,6 +58,15 @@ class TestSaludTransitiva(unittest.TestCase):
         self.assertEqual(len(self.registro), 1)
         self.assertIn('"GET /login HTTP/1.1" 200', self.registro[0])
 
+    def test_salud_con_querystring_tambien_es_el_endpoint_de_salud(self):
+        # /salud?x=1 debe tratarse igual que /salud (comparar solo el path, no la ruta cruda);
+        # antes de la comparacion con urlsplit, "/salud?x" != "/salud" caia por la rama generica.
+        _, a = self._nuevo("core-db")
+        with urllib.request.urlopen(f"http://{a}/salud?x=1", timeout=3) as r:
+            self.assertEqual(r.status, 200)
+            self.assertEqual(json.loads(r.read()), {"servicio": "core-db", "estado": "ok", "falla": []})
+        self.assertEqual(len(self.registro), 0)  # /salud (con o sin query) no se registra como acceso
+
 
 class TestFunciones(unittest.TestCase):
     def test_comprobar_dependencias_con_fallo_de_red(self):

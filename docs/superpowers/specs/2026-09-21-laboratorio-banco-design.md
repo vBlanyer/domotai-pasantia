@@ -1,6 +1,7 @@
 # Laboratorio del banco y banco de pruebas de casos de producción — diseño
 
-**Fecha:** 21/09/2026 · **Estado:** diseño aprobado por secciones, pendiente de revisión del texto.
+**Fecha:** 21/09/2026 · **Estado:** plan 1 (infraestructura) entregado y verificado en vivo; plan 2
+(banco de pruebas automático) no se ejecuta, por decisión del usuario (22/09/2026) — ver §8 y §10.
 
 ## 1. Objetivo
 
@@ -298,6 +299,10 @@ En `lab/campañas/<fecha>-banco/`:
 
 ## 8. Fases y planes
 
+> **22/09/2026:** por decisión del usuario, el plan 2 (banco de pruebas automático) no se ejecuta;
+> se entrega solo el plan 1. K1 y C4 quedan como limitaciones documentadas (ver
+> `lab/banco/verificaciones.md` y `documentacion/00-general/estado-y-riesgos.md` §7).
+
 **Plan 1, infraestructura:**
 
 | Fase | Contenido | Hecho cuando |
@@ -330,9 +335,14 @@ En `lab/campañas/<fecha>-banco/`:
 
 ## 10. Criterios de éxito
 
-- Cada caso del catálogo tiene **un laboratorio asignado o una exclusión declarada**, y un alcance.
-- `--todos` corre la suite del banco de punta a punta y produce el informe. Todo FALLO no esperado queda
-  explicado o abierto como tarea.
+> **22/09/2026:** por decisión del usuario, el plan 2 no se ejecuta; los criterios sobre `--todos` y el
+> catálogo completo de casos quedan **fuera de alcance por esa decisión**.
+
+- ~~Cada caso del catálogo tiene **un laboratorio asignado o una exclusión declarada**, y un
+  alcance.~~ — fuera de alcance (plan 2 no ejecutado); los casos verificados quedan cubiertos por
+  `lab/banco/verificaciones.md` (V1–V7), no por el catálogo completo.
+- ~~`--todos` corre la suite del banco de punta a punta y produce el informe. Todo FALLO no esperado
+  queda explicado o abierto como tarea.~~ — fuera de alcance (plan 2 no ejecutado).
 - K1 muestra H2 con evidencia (predicción frente a monitor).
 - La red pequeña y su suite siguen funcionando igual.
 

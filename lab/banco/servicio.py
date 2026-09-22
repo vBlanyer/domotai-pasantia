@@ -9,6 +9,7 @@ import json
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -37,7 +38,10 @@ def linea_acceso(ip, metodo, ruta, estado, tamano, agente, instante):
 def crear_servidor(nombre, puerto, dependencias, registrar):
     class Manejador(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
-            if self.path == "/salud":
+            # Comparar solo el path (sin la query), para que "/salud?x=1" tambien cuente como
+            # el endpoint de salud y no como un acceso cualquiera (minor, revision final).
+            es_salud = urllib.parse.urlsplit(self.path).path == "/salud"
+            if es_salud:
                 fallan = comprobar_dependencias(dependencias)
                 cuerpo = {"servicio": nombre, "estado": "degradado" if fallan else "ok", "falla": fallan}
                 estado = 503 if fallan else 200
@@ -49,7 +53,7 @@ def crear_servidor(nombre, puerto, dependencias, registrar):
             self.send_header("Content-Length", str(len(datos)))
             self.end_headers()
             self.wfile.write(datos)
-            if self.path != "/salud":
+            if not es_salud:
                 registrar(linea_acceso(self.client_address[0], "GET", self.path, estado, len(datos),
                                        self.headers.get("User-Agent", "-"), time.time()))
 

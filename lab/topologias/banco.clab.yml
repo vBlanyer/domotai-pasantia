@@ -8,8 +8,17 @@
 #                                   └─ sw-soc ─┬─ mdr-siem 10.100.0.10 (MDR y conector; ip_gestion)
 #                                              └─ auditor  10.100.0.20
 #
-# Las rutas de datos son especificas (10.0.0.0/8, 198.51.100.0/24): la ruta por defecto es la de
-# gestion (eth0), como en red-cliente. 'internet' no tiene salida real: es un nodo mas del laboratorio.
+# Las rutas de datos son especificas (10.0.0.0/8, 198.51.100.0/24); el resto de nodos conserva
+# la ruta por defecto de gestion (eth0, solo para docker exec/SSH del conector), como en
+# red-cliente. 'internet' es la excepcion: containerlab tambien lo conecta a la red de gestion
+# de Docker, que le daria salida real; su ruta por defecto se borra y eth0 se bloquea de salida
+# (C1), asi que 'internet' no tiene salida real: es un nodo mas del laboratorio.
+#
+# I2: ademas, banco.sh 'up' anade en cada nodo del plano de datos con sshd/servicios
+# (web-banking api-movil swift-alliance middleware core-db hsm atm taquilla fw-core fw-edge
+# mdr-siem auditor) la regla 'iptables -A INPUT -i eth0 -p tcp -j DROP': sshd y los servicios
+# HTTP escuchan en 0.0.0.0 (tambien en eth0/gestion), que no pasa por ningun cortafuegos del
+# banco; sin esa regla, alguien con acceso a la red de gestion se saltaba fw-edge y fw-core.
 # Se levanta con: sh lab/lab.sh up banco   (no convive con red-cliente: misma red de gestion)
 
 name: banco
@@ -21,9 +30,16 @@ topology:
 
   nodes:
     internet:
+      # containerlab conecta este nodo tambien a la red de gestion de Docker (eth0, NAT), que
+      # le da una ruta por defecto real: 'docker exec' no pasa por ella, pero el propio
+      # contenedor si tendria salida real a Internet. Se borra esa ruta y se bloquea eth0 de
+      # salida con iptables para que quede aislado de verdad (RNF-01): solo sabe llegar al
+      # banco por eth1 (198.51.100.0/24 -> 10.0.0.0/8).
       exec:
         - ip addr add 198.51.100.10/24 dev eth1
         - ip route add 10.0.0.0/8 via 198.51.100.1
+        - ip route del default
+        - iptables -A OUTPUT -o eth0 -j DROP
 
     fw-edge:
       sysctls: {net.ipv4.ip_forward: 1}

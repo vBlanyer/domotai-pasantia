@@ -20,6 +20,15 @@ class TestLineas(unittest.TestCase):
         self.assertEqual(reenviador.desde_sshd("hsm", "Failed password for x from 1.2.3.4 port 1 ssh2\n", 0),
                          "<38>Jan 01 00:00:00 hsm sshd[0]: Failed password for x from 1.2.3.4 port 1 ssh2")
 
+    def test_sshd_con_retorno_de_carro_real_de_sshd_E(self):
+        # sshd -E (banco.sh) escribe las lineas SIN el prefijo "sshd[pid]:" y con un \r final
+        # (forma real observada en el laboratorio): sin prefijo, cae siempre por el camino de
+        # respaldo (pid "0"), y el \r no debe colarse en lo que se manda a Wazuh.
+        l = "Failed password for cliente from 198.51.100.10 port 40000 ssh2\r\n"
+        self.assertEqual(reenviador.desde_sshd("hsm", l, 0),
+                         "<38>Jan 01 00:00:00 hsm sshd[0]: "
+                         "Failed password for cliente from 198.51.100.10 port 40000 ssh2")
+
     def test_web_como_apache(self):
         l = '198.51.100.10 - - [01/Jan/1970:00:00:00 +0000] "GET / HTTP/1.1" 200 2 "-" "curl"'
         self.assertEqual(reenviador.desde_web("web-banking", l, 0),

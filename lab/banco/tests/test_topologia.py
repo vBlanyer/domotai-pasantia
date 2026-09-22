@@ -32,10 +32,14 @@ class TestTopologia(unittest.TestCase):
         self.assertIn("10.100.0.1/24", execs)
         self.assertIn("10.0.0.1/24", execs)
 
-    def test_internet_no_tiene_ruta_por_defecto_propia(self):
-        # Aislamiento: el atacante solo sabe llegar al banco, no a una salida real.
+    def test_internet_borra_la_ruta_por_defecto_del_contenedor_y_bloquea_la_salida(self):
+        # C1: containerlab conecta 'internet' a la red de gestion de Docker (NAT), que le da
+        # una ruta por defecto real (eth0) y por tanto salida a Internet de verdad. 'docker
+        # exec' no pasa por esa ruta, asi que hay que borrarla y bloquear el trafico saliente
+        # por eth0 con iptables para que el laboratorio quede aislado de verdad (RNF-01).
         execs = " ".join(self.nodos["internet"]["exec"])
-        self.assertNotIn("default", execs)
+        self.assertIn("ip route del default", execs)
+        self.assertIn("iptables -A OUTPUT -o eth0 -j DROP", execs)
 
 
 if __name__ == "__main__":

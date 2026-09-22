@@ -39,7 +39,7 @@ Tres módulos Python autónomos (solo biblioteca estándar) se copian a la image
 
 ## Decisiones del plan (rulings sobre el spec)
 
-- **R1.** La fase 0 del spec («verificaciones previas») depende de que el laboratorio exista. Se ejecuta como **Task 8**, después de construirlo. Solo el conector (H3) va primero, en la Task 1. Las verificaciones no cambian el prototipo: registran resultados en `lab/banco/verificaciones.md`, que el plan 2 consume.
+- **R1.** La fase 0 del spec («verificaciones previas») depende de que el laboratorio exista. Se ejecuta como **Task 8**, después de construirlo. Solo el conector (H3) va primero, en la Task 1. Las verificaciones no cambian el prototipo: registran resultados en `lab/banco/verificaciones.md`. (22/09/2026: el plan 2, que iba a consumir ese registro, no se ejecutó — decisión del usuario; ver spec §8/§10.)
 - **R2.** El auditor escanea hoy `--top-ports 100`, que no incluye el 1521. Se parametriza la lista de puertos (Task 1) y el banco la pasa explícita.
 - **R3.** El formato con el que Wazuh decodifica los logs web por syslog no está verificado. `reenviador.py` construye la línea syslog con una función pura y probada. La Task 8 comprueba qué detecta Wazuh; si no detecta el web, D5 queda marcado con su límite (el spec lo permite).
 

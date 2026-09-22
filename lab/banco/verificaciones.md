@@ -5,7 +5,10 @@ levantado (`sh lab/banco/banco.sh status`: 14 contenedores `clab-banco-*` arriba
 `clab-red-cliente-wazuh` arriba, salud inicial de los 7 activos con servicio en `ok`).
 Formato por verificación: **comando exacto → salida literal (recortada) → conclusión →
 casos afectados**. No se modificó `prototipo/` para forzar ningún resultado; los límites y
-fallos esperados quedan anotados como tales.
+fallos esperados quedan anotados como tales. Seis de las siete (V1, V2, V3, V4, V6, V7) se
+ejecutaron en vivo contra el laboratorio real. **V5 es la excepción: es una simulación**,
+con un ejecutor inyectado (una función Python que sustituye al ejecutor SSH real) en lugar
+del laboratorio — se explica en su propia sección.
 
 ---
 
@@ -71,8 +74,13 @@ Salida (las tres ráfagas lanzadas seguidas, ventana de 8 s):
 ```
 
 `5760` (fallo de autenticación individual) se dispara siempre y con el `hostname`
-correcto — confirma que `reenviador.desde_sshd` parsea bien lo que escribe `sshd -E`; no
-hizo falta tocar la expresión regular. `5763` (fuerza bruta correlacionada, nivel 10) solo
+correcto. Precisión sobre cómo: `sshd -E` (el modo que usa `banco.sh`) escribe sus líneas
+**sin** el prefijo `sshd[pid]:` que trae el syslog normal de sshd, y con un `\r` final; como
+la expresión regular de `reenviador.desde_sshd` busca ese prefijo y nunca lo encuentra, las
+líneas toman siempre el camino de respaldo (`sshd[0]`, mensaje completo sin el `\r`, que
+`str.strip()` limpia igual). No hizo falta tocar la expresión regular porque ese camino de
+respaldo ya produce el `hostname` y el mensaje correctos — confirmado además por el test
+`test_sshd_con_retorno_de_carro_real_de_sshd_E`. `5763` (fuerza bruta correlacionada, nivel 10) solo
 se disparó para el atacante externo (`internet` → `web-banking`); ni `taquilla` ni
 `middleware` (atacantes internos, mismos 10 intentos cada uno) lo dispararon en esta
 corrida.
@@ -309,17 +317,17 @@ tienen servicios propios que auditar, solo reglas de firewall — quedaron fuera
 igual que `mdr-siem`, plano de gestión, marcado «inventariado y no escaneado»). Como se
 esperaba: el `22` (sshd del conector, `usuario cliente`) aparece como no declarado en los 8
 nodos — exposición conocida del laboratorio, no un hallazgo real. `hsm` (`9000`) y
-`swift-alliance` (`48002`) también salen como no declarados: sus puertos nominales no
-figuran todavía en `servicios_prestados` del perfil (`prototipo/perfiles/bancario.yml` los
-deja en `[]`), pendiente de la Task 9. Además apareció `atm` con `8080` no declarado, por
-el mismo motivo (puerto nominal de `atm` aún no está en el perfil) — se anota aquí junto a
+`swift-alliance` (`48002`) también salían como no declarados en esta primera corrida: sus
+puertos nominales todavía no figuraban en `servicios_prestados` del perfil
+(`prototipo/perfiles/bancario.yml` los dejaba en `[]`) — resuelto por la Task 9, ver debajo.
+Además apareció `atm` con `8080` no declarado, por el mismo motivo — se anota aquí junto a
 los otros dos porque es el mismo caso, no una sorpresa nueva.
 
 **Casos afectados:** ninguno reprobado; hallazgos esperados según lo indicado en el brief,
-más `atm:8080` con la misma causa raíz que `hsm`/`swift-alliance`. Pendiente de Task 9
-(declarar los puertos nominales en el perfil).
+más `atm:8080` con la misma causa raíz que `hsm`/`swift-alliance`. Resuelto por la Task 9
+(puertos nominales declarados en el perfil), ver la reconciliación debajo.
 
-**Task 9 — reconciliación con puertos del perfil declarados:**
+**Task 9 — hecha: reconciliación con los puertos del perfil ya declarados:**
 
 ```
 api-movil: 1 abierto(s) no declarado(s) (exposición no reconocida): ssh/22
@@ -339,7 +347,13 @@ incluidos en el perfil.
 
 ---
 
-## V5 — qué hace el lazo con una víctima que es una joya de la corona (C4)
+## V5 — qué hace el lazo con una víctima que es una joya de la corona (C4) [simulación, ejecutor inyectado]
+
+**Esta verificación no corre contra el laboratorio: es una simulación.** El `ej` de abajo es
+un ejecutor **inyectado** (una función Python que sustituye por completo al ejecutor SSH
+real de `prototipo/conector.py`) — no toca ningún contenedor del banco. Sirve para observar,
+con trazabilidad exacta, qué IP y qué comando construye `lazo.py` internamente antes de
+llegar al conector real.
 
 ```sh
 PYTHONPATH=. python3 - <<'EOF'
@@ -366,9 +380,13 @@ orden sobre: 10.60.0.10 | IPs contactadas: ['10.60.0.10', '10.60.0.10', '10.60.0
 ```
 
 **Conclusión:** la primera (y única, en este ensayo) IP contactada por el ejecutor es
-`10.60.0.10` — el propio HSM, la víctima, no el firewall. El mensaje de validación humana
-que se imprime sí habla de `BLOQUEAR_IP_FIREWALL en fw-core`, pero la orden ejecutada
-(`orden sobre: 10.60.0.10`) y las llamadas reales al ejecutor van contra el activo.
+`10.60.0.10` — el propio HSM, la víctima, no el firewall. Y no es una consulta: el comando
+que el lazo construye y manda al ejecutor contra el HSM es `BLOQUEAR_IP`
+(`prototipo/catalogo.yml`: `comando: "iptables -A INPUT -s {ip} -j DROP"`), es decir,
+literalmente `iptables -A INPUT -s 198.51.100.10 -j DROP` — **una regla de bloqueo que
+escribe sobre la joya de la corona**, no un `iptables -L` de solo lectura. El mensaje de
+validación humana que se imprime sí habla de `BLOQUEAR_IP_FIREWALL en fw-core`, pero la
+orden ejecutada (`orden sobre: 10.60.0.10`) y esa mutación real van contra el activo.
 
 Precisión sobre ese mensaje: el paso de `fw-core` **sí se alcanzó y se preguntó**
 (`_aprobar` en `prototipo/agente_mitigacion.py:177` imprime exactamente esa línea antes de
@@ -385,8 +403,9 @@ respuesta de prueba.
 Esto confirma **C4 como fallo esperado**: `prototipo/perfiles/bancario.yml` documenta
 explícitamente («las joyas de la corona NO se listan como host: una contención sobre ellas
 escala directa al firewall, contener aguas arriba, nunca tocar el activo crítico») una
-garantía que el código de `lazo.py` no cumple — el lazo intenta primero contactar/consultar
-la víctima y solo, si eso fallara, escalaría. Lo documentado en el perfil no está
+garantía que el código de `lazo.py` no cumple — el lazo intenta primero **escribir una
+regla de bloqueo (`iptables -A INPUT ... -j DROP`, una mutación, no una consulta) sobre la
+propia víctima** y solo, si eso fallara, escalaría. Lo documentado en el perfil no está
 garantizado por el código. Queda como tarea aparte (fuera del alcance de esta fase), igual
 que H2 (ver V7).
 
@@ -538,15 +557,16 @@ El laboratorio queda arriba (`UP`), en el mismo estado base que al comenzar la F
 | D1, A1, K1 (fuerza bruta SSH) | confirmado, probado de forma aislada (V2); límite operativo documentado para O2 (`ignore="60"` de la regla 5763 silencia la alerta correlacionada para cualquier otro origen durante 60 s tras el primer disparo) |
 | D5 (ataque web) | confirmado (XSS sin codificar, vía regla 31105) / límite de detección (SQLi con el payload usado, sin las palabras clave de la regla 31103; path traversal normalizado por el cliente, según V3) |
 | D7 (reconocimiento nmap) | límite de detección (según V3): no hay ingesta de tráfico de red/firewall, solo syslog de aplicación |
-| C4 (víctima joya de la corona) | fallo esperado (según V5): el primer contacto real del ejecutor es el activo crítico (HSM), no el firewall, pese a lo documentado en el perfil |
+| C4 (víctima joya de la corona) | fallo esperado (según V5, **simulación con ejecutor inyectado**, no en vivo): el ejecutor recibe primero una orden mutante (`iptables -A INPUT ... -j DROP`) contra el activo crítico (HSM), no el firewall, pese a lo documentado en el perfil |
 | E1, E2 (escalada real entre cortafuegos) | confirmado (según V6): `BLOQUEAR_IP_FIREWALL` funciona y revierte limpio en `fw-core` y `fw-edge` |
 | K1 (cascada real vs. predicha, H2) | fallo esperado (según V7): caen 4 servicios reales, la predicción de impacto da `[]` porque `determinar()` solo calcula cascada para `ACCIONES_SOBRE_PUERTO`/`ACCIONES_SOBRE_NODO`, nunca para bloqueos de IP |
 
 ## Hallazgos adicionales fuera de la lista original
 
-- **V4:** `atm:8080` (además de `hsm:9000` y `swift-alliance:48002`) sale como puerto
-  nominal no declarado — misma causa raíz (puertos nominales pendientes de la Task 9),
-  anotado aquí para que la Task 9 los cubra los tres.
+- **V4:** `atm:8080` (además de `hsm:9000` y `swift-alliance:48002`) salió como puerto
+  nominal no declarado en la primera corrida — misma causa raíz (puertos nominales aún no
+  declarados en el perfil); la Task 9 ya está hecha y cubrió los tres (ver la reconciliación
+  resuelta en V4, arriba).
 - **V2:** `ignore="60"` en la regla nativa 5763 silencia la alerta correlacionada para
   *cualquier* origen (no solo el que disparó) durante 60 s tras el primer disparo — no es
   una «dilución de conteo por búfer compartido» como se anotó en un primer borrador (los
@@ -557,3 +577,23 @@ El laboratorio queda arriba (`UP`), en el mismo estado base que al comenzar la F
   posterior, espaciar deliberadamente los ataques simulados en las campañas para no
   toparse con esta ventana de silencio, o documentarlo como comportamiento esperado del
   SIEM del cliente (relevante para el caso O2, orígenes simultáneos).
+
+## Estado del laboratorio tras la revisión final (22/09)
+
+**V1–V7 se ejecutaron antes de este endurecimiento.** Tras la revisión final se añadieron dos
+reglas de aislamiento que no estaban activas durante V1–V7:
+
+- `internet` pierde su ruta por defecto real y bloquea la salida por `eth0` (C1): antes de esto,
+  el contenedor tenía salida real a Internet vía la red de gestión de Docker (aunque nada en
+  V1–V7 la usó).
+- Cada nodo del plano de datos (`web-banking api-movil swift-alliance middleware core-db hsm atm
+  taquilla fw-core fw-edge mdr-siem auditor`) añade, en cada `up`, `iptables -A INPUT -i eth0 -p
+  tcp -j DROP` (I2): sshd y los servicios HTTP nominales quedan alcanzables solo por el plano de
+  datos (10.x), no por la red de gestión.
+
+**Consecuencia para comprobaciones futuras:** el `iptables` de todos estos nodos —y en particular
+el de `fw-core`/`fw-edge`, sobre los que actúa el conector— contiene ahora, de referencia
+(«baseline»), esa regla `INPUT -i eth0 -p tcp DROP`. Una comprobación futura que compare
+`iptables -L` contra un estado "limpio" (por ejemplo, para verificar que una orden del conector
+se revirtió del todo) debe ignorar esa regla de base: no es un rastro de ninguna orden del lazo,
+es infraestructura del laboratorio.
