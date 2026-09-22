@@ -25,6 +25,11 @@ class TestCoherenciaConElPerfil(unittest.TestCase):
         self.assertEqual(reales - declaradas, red.NO_DECLARADAS)
         self.assertEqual(red.NO_DECLARADAS, {("atm", "middleware")})
 
+    def test_cada_servicio_del_laboratorio_esta_declarado_en_el_perfil(self):
+        for nombre, s in red.SERVICIOS.items():
+            declarados = set(PERFIL["activos"][nombre].get("servicios_prestados") or [])
+            self.assertTrue(set(s["puertos"]) <= declarados, f"{nombre}: {s['puertos']} vs {declarados}")
+
 
 class TestDerivados(unittest.TestCase):
     def test_comando_de_servicio_con_dependencias_por_ip(self):

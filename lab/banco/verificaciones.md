@@ -188,7 +188,7 @@ EOF
 ```
 
 El SQLi (`?id=1' OR '1'='1`) **no llega a ninguna regla de ataque**: se queda en `31100`
-(el rule padre, nivel 0). Revisando `0245-web_rules.xml` (~62-64), la regla `31103`
+(el rule padre, nivel 0). Revisando `0245-web_rules.xml` (~37-41), la regla `31103`
 (SQLi) exige alguna de estas palabras clave en la URL: `select%20|select+|insert%20|
 %20from%20|%20where%20|union%20|union+|where+|null,null|xp_cmdshell` — el payload usado
 (`' OR '1'='1`) no contiene ninguna. No es un límite del reenviador ni de la ingesta: el
@@ -318,6 +318,24 @@ los otros dos porque es el mismo caso, no una sorpresa nueva.
 **Casos afectados:** ninguno reprobado; hallazgos esperados según lo indicado en el brief,
 más `atm:8080` con la misma causa raíz que `hsm`/`swift-alliance`. Pendiente de Task 9
 (declarar los puertos nominales en el perfil).
+
+**Task 9 — reconciliación con puertos del perfil declarados:**
+
+```
+api-movil: 1 abierto(s) no declarado(s) (exposición no reconocida): ssh/22
+atm: 1 abierto(s) no declarado(s) (exposición no reconocida): ssh/22
+core-db: 1 abierto(s) no declarado(s) (exposición no reconocida): ssh/22
+hsm: 1 abierto(s) no declarado(s) (exposición no reconocida): ssh/22
+middleware: 1 abierto(s) no declarado(s) (exposición no reconocida): ssh/22
+swift-alliance: 1 abierto(s) no declarado(s) (exposición no reconocida): ssh/22
+taquilla: 1 abierto(s) no declarado(s) (exposición no reconocida): ssh/22
+web-banking: 1 abierto(s) no declarado(s) (exposición no reconocida): ssh/22
+inventariados y no escaneados: mdr-siem
+```
+
+Ahora solo el `22` (sshd del laboratorio) queda como no declarado, confirmando que los
+puertos nominales de `hsm` (9000), `swift-alliance` (48002) y `atm` (8080) están correctamente
+incluidos en el perfil.
 
 ---
 
