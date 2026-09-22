@@ -51,17 +51,17 @@ deja intacto.
 
 | Pieza | Responsabilidad | Depende de |
 |---|---|---|
-| `prototipo/tablero.py` | El servidor: rutas, endpoints JSON y el estado compartido. | stdlib `http.server`; reúsa `traza.py` y `lab/banco/panel.py` |
-| `EstadoTablero` (clase en `tablero.py`) | Estado en memoria, con `Lock`: buffer circular de decisiones recientes (feed), registro de pendientes (cada una con su `Event`, sus líneas capturadas y su hueco de respuesta) y el buffer de líneas del incidente en curso. | `threading` |
+| `prototipo/tablero.py` | El servidor: rutas, endpoints JSON y el estado compartido. | stdlib `http.server`; reúsa `prototipo/traza.py`. **No importa `lab/`** (preserva la independencia `prototipo`↔`lab`): lee la salud como JSONL genérico y decora dependencias desde el perfil |
+| `EstadoTablero` (clase en `tablero.py`) | Estado en memoria, con `Lock`: registro de pendientes (cada una con su `Event`, sus líneas capturadas y su hueco de respuesta) y el buffer de líneas del incidente en curso. El feed de decisiones **resueltas** no se guarda aquí: sale de la traza. | `threading` |
 | `LectorWeb` (clase en `tablero.py`) | La costura de aprobación: un callable `leer(prompt) -> str` que registra una pendiente y bloquea en su `Event` hasta que la web responde. Espeja a `Lector`/`LectorContador` del banco de pruebas. | `EstadoTablero` |
-| `escribir_web` (función/clausura en `tablero.py`) | Envuelve el `escribir` del daemon: imprime como siempre **y** registra la línea en `EstadoTablero` (buffer del incidente en curso + feed). | `EstadoTablero` |
+| `escribir_web` (función/clausura en `tablero.py`) | Envuelve el `escribir` del daemon: imprime como siempre **y** acumula la línea en el buffer del incidente en curso de `EstadoTablero` (para la tarjeta de la pendiente). | `EstadoTablero` |
 | `prototipo/tablero/` (estáticos) | `index.html`, `tablero.js`, `tablero.css`, servidos tal cual. | — |
 | `prototipo/stream.py` (modificado) | Bandera `--web [puerto]`: arma `EstadoTablero`, `LectorWeb` y `escribir_web`, arranca el servidor en un hilo y los inyecta en `ejecutar(...)`. | `tablero.py` |
 
 **Cómo corre.** Con el banco levantado y el monitor escribiendo `salud.jsonl`:
 `python3 -m prototipo.stream <fuente> ... --web`. El daemon procesa como siempre; el hilo del servidor
-expone salud (lee `salud.jsonl`), el feed (del estado compartido), las pendientes y las trazas (leen el
-fichero de traza). Sin daemon, `prototipo/tablero.py` puede arrancarse suelto para los paneles de solo
+expone salud (lee `salud.jsonl`), el feed y las trazas (leen el fichero de traza) y las pendientes (del
+estado compartido). Sin daemon, `prototipo/tablero.py` puede arrancarse suelto para los paneles de solo
 lectura.
 
 ## 4. El puente de aprobación
@@ -74,7 +74,7 @@ hay, el menú), que se captura envolviendo el `escribir`.
 
 **Mecánica:**
 1. Para `--web`, `stream.py` inyecta un `escribir_web` que imprime y **acumula las líneas del incidente
-   en curso** en `EstadoTablero`, y las empuja también al feed.
+   en curso** en `EstadoTablero` (para poder mostrarlas en la tarjeta de la pendiente).
 2. Cuando el lazo llama a `leer(prompt)`, `LectorWeb`:
    - clasifica el prompt **con la misma regla que `Lector`**: `tipo = "escalada"` si `"[s/N]"` está en el
      prompt, si no `"menu"`;
@@ -84,8 +84,8 @@ hay, el menú), que se captura envolviendo el `escribir`.
    `POST /api/aprobar {id, respuesta}` deja la respuesta y libera el `Event`; `LectorWeb` devuelve esa
    cadena al lazo — `"s"` para escalada, el índice del menú para reclasificar/aprobar — **exactamente lo
    que el lazo espera de la terminal**.
-4. Al retornar `procesar_lazo`, `_linea_decision(d)` se emite por `escribir_web` y `d` se registra en el
-   feed y en la traza (comportamiento actual, sin cambios).
+4. Al retornar `procesar_lazo`, `d` se escribe en la traza (comportamiento actual, sin cambios); el feed
+   (`/api/decisiones`) lo lee de ahí en el siguiente sondeo. La pendiente se elimina al resolverse.
 
 **Detalles honestos:**
 - **Sin respuesta = bloquea**, igual que la terminal (el lazo es secuencial). Un `timeout` opcional en
@@ -105,8 +105,8 @@ los estáticos.
 | Método · ruta | Devuelve | Fuente |
 |---|---|---|
 | `GET /` · `GET /static/<f>` | La página y sus `tablero.js`/`tablero.css`. | `prototipo/tablero/` |
-| `GET /api/salud` | `{t, servicios:[{nombre,estado,desde,depende_de,no_declarada}], caidos, total}` o `{sin_datos:true}`. | `panel.leer_ultima` + `red.py` |
-| `GET /api/decisiones` | Feed reciente: `[{id_decision,timestamp,activo,clase,confianza,accion_final,requiere_humano,impacto}]`. | `EstadoTablero` |
+| `GET /api/salud` | `{t, servicios:[{nombre,estado,depende_de}], caidos, total}` o `{sin_datos:true}`. | lectura JSONL genérica de `salud.jsonl` (fichero o `docker exec`, configurable) + dependencias del perfil |
+| `GET /api/decisiones` | Feed reciente (últimas N decisiones resueltas): `[{id_decision,timestamp,activo,clase,confianza,accion_final,requiere_humano,impacto}]`. | fichero de traza (cola) |
 | `GET /api/pendientes` | `[{id, lineas, tipo, prompt}]`. | `EstadoTablero` |
 | `POST /api/aprobar` | Cuerpo `{id, respuesta}` → `{ok:true}`; `409` si el id ya no existe o ya se resolvió. | libera el `Event` |
 | `GET /api/trazas` | Lista de decisiones de la traza (resúmenes, mismo shape que el feed). | fichero de traza |
@@ -114,7 +114,8 @@ los estáticos.
 | `GET /api/verificar` | `{ok:bool, roto_en?:<id>}`. | `traza.verificar` |
 
 Rutas configurables por bandera con valores por defecto (puerto 8787; fichero de traza = la
-`salida_traza` del daemon; salud = el `salud.jsonl` del banco vía `docker exec`, como `panel.py`).
+`salida_traza` del daemon; salud = lectura JSONL genérica, por defecto `docker exec` al contenedor del
+banco). El tablero **no importa `lab/`**; las dependencias de cada servicio se toman del perfil cargado.
 
 ## 6. Frontend
 
@@ -147,7 +148,8 @@ con `http.client`.
   desconocido/resuelto → `409`.
 - `LectorWeb` clasifica escalada vs menú **igual que `Lector`**; con `timeout` activo y vencido devuelve la
   respuesta segura (`""`).
-- `escribir_web` imprime **y** acumula la línea en el incidente en curso y en el feed.
+- `escribir_web` imprime **y** acumula la línea en el buffer del incidente en curso; al empezar un
+  incidente nuevo (línea de resumen) el buffer se reinicia.
 - El servidor liga solo a `127.0.0.1`.
 - Verificación de traza: cadena íntegra → `{ok:true}`; cadena alterada → `{ok:false, roto_en}` (reusando
   `traza.verificar`).
@@ -159,9 +161,9 @@ con `http.client`.
 - **Crear:** `prototipo/tests/test_tablero.py`.
 - **Modificar:** `prototipo/stream.py` — `parsear_args` (`--web [puerto]`), `main` (arma el estado, el
   lector y el `escribir` web, arranca el hilo del servidor y los inyecta en `ejecutar`).
-- **Reúsa (sin duplicar):** `lab/banco/panel.py` (`leer_ultima`, dependencias vía `red.py`),
-  `prototipo/traza.py` (lectura y `verificar`), el patrón `Lector`/`LectorContador` de
-  `lab/banco/pruebas.py`.
+- **Reúsa (sin duplicar):** `prototipo/traza.py` (`leer_registros` y `verificar`) y el patrón
+  `Lector`/`LectorContador` de `lab/banco/pruebas.py` (como referencia de la clasificación de prompt, no
+  por import). La salud se lee genéricamente (formato `{t, estados}`), **sin importar `lab/`**.
 
 ## 10. Riesgos y notas honestas
 
