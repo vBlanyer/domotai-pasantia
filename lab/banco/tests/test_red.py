@@ -4,7 +4,8 @@ import yaml
 from lab.banco import red
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-PERFIL = yaml.safe_load(open(os.path.join(RAIZ, "prototipo", "perfiles", "bancario.yml"), encoding="utf-8"))
+with open(os.path.join(RAIZ, "prototipo", "perfiles", "bancario.yml"), encoding="utf-8") as f:
+    PERFIL = yaml.safe_load(f)
 
 
 class TestCoherenciaConElPerfil(unittest.TestCase):

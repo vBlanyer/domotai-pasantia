@@ -3,10 +3,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
-import warnings
 from lab.banco import servicio
-
-warnings.filterwarnings("ignore", category=ResourceWarning)
 
 
 def _arrancar(nombre, dependencias, registro):
@@ -23,8 +20,7 @@ def _salud(destino):
         try:
             return e.code, json.loads(e.read())
         finally:
-            if hasattr(e, 'fp') and e.fp:
-                e.fp.close()
+            e.close()
 
 
 class TestSaludTransitiva(unittest.TestCase):
