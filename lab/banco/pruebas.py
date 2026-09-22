@@ -132,7 +132,9 @@ def evaluar(esperado, registro, reglas, caidos_obs, preguntas):
 
 
 def veredicto_caso(esperado, fallos):
-    """Traduce los fallos crudos al resultado del caso, contemplando `fallo_esperado`."""
+    """Traduce los fallos crudos al resultado del caso, contemplando `fallo_esperado`.
+    `fallo_esperado` está probado a nivel unitario pero ningún caso del catálogo lo usa hoy
+    (K1 codifica su fallo conocido directo en `esperado`): es una capacidad reservada."""
     motivo = esperado.get("fallo_esperado")
     if motivo:
         if fallos:
@@ -142,7 +144,9 @@ def veredicto_caso(esperado, fallos):
 
 
 def _requisito_ok(requisito):
-    """Hoy solo se conoce 'modelo' (el servidor LLM del justificador/agente), que el banco no usa."""
+    """Hoy solo se conoce 'modelo' (el servidor LLM del justificador/agente), que el banco no usa.
+    Ningún caso del catálogo declara `requiere` todavía: es andamiaje para futuros casos de
+    modelo/carga que hoy saldrían OMITIDO."""
     return False   # ningun requisito se da por satisfecho: los casos que lo declaran se omiten
 
 
@@ -364,6 +368,7 @@ def correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo, escribi
     problemas = estado_base()
     if problemas:
         return {**res, "resultado": "BLOQUEADO", "detalle": problemas, "segundos": round(time.time() - t0)}
+    fallos = []
     try:
         for nodo, cmd in caso.get("preparar", []):
             _exec(nodo, cmd)
@@ -376,6 +381,10 @@ def correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo, escribi
         c = esperar_salud(caen, plazo=40 if caen else 10)
         reglas = leer_reglas()
         fallos = evaluar(caso["esperado"], registro, reglas, c, preguntas)
+    except Exception as e:
+        # un caso vivo que revienta (docker/Wazuh flaky, etc.) no debe tumbar toda la corrida:
+        # se marca FALLO y el bucle de main sigue con el resto de los casos.
+        fallos = [f"error al correr el caso: {e}"]
     finally:
         deshacer(caso)
     restaurado = estado_base()

@@ -227,6 +227,22 @@ class TestInforme(unittest.TestCase):
         self.assertIn("| D1 |", txt)
 
 
+class TestCorrerCasoVivoConError(unittest.TestCase):
+    def test_un_caso_vivo_que_revienta_da_fallo_y_no_propaga(self):
+        caso = {"id": "X", "titulo": "t", "nivel": "vivo", "ataque": ("n", "c"),
+                "esperado": {"caen": set()}}
+        estado_base_orig, decidir_orig, deshacer_orig = rg.estado_base, rg.decidir, rg.deshacer
+        rg.estado_base = lambda: []
+        rg.decidir = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+        rg.deshacer = lambda caso: None
+        try:
+            r = rg.correr_caso(caso, "/tmp", ejecutor=None, perfil=None, hallazgos=None, catalogo=None)
+        finally:
+            rg.estado_base, rg.decidir, rg.deshacer = estado_base_orig, decidir_orig, deshacer_orig
+        self.assertEqual(r["resultado"], "FALLO")
+        self.assertTrue(any("boom" in d for d in r["detalle"]))
+
+
 class TestConVivoForzado(unittest.TestCase):
     def test_caso_vivo_fuerza_con_vivo_sin_la_bandera(self):
         vivo = {"id": "K1", "nivel": "vivo"}
