@@ -1,0 +1,14 @@
+body { font-family: system-ui, sans-serif; margin: 1rem; color: #1a1a1a; }
+h1 { font-size: 1.2rem; }
+nav button { font: inherit; padding: .4rem .8rem; margin-right: .3rem; border: 1px solid #ccc;
+  background: #f5f5f5; cursor: pointer; }
+nav button.activa { background: #1a1a1a; color: #fff; }
+.panel { display: none; margin-top: 1rem; }
+.panel.activa { display: block; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: .3rem .6rem; border-bottom: 1px solid #eee; font-size: .9rem; }
+.ok { color: #1a7f37; } .caido { color: #cf222e; font-weight: bold; }
+.tarjeta { border: 1px solid #ccc; padding: .6rem; margin-bottom: .6rem; }
+.tarjeta pre { background: #f5f5f5; padding: .5rem; overflow-x: auto; white-space: pre-wrap; }
+.tarjeta button { font: inherit; padding: .3rem .8rem; margin-right: .4rem; cursor: pointer; }
+.aprobar { background: #1a7f37; color: #fff; border: 0; } .rechazar { background: #cf222e; color: #fff; border: 0; }

@@ -196,5 +196,22 @@ class TestServidor(unittest.TestCase):
         self.assertTrue(json.loads(self._get(puerto, "/api/verificar")[1])["ok"])
 
 
+class TestEstaticosReales(unittest.TestCase):
+    def test_sirve_los_estaticos_del_modulo(self):
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), "/no/existe.jsonl", puerto=0)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        puerto = srv.server_address[1]
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", "/"); r = c.getresponse(); html = r.read(); c.close()
+        self.assertEqual(r.status, 200)
+        self.assertIn(b"Tablero", html)
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", "/static/tablero.js"); r = c.getresponse(); r.read()
+        self.assertEqual(r.status, 200)
+        self.assertIn("javascript", r.getheader("Content-Type"))
+        c.close()
+
+
 if __name__ == "__main__":
     unittest.main()
