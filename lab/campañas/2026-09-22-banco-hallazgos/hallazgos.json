@@ -1,0 +1,342 @@
+{
+  "version_herramienta": "Nmap version 7.95",
+  "timestamp": "2026-09-22T15:11:00+0000",
+  "nodos": {
+    "api-movil": [
+      {
+        "puerto": 22,
+        "servicio": "ssh",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "closed"
+      },
+      {
+        "puerto": 443,
+        "servicio": "https",
+        "estado": "open"
+      },
+      {
+        "puerto": 1521,
+        "servicio": "oracle",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8080,
+        "servicio": "http-proxy",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8443,
+        "servicio": "https-alt",
+        "estado": "closed"
+      },
+      {
+        "puerto": 9000,
+        "servicio": "cslistener",
+        "estado": "closed"
+      },
+      {
+        "puerto": 48002,
+        "servicio": "nimhub",
+        "estado": "closed"
+      }
+    ],
+    "atm": [
+      {
+        "puerto": 22,
+        "servicio": "ssh",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "closed"
+      },
+      {
+        "puerto": 443,
+        "servicio": "https",
+        "estado": "closed"
+      },
+      {
+        "puerto": 1521,
+        "servicio": "oracle",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8080,
+        "servicio": "http-proxy",
+        "estado": "open"
+      },
+      {
+        "puerto": 8443,
+        "servicio": "https-alt",
+        "estado": "closed"
+      },
+      {
+        "puerto": 9000,
+        "servicio": "cslistener",
+        "estado": "closed"
+      },
+      {
+        "puerto": 48002,
+        "servicio": "nimhub",
+        "estado": "closed"
+      }
+    ],
+    "core-db": [
+      {
+        "puerto": 22,
+        "servicio": "ssh",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "closed"
+      },
+      {
+        "puerto": 443,
+        "servicio": "https",
+        "estado": "closed"
+      },
+      {
+        "puerto": 1521,
+        "servicio": "oracle",
+        "estado": "open"
+      },
+      {
+        "puerto": 8080,
+        "servicio": "http-proxy",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8443,
+        "servicio": "https-alt",
+        "estado": "closed"
+      },
+      {
+        "puerto": 9000,
+        "servicio": "cslistener",
+        "estado": "closed"
+      },
+      {
+        "puerto": 48002,
+        "servicio": "nimhub",
+        "estado": "closed"
+      }
+    ],
+    "hsm": [
+      {
+        "puerto": 22,
+        "servicio": "ssh",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "closed"
+      },
+      {
+        "puerto": 443,
+        "servicio": "https",
+        "estado": "closed"
+      },
+      {
+        "puerto": 1521,
+        "servicio": "oracle",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8080,
+        "servicio": "http-proxy",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8443,
+        "servicio": "https-alt",
+        "estado": "closed"
+      },
+      {
+        "puerto": 9000,
+        "servicio": "cslistener",
+        "estado": "open"
+      },
+      {
+        "puerto": 48002,
+        "servicio": "nimhub",
+        "estado": "closed"
+      }
+    ],
+    "middleware": [
+      {
+        "puerto": 22,
+        "servicio": "ssh",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "closed"
+      },
+      {
+        "puerto": 443,
+        "servicio": "https",
+        "estado": "closed"
+      },
+      {
+        "puerto": 1521,
+        "servicio": "oracle",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8080,
+        "servicio": "http-proxy",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8443,
+        "servicio": "https-alt",
+        "estado": "open"
+      },
+      {
+        "puerto": 9000,
+        "servicio": "cslistener",
+        "estado": "closed"
+      },
+      {
+        "puerto": 48002,
+        "servicio": "nimhub",
+        "estado": "closed"
+      }
+    ],
+    "swift-alliance": [
+      {
+        "puerto": 22,
+        "servicio": "ssh",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "closed"
+      },
+      {
+        "puerto": 443,
+        "servicio": "https",
+        "estado": "closed"
+      },
+      {
+        "puerto": 1521,
+        "servicio": "oracle",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8080,
+        "servicio": "http-proxy",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8443,
+        "servicio": "https-alt",
+        "estado": "closed"
+      },
+      {
+        "puerto": 9000,
+        "servicio": "cslistener",
+        "estado": "closed"
+      },
+      {
+        "puerto": 48002,
+        "servicio": "nimhub",
+        "estado": "open"
+      }
+    ],
+    "taquilla": [
+      {
+        "puerto": 22,
+        "servicio": "ssh",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "closed"
+      },
+      {
+        "puerto": 443,
+        "servicio": "https",
+        "estado": "closed"
+      },
+      {
+        "puerto": 1521,
+        "servicio": "oracle",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8080,
+        "servicio": "http-proxy",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8443,
+        "servicio": "https-alt",
+        "estado": "closed"
+      },
+      {
+        "puerto": 9000,
+        "servicio": "cslistener",
+        "estado": "closed"
+      },
+      {
+        "puerto": 48002,
+        "servicio": "nimhub",
+        "estado": "closed"
+      }
+    ],
+    "web-banking": [
+      {
+        "puerto": 22,
+        "servicio": "ssh",
+        "estado": "open"
+      },
+      {
+        "puerto": 80,
+        "servicio": "http",
+        "estado": "open"
+      },
+      {
+        "puerto": 443,
+        "servicio": "https",
+        "estado": "open"
+      },
+      {
+        "puerto": 1521,
+        "servicio": "oracle",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8080,
+        "servicio": "http-proxy",
+        "estado": "closed"
+      },
+      {
+        "puerto": 8443,
+        "servicio": "https-alt",
+        "estado": "closed"
+      },
+      {
+        "puerto": 9000,
+        "servicio": "cslistener",
+        "estado": "closed"
+      },
+      {
+        "puerto": 48002,
+        "servicio": "nimhub",
+        "estado": "closed"
+      }
+    ]
+  }
+}
