@@ -285,3 +285,11 @@ orden de arranque, así que no son estables entre despliegues. Cualquier ruta qu
 
 **Los `exec` no configuran el reenvío.** Para que un nodo encamine hay que activar
 `net.ipv4.ip_forward` con la clave `sysctls`, y añadir la ruta de vuelta en el otro extremo.
+
+---
+
+## Laboratorio del banco
+
+Una red de servicios con dependencias reales (Containerlab), basada en la topología de
+`prototipo/perfiles/bancario.yml`, con monitor de salud y cortafuegos donde el conector actúa.
+Ver [banco/README.md](banco/README.md).
