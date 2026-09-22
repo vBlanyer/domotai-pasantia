@@ -113,6 +113,21 @@ def evaluar(esperado, registro, reglas, caidos_obs, preguntas):
     return fallos
 
 
+def veredicto_caso(esperado, fallos):
+    """Traduce los fallos crudos al resultado del caso, contemplando `fallo_esperado`."""
+    motivo = esperado.get("fallo_esperado")
+    if motivo:
+        if fallos:
+            return "OK", [f"fallo conocido reproducido: {motivo}"]
+        return "FALLO", [f"el fallo esperado ya no ocurre ({motivo}): el prototipo pudo haberse corregido"]
+    return ("FALLO" if fallos else "OK"), fallos
+
+
+def _requisito_ok(requisito):
+    """Hoy solo se conoce 'modelo' (el servidor LLM del justificador/agente), que el banco no usa."""
+    return False   # ningun requisito se da por satisfecho: los casos que lo declaran se omiten
+
+
 # ------------------------------------------------------------------ E/S con el laboratorio --
 
 def _exec(nodo, cmd, contenedor=None):
@@ -207,6 +222,9 @@ def deshacer(caso):
 def correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo, escribir=print):
     t0 = time.time()
     res = {"id": caso["id"], "titulo": caso["titulo"]}
+    falta = caso.get("requiere")
+    if falta and not _requisito_ok(falta):
+        return {**res, "resultado": "OMITIDO", "detalle": [f"requiere {falta}"], "segundos": 0}
     problemas = estado_base()
     if problemas:
         return {**res, "resultado": "BLOQUEADO", "detalle": problemas, "segundos": round(time.time() - t0)}
@@ -227,8 +245,8 @@ def correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo, escribi
     restaurado = estado_base()
     if restaurado:
         fallos = fallos + [f"no se pudo restaurar el estado base: {restaurado}"]
-    return {**res, "resultado": "FALLO" if fallos else "OK", "detalle": fallos,
-            "segundos": round(time.time() - t0)}
+    resultado, detalle = veredicto_caso(caso["esperado"], fallos)
+    return {**res, "resultado": resultado, "detalle": detalle, "segundos": round(time.time() - t0)}
 
 
 def informe(resultados, cuando):

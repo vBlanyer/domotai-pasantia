@@ -78,5 +78,21 @@ class TestEvaluar(unittest.TestCase):
                          ["el prototipo no produjo ninguna decision (sin alerta de Wazuh o sin incidente)"])
 
 
+class TestFalloEsperado(unittest.TestCase):
+    def test_fallo_esperado_presente_es_ok(self):
+        # el prototipo NO predice la cascada (fallo K1): con fallo_esperado, eso es OK
+        r = rg.veredicto_caso({"fallo_esperado": "K1: no predice la cascada"}, ["prediccion_cascada: ..."])
+        self.assertEqual(r, ("OK", ["fallo conocido reproducido: K1: no predice la cascada"]))
+
+    def test_fallo_esperado_ausente_es_fallo(self):
+        r = rg.veredicto_caso({"fallo_esperado": "K1: no predice la cascada"}, [])
+        self.assertEqual(r[0], "FALLO")
+        self.assertIn("ya no ocurre", r[1][0])
+
+    def test_sin_fallo_esperado_los_fallos_son_fallo(self):
+        self.assertEqual(rg.veredicto_caso({}, ["x"]), ("FALLO", ["x"]))
+        self.assertEqual(rg.veredicto_caso({}, []), ("OK", []))
+
+
 if __name__ == "__main__":
     unittest.main()
