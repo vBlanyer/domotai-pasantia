@@ -27,7 +27,7 @@ Los Niveles 0–1 no necesitan lab ni modelo: el dataset etiquetado y los hallaz
 # 0) Sanidad (segundos, sin dependencias)
 python3 -m unittest discover -s prototipo/tests
 
-# 1) El motor decide sobre 410 alertas reales (sin dependencias)
+# 1) El motor decide sobre 600 alertas reales (sin dependencias)
 python3 -m prototipo.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
     lab/campañas/2026-08-31-evaluacion/hallazgos.json salida.jsonl
 
