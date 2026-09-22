@@ -1,0 +1,92 @@
+# Laboratorio del banco (spec docs/superpowers/specs/2026-09-21-laboratorio-banco-design.md §5).
+# Misma red que prototipo/perfiles/bancario.yml; la fuente unica de IPs y servicios es lab/banco/red.py
+# (lab/banco/tests/test_topologia.py comprueba que coinciden).
+#
+#   internet ── fw-edge ── fw-core ─┬─ web-banking 10.10 · api-movil 10.20 · swift-alliance 10.30
+#                                   ├─ middleware 10.40 · core-db 10.50 · hsm 10.60
+#                                   ├─ taquilla 10.200 · atm 10.210
+#                                   └─ sw-soc ─┬─ mdr-siem 10.100.0.10 (MDR y conector; ip_gestion)
+#                                              └─ auditor  10.100.0.20
+#
+# Las rutas de datos son especificas (10.0.0.0/8, 198.51.100.0/24): la ruta por defecto es la de
+# gestion (eth0), como en red-cliente. 'internet' no tiene salida real: es un nodo mas del laboratorio.
+# Se levanta con: sh lab/lab.sh up banco   (no convive con red-cliente: misma red de gestion)
+
+name: banco
+
+topology:
+  defaults:
+    kind: linux
+    image: banco-nodo:1
+
+  nodes:
+    internet:
+      exec:
+        - ip addr add 198.51.100.10/24 dev eth1
+        - ip route add 10.0.0.0/8 via 198.51.100.1
+
+    fw-edge:
+      sysctls: {net.ipv4.ip_forward: 1}
+      exec:
+        - ip addr add 198.51.100.1/24 dev eth1
+        - ip addr add 10.0.0.254/24 dev eth2
+        - ip route add 10.0.0.0/8 via 10.0.0.1
+
+    fw-core:
+      sysctls: {net.ipv4.ip_forward: 1}
+      exec:
+        - ip addr add 10.0.0.1/24 dev eth1
+        - ip addr add 10.10.0.1/24 dev eth2
+        - ip addr add 10.20.0.1/24 dev eth3
+        - ip addr add 10.30.0.1/24 dev eth4
+        - ip addr add 10.40.0.1/24 dev eth5
+        - ip addr add 10.50.0.1/24 dev eth6
+        - ip addr add 10.60.0.1/24 dev eth7
+        - ip addr add 10.100.0.1/24 dev eth8
+        - ip addr add 10.200.0.1/24 dev eth9
+        - ip addr add 10.210.0.1/24 dev eth10
+        - ip route add 198.51.100.0/24 via 10.0.0.254
+
+    sw-soc:
+      exec:
+        - ip link add br0 type bridge
+        - ip link set eth1 master br0
+        - ip link set eth2 master br0
+        - ip link set eth3 master br0
+        - ip link set br0 up
+
+    web-banking:
+      exec: ["ip addr add 10.10.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.10.0.1", "ip route add 198.51.100.0/24 via 10.10.0.1"]
+    api-movil:
+      exec: ["ip addr add 10.20.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.20.0.1", "ip route add 198.51.100.0/24 via 10.20.0.1"]
+    swift-alliance:
+      exec: ["ip addr add 10.30.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.30.0.1", "ip route add 198.51.100.0/24 via 10.30.0.1"]
+    middleware:
+      exec: ["ip addr add 10.40.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.40.0.1", "ip route add 198.51.100.0/24 via 10.40.0.1"]
+    core-db:
+      exec: ["ip addr add 10.50.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.50.0.1", "ip route add 198.51.100.0/24 via 10.50.0.1"]
+    hsm:
+      exec: ["ip addr add 10.60.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.60.0.1", "ip route add 198.51.100.0/24 via 10.60.0.1"]
+    mdr-siem:
+      exec: ["ip addr add 10.100.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.100.0.1", "ip route add 198.51.100.0/24 via 10.100.0.1"]
+    auditor:
+      exec: ["ip addr add 10.100.0.20/24 dev eth1", "ip route add 10.0.0.0/8 via 10.100.0.1", "ip route add 198.51.100.0/24 via 10.100.0.1"]
+    taquilla:
+      exec: ["ip addr add 10.200.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.200.0.1", "ip route add 198.51.100.0/24 via 10.200.0.1"]
+    atm:
+      exec: ["ip addr add 10.210.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.210.0.1", "ip route add 198.51.100.0/24 via 10.210.0.1"]
+
+  links:
+    - endpoints: ["internet:eth1", "fw-edge:eth1"]
+    - endpoints: ["fw-edge:eth2", "fw-core:eth1"]
+    - endpoints: ["fw-core:eth2", "web-banking:eth1"]
+    - endpoints: ["fw-core:eth3", "api-movil:eth1"]
+    - endpoints: ["fw-core:eth4", "swift-alliance:eth1"]
+    - endpoints: ["fw-core:eth5", "middleware:eth1"]
+    - endpoints: ["fw-core:eth6", "core-db:eth1"]
+    - endpoints: ["fw-core:eth7", "hsm:eth1"]
+    - endpoints: ["fw-core:eth8", "sw-soc:eth1"]
+    - endpoints: ["sw-soc:eth2", "mdr-siem:eth1"]
+    - endpoints: ["sw-soc:eth3", "auditor:eth1"]
+    - endpoints: ["fw-core:eth9", "taquilla:eth1"]
+    - endpoints: ["fw-core:eth10", "atm:eth1"]
