@@ -48,9 +48,24 @@ pequeña escanearía también esos puertos.
 La dependencia `atm → middleware` existe aquí y **no** en el perfil, a propósito (caso K3).
 Los puertos de los servicios son nominales: servicios HTTP que imitan el puerto del servicio real.
 
-El plan 2 del diseño (banco de pruebas automático, con `--todos` y guías generadas) **no se
-construyó**: por decisión del usuario, este laboratorio entrega solo el plan 1 (infraestructura).
-Detalle en el spec, §8 y §10.
+## Banco de pruebas (plan 2)
+
+    python3 -m lab.banco.pruebas              # catálogo sin laboratorio (decision/inyectada/perfil), segundos
+    python3 -m lab.banco.pruebas --con-vivo   # además los casos de extremo a extremo (necesita el banco levantado)
+    python3 -m lab.banco.pruebas --caso K1 --con-vivo
+    python3 -m lab.banco.pruebas --guias      # genera docs/pruebas/banco/<caso>.md
+
+Cada caso declara su **nivel**: `decision` (clasificación y filtro, llamando al motor sin lab),
+`inyectada` (una acción entregada al filtro del perfil, sin lab), `perfil` (solo lógica del perfil) o
+`vivo` (extremo a extremo por Wazuh y el conector). Resultados: **OK**, **FALLO**, **BLOQUEADO** (el
+laboratorio no estaba limpio) y **OMITIDO** (falta un requisito, p. ej. el modelo). K1 codifica en su
+propia expectativa un fallo conocido del prototipo (predice cascada `[]` aunque los servicios caen de
+verdad): cuenta OK mientras el fallo persista. Catálogo y diseño: spec §4 y §6.
+
+El catálogo (`lab/banco/casos.py`) y el ejecutor (`lab/banco/pruebas.py`) cubren clasificación, filtro
+por perfil, cascada y los cinco casos de extremo a extremo de la guía manual; los casos que exigen el
+modelo LLM o carga a escala quedan como OMITIDO. La última corrida completa (21 OK) está en
+`lab/campañas/2026-09-22-banco-regresion/`.
 
 ## Aislamiento (endurecido en la revisión final)
 

@@ -271,3 +271,21 @@ contenedor** (`running`), y el MDR **nunca apaga un equipo**: sus acciones son r
 
 Que un contenedor pasara de `running` a parado sería apagar un servidor del banco, justo lo que el perfil de
 continuidad prohíbe hacer de forma automática. Ningún componente del prototipo propone hoy esa acción.
+
+---
+
+## 10. Prueba automática (los mismos casos, sin operar a mano)
+
+Todo lo de esta guía —los ataques, la decisión, la cascada y la limpieza— está automatizado en el **banco
+de pruebas** (`lab/banco/pruebas.py`), la versión no manual de estos mismos casos:
+
+    python3 -m lab.banco.pruebas              # catálogo sin laboratorio (clasificación, filtro, cascada), segundos
+    python3 -m lab.banco.pruebas --con-vivo   # además los cinco casos de extremo a extremo de esta guía
+    python3 -m lab.banco.pruebas --caso K1 --con-vivo   # un solo caso vivo
+    python3 -m lab.banco.pruebas --guias      # regenera una guía por caso en docs/pruebas/banco/
+
+Con `--con-vivo` el banco tiene que estar levantado y aprovisionado (apartados 2 y 3). Cada caso vivo lanza
+el ataque, deja decidir al prototipo, comprueba la cascada real contra el monitor y **restaura el laboratorio**
+antes del siguiente; un **BLOQUEADO** significa que el laboratorio no estaba en estado base al empezar (mira
+el apartado 5 o el 7 y repite). La última corrida completa (21 OK) queda en
+`lab/campañas/2026-09-22-banco-regresion/informe.md`.

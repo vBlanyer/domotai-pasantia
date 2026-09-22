@@ -1,7 +1,8 @@
 # Laboratorio del banco y banco de pruebas de casos de producción — diseño
 
-**Fecha:** 21/09/2026 · **Estado:** plan 1 (infraestructura) entregado y verificado en vivo; plan 2
-(banco de pruebas automático) no se ejecuta, por decisión del usuario (22/09/2026) — ver §8 y §10.
+**Fecha:** 21/09/2026 · **Estado:** plan 1 (infraestructura) y plan 2 (banco de pruebas automático)
+entregados y verificados en vivo (22/09/2026, corrida completa 21 OK en
+`lab/campañas/2026-09-22-banco-regresion/`) — ver §8 y §10.
 
 ## 1. Objetivo
 
@@ -299,9 +300,14 @@ En `lab/campañas/<fecha>-banco/`:
 
 ## 8. Fases y planes
 
-> **22/09/2026:** por decisión del usuario, el plan 2 (banco de pruebas automático) no se ejecuta;
-> se entrega solo el plan 1. K1 y C4 quedan como limitaciones documentadas (ver
-> `lab/banco/verificaciones.md` y `documentacion/00-general/estado-y-riesgos.md` §7).
+> **22/09/2026:** el plan 2 (banco de pruebas automático) se ejecutó tras el plan 1. El catálogo
+> (`lab/banco/casos.py`) y el ejecutor (`lab/banco/pruebas.py`) cubren los niveles decision, inyectada,
+> perfil y vivo, con guías generadas (`docs/pruebas/banco/`) y modo `--paso-a-paso`; la corrida completa
+> (21 OK) está en `lab/campañas/2026-09-22-banco-regresion/`. K1 y C4 siguen como limitaciones
+> documentadas del prototipo (ver `lab/banco/verificaciones.md` y
+> `documentacion/00-general/estado-y-riesgos.md` §7); el catálogo no las corrige, las fija: K1 codifica
+> su fallo conocido en la propia expectativa. Los casos que exigen el modelo LLM o carga a escala quedan
+> como OMITIDO.
 
 **Plan 1, infraestructura:**
 
