@@ -63,6 +63,11 @@ python3 -m prototipo.stream <alerts.json | -> [perfil.yml] [hallazgos.json] \
 ```
 (`--ventana-agrupacion N`: acumula la ráfaga N s antes de emitir el incidente; `N=0` = al instante. Default 5.)
 
+El daemon también acepta **`--web [puerto]`** (default `8787`): en vez de (o junto a) la terminal, abre un
+tablero local en `http://127.0.0.1:<puerto>` para observar la salud, el feed de decisiones y las trazas, y
+resolver desde el navegador el mismo menú `[Aprobar/Rechazar/Reclasificar]`. Ver la guía completa en
+[09 · Tablero web](09-tablero-web.md).
+
 **`--agente`** — en vez del bloqueo determinista de **un** nodo, delega la mitigación al **agente ReAct**:
 decide la estrategia y **escala de dispositivo** (host → firewall) si el objetivo no responde, consultando
 ATT&CK/D3FEND. La aprobación es **por paso** (cada acción de dispositivo pide humano; se pierde

@@ -40,6 +40,10 @@ sh lab/lab.sh up && python3 lab/scripts/demo-agente-escalado.py --autonomo
 # 4) Banco de pruebas del laboratorio del banco (catálogo de casos con veredicto)
 python3 -m lab.banco.pruebas              # decision/inyectada/perfil, sin lab, segundos
 sh lab/lab.sh up banco && python3 -m lab.banco.pruebas --con-vivo   # además los casos de extremo a extremo
+
+# 5) Tablero web (con el daemon)
+python3 -m prototipo.stream <fuente-wazuh> prototipo/perfiles/bancario.yml \
+    lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json --web   # abre http://127.0.0.1:8787
 ```
 
 ---
@@ -54,6 +58,7 @@ sh lab/lab.sh up banco && python3 -m lab.banco.pruebas --con-vivo   # además lo
 - [06 · Rendimiento y hardware](06-rendimiento-y-hardware.md)
 - [07 · Roadmap del pipeline y latencia medida](07-roadmap-pipeline-y-latencia.md)
 - [08 · Prueba manual en el laboratorio del banco](08-laboratorio-banco.md) — su apartado 10 remite al **banco de pruebas automático** (`python3 -m lab.banco.pruebas`, catálogo de casos con veredicto OK/FALLO/BLOQUEADO/OMITIDO y guías por caso en [banco/](banco/))
+- [09 · Tablero web](09-tablero-web.md) — consola local de observabilidad y aprobación para el daemon (`stream.py --web`), sus cuatro paneles y la verificación manual de extremo a extremo
 
 ---
 
