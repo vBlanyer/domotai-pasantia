@@ -206,6 +206,7 @@ _HALLAZGOS_DEF = os.path.join(_RAIZ, "lab", "campañas", "2026-08-31-evaluacion"
 
 def parsear_args(argv):
     pos, con_llm, ventana, salida, sin_lab, agente = [], False, 5, "trazas-stream.jsonl", False, False
+    web, web_puerto = False, 8787
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -213,6 +214,9 @@ def parsear_args(argv):
         elif a == "--sin-llm": con_llm = False
         elif a == "--sin-lab": sin_lab = True
         elif a == "--agente": agente = True
+        elif a == "--web":
+            web = True
+            if i + 1 < len(argv) and argv[i + 1].isdigit(): i += 1; web_puerto = int(argv[i])
         elif a == "--ventana-agrupacion": i += 1; ventana = int(argv[i])
         elif a == "--salida": i += 1; salida = argv[i]
         else: pos.append(a)
@@ -220,7 +224,8 @@ def parsear_args(argv):
     return {"ruta": pos[0] if pos else "-",
             "perfil": pos[1] if len(pos) > 1 else _PERFIL_DEF,
             "hallazgos": pos[2] if len(pos) > 2 else _HALLAZGOS_DEF,
-            "con_llm": con_llm, "ventana": ventana, "salida": salida, "sin_lab": sin_lab, "agente": agente}
+            "con_llm": con_llm, "ventana": ventana, "salida": salida, "sin_lab": sin_lab,
+            "agente": agente, "web": web, "web_puerto": web_puerto}
 
 def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hallazgos=None):
     """Modo --agente: devuelve un `mitigar_fn(decision, alerta, leer) -> plan` que delega en el agente
@@ -264,6 +269,18 @@ def construir_justificar_fn(con_llm, escribir=print):
     except Exception as e:                          # sin indice/modelo -> degradar a plantilla (RNF-09)
         escribir(f"[aviso] justificador LLM/RAG no disponible ({e}); se usara la plantilla.")
         return None
+
+_SALUD_DEF = {"contenedor": "clab-banco-mdr-siem", "fichero_en_contenedor": "/var/log/banco/salud.jsonl"}
+
+def construir_web(cfg, perfil):
+    """Arma el tablero para --web: EstadoTablero, el servidor (ligado a 127.0.0.1, SIN arrancar el
+    hilo), y los `escribir`/`leer` web que se inyectan en ejecutar. Las dependencias salen del perfil."""
+    from prototipo import tablero
+    estado = tablero.EstadoTablero()
+    deps = {n: (a or {}).get("depende_de", []) for n, a in (perfil.get("activos") or {}).items()}
+    servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
+                                      puerto=cfg["web_puerto"])
+    return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
                     "ejecutor_ssh_lab": "conector SSH del laboratorio (contrasena por defecto)"}
@@ -321,6 +338,14 @@ def main(argv):
     print(banner(cfg, ejecutor))
     resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
                "reclasificadas": 0, "ejecutadas": 0}
+    servidor = None
+    if cfg["web"]:
+        import threading
+        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil)
+        threading.Thread(target=servidor.serve_forever, daemon=True).start()
+        print(f"[web] tablero en http://127.0.0.1:{servidor.server_address[1]}")
+    else:
+        escribir_fn, leer_fn = print, _leer_interactivo()   # comportamiento actual (terminal)
     try:
         # Se retoma la cadena del fichero si ya existe: el ultimo hash escrito es el primer
         # hash_previo de esta sesion, asi que la traza de varias sesiones es una sola cadena.
@@ -333,8 +358,8 @@ def main(argv):
         with open(cfg["salida"], "a", encoding="utf-8") as traza_f:
             resumen = ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                                justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
-                               salida_traza=traza_f, leer=_leer_interactivo(), mitigar_fn=mitigar_fn,
-                               hash_previo=hash_previo, n_previos=n_previos,
+                               salida_traza=traza_f, escribir=escribir_fn, leer=leer_fn,
+                               mitigar_fn=mitigar_fn, hash_previo=hash_previo, n_previos=n_previos,
                                nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass

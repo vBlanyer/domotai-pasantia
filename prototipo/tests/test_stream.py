@@ -1,5 +1,5 @@
 import io, json, os, tempfile, unittest, yaml
-from prototipo import stream, catalogo, lazo
+from prototipo import stream, catalogo, lazo, tablero
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
@@ -271,6 +271,31 @@ class TestStream(unittest.TestCase):
                                              escribir=lambda *a: None, hallazgos={"nodos": {}})
             fn({"clase": "vp_intento_acceso", "timestamp": "t"}, {"origen_ip": "203.0.113.9"}, lambda *_: "s")
         self.assertEqual(vistos["hallazgos"], {"nodos": {}})
+
+
+class TestWeb(unittest.TestCase):
+    def test_parsear_args_web(self):
+        self.assertIs(stream.parsear_args(["-", "p"])["web"], False)
+        cfg = stream.parsear_args(["-", "p", "--web"])
+        self.assertTrue(cfg["web"])
+        self.assertEqual(cfg["web_puerto"], 8787)
+        self.assertEqual(stream.parsear_args(["-", "p", "--web", "9000"])["web_puerto"], 9000)
+
+    def test_construir_web_liga_a_localhost_e_inyecta_lector(self):
+        d = tempfile.mkdtemp()
+        cfg = {"web": True, "web_puerto": 0, "salida": os.path.join(d, "t.jsonl")}
+        perfil = {"activos": {"middleware": {"depende_de": ["core-db"]}}}
+        estado, servidor, escribir_fn, leer_fn = stream.construir_web(cfg, perfil)
+        try:
+            self.assertEqual(servidor.server_address[0], "127.0.0.1")
+            self.assertIsInstance(estado, tablero.EstadoTablero)
+            self.assertIsInstance(leer_fn, tablero.LectorWeb)
+            self.assertEqual(servidor.dependencias, {"middleware": ["core-db"]})
+            escribir_fn("⚠ hola")               # imprime y acumula
+            estado.registrar_pendiente("menu", "x")
+            self.assertEqual(estado.pendientes()[0]["lineas"], ["⚠ hola"])
+        finally:
+            servidor.server_close()
 
 
 if __name__ == "__main__":
