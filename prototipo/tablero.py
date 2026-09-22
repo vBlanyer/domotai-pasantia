@@ -6,8 +6,10 @@ lectores de datos (Task 2) y el servidor HTTP (Task 3).
 """
 import itertools
 import json
+import os
 import subprocess
 import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from prototipo import traza
 
@@ -164,3 +166,87 @@ def verificar_traza(ruta):
         regs = []
     v = traza.verificar(regs)
     return {"ok": v["valida"], "roto_en": v["primer_fallo"], "motivo": v["motivo"], "n": v["n"]}
+
+
+_TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
+          ".css": "text/css; charset=utf-8"}
+_DIR_ESTATICOS = os.path.join(os.path.dirname(__file__), "tablero")
+
+
+class _Manejador(BaseHTTPRequestHandler):
+    def log_message(self, *a):        # silencioso: el daemon ya imprime lo suyo
+        pass
+
+    def _responder(self, obj, codigo=200):
+        cuerpo = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self.send_response(codigo)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(cuerpo)))
+        self.end_headers()
+        self.wfile.write(cuerpo)
+
+    def _estatico(self, nombre):
+        ext = os.path.splitext(nombre)[1]
+        if ext not in _TIPOS or os.path.basename(nombre) != nombre:   # sin travesia de rutas
+            return self._responder({"error": "no encontrado"}, 404)
+        try:
+            with open(os.path.join(self.server.estaticos, nombre), "rb") as f:
+                datos = f.read()
+        except OSError:
+            return self._responder({"error": "no encontrado"}, 404)
+        self.send_response(200)
+        self.send_header("Content-Type", _TIPOS[ext])
+        self.send_header("Content-Length", str(len(datos)))
+        self.end_headers()
+        self.wfile.write(datos)
+
+    def do_GET(self):
+        s = self.server
+        ruta = self.path.split("?", 1)[0]
+        try:
+            if ruta == "/":
+                return self._estatico("index.html")
+            if ruta.startswith("/static/"):
+                return self._estatico(ruta[len("/static/"):])
+            if ruta == "/api/salud":
+                return self._responder(estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud),
+                                                    s.dependencias))
+            if ruta == "/api/decisiones":
+                return self._responder(lista_trazas(s.ruta_traza, n=50))
+            if ruta == "/api/pendientes":
+                return self._responder(s.estado.pendientes())
+            if ruta == "/api/trazas":
+                return self._responder(lista_trazas(s.ruta_traza))
+            if ruta.startswith("/api/traza/"):
+                d = traza_detalle(s.ruta_traza, ruta[len("/api/traza/"):])
+                return self._responder(d) if d is not None else self._responder({"error": "no encontrada"}, 404)
+            if ruta == "/api/verificar":
+                return self._responder(verificar_traza(s.ruta_traza))
+            return self._responder({"error": "no encontrado"}, 404)
+        except Exception as e:            # nunca tumbar el servidor por un handler
+            return self._responder({"error": str(e)}, 500)
+
+    def do_POST(self):
+        try:
+            if self.path.split("?", 1)[0] != "/api/aprobar":
+                return self._responder({"error": "no encontrado"}, 404)
+            n = int(self.headers.get("Content-Length") or 0)
+            cuerpo = json.loads(self.rfile.read(n) or b"{}")
+            ok = self.server.estado.resolver(str(cuerpo.get("id")), str(cuerpo.get("respuesta", "")))
+            return self._responder({"ok": True}) if ok else self._responder({"error": "pendiente no vigente"}, 409)
+        except Exception as e:
+            return self._responder({"error": str(e)}, 500)
+
+
+def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
+                   puerto=8787, salud_ejecutar=subprocess.run):
+    """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
+    fichero_en_contenedor}. Guarda la config en atributos del servidor para el manejador."""
+    srv = ThreadingHTTPServer(("127.0.0.1", puerto), _Manejador)
+    srv.estado = estado
+    srv.ruta_traza = ruta_traza
+    srv.salud = salud or {}
+    srv.dependencias = dependencias or {}
+    srv.estaticos = estaticos or _DIR_ESTATICOS
+    srv.salud_ejecutar = salud_ejecutar
+    return srv

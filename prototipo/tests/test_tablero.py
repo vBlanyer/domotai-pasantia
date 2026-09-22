@@ -1,3 +1,4 @@
+import http.client
 import json
 import os
 import subprocess
@@ -122,6 +123,77 @@ class TestLectoresDeDatos(unittest.TestCase):
         v = tablero.verificar_traza(rota)
         self.assertFalse(v["ok"])
         self.assertEqual(v["roto_en"], 1)
+
+
+class TestServidor(unittest.TestCase):
+    def _servidor(self, estado=None, ruta_traza="/no/existe.jsonl", salud=None,
+                  dependencias=None, salud_ejecutar=subprocess.run, estaticos=None):
+        estaticos = estaticos or tempfile.mkdtemp()
+        with open(os.path.join(estaticos, "index.html"), "w", encoding="utf-8") as f:
+            f.write("<html>tablero</html>")
+        srv = tablero.crear_servidor(estado or tablero.EstadoTablero(), ruta_traza, salud=salud,
+                                     dependencias=dependencias, estaticos=estaticos, puerto=0,
+                                     salud_ejecutar=salud_ejecutar)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv, srv.server_address[1]
+
+    def _get(self, puerto, ruta):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", ruta); r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, cuerpo
+
+    def _post(self, puerto, ruta, obj):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("POST", ruta, json.dumps(obj), {"Content-Type": "application/json"})
+        r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, json.loads(cuerpo)
+
+    def test_liga_solo_a_localhost(self):
+        srv, _ = self._servidor()
+        self.assertEqual(srv.server_address[0], "127.0.0.1")
+
+    def test_raiz_sirve_index(self):
+        _, puerto = self._servidor()
+        estado, cuerpo = self._get(puerto, "/")
+        self.assertEqual(estado, 200)
+        self.assertIn(b"tablero", cuerpo)
+
+    def test_pendientes_vacio_y_aprobar_resuelve(self):
+        estado = tablero.EstadoTablero()
+        _, puerto = self._servidor(estado=estado)
+        self.assertEqual(json.loads(self._get(puerto, "/api/pendientes")[1]), [])
+        salida = {}
+        hilo = threading.Thread(target=lambda: salida.setdefault("r", tablero.LectorWeb(estado)("¿aprobar? [s/N] ")))
+        hilo.start()
+        pid = None
+        for _ in range(200):
+            p = json.loads(self._get(puerto, "/api/pendientes")[1])
+            if p:
+                pid = p[0]["id"]; self.assertEqual(p[0]["tipo"], "escalada"); break
+            time.sleep(0.005)
+        self.assertIsNotNone(pid)
+        self.assertEqual(self._post(puerto, "/api/aprobar", {"id": pid, "respuesta": "s"}), (200, {"ok": True}))
+        hilo.join(timeout=2)
+        self.assertEqual(salida["r"], "s")
+        self.assertEqual(self._post(puerto, "/api/aprobar", {"id": pid, "respuesta": "s"})[0], 409)
+
+    def test_salud_desde_ejecutor_falso(self):
+        def ejec(args, **kw):
+            return subprocess.CompletedProcess(args, 0, json.dumps({"t": "1", "estados": {"a": "ok"}}) + "\n", "")
+        _, puerto = self._servidor(salud={"contenedor": "c", "fichero_en_contenedor": "/x"}, salud_ejecutar=ejec)
+        cuerpo = json.loads(self._get(puerto, "/api/salud")[1])
+        self.assertEqual(cuerpo["total"], 1)
+
+    def test_trazas_y_verificar(self):
+        r1 = traza.encadenar({"id_decision": "s1"}, traza.GENESIS)
+        f = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8")
+        f.write(json.dumps(r1) + "\n"); f.close(); self.addCleanup(os.unlink, f.name)
+        _, puerto = self._servidor(ruta_traza=f.name)
+        self.assertEqual(json.loads(self._get(puerto, "/api/trazas")[1])[0]["id_decision"], "s1")
+        self.assertEqual(self._get(puerto, "/api/traza/s1")[0], 200)
+        self.assertEqual(self._get(puerto, "/api/traza/zzz")[0], 404)
+        self.assertTrue(json.loads(self._get(puerto, "/api/verificar")[1])["ok"])
 
 
 if __name__ == "__main__":
