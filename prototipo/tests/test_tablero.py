@@ -1,7 +1,11 @@
+import json
+import os
+import subprocess
+import tempfile
 import threading
 import time
 import unittest
-from prototipo import tablero
+from prototipo import tablero, traza
 
 
 class TestEstadoYLector(unittest.TestCase):
@@ -56,6 +60,68 @@ class TestEstadoYLector(unittest.TestCase):
         self.assertEqual(vistas, ["⚠ Incidente", "linea 2"])
         pid, _ = estado.registrar_pendiente("menu", "x")
         self.assertEqual(estado.pendientes()[0]["lineas"], ["⚠ Incidente", "linea 2"])
+
+
+class TestLectoresDeDatos(unittest.TestCase):
+    def _traza_tmp(self, registros):
+        f = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8")
+        for r in registros:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        f.close()
+        self.addCleanup(os.unlink, f.name)
+        return f.name
+
+    def test_estado_salud_convierte_y_decora_dependencias(self):
+        muestra = {"t": "2026-09-22T10:00:00Z", "estados": {"core-db": "ok", "middleware": "caido"}}
+        r = tablero.estado_salud(muestra, {"middleware": ["core-db"]})
+        self.assertEqual(r["caidos"], 1)
+        self.assertEqual(r["total"], 2)
+        mid = [s for s in r["servicios"] if s["nombre"] == "middleware"][0]
+        self.assertEqual(mid["estado"], "caido")
+        self.assertEqual(mid["depende_de"], ["core-db"])
+
+    def test_estado_salud_sin_muestra(self):
+        self.assertEqual(tablero.estado_salud(None), {"sin_datos": True})
+
+    def test_leer_salud_de_fichero_toma_la_ultima_linea(self):
+        ruta = self._traza_tmp([{"t": "1", "estados": {}}, {"t": "2", "estados": {"a": "ok"}}])
+        self.assertEqual(tablero.leer_salud(ruta=ruta)["t"], "2")
+
+    def test_leer_salud_por_docker_exec(self):
+        linea = json.dumps({"t": "9", "estados": {"a": "ok"}})
+        def ejec(args, **kw):
+            self.assertEqual(args[:3], ["docker", "exec", "cont"])
+            return subprocess.CompletedProcess(args, 0, linea + "\n", "")
+        r = tablero.leer_salud(contenedor="cont", fichero_en_contenedor="/x", ejecutar=ejec)
+        self.assertEqual(r["t"], "9")
+
+    def test_leer_salud_fichero_ausente_es_none(self):
+        self.assertIsNone(tablero.leer_salud(ruta="/no/existe.jsonl"))
+
+    def test_lista_y_detalle_de_trazas(self):
+        ruta = self._traza_tmp([
+            {"id_decision": "s1", "timestamp": "t1", "activo": "web", "clase": "vp_intento_acceso",
+             "confianza": 1.0, "accion_final": "BLOQUEAR_IP", "requiere_humano": False},
+            {"id_decision": "s2", "timestamp": "t2", "activo": "core-db", "clase": "no_soportada"}])
+        lst = tablero.lista_trazas(ruta)
+        self.assertEqual([d["id_decision"] for d in lst], ["s1", "s2"])
+        self.assertEqual(tablero.lista_trazas(ruta, n=1)[0]["id_decision"], "s2")
+        self.assertEqual(tablero.traza_detalle(ruta, "s1")["accion_final"], "BLOQUEAR_IP")
+        self.assertIsNone(tablero.traza_detalle(ruta, "zzz"))
+
+    def test_lista_trazas_fichero_ausente_es_vacia(self):
+        self.assertEqual(tablero.lista_trazas("/no/existe.jsonl"), [])
+
+    def test_verificar_traza_cadena_integra_y_rota(self):
+        r1 = traza.encadenar({"id_decision": "s1", "x": 1}, traza.GENESIS)
+        r2 = traza.encadenar({"id_decision": "s2", "x": 2}, r1["hash"])
+        buena = self._traza_tmp([r1, r2])
+        self.assertTrue(tablero.verificar_traza(buena)["ok"])
+        r2_malo = dict(r2, x=999)                      # contenido alterado, hash ya no cuadra
+        rota = self._traza_tmp([r1, r2_malo])
+        v = tablero.verificar_traza(rota)
+        self.assertFalse(v["ok"])
+        self.assertEqual(v["roto_en"], 1)
 
 
 if __name__ == "__main__":
