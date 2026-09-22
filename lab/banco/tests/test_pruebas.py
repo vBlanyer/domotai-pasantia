@@ -138,5 +138,37 @@ class TestNivelDecision(unittest.TestCase):
         self.assertIn("requiere_humano", r["detalle"][0])
 
 
+class TestNivelInyectadaPerfil(unittest.TestCase):
+    def setUp(self):
+        import os
+        from prototipo import perfil, catalogo
+        self.p = perfil.cargar(os.path.join(rg.RAIZ, "prototipo/perfiles/bancario.yml"))
+        self.c = catalogo.cargar_catalogo(os.path.join(rg.RAIZ, "prototipo/catalogo.yml"))
+
+    def test_c1_bloquear_puerto_core_db_degrada(self):
+        caso = {"id": "C1", "titulo": "x", "nivel": "inyectada", "accion": "BLOQUEAR_PUERTO",
+                "params": {"puerto": 1521, "ip": "203.0.113.9"}, "activo": "core-db", "servicio": "sql",
+                "confianza": 0.99, "esperado": {"filtro_resultado": "degrada", "accion_final": "BLOQUEAR_IP"}}
+        self.assertEqual(rg.correr_inyectada(caso, self.p, self.c)["resultado"], "OK")
+
+    def test_k2_aislar_core_db_predice_cascada(self):
+        caso = {"id": "K2", "titulo": "x", "nivel": "inyectada", "accion": "AISLAR_NODO", "params": {},
+                "activo": "core-db", "servicio": "sql", "confianza": 0.99,
+                "esperado": {"requiere_humano": True,
+                             "prediccion_cascada": ["api-movil", "middleware", "web-banking"]}}
+        self.assertEqual(rg.correr_inyectada(caso, self.p, self.c)["resultado"], "OK")
+
+    def test_c5_sin_reversion_es_veto(self):
+        caso = {"id": "C5", "titulo": "x", "nivel": "perfil",
+                "comprobacion": "sin_reversion", "accion": "OBS_PROCESOS", "activo": "core-db",
+                "esperado": {"filtro_resultado": "veta"}}
+        self.assertEqual(rg.correr_perfil(caso, self.p, self.c)["resultado"], "OK")
+
+    def test_k4_ciclo_termina(self):
+        caso = {"id": "K4", "titulo": "x", "nivel": "perfil", "comprobacion": "ciclo_depende_de",
+                "activo": "core-db", "esperado": {"termina": True}}
+        self.assertEqual(rg.correr_perfil(caso, self.p, self.c)["resultado"], "OK")
+
+
 if __name__ == "__main__":
     unittest.main()

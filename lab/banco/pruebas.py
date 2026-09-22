@@ -246,6 +246,50 @@ def correr_decision(caso, perfil, hallazgos, catalogo):
             "segundos": round(time.time() - t0, 2)}
 
 
+def correr_inyectada(caso, perfil, catalogo):
+    """Filtra una acción inyectada directamente (sin ataque real): permite/degrada/veta, con quién
+    ejecuta al final, si queda retenida y la predicción de cascada (nivel `inyectada`)."""
+    import time
+    from prototipo import perfil as perfilm
+    t0 = time.time()
+    filtro = perfilm.filtrar(perfil, caso["accion"], caso.get("params", {}), catalogo,
+                             caso["activo"], caso.get("servicio"), caso.get("confianza", 1.0))
+    esp = caso["esperado"]
+    obs = {"filtro_resultado": filtro["resultado"], "accion_final": filtro["accion_final"],
+           "requiere_humano": filtro["requiere_humano"],
+           "prediccion_cascada": (filtro.get("impacto") or {}).get("activos_afectados_en_cascada")}
+    fallos = [f"{k}: esperado {esp[k]!r}, obtenido {obs[k]!r}" for k in obs if k in esp and obs[k] != esp[k]]
+    resultado, detalle = veredicto_caso(esp, fallos)
+    return {"id": caso["id"], "titulo": caso["titulo"], "resultado": resultado, "detalle": detalle,
+            "segundos": round(time.time() - t0, 2)}
+
+
+def correr_perfil(caso, perfil, catalogo):
+    """Variaciones de perfil/catálogo comprobadas sin laboratorio (nivel `perfil`): que una acción
+    sin reversión definida se vete (RF-18) y que la cascada del inventario termine aunque haya
+    dependencias (guardia de ciclos de `impacto.afectados_en_cascada`)."""
+    import time
+    from prototipo import perfil as perfilm, impacto
+    t0 = time.time()
+    esp, fallos = caso["esperado"], []
+    if caso["comprobacion"] == "sin_reversion":
+        filtro = perfilm.filtrar(perfil, caso["accion"], caso.get("params", {}), catalogo,
+                                 caso["activo"], caso.get("servicio"), 1.0)
+        if "filtro_resultado" in esp and filtro["resultado"] != esp["filtro_resultado"]:
+            fallos.append(f"filtro_resultado: esperado {esp['filtro_resultado']!r}, obtenido {filtro['resultado']!r}")
+    elif caso["comprobacion"] == "ciclo_depende_de":
+        try:
+            impacto.afectados_en_cascada(caso["activo"], perfil)   # no debe colgarse (guardia de ciclos)
+            termino = True
+        except RecursionError:
+            termino = False
+        if esp.get("termina") and not termino:
+            fallos.append("afectados_en_cascada no terminó (posible ciclo sin guardia)")
+    resultado, detalle = veredicto_caso(esp, fallos)
+    return {"id": caso["id"], "titulo": caso["titulo"], "resultado": resultado, "detalle": detalle,
+            "segundos": round(time.time() - t0, 2)}
+
+
 def correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo, escribir=print):
     t0 = time.time()
     res = {"id": caso["id"], "titulo": caso["titulo"]}
@@ -254,6 +298,10 @@ def correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo, escribi
         return {**res, "resultado": "OMITIDO", "detalle": [f"requiere {falta}"], "segundos": 0}
     if caso["nivel"] == "decision":
         return correr_decision(caso, perfil, hallazgos, catalogo)
+    if caso["nivel"] == "inyectada":
+        return correr_inyectada(caso, perfil, catalogo)
+    if caso["nivel"] == "perfil":
+        return correr_perfil(caso, perfil, catalogo)
     problemas = estado_base()
     if problemas:
         return {**res, "resultado": "BLOQUEADO", "detalle": problemas, "segundos": round(time.time() - t0)}
