@@ -68,11 +68,15 @@ es el caso K3, una dependencia que existe en la red pero que el inventario desco
 
 ## 3. Preparar las tres terminales
 
-**Terminal 1: el monitor de salud.** Muestra lo que de verdad está cayendo; una línea cada ~2 s.
+**Terminal 1: el panel de salud.** Muestra lo que de verdad está cayendo: una fila por servicio en verde
+(`● OK`) o rojo (`✖ CAÍDO`), de quién depende, cuánto lleva así y los últimos cambios. Se refresca cada 2 s.
 
 ```bash
-docker exec clab-banco-mdr-siem tail -f /var/log/banco/salud.jsonl
+sh lab/banco/banco.sh vigilar
 ```
+
+Si prefieres el dato en bruto (una línea JSON cada ~2 s):
+`docker exec clab-banco-mdr-siem tail -f /var/log/banco/salud.jsonl`.
 
 **Terminal 2: el daemon del MDR**, con el perfil bancario y el conector real ejecutando desde `mdr-siem`:
 

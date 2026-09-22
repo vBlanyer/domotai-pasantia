@@ -6,6 +6,7 @@
 #   sh lab/banco/banco.sh status          estado de nodos y salud
 #   sh lab/banco/banco.sh test            prueba de humo: conectividad y todos los servicios sanos
 #   sh lab/banco/banco.sh cascada core-db tumba un servicio, muestra que cae y lo restaura
+#   sh lab/banco/banco.sh vigilar         panel en vivo: servicios en verde/rojo y ultimos cambios
 #   sh lab/banco/banco.sh aprovisionar    minimo privilegio del conector en los nodos del banco
 #                                         (hace falta despues de cada 'up': containerlab recrea
 #                                         los contenedores y el usuario/sudoers no sobreviven)
@@ -96,5 +97,8 @@ case "${1:-up}" in
     if [ -n "$FALLOS" ]; then echo "FALLO en:$FALLOS"; exit 1; fi
     echo "== Aprovisionamiento completo =="
     ;;
-  *) echo "uso: $0 up|down|status|test|cascada <servicio>|aprovisionar" ;;
+  vigilar)
+    cd "$RAIZ" && exec python3 -m lab.banco.panel
+    ;;
+  *) echo "uso: $0 up|down|status|test|cascada <servicio>|aprovisionar|vigilar" ;;
 esac

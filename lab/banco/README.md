@@ -11,6 +11,7 @@ actúa. Diseño: `docs/superpowers/specs/2026-09-21-laboratorio-banco-design.md`
     sh lab/banco/banco.sh aprovisionar    # minimo privilegio del conector (hace falta tras cada up)
     sh lab/banco/banco.sh test            # conectividad y salud
     sh lab/banco/banco.sh cascada core-db # ver una cascada real y su recuperación
+    sh lab/banco/banco.sh vigilar         # panel en vivo: servicios en verde/rojo
     sh lab/lab.sh down banco
 
 Prueba manual completa (casos, limpieza y reinicio): [`docs/pruebas/08-laboratorio-banco.md`](../../docs/pruebas/08-laboratorio-banco.md).
@@ -40,6 +41,7 @@ pequeña escanearía también esos puertos.
 | Nodos, IPs, servicios y dependencias (fuente única) | `lab/banco/red.py` |
 | Servicio con salud transitiva | `lab/banco/servicio.py` |
 | Monitor (línea de tiempo en `mdr-siem:/var/log/banco/salud.jsonl`) | `lab/banco/monitor.py` |
+| Panel de salud en la terminal (lee el monitor) | `lab/banco/panel.py` |
 | Logs a Wazuh | `lab/banco/reenviador.py` |
 | Resultados de la fase 0 | `lab/banco/verificaciones.md` |
 
