@@ -12,9 +12,14 @@ HERE=$(dirname "$0")
 #   sh lab/lab.sh up [topologia]     p. ej. red-cliente-firewall (escalada host->firewall real)
 TOPOLOGIA="${2:-red-cliente}"
 TOPO="$HERE/topologias/${TOPOLOGIA}.clab.yml"
+# El banco tiene su propio orquestador (servicios, monitor, reenviadores): lab/banco/banco.sh
+if [ "$TOPOLOGIA" = "banco" ]; then exec sh "$HERE/banco/banco.sh" "${1:-up}"; fi
 
 case "${1:-up}" in
   up)
+    if docker ps --format '{{.Names}}' | grep -q '^clab-banco-fw-core$'; then
+      echo "El banco esta levantado: bajalo antes (sh lab/lab.sh down banco)."; exit 1
+    fi
     echo "== 1. Desplegando la red del cliente =="
     containerlab deploy -t "$TOPO"
     echo "   preparando el auditor (nmap, ssh, sshpass)..."
