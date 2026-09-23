@@ -1,4 +1,4 @@
-import io, json, os, tempfile, unittest, yaml
+import contextlib, io, json, os, tempfile, unittest, yaml
 from prototipo import stream, catalogo, lazo, tablero
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -291,7 +291,8 @@ class TestWeb(unittest.TestCase):
             self.assertIsInstance(estado, tablero.EstadoTablero)
             self.assertIsInstance(leer_fn, tablero.LectorWeb)
             self.assertEqual(servidor.dependencias, {"middleware": ["core-db"]})
-            escribir_fn("⚠ hola")               # imprime y acumula
+            with contextlib.redirect_stdout(io.StringIO()):
+                escribir_fn("⚠ hola")               # imprime y acumula
             estado.registrar_pendiente("menu", "x")
             self.assertEqual(estado.pendientes()[0]["lineas"], ["⚠ hola"])
         finally:
