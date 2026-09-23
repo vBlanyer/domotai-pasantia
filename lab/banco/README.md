@@ -12,6 +12,7 @@ actúa. Diseño: `docs/superpowers/specs/2026-09-21-laboratorio-banco-design.md`
     sh lab/banco/banco.sh test            # conectividad y salud
     sh lab/banco/banco.sh cascada core-db # ver una cascada real y su recuperación
     sh lab/banco/banco.sh vigilar         # panel en vivo: servicios en verde/rojo
+    sh lab/banco/banco.sh atacar          # lanzador de ataques por número (para demos)
     sh lab/lab.sh down banco
 
 Prueba manual completa (casos, limpieza y reinicio): [`docs/pruebas/08-laboratorio-banco.md`](../../docs/pruebas/08-laboratorio-banco.md).

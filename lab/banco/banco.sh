@@ -100,5 +100,8 @@ case "${1:-up}" in
   vigilar)
     cd "$RAIZ" && exec python3 -m lab.banco.panel
     ;;
-  *) echo "uso: $0 up|down|status|test|cascada <servicio>|aprovisionar|vigilar" ;;
+  atacar)
+    cd "$RAIZ" && exec python3 -m lab.banco.demo
+    ;;
+  *) echo "uso: $0 up|down|status|test|cascada <servicio>|aprovisionar|vigilar|atacar" ;;
 esac
