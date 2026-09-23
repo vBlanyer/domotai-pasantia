@@ -12,8 +12,8 @@ export function Salud() {
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <span className="text-sm font-medium">
           {s.caidos === 0
-            ? <span className="text-emerald-400">Todos los servicios sanos</span>
-            : <span className="text-rose-400">{s.caidos} de {s.total} servicios caídos</span>}
+            ? <span className="text-emerald-600 dark:text-emerald-400">Todos los servicios sanos</span>
+            : <span className="text-rose-600 dark:text-rose-400">{s.caidos} de {s.total} servicios caídos</span>}
         </span>
         <Dato>{s.t}</Dato>
       </div>
@@ -30,7 +30,7 @@ export function Salud() {
               <TableCell>
                 <span className="inline-flex items-center gap-2">
                   <Punto estado={x.estado === "ok" ? "ok" : "caido"} />
-                  <span className={x.estado === "ok" ? "text-emerald-400" : "text-rose-400"}>
+                  <span className={x.estado === "ok" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
                     {x.estado === "ok" ? "operativo" : "caído"}
                   </span>
                 </span>

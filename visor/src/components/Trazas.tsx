@@ -10,6 +10,7 @@ type Estado = { texto: string; ok: boolean } | null
 export function Trazas() {
   const t = useSondeo(getTrazas)
   const [cadena, setCadena] = useState<Estado>(null)
+  const [abierto, setAbierto] = useState<string | null>(null)
   const verificar = async () => {
     const r = await getVerificacion()
     if ("error" in r) return setCadena({ texto: "sin conexión", ok: false })
@@ -24,7 +25,7 @@ export function Trazas() {
         {cadena && (
           <span className="inline-flex items-center gap-2 text-sm">
             <Punto estado={cadena.ok ? "ok" : "caido"} />
-            <span className={cadena.ok ? "text-emerald-400" : "text-rose-400"}>{cadena.texto}</span>
+            <span className={cadena.ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>{cadena.texto}</span>
           </span>
         )}
       </div>
@@ -35,11 +36,21 @@ export function Trazas() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-6" />
                 <TableHead>Cuándo</TableHead><TableHead>Activo</TableHead><TableHead>Clase</TableHead>
-                <TableHead>Acción</TableHead><TableHead>Decisión</TableHead>
+                <TableHead>Confianza</TableHead><TableHead>Acción</TableHead><TableHead>Decisión</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>{t.map((x, i) => <FilaDecision key={i} d={x} />)}</TableBody>
+            <TableBody>
+              {t.map((x, i) => (
+                <FilaDecision
+                  key={x.id_decision ?? i}
+                  d={x}
+                  abierto={!!x.id_decision && abierto === x.id_decision}
+                  onToggle={() => setAbierto((a) => (a === x.id_decision ? null : x.id_decision ?? null))}
+                />
+              ))}
+            </TableBody>
           </Table>
         </div>
       )}

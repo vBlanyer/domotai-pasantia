@@ -14,10 +14,10 @@ export function Aprobaciones() {
         <div key={x.id} className="overflow-hidden rounded-lg border border-amber-500/40 bg-amber-500/[0.04]">
           <div className="flex items-center gap-2 border-b border-amber-500/20 px-4 py-2.5">
             <Punto estado="pendiente" />
-            <span className="text-sm font-medium text-amber-300">Espera tu decisión</span>
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Espera tu decisión</span>
           </div>
           <div className="p-4">
-            <pre className="mb-3 overflow-x-auto rounded-md bg-black/30 p-3 font-mono text-xs leading-relaxed text-foreground/90 whitespace-pre-wrap">
+            <pre className="mb-3 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed text-foreground/90 whitespace-pre-wrap">
               {x.lineas.join("\n") || x.prompt}
             </pre>
             <div className="flex flex-wrap gap-2">

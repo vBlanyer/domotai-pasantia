@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { SaludSchema, PendienteSchema, DecisionSchema, controlesDePendiente, baseApi } from "./api"
+import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, baseApi } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -9,6 +9,32 @@ describe("DecisionSchema", () => {
   it("acepta un resumen de actividad suprimida", () => {
     const d = DecisionSchema.parse({ tipo: "actividad_suprimida", alertas_suprimidas: 3 })
     expect(d.alertas_suprimidas).toBe(3)
+  })
+  it("conserva confianza, MITRE, justificador y RAG del resumen enriquecido", () => {
+    const d = DecisionSchema.parse({
+      id_decision: "s1", confianza: 1.0, version_justificador: "plantilla-0",
+      tecnica_mitre: ["T1110.001"], con_rag: false, motivo: "bloquea a 1.2.3.4",
+    })
+    expect(d.confianza).toBe(1.0)
+    expect(d.tecnica_mitre).toEqual(["T1110.001"])
+    expect(d.version_justificador).toBe("plantilla-0")
+    expect(d.con_rag).toBe(false)
+  })
+})
+
+describe("DetalleSchema", () => {
+  it("parsea el detalle completo (justificación, MITRE, pasajes RAG) y tolera campos extra", () => {
+    const d = DetalleSchema.parse({
+      id_decision: "s1", justificacion: "Alerta 5760 …", version_justificador: "plantilla-0",
+      consulta_rag: "", pasajes_usados: [{ titulo: "Regla 5760", texto: "fuerza bruta SSH" }],
+      justificacion_estructurada: { evidencia: { regla: "5760" }, tecnica_mitre: ["T1110.001"] },
+      impacto_determinado: { nivel: "localizado", motivo: "bloquea a 1.2.3.4" },
+      campo_no_modelado: 123,
+    })
+    expect(d.justificacion).toContain("5760")
+    expect(d.pasajes_usados?.[0].titulo).toBe("Regla 5760")
+    expect(d.justificacion_estructurada?.tecnica_mitre).toEqual(["T1110.001"])
+    expect(d.impacto_determinado?.motivo).toBe("bloquea a 1.2.3.4")
   })
 })
 

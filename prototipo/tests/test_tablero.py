@@ -120,6 +120,26 @@ class TestLectoresDeDatos(unittest.TestCase):
     def test_lista_trazas_fichero_ausente_es_vacia(self):
         self.assertEqual(tablero.lista_trazas("/no/existe.jsonl"), [])
 
+    def test_resumen_traza_expone_justificador_mitre_rag_y_motivo(self):
+        ruta = self._traza_tmp([{
+            "id_decision": "s1", "timestamp": "t1", "activo": "web", "clase": "vp_intento_acceso",
+            "confianza": 1.0, "accion_final": "BLOQUEAR_IP", "requiere_humano": False,
+            "impacto": "localizado", "version_justificador": "plantilla-0",
+            "justificacion_estructurada": {"tecnica_mitre": ["T1110.001", "T1021.004"]},
+            "pasajes_usados": [], "consulta_rag": "",
+            "impacto_determinado": {"nivel": "localizado", "motivo": "bloquea a 1.2.3.4 · 0 servicios detenidos"}}])
+        r = tablero.lista_trazas(ruta)[0]
+        self.assertEqual(r["version_justificador"], "plantilla-0")
+        self.assertEqual(r["tecnica_mitre"], ["T1110.001", "T1021.004"])
+        self.assertFalse(r["con_rag"])                                  # pasajes_usados vacío
+        self.assertEqual(r["impacto"], "localizado")                   # antes leía el campo equivocado (None)
+        self.assertEqual(r["motivo"], "bloquea a 1.2.3.4 · 0 servicios detenidos")
+
+    def test_resumen_traza_marca_con_rag_cuando_hay_pasajes(self):
+        ruta = self._traza_tmp([{"id_decision": "s2", "pasajes_usados": [{"texto": "regla 5760"}],
+                                 "impacto_determinado": {"nivel": "localizado"}}])
+        self.assertTrue(tablero.lista_trazas(ruta)[0]["con_rag"])
+
     def test_verificar_traza_cadena_integra_y_rota(self):
         r1 = traza.encadenar({"id_decision": "s1", "x": 1}, traza.GENESIS)
         r2 = traza.encadenar({"id_decision": "s2", "x": 2}, r1["hash"])
