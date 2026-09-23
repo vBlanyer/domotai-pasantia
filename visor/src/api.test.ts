@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest"
-import { SaludSchema, PendienteSchema, controlesDePendiente } from "./api"
+import { SaludSchema, PendienteSchema, controlesDePendiente, baseApi } from "./api"
+
+describe("baseApi", () => {
+  it("relativa en producción, 8787 en dev, override con VITE_API", () => {
+    expect(baseApi({ DEV: false })).toBe("")
+    expect(baseApi({ DEV: true })).toBe("http://127.0.0.1:8787")
+    expect(baseApi({ VITE_API: "http://x", DEV: true })).toBe("http://x")
+  })
+})
 
 describe("esquemas Zod", () => {
   it("acepta una salud válida", () => {

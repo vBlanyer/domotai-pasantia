@@ -72,6 +72,13 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.addCleanup(os.unlink, f.name)
         return f.name
 
+    def test_lista_trazas_conserva_actividad_suprimida(self):
+        ruta = self._traza_tmp([{"id_decision": "s5~sup", "tipo": "actividad_suprimida",
+                                 "referencia": "s5", "alertas_suprimidas": 3}])
+        r = tablero.lista_trazas(ruta)[0]
+        self.assertEqual(r["tipo"], "actividad_suprimida")
+        self.assertEqual(r["alertas_suprimidas"], 3)
+
     def test_estado_salud_convierte_y_decora_dependencias(self):
         muestra = {"t": "2026-09-22T10:00:00Z", "estados": {"core-db": "ok", "middleware": "caido"}}
         r = tablero.estado_salud(muestra, {"middleware": ["core-db"]})

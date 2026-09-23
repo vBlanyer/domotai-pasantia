@@ -135,7 +135,9 @@ def _resumen_traza(reg):
     return {"id_decision": reg.get("id_decision"), "timestamp": reg.get("timestamp"),
             "activo": reg.get("activo"), "clase": reg.get("clase"), "confianza": reg.get("confianza"),
             "accion_final": reg.get("accion_final"), "requiere_humano": reg.get("requiere_humano"),
-            "impacto": imp.get("impacto")}
+            "impacto": imp.get("impacto"),
+            # discriminador de los resumenes de supresion (RF-11) para que el visor los marque
+            "tipo": reg.get("tipo"), "alertas_suprimidas": reg.get("alertas_suprimidas")}
 
 
 def lista_trazas(ruta, n=None):

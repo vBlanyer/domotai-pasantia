@@ -1,7 +1,12 @@
 import { z } from "zod"
 import { useEffect, useState } from "react"
 
-const BASE = (import.meta.env.VITE_API as string) ?? "http://127.0.0.1:8787"
+// Base de la API: relativa (mismo origen) en el build que sirve el daemon --web (funciona en
+// cualquier puerto); en desarrollo (Vite en :5173) apunta al daemon en :8787; VITE_API lo sobreescribe.
+export function baseApi(env: { VITE_API?: string; DEV?: boolean }): string {
+  return env.VITE_API ?? (env.DEV ? "http://127.0.0.1:8787" : "")
+}
+const BASE = baseApi(import.meta.env)
 
 export const ServicioSchema = z.object({ nombre: z.string(), estado: z.string(), depende_de: z.array(z.string()) })
 export const SaludSchema = z.union([
