@@ -332,8 +332,18 @@ olvido, cada punto es una decisión). El detalle de cada uno vive donde se indic
 
 - **Filtrado VP/FP dentro del nivel `triar_y_enrutar`.** El nivel enrutado clasifica y encamina sin adjudicar
   VP/FP; un WAF ruidoso se encamina igual. Detalle en el spec de familias (`docs/superpowers/specs/2026-09-16-taxonomia-familias-extensible-design.md`, §7).
+- **Ampliar el repertorio de familias (que ninguna alerta se pierda).** Hoy contención automática solo para
+  tres familias (`acceso_credenciales`, `reconocimiento`, `servicio_expuesto`) y una enrutada
+  (`explotacion_conocida`); el resto cae en `no_soportada`. Para que una alerta de malware/C2/DoS **que el SIEM
+  levante** se **enrute** al equipo en vez de caer en `no_soportada`, hay que añadirla a `familias.yml`
+  (`nivel: triar_y_enrutar` + `ruta`) **y extender el adaptador** (`adaptador_wazuh.familia_de`, hoy solo etiqueta
+  seis familias) **más el binding `rutas:` del perfil**. El cuello de botella es el adaptador, no el registro.
+  Esto **no es detección primaria** (malware/DoS/lateral siguen fuera de alcance: el MDR refina, no detecta);
+  es dar respuesta —enrutar— a lo que el SIEM sí alerta. Diseño de la taxonomía extensible:
+  `docs/superpowers/specs/2026-09-16-taxonomia-familias-extensible-design.md`.
 - **Entrega real de la ruta.** La traza registra la ruta (`ruta`), pero ningún conector la **entrega** a la
-  cola/equipo del cliente (correo/ticket). Es la misma capa de producción que el conector SSH.
+  cola/equipo del cliente (correo/ticket). Es la misma capa de producción que el conector SSH. El punto de
+  inyección natural es un `entregador` enchufable en `lazo.procesar_lazo`, simétrico al `ejecutor` del conector.
 - **Consumo automático del feedback (RF-12).** El «cosechador» que lee las reclasificaciones del periodo y
   propone cambios de perfil/corpus/reglas. Diseño en [bucle-de-feedback-rf12.md](bucle-de-feedback-rf12.md).
 - **Calibración del umbral de escalado (RF-07).** `continuidad.umbral_confianza` sin calibrar (0,7 por
