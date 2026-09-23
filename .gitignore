@@ -48,3 +48,5 @@ prototipo/corpus/fuentes/*.json
 /normalizado.jsonl
 /incidentes.jsonl
 /trazas-stream.jsonl
+visor/node_modules
+visor/dist
