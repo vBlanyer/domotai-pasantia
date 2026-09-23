@@ -197,20 +197,46 @@ class TestServidor(unittest.TestCase):
 
 
 class TestEstaticosReales(unittest.TestCase):
-    def test_sirve_los_estaticos_del_modulo(self):
-        srv = tablero.crear_servidor(tablero.EstadoTablero(), "/no/existe.jsonl", puerto=0)
+    def test_sirve_estaticos_de_un_directorio(self):
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, "index.html"), "w", encoding="utf-8") as f:
+            f.write("<html>Tablero MDR</html>")
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), "/no/existe.jsonl", puerto=0, estaticos=d)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
-        puerto = srv.server_address[1]
-        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c = http.client.HTTPConnection("127.0.0.1", srv.server_address[1], timeout=3)
         c.request("GET", "/"); r = c.getresponse(); html = r.read(); c.close()
         self.assertEqual(r.status, 200)
         self.assertIn(b"Tablero", html)
+
+
+class TestCORS(unittest.TestCase):
+    def _srv(self, estaticos=None):
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), "/no/existe.jsonl", puerto=0,
+                                     estaticos=estaticos or tempfile.mkdtemp())
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv.server_address[1]
+
+    def test_get_lleva_cabecera_cors(self):
+        puerto = self._srv()
         c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
-        c.request("GET", "/static/tablero.js"); r = c.getresponse(); r.read()
-        self.assertEqual(r.status, 200)
-        self.assertIn("javascript", r.getheader("Content-Type"))
-        c.close()
+        c.request("GET", "/api/pendientes"); r = c.getresponse(); r.read(); c.close()
+        self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "*")
+
+    def test_options_preflight_devuelve_204_con_cors(self):
+        puerto = self._srv()
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("OPTIONS", "/api/aprobar"); r = c.getresponse(); r.read(); c.close()
+        self.assertEqual(r.status, 204)
+        self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "*")
+        self.assertIn("POST", r.getheader("Access-Control-Allow-Methods") or "")
+
+    def test_dist_ausente_da_404_claro(self):
+        puerto = self._srv(estaticos="/directorio/que/no/existe")
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", "/"); r = c.getresponse(); r.read(); c.close()
+        self.assertEqual(r.status, 404)
 
 
 if __name__ == "__main__":

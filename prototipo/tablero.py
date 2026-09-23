@@ -170,16 +170,29 @@ def verificar_traza(ruta):
 
 _TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
           ".css": "text/css; charset=utf-8"}
-_DIR_ESTATICOS = os.path.join(os.path.dirname(__file__), "tablero")
+_DIR_ESTATICOS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "visor", "dist")
 
 
 class _Manejador(BaseHTTPRequestHandler):
     def log_message(self, *a):        # silencioso: el daemon ya imprime lo suyo
         pass
 
+    def _cors(self):
+        # Liga solo a 127.0.0.1, asi que abrir CORS es aceptable (el visor React lo consume en dev).
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def _responder(self, obj, codigo=200):
         cuerpo = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(codigo)
+        self._cors()
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(cuerpo)))
         self.end_headers()
@@ -195,6 +208,7 @@ class _Manejador(BaseHTTPRequestHandler):
         except OSError:
             return self._responder({"error": "no encontrado"}, 404)
         self.send_response(200)
+        self._cors()
         self.send_header("Content-Type", _TIPOS[ext])
         self.send_header("Content-Length", str(len(datos)))
         self.end_headers()
