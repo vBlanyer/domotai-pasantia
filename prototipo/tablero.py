@@ -132,10 +132,16 @@ def estado_salud(muestra, dependencias=None):
 
 def _resumen_traza(reg):
     imp = reg.get("impacto_determinado") or {}
+    est = reg.get("justificacion_estructurada") or {}
     return {"id_decision": reg.get("id_decision"), "timestamp": reg.get("timestamp"),
             "activo": reg.get("activo"), "clase": reg.get("clase"), "confianza": reg.get("confianza"),
             "accion_final": reg.get("accion_final"), "requiere_humano": reg.get("requiere_humano"),
-            "impacto": imp.get("impacto"),
+            "impacto": reg.get("impacto") or imp.get("nivel"), "motivo": imp.get("motivo"),
+            # de dónde viene la justificación (plantilla vs LLM), la técnica y si consultó el RAG:
+            # el detalle completo (texto + pasajes) sale por /api/traza/<id>.
+            "version_justificador": reg.get("version_justificador"),
+            "tecnica_mitre": est.get("tecnica_mitre") or [],
+            "con_rag": bool(reg.get("pasajes_usados")),
             # discriminador de los resumenes de supresion (RF-11) para que el visor los marque
             "tipo": reg.get("tipo"), "alertas_suprimidas": reg.get("alertas_suprimidas")}
 

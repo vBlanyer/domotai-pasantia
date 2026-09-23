@@ -14,7 +14,7 @@ export function Donut({ data, total, unidad }: { data: Segmento[]; total: number
       <div className="relative aspect-square w-full max-w-[190px] min-w-[120px] shrink">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius="66%" outerRadius="94%" paddingAngle={2} strokeWidth={0}>
+            <Pie data={data} dataKey="value" nameKey="name" innerRadius="66%" outerRadius="94%" paddingAngle={2} strokeWidth={0} isAnimationActive={false}>
               {data.map((s, i) => <Cell key={i} fill={s.fill} />)}
             </Pie>
             <Tooltip formatter={(v, n) => [String(v), String(n)]} />
@@ -46,7 +46,7 @@ export function Gauge({ pct, color, etiqueta }: { pct: number; color: string; et
     <div className="relative">
       <ResponsiveContainer width="100%" height={170}>
         <PieChart>
-          <Pie data={data} dataKey="value" startAngle={180} endAngle={0} cx="50%" cy="90%" innerRadius={72} outerRadius={98} strokeWidth={0}>
+          <Pie data={data} dataKey="value" startAngle={180} endAngle={0} cx="50%" cy="90%" innerRadius={72} outerRadius={98} strokeWidth={0} isAnimationActive={false}>
             {data.map((s, i) => <Cell key={i} fill={s.fill} />)}
           </Pie>
         </PieChart>
@@ -69,7 +69,7 @@ export function Tendencia({ data }: { data: { dia: string; n: number }[] }) {
         <XAxis dataKey="dia" tick={{ fontSize: 11, fill: texto }} tickLine={false} axisLine={false} minTickGap={24} />
         <YAxis tick={{ fontSize: 11, fill: texto }} tickLine={false} axisLine={false} allowDecimals={false} width={28} />
         <Tooltip formatter={(v) => [String(v), "decisiones"]} />
-        <Area type="monotone" dataKey="n" stroke={serie} fill={serie} fillOpacity={0.14} strokeWidth={2} dot={false} />
+        <Area type="monotone" dataKey="n" stroke={serie} fill={serie} fillOpacity={0.14} strokeWidth={2} dot={false} isAnimationActive={false} />
       </AreaChart>
     </ResponsiveContainer>
   )

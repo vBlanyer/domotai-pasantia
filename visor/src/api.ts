@@ -16,9 +16,33 @@ export const SaludSchema = z.union([
 export const DecisionSchema = z.object({
   id_decision: z.string().nullable().optional(), timestamp: z.string().nullable().optional(),
   activo: z.string().nullable().optional(), clase: z.string().nullable().optional(),
+  confianza: z.number().nullable().optional(),
   accion_final: z.string().nullable().optional(), requiere_humano: z.boolean().nullable().optional(),
+  impacto: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
+  version_justificador: z.string().nullable().optional(),
+  tecnica_mitre: z.array(z.string()).nullable().optional(), con_rag: z.boolean().nullable().optional(),
   tipo: z.string().nullable().optional(), alertas_suprimidas: z.number().nullable().optional(),
 })
+// Detalle completo de una decisión (/api/traza/<id>): el texto de la justificación y los pasajes
+// del RAG. Laxo a propósito (`passthrough`): la traza lleva muchos más campos que no renderizamos.
+export const PasajeSchema = z.object({ titulo: z.string().optional(), texto: z.string().optional() }).passthrough()
+export const DetalleSchema = z.object({
+  id_decision: z.string().nullable().optional(),
+  justificacion: z.string().nullable().optional(),
+  version_justificador: z.string().nullable().optional(),
+  consulta_rag: z.string().nullable().optional(),
+  recuperacion_agentica: z.boolean().nullable().optional(),
+  pasajes_usados: z.array(PasajeSchema).nullable().optional(),
+  accion_propuesta: z.string().nullable().optional(), accion_final: z.string().nullable().optional(),
+  justificacion_estructurada: z.object({
+    evidencia: z.record(z.string(), z.unknown()).nullable().optional(),
+    tecnica_mitre: z.array(z.string()).nullable().optional(),
+    accion_sugerida: z.string().nullable().optional(),
+  }).passthrough().nullable().optional(),
+  impacto_determinado: z.object({
+    nivel: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
+  }).passthrough().nullable().optional(),
+}).passthrough()
 export const PendienteSchema = z.object({
   id: z.string(), tipo: z.string(), prompt: z.string(), lineas: z.array(z.string()),
 })
@@ -28,12 +52,15 @@ export const VerificacionSchema = z.object({
 
 export type Salud = z.infer<typeof SaludSchema>
 export type Decision = z.infer<typeof DecisionSchema>
+export type Detalle = z.infer<typeof DetalleSchema>
+export type Pasaje = z.infer<typeof PasajeSchema>
 export type Pendiente = z.infer<typeof PendienteSchema>
 export type Verificacion = z.infer<typeof VerificacionSchema>
 
 async function pedir<T>(ruta: string, esquema: z.ZodType<T>): Promise<T | { error: string }> {
   try {
     const r = await fetch(BASE + ruta)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)   // 404 del detalle -> rama de error, no se parsea
     return esquema.parse(await r.json())
   } catch (e) {
     return { error: String(e) }
@@ -44,6 +71,7 @@ export const getSalud = () => pedir("/api/salud", SaludSchema)
 export const getDecisiones = () => pedir("/api/decisiones", z.array(DecisionSchema))
 export const getPendientes = () => pedir("/api/pendientes", z.array(PendienteSchema))
 export const getTrazas = () => pedir("/api/trazas", z.array(DecisionSchema))
+export const getTrazaDetalle = (id: string) => pedir(`/api/traza/${encodeURIComponent(id)}`, DetalleSchema)
 export const getVerificacion = () => pedir("/api/verificar", VerificacionSchema)
 
 export async function aprobar(id: string, respuesta: string): Promise<boolean> {
@@ -68,7 +96,14 @@ export function useSondeo<T>(fn: () => Promise<T>, ms = 2000): T | undefined {
   const [v, setV] = useState<T>()
   useEffect(() => {
     let vivo = true
-    const tick = async () => { const r = await fn(); if (vivo) setV(r) }
+    const tick = async () => {
+      const r = await fn()
+      if (!vivo) return
+      // Solo re-renderiza si los datos cambiaron: devolver la misma referencia hace que React
+      // descarte el render. Sin esto, cada sondeo (2 s) re-renderiza toda la app y los gráficos
+      // Recharts, y esas ráfagas se "comen" los clics del usuario.
+      setV((prev) => (JSON.stringify(prev) === JSON.stringify(r) ? prev : r))
+    }
     tick()
     const id = setInterval(tick, ms)
     return () => { vivo = false; clearInterval(id) }
