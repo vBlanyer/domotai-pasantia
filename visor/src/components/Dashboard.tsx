@@ -1,7 +1,8 @@
 import type { ReactNode } from "react"
 import { useSondeo, getSalud, getTrazas, getPendientes, getVerificacion, type Decision } from "@/api"
 import { Donut, Gauge, Tendencia, type Segmento } from "./charts"
-import { CATEGORICO, ESTADO } from "@/theme"
+import { CATEGORICO_LIGHT, CATEGORICO_DARK, ESTADO } from "@/theme"
+import { useTema } from "@/tema"
 
 function Tarjeta({ titulo, children, className = "" }: { titulo: string; children: ReactNode; className?: string }) {
   return (
@@ -42,6 +43,7 @@ const ETIQUETA_CLASE: Record<string, string> = {
 }
 
 export function Dashboard({ conectado }: { conectado: boolean }) {
+  const CAT = useTema().oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
   const salud = useSondeo(getSalud)
   const trazas = useSondeo(getTrazas)
   const pend = useSondeo(getPendientes)
@@ -68,7 +70,7 @@ export function Dashboard({ conectado }: { conectado: boolean }) {
   }
   const clases = [...cuentas.keys()].sort()
   const porClase: Segmento[] = clases.map((c, i) => ({
-    name: ETIQUETA_CLASE[c] ?? c, value: cuentas.get(c) ?? 0, fill: CATEGORICO[i % CATEGORICO.length],
+    name: ETIQUETA_CLASE[c] ?? c, value: cuentas.get(c) ?? 0, fill: CAT[i % CAT.length],
   }))
 
   const saludSeg: Segmento[] = [

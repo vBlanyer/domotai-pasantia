@@ -2,7 +2,8 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts"
-import { TINTA } from "@/theme"
+import { ejes } from "@/theme"
+import { useTema } from "@/tema"
 
 export type Segmento = { name: string; value: number; fill: string }
 
@@ -39,7 +40,8 @@ export function Donut({ data, total, unidad }: { data: Segmento[]; total: number
 
 // Medidor semicircular: un porcentaje (p. ej. servicios operativos), estilo comercial.
 export function Gauge({ pct, color, etiqueta }: { pct: number; color: string; etiqueta: string }) {
-  const data = [{ value: pct, fill: color }, { value: 100 - pct, fill: "#e9e9e6" }]
+  const { oscuro } = useTema()
+  const data = [{ value: pct, fill: color }, { value: 100 - pct, fill: ejes(oscuro).relleno }]
   return (
     <div className="relative">
       <ResponsiveContainer width="100%" height={170}>
@@ -59,14 +61,15 @@ export function Gauge({ pct, color, etiqueta }: { pct: number; color: string; et
 
 // Tendencia: una serie, sin leyenda (el título la nombra). Un eje.
 export function Tendencia({ data }: { data: { dia: string; n: number }[] }) {
+  const { grid, texto, serie } = ejes(useTema().oscuro)
   return (
     <ResponsiveContainer width="100%" height={200}>
       <AreaChart data={data} margin={{ left: -18, right: 10, top: 8, bottom: 0 }}>
-        <CartesianGrid stroke="#ececea" vertical={false} />
-        <XAxis dataKey="dia" tick={{ fontSize: 11, fill: TINTA.secondary }} tickLine={false} axisLine={false} minTickGap={24} />
-        <YAxis tick={{ fontSize: 11, fill: TINTA.secondary }} tickLine={false} axisLine={false} allowDecimals={false} width={28} />
+        <CartesianGrid stroke={grid} vertical={false} />
+        <XAxis dataKey="dia" tick={{ fontSize: 11, fill: texto }} tickLine={false} axisLine={false} minTickGap={24} />
+        <YAxis tick={{ fontSize: 11, fill: texto }} tickLine={false} axisLine={false} allowDecimals={false} width={28} />
         <Tooltip formatter={(v) => [String(v), "decisiones"]} />
-        <Area type="monotone" dataKey="n" stroke="#2a78d6" fill="#2a78d6" fillOpacity={0.12} strokeWidth={2} dot={false} />
+        <Area type="monotone" dataKey="n" stroke={serie} fill={serie} fillOpacity={0.14} strokeWidth={2} dot={false} />
       </AreaChart>
     </ResponsiveContainer>
   )

@@ -24,7 +24,7 @@ export function Trazas() {
         {cadena && (
           <span className="inline-flex items-center gap-2 text-sm">
             <Punto estado={cadena.ok ? "ok" : "caido"} />
-            <span className={cadena.ok ? "text-emerald-600" : "text-rose-600"}>{cadena.texto}</span>
+            <span className={cadena.ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>{cadena.texto}</span>
           </span>
         )}
       </div>

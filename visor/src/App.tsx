@@ -1,5 +1,7 @@
 import { useState } from "react"
+import { Moon, Sun } from "lucide-react"
 import { useSondeo, getSalud, getPendientes } from "@/api"
+import { useTema } from "@/tema"
 import { Dashboard } from "@/components/Dashboard"
 import { Salud } from "@/components/Salud"
 import { Decisiones } from "@/components/Decisiones"
@@ -19,6 +21,7 @@ const NAV: { id: Vista; nombre: string }[] = [
 
 export default function App() {
   const [vista, setVista] = useState<Vista>("panel")
+  const { oscuro, alternar } = useTema()
   const salud = useSondeo(getSalud)
   const pend = useSondeo(getPendientes)
   const conectado = salud !== undefined && !("error" in salud)
@@ -26,7 +29,7 @@ export default function App() {
   const titulo = NAV.find((n) => n.id === vista)!.nombre
 
   return (
-    <div className="flex min-h-screen bg-[#f7f7f5] text-foreground">
+    <div className="flex min-h-screen bg-[#f7f7f5] text-foreground dark:bg-[#0d0d0d]">
       <aside className="flex w-56 shrink-0 flex-col bg-[#0f1e33] text-slate-300">
         <div className="flex items-center gap-2.5 px-5 py-5">
           <div className="grid size-8 place-items-center rounded-md bg-cyan-500/20 text-sm font-bold text-cyan-300">M</div>
@@ -60,9 +63,19 @@ export default function App() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border bg-card px-8 py-4">
           <h1 className="text-lg font-semibold">{titulo}</h1>
-          <div className="flex items-center gap-2 text-sm">
-            <Punto estado={conectado ? "ok" : "caido"} />
-            <span className="text-muted-foreground">{conectado ? "datos en vivo" : "sin conexión con el daemon"}</span>
+          <div className="flex items-center gap-4 text-sm">
+            <span className="flex items-center gap-2">
+              <Punto estado={conectado ? "ok" : "caido"} />
+              <span className="text-muted-foreground">{conectado ? "datos en vivo" : "sin conexión con el daemon"}</span>
+            </span>
+            <button
+              onClick={alternar}
+              aria-label={oscuro ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
+              title={oscuro ? "Tema claro" : "Tema oscuro"}
+              className="grid size-9 place-items-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {oscuro ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </button>
           </div>
         </header>
         <main className="flex-1 overflow-auto px-8 py-6">
