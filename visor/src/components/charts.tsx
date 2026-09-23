@@ -10,22 +10,22 @@ export type Segmento = { name: string; value: number; fill: string }
 // Donut de magnitud: total al centro, leyenda con cuentas (identidad nunca por color solo).
 export function Donut({ data, total, unidad }: { data: Segmento[]; total: number; unidad: string }) {
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-      <div className="relative shrink-0">
-        <ResponsiveContainer width={190} height={190}>
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:flex-wrap sm:justify-center">
+      <div className="relative aspect-square w-full max-w-[190px] min-w-[120px] shrink">
+        <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius={64} outerRadius={90} paddingAngle={2} strokeWidth={0}>
+            <Pie data={data} dataKey="value" nameKey="name" innerRadius="66%" outerRadius="94%" paddingAngle={2} strokeWidth={0}>
               {data.map((s, i) => <Cell key={i} fill={s.fill} />)}
             </Pie>
             <Tooltip formatter={(v, n) => [String(v), String(n)]} />
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-semibold tabular-nums">{total}</span>
+          <span className="font-heading text-3xl font-semibold tabular-nums">{total}</span>
           <span className="text-xs text-muted-foreground">{unidad}</span>
         </div>
       </div>
-      <ul className="w-full max-w-[180px] space-y-2 text-sm">
+      <ul className="w-full min-w-0 max-w-[180px] space-y-2 text-sm">
         {data.map((s) => (
           <li key={s.name} className="flex items-center gap-2">
             <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: s.fill }} />
@@ -52,7 +52,7 @@ export function Gauge({ pct, color, etiqueta }: { pct: number; color: string; et
         </PieChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-x-0 bottom-3 flex flex-col items-center">
-        <span className="text-4xl font-semibold tabular-nums">{pct}%</span>
+        <span className="font-heading text-4xl font-semibold tabular-nums">{pct}%</span>
         <span className="text-xs text-muted-foreground">{etiqueta}</span>
       </div>
     </div>

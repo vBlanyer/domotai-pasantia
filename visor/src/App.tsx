@@ -4,16 +4,18 @@ import { useSondeo, getSalud, getPendientes } from "@/api"
 import { useTema } from "@/tema"
 import { Dashboard } from "@/components/Dashboard"
 import { Salud } from "@/components/Salud"
+import { Equipos } from "@/components/Equipos"
 import { Decisiones } from "@/components/Decisiones"
 import { Aprobaciones } from "@/components/Aprobaciones"
 import { Trazas } from "@/components/Trazas"
 import { Punto } from "@/components/bits"
 
-type Vista = "panel" | "salud" | "decisiones" | "aprobaciones" | "trazas"
+type Vista = "panel" | "salud" | "equipos" | "decisiones" | "aprobaciones" | "trazas"
 
 const NAV: { id: Vista; nombre: string }[] = [
   { id: "panel", nombre: "Panel" },
-  { id: "salud", nombre: "Salud" },
+  { id: "salud", nombre: "Estado de servicios" },
+  { id: "equipos", nombre: "Equipos" },
   { id: "decisiones", nombre: "Decisiones" },
   { id: "aprobaciones", nombre: "Aprobaciones" },
   { id: "trazas", nombre: "Trazas" },
@@ -62,7 +64,7 @@ export default function App() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border bg-card px-8 py-4">
-          <h1 className="text-lg font-semibold">{titulo}</h1>
+          <h1 className="font-heading text-lg font-semibold">{titulo}</h1>
           <div className="flex items-center gap-4 text-sm">
             <span className="flex items-center gap-2">
               <Punto estado={conectado ? "ok" : "caido"} />
@@ -81,6 +83,7 @@ export default function App() {
         <main className="flex-1 overflow-auto px-8 py-6">
           {vista === "panel" && <Dashboard conectado={conectado} />}
           {vista === "salud" && <Salud />}
+          {vista === "equipos" && <Equipos />}
           {vista === "decisiones" && <Decisiones />}
           {vista === "aprobaciones" && <Aprobaciones />}
           {vista === "trazas" && <Trazas />}

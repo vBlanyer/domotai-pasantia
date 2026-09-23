@@ -6,7 +6,7 @@ import { useTema } from "@/tema"
 
 function Tarjeta({ titulo, children, className = "" }: { titulo: string; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-xl border border-border bg-card p-5 shadow-sm ${className}`}>
+    <section className={`min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm ${className}`}>
       <h2 className="mb-4 text-sm font-medium text-muted-foreground">{titulo}</h2>
       {children}
     </section>
@@ -15,8 +15,8 @@ function Tarjeta({ titulo, children, className = "" }: { titulo: string; childre
 
 function Kpi({ valor, etiqueta, tono }: { valor: string; etiqueta: string; tono?: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-5 py-4 shadow-sm">
-      <div className={`text-4xl font-semibold tabular-nums ${tono ?? ""}`}>{valor}</div>
+    <div className="min-w-0 rounded-xl border border-border bg-card px-5 py-4 shadow-sm">
+      <div className={`font-heading text-4xl font-semibold tabular-nums ${tono ?? ""}`}>{valor}</div>
       <div className="mt-1 text-sm text-muted-foreground">{etiqueta}</div>
     </div>
   )
@@ -99,7 +99,7 @@ export function Dashboard({ conectado }: { conectado: boolean }) {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Tarjeta titulo="Salud de los servicios">
+        <Tarjeta titulo="Estado de los servicios">
           <Donut data={saludSeg} total={total} unidad="servicios" />
         </Tarjeta>
         <Tarjeta titulo="Decisiones por clase">
