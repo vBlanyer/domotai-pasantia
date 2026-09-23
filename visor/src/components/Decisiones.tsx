@@ -44,9 +44,9 @@ function Pasajes({ pasajes, consulta }: { pasajes: Pasaje[]; consulta?: string |
   if (pasajes.length === 0)
     return (
       <p className="text-sm text-muted-foreground">
-        Sin recuperación RAG. La justificación es por plantilla; arranca el daemon con{" "}
-        <code className="rounded bg-foreground/10 px-1 font-mono text-xs">--con-llm</code> para el
-        razonamiento del modelo y los pasajes de conocimiento.
+        Esta decisión no consultó el RAG (la recuperación de conocimiento se activa en los accesos a
+        credenciales). Requiere el daemon con{" "}
+        <code className="rounded bg-foreground/10 px-1 font-mono text-xs">--con-llm</code>.
       </p>
     )
   return (
@@ -78,7 +78,7 @@ function Detalles({ id }: { id: string }) {
   const ev = det.justificacion_estructurada?.evidencia ?? {}
   const mitre = det.justificacion_estructurada?.tecnica_mitre ?? []
   const motivo = det.impacto_determinado?.motivo
-  const pasajes = det.pasajes_usados ?? []
+  const pasajes = det.pasajes ?? []
 
   return (
     <div className="space-y-4">

@@ -25,14 +25,17 @@ export const DecisionSchema = z.object({
 })
 // Detalle completo de una decisión (/api/traza/<id>): el texto de la justificación y los pasajes
 // del RAG. Laxo a propósito (`passthrough`): la traza lleva muchos más campos que no renderizamos.
-export const PasajeSchema = z.object({ titulo: z.string().optional(), texto: z.string().optional() }).passthrough()
+export const PasajeSchema = z.object({
+  id: z.string().optional(), titulo: z.string().nullable().optional(), texto: z.string().nullable().optional(),
+}).passthrough()
 export const DetalleSchema = z.object({
   id_decision: z.string().nullable().optional(),
   justificacion: z.string().nullable().optional(),
   version_justificador: z.string().nullable().optional(),
   consulta_rag: z.string().nullable().optional(),
   recuperacion_agentica: z.boolean().nullable().optional(),
-  pasajes_usados: z.array(PasajeSchema).nullable().optional(),
+  pasajes_usados: z.array(z.string()).nullable().optional(),   // IDs; el backend los resuelve en `pasajes`
+  pasajes: z.array(PasajeSchema).nullable().optional(),         // {id, titulo, texto} del corpus
   accion_propuesta: z.string().nullable().optional(), accion_final: z.string().nullable().optional(),
   justificacion_estructurada: z.object({
     evidencia: z.record(z.string(), z.unknown()).nullable().optional(),

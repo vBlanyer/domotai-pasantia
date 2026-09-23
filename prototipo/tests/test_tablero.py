@@ -136,9 +136,21 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(r["motivo"], "bloquea a 1.2.3.4 · 0 servicios detenidos")
 
     def test_resumen_traza_marca_con_rag_cuando_hay_pasajes(self):
-        ruta = self._traza_tmp([{"id_decision": "s2", "pasajes_usados": [{"texto": "regla 5760"}],
+        ruta = self._traza_tmp([{"id_decision": "s2", "pasajes_usados": ["mitre-T1110"],
                                  "impacto_determinado": {"nivel": "localizado"}}])
         self.assertTrue(tablero.lista_trazas(ruta)[0]["con_rag"])
+
+    def test_hidratar_pasajes_resuelve_ids_contra_el_corpus(self):
+        corpus = {"mitre-T1110": {"id": "mitre-T1110", "titulo": "T1110", "texto": "fuerza bruta"},
+                  "mapeo-x": {"id": "mapeo-x", "titulo": "Mapeo", "texto": "acceso credenciales"}}
+        reg = {"id_decision": "s1", "pasajes_usados": ["mitre-T1110", "ausente", "mapeo-x"]}
+        r = tablero._hidratar_pasajes(reg, corpus)
+        self.assertEqual([p["id"] for p in r["pasajes"]], ["mitre-T1110", "mapeo-x"])  # 'ausente' se omite
+        self.assertEqual(r["pasajes"][0]["texto"], "fuerza bruta")
+        self.assertEqual(r["pasajes_usados"], ["mitre-T1110", "ausente", "mapeo-x"])   # los IDs se conservan
+
+    def test_hidratar_pasajes_sin_pasajes_es_lista_vacia(self):
+        self.assertEqual(tablero._hidratar_pasajes({}, {})["pasajes"], [])
 
     def test_verificar_traza_cadena_integra_y_rota(self):
         r1 = traza.encadenar({"id_decision": "s1", "x": 1}, traza.GENESIS)

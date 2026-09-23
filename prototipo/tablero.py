@@ -156,15 +156,42 @@ def lista_trazas(ruta, n=None):
     return [_resumen_traza(r) for r in regs]
 
 
+_CORPUS_POR_ID = None
+
+
+def _corpus_por_id():
+    """Corpus del RAG indexado por id (cacheado). Vacío si el corpus no está disponible."""
+    global _CORPUS_POR_ID
+    if _CORPUS_POR_ID is None:
+        try:
+            from prototipo import rag
+            _CORPUS_POR_ID = {d["id"]: d for d in rag.cargar_corpus()}
+        except Exception:
+            _CORPUS_POR_ID = {}
+    return _CORPUS_POR_ID
+
+
+def _hidratar_pasajes(reg, corpus):
+    """La traza guarda `pasajes_usados` como IDs; los resolvemos a {id, titulo, texto} del corpus
+    (en el campo `pasajes`) para que el visor muestre el conocimiento recuperado, no los IDs."""
+    ids = reg.get("pasajes_usados") or []
+    reg["pasajes"] = [{"id": i, "titulo": corpus[i].get("titulo"), "texto": corpus[i].get("texto")}
+                      for i in ids if isinstance(i, str) and i in corpus]
+    return reg
+
+
 def traza_detalle(ruta, id_decision):
     try:
         regs = traza.leer_registros(ruta)
     except FileNotFoundError:
         return None
+    # La última coincidencia: si se relanzó el daemon sobre la misma traza, los id_decision se
+    # repiten entre corridas; la vigente (la del feed) es la más reciente.
+    hallado = None
     for r in regs:
         if r.get("id_decision") == id_decision:
-            return r
-    return None
+            hallado = r
+    return _hidratar_pasajes(hallado, _corpus_por_id()) if hallado is not None else None
 
 
 def verificar_traza(ruta):

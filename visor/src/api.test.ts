@@ -26,13 +26,15 @@ describe("DetalleSchema", () => {
   it("parsea el detalle completo (justificación, MITRE, pasajes RAG) y tolera campos extra", () => {
     const d = DetalleSchema.parse({
       id_decision: "s1", justificacion: "Alerta 5760 …", version_justificador: "plantilla-0",
-      consulta_rag: "", pasajes_usados: [{ titulo: "Regla 5760", texto: "fuerza bruta SSH" }],
+      consulta_rag: "tecnica MITRE T1110", pasajes_usados: ["mitre-T1110"],
+      pasajes: [{ id: "mitre-T1110", titulo: "T1110 Brute Force", texto: "fuerza bruta SSH" }],
       justificacion_estructurada: { evidencia: { regla: "5760" }, tecnica_mitre: ["T1110.001"] },
       impacto_determinado: { nivel: "localizado", motivo: "bloquea a 1.2.3.4" },
       campo_no_modelado: 123,
     })
     expect(d.justificacion).toContain("5760")
-    expect(d.pasajes_usados?.[0].titulo).toBe("Regla 5760")
+    expect(d.pasajes_usados?.[0]).toBe("mitre-T1110")
+    expect(d.pasajes?.[0].titulo).toBe("T1110 Brute Force")
     expect(d.justificacion_estructurada?.tecnica_mitre).toEqual(["T1110.001"])
     expect(d.impacto_determinado?.motivo).toBe("bloquea a 1.2.3.4")
   })
