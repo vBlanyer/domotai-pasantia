@@ -19,7 +19,7 @@ export function FilaDecision({ d }: { d: Decision }) {
       <TableCell>{d.accion_final ?? <span className="text-muted-foreground">—</span>}</TableCell>
       <TableCell>
         {d.requiere_humano
-          ? <span className="text-amber-400">humano</span>
+          ? <span className="text-amber-600">humano</span>
           : <span className="text-muted-foreground">auto</span>}
       </TableCell>
     </TableRow>

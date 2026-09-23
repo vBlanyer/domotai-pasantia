@@ -22,7 +22,7 @@ export function Vacio({ children }: { children: ReactNode }) {
 
 export function SinConexion() {
   return (
-    <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-6 text-sm text-rose-300">
+    <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-6 text-sm text-rose-700">
       Sin conexión con el daemon. Arráncalo con <code className="rounded bg-black/30 px-1 font-mono text-xs">--web</code> y
       esta vista se reconecta sola.
     </div>
