@@ -104,6 +104,13 @@ sh lab/banco/banco.sh atacar
 Lista los casos vivos (CASCADA, D1, A1, K1, E1); eliges por número, lo lanza (respeta los 60 s de silencio
 de la regla 5763 de Wazuh entre ataques) y ofrece deshacer/restaurar.
 
+**IP de origen rotativa (tecla `r`):** por defecto cada caso ataca desde su IP fija (p. ej. D1 desde
+`198.51.100.10`), así que al repetirlo choca con el bloqueo automático y con la supresión del MDR y "no pasa
+nada". Con `r` enciendes la **rotación**: cada ataque sale desde una IP nueva de la misma subred del atacante
+(`198.51.100.11`, `.12`, …) atando el cliente SSH a esa IP; Wazuh la ve como origen distinto, así que puedes
+**re-lanzar el mismo ataque cuantas veces quieras** (cada uno genera su propio bloqueo, como un atacante real
+que rota IPs) y **sin esperar los 60 s**. El deshacer retira el bloqueo de la IP rotada correspondiente.
+
 ### D. Panel de salud en la terminal
 
 Vista de los servicios en verde/rojo con dependencias y últimos cambios (lo mismo que el panel Salud del
