@@ -54,6 +54,53 @@ def _linea_decision(d):
 
 # --------------------------------------------------------------------- bucle --
 
+def _clave_supresion(inc):
+    c = inc["clave"]
+    return (c.get("origen_ip"), c.get("familia"))
+
+
+def _ordenar_por_severidad(incidentes):
+    """Incidentes por severidad del SIEM (nivel_wazuh del representante) descendente; estable.
+
+    E-minimo bajo carga: cuando llegan muchos ataques distintos a la vez, se procesan los mas graves
+    primero. La prioridad fina se calcula al decidir, aqui usamos el nivel de la regla como proxy."""
+    return sorted(incidentes, key=lambda inc: inc["representante"].get("nivel_wazuh") or 0, reverse=True)
+
+
+class MemoriaDecisiones:
+    """Recuerda las claves (origen_ip, familia) ya decididas en la sesion, para suprimir sus
+    repeticiones (RF-11): una vez tomada una decision sobre un ataque, las alertas siguientes del
+    mismo origen y tipo no se re-justifican ni se vuelven a preguntar. La traza recibe un
+    registro-resumen 'actividad_suprimida' que referencia la decision original, para que muestre que
+    el ataque siguio sin un registro por alerta. Es memoria de sesion: se pierde al reiniciar."""
+    def __init__(self):
+        self._decididas = {}
+        self.suprimidas = 0
+
+    def decidida(self, inc):
+        return _clave_supresion(inc) in self._decididas
+
+    def recordar(self, inc, id_decision, veredicto):
+        self._decididas[_clave_supresion(inc)] = {"id_decision": id_decision, "veredicto": veredicto}
+
+    def registro_supresion(self, inc):
+        clave = _clave_supresion(inc)
+        prev = self._decididas[clave]
+        self.suprimidas += inc["conteo"]
+        return {"id_decision": f"{prev['id_decision']}~sup", "tipo": "actividad_suprimida",
+                "referencia": prev["id_decision"],
+                "clave": {"origen_ip": clave[0], "familia": clave[1]},
+                "alertas_suprimidas": inc["conteo"],
+                "primera_ts": inc.get("primera_ts"), "ultima_ts": inc.get("ultima_ts"),
+                "veredicto_previo": prev["veredicto"]}
+
+
+def _linea_supresion(reg):
+    c = reg["clave"]
+    return (f"↩ {c['origen_ip']} · {c['familia']} — ya decidido ({reg['veredicto_previo'] or 'auto'}) "
+            f"· +{reg['alertas_suprimidas']} suprimida(s) [ref {reg['referencia']}]")
+
+
 def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
                         id_decision, cadena, escribir, leer, mitigar_fn=None):
     rep = inc["representante"]
@@ -83,7 +130,7 @@ def _contar(resumen, d):
 
 def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
-             escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None,
+             escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
@@ -96,20 +143,33 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                                 incidentes; los ticks None permiten vencer la ventana sin lineas nuevas.
     """
     resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
-               "reclasificadas": 0, "ejecutadas": 0}
+               "reclasificadas": 0, "ejecutadas": 0, "suprimidas": 0}
     cadena = (traza.Cadena(salida_traza, hash_previo, n=n_previos, nombre=nombre_traza, linaje=linaje)
               if salida_traza is not None else None)
     seq = [0]
     ventana_rafaga = rafaga.Ventana()
+    memoria = MemoriaDecisiones()
     def _procesa_lote(lote):
-        for inc in agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1)):
+        # E-minimo: bajo carga (muchos ataques distintos a la vez) se decide primero lo mas grave.
+        for inc in _ordenar_por_severidad(agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1))):
+            if suprimir and memoria.decidida(inc):
+                # Ya se decidio sobre esta (origen_ip, familia): no se re-justifica ni se pregunta;
+                # se cuenta y se deja un resumen encadenado en la traza (el ataque siguio).
+                reg = memoria.registro_supresion(inc)
+                escribir(_linea_supresion(reg))
+                if cadena is not None:
+                    cadena.escribir(reg)
+                continue
             seq[0] += 1
             # La rafaga del representante se toma al emitir el incidente, cuando la ventana ya
             # contiene toda la rafaga, no al llegar la primera alerta.
             inc["representante"][rafaga.CAMPO] = ventana_rafaga.contar(inc["representante"].get("origen_ip"))
-            _contar(resumen, _procesar_incidente(
+            d = _procesar_incidente(
                 inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
-                f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn))
+                f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn)
+            _contar(resumen, d)
+            if suprimir:
+                memoria.recordar(inc, f"s{seq[0]}", d.get("veredicto_humano"))
 
     buffer, t0 = [], None
     def _vencio():
@@ -141,6 +201,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         if _vencio():
             _descargar()
     _descargar()                                   # fuente agotada: descarga lo pendiente
+    resumen["suprimidas"] = memoria.suprimidas
     return resumen
 
 # ------------------------------------------------------------------ fuentes --
@@ -206,7 +267,7 @@ _HALLAZGOS_DEF = os.path.join(_RAIZ, "lab", "campañas", "2026-08-31-evaluacion"
 
 def parsear_args(argv):
     pos, con_llm, ventana, salida, sin_lab, agente = [], False, 5, "trazas-stream.jsonl", False, False
-    web, web_puerto = False, 8787
+    web, web_puerto, sin_supresion = False, 8787, False
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -214,6 +275,7 @@ def parsear_args(argv):
         elif a == "--sin-llm": con_llm = False
         elif a == "--sin-lab": sin_lab = True
         elif a == "--agente": agente = True
+        elif a == "--sin-supresion": sin_supresion = True
         elif a == "--web":
             web = True
             if i + 1 < len(argv) and argv[i + 1].isdigit(): i += 1; web_puerto = int(argv[i])
@@ -225,7 +287,7 @@ def parsear_args(argv):
             "perfil": pos[1] if len(pos) > 1 else _PERFIL_DEF,
             "hallazgos": pos[2] if len(pos) > 2 else _HALLAZGOS_DEF,
             "con_llm": con_llm, "ventana": ventana, "salida": salida, "sin_lab": sin_lab,
-            "agente": agente, "web": web, "web_puerto": web_puerto}
+            "agente": agente, "web": web, "web_puerto": web_puerto, "sin_supresion": sin_supresion}
 
 def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hallazgos=None):
     """Modo --agente: devuelve un `mitigar_fn(decision, alerta, leer) -> plan` que delega en el agente
@@ -301,7 +363,8 @@ def banner(cfg, ejecutor=None):
 
 def _resumen_final(r):
     return ("\n── Resumen de la sesion ──\n"
-            f"  Alertas vistas: {r['alertas']} · Incidentes: {r['incidentes']}\n"
+            f"  Alertas vistas: {r['alertas']} · Incidentes: {r['incidentes']} · "
+            f"Suprimidas: {r.get('suprimidas', 0)}\n"
             f"  Aprobadas: {r['aprobadas']} · Rechazadas: {r['rechazadas']} · "
             f"Reclasificadas: {r['reclasificadas']} · Ejecutadas: {r['ejecutadas']}")
 
@@ -359,7 +422,8 @@ def main(argv):
             resumen = ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                                justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
                                salida_traza=traza_f, escribir=escribir_fn, leer=leer_fn,
-                               mitigar_fn=mitigar_fn, hash_previo=hash_previo, n_previos=n_previos,
+                               mitigar_fn=mitigar_fn, suprimir=not cfg["sin_supresion"],
+                               hash_previo=hash_previo, n_previos=n_previos,
                                nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass

@@ -299,5 +299,73 @@ class TestWeb(unittest.TestCase):
             servidor.server_close()
 
 
+class TestMemoriaDecisiones(unittest.TestCase):
+    def _inc(self, ip="10.200.0.10", familia="acceso_credenciales", conteo=1, nivel=10):
+        return {"clave": {"origen_ip": ip, "activo": "web", "servicio": "ssh", "familia": familia},
+                "conteo": conteo, "representante": {"nivel_wazuh": nivel},
+                "primera_ts": "2026-08-31T00:00:00Z", "ultima_ts": "2026-08-31T00:00:05Z"}
+
+    def test_clave_nueva_no_decidida_y_tras_recordar_si(self):
+        m = stream.MemoriaDecisiones()
+        self.assertFalse(m.decidida(self._inc()))
+        m.recordar(self._inc(), "s5", "rechazar")
+        self.assertTrue(m.decidida(self._inc()))
+
+    def test_otra_familia_desde_la_misma_ip_no_esta_decidida(self):
+        m = stream.MemoriaDecisiones()
+        m.recordar(self._inc(familia="acceso_credenciales"), "s5", "aprobar")
+        self.assertFalse(m.decidida(self._inc(familia="reconocimiento")))
+
+    def test_registro_supresion_referencia_la_decision_y_cuenta(self):
+        m = stream.MemoriaDecisiones()
+        m.recordar(self._inc(), "s5", "rechazar")
+        reg = m.registro_supresion(self._inc(conteo=3))
+        self.assertEqual(reg["tipo"], "actividad_suprimida")
+        self.assertEqual(reg["referencia"], "s5")
+        self.assertEqual(reg["alertas_suprimidas"], 3)
+        self.assertEqual(reg["clave"], {"origen_ip": "10.200.0.10", "familia": "acceso_credenciales"})
+        self.assertEqual(reg["veredicto_previo"], "rechazar")
+        self.assertEqual(m.suprimidas, 3)
+
+    def test_ordenar_por_severidad_descendente(self):
+        bajo, alto = self._inc(nivel=3), self._inc(nivel=12)
+        self.assertEqual(stream._ordenar_por_severidad([bajo, alto]), [alto, bajo])
+
+
+class TestSupresionEnVivo(unittest.TestCase):
+    def _correr(self, lineas, **kw):
+        buf = io.StringIO()
+        resumen = stream.ejecutar(
+            lineas, hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"), perfil_nombre="prueba",
+            catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+            salida_traza=buf, escribir=lambda *a, **k: None, leer=lambda *_: "2", **kw)
+        registros = [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
+        return resumen, registros
+
+    def test_repeticion_se_suprime_cuenta_y_deja_resumen_en_la_traza(self):
+        resumen, registros = self._correr([_linea_wazuh("1.1.1.1"), _linea_wazuh("1.1.1.1")])
+        self.assertEqual(resumen["incidentes"], 1)                 # solo la primera decide
+        self.assertEqual(resumen["suprimidas"], 1)                 # la segunda se cuenta
+        sup = [r for r in registros if r.get("tipo") == "actividad_suprimida"]
+        self.assertEqual(len(sup), 1)                              # y queda un resumen en la traza
+        self.assertEqual(sup[0]["clave"]["origen_ip"], "1.1.1.1")
+        from prototipo import traza as tm
+        self.assertTrue(tm.verificar(registros)["valida"])         # la cadena sigue integra
+
+    def test_otra_ip_no_se_suprime(self):
+        resumen, _ = self._correr([_linea_wazuh("1.1.1.1"), _linea_wazuh("2.2.2.2")])
+        self.assertEqual(resumen["incidentes"], 2)
+        self.assertEqual(resumen["suprimidas"], 0)
+
+    def test_sin_supresion_procesa_todo(self):
+        resumen, _ = self._correr([_linea_wazuh("1.1.1.1"), _linea_wazuh("1.1.1.1")], suprimir=False)
+        self.assertEqual(resumen["incidentes"], 2)
+        self.assertEqual(resumen["suprimidas"], 0)
+
+    def test_parsear_args_sin_supresion(self):
+        self.assertFalse(stream.parsear_args(["-", "p"])["sin_supresion"])
+        self.assertTrue(stream.parsear_args(["-", "p", "--sin-supresion"])["sin_supresion"])
+
+
 if __name__ == "__main__":
     unittest.main()

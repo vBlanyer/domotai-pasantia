@@ -359,6 +359,13 @@ olvido, cada punto es una decisión). El detalle de cada uno vive donde se indic
   la **tasa de propuestas falso-negativas** (propone FP cuando es VP), no la exactitud. Exige el 8B.
 - **Clases finas (6 categorías).** `vp_acceso_consumado` y `vp_exposicion_gestion` exigen etiquetas finas que
   el dataset no aporta — límite de datos, no pieza pendiente (ver Fase 5, arriba).
+- **Supresión de repetidos: memoria de sesión.** El daemon en vivo suprime las alertas repetidas de una clave
+  `(origen_ip, familia)` ya decidida (no re-justifica ni re-pregunta; deja un resumen `actividad_suprimida`
+  encadenado en la traza para que muestre que el ataque siguió); `--sin-supresion` lo desactiva para auditoría
+  completa. La memoria es **de sesión**: al reiniciar el daemon, una IP ya decidida vuelve a preguntar.
+  Persistirla al arrancar (desde la traza) es trabajo futuro. El incremento **en vivo** del contador sobre una
+  decisión pendiente y la **cola priorizada** bajo carga se abordan en el visor web (concurrente), no en el
+  lazo de un solo hilo.
 
 ### Limitaciones conocidas (laboratorio del banco, 22/09)
 
