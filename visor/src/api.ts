@@ -17,7 +17,7 @@ export const DecisionSchema = z.object({
   id_decision: z.string().nullable().optional(), timestamp: z.string().nullable().optional(),
   activo: z.string().nullable().optional(), clase: z.string().nullable().optional(),
   accion_final: z.string().nullable().optional(), requiere_humano: z.boolean().nullable().optional(),
-  tipo: z.string().optional(), alertas_suprimidas: z.number().optional(),
+  tipo: z.string().nullable().optional(), alertas_suprimidas: z.number().nullable().optional(),
 })
 export const PendienteSchema = z.object({
   id: z.string(), tipo: z.string(), prompt: z.string(), lineas: z.array(z.string()),

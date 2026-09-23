@@ -1,5 +1,16 @@
 import { describe, it, expect } from "vitest"
-import { SaludSchema, PendienteSchema, controlesDePendiente, baseApi } from "./api"
+import { SaludSchema, PendienteSchema, DecisionSchema, controlesDePendiente, baseApi } from "./api"
+
+describe("DecisionSchema", () => {
+  it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
+    const d = DecisionSchema.parse({ id_decision: "s1", clase: "vp_intento_acceso", tipo: null, alertas_suprimidas: null })
+    expect(d.tipo).toBeNull()
+  })
+  it("acepta un resumen de actividad suprimida", () => {
+    const d = DecisionSchema.parse({ tipo: "actividad_suprimida", alertas_suprimidas: 3 })
+    expect(d.alertas_suprimidas).toBe(3)
+  })
+})
 
 describe("baseApi", () => {
   it("relativa en producción, 8787 en dev, override con VITE_API", () => {

@@ -1,23 +1,43 @@
 import { useSondeo, getSalud } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { Punto, Cargando, SinConexion, Vacio, Dato } from "./bits"
 
 export function Salud() {
   const s = useSondeo(getSalud)
-  if (!s) return <p>cargando…</p>
-  if ("error" in s) return <p className="text-red-600">sin conexión con el daemon</p>
-  if ("sin_datos" in s) return <p>sin datos del monitor (¿banco levantado?)</p>
+  if (!s) return <Cargando />
+  if ("error" in s) return <SinConexion />
+  if ("sin_datos" in s) return <Vacio>Sin datos del monitor. ¿Está levantado el banco?</Vacio>
   return (
-    <div>
-      <p className="mb-2">{s.caidos} de {s.total} servicios caídos</p>
+    <div className="rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <span className="text-sm font-medium">
+          {s.caidos === 0
+            ? <span className="text-emerald-400">Todos los servicios sanos</span>
+            : <span className="text-rose-400">{s.caidos} de {s.total} servicios caídos</span>}
+        </span>
+        <Dato>{s.t}</Dato>
+      </div>
       <Table>
-        <TableHeader><TableRow><TableHead>Servicio</TableHead><TableHead>Estado</TableHead><TableHead>Depende de</TableHead></TableRow></TableHeader>
-        <TableBody>{s.servicios.map((x) => (
-          <TableRow key={x.nombre}>
-            <TableCell>{x.nombre}</TableCell>
-            <TableCell><Badge variant={x.estado === "ok" ? "default" : "destructive"}>{x.estado === "ok" ? "OK" : "CAÍDO"}</Badge></TableCell>
-            <TableCell>{x.depende_de.join(", ") || "—"}</TableCell>
-          </TableRow>))}
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Servicio</TableHead><TableHead>Estado</TableHead><TableHead>Depende de</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {s.servicios.map((x) => (
+            <TableRow key={x.nombre}>
+              <TableCell className="font-medium">{x.nombre}</TableCell>
+              <TableCell>
+                <span className="inline-flex items-center gap-2">
+                  <Punto estado={x.estado === "ok" ? "ok" : "caido"} />
+                  <span className={x.estado === "ok" ? "text-emerald-400" : "text-rose-400"}>
+                    {x.estado === "ok" ? "operativo" : "caído"}
+                  </span>
+                </span>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{x.depende_de.join(", ") || "—"}</TableCell>
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
     </div>
