@@ -2,10 +2,21 @@
 
 Consola web local de observabilidad y aprobación para el daemon (`prototipo/stream.py`). No sustituye a la
 terminal — es una vista adicional: el mismo menú `[Aprobar/Rechazar/Reclasificar]` que hoy se responde por
-`/dev/tty` también se puede resolver desde el navegador. Vive en `prototipo/tablero.py` +
-`prototipo/tablero/` (HTML/CSS/JS servidos por la biblioteca estándar, sin dependencias nuevas) y **no
-importa nada de `lab/`**: la salud se lee como JSONL genérico y las dependencias entre activos llegan desde
-el perfil del cliente.
+`/dev/tty` también se puede resolver desde el navegador. El **backend** vive en `prototipo/tablero.py` (API
+JSON de la biblioteca estándar, con CORS) y el daemon lo embebe con `stream.py --web`; **no importa nada de
+`lab/`** (la salud se lee como JSONL genérico y las dependencias entre activos llegan del perfil). El
+**frontend** es un SPA **React** (Vite + TypeScript + shadcn-ui + Tailwind + Zod) en `visor/`, una pieza
+aparte con la stack de la empresa que consume esa API. El daemon sirve el build de React (`visor/dist`); en
+desarrollo se usa `npm run dev`.
+
+**Correr el visor:**
+
+```bash
+cd visor && npm install          # una vez
+npm run build                    # genera visor/dist (lo sirve el daemon --web)
+# o, en desarrollo, con recarga en caliente contra el daemon --web:
+npm run dev                      # Vite en http://127.0.0.1:5173 (CORS habilitado)
+```
 
 ## Cómo se arranca
 

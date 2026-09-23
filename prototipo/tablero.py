@@ -169,7 +169,9 @@ def verificar_traza(ruta):
 
 
 _TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
-          ".css": "text/css; charset=utf-8"}
+          ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json",
+          ".ico": "image/x-icon", ".png": "image/png", ".woff2": "font/woff2", ".woff": "font/woff",
+          ".map": "application/json"}
 _DIR_ESTATICOS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "visor", "dist")
 
 
@@ -198,18 +200,22 @@ class _Manejador(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(cuerpo)
 
-    def _estatico(self, nombre):
-        ext = os.path.splitext(nombre)[1]
-        if ext not in _TIPOS or os.path.basename(nombre) != nombre:   # sin travesia de rutas
+    def _servir_archivo(self, rel):
+        # Sirve cualquier fichero bajo la raiz de estaticos (el build de Vite: index.html + assets/),
+        # resolviendo la ruta y rechazando la travesia con realpath (no escapa de la raiz).
+        rel = rel.lstrip("/") or "index.html"
+        raiz = os.path.realpath(self.server.estaticos)
+        ruta = os.path.realpath(os.path.join(raiz, rel))
+        if not (ruta == raiz or ruta.startswith(raiz + os.sep)) or not os.path.isfile(ruta):
             return self._responder({"error": "no encontrado"}, 404)
         try:
-            with open(os.path.join(self.server.estaticos, nombre), "rb") as f:
+            with open(ruta, "rb") as f:
                 datos = f.read()
         except OSError:
             return self._responder({"error": "no encontrado"}, 404)
         self.send_response(200)
         self._cors()
-        self.send_header("Content-Type", _TIPOS[ext])
+        self.send_header("Content-Type", _TIPOS.get(os.path.splitext(ruta)[1], "application/octet-stream"))
         self.send_header("Content-Length", str(len(datos)))
         self.end_headers()
         self.wfile.write(datos)
@@ -218,10 +224,6 @@ class _Manejador(BaseHTTPRequestHandler):
         s = self.server
         ruta = self.path.split("?", 1)[0]
         try:
-            if ruta == "/":
-                return self._estatico("index.html")
-            if ruta.startswith("/static/"):
-                return self._estatico(ruta[len("/static/"):])
             if ruta == "/api/salud":
                 return self._responder(estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud),
                                                     s.dependencias))
@@ -236,7 +238,9 @@ class _Manejador(BaseHTTPRequestHandler):
                 return self._responder(d) if d is not None else self._responder({"error": "no encontrada"}, 404)
             if ruta == "/api/verificar":
                 return self._responder(verificar_traza(s.ruta_traza))
-            return self._responder({"error": "no encontrado"}, 404)
+            if ruta.startswith("/api/"):
+                return self._responder({"error": "no encontrado"}, 404)
+            return self._servir_archivo(ruta)          # el build de React (index.html + assets/)
         except Exception as e:            # nunca tumbar el servidor por un handler
             return self._responder({"error": str(e)}, 500)
 

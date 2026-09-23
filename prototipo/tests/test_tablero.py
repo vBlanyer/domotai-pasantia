@@ -210,6 +210,36 @@ class TestEstaticosReales(unittest.TestCase):
         self.assertIn(b"Tablero", html)
 
 
+class TestServirBuild(unittest.TestCase):
+    def _srv(self):
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "assets"))
+        with open(os.path.join(d, "index.html"), "w", encoding="utf-8") as f:
+            f.write("<html>Tablero MDR</html>")
+        with open(os.path.join(d, "assets", "app.js"), "w", encoding="utf-8") as f:
+            f.write("console.log(1)")
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), "/no/existe.jsonl", puerto=0, estaticos=d)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv.server_address[1]
+
+    def _get(self, puerto, ruta):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", ruta); r = c.getresponse(); r.read(); c.close()
+        return r.status, r.getheader("Content-Type")
+
+    def test_sirve_index_y_un_asset_en_subdir(self):
+        puerto = self._srv()
+        self.assertEqual(self._get(puerto, "/")[0], 200)
+        est, ct = self._get(puerto, "/assets/app.js")
+        self.assertEqual(est, 200)
+        self.assertIn("javascript", ct or "")
+
+    def test_rechaza_travesia_de_rutas(self):
+        puerto = self._srv()
+        self.assertEqual(self._get(puerto, "/../../../etc/passwd")[0], 404)
+
+
 class TestCORS(unittest.TestCase):
     def _srv(self, estaticos=None):
         srv = tablero.crear_servidor(tablero.EstadoTablero(), "/no/existe.jsonl", puerto=0,
