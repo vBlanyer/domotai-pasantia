@@ -181,6 +181,8 @@ def _resumen_traza(reg):
             "version_justificador": reg.get("version_justificador"),
             "tecnica_mitre": est.get("tecnica_mitre") or [],
             "con_rag": bool(reg.get("pasajes_usados")),
+            # cadena de hashes (RF-09) para el registro auditable del panel Trazas
+            "hash": reg.get("hash"), "hash_previo": reg.get("hash_previo"),
             # discriminador de los resumenes de supresion (RF-11) para que el visor los marque
             "tipo": reg.get("tipo"), "alertas_suprimidas": reg.get("alertas_suprimidas")}
 

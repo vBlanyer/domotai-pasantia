@@ -21,6 +21,7 @@ export const DecisionSchema = z.object({
   impacto: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
   version_justificador: z.string().nullable().optional(),
   tecnica_mitre: z.array(z.string()).nullable().optional(), con_rag: z.boolean().nullable().optional(),
+  hash: z.string().nullable().optional(), hash_previo: z.string().nullable().optional(),
   tipo: z.string().nullable().optional(), alertas_suprimidas: z.number().nullable().optional(),
 })
 // Detalle completo de una decisión (/api/traza/<id>): el texto de la justificación y los pasajes

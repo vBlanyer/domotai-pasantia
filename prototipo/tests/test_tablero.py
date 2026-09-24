@@ -167,6 +167,13 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(r["impacto"], "localizado")                   # antes leía el campo equivocado (None)
         self.assertEqual(r["motivo"], "bloquea a 1.2.3.4 · 0 servicios detenidos")
 
+    def test_resumen_traza_expone_la_cadena_de_hashes(self):
+        ruta = self._traza_tmp([{"id_decision": "s1", "hash": "abc123", "hash_previo": "0" * 64,
+                                 "impacto_determinado": {}}])
+        r = tablero.lista_trazas(ruta)[0]
+        self.assertEqual(r["hash"], "abc123")
+        self.assertEqual(r["hash_previo"], "0" * 64)
+
     def test_resumen_traza_marca_con_rag_cuando_hay_pasajes(self):
         ruta = self._traza_tmp([{"id_decision": "s2", "pasajes_usados": ["mitre-T1110"],
                                  "impacto_determinado": {"nivel": "localizado"}}])
