@@ -57,6 +57,8 @@ export const EquipoSchema = z.object({
 })
 export const PendienteSchema = z.object({
   id: z.string(), tipo: z.string(), prompt: z.string(), lineas: z.array(z.string()),
+  // cola no bloqueante: orden por severidad y cuántas repeticiones llegaron mientras espera.
+  severidad: z.number().nullable().optional(), suprimidas: z.number().nullable().optional(),
 })
 export const VerificacionSchema = z.object({
   ok: z.boolean(), roto_en: z.number().nullable().optional(), motivo: z.string().optional(),

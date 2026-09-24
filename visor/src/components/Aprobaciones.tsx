@@ -43,6 +43,11 @@ function Tarjeta({ p }: { p: Pendiente }) {
         <Punto estado="pendiente" />
         <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Espera tu decisión</span>
         {v.incidente && <span className="ml-1 truncate text-xs text-muted-foreground">· {v.incidente}</span>}
+        {!!p.suprimidas && p.suprimidas > 0 && (
+          <span className="ml-auto shrink-0 rounded bg-rose-500/15 px-1.5 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+            sigue atacando · +{p.suprimidas}
+          </span>
+        )}
       </div>
 
       <div className="space-y-3 p-4">

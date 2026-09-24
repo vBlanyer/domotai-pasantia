@@ -91,9 +91,14 @@ y Trazas (registro completo + verificar la cadena de hashes).
 - **Reconstruir el visor** tras cambiar su código: `cd visor && npm run build` (genera `visor/dist`, que
   sirve el daemon).
 
-La aprobación por web **y** por terminal conviven: apruebas donde prefieras; los logs siguen en la terminal.
-Un clic en Aprobar ejecuta la contención real (`iptables`) por el conector; queda en la traza. Es local
-(`127.0.0.1`) y **sin autenticación** (etapa inicial).
+**Aprobaciones es una cola no bloqueante:** cuando una decisión necesita humano, se **encola** y el
+daemon **sigue procesando** (no se estanca esperándote). El panel muestra la **lista** de pendientes
+**ordenada por severidad**; resuelves en el orden que quieras. Cada tarjeta trae la info, la Consecuencia
+(en rojo si hay cascada) y los botones **Aprobar · Rechazar · Reclasificar** (reclasificar abre las clases).
+Si el mismo ataque sigue llegando mientras esperas, la tarjeta lo marca (`sigue atacando · +N`). Un clic en
+Aprobar ejecuta la contención real (`iptables`) por el conector y escribe la traza en ese momento (la traza
+queda en **orden de finalización**). Es local (`127.0.0.1`) y **sin autenticación** (etapa inicial). En modo
+`--agente` la aprobación es por paso (bloqueante), no por cola.
 
 ### C. Lanzador de ataques por número (para demos)
 
