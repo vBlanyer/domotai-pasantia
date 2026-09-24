@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight, TriangleAlert } from "lucide-react"
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, ClaseBadge, Dato } from "./bits"
@@ -78,10 +78,22 @@ function Detalles({ id }: { id: string }) {
   const ev = det.justificacion_estructurada?.evidencia ?? {}
   const mitre = det.justificacion_estructurada?.tecnica_mitre ?? []
   const motivo = det.impacto_determinado?.motivo
+  const cascada = det.impacto_determinado?.activos_afectados_en_cascada ?? []
   const pasajes = det.pasajes ?? []
 
   return (
     <div className="space-y-4">
+      {cascada.length > 0 && (
+        <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
+            <TriangleAlert className="size-4 shrink-0" /> Riesgo de cascada al aprobar
+          </div>
+          <p className="mt-1 text-sm">
+            Bloquear esta IP aísla un activo del que otros dependen: caerían en cascada{" "}
+            <span className="font-medium">{cascada.join(", ")}</span>.
+          </p>
+        </div>
+      )}
       <Campo etiqueta="Justificación">
         <p className="leading-relaxed">{det.justificacion ?? "—"}</p>
       </Campo>
@@ -133,6 +145,11 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
         <TableCell>
           <ClaseBadge clase={d.clase} />
           <Aporte d={d} />
+          {d.cascada && d.cascada.length > 0 && (
+            <div className="mt-1.5 inline-flex items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+              <TriangleAlert className="size-3 shrink-0" /> tumba en cascada: {d.cascada.join(", ")}
+            </div>
+          )}
         </TableCell>
         <TableCell className="tabular-nums">{d.confianza != null ? d.confianza.toFixed(2) : "—"}</TableCell>
         <TableCell>{d.accion_final ?? <span className="text-muted-foreground">—</span>}</TableCell>

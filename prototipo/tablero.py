@@ -175,6 +175,8 @@ def _resumen_traza(reg):
             "activo": reg.get("activo"), "clase": reg.get("clase"), "confianza": reg.get("confianza"),
             "accion_final": reg.get("accion_final"), "requiere_humano": reg.get("requiere_humano"),
             "impacto": reg.get("impacto") or imp.get("nivel"), "motivo": imp.get("motivo"),
+            # activos que caerían en cascada por la acción: se marca en la fila (aviso de seguridad)
+            "cascada": imp.get("activos_afectados_en_cascada") or [],
             "origen_ip": (est.get("evidencia") or {}).get("origen_ip"),
             # de dónde viene la justificación (plantilla vs LLM), la técnica y si consultó el RAG:
             # el detalle completo (texto + pasajes) sale por /api/traza/<id>.

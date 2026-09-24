@@ -167,6 +167,15 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(r["impacto"], "localizado")                   # antes leía el campo equivocado (None)
         self.assertEqual(r["motivo"], "bloquea a 1.2.3.4 · 0 servicios detenidos")
 
+    def test_resumen_traza_expone_la_cascada_para_avisar_en_la_fila(self):
+        ruta = self._traza_tmp([{"id_decision": "s1", "impacto_determinado": {
+            "nivel": "localizado", "activos_afectados_en_cascada": ["api-movil", "middleware", "web-banking"]}}])
+        self.assertEqual(tablero.lista_trazas(ruta)[0]["cascada"], ["api-movil", "middleware", "web-banking"])
+
+    def test_resumen_traza_cascada_vacia_por_defecto(self):
+        ruta = self._traza_tmp([{"id_decision": "s2", "impacto_determinado": {"nivel": "localizado"}}])
+        self.assertEqual(tablero.lista_trazas(ruta)[0]["cascada"], [])
+
     def test_resumen_traza_expone_la_cadena_de_hashes(self):
         ruta = self._traza_tmp([{"id_decision": "s1", "hash": "abc123", "hash_previo": "0" * 64,
                                  "impacto_determinado": {}}])

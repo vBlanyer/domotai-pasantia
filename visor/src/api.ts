@@ -19,6 +19,7 @@ export const DecisionSchema = z.object({
   confianza: z.number().nullable().optional(), origen_ip: z.string().nullable().optional(),
   accion_final: z.string().nullable().optional(), requiere_humano: z.boolean().nullable().optional(),
   impacto: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
+  cascada: z.array(z.string()).nullable().optional(),
   version_justificador: z.string().nullable().optional(),
   tecnica_mitre: z.array(z.string()).nullable().optional(), con_rag: z.boolean().nullable().optional(),
   hash: z.string().nullable().optional(), hash_previo: z.string().nullable().optional(),
@@ -45,6 +46,7 @@ export const DetalleSchema = z.object({
   }).passthrough().nullable().optional(),
   impacto_determinado: z.object({
     nivel: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
+    activos_afectados_en_cascada: z.array(z.string()).nullable().optional(),
   }).passthrough().nullable().optional(),
 }).passthrough()
 export const EquipoSchema = z.object({
