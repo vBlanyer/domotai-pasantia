@@ -106,6 +106,21 @@ CASOS = [
          {"origen_ip": "10.200.0.10", "activo": "web-banking", "servicio": "ssh", "regla_id": "5763"},
          {"requiere_humano": True, "prediccion_cascada": []}),
 
+    # Cobertura de familias: además de acceso_credenciales, el motor tría las otras familias de
+    # familias.yml con sus tres conductas de respuesta (contener / descartar FP / enrutar).
+    _dec("F1", "Familia reconocimiento (escaneo externo) -> VP, se contiene",
+         {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "ssh",
+          "familia": "reconocimiento", "regla_id": "5706"},
+         {"clase": "vp_intento_acceso", "accion_final": "BLOQUEAR_IP", "requiere_humano": False}, rafaga=12),
+    _dec("F2", "Familia servicio_expuesto no expuesto (telnet en web-banking) -> FP exposición inexistente",
+         {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "telnet",
+          "familia": "servicio_expuesto", "regla_id": "5706"},
+         {"clase": "fp_exposicion_inexistente", "accion_final": None}),
+    _dec("F3", "Familia explotacion_conocida -> amenaza_enrutada (triar y encaminar, sin contener)",
+         {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "http",
+          "familia": "explotacion_conocida", "regla_id": "5710"},
+         {"clase": "amenaza_enrutada", "accion_final": None}),
+
     {"id": "C1", "titulo": "BLOQUEAR_PUERTO 1521 en core-db (excepción nunca_automatica) -> degrada a BLOQUEAR_IP",
      "nivel": "inyectada", "accion": "BLOQUEAR_PUERTO", "params": {"puerto": 1521, "ip": "203.0.113.9"},
      "activo": "core-db", "servicio": "sql", "confianza": 0.99,

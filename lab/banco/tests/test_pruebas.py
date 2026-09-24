@@ -155,6 +155,15 @@ class TestNivelDecision(unittest.TestCase):
         self.assertEqual(r["resultado"], "FALLO")
         self.assertIn("requiere_humano", r["detalle"][0])
 
+    def test_cobertura_de_familias(self):
+        # El motor tría las otras familias de familias.yml con sus tres conductas: recon -> contener,
+        # servicio no expuesto -> FP, explotacion_conocida -> enrutar (sin contener).
+        from lab.banco import casos
+        for id_ in ("F1", "F2", "F3"):
+            caso = next(c for c in casos.CASOS if c["id"] == id_)
+            r = rg.correr_decision(caso, self.p, self.h, self.c)
+            self.assertEqual(r["resultado"], "OK", f"{id_}: {r['detalle']}")
+
 
 class TestNivelInyectadaPerfil(unittest.TestCase):
     def setUp(self):
