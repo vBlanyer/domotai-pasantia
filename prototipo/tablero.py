@@ -238,6 +238,48 @@ def _resumen_traza(reg):
             "tipo": reg.get("tipo"), "alertas_suprimidas": reg.get("alertas_suprimidas")}
 
 
+def metricas(regs):
+    """Indicadores del periodo (vista SLA) calculados de la traza: tasa de FP, % automatizado, MTTR
+    (tiempo medio de respuesta humana, de recibido_en/resuelto_en), ruido evitado (suprimidas), y
+    distribuciones por clase, veredicto, día, activo y técnica MITRE."""
+    dec = [r for r in regs if r.get("tipo") != "actividad_suprimida"]
+    total = len(dec)
+    por_clase, veredictos, por_dia, activos, mitre = {}, {}, {}, {}, {}
+    fp = auto = 0
+    tiempos = []
+    for r in dec:
+        c = r.get("clase") or "otra"
+        por_clase[c] = por_clase.get(c, 0) + 1
+        if c.startswith("fp_"):
+            fp += 1
+        if not r.get("requiere_humano"):
+            auto += 1
+        v = r.get("veredicto_humano")
+        if v:
+            veredictos[v] = veredictos.get(v, 0) + 1
+        dia = (r.get("timestamp") or "")[:10]
+        if dia:
+            por_dia[dia] = por_dia.get(dia, 0) + 1
+        a = r.get("activo")
+        if a:
+            activos[a] = activos.get(a, 0) + 1
+        for t in (r.get("justificacion_estructurada") or {}).get("tecnica_mitre") or []:
+            mitre[t] = mitre.get(t, 0) + 1
+        ini, fin = r.get("recibido_en"), r.get("resuelto_en")
+        if isinstance(ini, (int, float)) and isinstance(fin, (int, float)):
+            tiempos.append(fin - ini)
+    ranking = lambda d, k: sorted(({k: n, "n": c} for n, c in d.items()), key=lambda x: -x["n"])[:8]
+    return {
+        "total": total, "fp": fp, "tasa_fp": round(fp / total, 3) if total else 0.0,
+        "auto": auto, "pct_auto": round(auto / total, 3) if total else 0.0,
+        "suprimidas": sum((r.get("alertas_suprimidas") or 0) for r in regs if r.get("tipo") == "actividad_suprimida"),
+        "mttr_seg": round(sum(tiempos) / len(tiempos), 1) if tiempos else None,
+        "por_clase": por_clase, "veredictos": veredictos,
+        "por_dia": [{"dia": d[5:], "n": n} for d, n in sorted(por_dia.items())],
+        "top_activos": ranking(activos, "nombre"), "mitre": ranking(mitre, "tecnica"),
+    }
+
+
 def lista_trazas(ruta, n=None):
     try:
         regs = traza.leer_registros(ruta)
@@ -370,6 +412,12 @@ class _Manejador(BaseHTTPRequestHandler):
                 return self._responder(d) if d is not None else self._responder({"error": "no encontrada"}, 404)
             if ruta == "/api/verificar":
                 return self._responder(verificar_traza(s.ruta_traza))
+            if ruta == "/api/metricas":
+                try:
+                    regs = traza.leer_registros(s.ruta_traza)
+                except FileNotFoundError:
+                    regs = []
+                return self._responder(metricas(regs))
             if ruta.startswith("/api/"):
                 return self._responder({"error": "no encontrado"}, 404)
             return self._servir_archivo(ruta)          # el build de React (index.html + assets/)

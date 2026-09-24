@@ -1,11 +1,29 @@
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts"
 import { ejes } from "@/theme"
 import { useTema } from "@/tema"
 
 export type Segmento = { name: string; value: number; fill: string }
+
+// Ranking de magnitud: barras horizontales, UNA serie (un solo hue, no categórico). El título la
+// nombra, así que no lleva leyenda; la etiqueta va en el eje y el valor a la derecha de cada barra.
+export function Barras({ data }: { data: { nombre: string; n: number }[] }) {
+  const { grid, texto, serie } = ejes(useTema().oscuro)
+  const alto = Math.max(120, data.length * 34 + 16)
+  return (
+    <ResponsiveContainer width="100%" height={alto}>
+      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 28, top: 4, bottom: 4 }}>
+        <CartesianGrid stroke={grid} horizontal={false} />
+        <XAxis type="number" tick={{ fontSize: 11, fill: texto }} tickLine={false} axisLine={false} allowDecimals={false} />
+        <YAxis type="category" dataKey="nombre" width={112} tick={{ fontSize: 11, fill: texto }} tickLine={false} axisLine={false} />
+        <Tooltip formatter={(v) => [String(v), "incidentes"]} cursor={{ fill: grid }} />
+        <Bar dataKey="n" fill={serie} radius={[0, 3, 3, 0]} barSize={16} isAnimationActive={false} />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
 
 // Donut de magnitud: total al centro, leyenda con cuentas (identidad nunca por color solo).
 export function Donut({ data, total, unidad }: { data: Segmento[]; total: number; unidad: string }) {

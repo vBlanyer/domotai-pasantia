@@ -3,6 +3,7 @@ import { Moon, Sun } from "lucide-react"
 import { useSondeo, getSalud, getPendientes } from "@/api"
 import { useTema } from "@/tema"
 import { Dashboard } from "@/components/Dashboard"
+import { Metricas } from "@/components/Metricas"
 import { Salud } from "@/components/Salud"
 import { Equipos } from "@/components/Equipos"
 import { Decisiones } from "@/components/Decisiones"
@@ -10,10 +11,11 @@ import { Aprobaciones } from "@/components/Aprobaciones"
 import { Trazas } from "@/components/Trazas"
 import { Punto } from "@/components/bits"
 
-type Vista = "panel" | "salud" | "equipos" | "decisiones" | "aprobaciones" | "trazas"
+type Vista = "panel" | "metricas" | "salud" | "equipos" | "decisiones" | "aprobaciones" | "trazas"
 
 const NAV: { id: Vista; nombre: string }[] = [
   { id: "panel", nombre: "Panel" },
+  { id: "metricas", nombre: "Métricas" },
   { id: "salud", nombre: "Estado de servicios" },
   { id: "equipos", nombre: "Equipos" },
   { id: "decisiones", nombre: "Decisiones" },
@@ -82,6 +84,7 @@ export default function App() {
         </header>
         <main className="flex-1 overflow-auto px-8 py-6">
           {vista === "panel" && <Dashboard conectado={conectado} />}
+          {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}
           {vista === "equipos" && <Equipos />}
           {vista === "decisiones" && <Decisiones />}

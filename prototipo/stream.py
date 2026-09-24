@@ -136,7 +136,7 @@ def _entrada_cola(decision, alerta):
              f"({alerta.get('servicio')})")
     return {"clave": (alerta.get("origen_ip"), alerta.get("familia")),
             "severidad": decision.get("prioridad") or 0,
-            "decision": decision, "alerta": alerta,
+            "decision": decision, "alerta": alerta, "recibido_en": time.time(),
             "tipo": "menu", "prompt": "Elige [1-3]: ",
             "lineas": [incid, validacion.mostrar(decision, alerta), menu]}
 
@@ -172,6 +172,8 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
                                    decision.get("id_decision", ""), alerta.get("timestamp", ""),
                                    veredicto=veredicto, clase_reclasificada=clase, leer=lambda *_: "s")
+        # Marcas de tiempo para el MTTR (tiempo de respuesta del analista) en el panel de métricas.
+        r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time()}
         escribir(_linea_decision(r))
         escribir_traza(r)
         return True

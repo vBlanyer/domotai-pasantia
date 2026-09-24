@@ -167,6 +167,35 @@ class TestLectoresDeDatos(unittest.TestCase):
     def test_lista_trazas_fichero_ausente_es_vacia(self):
         self.assertEqual(tablero.lista_trazas("/no/existe.jsonl"), [])
 
+    def test_metricas_calcula_los_indicadores_del_periodo(self):
+        regs = [
+            {"tipo": "actividad_suprimida", "alertas_suprimidas": 5},
+            {"clase": "vp_intento_acceso", "requiere_humano": False, "activo": "web-banking",
+             "timestamp": "2026-09-24T10:00:00Z",
+             "justificacion_estructurada": {"tecnica_mitre": ["T1110.001", "T1021.004"]}},
+            {"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "aprobar",
+             "activo": "core-db", "timestamp": "2026-09-24T11:00:00Z", "recibido_en": 100.0, "resuelto_en": 112.0,
+             "justificacion_estructurada": {"tecnica_mitre": ["T1110.001"]}},
+            {"clase": "fp_actividad_legitima", "requiere_humano": True, "veredicto_humano": "rechazar",
+             "activo": "web-banking", "timestamp": "2026-09-23T09:00:00Z"},
+        ]
+        m = tablero.metricas(regs)
+        self.assertEqual(m["total"], 3)                 # sin la suprimida
+        self.assertEqual(m["fp"], 1)
+        self.assertEqual(m["tasa_fp"], round(1 / 3, 3))
+        self.assertEqual(m["auto"], 1)                  # 1 de 3 sin humano
+        self.assertEqual(m["suprimidas"], 5)
+        self.assertEqual(m["veredictos"], {"aprobar": 1, "rechazar": 1})
+        self.assertEqual(m["mttr_seg"], 12.0)           # (112-100) de la única con marcas
+        self.assertEqual(m["por_clase"]["vp_intento_acceso"], 2)
+        self.assertEqual({a["nombre"]: a["n"] for a in m["top_activos"]}["web-banking"], 2)
+        self.assertEqual({t["tecnica"]: t["n"] for t in m["mitre"]}["T1110.001"], 2)
+        self.assertEqual([d["n"] for d in m["por_dia"]], [1, 2])   # 23 (1) antes que 24 (2)
+
+    def test_metricas_sin_decisiones_no_divide_por_cero(self):
+        m = tablero.metricas([])
+        self.assertEqual((m["total"], m["tasa_fp"], m["pct_auto"], m["mttr_seg"]), (0, 0.0, 0.0, None))
+
     def test_resumen_traza_expone_justificador_mitre_rag_y_motivo(self):
         ruta = self._traza_tmp([{
             "id_decision": "s1", "timestamp": "t1", "activo": "web", "clase": "vp_intento_acceso",

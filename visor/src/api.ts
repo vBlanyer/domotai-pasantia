@@ -63,6 +63,15 @@ export const PendienteSchema = z.object({
 export const VerificacionSchema = z.object({
   ok: z.boolean(), roto_en: z.number().nullable().optional(), motivo: z.string().optional(),
 })
+export const MetricasSchema = z.object({
+  total: z.number(), fp: z.number(), tasa_fp: z.number(),
+  auto: z.number(), pct_auto: z.number(), suprimidas: z.number(),
+  mttr_seg: z.number().nullable(),
+  por_clase: z.record(z.string(), z.number()), veredictos: z.record(z.string(), z.number()),
+  por_dia: z.array(z.object({ dia: z.string(), n: z.number() })),
+  top_activos: z.array(z.object({ nombre: z.string(), n: z.number() })),
+  mitre: z.array(z.object({ tecnica: z.string(), n: z.number() })),
+})
 
 export type Salud = z.infer<typeof SaludSchema>
 export type Equipo = z.infer<typeof EquipoSchema>
@@ -71,6 +80,7 @@ export type Detalle = z.infer<typeof DetalleSchema>
 export type Pasaje = z.infer<typeof PasajeSchema>
 export type Pendiente = z.infer<typeof PendienteSchema>
 export type Verificacion = z.infer<typeof VerificacionSchema>
+export type Metricas = z.infer<typeof MetricasSchema>
 
 async function pedir<T>(ruta: string, esquema: z.ZodType<T>): Promise<T | { error: string }> {
   try {
@@ -89,6 +99,7 @@ export const getPendientes = () => pedir("/api/pendientes", z.array(PendienteSch
 export const getTrazas = () => pedir("/api/trazas", z.array(DecisionSchema))
 export const getTrazaDetalle = (id: string) => pedir(`/api/traza/${encodeURIComponent(id)}`, DetalleSchema)
 export const getVerificacion = () => pedir("/api/verificar", VerificacionSchema)
+export const getMetricas = () => pedir("/api/metricas", MetricasSchema)
 
 export async function aprobar(id: string, respuesta: string): Promise<boolean> {
   try {
