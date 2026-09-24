@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from "react"
 import { ChevronDown, ChevronRight, TriangleAlert } from "lucide-react"
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Cargando, SinConexion, Vacio, ClaseBadge, Dato } from "./bits"
+import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros } from "./bits"
+import { filtrarDecisiones, clasesDe, type Filtro } from "@/datos"
 
 const COLS = 7
 
@@ -173,30 +174,35 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
 export function Decisiones() {
   const d = useSondeo(getDecisiones)
   const [abierto, setAbierto] = useState<string | null>(null)
+  const [filtro, setFiltro] = useState<Filtro>({ texto: "", clase: "" })
   if (!d) return <Cargando />
   if ("error" in d) return <SinConexion />
   if (d.length === 0) return <Vacio>Aún no hay decisiones. Lanza un ataque para verlas aquí.</Vacio>
+  const filtradas = filtrarDecisiones(d, filtro)
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="w-6" />
-            <TableHead>Cuándo</TableHead><TableHead>Activo</TableHead><TableHead>Clase</TableHead>
-            <TableHead>Confianza</TableHead><TableHead>Acción</TableHead><TableHead>Decisión</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {d.map((x, i) => (
-            <FilaDecision
-              key={x.id_decision ?? i}
-              d={x}
-              abierto={!!x.id_decision && abierto === x.id_decision}
-              onToggle={() => setAbierto((a) => (a === x.id_decision ? null : x.id_decision ?? null))}
-            />
-          ))}
-        </TableBody>
-      </Table>
+    <div className="space-y-3">
+      <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(d)} filtradas={filtradas} nombre="decisiones" />
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-6" />
+              <TableHead>Cuándo</TableHead><TableHead>Activo</TableHead><TableHead>Clase</TableHead>
+              <TableHead>Confianza</TableHead><TableHead>Acción</TableHead><TableHead>Decisión</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtradas.map((x, i) => (
+              <FilaDecision
+                key={x.id_decision ?? i}
+                d={x}
+                abierto={!!x.id_decision && abierto === x.id_decision}
+                onToggle={() => setAbierto((a) => (a === x.id_decision ? null : x.id_decision ?? null))}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }

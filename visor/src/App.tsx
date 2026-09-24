@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Moon, Sun } from "lucide-react"
+import { Moon, Sun, Printer } from "lucide-react"
 import { useSondeo, getSalud, getPendientes } from "@/api"
 import { useTema } from "@/tema"
 import { Dashboard } from "@/components/Dashboard"
@@ -33,8 +33,8 @@ export default function App() {
   const titulo = NAV.find((n) => n.id === vista)!.nombre
 
   return (
-    <div className="flex min-h-screen bg-[#f7f7f5] text-foreground dark:bg-[#0d0d0d]">
-      <aside className="flex w-56 shrink-0 flex-col bg-[#0f1e33] text-slate-300">
+    <div className="flex min-h-screen bg-[#f7f7f5] text-foreground dark:bg-[#0d0d0d] print:bg-white">
+      <aside className="flex w-56 shrink-0 flex-col bg-[#0f1e33] text-slate-300 no-print">
         <div className="flex items-center gap-2.5 px-5 py-5">
           <div className="grid size-8 place-items-center rounded-md bg-cyan-500/20 text-sm font-bold text-cyan-300">M</div>
           <div className="leading-tight">
@@ -67,11 +67,18 @@ export default function App() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border bg-card px-8 py-4">
           <h1 className="font-heading text-lg font-semibold">{titulo}</h1>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-4 text-sm no-print">
             <span className="flex items-center gap-2">
               <Punto estado={conectado ? "ok" : "caido"} />
               <span className="text-muted-foreground">{conectado ? "datos en vivo" : "sin conexión con el daemon"}</span>
             </span>
+            <button
+              onClick={() => window.print()}
+              title="Imprimir o guardar como PDF"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Printer className="size-4" /> PDF
+            </button>
             <button
               onClick={alternar}
               aria-label={oscuro ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}

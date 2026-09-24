@@ -2,7 +2,8 @@ import { useState } from "react"
 import { useSondeo, getTrazas, getVerificacion, type Decision } from "@/api"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Cargando, SinConexion, Vacio, Punto } from "./bits"
+import { Cargando, SinConexion, Vacio, Punto, BarraFiltros } from "./bits"
+import { filtrarDecisiones, clasesDe, type Filtro } from "@/datos"
 
 type Estado = { texto: string; ok: boolean; roto?: number | null } | null
 
@@ -18,6 +19,7 @@ function Hash({ h, previo }: { h?: string | null; previo?: boolean }) {
 export function Trazas() {
   const t = useSondeo(getTrazas)
   const [cadena, setCadena] = useState<Estado>(null)
+  const [filtro, setFiltro] = useState<Filtro>({ texto: "", clase: "" })
   const verificar = async () => {
     const r = await getVerificacion()
     if ("error" in r) return setCadena({ texto: "sin conexión", ok: false })
@@ -28,6 +30,10 @@ export function Trazas() {
   if (!t) return <Cargando />
   if ("error" in t) return <SinConexion />
   const regs: Decision[] = t
+  // Se filtra preservando el índice real de la cadena (para el # y el resaltado de "roto"):
+  // filtrarDecisiones conserva las referencias, así que basta un Set por identidad.
+  const enFiltro = new Set(filtrarDecisiones(regs, filtro))
+  const filas = regs.map((r, i) => ({ r, i })).filter(({ r }) => enFiltro.has(r))
 
   return (
     <div className="space-y-3">
@@ -55,6 +61,9 @@ export function Trazas() {
       {regs.length === 0 ? (
         <Vacio>La traza está vacía. Cada decisión aparecerá aquí, encadenada por hash.</Vacio>
       ) : (
+        <>
+        <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(regs)}
+          filtradas={filas.map((x) => x.r)} nombre="trazas" />
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <Table>
             <TableHeader>
@@ -66,7 +75,7 @@ export function Trazas() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {regs.map((r, i) => {
+              {filas.map(({ r, i }) => {
                 const roto = cadena?.roto === i
                 const suprimida = r.tipo === "actividad_suprimida"
                 return (
@@ -93,6 +102,7 @@ export function Trazas() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
     </div>
   )
