@@ -370,14 +370,18 @@ olvido, cada punto es una decisión). El detalle de cada uno vive donde se indic
 ### Limitaciones conocidas (laboratorio del banco, 22/09)
 
 El laboratorio del banco (`lab/banco/`, red real sobre `prototipo/perfiles/bancario.yml`) destapó dos
-fallos esperados del prototipo con evidencia en vivo, registrados en detalle en
-[`lab/banco/verificaciones.md`](../../lab/banco/verificaciones.md):
+límites del prototipo con evidencia en vivo (K1 ya corregido; C4 sigue vigente), registrados en detalle
+en [`lab/banco/verificaciones.md`](../../lab/banco/verificaciones.md):
 
-- **K1.** Bloquear la IP de un activo interno en un cortafuegos no calcula la cascada:
-  `impacto.determinar` solo llama a `afectados_en_cascada` para acciones sobre puerto o nodo, nunca
-  para las acciones sobre IP (`BLOQUEAR_IP`, `BLOQUEAR_IP_FIREWALL`, `MATAR_CONEXION`). Medido en vivo
-  (V7): al bloquear la IP de `middleware` en `fw-core`, caen de verdad `web-banking`, `api-movil` y
-  `atm`, y la predicción de impacto da `[]`.
+- **K1 (corregido, 24/09).** Antes, bloquear la IP de un activo interno no calculaba la cascada:
+  `impacto.determinar` solo llamaba a `afectados_en_cascada` para acciones sobre puerto o nodo, nunca
+  para `BLOQUEAR_IP`, y el motivo decía "0 servicios detenidos" (medido en vivo V7: al bloquear la IP de
+  `middleware`, caían de verdad `web-banking`, `api-movil` y `atm`, con predicción `[]`). **Ahora sí
+  avisa:** `determinar` extiende la cascada a `BLOQUEAR_IP` cuando la IP es un activo interno del que
+  otros dependen (`quien_es → activo_interno`), y el motivo lista la cadena. El analista ve, antes de
+  aprobar (prompt en terminal y web), `en cascada: api-movil, middleware, web-banking`. **Queda un
+  límite aparte:** `atm` también cae pero NO se predice, porque su dependencia de `middleware` no está
+  declarada en el perfil (K3, límite del inventario, Nivel 2).
 - **C4.** El lazo actúa primero sobre la víctima aunque sea una joya de la corona: para el HSM
   (excluido de `perfil.hosts` a propósito, según el diseño), `lazo.py` construye y manda al ejecutor
   una orden `BLOQUEAR_IP` (`iptables -A INPUT -s {ip} -j DROP`) que escribe la regla de bloqueo en el

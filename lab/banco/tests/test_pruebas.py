@@ -60,12 +60,15 @@ class TestFuente(unittest.TestCase):
 
 
 REG_K1 = {"requiere_humano": True, "accion_final": "BLOQUEAR_IP", "veredicto_humano": "aprobar",
-          "impacto_determinado": {"activos_afectados_en_cascada": []}, "escalada": None}
+          "impacto_determinado": {"activos_afectados_en_cascada": ["api-movil", "middleware", "web-banking"]},
+          "escalada": None}
 
 
 class TestEvaluar(unittest.TestCase):
-    def test_k1_reproduce_el_fallo_conocido(self):
-        esperado = {"requiere_humano": True, "veredicto": "aprobar", "prediccion_cascada": [],
+    def test_k1_avisa_la_cascada_de_dependencias(self):
+        # K1 corregido: bloquear la IP del middleware avisa la cascada de sus dependientes declarados.
+        esperado = {"requiere_humano": True, "veredicto": "aprobar",
+                    "prediccion_cascada": ["api-movil", "middleware", "web-banking"],
                     "regla": ("core-db", "-A INPUT -s 10.40.0.10/32 -j DROP"),
                     "caen": {"middleware", "web-banking", "api-movil", "atm"}, "preguntas": 1}
         fallos = rg.evaluar(esperado, REG_K1, {"core-db": ["-A INPUT -s 10.40.0.10/32 -j DROP"]},
@@ -95,12 +98,12 @@ class TestEvaluar(unittest.TestCase):
 
 class TestFalloEsperado(unittest.TestCase):
     def test_fallo_esperado_presente_es_ok(self):
-        # el prototipo NO predice la cascada (fallo K1): con fallo_esperado, eso es OK
-        r = rg.veredicto_caso({"fallo_esperado": "K1: no predice la cascada"}, ["prediccion_cascada: ..."])
-        self.assertEqual(r, ("OK", ["fallo conocido reproducido: K1: no predice la cascada"]))
+        # mecanismo genérico: si un caso declara un fallo conocido y ese fallo aparece, es OK.
+        r = rg.veredicto_caso({"fallo_esperado": "límite conocido X"}, ["prediccion_cascada: ..."])
+        self.assertEqual(r, ("OK", ["fallo conocido reproducido: límite conocido X"]))
 
     def test_fallo_esperado_ausente_es_fallo(self):
-        r = rg.veredicto_caso({"fallo_esperado": "K1: no predice la cascada"}, [])
+        r = rg.veredicto_caso({"fallo_esperado": "límite conocido X"}, [])
         self.assertEqual(r[0], "FALLO")
         self.assertIn("ya no ocurre", r[1][0])
 

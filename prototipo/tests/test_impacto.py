@@ -32,6 +32,30 @@ class TestAccionesSobreIP(unittest.TestCase):
         self.assertEqual(d["motivo"],
                          "bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos")
 
+    def test_bloquear_la_ip_de_un_activo_del_que_otros_dependen_avisa_la_cascada(self):
+        # K1: bloquear la IP del middleware (dependencia de web-banking/api-movil) en core-db lo aísla
+        # de su dependencia y arrastra su cadena. Antes se decía "0 servicios detenidos" (fallo conocido).
+        perfil = {"activos": {
+            "core-db": {"ip": "10.50.0.10", "funcion": "base de datos", "criticidad": "critica", "servicios_prestados": [1521]},
+            "middleware": {"ip": "10.40.0.10", "funcion": "middleware del core", "criticidad": "alta",
+                           "servicios_prestados": [8443], "depende_de": ["core-db"]},
+            "web-banking": {"ip": "10.10.0.10", "funcion": "portal", "criticidad": "alta",
+                            "servicios_prestados": [443], "depende_de": ["middleware"]},
+            "api-movil": {"ip": "10.20.0.10", "funcion": "api", "criticidad": "alta",
+                          "servicios_prestados": [443], "depende_de": ["middleware"]}}}
+        d = impacto.determinar("BLOQUEAR_IP", {"ip": "10.40.0.10"}, "core-db", perfil, CAT)
+        self.assertEqual(d["actor"]["nombre"], "middleware")
+        self.assertEqual(d["activos_afectados_en_cascada"], ["api-movil", "middleware", "web-banking"])
+        self.assertNotIn("0 servicios detenidos", d["motivo"])   # ya no miente
+        self.assertIn("en cascada", d["motivo"])
+        self.assertIn("web-banking", d["motivo"])
+
+    def test_bloquear_un_activo_interno_hoja_no_inventa_cascada(self):
+        # puesto es hoja: nadie depende de él -> sin cascada, sigue "0 servicios detenidos".
+        d = impacto.determinar("BLOQUEAR_IP", {"ip": "192.168.1.10"}, "objetivo-vuln", PERFIL, CAT)
+        self.assertEqual(d["activos_afectados_en_cascada"], [])
+        self.assertIn("0 servicios detenidos", d["motivo"])
+
     def test_bloquear_un_dispositivo_de_red_sube_a_alcanza_servicio(self):
         d = impacto.determinar("BLOQUEAR_IP", {"ip": "192.168.1.1"}, "objetivo-vuln", PERFIL, CAT)
         self.assertEqual(d["actor"]["tipo"], "dispositivo_red")

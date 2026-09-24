@@ -133,7 +133,11 @@ def _motivo_base(det, perfil):
         if actor is None:
             return "sin IP que bloquear"
         texto = f"bloquea a {_quien(actor)}"
-        if actor["tipo"] != "dispositivo_red":
+        if det.get("activos_afectados_en_cascada"):
+            # Es un activo interno del que otros dependen: cortarlo arrastra su cadena (K1). Decir
+            # "0 servicios detenidos" seria falso; el detalle en cascada lo añade _motivo.
+            texto += " · aísla un activo del que otros dependen"
+        elif actor["tipo"] != "dispositivo_red":
             # Un dispositivo de red no "detiene 0 servicios": puede cortar todo lo que enruta
             # (la frase que sigue cuando sube de nivel). Decir las dos cosas se contradice.
             texto += " · 0 servicios detenidos"
@@ -186,8 +190,15 @@ def determinar(accion_id, params, activo, perfil, catalogo, hallazgos=None):
         actor = actores.quien_es(params.get("ip_nodo") or actores.ip_de(perfil, activo), perfil)
         if actor and actor["tipo"] == "dispositivo_red":
             nivel = _max_nivel(nivel, "alcanza_servicio")
-    cascada = (afectados_en_cascada(activo, perfil)
-               if accion_id in ACCIONES_SOBRE_PUERTO or accion_id in ACCIONES_SOBRE_NODO else [])
+    if accion_id in ACCIONES_SOBRE_PUERTO or accion_id in ACCIONES_SOBRE_NODO:
+        cascada = afectados_en_cascada(activo, perfil)
+    elif accion_id in ACCIONES_SOBRE_IP and (actor or {}).get("tipo") == "activo_interno" and actor.get("nombre"):
+        # Bloquear la IP de un activo interno lo aísla de este servicio; si es una dependencia,
+        # cae él y su cadena transitiva (K1: bloquear la IP del middleware en core-db).
+        dependientes = afectados_en_cascada(actor["nombre"], perfil)
+        cascada = sorted({actor["nombre"], *dependientes}) if dependientes else []
+    else:
+        cascada = []
     det = {"nivel": nivel, "nivel_catalogo": nivel_catalogo, "servicios_afectados": servicios,
            "actor": actor, "activo": activo, "accion_id": accion_id, "activos_afectados_en_cascada": cascada}
     det["motivo"] = _motivo(det, perfil)

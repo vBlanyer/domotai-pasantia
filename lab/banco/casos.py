@@ -58,9 +58,13 @@ CASOS = [
      "esperado": {"requiere_humano": True, "veredicto": "rechazar", "preguntas": 1,
                   "sin_reglas": True, "caen": set()},
      "deshacer": []},
-    {"nivel": "vivo", "id": "K1", "titulo": "middleware comprometido contra core-db: aprobado; cascada no avisada (fallo conocido K1)",
+    # Bloquear la IP del middleware en core-db avisa ahora la cascada de sus dependientes DECLARADOS
+    # (api-movil, web-banking). `atm` también cae en el laboratorio pero NO se predice: su dependencia
+    # de middleware no está declarada en el perfil (K3, limitación aparte del inventario).
+    {"nivel": "vivo", "id": "K1", "titulo": "middleware comprometido contra core-db: aprobado; avisa la cascada de dependencias",
      "ataque": _fuerza_bruta("middleware", "10.50.0.10"), "origen": "10.40.0.10", "destino_ip": "10.50.0.10", "menu": "1",
-     "esperado": {"requiere_humano": True, "veredicto": "aprobar", "preguntas": 1, "prediccion_cascada": [],
+     "esperado": {"requiere_humano": True, "veredicto": "aprobar", "preguntas": 1,
+                  "prediccion_cascada": ["api-movil", "middleware", "web-banking"],
                   "regla": ("core-db", "-A INPUT -s 10.40.0.10/32 -j DROP"), "caen": K1_CAEN},
      "deshacer": [("core-db", "iptables -D INPUT -s 10.40.0.10 -j DROP")]},
     {"nivel": "vivo", "id": "E1", "titulo": "La victima no responde al MDR: escalada a fw-core, aprobada",
