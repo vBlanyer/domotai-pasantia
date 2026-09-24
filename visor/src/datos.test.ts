@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, aCSV } from "./datos"
+import { filtrarDecisiones, clasesDe } from "./datos"
 import type { Decision } from "./api"
 
 const D: Decision[] = [
@@ -26,15 +26,5 @@ describe("filtrarDecisiones", () => {
 describe("clasesDe", () => {
   it("clases únicas y ordenadas", () => {
     expect(clasesDe(D)).toEqual(["fp_actividad_legitima", "no_soportada", "vp_intento_acceso"])
-  })
-})
-
-describe("aCSV", () => {
-  it("cabecera + filas, con comillas escapadas", () => {
-    const csv = aCSV(D)
-    const lineas = csv.split("\n")
-    expect(lineas[0]).toContain("id_decision")
-    expect(lineas.length).toBe(4)                      // cabecera + 3
-    expect(lineas[1]).toContain('"web-banking"')
   })
 })

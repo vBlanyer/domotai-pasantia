@@ -1,32 +1,22 @@
 import type { ReactNode } from "react"
-import { Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import type { Decision } from "@/api"
-import { type Filtro, aCSV, descargar } from "@/datos"
+import { type Filtro } from "@/datos"
 
-// Barra de filtros (búsqueda + clase) con contador y export CSV de lo filtrado. Reutilizada por
-// Decisiones y Trazas. El export sale de las filas ya filtradas (lo que ve el analista).
-export function BarraFiltros({ f, set, clases, filtradas, nombre }: {
-  f: Filtro; set: (f: Filtro) => void; clases: string[]; filtradas: Decision[]; nombre: string
+// Barra de filtros (búsqueda + clase) con contador de resultados. Reutilizada por Decisiones y Trazas.
+export function BarraFiltros({ f, set, clases, cuenta }: {
+  f: Filtro; set: (f: Filtro) => void; clases: string[]; cuenta: number
 }) {
   const campo = "h-9 rounded-md border border-border bg-card px-3 text-sm outline-none focus:border-ring"
   return (
-    <div className="flex flex-wrap items-center gap-2 no-print">
+    <div className="flex flex-wrap items-center gap-2">
       <input value={f.texto} onChange={(e) => set({ ...f, texto: e.target.value })}
         placeholder="Buscar activo, IP, id…" className={cn(campo, "w-56")} />
       <select value={f.clase} onChange={(e) => set({ ...f, clase: e.target.value })} className={cn(campo, "px-2")}>
         <option value="">Todas las clases</option>
         {clases.map((c) => <option key={c} value={c}>{c}</option>)}
       </select>
-      <span className="text-xs text-muted-foreground">{filtradas.length} resultado(s)</span>
-      <button
-        onClick={() => descargar(`${nombre}-${new Date().toISOString().slice(0, 10)}.csv`, aCSV(filtradas))}
-        disabled={filtradas.length === 0}
-        className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-      >
-        <Download className="size-4" /> CSV
-      </button>
+      <span className="text-xs text-muted-foreground">{cuenta} resultado(s)</span>
     </div>
   )
 }

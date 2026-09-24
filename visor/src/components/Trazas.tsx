@@ -62,8 +62,7 @@ export function Trazas() {
         <Vacio>La traza está vacía. Cada decisión aparecerá aquí, encadenada por hash.</Vacio>
       ) : (
         <>
-        <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(regs)}
-          filtradas={filas.map((x) => x.r)} nombre="trazas" />
+        <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(regs)} cuenta={filas.length} />
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <Table>
             <TableHeader>

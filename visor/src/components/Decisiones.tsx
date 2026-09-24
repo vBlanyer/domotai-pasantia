@@ -181,7 +181,7 @@ export function Decisiones() {
   const filtradas = filtrarDecisiones(d, filtro)
   return (
     <div className="space-y-3">
-      <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(d)} filtradas={filtradas} nombre="decisiones" />
+      <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(d)} cuenta={filtradas.length} />
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>

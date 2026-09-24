@@ -135,11 +135,3 @@
     @apply font-sans;
   }
 }
-
-/* Impresión / guardar como PDF: se oculta el cromado (barra lateral, controles, filtros) y se
-   imprimen los fondos (gráficos, insignias). Mejor imprimir en tema claro. */
-@media print {
-  .no-print { display: none !important; }
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  html, body { background: #fff !important; }
-}
