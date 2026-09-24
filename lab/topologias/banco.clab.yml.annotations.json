@@ -1,0 +1,110 @@
+{
+  "freeTextAnnotations": [],
+  "freeShapeAnnotations": [],
+  "trafficRateAnnotations": [],
+  "groupStyleAnnotations": [],
+  "networkNodeAnnotations": [],
+  "nodeAnnotations": [
+    {
+      "id": "internet",
+      "position": {
+        "x": 160,
+        "y": 200
+      }
+    },
+    {
+      "id": "fw-edge",
+      "position": {
+        "x": 320,
+        "y": 240
+      }
+    },
+    {
+      "id": "fw-core",
+      "position": {
+        "x": 480,
+        "y": 320
+      }
+    },
+    {
+      "id": "sw-soc",
+      "position": {
+        "x": 400,
+        "y": 480
+      }
+    },
+    {
+      "id": "web-banking",
+      "position": {
+        "x": 660,
+        "y": 280
+      }
+    },
+    {
+      "id": "api-movil",
+      "position": {
+        "x": 600,
+        "y": 460
+      }
+    },
+    {
+      "id": "swift-alliance",
+      "position": {
+        "x": 420,
+        "y": 160
+      }
+    },
+    {
+      "id": "middleware",
+      "position": {
+        "x": 520,
+        "y": 140
+      }
+    },
+    {
+      "id": "core-db",
+      "position": {
+        "x": 660,
+        "y": 380
+      }
+    },
+    {
+      "id": "hsm",
+      "position": {
+        "x": 620,
+        "y": 200
+      }
+    },
+    {
+      "id": "mdr-siem",
+      "position": {
+        "x": 380,
+        "y": 640
+      }
+    },
+    {
+      "id": "auditor",
+      "position": {
+        "x": 260,
+        "y": 580
+      }
+    },
+    {
+      "id": "taquilla",
+      "position": {
+        "x": 320,
+        "y": 360
+      }
+    },
+    {
+      "id": "atm",
+      "position": {
+        "x": 500,
+        "y": 480
+      }
+    }
+  ],
+  "edgeAnnotations": [],
+  "aliasEndpointAnnotations": [],
+  "viewerSettings": {}
+}

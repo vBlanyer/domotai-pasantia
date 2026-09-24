@@ -1,0 +1,33 @@
+{
+  "freeTextAnnotations": [],
+  "freeShapeAnnotations": [],
+  "trafficRateAnnotations": [],
+  "groupStyleAnnotations": [],
+  "networkNodeAnnotations": [],
+  "nodeAnnotations": [
+    {
+      "id": "proveedor",
+      "position": {
+        "x": 300,
+        "y": 360
+      }
+    },
+    {
+      "id": "borde",
+      "position": {
+        "x": 460,
+        "y": 340
+      }
+    },
+    {
+      "id": "puesto",
+      "position": {
+        "x": 600,
+        "y": 360
+      }
+    }
+  ],
+  "edgeAnnotations": [],
+  "aliasEndpointAnnotations": [],
+  "viewerSettings": {}
+}
