@@ -28,6 +28,11 @@ def desde_sshd(nodo, linea, instante):
 def desde_web(nodo, linea, instante):
     return linea_syslog(30, nodo, "apache", linea.rstrip("\n"), instante)
 
+def desde_telnet(nodo, linea, instante):
+    # El señuelo telnet (telnet_expuesto.py) registra "connect from <ip>"; se envia con programa
+    # in.telnetd para que el telnet decoder de Wazuh saque el srcip (familia servicio_expuesto).
+    return linea_syslog(38, nodo, "in.telnetd", linea.rstrip("\n"), instante)
+
 
 def seguir(rutas_y_formateadores, enviar, dormir=time.sleep, parar=lambda: False):
     """Como tail -F sobre varios ficheros: desde el final, envia cada linea nueva formateada."""
@@ -58,6 +63,7 @@ def main(argv=None):
     ap.add_argument("--destino", required=True, help="host:puerto del syslog de Wazuh")
     ap.add_argument("--sshd", default=None)
     ap.add_argument("--web", default=None)
+    ap.add_argument("--telnet", default=None)
     a = ap.parse_args(argv)
     host, puerto = a.destino.rsplit(":", 1)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -66,6 +72,8 @@ def main(argv=None):
         fuentes.append((a.sshd, lambda l, t: desde_sshd(a.nodo, l, t)))
     if a.web:
         fuentes.append((a.web, lambda l, t: desde_web(a.nodo, l, t)))
+    if a.telnet:
+        fuentes.append((a.telnet, lambda l, t: desde_telnet(a.nodo, l, t)))
     seguir(fuentes, lambda linea: sock.sendto(linea.encode(), (host, int(puerto))))
 
 

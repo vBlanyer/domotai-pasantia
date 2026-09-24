@@ -15,13 +15,8 @@
   </rule>
 </group>
 
-<group name="local,syslog,telnetd,">
-  <!-- Servicio expuesto: una conexión al telnetd de un nodo (in.telnetd -> "connect from X", que
-       decodifica local_decoder_telnetd.xml). Telnet en claro es un servicio expuesto que no debería
-       estar. Se etiqueta 'telnet' -> familia servicio_expuesto. -->
-  <rule id="100210" level="6">
-    <decoded_as>telnetd</decoded_as>
-    <group>telnet,</group>
-    <description>telnetd: conexion a un servicio telnet expuesto</description>
-  </rule>
-</group>
+<!-- servicio_expuesto (telnet): no necesita regla local. Una conexión al señuelo telnet
+     (lab/banco/telnet_expuesto.py -> "connect from <ip> (<ip>)") la levanta la regla de FÁBRICA 5602
+     (grupo 'telnetd', que el adaptador mapea a servicio_expuesto), con srcip vía el telnet decoder
+     local (local_decoder_telnetd.xml). -->
+

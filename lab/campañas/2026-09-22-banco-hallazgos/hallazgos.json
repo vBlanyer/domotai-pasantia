@@ -84,6 +84,11 @@
         "puerto": 48002,
         "servicio": "nimhub",
         "estado": "closed"
+      },
+      {
+        "puerto": 23,
+        "servicio": "telnet",
+        "estado": "open"
       }
     ],
     "core-db": [

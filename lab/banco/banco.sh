@@ -52,6 +52,14 @@ case "${1:-up}" in
       docker exec -d $P-$n python3 /opt/banco/reenviador.py --nodo $n --destino "$W:514" \
         --sshd /var/log/banco/sshd.log --web /var/log/banco/access.log
     done
+    # Señuelo telnet EXPUESTO en atm (familia servicio_expuesto): "connect from <ip> (<ip>)" -> Wazuh
+    # (regla de fábrica 5602, grupo telnetd) vía un reenviador --telnet. El auditor lo marca expuesto
+    # (hallazgos). Se copian por si la imagen es anterior a estos ficheros.
+    docker cp "$HERE/telnet_expuesto.py" $P-atm:/opt/banco/telnet_expuesto.py 2>/dev/null || true
+    docker cp "$HERE/reenviador.py" $P-atm:/opt/banco/reenviador.py 2>/dev/null || true
+    docker exec $P-atm sh -c 'touch /var/log/banco/telnet.log'
+    docker exec -d $P-atm python3 /opt/banco/telnet_expuesto.py 23 /var/log/banco/telnet.log
+    docker exec -d $P-atm python3 /opt/banco/reenviador.py --nodo atm --destino "$W:514" --telnet /var/log/banco/telnet.log
     echo "== 4. Monitor de salud en mdr-siem =="
     docker exec -d $P-mdr-siem sh -c "python3 /opt/banco/monitor.py --intervalo 2 --salida /var/log/banco/salud.jsonl $(red monitor)"
     sleep 5

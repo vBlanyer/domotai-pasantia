@@ -34,6 +34,13 @@ def _recon(origen, destino_ip):
                     "sleep 1; done; true")
 
 
+def _telnet(origen, destino_ip):
+    # Conexión al telnetd EXPUESTO del objetivo (señuelo telnet_expuesto.py): registra "connect from
+    # <ip>", que Wazuh levanta con la regla local 100210 (grupo 'telnet') -> familia servicio_expuesto.
+    return (origen, f"for i in 1 2 3; do printf 'x\\r\\n' | nc -w3 {destino_ip} 23 >/dev/null 2>&1 || true; "
+                    "sleep 1; done; true")
+
+
 def _exploit_web(origen, destino_ip, puerto=443):
     # Petición HTTP con firma de ataque (SQLi): Wazuh la levanta con la regla 31164 (grupo 'attack'),
     # que el adaptador mapea a explotacion_conocida -> amenaza_enrutada (enrutar, sin contener).
@@ -100,6 +107,11 @@ CASOS = [
      "ataque": _exploit_web("internet", "10.10.0.10"), "origen": "198.51.100.10",
      "esperado": {"clase": "amenaza_enrutada", "accion_final": None, "sin_reglas": True, "caen": set()},
      "deshacer": []},
+    {"nivel": "vivo", "id": "TELNET", "titulo": "Servicio telnet EXPUESTO en atm -> VP, se contiene",
+     "ataque": _telnet("internet", "10.210.0.10"), "origen": "198.51.100.10",
+     "esperado": {"clase": "vp_intento_acceso", "accion_final": "BLOQUEAR_IP",
+                  "regla": ("atm", "-A INPUT -s 198.51.100.10/32 -j DROP"), "caen": set()},
+     "deshacer": [("atm", "iptables -D INPUT -s 198.51.100.10 -j DROP")]},
 
     _dec("D2", "Servicio no expuesto según el auditor -> FP exposición inexistente",
          {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "rdp", "regla_id": "5763"},

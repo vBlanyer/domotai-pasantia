@@ -7,4 +7,4 @@ RUN apk add --no-cache python3 openssh sudo iptables sshpass nmap curl busybox-e
  && mkdir -p /opt/banco /var/log/banco \
  && sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config \
  && adduser -D cliente && echo 'cliente:Cliente2026' | chpasswd
-COPY servicio.py monitor.py reenviador.py /opt/banco/
+COPY servicio.py monitor.py reenviador.py telnet_expuesto.py /opt/banco/
