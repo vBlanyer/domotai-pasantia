@@ -2,26 +2,24 @@
 import json, os, sys, yaml
 from prototipo import traza, triaje, orden as ordenm, conector, validacion, verificacion, perfil as perfilm, catalogo as catm, analisis
 
-def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp,
-                  leer=input, justificar_fn=analisis.justificar, mitigar_fn=None, escribir=print):
-    decision = triaje.procesar(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
-                               justificar_fn=justificar_fn)
-    # Modo agente: si hay contención que aplicar, delega la mitigación al agente ReAct, que decide la
-    # estrategia, ESCALA de dispositivo y aprueba POR PASO (RF-08). El daemon no hace su prompt único.
-    if mitigar_fn is not None and decision.get("accion_final"):
-        plan = mitigar_fn(decision, alerta, leer)
-        return {**decision, "veredicto_humano": None, "clase_reclasificada": None,
-                "mitigacion_agente": plan, "orden": None, "ejecucion": None, "verificacion": None}
-    veredicto, clase_reclasificada = None, None
-    if decision.get("requiere_humano"):
-        v = validacion.pedir(decision, alerta, leer=leer, escribir=escribir)
-        veredicto, clase_reclasificada = v["veredicto"], v.get("clase_nueva")
-        if veredicto in ("rechazar", "reclasificar"):
-            # "reclasificar" retiene la alerta sin ejecutar la acción propuesta y registra la clase
-            # corregida por el analista como feedback (RF-08/RF-12): si el triaje se equivocó de clase,
-            # no se ejecuta su acción.
-            return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
-                    "orden": None, "ejecucion": None, "verificacion": None}
+def decidir_incidente(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
+                      justificar_fn=analisis.justificar):
+    """1ª fase: clasifica y decide (rápido, sin ejecutar ni pedir humano). Devuelve la decisión."""
+    return triaje.procesar(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
+                           justificar_fn=justificar_fn)
+
+
+def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision, timestamp,
+                      veredicto=None, clase_reclasificada=None, leer=input):
+    """2ª fase: dado el veredicto (None=automático, 'aprobar', 'rechazar', 'reclasificar'), ejecuta la
+    contención + verifica + escala, o retiene. Es lo que corre DESPUÉS de que el humano responde (o
+    inline en el camino automático). Devuelve el registro finalizado para la traza."""
+    if veredicto in ("rechazar", "reclasificar"):
+        # "reclasificar" retiene la alerta sin ejecutar la acción propuesta y registra la clase
+        # corregida por el analista como feedback (RF-08/RF-12): si el triaje se equivocó de clase,
+        # no se ejecuta su acción.
+        return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
+                "orden": None, "ejecucion": None, "verificacion": None}
     o = ordenm.construir(decision, alerta, perfil)
     if o is None:
         return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
@@ -41,6 +39,24 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
                                            decision_id=id_decision)
     return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
             "orden": o, "ejecucion": ejecucion, "verificacion": verif, "escalada": escalada}
+
+
+def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp,
+                  leer=input, justificar_fn=analisis.justificar, mitigar_fn=None, escribir=print):
+    decision = decidir_incidente(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
+                                 justificar_fn=justificar_fn)
+    # Modo agente: si hay contención que aplicar, delega la mitigación al agente ReAct, que decide la
+    # estrategia, ESCALA de dispositivo y aprueba POR PASO (RF-08). El daemon no hace su prompt único.
+    if mitigar_fn is not None and decision.get("accion_final"):
+        plan = mitigar_fn(decision, alerta, leer)
+        return {**decision, "veredicto_humano": None, "clase_reclasificada": None,
+                "mitigacion_agente": plan, "orden": None, "ejecucion": None, "verificacion": None}
+    veredicto, clase_reclasificada = None, None
+    if decision.get("requiere_humano"):
+        v = validacion.pedir(decision, alerta, leer=leer, escribir=escribir)
+        veredicto, clase_reclasificada = v["veredicto"], v.get("clase_nueva")
+    return aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision, timestamp,
+                             veredicto=veredicto, clase_reclasificada=clase_reclasificada, leer=leer)
 
 class _EjecutorAuto:
     """Ejecutor falso para --auto (sin laboratorio), con estado como el EjecutorFalso de los tests:

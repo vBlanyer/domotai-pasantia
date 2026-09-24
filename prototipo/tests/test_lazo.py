@@ -33,6 +33,21 @@ class TestLazo(unittest.TestCase):
         self.assertEqual(r["veredicto_humano"], "rechazar")
         self.assertIsNone(r["ejecucion"])          # rechazada -> no se ejecuta
 
+    def test_aplicar_veredicto_aprobar_ejecuta_y_rechazar_retiene(self):
+        # `aplicar_veredicto` es la 2ª fase (ejecutar+verificar+traza), separada de la decisión.
+        d = lazo.decidir_incidente(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),
+                                   "prueba", CAT, "d1", "t")
+        self.assertEqual(d["clase"], "vp_intento_acceso")
+        ap = lazo.aplicar_veredicto(d, j("alerta_vp.json"), y("perfil.yml"), CAT, ejecutor_ok, "d1", "t",
+                                    veredicto="aprobar")
+        self.assertIsNotNone(ap["orden"])
+        self.assertEqual(ap["veredicto_humano"], "aprobar")
+        re = lazo.aplicar_veredicto(d, j("alerta_vp.json"), y("perfil.yml"), CAT, ejecutor_ok, "d1", "t",
+                                    veredicto="rechazar")
+        self.assertIsNone(re["orden"])           # rechazar no ejecuta
+        self.assertIsNone(re["ejecucion"])
+        self.assertEqual(re["veredicto_humano"], "rechazar")
+
     def test_procesar_lazo_pasa_escribir_a_la_validacion_humana(self):
         # El bloque de validación (con la Consecuencia/cascada) debe salir por `escribir`, no por
         # print: si no, el panel Aprobaciones de la web no lo captura (solo ve la línea del incidente).
