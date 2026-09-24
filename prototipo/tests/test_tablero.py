@@ -53,6 +53,23 @@ class TestEstadoYLector(unittest.TestCase):
         self.assertEqual([p["lineas"] for p in estado.pendientes() if p["id"] == pid2][0],
                          ["⚠ Incidente B"])
 
+    def test_cola_encola_ordena_por_severidad_y_deduplica(self):
+        e = tablero.EstadoTablero()
+        a = e.encolar_decision({"clave": ("1.1.1.1", "acceso_credenciales"), "severidad": 4, "activo": "core-db"})
+        b = e.encolar_decision({"clave": ("2.2.2.2", "acceso_credenciales"), "severidad": 7, "activo": "hsm"})
+        a2 = e.encolar_decision({"clave": ("1.1.1.1", "acceso_credenciales"), "severidad": 4, "activo": "core-db"})
+        self.assertEqual(a2, a)                                   # misma clave -> no duplica
+        cola = e.decisiones_pendientes()
+        self.assertEqual([p["id"] for p in cola], [b, a])        # severidad 7 antes que 4
+        self.assertEqual(next(p["suprimidas"] for p in cola if p["id"] == a), 1)
+
+    def test_sacar_decision_la_quita_de_la_cola(self):
+        e = tablero.EstadoTablero()
+        a = e.encolar_decision({"clave": None, "severidad": 1, "activo": "x"})
+        self.assertEqual(e.sacar_decision(a)["activo"], "x")
+        self.assertEqual(e.decisiones_pendientes(), [])
+        self.assertIsNone(e.sacar_decision(a))                   # ya no está
+
     def test_escribir_web_imprime_y_acumula(self):
         estado = tablero.EstadoTablero()
         vistas = []

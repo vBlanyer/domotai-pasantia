@@ -24,6 +24,34 @@ class EstadoTablero:
         self._pendientes = {}
         self._lineas = []
         self._seq = itertools.count(1)
+        self._cola = {}                    # cola de decisiones humanas (modo web no bloqueante)
+        self._orden = itertools.count(1)   # orden de llegada, para desempatar por severidad
+
+    def encolar_decision(self, entrada):
+        """Encola una decisión que espera al humano (modo web no bloqueante). `entrada` lleva la
+        `clave` (IP, familia) para deduplicar, `severidad` para ordenar, y el contexto para resolver.
+        Si ya hay una en cola con la misma clave, incrementa su contador en vez de duplicar."""
+        with self._lock:
+            clave = entrada.get("clave")
+            if clave is not None:
+                for p in self._cola.values():
+                    if p.get("clave") == clave:
+                        p["suprimidas"] += 1
+                        return p["id"]
+            pid = str(next(self._seq))
+            self._cola[pid] = {**entrada, "id": pid, "orden": next(self._orden), "suprimidas": 0}
+            return pid
+
+    def decisiones_pendientes(self):
+        """Las decisiones en cola, ordenadas por severidad (desc) y, a igualdad, por llegada."""
+        with self._lock:
+            return sorted((dict(p) for p in self._cola.values()),
+                          key=lambda p: (-(p.get("severidad") or 0), p.get("orden", 0)))
+
+    def sacar_decision(self, pid):
+        """Saca (y devuelve) la decisión de la cola, o None si no está o ya fue resuelta."""
+        with self._lock:
+            return self._cola.pop(pid, None)
 
     def anotar_linea(self, linea):
         with self._lock:

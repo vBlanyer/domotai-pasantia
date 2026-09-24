@@ -48,6 +48,25 @@ class TestLazo(unittest.TestCase):
         self.assertIsNone(re["ejecucion"])
         self.assertEqual(re["veredicto_humano"], "rechazar")
 
+    def test_procesar_lazo_con_encolar_difiere_la_decision_humana(self):
+        # Modo web no bloqueante: si requiere humano y hay `encolar`, se encola y NO se ejecuta.
+        a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"
+        encolados = []
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, ejecutor_ok,
+                               "d8", "t", encolar=lambda d, al: encolados.append((d, al)))
+        self.assertTrue(r["en_cola"])
+        self.assertIsNone(r["orden"])            # no se ejecutó nada
+        self.assertEqual(len(encolados), 1)      # se encoló la decisión + alerta
+
+    def test_procesar_lazo_con_encolar_pero_automatico_no_encola(self):
+        # confianza alta -> no requiere humano -> se ejecuta inline aunque haya `encolar`.
+        encolados = []
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                               ejecutor_ok, "d7", "t", encolar=lambda *_: encolados.append(1))
+        self.assertFalse(r.get("en_cola", False))
+        self.assertEqual(encolados, [])
+        self.assertIsNotNone(r["orden"])
+
     def test_procesar_lazo_pasa_escribir_a_la_validacion_humana(self):
         # El bloque de validación (con la Consecuencia/cascada) debe salir por `escribir`, no por
         # print: si no, el panel Aprobaciones de la web no lo captura (solo ve la línea del incidente).

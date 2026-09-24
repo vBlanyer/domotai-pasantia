@@ -42,7 +42,7 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
 
 
 def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp,
-                  leer=input, justificar_fn=analisis.justificar, mitigar_fn=None, escribir=print):
+                  leer=input, justificar_fn=analisis.justificar, mitigar_fn=None, escribir=print, encolar=None):
     decision = decidir_incidente(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
                                  justificar_fn=justificar_fn)
     # Modo agente: si hay contención que aplicar, delega la mitigación al agente ReAct, que decide la
@@ -51,6 +51,12 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
         plan = mitigar_fn(decision, alerta, leer)
         return {**decision, "veredicto_humano": None, "clase_reclasificada": None,
                 "mitigacion_agente": plan, "orden": None, "ejecucion": None, "verificacion": None}
+    # Modo web no bloqueante: si requiere humano y hay `encolar`, se encola y se difiere; el veredicto
+    # se aplica (ejecuta + traza) cuando el analista responde, sin bloquear el lazo.
+    if encolar is not None and decision.get("requiere_humano"):
+        encolar(decision, alerta)
+        return {**decision, "veredicto_humano": None, "clase_reclasificada": None, "en_cola": True,
+                "orden": None, "ejecucion": None, "verificacion": None}
     veredicto, clase_reclasificada = None, None
     if decision.get("requiere_humano"):
         v = validacion.pedir(decision, alerta, leer=leer, escribir=escribir)
