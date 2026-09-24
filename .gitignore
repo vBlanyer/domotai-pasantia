@@ -48,6 +48,7 @@ prototipo/corpus/fuentes/*.json
 /normalizado.jsonl
 /incidentes.jsonl
 /trazas-stream.jsonl
-/trazas-*.jsonl          # trazas de runtime del daemon (--salida con fecha); se regeneran
+# trazas de runtime del daemon (--salida con fecha); se regeneran
+/trazas-*.jsonl
 visor/node_modules
 visor/dist
