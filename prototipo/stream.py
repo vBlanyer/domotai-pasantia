@@ -6,7 +6,7 @@ La fuente de lineas es inyectable (fichero seguido estilo `tail -f`, o stdin), l
 testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Wazuh vive dentro del
 contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.stream -`.
 """
-import io, json, os, select, sys, time
+import io, json, os, select, sys, threading, time
 from prototipo import ingesta, adaptador_wazuh, agrupacion, lazo, rafaga, traza, validacion
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
@@ -102,18 +102,80 @@ def _linea_supresion(reg):
 
 
 def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
-                        id_decision, cadena, escribir, leer, mitigar_fn=None):
+                        id_decision, cadena, escribir, leer, mitigar_fn=None, encolar=None,
+                        escribir_traza=None):
     rep = inc["representante"]
     escribir(_resumen_incidente(inc))
     kw = {} if justificar_fn is None else {"justificar_fn": justificar_fn}
     if mitigar_fn is not None:
         kw["mitigar_fn"] = mitigar_fn
+    if encolar is not None:
+        kw["encolar"] = encolar
     d = lazo.procesar_lazo(rep, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                            id_decision, rep.get("timestamp", ""), leer=leer, escribir=escribir, **kw)
+    if d.get("en_cola"):            # modo web no bloqueante: se resolverá y trazará al aprobar
+        escribir(_linea_en_cola(d))
+        return d
     escribir(_linea_decision(d))
     if cadena is not None:
-        cadena.escribir(d)          # traza.Cadena: cada registro encadenado al anterior
+        (escribir_traza or cadena.escribir)(d)   # traza.Cadena: cada registro encadenado al anterior
     return d
+
+
+def _linea_en_cola(d):
+    return f"⏸ En cola (espera al analista) · {d.get('clase')} · confianza {d.get('confianza')}"
+
+
+def _entrada_cola(decision, alerta):
+    """Construye la entrada de la cola: contexto para resolver + líneas para mostrar (mismas que el
+    prompt de la terminal, para que el visor las presente igual)."""
+    from prototipo import validacion
+    menu = "¿Qué hacer con este incidente?\n" + "\n".join(
+        f"  {i}) {e}" for i, e in enumerate(validacion._ETIQUETAS_VEREDICTO, 1))
+    incid = (f"⚠ Incidente: {alerta.get('origen_ip')} -> {alerta.get('activo')} "
+             f"({alerta.get('servicio')})")
+    return {"clave": (alerta.get("origen_ip"), alerta.get("familia")),
+            "severidad": decision.get("prioridad") or 0,
+            "decision": decision, "alerta": alerta,
+            "tipo": "menu", "prompt": "Elige [1-3]: ",
+            "lineas": [incid, validacion.mostrar(decision, alerta), menu]}
+
+
+def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, escribir):
+    """Devuelve resolver(pid, respuesta)->bool: aplica el veredicto del analista a una decisión en
+    cola (ejecuta la contención + escribe la traza), sin bloquear el lazo. Reclasificar es en dos
+    pasos: '3' pasa al submenú de clases; el número de clase finaliza."""
+    from prototipo import analisis
+    def resolver(pid, respuesta):
+        entrada = estado.ver_decision(pid)
+        if entrada is None:
+            return False
+        respuesta = (respuesta or "").strip()
+        if not entrada.get("esperando_clase"):
+            if respuesta == "3":                       # reclasificar -> submenú de clases (no finaliza)
+                clases = [c for c in analisis.CLASES if c != entrada["decision"].get("clase")]
+                menu = "Nueva clase:\n" + "\n".join(f"  {i}) {c}" for i, c in enumerate(clases, 1))
+                estado.actualizar_decision(pid, {"esperando_clase": True, "clases": clases,
+                                                 "lineas": entrada["lineas"][:1] + [menu],
+                                                 "prompt": f"Elige [1-{len(clases)}]: "})
+                return True
+            veredicto, clase = {"1": "aprobar", "2": "rechazar"}.get(respuesta, "rechazar"), None
+        else:
+            clases = entrada.get("clases", [])
+            if respuesta.isdigit() and 1 <= int(respuesta) <= len(clases):
+                veredicto, clase = "reclasificar", clases[int(respuesta) - 1]
+            else:
+                veredicto, clase = "rechazar", None
+        if estado.sacar_decision(pid) is None:         # otra respuesta ya la resolvió (carrera)
+            return False
+        decision, alerta = entrada["decision"], entrada["alerta"]
+        r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
+                                   decision.get("id_decision", ""), alerta.get("timestamp", ""),
+                                   veredicto=veredicto, clase_reclasificada=clase, leer=lambda *_: "s")
+        escribir(_linea_decision(r))
+        escribir_traza(r)
+        return True
+    return resolver
 
 def _contar(resumen, d):
     resumen["incidentes"] += 1
@@ -131,7 +193,7 @@ def _contar(resumen, d):
 def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
-             hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None):
+             hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -146,6 +208,20 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                "reclasificadas": 0, "ejecutadas": 0, "suprimidas": 0}
     cadena = (traza.Cadena(salida_traza, hash_previo, n=n_previos, nombre=nombre_traza, linaje=linaje)
               if salida_traza is not None else None)
+    # La traza puede escribirse desde dos hilos (el lazo y el servidor web al resolver una decisión
+    # en cola): un lock serializa la cadena de hashes.
+    _traza_lock = threading.Lock()
+    def escribir_traza(reg):
+        with _traza_lock:
+            if cadena is not None:
+                cadena.escribir(reg)
+    # Modo web no bloqueante: encolar en vez de bloquear, y registrar cómo se resuelve (ejecuta+traza).
+    encolar = None
+    if estado_web is not None:
+        def encolar(decision, alerta):
+            estado_web.encolar_decision(_entrada_cola(decision, alerta))
+        estado_web.fijar_resolutor(
+            _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir))
     seq = [0]
     ventana_rafaga = rafaga.Ventana()
     memoria = MemoriaDecisiones()
@@ -157,8 +233,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 # se cuenta y se deja un resumen encadenado en la traza (el ataque siguio).
                 reg = memoria.registro_supresion(inc)
                 escribir(_linea_supresion(reg))
-                if cadena is not None:
-                    cadena.escribir(reg)
+                escribir_traza(reg)
                 continue
             seq[0] += 1
             # La rafaga del representante se toma al emitir el incidente, cuando la ventana ya
@@ -166,9 +241,12 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             inc["representante"][rafaga.CAMPO] = ventana_rafaga.contar(inc["representante"].get("origen_ip"))
             d = _procesar_incidente(
                 inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
-                f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn)
+                f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn,
+                encolar=encolar, escribir_traza=escribir_traza)
             _contar(resumen, d)
-            if suprimir:
+            # Las decisiones en cola aún no se deciden: no se recuerdan (la cola deduplica sus
+            # repeticiones incrementando el contador del pendiente).
+            if suprimir and not d.get("en_cola"):
                 memoria.recordar(inc, f"s{seq[0]}", d.get("veredicto_humano"))
 
     buffer, t0 = [], None
@@ -341,9 +419,11 @@ def construir_web(cfg, perfil):
     estado = tablero.EstadoTablero()
     activos = perfil.get("activos") or {}
     deps = {n: (a or {}).get("depende_de", []) for n, a in activos.items()}
+    # Cola de aprobación no bloqueante salvo en modo agente (que aprueba por paso, bloqueante).
+    async_web = not cfg.get("agente")
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
                                       puerto=cfg["web_puerto"], activos=activos,
-                                      topologia=perfil.get("topologia") or {})
+                                      topologia=perfil.get("topologia") or {}, async_web=async_web)
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
@@ -403,10 +483,11 @@ def main(argv):
     print(banner(cfg, ejecutor))
     resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
                "reclasificadas": 0, "ejecutadas": 0}
-    servidor = None
+    servidor, estado_web = None, None
     if cfg["web"]:
-        import threading
         estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil)
+        if not cfg["agente"]:
+            estado_web = estado          # cola no bloqueante (fuera del modo agente)
         threading.Thread(target=servidor.serve_forever, daemon=True).start()
         print(f"[web] tablero en http://127.0.0.1:{servidor.server_address[1]}")
     else:
@@ -426,7 +507,8 @@ def main(argv):
                                salida_traza=traza_f, escribir=escribir_fn, leer=leer_fn,
                                mitigar_fn=mitigar_fn, suprimir=not cfg["sin_supresion"],
                                hash_previo=hash_previo, n_previos=n_previos,
-                               nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje)
+                               nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
+                               estado_web=estado_web)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))

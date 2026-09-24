@@ -45,6 +45,45 @@ class TestBucleInmediato(unittest.TestCase):
         self.assertIn("192.168.1.10", traza["justificacion"])
 
 
+class TestColaNoBloqueante(unittest.TestCase):
+    def _linea_humana(self):
+        d = json.loads(_linea_wazuh())
+        d["predecoder"]["hostname"] = "fantasma"     # activo desconocido -> requiere humano
+        return json.dumps(d)
+
+    def _ejecutar(self, estado, buf):
+        stream.ejecutar([self._linea_humana(), None], hallazgos=j("hallazgos.json"),
+                        perfil=y("perfil.yml"), perfil_nombre="prueba", catalogo=CAT,
+                        ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+                        salida_traza=buf, escribir=lambda *a, **k: None, estado_web=estado)
+
+    def test_encola_sin_bloquear_y_al_aprobar_ejecuta_y_traza(self):
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        self._ejecutar(estado, buf)                  # NO bloquea (sin leer)
+        cola = estado.decisiones_pendientes()
+        self.assertEqual(len(cola), 1)
+        self.assertEqual(buf.getvalue().strip(), "")  # aún no hay traza
+        pid = cola[0]["id"]
+        self.assertTrue(estado.resolver_decision(pid, "1"))   # aprobar
+        self.assertEqual(estado.decisiones_pendientes(), [])  # sale de la cola
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(r["veredicto_humano"], "aprobar")
+        self.assertIsNotNone(r["orden"])
+
+    def test_reclasificar_es_en_dos_pasos(self):
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        self._ejecutar(estado, buf)
+        pid = estado.decisiones_pendientes()[0]["id"]
+        self.assertTrue(estado.resolver_decision(pid, "3"))   # reclasificar -> submenú de clases
+        p = estado.decisiones_pendientes()[0]
+        self.assertTrue(p["esperando_clase"])
+        self.assertTrue(p["clases"])
+        self.assertTrue(estado.resolver_decision(pid, "1"))   # elige una clase -> finaliza
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(r["veredicto_humano"], "reclasificar")
+        self.assertIsNone(r["orden"])                          # reclasificar no ejecuta
+
+
 class TestModoAgente(unittest.TestCase):
     def test_ejecutar_delega_al_mitigar_fn_y_cuenta(self):
         buf = io.StringIO()

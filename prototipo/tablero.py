@@ -26,6 +26,7 @@ class EstadoTablero:
         self._seq = itertools.count(1)
         self._cola = {}                    # cola de decisiones humanas (modo web no bloqueante)
         self._orden = itertools.count(1)   # orden de llegada, para desempatar por severidad
+        self._resolutor = None             # fn(pid, respuesta)->bool, la registra el daemon (ejecuta+traza)
 
     def encolar_decision(self, entrada):
         """Encola una decisión que espera al humano (modo web no bloqueante). `entrada` lleva la
@@ -52,6 +53,26 @@ class EstadoTablero:
         """Saca (y devuelve) la decisión de la cola, o None si no está o ya fue resuelta."""
         with self._lock:
             return self._cola.pop(pid, None)
+
+    def ver_decision(self, pid):
+        """Copia de la decisión en cola (sin quitarla), o None."""
+        with self._lock:
+            p = self._cola.get(pid)
+            return dict(p) if p else None
+
+    def actualizar_decision(self, pid, campos):
+        """Mezcla `campos` en la decisión en cola (p. ej. pasar al submenú de clases al reclasificar)."""
+        with self._lock:
+            if pid in self._cola:
+                self._cola[pid].update(campos)
+
+    def fijar_resolutor(self, fn):
+        """El daemon registra aquí cómo aplicar un veredicto (ejecuta la contención + escribe la traza)."""
+        self._resolutor = fn
+
+    def resolver_decision(self, pid, respuesta):
+        """Aplica la respuesta del analista a la decisión en cola, vía el resolutor del daemon."""
+        return bool(self._resolutor and self._resolutor(pid, respuesta))
 
     def anotar_linea(self, linea):
         with self._lock:
@@ -339,6 +360,8 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/decisiones":
                 return self._responder(lista_trazas(s.ruta_traza, n=50))
             if ruta == "/api/pendientes":
+                if getattr(s, "async_web", False):     # cola no bloqueante: lista ordenada por severidad
+                    return self._responder([_vista_pendiente(p) for p in s.estado.decisiones_pendientes()])
                 return self._responder(s.estado.pendientes())
             if ruta == "/api/trazas":
                 return self._responder(lista_trazas(s.ruta_traza))
@@ -355,21 +378,33 @@ class _Manejador(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
+            s = self.server
             if self.path.split("?", 1)[0] != "/api/aprobar":
                 return self._responder({"error": "no encontrado"}, 404)
             n = int(self.headers.get("Content-Length") or 0)
             cuerpo = json.loads(self.rfile.read(n) or b"{}")
-            ok = self.server.estado.resolver(str(cuerpo.get("id")), str(cuerpo.get("respuesta", "")))
+            pid, resp = str(cuerpo.get("id")), str(cuerpo.get("respuesta", ""))
+            # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.
+            ok = s.estado.resolver_decision(pid, resp) if getattr(s, "async_web", False) else s.estado.resolver(pid, resp)
             return self._responder({"ok": True}) if ok else self._responder({"error": "pendiente no vigente"}, 409)
         except Exception as e:
             return self._responder({"error": str(e)}, 500)
 
 
+_INTERNO_PENDIENTE = ("decision", "alerta", "clave", "orden")   # no se serializan a la web
+
+
+def _vista_pendiente(p):
+    """La vista serializable de una decisión en cola (sin el contexto interno de resolución)."""
+    return {k: v for k, v in p.items() if k not in _INTERNO_PENDIENTE}
+
+
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
-                   puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None):
+                   puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
+                   async_web=False):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
-    fichero_en_contenedor}. `activos`/`topologia` (del perfil) alimentan /api/equipos. Guarda la
-    config en atributos del servidor para el manejador."""
+    fichero_en_contenedor}. `activos`/`topologia` (del perfil) alimentan /api/equipos. `async_web`
+    activa la cola de aprobación no bloqueante. Guarda la config en atributos del servidor."""
     srv = ThreadingHTTPServer(("127.0.0.1", puerto), _Manejador)
     srv.estado = estado
     srv.ruta_traza = ruta_traza
@@ -379,4 +414,5 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.salud_ejecutar = salud_ejecutar
     srv.activos = activos or {}
     srv.topologia = topologia or {}
+    srv.async_web = async_web
     return srv
