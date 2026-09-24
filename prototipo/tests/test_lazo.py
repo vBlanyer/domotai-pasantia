@@ -33,6 +33,17 @@ class TestLazo(unittest.TestCase):
         self.assertEqual(r["veredicto_humano"], "rechazar")
         self.assertIsNone(r["ejecucion"])          # rechazada -> no se ejecuta
 
+    def test_procesar_lazo_pasa_escribir_a_la_validacion_humana(self):
+        # El bloque de validación (con la Consecuencia/cascada) debe salir por `escribir`, no por
+        # print: si no, el panel Aprobaciones de la web no lo captura (solo ve la línea del incidente).
+        a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"
+        lineas = []
+        lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, ejecutor_ok,
+                           "d9", "t", leer=lambda _: "2", escribir=lineas.append)  # 2) rechazar
+        texto = "\n".join(lineas)
+        self.assertIn("Validación humana requerida", texto)
+        self.assertIn("Acción final:", texto)
+
     def test_procesar_lazo_propaga_justificar_fn_a_la_traza(self):
         # el justificador inyectado (dict) fluye a la traza (RF-09): version + pasajes.
         def just_dict(a, c, cl):

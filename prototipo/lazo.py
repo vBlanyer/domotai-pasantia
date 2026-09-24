@@ -3,7 +3,7 @@ import json, os, sys, yaml
 from prototipo import traza, triaje, orden as ordenm, conector, validacion, verificacion, perfil as perfilm, catalogo as catm, analisis
 
 def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp,
-                  leer=input, justificar_fn=analisis.justificar, mitigar_fn=None):
+                  leer=input, justificar_fn=analisis.justificar, mitigar_fn=None, escribir=print):
     decision = triaje.procesar(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
                                justificar_fn=justificar_fn)
     # Modo agente: si hay contención que aplicar, delega la mitigación al agente ReAct, que decide la
@@ -14,7 +14,7 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
                 "mitigacion_agente": plan, "orden": None, "ejecucion": None, "verificacion": None}
     veredicto, clase_reclasificada = None, None
     if decision.get("requiere_humano"):
-        v = validacion.pedir(decision, alerta, leer=leer)
+        v = validacion.pedir(decision, alerta, leer=leer, escribir=escribir)
         veredicto, clase_reclasificada = v["veredicto"], v.get("clase_nueva")
         if veredicto in ("rechazar", "reclasificar"):
             # "reclasificar" retiene la alerta sin ejecutar la acción propuesta y registra la clase

@@ -109,7 +109,7 @@ def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecuto
     if mitigar_fn is not None:
         kw["mitigar_fn"] = mitigar_fn
     d = lazo.procesar_lazo(rep, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
-                           id_decision, rep.get("timestamp", ""), leer=leer, **kw)
+                           id_decision, rep.get("timestamp", ""), leer=leer, escribir=escribir, **kw)
     escribir(_linea_decision(d))
     if cadena is not None:
         cadena.escribir(d)          # traza.Cadena: cada registro encadenado al anterior
