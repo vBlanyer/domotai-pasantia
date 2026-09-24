@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, EquipoSchema, controlesDePendiente, baseApi } from "./api"
+import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, EquipoSchema, controlesDePendiente, parsearPendiente, baseApi } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -52,6 +52,38 @@ describe("EquipoSchema", () => {
   it("acepta un cortafuegos sin estado (sin monitor de salud)", () => {
     const e = EquipoSchema.parse({ nombre: "fw-core", ip: "10.0.0.1", categoria: "cortafuegos", estado: null })
     expect(e.estado).toBeNull()
+  })
+})
+
+describe("parsearPendiente", () => {
+  const veredicto = {
+    id: "1", tipo: "menu", prompt: "Elige [1-3]: ",
+    lineas: [
+      "⚠ Incidente: 10 alerta(s) · 10.40.0.10 -> core-db (ssh) · reglas [5760x9]",
+      "── Validación humana requerida ──\nActivo: core-db  ·  Origen: 10.40.0.10  ·  Servicio: ssh\n" +
+        "Clase: vp_intento_acceso  ·  Prioridad: 4  ·  Confianza: 1.0\n" +
+        "Consecuencia: bloquea a middleware · en cascada: api-movil, middleware, web-banking\n" +
+        "Acción final: BLOQUEAR_IP",
+      "¿Qué hacer con este incidente?\n  1) aprobar       — ejecuta la acción propuesta\n" +
+        "  2) rechazar      — retiene sin ejecutar\n  3) reclasificar  — corrige la clase",
+    ],
+  }
+  it("separa info, consecuencia y las tres opciones (incluye reclasificar)", () => {
+    const v = parsearPendiente(veredicto)
+    expect(v.incidente).toContain("core-db")
+    expect(v.consecuencia).toContain("en cascada")
+    expect(v.opciones.map((o) => o.n)).toEqual(["1", "2", "3"])
+    expect(v.opciones[2].etiqueta).toContain("reclasificar")
+    expect(v.info.join(" ")).not.toContain("¿Qué hacer")   // el título no va en la info
+    expect(v.info.join(" ")).not.toContain("Elige [")       // el prompt tampoco
+  })
+  it("en el submenú de reclasificar deja SOLO las clases, no el menú de veredicto anterior", () => {
+    const submenu = {
+      id: "2", tipo: "menu", prompt: "Elige [1-5]: ",
+      lineas: [veredicto.lineas[2], "Nueva clase:\n  1) vp_acceso_consumado\n  2) fp_actividad_legitima"],
+    }
+    const v = parsearPendiente(submenu)
+    expect(v.opciones.map((o) => o.etiqueta)).toEqual(["vp_acceso_consumado", "fp_actividad_legitima"])
   })
 })
 

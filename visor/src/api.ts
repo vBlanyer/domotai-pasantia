@@ -106,6 +106,34 @@ export function controlesDePendiente(p: Pendiente): { etiqueta: string; respuest
     : [{ etiqueta: "Aprobar (1)", respuesta: "1", variante: "aprobar" }, { etiqueta: "Rechazar (2)", respuesta: "2", variante: "rechazar" }]
 }
 
+export type Opcion = { n: string; etiqueta: string }
+export type PendienteVista = {
+  incidente?: string; info: string[]; consecuencia?: string; titulo?: string; opciones: Opcion[]
+}
+
+// Convierte las líneas capturadas del prompt de la terminal en algo presentable: separa la info del
+// incidente de las opciones del menú (que se vuelven botones), y descarta lo redundante (el título
+// "¿Qué hacer…" y la línea "Elige [1-N]:"). Reinicia las opciones en cada título para que el submenú
+// de reclasificación muestre SOLO las clases, no también el menú de veredicto anterior.
+export function parsearPendiente(p: Pendiente): PendienteVista {
+  const texto = p.lineas.length ? p.lineas.join("\n") : p.prompt
+  const info: string[] = []
+  let opciones: Opcion[] = []
+  let incidente: string | undefined, consecuencia: string | undefined, titulo: string | undefined
+  for (const raw of texto.split("\n")) {
+    const t = raw.trim()
+    if (!t) continue
+    if (t.startsWith("¿Qué hacer") || t.startsWith("Nueva clase")) { titulo = t; opciones = []; continue }
+    const op = t.match(/^(\d+)\)\s*(.+)$/)
+    if (op) { opciones.push({ n: op[1], etiqueta: op[2] }); continue }
+    if (/^⚠?\s*Incidente:/.test(t)) { incidente = t.replace(/^⚠\s*/, ""); continue }
+    if (t.startsWith("──") || /^Elige \[/.test(t)) continue
+    if (t.startsWith("Consecuencia:")) { consecuencia = t.slice("Consecuencia:".length).trim(); continue }
+    info.push(t)
+  }
+  return { incidente, info, consecuencia, titulo, opciones }
+}
+
 export function useSondeo<T>(fn: () => Promise<T>, ms = 2000): T | undefined {
   const [v, setV] = useState<T>()
   useEffect(() => {
