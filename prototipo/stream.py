@@ -339,9 +339,11 @@ def construir_web(cfg, perfil):
     hilo), y los `escribir`/`leer` web que se inyectan en ejecutar. Las dependencias salen del perfil."""
     from prototipo import tablero
     estado = tablero.EstadoTablero()
-    deps = {n: (a or {}).get("depende_de", []) for n, a in (perfil.get("activos") or {}).items()}
+    activos = perfil.get("activos") or {}
+    deps = {n: (a or {}).get("depende_de", []) for n, a in activos.items()}
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
-                                      puerto=cfg["web_puerto"])
+                                      puerto=cfg["web_puerto"], activos=activos,
+                                      topologia=perfil.get("topologia") or {})
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",

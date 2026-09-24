@@ -1,47 +1,86 @@
-import { useSondeo, getTrazas, type Decision } from "@/api"
+import { useSondeo, getEquipos, getTrazas, type Equipo, type Decision } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Punto, Cargando, SinConexion, Vacio, Dato } from "./bits"
 
-// Un equipo es un activo del cliente visto desde los incidentes: agregamos la traza por `activo`.
-// Es la lente centrada en activos, complementaria a «Estado de servicios» (salud de los servicios).
-type Equipo = {
-  nombre: string
-  incidentes: number
-  amenazas: number
-  falsos: number
-  enrutadas: number
-  ultimaAccion: string | null
-  ultimaHora: string | null
+// Categorías en orden de presentación (las que el backend emite desde el perfil).
+const CATS: { id: string; nombre: string }[] = [
+  { id: "servidor", nombre: "Servidores" },
+  { id: "endpoint", nombre: "Endpoints" },
+  { id: "gestion", nombre: "Gestión / SIEM" },
+  { id: "cortafuegos", nombre: "Cortafuegos" },
+]
+
+const CRIT: Record<string, string> = {
+  critica: "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+  alta: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  media: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
+  baja: "bg-slate-500/15 text-slate-600 dark:text-slate-400",
 }
 
-type Riesgo = { texto: string; punto: "ok" | "pendiente" | "caido"; clase: string }
-
-function riesgoDe(e: Equipo): Riesgo {
-  if (e.amenazas > 0) return { texto: "amenaza activa", punto: "caido", clase: "text-rose-600 dark:text-rose-400" }
-  if (e.enrutadas > 0) return { texto: "enrutado a revisión", punto: "pendiente", clase: "text-amber-600 dark:text-amber-400" }
-  return { texto: "sin amenazas", punto: "ok", clase: "text-emerald-600 dark:text-emerald-400" }
+function Criticidad({ v }: { v?: string | null }) {
+  if (!v) return <span className="text-muted-foreground">—</span>
+  return <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${CRIT[v] ?? CRIT.baja}`}>{v}</span>
 }
 
-function agregar(regs: Decision[]): Equipo[] {
-  const m = new Map<string, Equipo>()
-  for (const d of regs) {
-    if (d.tipo === "actividad_suprimida") continue
-    const nombre = d.activo ?? "—"
-    const e = m.get(nombre) ?? { nombre, incidentes: 0, amenazas: 0, falsos: 0, enrutadas: 0, ultimaAccion: null, ultimaHora: null }
-    e.incidentes += 1
-    const c = d.clase ?? ""
-    if (c.startsWith("vp_")) e.amenazas += 1
-    else if (c === "amenaza_enrutada") e.enrutadas += 1
-    else if (c.startsWith("fp_")) e.falsos += 1
-    const ts = d.timestamp ?? ""
-    if (ts && (!e.ultimaHora || ts > e.ultimaHora)) {
-      e.ultimaHora = ts
-      e.ultimaAccion = d.accion_final ?? null
+function Estado({ v }: { v?: string | null }) {
+  if (v === "ok")
+    return <span className="inline-flex items-center gap-1.5"><Punto estado="ok" /><span className="text-emerald-600 dark:text-emerald-400">operativo</span></span>
+  if (v === "caido")
+    return <span className="inline-flex items-center gap-1.5"><Punto estado="caido" /><span className="text-rose-600 dark:text-rose-400">caído</span></span>
+  return <span className="text-xs text-muted-foreground">sin monitor</span>
+}
+
+type Postura = { recibidos: number; amenazas: number; originados: number; bloqueado: boolean }
+
+function posturaDe(equipos: Equipo[], trazas: Decision[]) {
+  const decisiones = trazas.filter((d) => d.tipo !== "actividad_suprimida")
+  const porActivo = new Map<string, { recibidos: number; amenazas: number }>()
+  const porOrigen = new Map<string, number>()
+  const bloqueada = new Set<string>()
+  for (const d of decisiones) {
+    const a = d.activo ?? ""
+    const r = porActivo.get(a) ?? { recibidos: 0, amenazas: 0 }
+    r.recibidos += 1
+    if ((d.clase ?? "").startsWith("vp_")) r.amenazas += 1
+    porActivo.set(a, r)
+    const ip = d.origen_ip ?? ""
+    if (ip) {
+      porOrigen.set(ip, (porOrigen.get(ip) ?? 0) + 1)
+      if ((d.accion_final ?? "").includes("BLOQUEAR")) bloqueada.add(ip)
     }
-    m.set(nombre, e)
   }
-  // Orden: primero los que tienen amenazas, luego por número de incidentes.
-  return [...m.values()].sort((a, b) => b.amenazas - a.amenazas || b.incidentes - a.incidentes)
+  const m = new Map<string, Postura>()
+  for (const e of equipos) {
+    const rec = porActivo.get(e.nombre) ?? { recibidos: 0, amenazas: 0 }
+    m.set(e.nombre, {
+      recibidos: rec.recibidos, amenazas: rec.amenazas,
+      originados: (e.ip && porOrigen.get(e.ip)) || 0,
+      bloqueado: !!e.ip && bloqueada.has(e.ip),
+    })
+  }
+  return m
+}
+
+function Seguridad({ p }: { p: Postura }) {
+  if (p.amenazas === 0 && p.originados === 0)
+    return <span className="text-muted-foreground">sin actividad</span>
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+      {p.amenazas > 0 && (
+        <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-rose-600 dark:text-rose-400">
+          {p.amenazas} amenaza(s) recibida(s)
+        </span>
+      )}
+      {p.recibidos > p.amenazas && (
+        <span className="text-muted-foreground">{p.recibidos - p.amenazas} sin acción</span>
+      )}
+      {p.originados > 0 && (
+        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-600 dark:text-amber-400">
+          originó {p.originados} ataque(s){p.bloqueado ? " · bloqueado" : ""}
+        </span>
+      )}
+    </div>
+  )
 }
 
 function Mini({ valor, etiqueta, tono = "" }: { valor: number; etiqueta: string; tono?: string }) {
@@ -53,59 +92,66 @@ function Mini({ valor, etiqueta, tono = "" }: { valor: number; etiqueta: string;
   )
 }
 
-export function Equipos() {
-  const t = useSondeo(getTrazas)
-  if (!t) return <Cargando />
-  if (!Array.isArray(t)) return <SinConexion />
-  const equipos = agregar(t)
-  if (equipos.length === 0) return <Vacio>Aún no hay actividad sobre ningún equipo.</Vacio>
+function Grupo({ nombre, equipos, postura }: { nombre: string; equipos: Equipo[]; postura: Map<string, Postura> }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <span className="text-sm font-medium">{nombre}</span>
+        <span className="text-xs text-muted-foreground">{equipos.length}</span>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Equipo</TableHead><TableHead>Criticidad</TableHead><TableHead>IP</TableHead>
+            <TableHead>Estado</TableHead><TableHead>Seguridad</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {equipos.map((e) => (
+            <TableRow key={e.nombre}>
+              <TableCell>
+                <div className="font-medium">{e.nombre}</div>
+                {e.funcion && <div className="text-xs text-muted-foreground">{e.funcion}</div>}
+              </TableCell>
+              <TableCell><Criticidad v={e.criticidad} /></TableCell>
+              <TableCell><Dato>{e.ip}</Dato></TableCell>
+              <TableCell><Estado v={e.estado} /></TableCell>
+              <TableCell><Seguridad p={postura.get(e.nombre) ?? { recibidos: 0, amenazas: 0, originados: 0, bloqueado: false }} /></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
 
-  const conAmenaza = equipos.filter((e) => e.amenazas > 0).length
-  const incidentes = equipos.reduce((a, e) => a + e.incidentes, 0)
+export function Equipos() {
+  const eq = useSondeo(getEquipos)
+  const tz = useSondeo(getTrazas)
+  if (!eq) return <Cargando />
+  if (!Array.isArray(eq)) return <SinConexion />
+  if (eq.length === 0) return <Vacio>El perfil no declara equipos.</Vacio>
+
+  const trazas: Decision[] = Array.isArray(tz) ? tz : []
+  const postura = posturaDe(eq, trazas)
+  const criticos = eq.filter((e) => e.criticidad === "critica").length
+  const conAmenaza = eq.filter((e) => { const p = postura.get(e.nombre); return p && (p.amenazas > 0 || p.originados > 0) }).length
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-4">
-        <Mini valor={equipos.length} etiqueta="equipos con actividad" />
-        <Mini valor={conAmenaza} etiqueta="con amenaza activa" tono={conAmenaza ? "text-rose-600 dark:text-rose-400" : ""} />
-        <Mini valor={incidentes} etiqueta="incidentes totales" />
+        <Mini valor={eq.length} etiqueta="equipos en el inventario" />
+        <Mini valor={criticos} etiqueta="de criticidad crítica" />
+        <Mini valor={conAmenaza} etiqueta="con actividad de amenaza" tono={conAmenaza ? "text-rose-600 dark:text-rose-400" : ""} />
       </div>
-
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="border-b border-border px-4 py-3 text-sm font-medium">Equipos monitoreados</div>
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Equipo</TableHead>
-              <TableHead>Riesgo</TableHead>
-              <TableHead className="text-right">Incidentes</TableHead>
-              <TableHead className="text-right">Amenazas</TableHead>
-              <TableHead className="text-right">Falsos +</TableHead>
-              <TableHead>Última acción</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {equipos.map((e) => {
-              const r = riesgoDe(e)
-              return (
-                <TableRow key={e.nombre}>
-                  <TableCell className="font-medium">{e.nombre}</TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center gap-2">
-                      <Punto estado={r.punto} />
-                      <span className={r.clase}>{r.texto}</span>
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{e.incidentes}</TableCell>
-                  <TableCell className="text-right tabular-nums">{e.amenazas || <span className="text-muted-foreground">0</span>}</TableCell>
-                  <TableCell className="text-right tabular-nums">{e.falsos || <span className="text-muted-foreground">0</span>}</TableCell>
-                  <TableCell><Dato>{e.ultimaAccion ?? "—"}</Dato></TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </div>
+      {(CATS.map((c) => ({ ...c, items: eq.filter((e) => e.categoria === c.id) }))
+        .filter((c) => c.items.length > 0) as { id: string; nombre: string; items: Equipo[] }[])
+        .map((c) => <Grupo key={c.id} nombre={c.nombre} equipos={c.items} postura={postura} />)}
+      {/* categorías no previstas, por si el perfil añade otras */}
+      {(() => {
+        const otras = eq.filter((e) => !CATS.some((c) => c.id === e.categoria))
+        return otras.length > 0 ? <Grupo nombre="Otros" equipos={otras} postura={postura} /> : null
+      })()}
     </div>
   )
 }

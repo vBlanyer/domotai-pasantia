@@ -30,7 +30,12 @@ CEF, aún no adaptado). Hay un módulo de **RAG local** y un **justificador LLM*
 
 1. **Rediseño comercial del visor** (sidebar navy, KPIs, gráficos Recharts) + **tema claro/oscuro**
    (interruptor sol/luna, persiste) + fuentes **Inter** (UI) y **Roboto** (títulos).
-2. **Panel Equipos**: agrega los incidentes por activo (`/api/trazas`).
+2. **Panel Equipos = inventario de dispositivos** (`/api/equipos`): los 11 activos que el MDR
+   conoce **desde el perfil** (`bancario.yml` `activos:` + `topologia:`), agrupados por categoría
+   (servidor/endpoint/gestión/cortafuegos), con criticidad, IP, estado (cruzado con salud) y
+   postura de seguridad (incidentes recibidos, amenazas, ataques originados) cruzando la traza.
+   Distinto de *Estado de servicios* (las 7 apps de negocio con salud+dependencias). Los 3 nodos
+   restantes de los 14 del lab (`internet` sim-exterior, `sw-soc` switch) no son activos del cliente.
 3. **Panel Decisiones enriquecido**: filas expandibles que muestran justificación, evidencia,
    **técnicas MITRE**, motivo de impacto y **pasajes del RAG** (traídos de `/api/traza/<id>`, con
    los IDs de pasaje resueltos contra `prototipo/corpus/corpus.jsonl`).

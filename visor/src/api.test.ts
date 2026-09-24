@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, baseApi } from "./api"
+import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, EquipoSchema, controlesDePendiente, baseApi } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -37,6 +37,21 @@ describe("DetalleSchema", () => {
     expect(d.pasajes?.[0].titulo).toBe("T1110 Brute Force")
     expect(d.justificacion_estructurada?.tecnica_mitre).toEqual(["T1110.001"])
     expect(d.impacto_determinado?.motivo).toBe("bloquea a 1.2.3.4")
+  })
+})
+
+describe("EquipoSchema", () => {
+  it("parsea un equipo del inventario (categoría requerida, resto tolerante)", () => {
+    const e = EquipoSchema.parse({
+      nombre: "web-banking", ip: "10.10.0.10", funcion: "banca en linea", criticidad: "alta",
+      categoria: "servidor", servicios_prestados: [443, 80], depende_de: ["middleware"], estado: "ok",
+    })
+    expect(e.categoria).toBe("servidor")
+    expect(e.servicios_prestados).toEqual([443, 80])
+  })
+  it("acepta un cortafuegos sin estado (sin monitor de salud)", () => {
+    const e = EquipoSchema.parse({ nombre: "fw-core", ip: "10.0.0.1", categoria: "cortafuegos", estado: null })
+    expect(e.estado).toBeNull()
   })
 })
 

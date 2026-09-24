@@ -16,7 +16,7 @@ export const SaludSchema = z.union([
 export const DecisionSchema = z.object({
   id_decision: z.string().nullable().optional(), timestamp: z.string().nullable().optional(),
   activo: z.string().nullable().optional(), clase: z.string().nullable().optional(),
-  confianza: z.number().nullable().optional(),
+  confianza: z.number().nullable().optional(), origen_ip: z.string().nullable().optional(),
   accion_final: z.string().nullable().optional(), requiere_humano: z.boolean().nullable().optional(),
   impacto: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
   version_justificador: z.string().nullable().optional(),
@@ -46,6 +46,12 @@ export const DetalleSchema = z.object({
     nivel: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
   }).passthrough().nullable().optional(),
 }).passthrough()
+export const EquipoSchema = z.object({
+  nombre: z.string(), ip: z.string().nullable().optional(),
+  funcion: z.string().nullable().optional(), criticidad: z.string().nullable().optional(),
+  categoria: z.string(), servicios_prestados: z.array(z.number()).nullable().optional(),
+  depende_de: z.array(z.string()).nullable().optional(), estado: z.string().nullable().optional(),
+})
 export const PendienteSchema = z.object({
   id: z.string(), tipo: z.string(), prompt: z.string(), lineas: z.array(z.string()),
 })
@@ -54,6 +60,7 @@ export const VerificacionSchema = z.object({
 })
 
 export type Salud = z.infer<typeof SaludSchema>
+export type Equipo = z.infer<typeof EquipoSchema>
 export type Decision = z.infer<typeof DecisionSchema>
 export type Detalle = z.infer<typeof DetalleSchema>
 export type Pasaje = z.infer<typeof PasajeSchema>
@@ -71,6 +78,7 @@ async function pedir<T>(ruta: string, esquema: z.ZodType<T>): Promise<T | { erro
 }
 
 export const getSalud = () => pedir("/api/salud", SaludSchema)
+export const getEquipos = () => pedir("/api/equipos", z.array(EquipoSchema))
 export const getDecisiones = () => pedir("/api/decisiones", z.array(DecisionSchema))
 export const getPendientes = () => pedir("/api/pendientes", z.array(PendienteSchema))
 export const getTrazas = () => pedir("/api/trazas", z.array(DecisionSchema))

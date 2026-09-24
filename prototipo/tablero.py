@@ -130,6 +130,44 @@ def estado_salud(muestra, dependencias=None):
     return {"t": muestra.get("t"), "servicios": servicios, "caidos": caidos, "total": len(estados)}
 
 
+def _categoria_equipo(nombre, info, topologia):
+    """Categoría del dispositivo para el inventario: cortafuegos (por rol en la topología),
+    gestión (SOC/SIEM/MDR, por función), endpoint (sin servicios prestados) o servidor."""
+    if (topologia.get(nombre) or {}).get("rol") == "firewall_perimetral":
+        return "cortafuegos"
+    funcion = (info.get("funcion") or "").lower()
+    if any(p in funcion for p in ("soc", "siem", "mdr", "gestion")):
+        return "gestion"
+    return "servidor" if info.get("servicios_prestados") else "endpoint"
+
+
+def estado_equipos(activos, topologia, salud):
+    """Inventario de dispositivos del cliente (del perfil), con categoría y estado.
+
+    `activos` = {nombre: {ip, funcion, criticidad, servicios_prestados, depende_de}} del perfil;
+    `topologia` = {nombre: {rol, ip, gateway}} (aporta los cortafuegos que no están en activos);
+    `salud` = el JSON de estado_salud ({servicios:[{nombre,estado}]} | {sin_datos} | None): de ahí
+    sale el `estado` de los nodos monitoreados; el resto queda en None (sin monitor de salud)."""
+    activos, topologia = activos or {}, topologia or {}
+    estados = {s["nombre"]: s["estado"] for s in (salud or {}).get("servicios", [])}
+    equipos = []
+    for nombre in list(activos) + [n for n in topologia if n not in activos]:
+        info = activos.get(nombre) or {}
+        topo = topologia.get(nombre) or {}
+        if nombre not in activos:                       # nodo solo en la topología (p.ej. cortafuegos)
+            info = {"ip": topo.get("ip"), "funcion": "cortafuegos perimetral",
+                    "criticidad": "alta", "servicios_prestados": [], "depende_de": []}
+        equipos.append({
+            "nombre": nombre, "ip": info.get("ip") or topo.get("ip"),
+            "funcion": info.get("funcion"), "criticidad": info.get("criticidad"),
+            "categoria": _categoria_equipo(nombre, info, topologia),
+            "servicios_prestados": info.get("servicios_prestados") or [],
+            "depende_de": info.get("depende_de") or [],
+            "estado": estados.get(nombre),
+        })
+    return sorted(equipos, key=lambda e: e["nombre"])
+
+
 def _resumen_traza(reg):
     imp = reg.get("impacto_determinado") or {}
     est = reg.get("justificacion_estructurada") or {}
@@ -137,6 +175,7 @@ def _resumen_traza(reg):
             "activo": reg.get("activo"), "clase": reg.get("clase"), "confianza": reg.get("confianza"),
             "accion_final": reg.get("accion_final"), "requiere_humano": reg.get("requiere_humano"),
             "impacto": reg.get("impacto") or imp.get("nivel"), "motivo": imp.get("motivo"),
+            "origen_ip": (est.get("evidencia") or {}).get("origen_ip"),
             # de dónde viene la justificación (plantilla vs LLM), la técnica y si consultó el RAG:
             # el detalle completo (texto + pasajes) sale por /api/traza/<id>.
             "version_justificador": reg.get("version_justificador"),
@@ -262,6 +301,9 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/salud":
                 return self._responder(estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud),
                                                     s.dependencias))
+            if ruta == "/api/equipos":
+                salud = estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud), s.dependencias)
+                return self._responder(estado_equipos(s.activos, s.topologia, salud))
             if ruta == "/api/decisiones":
                 return self._responder(lista_trazas(s.ruta_traza, n=50))
             if ruta == "/api/pendientes":
@@ -292,9 +334,10 @@ class _Manejador(BaseHTTPRequestHandler):
 
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
-                   puerto=8787, salud_ejecutar=subprocess.run):
+                   puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
-    fichero_en_contenedor}. Guarda la config en atributos del servidor para el manejador."""
+    fichero_en_contenedor}. `activos`/`topologia` (del perfil) alimentan /api/equipos. Guarda la
+    config en atributos del servidor para el manejador."""
     srv = ThreadingHTTPServer(("127.0.0.1", puerto), _Manejador)
     srv.estado = estado
     srv.ruta_traza = ruta_traza
@@ -302,4 +345,6 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.dependencias = dependencias or {}
     srv.estaticos = estaticos or _DIR_ESTATICOS
     srv.salud_ejecutar = salud_ejecutar
+    srv.activos = activos or {}
+    srv.topologia = topologia or {}
     return srv
