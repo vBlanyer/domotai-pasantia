@@ -199,6 +199,7 @@ unset TRIAJE_NODO_GESTION AUDITOR_PUERTOS
 |---|---|---|
 | `aprovisionar` falla con «no se pudo leer la clave del host» | Contenedores rancios de un deploy anterior → el `up` no reasignó las IPs 10.x del plano de datos | `sh lab/banco/banco.sh down && sh lab/lab.sh up banco && sh lab/banco/banco.sh aprovisionar` (redeploy limpio) |
 | El daemon no muestra nada tras un ataque | La regla 5763 de Wazuh se silencia 60 s tras dispararse | Espera ~60 s y repite (el lanzador `atacar` ya lo respeta) |
+| Servicios caídos tras aprobar un ataque interno (p. ej. K1 tumba la cascada) | El bloqueo `iptables` que aplicó el MDR cortó una dependencia legítima | `sh lab/banco/banco.sh restaurar` (quita los bloqueos de ataque y reinicia los servicios, sin `down`/`up`) |
 | El conector falla en todos los nodos | Falta `aprovisionar` tras el último `up`, o falta el `export TRIAJE_NODO_GESTION` | Ejecuta ambos (§2.3 y el `export`) |
 | El visor muestra «sin conexión con el daemon» | El daemon no corre con `--web`, o el puerto no coincide | Lanza el daemon con `--web`; en `npm run dev`, el daemon debe estar en `:8787` |
 | `Address already in use` al lanzar `--web` | Ya hay un daemon en ese puerto | Cierra el anterior, o usa `--web <otro-puerto>` |

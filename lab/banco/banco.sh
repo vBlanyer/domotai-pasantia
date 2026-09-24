@@ -6,6 +6,8 @@
 #   sh lab/banco/banco.sh status          estado de nodos y salud
 #   sh lab/banco/banco.sh test            prueba de humo: conectividad y todos los servicios sanos
 #   sh lab/banco/banco.sh cascada core-db tumba un servicio, muestra que cae y lo restaura
+#   sh lab/banco/banco.sh restaurar       quita los bloqueos de ataque y reinicia los servicios
+#                                         caidos (deja el banco sano tras una demo, sin down/up)
 #   sh lab/banco/banco.sh vigilar         panel en vivo: servicios en verde/rojo y ultimos cambios
 #   sh lab/banco/banco.sh aprovisionar    minimo privilegio del conector en los nodos del banco
 #                                         (hace falta despues de cada 'up': containerlab recrea
@@ -97,11 +99,31 @@ case "${1:-up}" in
     if [ -n "$FALLOS" ]; then echo "FALLO en:$FALLOS"; exit 1; fi
     echo "== Aprovisionamiento completo =="
     ;;
+  restaurar)
+    # Deja el banco sano tras una demo, sin un down/up completo: quita las reglas DROP por IP de
+    # origen (los bloqueos que aplico el MDR al contener, incluidas las IP rotativas de los ataques)
+    # y reinicia los servicios. Conserva el bloqueo de gestion eth0. Util cuando aprobar un ataque
+    # interno (p.ej. K1) tumbo la cascada.
+    echo "== Restaurando: quito bloqueos de ataque y reinicio los servicios =="
+    for n in web-banking api-movil swift-alliance middleware core-db hsm atm fw-core fw-edge; do
+      docker exec $P-$n sh -c '
+        iptables -S 2>/dev/null | grep -E "^-A (INPUT|FORWARD) -s .* -j DROP" | sed "s/^-A/-D/" | \
+          while read -r regla; do iptables $regla 2>/dev/null || true; done' 2>/dev/null || true
+    done
+    for n in $(red servicios); do
+      docker exec $P-$n sh -c "pkill -f 'servicio.py --nombre $n'" 2>/dev/null || true
+      CMD=$(red servicio $n); docker exec -d $P-$n sh -c "$CMD"
+    done
+    echo "== Servicios reiniciados; esperando al monitor... =="
+    sleep 8
+    echo "== Salud =="
+    salud | python3 -c "import sys,json; d=json.loads(sys.stdin.read() or '{}').get('estados',{}); m=[k for k,v in d.items() if v!='ok']; print('   TODOS OK' if d and not m else f'   CAIDOS: {m or \"sin datos\"}')"
+    ;;
   vigilar)
     cd "$RAIZ" && exec python3 -m lab.banco.panel
     ;;
   atacar)
     cd "$RAIZ" && exec python3 -m lab.banco.demo
     ;;
-  *) echo "uso: $0 up|down|status|test|cascada <servicio>|aprovisionar|vigilar|atacar" ;;
+  *) echo "uso: $0 up|down|status|test|cascada <servicio>|restaurar|aprovisionar|vigilar|atacar" ;;
 esac
