@@ -25,6 +25,8 @@ case "${1:-up}" in
     # activa de fabrica). Sin esto, el manager ignora todo el syslog del lab.
     until docker exec "$NAME" sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-analysisd is running"' 2>/dev/null; do sleep 4; done
     docker cp "$(dirname "$0")/../wazuh/local_decoder_telnetd.xml" "$NAME":/tmp/local_decoder_telnetd.xml
+    docker cp "$(dirname "$0")/../wazuh/local_rules_banco.xml" "$NAME":/tmp/local_rules_banco.xml
+    docker cp "$(dirname "$0")/../wazuh/local_decoder_banco.xml" "$NAME":/tmp/local_decoder_banco.xml
     docker exec "$NAME" sh -c '
       grep -q "<connection>syslog" /var/ossec/etc/ossec.conf 2>/dev/null || \
       sed -i "s|</ossec_config>|  <remote>\n    <connection>syslog</connection>\n    <port>514</port>\n    <protocol>udp</protocol>\n    <allowed-ips>172.20.20.0/24</allowed-ips>\n  </remote>\n</ossec_config>|" /var/ossec/etc/ossec.conf
@@ -52,6 +54,10 @@ XML
       grep -q "0335-telnet_decoders" /var/ossec/etc/ossec.conf || \
       sed -i "s|<decoder_dir>etc/decoders</decoder_dir>|<decoder_dir>etc/decoders</decoder_dir>\n    <decoder_exclude>ruleset/decoders/0335-telnet_decoders.xml</decoder_exclude>|" /var/ossec/etc/ossec.conf
       grep -q "telnetd-ip-tcpd" /var/ossec/etc/decoders/local_decoder.xml || cat /tmp/local_decoder_telnetd.xml >> /var/ossec/etc/decoders/local_decoder.xml
+      # Reglas y decoder del banco para las otras familias (recon por sshd sin banner, telnet):
+      # que Wazuh detecte, además de la fuerza bruta, reconocimiento y servicio_expuesto.
+      grep -q "id=\"100200\"" /var/ossec/etc/rules/local_rules.xml || cat /tmp/local_rules_banco.xml >> /var/ossec/etc/rules/local_rules.xml
+      grep -q "sshd-banner-scan" /var/ossec/etc/decoders/local_decoder.xml || cat /tmp/local_decoder_banco.xml >> /var/ossec/etc/decoders/local_decoder.xml
       /var/ossec/bin/wazuh-control restart >/dev/null 2>&1
     '
     until docker exec "$NAME" sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-analysisd is running"' 2>/dev/null; do sleep 4; done

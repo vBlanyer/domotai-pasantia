@@ -27,6 +27,20 @@ def _fuerza_bruta(origen, destino_ip):
     return (origen, _loop_ssh(destino_ip))
 
 
+def _recon(origen, destino_ip):
+    # Escaneo/probe SSH sin banner válido: el OpenSSH del objetivo lo registra como "banner exchange
+    # ... invalid format", que la regla local 100200 del banco levanta como reconocimiento.
+    return (origen, f"for i in 1 2 3 4; do printf 'escaneo\\r\\n' | nc -w3 {destino_ip} 22 >/dev/null 2>&1 || true; "
+                    "sleep 1; done; true")
+
+
+def _exploit_web(origen, destino_ip, puerto=443):
+    # Petición HTTP con firma de ataque (SQLi): Wazuh la levanta con la regla 31164 (grupo 'attack'),
+    # que el adaptador mapea a explotacion_conocida -> amenaza_enrutada (enrutar, sin contener).
+    return (origen, f"for i in 1 2 3; do curl -s -m3 -o /dev/null "
+                    f"\"http://{destino_ip}:{puerto}/?id=1%27+OR+%271%27=%271\" || true; sleep 1; done; true")
+
+
 def fuerza_bruta_atada(origen, destino_ip, src_ip, iface="eth1"):
     """Fuerza bruta desde una IP de origen NUEVA: añade el alias en la interfaz de datos del nodo y
     ata el cliente SSH a esa IP, para que Wazuh registre un origen distinto en cada lanzamiento
@@ -75,6 +89,17 @@ CASOS = [
      "deshacer": [("fw-core", "iptables -D FORWARD -s 198.51.100.10 -j DROP"),
                   ("web-banking", "iptables -D INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP"),
                   ("web-banking", "iptables -D INPUT -s 198.51.100.10 -j DROP")]},
+
+    # Cobertura de familias EN VIVO (además de la fuerza bruta): reconocimiento y explotación conocida.
+    {"nivel": "vivo", "id": "RECON", "titulo": "Reconocimiento externo (escaneo SSH) -> VP, se contiene",
+     "ataque": _recon("internet", "10.10.0.10"), "origen": "198.51.100.10",
+     "esperado": {"clase": "vp_intento_acceso", "accion_final": "BLOQUEAR_IP",
+                  "regla": ("web-banking", "-A INPUT -s 198.51.100.10/32 -j DROP"), "caen": set()},
+     "deshacer": [("web-banking", "iptables -D INPUT -s 198.51.100.10 -j DROP")]},
+    {"nivel": "vivo", "id": "EXPLOIT", "titulo": "Explotación conocida (SQLi web) -> amenaza enrutada, sin contener",
+     "ataque": _exploit_web("internet", "10.10.0.10"), "origen": "198.51.100.10",
+     "esperado": {"clase": "amenaza_enrutada", "accion_final": None, "sin_reglas": True, "caen": set()},
+     "deshacer": []},
 
     _dec("D2", "Servicio no expuesto según el auditor -> FP exposición inexistente",
          {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "rdp", "regla_id": "5763"},

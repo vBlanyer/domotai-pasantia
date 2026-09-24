@@ -13,7 +13,7 @@ class TestDemo(unittest.TestCase):
 
     def test_casos_vivos_son_los_atacables(self):
         ids = [c["id"] for c in demo.casos_vivos()]
-        self.assertEqual(ids, ["CASCADA", "D1", "A1", "K1", "E1"])
+        self.assertEqual(ids, ["CASCADA", "D1", "A1", "K1", "E1", "RECON", "EXPLOIT"])
         self.assertTrue(all(c.get("ataque") or c.get("preparar") for c in demo.casos_vivos()))
 
     def test_menu_numera_los_casos(self):

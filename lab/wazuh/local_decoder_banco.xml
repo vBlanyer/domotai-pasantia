@@ -1,0 +1,12 @@
+
+<!-- Decodificadores locales del banco. Extraen el srcip de líneas de sshd que el decoder de fábrica
+     no cubre, para que las familias que no son fuerza bruta tengan origen (a quién bloquear/enrutar). -->
+
+<!-- Reconocimiento: "banner exchange: Connection from 198.51.100.10 port 43513: invalid format"
+     (OpenSSH moderno ante un escaneo/probe sin banner). El decoder de fábrica no saca el srcip. -->
+<decoder name="sshd-banner-scan">
+  <parent>sshd</parent>
+  <prematch>^banner exchange: Connection from </prematch>
+  <regex offset="after_prematch">^(\S+) port</regex>
+  <order>srcip</order>
+</decoder>

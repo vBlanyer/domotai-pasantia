@@ -1,0 +1,27 @@
+
+<!-- Reglas locales del banco para que Wazuh detecte, además de la fuerza bruta SSH, las otras
+     familias que el motor de triaje ya soporta (familias.yml). Cada regla se etiqueta con el
+     `group` que el adaptador (`prototipo/adaptador_wazuh.familia_de`) mapea a la familia. -->
+
+<group name="local,syslog,sshd,">
+  <!-- Reconocimiento: una conexión SSH sin banner válido (p. ej. nmap -sV o un barrido). El OpenSSH
+       moderno lo registra como "banner exchange ... invalid format" o "Connection closed by ...",
+       que ninguna regla de fábrica levanta. Se etiqueta 'recon' -> familia reconocimiento. -->
+  <rule id="100200" level="6">
+    <decoded_as>sshd</decoded_as>
+    <match>banner exchange: Connection from|Did not receive identification string</match>
+    <group>recon,</group>
+    <description>sshd: conexion sin banner valido (posible escaneo/reconocimiento)</description>
+  </rule>
+</group>
+
+<group name="local,syslog,telnetd,">
+  <!-- Servicio expuesto: una conexión al telnetd de un nodo (in.telnetd -> "connect from X", que
+       decodifica local_decoder_telnetd.xml). Telnet en claro es un servicio expuesto que no debería
+       estar. Se etiqueta 'telnet' -> familia servicio_expuesto. -->
+  <rule id="100210" level="6">
+    <decoded_as>telnetd</decoded_as>
+    <group>telnet,</group>
+    <description>telnetd: conexion a un servicio telnet expuesto</description>
+  </rule>
+</group>
