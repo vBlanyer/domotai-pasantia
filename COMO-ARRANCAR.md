@@ -108,8 +108,14 @@ En **otra terminal**, un menú para disparar ataques y verlos decidir en el daem
 sh lab/banco/banco.sh atacar
 ```
 
-Lista los casos vivos (CASCADA, D1, A1, K1, E1); eliges por número, lo lanza (respeta los 60 s de silencio
-de la regla 5763 de Wazuh entre ataques) y ofrece deshacer/restaurar.
+Lista los casos vivos; eliges por número, lo lanza (respeta los 60 s de silencio de la regla 5763 de Wazuh
+entre ataques) y ofrece deshacer/restaurar. Cubre las **cuatro familias** que el motor tría, cada una con
+su conducta de respuesta:
+- **D1/A1/K1/E1** — acceso a credenciales (fuerza bruta SSH): contener / retener / escalar.
+- **RECON** — reconocimiento (escaneo SSH): VP, contiene.
+- **EXPLOIT** — explotación conocida (SQLi web): `amenaza_enrutada`, **enruta** a un equipo (no contiene).
+- **TELNET** — servicio expuesto (telnet señuelo en atm): VP, contiene. (En web-banking, donde telnet NO
+  está expuesto, el motor lo descartaría como falso positivo — el auditor distingue por activo.)
 
 **IP de origen rotativa (tecla `r`):** por defecto cada caso ataca desde su IP fija (p. ej. D1 desde
 `198.51.100.10`), así que al repetirlo choca con el bloqueo automático y con la supresión del MDR y "no pasa
