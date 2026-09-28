@@ -14,6 +14,19 @@ servidor vulnerable— más un auditor en el plano de gestión. Containerlab se 
 auditable y muy ligero; Packet Tracer se descartó por simular en vez de virtualizar, y CML por su
 tope duro de nodos.
 
+El entorno **creció el 22/09 con un segundo escenario, más completo y exigente: el laboratorio del
+banco** —una red de **14 nodos** ([`bancario.yml`](../../lab/topologias/banco.clab.yml)) que reproduce
+una entidad financiera: perímetro doble (`fw-edge`/`fw-core`), core bancario, base de datos, HSM,
+pasarela SWIFT, middleware, cajero y taquilla, con **servicios y dependencias reales, cascada entre
+activos y un monitor de salud**, operada bajo el perfil `bancario` de **continuidad extrema**. Es
+deliberadamente el caso más duro —cortar un servicio bancario es inaceptable y las dependencias
+propagan el impacto—, y por eso la validación más fuerte: **si el prototipo respeta la continuidad y
+la criticidad aquí, *a fortiori* lo hace en escenarios menos exigentes**. El reparto de roles es
+claro: la red pequeña es el **origen del dataset** etiquetado; el banco es el escenario de
+**validación en vivo** —las cuatro familias de ataque detectables en directo y el banco de pruebas
+del catálogo (última corrida: 21 casos OK)—. Ver [`lab/banco/`](../../lab/banco/README.md) y la
+[prueba manual del banco](../../docs/pruebas/08-laboratorio-banco.md).
+
 El entorno funciona y es reproducible de extremo a extremo con `lab/lab.sh`. **Wazuh genera alertas
 reales** dentro del laboratorio: un login fallido da nivel 5 y una fuerza bruta correlacionada da
 nivel 10, con IP y usuario parseados. Se despliega sin indexer ni dashboard, porque el prototipo
@@ -40,6 +53,7 @@ al resto, así que el auditor opera hoy con Nmap.
 ## Documentos
 
 - [Diseño del sandbox: la red del cliente emulada con Containerlab](sandbox-red-containerlab.md) — qué se emula y qué no, elección de plataforma, topología, Wazuh como fuente y baseline, y los dos ground truths.
+- [Laboratorio del banco](../../lab/banco/README.md) — el **segundo escenario** (14 nodos, entidad financiera con dependencias y cascada, perfil `bancario`); prueba manual en [docs/pruebas/08](../../docs/pruebas/08-laboratorio-banco.md).
 
 En [`lab/`](../../lab/), fuera de esta carpeta, vive el laboratorio ejecutable:
 
@@ -74,10 +88,16 @@ laboratorio instancia y el perímetro que decide qué actividad merece generarse
 
 Hecho: topología versionada y reproducible, superficie de ataque real con ground truth de
 vulnerabilidades documentado, Wazuh emitiendo alertas, auditor con Nmap, el consumo medido, y el
-[dataset de alertas etiquetado](../../lab/docs/dataset.md) — 410 alertas reales de dos campañas
-(`entrenamiento`/`evaluacion`, partición disjunta y fijada a priori), con ground truth VP/FP/PROPIA/
-no_soportada, 0 casos `PENDIENTE` sin resolver, y ambas etiquetas VP y FP presentes en los dos
-lados de la partición, tal como exige el criterio de cierre de la especificación.
+[dataset de alertas etiquetado](../../lab/docs/dataset.md) — **600 alertas reales** (las 410 iniciales
+de dos campañas, ampliadas en la Fase 5 a **8 campañas** con las familias `reconocimiento`/`servicio
+expuesto` y los casos donde las reglas de Wazuh fallan), **partición disjunta y fijada a priori**
+(300/300), con ground truth VP/FP/PROPIA/no_soportada, 0 casos `PENDIENTE` sin resolver, y ambas
+etiquetas VP y FP presentes en los dos lados de la partición, tal como exige el criterio de cierre de
+la especificación.
 
 Cumple el criterio del roadmap —*el dataset cuenta con ground truth suficiente para calcular
 precisión, recall y F1*.
+
+**Ampliación (22/09).** El entorno incorpora el **laboratorio del banco** (14 nodos, `bancario.yml`)
+como segundo escenario de validación en vivo —más completo y exigente, con dependencias y cascada bajo
+continuidad extrema—; ver [`lab/banco/`](../../lab/banco/README.md).
