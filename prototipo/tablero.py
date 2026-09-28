@@ -26,7 +26,7 @@ class EstadoTablero:
         self._seq = itertools.count(1)
         self._cola = {}                    # cola de decisiones humanas (modo web no bloqueante)
         self._orden = itertools.count(1)   # orden de llegada, para desempatar por severidad
-        self._resolutor = None             # fn(pid, respuesta)->bool, la registra el daemon (ejecuta+traza)
+        self._resolutor = None             # fn(pid, respuesta, paso=None)->bool, la registra el daemon (ejecuta+traza)
 
     def encolar_decision(self, entrada):
         """Encola una decisión que espera al humano (modo web no bloqueante). `entrada` lleva la
@@ -40,7 +40,9 @@ class EstadoTablero:
                         p["suprimidas"] += 1
                         return p["id"]
             pid = str(next(self._seq))
-            self._cola[pid] = {**entrada, "id": pid, "orden": next(self._orden), "suprimidas": 0}
+            # `paso` identifica el menú que se está mostrando; avanza al cambiar de menú (reclasificar)
+            # para que una respuesta dada al menú anterior no se aplique al nuevo.
+            self._cola[pid] = {**entrada, "id": pid, "orden": next(self._orden), "suprimidas": 0, "paso": 0}
             return pid
 
     def decisiones_pendientes(self):
@@ -70,9 +72,10 @@ class EstadoTablero:
         """El daemon registra aquí cómo aplicar un veredicto (ejecuta la contención + escribe la traza)."""
         self._resolutor = fn
 
-    def resolver_decision(self, pid, respuesta):
-        """Aplica la respuesta del analista a la decisión en cola, vía el resolutor del daemon."""
-        return bool(self._resolutor and self._resolutor(pid, respuesta))
+    def resolver_decision(self, pid, respuesta, paso=None):
+        """Aplica la respuesta del analista a la decisión en cola, vía el resolutor del daemon.
+        `paso` es el del menú que vio el analista (None = no se comprueba)."""
+        return bool(self._resolutor and self._resolutor(pid, respuesta, paso=paso))
 
     def anotar_linea(self, linea):
         with self._lock:
@@ -433,7 +436,11 @@ class _Manejador(BaseHTTPRequestHandler):
             cuerpo = json.loads(self.rfile.read(n) or b"{}")
             pid, resp = str(cuerpo.get("id")), str(cuerpo.get("respuesta", ""))
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.
-            ok = s.estado.resolver_decision(pid, resp) if getattr(s, "async_web", False) else s.estado.resolver(pid, resp)
+            # `paso` es opcional: solo lo usa la cola (la ruta bloqueante no tiene menús con paso).
+            if getattr(s, "async_web", False):
+                ok = s.estado.resolver_decision(pid, resp, paso=cuerpo.get("paso"))
+            else:
+                ok = s.estado.resolver(pid, resp)
             return self._responder({"ok": True}) if ok else self._responder({"error": "pendiente no vigente"}, 409)
         except Exception as e:
             return self._responder({"error": str(e)}, 500)

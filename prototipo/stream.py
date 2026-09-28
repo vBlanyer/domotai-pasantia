@@ -146,10 +146,18 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
     cola (ejecuta la contención + escribe la traza), sin bloquear el lazo. Reclasificar es en dos
     pasos: '3' pasa al submenú de clases; el número de clase finaliza."""
     from prototipo import analisis
-    def resolver(pid, respuesta):
+    def resolver(pid, respuesta, paso=None):
         entrada = estado.ver_decision(pid)
         if entrada is None:
             return False
+        # Una respuesta dada a un menú ya superado (p. ej. «Aprobar» pulsado justo después de
+        # «Reclasificar», antes de que el visor refresque) no se reinterpreta en el menú nuevo.
+        if paso is not None:
+            try:
+                if int(paso) != entrada.get("paso", 0):
+                    return False
+            except (TypeError, ValueError):
+                return False
         respuesta = (respuesta or "").strip()
         if not entrada.get("esperando_clase"):
             if respuesta == "3":                       # reclasificar -> submenú de clases (no finaliza)
@@ -157,7 +165,8 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                 menu = "Nueva clase:\n" + "\n".join(f"  {i}) {c}" for i, c in enumerate(clases, 1))
                 estado.actualizar_decision(pid, {"esperando_clase": True, "clases": clases,
                                                  "lineas": entrada["lineas"][:1] + [menu],
-                                                 "prompt": f"Elige [1-{len(clases)}]: "})
+                                                 "prompt": f"Elige [1-{len(clases)}]: ",
+                                                 "paso": entrada.get("paso", 0) + 1})
                 return True
             veredicto, clase = {"1": "aprobar", "2": "rechazar"}.get(respuesta, "rechazar"), None
         else:

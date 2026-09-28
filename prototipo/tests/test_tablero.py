@@ -70,6 +70,20 @@ class TestEstadoYLector(unittest.TestCase):
         self.assertEqual(e.decisiones_pendientes(), [])
         self.assertIsNone(e.sacar_decision(a))                   # ya no está
 
+    def test_encolar_siembra_el_paso_en_cero(self):
+        # El paso identifica qué menú vio el analista: una respuesta a un menú ya superado se rechaza.
+        e = tablero.EstadoTablero()
+        e.encolar_decision({"clave": None, "severidad": 1, "activo": "x"})
+        self.assertEqual(e.decisiones_pendientes()[0]["paso"], 0)
+
+    def test_resolver_decision_pasa_el_paso_al_resolutor(self):
+        e = tablero.EstadoTablero()
+        vistos = []
+        e.fijar_resolutor(lambda pid, resp, paso=None: vistos.append((pid, resp, paso)) or True)
+        self.assertTrue(e.resolver_decision("1", "2", paso=3))
+        self.assertTrue(e.resolver_decision("1", "2"))            # sin paso -> None (rutas viejas)
+        self.assertEqual(vistos, [("1", "2", 3), ("1", "2", None)])
+
     def test_escribir_web_imprime_y_acumula(self):
         estado = tablero.EstadoTablero()
         vistas = []
@@ -310,6 +324,19 @@ class TestServidor(unittest.TestCase):
         hilo.join(timeout=2)
         self.assertEqual(salida["r"], "s")
         self.assertEqual(self._post(puerto, "/api/aprobar", {"id": pid, "respuesta": "s"})[0], 409)
+
+    def test_aprobar_async_propaga_el_paso_del_cuerpo(self):
+        estado = tablero.EstadoTablero()
+        vistos = []
+        estado.fijar_resolutor(lambda pid, resp, paso=None: vistos.append((pid, resp, paso)) or True)
+        srv = tablero.crear_servidor(estado, "/no/existe.jsonl", puerto=0, estaticos=tempfile.mkdtemp(),
+                                     async_web=True)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        puerto = srv.server_address[1]
+        self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1", "paso": 2})[0], 200)
+        self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1"})[0], 200)
+        self.assertEqual(vistos, [("1", "1", 2), ("1", "1", None)])
 
     def test_salud_desde_ejecutor_falso(self):
         def ejec(args, **kw):

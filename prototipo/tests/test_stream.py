@@ -83,6 +83,52 @@ class TestColaNoBloqueante(unittest.TestCase):
         self.assertEqual(r["veredicto_humano"], "reclasificar")
         self.assertIsNone(r["orden"])                          # reclasificar no ejecuta
 
+    def test_reclasificar_avanza_el_paso(self):
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        self._ejecutar(estado, buf)
+        pid = estado.decisiones_pendientes()[0]["id"]
+        self.assertTrue(estado.resolver_decision(pid, "3", paso=0))
+        self.assertEqual(estado.decisiones_pendientes()[0]["paso"], 1)
+
+    def test_respuesta_al_menu_superado_se_rechaza(self):
+        # Carrera: el analista pulsa «Reclasificar» y, antes de que el visor refresque, «Aprobar».
+        # Ese "1" iba dirigido al menú de veredicto (paso 0); el backend ya está en el submenú de
+        # clases (paso 1) y NO debe leerlo como índice de clase.
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        self._ejecutar(estado, buf)
+        pid = estado.decisiones_pendientes()[0]["id"]
+        self.assertTrue(estado.resolver_decision(pid, "3", paso=0))    # -> submenú de clases
+        self.assertFalse(estado.resolver_decision(pid, "1", paso=0))   # menú viejo: rechazado
+        self.assertEqual(len(estado.decisiones_pendientes()), 1)       # sigue en cola
+        self.assertEqual(buf.getvalue().strip(), "")                   # nada trazado ni ejecutado
+        self.assertTrue(estado.resolver_decision(pid, "1", paso=1))    # clase elegida en el paso vigente
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(r["veredicto_humano"], "reclasificar")
+
+    def test_aprobar_con_el_paso_vigente_ejecuta(self):
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        self._ejecutar(estado, buf)
+        pid = estado.decisiones_pendientes()[0]["id"]
+        self.assertTrue(estado.resolver_decision(pid, "1", paso=0))
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(r["veredicto_humano"], "aprobar")
+
+    def test_rechazar_con_el_paso_vigente_retiene(self):
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        self._ejecutar(estado, buf)
+        pid = estado.decisiones_pendientes()[0]["id"]
+        self.assertTrue(estado.resolver_decision(pid, "2", paso=0))
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(r["veredicto_humano"], "rechazar")
+        self.assertIsNone(r["orden"])                          # rechazar no ejecuta
+
+    def test_paso_no_numerico_se_rechaza(self):
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        self._ejecutar(estado, buf)
+        pid = estado.decisiones_pendientes()[0]["id"]
+        self.assertFalse(estado.resolver_decision(pid, "1", paso="x"))
+        self.assertEqual(len(estado.decisiones_pendientes()), 1)
+
 
 class TestModoAgente(unittest.TestCase):
     def test_ejecutar_delega_al_mitigar_fn_y_cuenta(self):
