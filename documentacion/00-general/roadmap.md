@@ -31,8 +31,8 @@ La correspondencia es uno a uno: cada fase implementa exactamente un objetivo es
 > Fase **ejecutada por modelado**: al no haber cliente real, los ítems marcados se cumplieron sobre el [cliente genérico modelado](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md), no sobre el módulo propietario real (**I-4**).
 
 - [ ] Obtener acceso y documentación interna del módulo propietario. *(no disponible — I-4, depende de la empresa)*
-- [x] Recorrer el flujo completo: ingesta de alertas → procesamiento → salida/acción.
-- [x] Identificar formatos de entrada y salida soportados (tipos de eventos, esquemas, APIs).
+- [~] Recorrer el flujo completo: ingesta de alertas → procesamiento → salida/acción. *(modelado, no observado en un módulo real: el flujo se abstrae en los tres supuestos del cliente y el papel del playbook — ver [modelo-de-cliente-generico.md](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md) §4)*
+- [~] Identificar formatos de entrada y salida soportados (tipos de eventos, esquemas, APIs). *(sin módulo real: el esquema de alerta se trata como punto de variabilidad **V1** —mapeo configurable al esquema común—, no como una API concreta enumerada; ver [modelo-de-cliente-generico.md](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md) §6)*
 - [x] Documentar limitaciones actuales (falsos positivos, falta de priorización, ausencia de explicabilidad, etc.).
 - [x] Definir el caso de uso acotado sobre el cual se construirá el prototipo.
 
