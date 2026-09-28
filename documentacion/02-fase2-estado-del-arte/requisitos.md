@@ -101,6 +101,9 @@ contexto del proyecto; seis cambiaron de matiz y siete se añadieron. El recorri
 requisito que verificó esto está en
 [revision-requisitos-contexto.md](./revision-requisitos-contexto.md).
 
+El mapeo **requisito ↔ módulo de código** y el inverso **L1–L5 / C1–C6 → requisito** están en la
+[matriz de trazabilidad](./matriz-trazabilidad.md).
+
 ---
 
 ## Documentos relacionados
@@ -108,4 +111,5 @@ requisito que verificó esto está en
 - [Limitaciones de XDR](./limitacionesDeXDR.md) — el análisis del que derivan los requisitos originales.
 - [LLM en seguridad](./llm-en-seguridad.md) — los criterios de diseño de la §6 de ese documento.
 - [Modelo de cliente genérico](../01-fase1-analisis-del-modulo/modelo-de-cliente-generico.md) · [Caso de uso acotado](../01-fase1-analisis-del-modulo/caso-de-uso-acotado.md)
+- [Matriz de trazabilidad](./matriz-trazabilidad.md) — requisito ↔ origen (L/C/V) ↔ módulo de código, de un vistazo.
 - [Métricas y plan de evaluación](../04-fase4-diseno-de-arquitectura/metricas-y-evaluacion.md) — cómo se calcula lo que exigen RF-14 y RF-20.

@@ -50,6 +50,7 @@ recogió.
 
 - [**Requisitos del prototipo**](requisitos.md) — **registro único**. Si un requisito no está aquí, no existe.
 - [Revisión frente al contexto del cliente](revision-requisitos-contexto.md) — el recorrido requisito a requisito que verificó la vigencia de la lista original tras el cambio de contexto; resuelve I-5. Registro histórico: sus conclusiones ya están en el registro único.
+- [Matriz de trazabilidad](matriz-trazabilidad.md) — requisito ↔ origen (L/C/V de la Fase 1) ↔ módulo de código, de un vistazo.
 
 ---
 
