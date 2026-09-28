@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest"
-import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, EquipoSchema, controlesDePendiente, parsearPendiente, baseApi } from "./api"
+import { describe, it, expect, vi, afterEach } from "vitest"
+import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, EquipoSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -119,5 +119,37 @@ describe("controlesDePendiente", () => {
   it("menú ofrece 1 y 2", () => {
     const c = controlesDePendiente({ id: "1", tipo: "menu", prompt: "Elige", lineas: [] })
     expect(c.map((x) => x.respuesta)).toEqual(["1", "2"])
+  })
+})
+
+describe("aprobar", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const cuerpoDe = (f: ReturnType<typeof vi.fn>) => JSON.parse(f.mock.calls[0][1].body)
+
+  it("envía el paso del menú que vio el analista", async () => {
+    const f = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal("fetch", f)
+    expect(await aprobar("7", "1", 2)).toBe(true)
+    expect(cuerpoDe(f)).toEqual({ id: "7", respuesta: "1", paso: 2 })
+  })
+
+  it("sin paso no lo manda (escaladas de la ruta bloqueante)", async () => {
+    const f = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal("fetch", f)
+    await aprobar("7", "s")
+    expect(cuerpoDe(f)).toEqual({ id: "7", respuesta: "s" })
+  })
+
+  it("409 o error de red -> false", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409 }))
+    expect(await aprobar("7", "1", 0)).toBe(false)
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("red")))
+    expect(await aprobar("7", "1", 0)).toBe(false)
+  })
+})
+
+describe("PendienteSchema.paso", () => {
+  it("conserva el paso que manda la cola", () => {
+    expect(PendienteSchema.parse({ id: "1", tipo: "menu", prompt: "x", lineas: [], paso: 1 }).paso).toBe(1)
   })
 })

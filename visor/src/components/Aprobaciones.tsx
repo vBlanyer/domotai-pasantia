@@ -1,7 +1,24 @@
+import { useRef, useState } from "react"
 import { TriangleAlert } from "lucide-react"
 import { useSondeo, getPendientes, aprobar, parsearPendiente, type Pendiente, type Opcion } from "@/api"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
 import { Cargando, SinConexion, Vacio, Punto } from "./bits"
+
+// Lo que el aviso confirma tras un veredicto aplicado (mismo vocabulario que el menú del daemon).
+const HECHO: Record<string, string> = {
+  Aprobar: "Aprobada: se ejecuta la acción propuesta",
+  Rechazar: "Rechazada: se retiene sin ejecutar",
+}
+
+// enviando: el POST está en vuelo · clases: «Reclasificar» aceptado, a la espera del submenú ·
+// hecho: veredicto aplicado, la tarjeta sale de la cola en el próximo refresco.
+type Estado = "listo" | "enviando" | "clases" | "hecho"
+const MENSAJE: Record<Exclude<Estado, "listo">, string> = {
+  enviando: "Enviando…",
+  clases: "Cargando las clases…",
+  hecho: "Aplicado. Sale de la cola en el próximo refresco.",
+}
 
 const CLASE_LEGIBLE: Record<string, string> = {
   vp_intento_acceso: "Intento de acceso",
@@ -36,6 +53,33 @@ function Tarjeta({ p }: { p: Pendiente }) {
   const escalada = p.tipo === "escalada"
   const conCascada = !!v.consecuencia && /cascada/.test(v.consecuencia)
   const clasificando = (v.titulo ?? "").startsWith("Nueva clase")
+  const toast = useToast()
+  const [estado, setEstado] = useState<Estado>("listo")
+  const enVuelo = useRef(false)                 // corta el doble clic antes de que llegue el re-render
+
+  // Envía el veredicto con el `paso` del menú que se ve. Mientras vuela, la tarjeta se bloquea; si
+  // el backend lo rechaza (409: ya resuelta o menú superado) se avisa y se reactiva.
+  async function responder(respuesta: string, etiqueta: string) {
+    if (enVuelo.current) return
+    enVuelo.current = true
+    setEstado("enviando")
+    const ok = await aprobar(p.id, respuesta, p.paso)
+    if (!ok) {
+      enVuelo.current = false
+      setEstado("listo")
+      toast({ type: "error", title: "No se aplicó el veredicto",
+        description: "Ya no estaba vigente (la resolvió otro operador o cambió el menú) o se perdió la conexión con el daemon." })
+      return
+    }
+    if (!escalada && !clasificando && etiqueta === "Reclasificar") {
+      setEstado("clases")                        // sigue bloqueada hasta que llegue el submenú (paso nuevo)
+      return
+    }
+    setEstado("hecho")
+    toast({ type: "success", description: v.incidente,
+      title: clasificando ? `Reclasificada como «${etiqueta}»` : HECHO[etiqueta] ?? etiqueta })
+  }
+  const bloqueada = estado !== "listo"
 
   return (
     <div className="overflow-hidden rounded-lg border border-amber-500/40 bg-amber-500/[0.04]">
@@ -71,14 +115,14 @@ function Tarjeta({ p }: { p: Pendiente }) {
         <div className="flex flex-wrap gap-2">
           {escalada ? (
             <>
-              <Button onClick={() => aprobar(p.id, "s")}>Aprobar</Button>
-              <Button variant="destructive" onClick={() => aprobar(p.id, "")}>Rechazar</Button>
+              <Button disabled={bloqueada} onClick={() => responder("s", "Aprobar")}>Aprobar</Button>
+              <Button disabled={bloqueada} variant="destructive" onClick={() => responder("", "Rechazar")}>Rechazar</Button>
             </>
           ) : v.opciones.length > 0 ? (
             v.opciones.map((op) => {
               const b = boton(op)
               return (
-                <Button key={op.n} variant={b.variante} onClick={() => aprobar(p.id, op.n)}>
+                <Button key={op.n} disabled={bloqueada} variant={b.variante} onClick={() => responder(op.n, b.etiqueta)}>
                   {b.etiqueta}
                 </Button>
               )
@@ -86,11 +130,14 @@ function Tarjeta({ p }: { p: Pendiente }) {
           ) : (
             // fallback: el prompt no trajo el menú (p. ej. daemon sin la última versión)
             <>
-              <Button onClick={() => aprobar(p.id, "1")}>Aprobar</Button>
-              <Button variant="destructive" onClick={() => aprobar(p.id, "2")}>Rechazar</Button>
+              <Button disabled={bloqueada} onClick={() => responder("1", "Aprobar")}>Aprobar</Button>
+              <Button disabled={bloqueada} variant="destructive" onClick={() => responder("2", "Rechazar")}>Rechazar</Button>
             </>
           )}
         </div>
+        {estado !== "listo" && (
+          <p aria-live="polite" className="text-xs text-muted-foreground">{MENSAJE[estado]}</p>
+        )}
       </div>
     </div>
   )
@@ -104,7 +151,8 @@ export function Aprobaciones() {
     return <Vacio>Nada que aprobar ahora mismo. Cuando una decisión necesite un humano, aparecerá aquí.</Vacio>
   return (
     <div className="space-y-4">
-      {p.map((x) => <Tarjeta key={x.id} p={x} />)}
+      {/* la clave incluye el paso: un menú nuevo (submenú de clases) monta la tarjeta con estado limpio */}
+      {p.map((x) => <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} />)}
     </div>
   )
 }

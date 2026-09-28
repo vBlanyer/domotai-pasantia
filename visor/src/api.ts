@@ -59,6 +59,9 @@ export const PendienteSchema = z.object({
   id: z.string(), tipo: z.string(), prompt: z.string(), lineas: z.array(z.string()),
   // cola no bloqueante: orden por severidad y cuántas repeticiones llegaron mientras espera.
   severidad: z.number().nullable().optional(), suprimidas: z.number().nullable().optional(),
+  // menú que se está mostrando: se reenvía al responder para que el backend descarte una
+  // respuesta a un menú ya superado (p. ej. «Aprobar» justo después de «Reclasificar»).
+  paso: z.number().nullable().optional(),
 })
 export const VerificacionSchema = z.object({
   ok: z.boolean(), roto_en: z.number().nullable().optional(), motivo: z.string().optional(),
@@ -101,11 +104,12 @@ export const getTrazaDetalle = (id: string) => pedir(`/api/traza/${encodeURIComp
 export const getVerificacion = () => pedir("/api/verificar", VerificacionSchema)
 export const getMetricas = () => pedir("/api/metricas", MetricasSchema)
 
-export async function aprobar(id: string, respuesta: string): Promise<boolean> {
+export async function aprobar(id: string, respuesta: string, paso?: number | null): Promise<boolean> {
   try {
     const r = await fetch(BASE + "/api/aprobar", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, respuesta }),
+      // sin paso (escaladas de la ruta bloqueante) no se manda y el backend no lo comprueba
+      body: JSON.stringify({ id, respuesta, ...(paso != null ? { paso } : {}) }),
     })
     return r.ok            // 200 -> true; 409 (pendiente caduca) -> false, no lanza
   } catch {
