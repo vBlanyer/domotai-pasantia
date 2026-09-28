@@ -55,6 +55,12 @@ Decanato de Estudios Profesionales de la USB.
 si se prefiere un motor autocontenido. Verificado (14/09/2026): **60 páginas**, compila limpio, sin
 citas ni referencias sin resolver y sin cajas desbordadas.
 
+> **Pendiente de recompilar.** El fuente (`ip6_resultados.tex` §"Ampliación posterior" e
+> `ip7_conclusiones.tex`) incorpora ya la **conciencia de impacto (D16)** —escalado 29,7 %, dos
+> contenciones indebidas expuestas y llevadas a cero, perfil bancario y laboratorio del banco—,
+> posterior a la compilación del 14/09. Hay que **recompilar** (`latexmk -pdf ip1_main.tex`) para
+> regenerar el PDF; tras hacerlo, actualizar el recuento de páginas aquí y en `estado-y-riesgos.md`.
+
 Se versionan solo las **fuentes** (`.tex`, `.bib`), las imágenes y el **PDF final**; los artefactos
 de compilación están en `.gitignore`.
 

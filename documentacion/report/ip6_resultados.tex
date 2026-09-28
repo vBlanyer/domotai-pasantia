@@ -152,7 +152,8 @@ dentro del caso de uso acotado--- fue de 0,088: solo el 8,8\,\% de las alertas d
 desplegado corresponden a un patrón clasificable, y el resto es telemetría interna de la propia
 plataforma. La tasa de escalado a validación humana fue de 0,0 sobre este conjunto, porque el
 clasificador determinista nunca reportó una confianza por debajo del umbral de escalado en estas
-alertas.
+alertas. Una ampliación posterior, recogida al final de esta sección, eleva esa cifra al ejercitar
+el escenario más exigente de continuidad.
 
 Sobre la métrica de continuidad ---el requisito que distingue a este trabajo de un sistema de
 respuesta automatizada convencional---, no se registró ninguna acción disruptiva indebida: ninguna
@@ -161,6 +162,34 @@ el cliente prestara. El escenario más exigente de esta métrica ---una acción 
 deba ser efectivamente retenida por la validación humana--- no llegó a ejercitarse sobre este
 conjunto de datos, lo que se documenta como una limitación de la muestra y no como una garantía
 general.
+
+% ---------------------------------------------------------------------------
+% Ampliación posterior al cierre de la Fase 6 (conciencia de impacto, D16)
+% ---------------------------------------------------------------------------
+\subsection{Ampliación posterior: continuidad bajo un atacante interno}
+
+El escenario más exigente que el conjunto anterior no pudo ejercitar sí se ejercitó al cierre del
+trabajo, mediante un perfil de cliente \textbf{bancario} ---continuidad extrema, con activos que no
+pueden interrumpirse--- y un laboratorio de banco de \textbf{catorce nodos} con servicios,
+dependencias reales y cascada entre activos, donde el atacante puede ser interno. En esa condición
+entra en juego la \textbf{conciencia de impacto} (requisitos RF-17 y RF-19): para cada contención,
+el sistema determina desde el inventario del perfil a quién bloquea y qué servicios detiene, y
+\textbf{retiene para validación humana todo bloqueo que recaiga sobre un activo interno} del cliente;
+cortar el canal de gestión es un veto duro.
+
+El coste de esa política es medible. Sobre la partición de evaluación de 300 alertas, la tasa de
+escalado a validación humana pasó a 0,297 ---89 de 300---: un 6,7\,\% por confianza ---las ráfagas
+desde el origen de administración que la sexta regla envía al analista--- y el resto porque el
+bloqueo recaía sobre un activo interno. Y, más revelador que el número, el indicador de continuidad
+afinado con la conciencia de impacto expuso \textbf{dos contenciones automáticas indebidas} que la
+métrica original no registraba ---el activo afectado no era un servicio prestado al exterior, así que
+no aparecían en el indicador---; con la retención de lo propio activada, esas dos pasan a
+\textbf{cero}. La automatización queda para los orígenes externos, y lo propio pasa siempre por una
+persona.
+
+Esta ampliación es posterior a la campaña principal de la Fase 6 y confirma, sobre el escenario que
+antes quedaba fuera de la muestra, la propiedad que distingue a este trabajo: un triaje que acierta
+más sin cortar lo que el cliente presta.
 
 % ===========================================================================
 \section{Calidad de la justificación: anclada, pero inicialmente poco fiable}
