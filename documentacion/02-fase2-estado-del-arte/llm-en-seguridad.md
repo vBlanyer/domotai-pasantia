@@ -116,7 +116,9 @@ despliegue.
 
 **Superficie nueva.** Añadir un modelo añade un componente que puede fallar, colgarse o ser atacado.
 De ahí la exigencia de degradación controlada: si el modelo no responde, la alerta va a cola manual
-y **nunca se descarta en silencio**.
+y **nunca se descarta en silencio**. Y la defensa de fondo: **la decisión de clasificación y la
+contención son deterministas —el modelo solo explica—**, así que colgarlo o inyectarlo **no cambia
+la respuesta**; a lo sumo ensucia la justificación, acotada por el anclaje verificable (RNF-02).
 
 ---
 
@@ -168,13 +170,24 @@ Cada uno se convierte en requisito en [requisitos.md](./requisitos.md):
 
 ## 7. Qué queda fuera de esta revisión
 
+> Nota (actualizada tras la Fase 5): dos de estos límites evolucionaron al implementar. Se conserva
+> el enunciado de la revisión (25/08) y se anota lo que cambió.
+
 - **Ajuste fino de modelos generativos.** El proyecto usa el generativo como está y ajusta, si
-  acaso, el encoder. Entrenar un generativo propio excede el alcance y el hardware.
+  acaso, el encoder. Entrenar un generativo propio excede el alcance y el hardware. *(Actualización:
+  el ajuste fino del **encoder también se descartó** —con unos cientos de filas memoriza y no valida
+  sin fuga—; el clasificador final es un **árbol de decisión** (`arbol.py`, CART). Hoy el proyecto
+  no ajusta finamente ningún modelo.)*
 - **Agentes autónomos con herramientas.** El motor de triaje decide una acción de un catálogo
   cerrado; no es un agente que planifica y encadena herramientas por su cuenta. La diferencia es
-  deliberada y es lo que mantiene el sistema auditable.
+  deliberada y es lo que mantiene el sistema auditable. *(Matiz: la **decisión** sigue siendo
+  determinista, no agéntica; la **mitigación multi-nodo** sí la resuelve un agente **ReAct** acotado
+  (`agente_mitigacion.py`, D14) que escala host→cortafuegos y consulta ATT&CK/D3FEND, pero **dentro
+  del catálogo cerrado y con aprobación por paso**, de modo que la auditabilidad se mantiene.)*
 - **Generación de reglas de detección.** Es otra aplicación legítima de los modelos de lenguaje en
-  seguridad, pero no es el problema de este proyecto.
+  seguridad, pero no es el problema de este proyecto. *(Sigue fuera: el árbol descubre reglas de
+  **clasificación** por CART y las reglas de Wazuh del banco son escritas a mano; ninguna se genera
+  con un LLM.)*
 
 ---
 
