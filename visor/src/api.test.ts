@@ -85,6 +85,13 @@ describe("parsearPendiente", () => {
     const v = parsearPendiente(submenu)
     expect(v.opciones.map((o) => o.etiqueta)).toEqual(["vp_acceso_consumado", "fp_actividad_legitima"])
   })
+  it("extrae los activos que caerían en cascada al aprobar", () => {
+    expect(parsearPendiente(veredicto).cascada).toEqual(["api-movil", "middleware", "web-banking"])
+  })
+  it("sin cascada en la consecuencia, la lista va vacía", () => {
+    const sin = { ...veredicto, lineas: ["Consecuencia: bloquea a 10.40.0.10 · 0 servicios detenidos"] }
+    expect(parsearPendiente(sin).cascada).toEqual([])
+  })
 })
 
 describe("baseApi", () => {

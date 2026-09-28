@@ -82,6 +82,44 @@ describe("Aprobaciones", () => {
     expect(await screen.findByText("Reclasificada como «Falso positivo (legítimo)»")).toBeInTheDocument()
   })
 
+  describe("con riesgo de cascada", () => {
+    const CONSEC = "Consecuencia: bloquea a 10.40.0.10 · en cascada: api-movil, middleware"
+    beforeEach(() => { h.pendientes = [tarjeta({ lineas: [INCID, CONSEC, MENU] })] })
+
+    it("Aprobar pide confirmación listando los activos y aún no envía", () => {
+      render(vista())
+      fireEvent.click(boton("Aprobar"))
+      const dialogo = screen.getByRole("alertdialog")
+      expect(dialogo).toHaveTextContent("api-movil")
+      expect(dialogo).toHaveTextContent("middleware")
+      expect(h.aprobar).not.toHaveBeenCalled()
+    })
+
+    it("confirmar envía el veredicto", () => {
+      h.aprobar.mockResolvedValue(true)
+      render(vista())
+      fireEvent.click(boton("Aprobar"))
+      fireEvent.click(boton("Aprobar igualmente"))
+      expect(h.aprobar).toHaveBeenCalledWith("7", "1", 0)
+    })
+
+    it("cancelar no envía nada", async () => {
+      render(vista())
+      fireEvent.click(boton("Aprobar"))
+      fireEvent.click(boton("Cancelar"))
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument())
+      expect(h.aprobar).not.toHaveBeenCalled()
+    })
+
+    it("Rechazar no pide confirmación (no ejecuta nada)", () => {
+      h.aprobar.mockResolvedValue(true)
+      render(vista())
+      fireEvent.click(boton("Rechazar"))
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+      expect(h.aprobar).toHaveBeenCalledWith("7", "2", 0)
+    })
+  })
+
   it("una escalada (ruta bloqueante) aprueba sin paso", () => {
     h.aprobar.mockResolvedValue(true)
     h.pendientes = [tarjeta({ tipo: "escalada", prompt: "¿aprobar? [s/N] ", lineas: [], paso: undefined })]

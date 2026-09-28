@@ -3,6 +3,7 @@ import { TriangleAlert } from "lucide-react"
 import { useSondeo, getPendientes, aprobar, parsearPendiente, type Pendiente, type Opcion } from "@/api"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
+import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Cargando, SinConexion, Vacio, Punto } from "./bits"
 
 // Lo que el aviso confirma tras un veredicto aplicado (mismo vocabulario que el menú del daemon).
@@ -51,7 +52,7 @@ function LineaInfo({ t }: { t: string }) {
 function Tarjeta({ p }: { p: Pendiente }) {
   const v = parsearPendiente(p)
   const escalada = p.tipo === "escalada"
-  const conCascada = !!v.consecuencia && /cascada/.test(v.consecuencia)
+  const conCascada = v.cascada.length > 0
   const clasificando = (v.titulo ?? "").startsWith("Nueva clase")
   const toast = useToast()
   const [estado, setEstado] = useState<Estado>("listo")
@@ -80,6 +81,14 @@ function Tarjeta({ p }: { p: Pendiente }) {
       title: clasificando ? `Reclasificada como «${etiqueta}»` : HECHO[etiqueta] ?? etiqueta })
   }
   const bloqueada = estado !== "listo"
+  const [confirmar, setConfirmar] = useState<{ respuesta: string; etiqueta: string } | null>(null)
+
+  // Aprobar un bloqueo que deja activos sin servicio en cascada exige un gesto consciente; rechazar
+  // o reclasificar no ejecutan nada y van directos.
+  function pulsar(respuesta: string, etiqueta: string) {
+    if (etiqueta === "Aprobar" && conCascada) setConfirmar({ respuesta, etiqueta })
+    else responder(respuesta, etiqueta)
+  }
 
   return (
     <div className="overflow-hidden rounded-lg border border-amber-500/40 bg-amber-500/[0.04]">
@@ -115,14 +124,14 @@ function Tarjeta({ p }: { p: Pendiente }) {
         <div className="flex flex-wrap gap-2">
           {escalada ? (
             <>
-              <Button disabled={bloqueada} onClick={() => responder("s", "Aprobar")}>Aprobar</Button>
-              <Button disabled={bloqueada} variant="destructive" onClick={() => responder("", "Rechazar")}>Rechazar</Button>
+              <Button disabled={bloqueada} onClick={() => pulsar("s", "Aprobar")}>Aprobar</Button>
+              <Button disabled={bloqueada} variant="destructive" onClick={() => pulsar("", "Rechazar")}>Rechazar</Button>
             </>
           ) : v.opciones.length > 0 ? (
             v.opciones.map((op) => {
               const b = boton(op)
               return (
-                <Button key={op.n} disabled={bloqueada} variant={b.variante} onClick={() => responder(op.n, b.etiqueta)}>
+                <Button key={op.n} disabled={bloqueada} variant={b.variante} onClick={() => pulsar(op.n, b.etiqueta)}>
                   {b.etiqueta}
                 </Button>
               )
@@ -130,14 +139,21 @@ function Tarjeta({ p }: { p: Pendiente }) {
           ) : (
             // fallback: el prompt no trajo el menú (p. ej. daemon sin la última versión)
             <>
-              <Button disabled={bloqueada} onClick={() => responder("1", "Aprobar")}>Aprobar</Button>
-              <Button disabled={bloqueada} variant="destructive" onClick={() => responder("2", "Rechazar")}>Rechazar</Button>
+              <Button disabled={bloqueada} onClick={() => pulsar("1", "Aprobar")}>Aprobar</Button>
+              <Button disabled={bloqueada} variant="destructive" onClick={() => pulsar("2", "Rechazar")}>Rechazar</Button>
             </>
           )}
         </div>
         {estado !== "listo" && (
           <p aria-live="polite" className="text-xs text-muted-foreground">{MENSAJE[estado]}</p>
         )}
+        <AlertDialog open={confirmar !== null} onOpenChange={(o) => { if (!o) setConfirmar(null) }}
+          title="¿Aprobar pese a la cascada?"
+          description="El bloqueo deja sin servicio a los activos que dependen de este:"
+          confirmLabel="Aprobar igualmente"
+          onConfirm={() => { if (confirmar) responder(confirmar.respuesta, confirmar.etiqueta) }}>
+          <ul className="list-disc space-y-0.5 pl-5">{v.cascada.map((a) => <li key={a}>{a}</li>)}</ul>
+        </AlertDialog>
       </div>
     </div>
   )

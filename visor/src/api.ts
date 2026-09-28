@@ -126,6 +126,7 @@ export function controlesDePendiente(p: Pendiente): { etiqueta: string; respuest
 export type Opcion = { n: string; etiqueta: string }
 export type PendienteVista = {
   incidente?: string; info: string[]; consecuencia?: string; titulo?: string; opciones: Opcion[]
+  cascada: string[]   // activos que dependen del bloqueado y caerían al aprobar
 }
 
 // Convierte las líneas capturadas del prompt de la terminal en algo presentable: separa la info del
@@ -148,7 +149,10 @@ export function parsearPendiente(p: Pendiente): PendienteVista {
     if (t.startsWith("Consecuencia:")) { consecuencia = t.slice("Consecuencia:".length).trim(); continue }
     info.push(t)
   }
-  return { incidente, info, consecuencia, titulo, opciones }
+  // impacto._motivo cierra la consecuencia con « · en cascada: a, b, c» cuando la hay.
+  const m = consecuencia?.match(/en cascada:\s*(.+)$/)
+  const cascada = m ? m[1].split(",").map((s) => s.trim()).filter(Boolean) : []
+  return { incidente, info, consecuencia, titulo, opciones, cascada }
 }
 
 export function useSondeo<T>(fn: () => Promise<T>, ms = 2000): T | undefined {
