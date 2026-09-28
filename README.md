@@ -46,12 +46,16 @@ python3 -m unittest discover -s prototipo/tests
 # Triaje sobre el dataset (baseline determinista, sin modelo)
 python3 -m prototipo.triaje lab/dataset/etiquetado.jsonl \
     prototipo/perfiles/empresarial.yml \
-    lab/campañas/2026-08-31-evaluacion/hallazgos.json salida.jsonl
+    lab/campañas/2026-08-31-evaluacion/hallazgos.json run/salida.jsonl
 ```
 
 El justificador con LLM vive en un entorno conda aparte (`~/miniforge3`, sin sudo) y se invoca por
 subprocess; su instalación está documentada en [`prototipo/README.md`](prototipo/README.md). El
 laboratorio se levanta con [`lab/lab.sh`](lab/lab.sh) (requiere Docker + Containerlab).
+
+Para operar el sistema completo (levantar el laboratorio del banco, las pantallas de terminal y web, los
+flags del daemon y la solución de problemas), el runbook es **[`RUNBOOK.md`](RUNBOOK.md)**; el
+catálogo detallado de pruebas por categoría está en **[`docs/pruebas/`](docs/pruebas/README.md)**.
 
 ## Cómo está organizado el repositorio
 
@@ -62,8 +66,9 @@ laboratorio se levanta con [`lab/lab.sh`](lab/lab.sh) (requiere Docker + Contain
 - **[`prototipo/`](prototipo/)** — el motor de triaje (el código de la Fase 5).
 - **[`lab/`](lab/)** — el laboratorio ejecutable y el dataset (la Fase 3).
 - **[`evaluacion/`](evaluacion/)** — el marco de medición (la Fase 6).
-- **[`docs/superpowers/`](docs/superpowers/)** — las especificaciones y planes de implementación de cada
-  subproyecto de código.
+- **[`archivo/`](archivo/)** — material de proceso archivado (no es diseño vigente): las especificaciones y
+  planes de implementación de cada subproyecto ([`proceso-desarrollo/superpowers/`](archivo/proceso-desarrollo/superpowers/)),
+  borradores y scripts externos auxiliares.
 
 ## Estado del proyecto
 

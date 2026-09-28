@@ -75,8 +75,8 @@ La salida de `python3 -m prototipo.stream …` es la vista principal:
 
 ### B. Web — el visor React (con `--web`)
 
-Consola visual que consume la misma API del daemon (tema claro/oscuro). **Paneles:** Panel (KPIs +
-gráficos), Estado de servicios (las apps de negocio en verde/rojo + dependencias), Equipos (inventario de
+Consola visual que consume la misma API del daemon (tema claro/oscuro). **Siete vistas:** Panel (KPIs +
+gráficos), Métricas (tendencia y distribución en el tiempo), Estado de servicios (las apps de negocio en verde/rojo + dependencias), Equipos (inventario de
 dispositivos del perfil por categoría, con criticidad/estado/postura), Decisiones (el feed; filas
 expandibles con justificación, MITRE y pasajes del RAG), Aprobaciones (aprobar/rechazar desde el navegador)
 y Trazas (registro completo + verificar la cadena de hashes).
@@ -160,7 +160,7 @@ python3 -m prototipo.stream <fuente> <perfil> <hallazgos> [flags]
 | `--con-llm` / `--sin-llm` | Justificación con el LLM 1B real / por plantilla (rápida). Por defecto sin LLM. |
 | `--agente` | Mitigación con el agente ReAct (escala host→cortafuegos, aprobación por paso). |
 | `--ventana-agrupacion N` | Segundos para agrupar alertas en incidentes (por defecto 5). |
-| `--salida F` | Fichero de traza (por defecto `trazas-stream.jsonl`). Usa uno nuevo para una cadena limpia. |
+| `--salida F` | Fichero de traza (por defecto `run/trazas-stream.jsonl`). Usa uno nuevo para una cadena limpia. |
 | `--sin-supresion` | Desactiva la supresión de repetidos (audita cada alerta). |
 | `--sin-lab` | No usa el laboratorio (ejecutor simulado); para probar el motor sin Docker. |
 
@@ -210,7 +210,7 @@ unset TRIAJE_NODO_GESTION AUDITOR_PUERTOS
 | El visor muestra «sin conexión con el daemon» | El daemon no corre con `--web`, o el puerto no coincide | Lanza el daemon con `--web`; en `npm run dev`, el daemon debe estar en `:8787` |
 | `Address already in use` al lanzar `--web` | Ya hay un daemon en ese puerto | Cierra el anterior, o usa `--web <otro-puerto>` |
 | «La red pequeña está levantada» al hacer `up banco` | Las dos redes no conviven | `sh lab/lab.sh down` y reintenta |
-| `Trazas` en el visor dice «cadena rota» | El fichero de traza por defecto arrastra registros viejos (previos al encadenado) | Arranca el daemon con `--salida trazas-banco-$(date +%F).jsonl` (cadena limpia) |
+| `Trazas` en el visor dice «cadena rota» | El fichero de traza por defecto arrastra registros viejos (previos al encadenado) | Arranca el daemon con `--salida run/trazas-banco-$(date +%F).jsonl` (cadena limpia) |
 
 ---
 
