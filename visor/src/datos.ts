@@ -13,6 +13,13 @@ export function filtrarDecisiones(ds: Decision[], f: Filtro): Decision[] {
   })
 }
 
+// Identidad estable de una fila: la posición del registro en la cadena. No el id_decision (se repite
+// en los resúmenes de supresión y al relanzar el daemon) ni el índice en pantalla (cambia al filtrar o
+// al deslizarse la ventana de las últimas N).
+export function claveDe(d: Decision, i: number): string {
+  return d.indice != null ? `#${d.indice}` : `${i}:${d.id_decision ?? ""}`
+}
+
 export function clasesDe(ds: Decision[]): string[] {
   return [...new Set(ds.map((d) => d.clase).filter((c): c is string => !!c))].sort()
 }

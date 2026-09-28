@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { describe, it, expect, vi, beforeEach } from "vitest"
+import { render, screen, fireEvent } from "@testing-library/react"
 import type { Decision } from "@/api"
 
 // El detalle se pide a /api/traza/<id>: aquí lo sirve un doble.
@@ -82,6 +82,32 @@ describe("Fila de la tabla de decisiones", () => {
     render(<Decisiones />)
     expect(screen.getByRole("columnheader", { name: "Prioridad" })).toBeInTheDocument()
     expect(screen.getByText("P3 · alta")).toBeInTheDocument()
+  })
+})
+
+describe("Identidad de las filas", () => {
+  beforeEach(() => { h.detalle = { id_decision: "s1", justificacion: "x", orden: null } })
+
+  it("dos registros con el mismo id no se abren juntos ni chocan sus claves", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {})
+    h.decisiones = [{ indice: 4, id_decision: "s1", activo: "a1", clase: "vp_intento_acceso" },
+                    { indice: 9, id_decision: "s1", activo: "a2", clase: "vp_intento_acceso" }]
+    render(<Decisiones />)
+    fireEvent.click(screen.getByText("a1"))
+    expect(await screen.findAllByText("Justificación")).toHaveLength(1)
+    expect(err.mock.calls.some((c) => String(c[0]).includes("same key"))).toBe(false)
+    err.mockRestore()
+  })
+
+  it("la fila abierta sigue en su decisión cuando la ventana se desliza", async () => {
+    h.decisiones = [{ indice: 1, id_decision: "s1", activo: "a1" }, { indice: 2, id_decision: "s2", activo: "a2" }]
+    const { rerender } = render(<Decisiones />)
+    fireEvent.click(screen.getByText("a2"))
+    await screen.findByText("Justificación")
+    h.decisiones = [{ indice: 2, id_decision: "s2", activo: "a2" }, { indice: 3, id_decision: "s3", activo: "a3" }]
+    rerender(<Decisiones />)
+    const detalle = screen.getByText("Justificación").closest("tr")!
+    expect(detalle.previousElementSibling).toHaveTextContent("a2")
   })
 })
 

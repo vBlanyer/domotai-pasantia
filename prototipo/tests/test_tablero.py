@@ -244,6 +244,14 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(r["hash"], "abc123")
         self.assertEqual(r["hash_previo"], "0" * 64)
 
+    def test_lista_trazas_anota_el_indice_global_en_la_cadena(self):
+        # Con la cota, la ventana empieza a mitad de la traza: el índice global identifica cada
+        # registro (los id_decision se repiten) y casa con el roto_en de /api/verificar.
+        ruta = self._traza_tmp([{"id_decision": "s1"}, {"id_decision": "s1"}, {"id_decision": "s2"}])
+        self.assertEqual([r["indice"] for r in tablero.lista_trazas(ruta)], [0, 1, 2])
+        self.assertEqual([r["indice"] for r in tablero.lista_trazas(ruta, n=2)], [1, 2])
+        self.assertEqual([r["indice"] for r in tablero.lista_trazas(ruta, n=9)], [0, 1, 2])
+
     def test_resumen_traza_expone_prioridad_veredicto_y_filtro(self):
         # Lo que el analista necesita en la fila: gravedad, qué decidió el humano (y a qué clase
         # corrigió) y si la acción propuesta se vetó o degradó antes de ser la final.

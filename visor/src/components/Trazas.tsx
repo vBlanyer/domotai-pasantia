@@ -3,7 +3,7 @@ import { useSondeo, getTrazas, getVerificacion, type Decision } from "@/api"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, Punto, BarraFiltros } from "./bits"
-import { filtrarDecisiones, clasesDe, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, type Filtro } from "@/datos"
 
 type Estado = { texto: string; ok: boolean; roto?: number | null } | null
 
@@ -33,7 +33,8 @@ export function Trazas() {
   // Se filtra preservando el índice real de la cadena (para el # y el resaltado de "roto"):
   // filtrarDecisiones conserva las referencias, así que basta un Set por identidad.
   const enFiltro = new Set(filtrarDecisiones(regs, filtro))
-  const filas = regs.map((r, i) => ({ r, i })).filter(({ r }) => enFiltro.has(r))
+  // `i` es la posición en la cadena completa (el backend la anota): la ventana puede empezar a mitad.
+  const filas = regs.map((r, k) => ({ r, k, i: r.indice ?? k })).filter(({ r }) => enFiltro.has(r))
 
   return (
     <div className="space-y-3">
@@ -74,11 +75,11 @@ export function Trazas() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filas.map(({ r, i }) => {
+              {filas.map(({ r, k, i }) => {
                 const roto = cadena?.roto === i
                 const suprimida = r.tipo === "actividad_suprimida"
                 return (
-                  <TableRow key={r.id_decision ?? i} className={roto ? "bg-rose-500/10" : undefined}>
+                  <TableRow key={claveDe(r, k)} className={roto ? "bg-rose-500/10" : undefined}>
                     <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-mono text-xs">{r.id_decision ?? "—"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{r.timestamp}</TableCell>

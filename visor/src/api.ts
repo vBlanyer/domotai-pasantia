@@ -28,6 +28,8 @@ export const DecisionSchema = z.object({
   prioridad: z.number().nullable().optional(), accion_propuesta: z.string().nullable().optional(),
   resultado_filtro: z.string().nullable().optional(), veredicto_humano: z.string().nullable().optional(),
   clase_reclasificada: z.string().nullable().optional(),
+  // posición en la cadena completa: identidad de la fila (los id_decision se repiten)
+  indice: z.number().nullable().optional(),
 })
 // Detalle completo de una decisión (/api/traza/<id>): el texto de la justificación y los pasajes
 // del RAG. Laxo a propósito (`passthrough`): la traza lleva muchos más campos que no renderizamos.

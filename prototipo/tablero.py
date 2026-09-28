@@ -308,9 +308,10 @@ def lista_trazas(ruta, n=None):
         regs = traza.leer_registros(ruta)
     except FileNotFoundError:
         return []
-    if n:
-        regs = regs[-n:]
-    return [_resumen_traza(r) for r in regs]
+    # `indice` es la posición del registro en la cadena completa: identifica cada fila en el visor
+    # (los id_decision se repiten entre relanzamientos) y casa con el roto_en de /api/verificar.
+    inicio = max(0, len(regs) - n) if n else 0
+    return [{**_resumen_traza(r), "indice": inicio + k} for k, r in enumerate(regs[inicio:])]
 
 
 _CORPUS_POR_ID = None

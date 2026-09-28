@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Shield, ShieldCheck, ShieldX, TriangleAlert 
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros, Prioridad } from "./bits"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
 
 const COLS = 8
 
@@ -262,14 +262,17 @@ export function Decisiones() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtradas.map((x, i) => (
-              <FilaDecision
-                key={x.id_decision ?? i}
-                d={x}
-                abierto={!!x.id_decision && abierto === x.id_decision}
-                onToggle={() => setAbierto((a) => (a === x.id_decision ? null : x.id_decision ?? null))}
-              />
-            ))}
+            {filtradas.map((x, i) => {
+              const clave = claveDe(x, i)
+              return (
+                <FilaDecision
+                  key={clave}
+                  d={x}
+                  abierto={abierto === clave}
+                  onToggle={() => setAbierto((a) => (a === clave ? null : clave))}
+                />
+              )
+            })}
           </TableBody>
         </Table>
       </div>
