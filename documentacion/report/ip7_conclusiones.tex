@@ -19,11 +19,12 @@ la detección de amenazas reales. Los resultados del capítulo \ref{cap:resultad
 objetivo se cumplió dentro del caso de uso acotado sobre el que se evaluó: el prototipo suprimió
 los falsos positivos que el nivel de regla de Wazuh deja pasar ---tasa de 0,000 frente a 0,282---,
 sin dejar de detectar ninguna amenaza real y sin ejecutar ninguna acción que hubiera interrumpido
-indebidamente un servicio del cliente. Una ampliación posterior ---sobre un perfil bancario y un
-laboratorio de banco donde el atacante es interno--- ejercitó el escenario más exigente de esta
-métrica: con la conciencia de impacto activada, el escalado a validación humana sube al 29,7\,\% y
-las contenciones automáticas indebidas ---dos que el indicador de continuidad original no veía---
-pasan a cero. Este resultado confirma, con datos y no solo con diseño, la
+indebidamente un servicio del cliente. Una ampliación posterior ---la conciencia de impacto, medida
+sobre el laboratorio donde el atacante es interno--- ejercitó el escenario más exigente de esta
+métrica: al retener para validación humana todo bloqueo que recae sobre un activo propio, las
+contenciones automáticas indebidas ---dos que el indicador de continuidad original no veía--- pasan a
+cero y el escalado a validación humana sube al 29,7\,\%. Este resultado confirma, con datos y no solo
+con diseño, la
 idea central del trabajo: separar la clasificación, la decisión y la justificación en componentes
 distintos ---una política determinista que decide, un perfil de cliente que filtra, y un modelo de
 lenguaje que solo explica--- permite obtener las ventajas de un modelo de lenguaje sin heredar su

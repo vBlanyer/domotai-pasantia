@@ -169,23 +169,27 @@ general.
 \subsection{Ampliación posterior: continuidad bajo un atacante interno}
 
 El escenario más exigente que el conjunto anterior no pudo ejercitar sí se ejercitó al cierre del
-trabajo, mediante un perfil de cliente \textbf{bancario} ---continuidad extrema, con activos que no
-pueden interrumpirse--- y un laboratorio de banco de \textbf{catorce nodos} con servicios,
-dependencias reales y cascada entre activos, donde el atacante puede ser interno. En esa condición
-entra en juego la \textbf{conciencia de impacto} (requisitos RF-17 y RF-19): para cada contención,
-el sistema determina desde el inventario del perfil a quién bloquea y qué servicios detiene, y
+trabajo, con la \textbf{conciencia de impacto} (requisitos RF-17 y RF-19): para cada contención, el
+sistema determina desde el inventario del perfil a quién bloquea y qué servicios detiene, y
 \textbf{retiene para validación humana todo bloqueo que recaiga sobre un activo interno} del cliente;
-cortar el canal de gestión es un veto duro.
+cortar el canal de gestión es un veto duro. Se midió sobre la partición de evaluación de 300 alertas
+con el perfil empresarial corregido para describir la red real del laboratorio, donde el atacante es
+\emph{interno}: las ráfagas de fuerza bruta salen del puesto de un empleado.
 
-El coste de esa política es medible. Sobre la partición de evaluación de 300 alertas, la tasa de
-escalado a validación humana pasó a 0,297 ---89 de 300---: un 6,7\,\% por confianza ---las ráfagas
-desde el origen de administración que la sexta regla envía al analista--- y el resto porque el
-bloqueo recaía sobre un activo interno. Y, más revelador que el número, el indicador de continuidad
-afinado con la conciencia de impacto expuso \textbf{dos contenciones automáticas indebidas} que la
-métrica original no registraba ---el activo afectado no era un servicio prestado al exterior, así que
-no aparecían en el indicador---; con la retención de lo propio activada, esas dos pasan a
-\textbf{cero}. La automatización queda para los orígenes externos, y lo propio pasa siempre por una
-persona.
+El coste de esa política es medible. Las contenciones automáticas ---ejecutadas sin intervención
+humana--- pasaron de 69 a \textbf{cero}: las 69 bloqueaban el puesto de un empleado, y \textbf{dos de
+ellas eran falsos positivos} ---un empleado desconectado sin que nadie lo aprobara--- que el
+indicador de continuidad original no registraba, porque solo miraba las acciones que alcanzan un
+servicio prestado al exterior. Una métrica nueva, la de bloqueos automáticos indebidos, cubre ese
+punto ciego: esas dos pasan a \textbf{cero}. La tasa de escalado a validación humana subió en
+consecuencia de 0,067 a \textbf{0,297} ---89 de 300---, sin que la clasificación cambiara (recall
+1,000, tasa de falsos positivos 0,009). La automatización queda para los orígenes externos, y lo
+propio pasa siempre por una persona.
+
+El mecanismo es configurable por perfil. Un perfil de cliente \textbf{bancario} ---continuidad
+extrema, con activos críticos que no pueden interrumpirse--- lo lleva al límite, y se demostró en
+vivo sobre un laboratorio de banco de \textbf{catorce nodos} con servicios, dependencias reales y
+cascada entre activos.
 
 Esta ampliación es posterior a la campaña principal de la Fase 6 y confirma, sobre el escenario que
 antes quedaba fuera de la muestra, la propiedad que distingue a este trabajo: un triaje que acierta

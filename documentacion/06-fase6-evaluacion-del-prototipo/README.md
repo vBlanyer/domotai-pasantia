@@ -72,6 +72,18 @@ límites —cubre 4 de las 6 categorías (las 2 finas exigen etiquetas de las qu
 están medidos y documentados. Los números de la campaña original y su análisis están en el
 [informe](informe-evaluacion.md).
 
+**Conciencia de impacto (21/09/2026).** Una ampliación posterior midió, sobre la misma partición de
+300 y con el perfil `empresarial` corregido para describir la red real del laboratorio, **a quién
+bloqueaban de verdad** las contenciones automáticas: 69 recaían sobre el puesto de un empleado —en
+el laboratorio el atacante es **interno**— y **dos eran falsos positivos** que el indicador de
+continuidad original no veía (solo miraba las acciones que alcanzan un servicio prestado al exterior).
+Con la retención de lo propio (**D16**, RF-17/RF-19) esas 69 automáticas y las 2 indebidas pasan a
+**cero**, y el escalado a validación humana sube de 0,067 a **0,297 (89/300)** sin cambiar la
+clasificación (recall 1,000, FP 0,009). La **ablación de postura** confirma margen **0** para un LLM
+en la decisión (D15). El mecanismo es configurable por perfil: un perfil **bancario** de continuidad
+extrema y un **laboratorio de banco** de 14 nodos lo llevan al límite en la validación en vivo. Todas
+las cifras, en [resultados vigentes](../../evaluacion/resultados/README.md).
+
 **Criterio de cierre** (roadmap): cumplido — existen resultados cuantitativos (tabla comparativa,
 curva del baseline) y cualitativos (lectura de las justificaciones) que demuestran el valor y las
 limitaciones del enfoque. Queda pendiente para un dataset mayor: la calibración del umbral de escalado
