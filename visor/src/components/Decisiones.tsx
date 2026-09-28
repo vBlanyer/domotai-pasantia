@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Shield, ShieldCheck, ShieldX, TriangleAlert 
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros } from "./bits"
-import { filtrarDecisiones, clasesDe, contencionDe, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
 
 const COLS = 7
 
@@ -114,6 +114,7 @@ function Detalles({ id }: { id: string }) {
   const motivo = det.impacto_determinado?.motivo
   const cascada = det.impacto_determinado?.activos_afectados_en_cascada ?? []
   const pasajes = det.pasajes ?? []
+  const filtro = filtroLegible(det)
 
   return (
     <div className="space-y-4">
@@ -152,7 +153,19 @@ function Detalles({ id }: { id: string }) {
           </Campo>
         )}
       </div>
-      {motivo && <Campo etiqueta="Impacto"><span className="text-muted-foreground">{motivo}</span></Campo>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {(det.accion_propuesta || filtro) && (
+          <Campo etiqueta="Política del perfil">
+            <div className="font-mono text-xs">
+              {det.accion_propuesta && det.accion_propuesta !== det.accion_final
+                ? `${det.accion_propuesta} → ${det.accion_final ?? "ninguna"}`
+                : det.accion_propuesta ?? det.accion_final ?? "—"}
+            </div>
+            {filtro && <div className="mt-0.5 text-muted-foreground">{filtro}</div>}
+          </Campo>
+        )}
+        {motivo && <Campo etiqueta="Impacto"><span className="text-muted-foreground">{motivo}</span></Campo>}
+      </div>
       <Campo etiqueta="Conocimiento recuperado (RAG)">
         <Pasajes pasajes={pasajes} consulta={det.consulta_rag} />
       </Campo>

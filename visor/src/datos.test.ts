@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -75,5 +75,29 @@ describe("contencionDe", () => {
   it("modo agente: manda el plan del agente", () => {
     const c = contencionDe({ mitigacion_agente: { resultado: "mitigado", escalado: true, dispositivo_ejecutor: "firewall" } } as Detalle)
     expect(c).toMatchObject({ estado: "contenida", escalada: true, dispositivo: "firewall" })
+  })
+})
+
+describe("filtroLegible", () => {
+  // Mismo vocabulario que validacion.filtro_legible del daemon (lo que el analista ve en la terminal).
+  it("veto con acción final: queda retenida para aprobar", () => {
+    expect(filtroLegible({ resultado_filtro: "veta", accion_final: "BLOQUEAR_IP" })).toBe("retenida — espera tu aprobación")
+  })
+  it("veto sin acción final: no se puede ejecutar", () => {
+    expect(filtroLegible({ resultado_filtro: "veta", accion_final: null })).toBe("vetada — no se puede ejecutar")
+  })
+  it("degradada: dice por qué acción se sustituye y si espera aprobación", () => {
+    expect(filtroLegible({ resultado_filtro: "degrada", accion_final: "BLOQUEAR_IP" }))
+      .toBe("degradada — se sustituye por BLOQUEAR_IP")
+    expect(filtroLegible({ resultado_filtro: "degrada", accion_final: "BLOQUEAR_IP", requiere_humano: true }))
+      .toBe("degradada — se sustituye por BLOQUEAR_IP; espera tu aprobación")
+  })
+  it("permitida: automática, salvo que otra regla pida humano", () => {
+    expect(filtroLegible({ resultado_filtro: "permite" })).toBe("automática")
+    expect(filtroLegible({ resultado_filtro: "permite", requiere_humano: true })).toBe("permitida — espera tu aprobación")
+  })
+  it("sin acción y sin dato", () => {
+    expect(filtroLegible({ resultado_filtro: "sin_accion" })).toBe("sin acción")
+    expect(filtroLegible({})).toBeNull()
   })
 })

@@ -55,3 +55,22 @@ export function contencionDe(det: Detalle): Contencion {
       dispositivo: esc.dispositivo_ejecutor ?? undefined, desde: orden.nodo_objetivo ?? undefined }
   return { ...base, estado: "fallida", escalada: false }  // sin topología a la que escalar
 }
+
+// Cómo trató el filtro del perfil la acción propuesta (mismas frases que validacion.filtro_legible
+// en la terminal del daemon). El «por qué» fino (veto de gestión, cascada…) está en el motivo del impacto.
+export function filtroLegible(d: {
+  resultado_filtro?: string | null; accion_final?: string | null; requiere_humano?: boolean | null
+}): string | null {
+  switch (d.resultado_filtro) {
+    case "veta":
+      return d.accion_final ? "retenida — espera tu aprobación" : "vetada — no se puede ejecutar"
+    case "degrada":
+      return `degradada — se sustituye por ${d.accion_final ?? "—"}` + (d.requiere_humano ? "; espera tu aprobación" : "")
+    case "permite":
+      return d.requiere_humano ? "permitida — espera tu aprobación" : "automática"
+    case "sin_accion":
+      return "sin acción"
+    default:
+      return d.resultado_filtro ?? null
+  }
+}

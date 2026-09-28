@@ -44,6 +44,8 @@ export const DetalleSchema = z.object({
   pasajes_usados: z.array(z.string()).nullable().optional(),   // IDs; el backend los resuelve en `pasajes`
   pasajes: z.array(PasajeSchema).nullable().optional(),         // {id, titulo, texto} del corpus
   accion_propuesta: z.string().nullable().optional(), accion_final: z.string().nullable().optional(),
+  // cómo trató el filtro del perfil la propuesta (veta/degrada/permite) y si pidió humano
+  resultado_filtro: z.string().nullable().optional(), requiere_humano: z.boolean().nullable().optional(),
   justificacion_estructurada: z.object({
     evidencia: z.record(z.string(), z.unknown()).nullable().optional(),
     tecnica_mitre: z.array(z.string()).nullable().optional(),
