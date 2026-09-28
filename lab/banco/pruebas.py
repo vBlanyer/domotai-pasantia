@@ -452,7 +452,7 @@ def informe(resultados, cuando):
     orden = ["OK", "FALLO", "BLOQUEADO", "OMITIDO"]
     cab = " · ".join(f"{por_res.get(k, 0)} {k}" for k in orden if por_res.get(k))
     lineas = [f"# Banco de pruebas del laboratorio del banco — {cuando}", "",
-              f"**{cab}** de {len(resultados)} casos. Catálogo: `docs/superpowers/specs/2026-09-21-laboratorio-banco-design.md` §4.", "",
+              f"**{cab}** de {len(resultados)} casos. Catálogo: `archivo/proceso-desarrollo/superpowers/specs/2026-09-21-laboratorio-banco-design.md` §4.", "",
               "| Caso | Nivel | Resultado | Tiempo | Qué se comprobó / qué falló |", "|---|---|---|---|---|"]
     for r in resultados:
         detalle = "; ".join(r["detalle"]) if r["detalle"] else r["titulo"]

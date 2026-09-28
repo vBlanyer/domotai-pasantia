@@ -33,7 +33,7 @@ python3 -m prototipo.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empr
     lab/campañas/2026-08-31-evaluacion/hallazgos.json salida.jsonl
 ```
 
-**Esperado:** `410 decisiones -> salida.jsonl`. Cada línea es una traza auditable (`clase`, `prioridad`,
+**Esperado:** `600 decisiones -> salida.jsonl`. Cada línea es una traza auditable (`clase`, `prioridad`,
 `confianza`, `justificacion`, `accion_propuesta`, `resultado_filtro`, `accion_final`, `requiere_humano`,
 `version_justificador`…). Inspecciona una:
 ```bash

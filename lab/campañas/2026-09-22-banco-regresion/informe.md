@@ -1,6 +1,6 @@
 # Banco de pruebas del laboratorio del banco — 2026-09-22 14:28
 
-**21 OK** de 21 casos. Catálogo: `docs/superpowers/specs/2026-09-21-laboratorio-banco-design.md` §4.
+**21 OK** de 21 casos. Catálogo: `archivo/proceso-desarrollo/superpowers/specs/2026-09-21-laboratorio-banco-design.md` §4.
 
 | Caso | Nivel | Resultado | Tiempo | Qué se comprobó / qué falló |
 |---|---|---|---|---|

@@ -1,5 +1,8 @@
-> ⚠️ **Documento archivado — superado.** Esta es la versión antigua del plan (6 objetivos, uno incompleto).
-> El plan vigente es [planDeTrabajoActualizado.md](../00-general/planDeTrabajoActualizado.md). Se conserva solo por trazabilidad.
+> ⚠️ **Documento archivado — superado.** Versión antigua del plan. Sus objetivos generales **saltan del
+> diseño de la arquitectura (obj. 4, cortado a media frase) directamente a la evaluación (obj. 5), sin un
+> objetivo de desarrollo/implementación del prototipo** — el hueco que motivó la revisión. El plan vigente,
+> que sí incorpora la fase de desarrollo, es
+> [planDeTrabajoActualizado.md](../00-general/planDeTrabajoActualizado.md). Se conserva solo por trazabilidad.
 
 # Resumen
 

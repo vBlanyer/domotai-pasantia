@@ -1,6 +1,6 @@
 # Captura CEF y JSON de Wazuh (21/09/2026)
 
-Evidencia para el [análisis de adaptabilidad a CEF](../../../docs/superpowers/specs/2026-09-21-adaptabilidad-fuente-cef-analisis.md).
+Evidencia para el [análisis de adaptabilidad a CEF](../../../archivo/proceso-desarrollo/superpowers/specs/2026-09-21-adaptabilidad-fuente-cef-analisis.md).
 
 - `wazuh-cef.log`: la salida `syslog_output` de Wazuh 4.14.7 con `<format>cef</format>` (demonio `wazuh-csyslogd`).
 - `wazuh-json-syslog.log`: los **mismos 11 eventos** con `<format>json</format>`.

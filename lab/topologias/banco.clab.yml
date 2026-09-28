@@ -1,4 +1,4 @@
-# Laboratorio del banco (spec docs/superpowers/specs/2026-09-21-laboratorio-banco-design.md §5).
+# Laboratorio del banco (spec archivo/proceso-desarrollo/superpowers/specs/2026-09-21-laboratorio-banco-design.md §5).
 # Misma red que prototipo/perfiles/bancario.yml; la fuente unica de IPs y servicios es lab/banco/red.py
 # (lab/banco/tests/test_topologia.py comprueba que coinciden).
 #

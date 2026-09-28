@@ -198,7 +198,7 @@ seguridad (`documentacion/00-general/estado-y-riesgos.md` §7).
 Pregunta: el catálogo declaraba el impacto de una acción por su tipo (`BLOQUEAR_IP` siempre «localizado»,
 bloquee a quien bloquee). ¿A quién bloqueaban de verdad las contenciones automáticas? Se midió sobre la
 partición de evaluación con el perfil `empresarial` corregido para describir la red real del laboratorio
-(spec: `docs/superpowers/specs/2026-09-21-conciencia-de-impacto-design.md`).
+(spec: `archivo/proceso-desarrollo/superpowers/specs/2026-09-21-conciencia-de-impacto-design.md`).
 
 | Métrica | 11/09 | 21/09 |
 |---|---|---|

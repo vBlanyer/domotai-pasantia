@@ -52,7 +52,7 @@ Decanato de Estudios Profesionales de la USB.
 | `ip8_referencias.bib` | Bibliografía (11 fuentes verificadas, estilo `unsrt`/IEEE) |
 
 **Compilar:** `latexmk -pdf ip1_main.tex` desde ese directorio, o `tectonic -X compile ip1_main.tex`
-si se prefiere un motor autocontenido. Verificado el 10/09/2026: **44 páginas, sin errores**, sin
+si se prefiere un motor autocontenido. Verificado (14/09/2026): **60 páginas**, compila limpio, sin
 citas ni referencias sin resolver y sin cajas desbordadas.
 
 Se versionan solo las **fuentes** (`.tex`, `.bib`), las imágenes y el **PDF final**; los artefactos

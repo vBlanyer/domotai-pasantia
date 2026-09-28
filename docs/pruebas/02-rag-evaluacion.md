@@ -36,7 +36,7 @@ python3 -m prototipo.extraer_attack [bundle.json] [curado.jsonl] [corpus.jsonl]
 python3 -m prototipo.extraer_attack
 ```
 
-**Esperado:** `15 tecnicas extraidas + 14 curadas -> 29 fichas -> prototipo/corpus/corpus.jsonl`.
+**Esperado:** `15 tecnicas extraidas + 17 curadas -> 32 fichas -> prototipo/corpus/corpus.jsonl`.
 
 ## 2.3 · Indexar y consultar el RAG (5D)
 

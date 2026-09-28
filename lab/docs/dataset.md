@@ -7,7 +7,7 @@ frente al baseline de Wazuh.
 
 Vive en [`lab/dataset/etiquetado.jsonl`](../dataset/etiquetado.jsonl), una línea JSON por alerta.
 El diseño completo —arquitectura, árbol de decisión y límites conocidos— está en la
-[especificación](../../docs/superpowers/specs/2026-08-31-dataset-alertas-etiquetado-design.md).
+[especificación](../../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-dataset-alertas-etiquetado-design.md).
 
 ---
 
@@ -66,7 +66,7 @@ inyecta tráfico sintético (origen `10.20.30.x`) que no pertenece a ninguna cam
 ## Esquema (16 campos)
 
 Cada línea de `etiquetado.jsonl` sigue el contrato de la especificación —
-[§5 Esquema normalizado](../../docs/superpowers/specs/2026-08-31-dataset-alertas-etiquetado-design.md#5-esquema-normalizado-el-contrato).
+[§5 Esquema normalizado](../../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-dataset-alertas-etiquetado-design.md#5-esquema-normalizado-el-contrato).
 Resumen:
 
 | Grupo | Campos |
@@ -81,22 +81,30 @@ necesita, pero el contrato lo declara **dato inerte, nunca instrucción** (RNF-0
 
 ## Origen y volumen
 
-Dos campañas reales, cada una tras un despliegue limpio del laboratorio:
+Ocho campañas reales, cada una tras un despliegue limpio del laboratorio. El dataset arrancó con dos
+campañas (31/08) y creció el 11/09 al añadir las familias `reconocimiento` y `servicio_expuesto` (telnet)
+y los casos donde las reglas de Wazuh fallan (`reglas-fallan`):
 
 | Campaña | Partición | Alertas |
 |---------|-----------|---------|
 | `2026-08-31-entrenamiento` | entrenamiento | 205 |
 | `2026-08-31-evaluacion` | evaluacion | 205 |
-| **Total** | | **410** |
+| `2026-09-11-recon-entrenamiento` | entrenamiento | 15 |
+| `2026-09-11-recon-evaluacion` | evaluacion | 15 |
+| `2026-09-11-reglas-fallan-entrenamiento` | entrenamiento | 67 |
+| `2026-09-11-reglas-fallan-evaluacion` | evaluacion | 67 |
+| `2026-09-11-telnet-entrenamiento` | entrenamiento | 13 |
+| `2026-09-11-telnet-evaluacion` | evaluacion | 13 |
+| **Total** | | **600** |
 
 ## Distribución de etiquetas
 
 Salida real del guard de cierre (`et`/`pa` sobre `etiquetado.jsonl`, ver spec §10):
 
 ```
-total: 410
-etiquetas: {'no_soportada': 374, 'VP': 20, 'FP': 16}
-partición: {'entrenamiento': 205, 'evaluacion': 205}
+total: 600
+etiquetas: {'no_soportada': 380, 'VP': 174, 'FP': 38, 'PROPIA': 8}
+partición: {'entrenamiento': 300, 'evaluacion': 300}
 CIERRE OK
 ```
 

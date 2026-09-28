@@ -23,7 +23,7 @@ CEF, aún no adaptado). Hay un módulo de **RAG local** y un **justificador LLM*
   **banco** (`lab/banco/`, `lab/topologias/banco.clab.yml`).
 - Visor web: `visor/` (**Vite + React + TypeScript + shadcn-ui + Tailwind v4 + Zod + Vitest +
   Recharts**). Lo sirve el propio daemon con `--web` (lee `visor/dist` por petición).
-- Runbook operativo completo: **`COMO-ARRANCAR.md`** (léelo; tiene arranque, pantallas, flags,
+- Runbook operativo completo: **`RUNBOOK.md`** (léelo; tiene arranque, pantallas, flags,
   apagado y solución de problemas).
 
 ## Lo hecho en la última sesión (ya en `main`)

@@ -11,7 +11,7 @@
 **Reproducir:** `python3 -m evaluacion.campana --particion evaluacion`
 (marco de medición en [`evaluacion/`](../../evaluacion/); definición de métricas en la
 [Fase 4](../04-fase4-diseno-de-arquitectura/metricas-y-evaluacion.md); diseño en la
-[spec de la Fase 6](../../docs/superpowers/specs/2026-09-02-fase6-evaluacion-design.md)).
+[spec de la Fase 6](../../archivo/proceso-desarrollo/superpowers/specs/2026-09-02-fase6-evaluacion-design.md)).
 
 ---
 

@@ -46,11 +46,15 @@ menú, cuando hace falta humano, ahora también lo espera el tablero. La consola
 http://127.0.0.1:8787
 ```
 
-## Los cuatro paneles
+## Las siete vistas del visor
 
-- **Salud** — una fila por servicio (`● OK` / `✖ CAÍDO`), de qué depende, y cuántos de los servicios están
-  caídos ahora mismo. Se lee del JSONL que escribe `lab/banco/monitor.py`; sin monitor, el panel degrada a
+- **Panel** — el resumen de un vistazo: KPIs (volumen de decisiones, aprobadas/rechazadas, escaladas) y
+  gráficos de reparto por clase y acción.
+- **Métricas** — los gráficos de tendencia y distribución de la actividad del daemon a lo largo del tiempo.
+- **Estado de servicios** — una fila por servicio (`● OK` / `✖ CAÍDO`), de qué depende, y cuántos de los servicios están
+  caídos ahora mismo. Se lee del JSONL que escribe `lab/banco/monitor.py`; sin monitor, la vista degrada a
   "sin datos del monitor" en vez de romperse.
+- **Equipos** — el inventario de dispositivos del perfil por categoría, con criticidad, estado y postura.
 - **Decisiones** — el feed de las últimas decisiones ya resueltas (cuándo, activo, clase, acción final, si
   fue automática o exigió humano), leído directamente de la traza.
 - **Aprobaciones** — la cola de decisiones **pendientes ahora mismo**: cada tarjeta muestra el contexto del
@@ -58,7 +62,7 @@ http://127.0.0.1:8787
 - **Trazas** — el histórico completo más un botón "verificar" que corre la verificación de la cadena de
   hashes (`traza.verificar_cadena`) y dice si está íntegra o dónde se rompió.
 
-Los cuatro se refrescan solos cada 2 s (sondeo simple, sin WebSockets).
+Todas se refrescan solas cada 2 s (sondeo simple, sin WebSockets).
 
 ## Nota de seguridad (honesta)
 

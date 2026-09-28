@@ -2,7 +2,7 @@
 
 La red de `prototipo/perfiles/bancario.yml`, montada de verdad en Containerlab: servicios con
 dependencias reales, un monitor de salud que ve las cascadas y cortafuegos sobre los que el conector
-actúa. Diseño: `docs/superpowers/specs/2026-09-21-laboratorio-banco-design.md`.
+actúa. Diseño: `archivo/proceso-desarrollo/superpowers/specs/2026-09-21-laboratorio-banco-design.md`.
 
 ## Levantar
 

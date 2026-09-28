@@ -12,7 +12,7 @@ La Fase 5 completa se divide en tres subproyectos:
 - **5C** — el clasificador y el justificador reales (árbol de decisión que nutre el baseline
   determinista + modelo generativo), enchufados detrás de la misma interfaz que hoy usa el baseline.
 
-Diseño completo: [`docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md`](../docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md).
+Diseño completo: [`archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md`](../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md).
 Regla de negocio (política + perfil): [`documentacion/04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md`](../documentacion/04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md).
 
 ---
@@ -80,7 +80,7 @@ Las clases que produce el baseline hoy son **cuatro**: `no_soportada`, `vp_inten
 `vp_exposicion_gestion` — el baseline **aún no las produce**: exigen contexto que una
 regla determinista no tiene (por ejemplo, distinguir un acceso ya consumado de un intento, o una
 exposición de gestión de una exposición de servicio). Ese límite documentado es exactamente lo que
-motiva **5C** (ver [spec §3](../docs/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md#3-el-clasificador-baseline)).
+motiva **5C** (ver [spec §3](../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md#3-el-clasificador-baseline)).
 
 ## 3. El esquema de la traza (RF-09)
 
@@ -291,7 +291,7 @@ python3 -m unittest discover -s prototipo/tests
 
 5A se detiene justo antes de actuar: produce `accion_final`, pero nada la ejecuta. 5B cierra ese
 tramo — orden → conector → validación humana → verificación — sin tocar ningún módulo de 5A.
-Diseño completo: [`docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md`](../docs/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md).
+Diseño completo: [`archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md`](../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md).
 
 ```
 decisión (5A) ──► ¿requiere_humano? ──sí──► validación por terminal ──rechazar/reclasificar──► fin (no se ejecuta)
@@ -432,7 +432,7 @@ acción, o si la validación humana rechazó).
 
 5C enchufa, detrás de la misma interfaz `justificar` que usaba la plantilla de 5A (§2), un modelo
 generativo real. Diseño completo:
-[`docs/superpowers/specs/2026-08-31-fase5c-justificador-llm-design.md`](../docs/superpowers/specs/2026-08-31-fase5c-justificador-llm-design.md).
+[`archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5c-justificador-llm-design.md`](../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5c-justificador-llm-design.md).
 
 | Módulo | Responsabilidad |
 |--------|------------------|
@@ -645,7 +645,7 @@ escala—; es un **índice vectorial**, no una base de datos vectorial.
 Recomendación del tutor: que el RAG *"tenga un agente / no sea determinista"*. Se implementó como un
 **paso de consulta agéntico de un salto, registrado y degradable**, sin sacrificar auditabilidad:
 
-- **Corpus v2 (ATT&CK + D3FEND):** el corpus (29 fichas) se **compila** de dos fuentes con
+- **Corpus v2 (ATT&CK + D3FEND):** el corpus (32 fichas) se **compila** de dos fuentes con
   `prototipo/extraer_attack.py`: las técnicas **ATT&CK** se **destilan del bundle STIX oficial**
   (`corpus/fuentes/enterprise-attack.json`, ~54 MB, gitignored) — solo las del perímetro soportado
   (allowlist `TECNICAS_PERIMETRO`, 15 técnicas de las 4 familias), con la descripción oficial limpia; y las
