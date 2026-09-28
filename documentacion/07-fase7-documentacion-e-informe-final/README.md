@@ -52,14 +52,11 @@ Decanato de Estudios Profesionales de la USB.
 | `ip8_referencias.bib` | Bibliografía (11 fuentes verificadas, estilo `unsrt`/IEEE) |
 
 **Compilar:** `latexmk -pdf ip1_main.tex` desde ese directorio, o `tectonic -X compile ip1_main.tex`
-si se prefiere un motor autocontenido. Verificado (14/09/2026): **60 páginas**, compila limpio, sin
-citas ni referencias sin resolver y sin cajas desbordadas.
-
-> **Pendiente de recompilar.** El fuente (`ip6_resultados.tex` §"Ampliación posterior" e
-> `ip7_conclusiones.tex`) incorpora ya la **conciencia de impacto (D16)** —escalado 29,7 %, dos
-> contenciones indebidas expuestas y llevadas a cero, perfil bancario y laboratorio del banco—,
-> posterior a la compilación del 14/09. Hay que **recompilar** (`latexmk -pdf ip1_main.tex`) para
-> regenerar el PDF; tras hacerlo, actualizar el recuento de páginas aquí y en `estado-y-riesgos.md`.
+si se prefiere un motor autocontenido. **Recompilado el 28/09/2026 con tectonic: 61 páginas**, compila
+limpio, sin citas ni referencias sin resolver y sin cajas desbordadas. Incorpora la **conciencia de
+impacto (D16)** —escalado 29,7 % sobre el perfil empresarial (atacante interno), dos contenciones
+indebidas expuestas y llevadas a cero, y el perfil bancario / laboratorio del banco como caso al
+límite— en el capítulo de resultados y en las conclusiones.
 
 Se versionan solo las **fuentes** (`.tex`, `.bib`), las imágenes y el **PDF final**; los artefactos
 de compilación están en `.gitignore`.
