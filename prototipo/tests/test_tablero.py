@@ -6,6 +6,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from prototipo import tablero, traza
 
 
@@ -337,6 +338,29 @@ class TestServidor(unittest.TestCase):
         self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1", "paso": 2})[0], 200)
         self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1"})[0], 200)
         self.assertEqual(vistos, [("1", "1", 2), ("1", "1", None)])
+
+    def _traza_n(self, n):
+        regs, previo = [], traza.GENESIS
+        for i in range(1, n + 1):
+            r = traza.encadenar({"id_decision": f"s{i}"}, previo)
+            regs.append(r); previo = r["hash"]
+        f = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8")
+        f.write("".join(json.dumps(r) + "\n" for r in regs)); f.close(); self.addCleanup(os.unlink, f.name)
+        return f.name
+
+    def test_trazas_se_acotan_a_los_ultimos_por_defecto(self):
+        # El visor sondea /api/trazas cada 2 s: sin cota, cada tick relee y envía la traza entera.
+        _, puerto = self._servidor(ruta_traza=self._traza_n(3))
+        with mock.patch.object(tablero, "LIMITE_TRAZAS", 2):
+            ids = [r["id_decision"] for r in json.loads(self._get(puerto, "/api/trazas")[1])]
+        self.assertEqual(ids, ["s2", "s3"])
+
+    def test_trazas_aceptan_limite_en_la_consulta(self):
+        _, puerto = self._servidor(ruta_traza=self._traza_n(3))
+        ids = lambda q: [r["id_decision"] for r in json.loads(self._get(puerto, "/api/trazas" + q)[1])]
+        self.assertEqual(ids("?limite=1"), ["s3"])
+        self.assertEqual(ids("?limite=abc"), ["s1", "s2", "s3"])   # inválido -> la cota por defecto
+        self.assertEqual(ids("?limite=0"), ["s1", "s2", "s3"])
 
     def test_salud_desde_ejecutor_falso(self):
         def ejec(args, **kw):

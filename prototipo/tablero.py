@@ -9,11 +9,15 @@ import json
 import os
 import subprocess
 import threading
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from prototipo import traza
 
 _MARCA_INCIDENTE = "⚠"   # el resumen de incidente de stream empieza por esta marca
+# Cota del listado /api/trazas: el visor lo sondea cada 2 s, y sin ella cada tick releería y
+# enviaría la traza entera. Los totales del periodo salen de /api/metricas (fichero completo).
+LIMITE_TRAZAS = 500
 
 
 class EstadoTablero:
@@ -283,6 +287,16 @@ def metricas(regs):
     }
 
 
+def _limite(path):
+    """`?limite=N` (entero > 0) de la consulta, o la cota por defecto si falta o no es válido."""
+    valor = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query).get("limite", [""])[0]
+    try:
+        n = int(valor)
+    except ValueError:
+        return LIMITE_TRAZAS
+    return n if n > 0 else LIMITE_TRAZAS
+
+
 def lista_trazas(ruta, n=None):
     try:
         regs = traza.leer_registros(ruta)
@@ -409,7 +423,7 @@ class _Manejador(BaseHTTPRequestHandler):
                     return self._responder([_vista_pendiente(p) for p in s.estado.decisiones_pendientes()])
                 return self._responder(s.estado.pendientes())
             if ruta == "/api/trazas":
-                return self._responder(lista_trazas(s.ruta_traza))
+                return self._responder(lista_trazas(s.ruta_traza, n=_limite(self.path)))
             if ruta.startswith("/api/traza/"):
                 d = traza_detalle(s.ruta_traza, ruta[len("/api/traza/"):])
                 return self._responder(d) if d is not None else self._responder({"error": "no encontrada"}, 404)
