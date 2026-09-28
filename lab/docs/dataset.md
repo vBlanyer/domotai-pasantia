@@ -111,17 +111,18 @@ CIERRE OK
 Por partición, la distribución es simétrica (ambas campañas ejecutan el mismo guion de
 `campana.sh`):
 
-| Partición | VP | FP | no_soportada |
-|-----------|----|----|---------------|
-| entrenamiento | 10 | 8 | 187 |
-| evaluacion | 10 | 8 | 187 |
+| Partición | VP | FP | PROPIA | no_soportada |
+|-----------|----|----|--------|--------------|
+| entrenamiento | 87 | 19 | 4 | 190 |
+| evaluacion | 87 | 19 | 4 | 190 |
 
 `no_soportada` domina porque la mayoría del tráfico de fondo del laboratorio (ruido de
 plataforma, servicios sin familia mapeada) cae fuera del [caso de uso
 acotado](../../documentacion/01-fase1-analisis-del-modulo/caso-de-uso-acotado.md); queda en el
-dataset con su severidad intacta, a cola manual, en vez de descartarse (RF-10). No hubo alertas
-`PROPIA`: el escaneo del auditor no dispara ninguna regla de Wazuh en este laboratorio, así que
-no hay tráfico propio que filtrar en esta iteración.
+dataset con su severidad intacta, a cola manual, en vez de descartarse (RF-10). Las **8 alertas
+`PROPIA`** (4 por partición) son actividad del propio cliente —origen de administración/auditoría—
+que el prototipo **retiene para validación humana** en vez de contener (D16, «bloquear lo propio
+exige humano»).
 
 Ambos lados de la partición contienen VP y FP — condición necesaria para que la evaluación pueda
 calcular precisión (VP/(VP+FP)).

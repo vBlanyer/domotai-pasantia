@@ -15,9 +15,9 @@ auditable y muy ligero; Packet Tracer se descartó por simular en vez de virtual
 tope duro de nodos.
 
 El entorno **creció el 22/09 con un segundo escenario, más completo y exigente: el laboratorio del
-banco** —una red de **14 nodos** ([`bancario.yml`](../../lab/topologias/banco.clab.yml)) que reproduce
-una entidad financiera: perímetro doble (`fw-edge`/`fw-core`), core bancario, base de datos, HSM,
-pasarela SWIFT, middleware, cajero y taquilla, con **servicios y dependencias reales, cascada entre
+banco** —una red de **14 nodos** ([`banco.clab.yml`](../../lab/topologias/banco.clab.yml)) que reproduce
+una entidad financiera (topología `banco.clab.yml`): perímetro doble (`fw-edge`/`fw-core`), core
+bancario, base de datos, HSM, pasarela SWIFT, middleware, cajero y taquilla, con **servicios y dependencias reales, cascada entre
 activos y un monitor de salud**, operada bajo el perfil `bancario` de **continuidad extrema**. Es
 deliberadamente el caso más duro —cortar un servicio bancario es inaceptable y las dependencias
 propagan el impacto—, y por eso la validación más fuerte: **si el prototipo respeta la continuidad y
@@ -98,6 +98,6 @@ la especificación.
 Cumple el criterio del roadmap —*el dataset cuenta con ground truth suficiente para calcular
 precisión, recall y F1*.
 
-**Ampliación (22/09).** El entorno incorpora el **laboratorio del banco** (14 nodos, `bancario.yml`)
-como segundo escenario de validación en vivo —más completo y exigente, con dependencias y cascada bajo
-continuidad extrema—; ver [`lab/banco/`](../../lab/banco/README.md).
+**Ampliación (22/09).** El entorno incorpora el **laboratorio del banco** (14 nodos, topología
+`banco.clab.yml`, perfil `bancario`) como segundo escenario de validación en vivo —más
+completo y exigente, con dependencias y cascada bajo continuidad extrema—; ver [`lab/banco/`](../../lab/banco/README.md).

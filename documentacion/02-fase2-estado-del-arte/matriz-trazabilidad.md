@@ -40,7 +40,7 @@ hacia los requisitos que las materializan.
 | RNF | Implementa en | Estado |
 |-----|---------------|--------|
 | RNF-01 | ejecución local (`justificador_llm.py` por subprocess; sin salida externa) | ✔ |
-| RNF-02 | `rag.py` / `justificador_llm.py` (anclaje: `verificar_anclaje`) | ✔ |
+| RNF-02 | `justificador_llm.py` (`verificar_anclaje`) + `rag.py` (pasajes recuperados) | ✔ |
 | RNF-03 | temperatura 0 + `version_justificador` en `traza.py` | ✔ |
 | RNF-04 | `llama-server` residente (`justificador_llm.py`) | ~ (subproceso ~14–36 s; residente lo elimina) |
 | RNF-05 | verificado (hardware; `lab/docs/mediciones.md`) | ✔ |
