@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe } from "./datos"
-import type { Decision } from "./api"
+import { filtrarDecisiones, clasesDe, contencionDe } from "./datos"
+import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
   { id_decision: "s1", activo: "web-banking", origen_ip: "10.40.0.10", clase: "vp_intento_acceso", accion_final: "BLOQUEAR_IP" },
@@ -26,5 +26,54 @@ describe("filtrarDecisiones", () => {
 describe("clasesDe", () => {
   it("clases únicas y ordenadas", () => {
     expect(clasesDe(D)).toEqual(["fp_actividad_legitima", "no_soportada", "vp_intento_acceso"])
+  })
+})
+
+describe("contencionDe", () => {
+  const orden = { accion_id: "BLOQUEAR_IP", nodo_objetivo: "objetivo-vuln" }
+
+  it("ejecutada y verificada en el activo -> contenida allí, sin escalar", () => {
+    const c = contencionDe({ orden, ejecucion: { exito: true, comando_ejecutado: "iptables -A INPUT -s 1.2.3.4 -j DROP" },
+      verificacion: { verificado: true } } as Detalle)
+    expect(c).toMatchObject({ estado: "contenida", ejecutada: true, verificada: true, escalada: false,
+      dispositivo: "objetivo-vuln", accion: "BLOQUEAR_IP", comando: "iptables -A INPUT -s 1.2.3.4 -j DROP" })
+  })
+
+  it("el activo no respondió y la escalada contuvo en el perímetro", () => {
+    const c = contencionDe({ orden, ejecucion: { exito: false }, verificacion: { verificado: false },
+      escalada: { resultado: "mitigado", escalado: true, dispositivo_ejecutor: "gateway" } } as Detalle)
+    expect(c).toMatchObject({ estado: "contenida", ejecutada: false, escalada: true, dispositivo: "gateway", desde: "objetivo-vuln" })
+  })
+
+  it("ni el activo ni la escalada lo lograron -> fallida", () => {
+    const c = contencionDe({ orden, ejecucion: { exito: false }, verificacion: { verificado: false },
+      escalada: { resultado: "fallido", escalado: true } } as Detalle)
+    expect(c.estado).toBe("fallida")
+  })
+
+  it("sin topología a la que escalar y sin verificar -> fallida", () => {
+    expect(contencionDe({ orden, ejecucion: { exito: true }, verificacion: { verificado: false } } as Detalle).estado)
+      .toBe("fallida")
+  })
+
+  it("el analista la canceló durante la escalada -> cancelada", () => {
+    const c = contencionDe({ orden, ejecucion: { exito: false }, verificacion: { verificado: false },
+      escalada: { resultado: "cancelado_por_humano", escalado: false } } as Detalle)
+    expect(c.estado).toBe("cancelada")
+  })
+
+  it("rechazada o reclasificada por el analista -> retenida, nada ejecutado", () => {
+    expect(contencionDe({ veredicto_humano: "rechazar", accion_final: "BLOQUEAR_IP", orden: null } as Detalle).estado)
+      .toBe("retenida")
+    expect(contencionDe({ veredicto_humano: "reclasificar", orden: null } as Detalle).estado).toBe("retenida")
+  })
+
+  it("sin acción de contención -> sin_accion", () => {
+    expect(contencionDe({ accion_final: null, orden: null } as Detalle).estado).toBe("sin_accion")
+  })
+
+  it("modo agente: manda el plan del agente", () => {
+    const c = contencionDe({ mitigacion_agente: { resultado: "mitigado", escalado: true, dispositivo_ejecutor: "firewall" } } as Detalle)
+    expect(c).toMatchObject({ estado: "contenida", escalada: true, dispositivo: "firewall" })
   })
 })

@@ -30,6 +30,11 @@ export const DecisionSchema = z.object({
 export const PasajeSchema = z.object({
   id: z.string().optional(), titulo: z.string().nullable().optional(), texto: z.string().nullable().optional(),
 }).passthrough()
+// Plan de mitigación (escalada determinista o agente): resultado y dispositivo que contuvo.
+const PlanSchema = z.object({
+  resultado: z.string().nullable().optional(), escalado: z.boolean().nullable().optional(),
+  dispositivo_ejecutor: z.string().nullable().optional(),
+}).passthrough()
 export const DetalleSchema = z.object({
   id_decision: z.string().nullable().optional(),
   justificacion: z.string().nullable().optional(),
@@ -48,6 +53,18 @@ export const DetalleSchema = z.object({
     nivel: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
     activos_afectados_en_cascada: z.array(z.string()).nullable().optional(),
   }).passthrough().nullable().optional(),
+  // Desenlace de la contención: la orden, si se ejecutó y se verificó en el activo, y —si el activo
+  // no respondió— la escalada hacia el perímetro (o el plan del agente en modo --agente).
+  veredicto_humano: z.string().nullable().optional(),
+  orden: z.object({
+    accion_id: z.string().nullable().optional(), nodo_objetivo: z.string().nullable().optional(),
+  }).passthrough().nullable().optional(),
+  ejecucion: z.object({
+    exito: z.boolean().nullable().optional(), comando_ejecutado: z.string().nullable().optional(),
+  }).passthrough().nullable().optional(),
+  verificacion: z.object({ verificado: z.boolean().nullable().optional() }).passthrough().nullable().optional(),
+  escalada: PlanSchema.nullable().optional(),
+  mitigacion_agente: PlanSchema.nullable().optional(),
 }).passthrough()
 export const EquipoSchema = z.object({
   nombre: z.string(), ip: z.string().nullable().optional(),

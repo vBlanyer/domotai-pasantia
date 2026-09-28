@@ -1,4 +1,4 @@
-import type { Decision } from "@/api"
+import type { Decision, Detalle } from "@/api"
 
 // Filtro de la lista de decisiones/trazas: texto libre (activo, IP, id, clase, acción) + clase exacta.
 export type Filtro = { texto: string; clase: string }
@@ -15,4 +15,43 @@ export function filtrarDecisiones(ds: Decision[], f: Filtro): Decision[] {
 
 export function clasesDe(ds: Decision[]): string[] {
   return [...new Set(ds.map((d) => d.clase).filter((c): c is string => !!c))].sort()
+}
+
+// Desenlace de la contención de una decisión, a partir de su registro de traza.
+export type EstadoContencion = "contenida" | "fallida" | "retenida" | "cancelada" | "degradada" | "sin_accion"
+export type Contencion = {
+  estado: EstadoContencion
+  ejecutada?: boolean      // la orden se aplicó en el activo (código 0)
+  verificada?: boolean     // la verificación posterior confirmó el bloqueo en el activo
+  escalada: boolean        // hubo que subir a otro dispositivo (el activo no respondió)
+  dispositivo?: string     // dónde quedó contenida
+  desde?: string           // activo desde el que se escaló
+  accion?: string
+  comando?: string
+}
+
+const ESTADO_PLAN: Record<string, EstadoContencion> = {
+  mitigado: "contenida", fallido: "fallida", cancelado_por_humano: "cancelada", degradado: "degradada",
+}
+
+export function contencionDe(det: Detalle): Contencion {
+  const agente = det.mitigacion_agente
+  if (agente) {                                            // modo --agente: el plan del agente manda
+    return { estado: ESTADO_PLAN[agente.resultado ?? ""] ?? "fallida", escalada: !!agente.escalado,
+      dispositivo: agente.dispositivo_ejecutor ?? undefined }
+  }
+  const orden = det.orden
+  if (!orden) {
+    const v = det.veredicto_humano
+    return { estado: v === "rechazar" || v === "reclasificar" ? "retenida" : "sin_accion", escalada: false }
+  }
+  const base = { accion: orden.accion_id ?? undefined, comando: det.ejecucion?.comando_ejecutado ?? undefined,
+    ejecutada: !!det.ejecucion?.exito, verificada: !!det.verificacion?.verificado }
+  if (base.ejecutada && base.verificada)
+    return { ...base, estado: "contenida", escalada: false, dispositivo: orden.nodo_objetivo ?? undefined }
+  const esc = det.escalada                                 // el activo no respondió: ¿contuvo el perímetro?
+  if (esc)
+    return { ...base, estado: ESTADO_PLAN[esc.resultado ?? ""] ?? "fallida", escalada: !!esc.escalado,
+      dispositivo: esc.dispositivo_ejecutor ?? undefined, desde: orden.nodo_objetivo ?? undefined }
+  return { ...base, estado: "fallida", escalada: false }  // sin topología a la que escalar
 }

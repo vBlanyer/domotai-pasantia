@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react"
-import { ChevronDown, ChevronRight, TriangleAlert } from "lucide-react"
+import { ChevronDown, ChevronRight, Shield, ShieldCheck, ShieldX, TriangleAlert } from "lucide-react"
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros } from "./bits"
-import { filtrarDecisiones, clasesDe, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, contencionDe, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
 
 const COLS = 7
 
@@ -65,6 +65,39 @@ function Pasajes({ pasajes, consulta }: { pasajes: Pasaje[]; consulta?: string |
   )
 }
 
+// Qué pasó con la contención: la pregunta que el operador se hace primero al abrir una decisión.
+const FRASE: Record<EstadoContencion, (c: Contencion) => string> = {
+  contenida: (c) => `Contenida en ${c.dispositivo ?? "—"}` + (c.escalada && c.desde ? ` · escaló desde ${c.desde}` : ""),
+  fallida: (c) => c.desde ? "No se pudo contener: ni el activo ni la escalada lo lograron"
+    : "No se pudo contener en el activo (no hay a dónde escalar)",
+  retenida: () => "Retenida por el analista: no se ejecutó ninguna acción",
+  cancelada: () => "Escalada cancelada por el analista",
+  degradada: () => "El agente no respondió: se degradó al motor determinista",
+  sin_accion: () => "Sin acción de contención",
+}
+
+function BloqueContencion({ c }: { c: Contencion }) {
+  const Icono = c.estado === "contenida" ? ShieldCheck : c.estado === "fallida" ? ShieldX : Shield
+  const tono = c.estado === "contenida" ? "text-emerald-600 dark:text-emerald-400"
+    : c.estado === "fallida" ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"
+  const siNo = (b?: boolean) => (b ? "sí" : "no")
+  return (
+    <Campo etiqueta="Contención">
+      <div className={`flex items-center gap-1.5 font-medium ${tono}`}>
+        <Icono className="size-4 shrink-0" aria-hidden /> <span>{FRASE[c.estado](c)}</span>
+      </div>
+      {c.accion && (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+          <span>{c.accion}</span>
+          <span>ejecutada en el activo: {siNo(c.ejecutada)}</span>
+          <span>verificada: {siNo(c.verificada)}</span>
+          {c.comando && <Dato>{c.comando}</Dato>}
+        </div>
+      )}
+    </Campo>
+  )
+}
+
 function Detalles({ id }: { id: string }) {
   const [det, setDet] = useState<Detalle | { error: string }>()
   useEffect(() => {
@@ -95,6 +128,7 @@ function Detalles({ id }: { id: string }) {
           </p>
         </div>
       )}
+      <BloqueContencion c={contencionDe(det)} />
       <Campo etiqueta="Justificación">
         <p className="leading-relaxed">{det.justificacion ?? "—"}</p>
       </Campo>
