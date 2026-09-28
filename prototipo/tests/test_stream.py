@@ -83,6 +83,17 @@ class TestColaNoBloqueante(unittest.TestCase):
         self.assertEqual(r["veredicto_humano"], "reclasificar")
         self.assertIsNone(r["orden"])                          # reclasificar no ejecuta
 
+    def test_la_entrada_lleva_la_accion_final_para_el_visor(self):
+        # Una decisión vetada (p. ej. el canal de gestión, RF-19) se encola SIN acción final: el visor
+        # necesita saberlo para no prometer una contención que no se va a ejecutar.
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        self._ejecutar(estado, buf)
+        p = estado.decisiones_pendientes()[0]
+        self.assertIn("accion_final", tablero._vista_pendiente(p))
+        self.assertTrue(estado.resolver_decision(p["id"], "2", paso=0))
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(p["accion_final"], r["accion_final"])
+
     def test_reclasificar_avanza_el_paso(self):
         estado, buf = tablero.EstadoTablero(), io.StringIO()
         self._ejecutar(estado, buf)

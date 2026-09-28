@@ -52,7 +52,10 @@ function LineaInfo({ t }: { t: string }) {
 function Tarjeta({ p }: { p: Pendiente }) {
   const v = parsearPendiente(p)
   const escalada = p.tipo === "escalada"
-  const conCascada = v.cascada.length > 0
+  // Vetada sin sustituta (accion_final null; ausente = daemon antiguo): aprobar no ejecuta nada, así
+  // que ni se confirma una cascada que no ocurrirá ni se anuncia una contención.
+  const sinAccion = !escalada && p.accion_final === null
+  const conCascada = !sinAccion && v.cascada.length > 0
   const clasificando = (v.titulo ?? "").startsWith("Nueva clase")
   const toast = useToast()
   const [estado, setEstado] = useState<Estado>("listo")
@@ -77,8 +80,10 @@ function Tarjeta({ p }: { p: Pendiente }) {
       return
     }
     setEstado("hecho")
-    toast({ type: "success", description: v.incidente,
-      title: clasificando ? `Reclasificada como «${etiqueta}»` : HECHO[etiqueta] ?? etiqueta })
+    const titulo = clasificando ? `Reclasificada como «${etiqueta}»`
+      : sinAccion && etiqueta === "Aprobar" ? "Aprobada: la acción está vetada, no se ejecuta nada"
+      : HECHO[etiqueta] ?? etiqueta
+    toast({ type: "success", description: v.incidente, title: titulo })
   }
   const bloqueada = estado !== "listo"
   const [confirmar, setConfirmar] = useState<{ respuesta: string; etiqueta: string } | null>(null)

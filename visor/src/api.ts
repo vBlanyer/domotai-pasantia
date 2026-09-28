@@ -87,6 +87,8 @@ export const PendienteSchema = z.object({
   // menú que se está mostrando: se reenvía al responder para que el backend descarte una
   // respuesta a un menú ya superado (p. ej. «Aprobar» justo después de «Reclasificar»).
   paso: z.number().nullable().optional(),
+  // null = vetada sin sustituta: aprobarla no ejecuta nada (ausente en daemons antiguos)
+  accion_final: z.string().nullable().optional(),
 })
 export const VerificacionSchema = z.object({
   ok: z.boolean(), roto_en: z.number().nullable().optional(), motivo: z.string().optional(),

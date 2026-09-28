@@ -138,6 +138,9 @@ def _entrada_cola(decision, alerta):
             "severidad": decision.get("prioridad") or 0,
             "decision": decision, "alerta": alerta, "recibido_en": time.time(),
             "tipo": "menu", "prompt": "Elige [1-3]: ",
+            # None = vetada sin sustituta (p. ej. el canal de gestión): aprobar no ejecuta nada, y el
+            # visor no debe prometer una contención
+            "accion_final": decision.get("accion_final"),
             "lineas": [incid, validacion.mostrar(decision, alerta), menu]}
 
 

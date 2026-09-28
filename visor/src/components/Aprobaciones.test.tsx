@@ -125,6 +125,21 @@ describe("Aprobaciones", () => {
     expect(screen.getByText("P3 · alta")).toBeInTheDocument()
   })
 
+  describe("decisión vetada (sin acción final)", () => {
+    const CONSEC = "Consecuencia: (vetada) bloquea a 10.0.0.2 · es el canal de gestión del MDR · en cascada: api-movil"
+    beforeEach(() => { h.pendientes = [tarjeta({ accion_final: null, lineas: [INCID, CONSEC, MENU] })] })
+
+    it("Aprobar no pide confirmación de cascada ni promete ejecutar nada", async () => {
+      h.aprobar.mockResolvedValue(true)
+      render(vista())
+      fireEvent.click(boton("Aprobar"))
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+      expect(h.aprobar).toHaveBeenCalledWith("7", "1", 0)
+      expect(await screen.findByText("Aprobada: la acción está vetada, no se ejecuta nada")).toBeInTheDocument()
+      expect(screen.queryByText(/se ejecuta la acción propuesta/)).not.toBeInTheDocument()
+    })
+  })
+
   it("una escalada (ruta bloqueante) aprueba sin paso", () => {
     h.aprobar.mockResolvedValue(true)
     h.pendientes = [tarjeta({ tipo: "escalada", prompt: "¿aprobar? [s/N] ", lineas: [], paso: undefined })]
