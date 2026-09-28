@@ -57,7 +57,7 @@ hace el sistema portable:
 | Dependencia externa | Hoy | Mañana | Adaptador que lo aísla |
 |---------------------|-----|--------|------------------------|
 | Fuente de alertas | Wazuh en el sandbox | + sistema de la empresa | **Módulo de ingesta** |
-| Modelo de análisis | Perfil A (híbrido, CPU) | Perfil B (Foundation-Sec-8B, GPU) | **Interfaz `clasificar`/`justificar`** |
+| Modelo de análisis | Perfil A (híbrido, CPU) | Perfil B (Llama-3.1-8B, GPU) | **Interfaz `clasificar`/`justificar`** |
 | Canal hacia el objetivo | SSH | TR-069 / ACS | **Conector** |
 
 Cambiar cualquiera de los tres es escribir un adaptador nuevo, **sin tocar la lógica de decisión

@@ -41,8 +41,11 @@ Le siguieron variantes equivalentes con distintos corpus.
 En generativos, la referencia pública actual es **Foundation-Sec-8B** (Cisco Foundation AI), un
 Llama-3.1-8B con preentrenamiento continuado sobre corpus de seguridad, publicado con pesos
 abiertos. Su variante instruida y su variante de razonamiento declaran explícitamente el **triaje y
-el resumen de casos de SOC** como caso de uso objetivo. Es la que la Fase 4 selecciona; el detalle
-y los perfiles de despliegue están en [selección del modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md).
+el resumen de casos de SOC** como caso de uso objetivo. La Fase 4 la contempla como **aspiración**
+—es la referencia pública del **perfil B** de despliegue—, pero el 8B efectivamente implementado y
+medido en este proyecto es **Llama-3.1-8B-Instruct** (un Llama-3.1-8B genérico instruido), desplegado
+como servidor residente sobre GPU en la máquina objetivo; el detalle y los perfiles de despliegue
+están en [selección del modelo](../04-fase4-diseno-de-arquitectura/seleccion-del-modelo.md).
 
 **Lo que la especialización aporta y lo que no.** Aporta vocabulario: el modelo reconoce un CVE, una
 técnica ATT&CK o un nombre de familia de malware sin que haya que explicárselo, y eso reduce la

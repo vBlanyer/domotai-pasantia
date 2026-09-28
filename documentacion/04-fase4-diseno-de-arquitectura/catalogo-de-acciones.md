@@ -57,6 +57,7 @@ decidir si requiere validación humana: `localizado` actúa sobre el atacante y 
 | ID | Impacto | Efecto | Comando | Reversión |
 |----|---------|--------|---------|-----------|
 | `BLOQUEAR_IP` | localizado | Descartar tráfico hacia/desde una IP | `iptables -A INPUT -s <ip> -j DROP` | `iptables -D INPUT -s <ip> -j DROP` |
+| `BLOQUEAR_IP_FIREWALL` | alcanza_servicio | Escalar el bloqueo de una IP al cortafuegos (tráfico reenviado, cadena FORWARD) | `iptables -A FORWARD -s <ip> -j DROP` | `iptables -D FORWARD -s <ip> -j DROP` |
 | `BLOQUEAR_PUERTO` | alcanza_servicio | Cerrar un puerto expuesto por firewall | `iptables -A INPUT -p tcp --dport <p> -j DROP` | regla `-D` simétrica |
 | `AISLAR_NODO` | alcanza_servicio | Cortar toda la LAN del nodo salvo gestión | `iptables -A FORWARD -s <ip_nodo> -j DROP` | `-D` simétrica |
 | `LIMITAR_BANDA` | alcanza_servicio | Estrangular el ancho de banda del nodo (umbral: parámetro del perfil) | `tc qdisc add dev <if> root tbf ...` | `tc qdisc del dev <if> root` |
@@ -75,7 +76,7 @@ servicios pueden afectar al servicio legítimo, de ahí su impacto `alcanza_serv
 
 | ID | Impacto | Efecto | Comando | Reversión |
 |----|---------|--------|---------|-----------|
-| `CERRAR_SERVICIO` | alcanza_servicio | Detener un servicio expuesto (telnet, etc.) | `pkill <servicio>` / `service <s> stop` | Rearrancar el servicio |
+| `CERRAR_SERVICIO` | alcanza_servicio | Detener un servicio expuesto (telnet, etc.) | `service <s> stop` | Rearrancar el servicio |
 | `FORZAR_CAMBIO_PASS` | alcanza_servicio | Invalidar credenciales por defecto | `passwd -l <usuario>` (bloquea) | `passwd -u <usuario>` |
 | `MATAR_CONEXION` | localizado | Cerrar una sesión concreta sospechosa | `ss -K dst <ip>` | Transitoria: el usuario legítimo reconecta |
 

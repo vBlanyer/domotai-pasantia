@@ -51,13 +51,20 @@ su conclusión: valor sobre telemetría heterogénea y accesible.
 **Qué es.** Profundizar lo que el prototipo *ya* hace, ampliando cobertura y robustez sin cambiar su papel.
 
 **Qué implica (concreto).**
-- **Ampliar familias/técnicas:** hoy el fuerte es fuerza bruta SSH (`acceso_credenciales`); llevar el
-  clasificador+justificador a **malware, ataques web, movimiento lateral, exfiltración, persistencia**
-  (el catálogo `familias.yml` ya las contempla; falta ejercitarlas con reglas, dataset y casos).
+- **Ampliar familias/técnicas:** hoy el fuerte es fuerza bruta SSH (`acceso_credenciales`); dentro del
+  alcance cabe robustecer y ejercitar con más reglas, dataset y casos las familias **ya registradas** en
+  `familias.yml` — que es el *registro de familias* (4: `acceso_credenciales`, `reconocimiento`,
+  `servicio_expuesto`, `explotacion_conocida`), **no** el catálogo de acciones (`catalogo.yml`). En cambio,
+  llevar el clasificador+justificador a **malware, ataques web, movimiento lateral, exfiltración,
+  persistencia** es **trabajo futuro fuera del alcance actual**: esas familias no están en `familias.yml` y
+  están declaradas fuera de alcance por diseño en [estado-y-riesgos §7](estado-y-riesgos.md#fuera-de-alcance-por-diseño-no-se-hará-y-por-qué)
+  porque exigen **detección primaria** nueva (que es del SIEM, no del MDR), no un hueco «por ejercitar».
 - **Respuesta multi-capa (SOAR-lite):** hoy `BLOQUEAR_IP` + escalada host→cortafuegos; sumar acciones del
   catálogo orquestadas por capa (aislar nodo, cerrar servicio/puerto) con su filtro de perfil.
-- **Cerrar el clasificador afinado (fine-tuning):** único ítem de Fase 5 abierto, bloqueado por dataset;
-  aquí se atacaría el dataset para desbloquearlo.
+- **Encoder afinado, solo si algún día crece el dataset:** el ajuste fino se **descartó** (el árbol de
+  decisión `arbol.py` es la escala honesta con unos cientos de filas); la interfaz `clasificar` queda
+  **abierta** para un encoder si el bucle de feedback (RF-12) acumula suficientes datos etiquetados. No es
+  un ítem abierto de la Fase 5, que está cerrada.
 
 **Encaje con el alcance.** **Dentro del alcance declarado.** Consolida la capa de triaje explicable.
 
@@ -77,7 +84,7 @@ central del trabajo, más sólido.
 | Riesgo de cierre | Mayor (cambia el modelo de incidente + lab nuevo) | Menor (adiciones acotadas) |
 | Reutiliza lo hecho | Parcial (nuevo nivel de correlación) | Alto (mismo pipeline y evaluación) |
 | Encaje con Fase 4 | Redefine el posicionamiento | Lo consolida |
-| Dependencias externas | ≥1 fuente de telemetría nueva | Dataset (para el fine-tuning) |
+| Dependencias externas | ≥1 fuente de telemetría nueva | Dataset etiquetado de las familias nuevas |
 
 ## 5. Recomendación y decisión pedida
 

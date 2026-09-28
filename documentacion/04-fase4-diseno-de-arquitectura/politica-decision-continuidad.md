@@ -16,7 +16,7 @@ La tentación fácil sería pedirle al modelo generativo que, además de clasifi
 descarta por cuatro razones:
 
 - **Reproducibilidad (RNF-03).** Una tabla es determinista por construcción; un generativo eligiendo
-  entre catorce acciones no lo es, ni a temperatura cero.
+  entre quince acciones no lo es, ni a temperatura cero.
 - **Las abstracciones del diseño.** La [interfaz de análisis](./seleccion-del-modelo.md#5-interfaz-común-lo-que-hace-real-la-escalabilidad)
   devuelve *clase, prioridad y confianza* — no acción. Meter la acción dentro del modelo rompería esa
   frontera.
@@ -166,6 +166,10 @@ Para el laboratorio se escriben **dos perfiles de ejemplo** —un operador resid
 clientes empresariales— y se demuestra que la *misma* alerta produce decisiones distintas. Que «se
 adapta a varios clientes» deje de ser una afirmación y pase a ser una prueba reproducible es
 exactamente lo que RNF-14 exige.
+
+> **Nota (estado actual).** Hoy existen **tres** perfiles de ejemplo: `residencial.yml`,
+> `empresarial.yml` y `bancario.yml`. El perfil bancario se añadió en la Fase 5, sobre los dos
+> iniciales, para cubrir el recorrido del banco de la §4.3.
 
 ---
 

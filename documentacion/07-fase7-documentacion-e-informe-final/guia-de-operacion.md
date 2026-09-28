@@ -174,7 +174,9 @@ en el código. Para repetir una campaña completa: `python3 -m evaluacion.campan
 - **La señal de origen es suplantable.** La distinción administrador/atacante se apoya en la IP declarada.
   Es la señal que hay; no es una prueba de identidad.
 - **Tres familias de alerta soportadas** (acceso a credenciales, reconocimiento y servicio expuesto), un
-  activo y un servicio en la evaluación. Lo demás es `no_soportada`, a juicio humano.
+  activo y un servicio en la evaluación. Lo demás es `no_soportada`, a juicio humano. Una cuarta familia,
+  `explotacion_conocida`, no se contiene: es de nivel `triar_y_enrutar` (clase `amenaza_enrutada`), así que
+  se clasifica, se prioriza y se **enruta** al equipo correspondiente sin ejecutar acción del catálogo.
 - **El corpus del RAG es pequeño** (32 fichas) y curado a mano. Crece cuando el perímetro crece; con el
   embedder actual crecerlo no degrada la recuperación de forma apreciable.
 - **La explicación hereda las etiquetas de la fuente.** Si Wazuh etiqueta una regla de reconocimiento como

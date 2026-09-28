@@ -180,10 +180,11 @@ Dos consecuencias que no son negociables:
   precondición, no criterio de escalado: una acción que deja el equipo inalcanzable impide la
   siguiente respuesta y la propia verificación ([C6](./modelo-de-cliente-generico.md#52-operativas-del-cliente--lo-que-el-prototipo-debe-respetar)).
 
-> **A verificar en la Fase 4.** Al aplicar esta regla al catálogo actual, dos entradas pueden
-> quedar mal clasificadas: `BLOQUEAR_PUERTO`, hoy automática, puede tumbar un servicio si el puerto
-> cerrado es de producción y no solo de gestión; y `LIMITAR_BANDA` figura como «según umbral» sin
-> umbral escrito. Se señala aquí; corregirlo es trabajo de la Fase 4, no de esta.
+> **Resuelto en la Fase 4.** Al aplicar esta regla al catálogo actual se revisaron dos entradas que
+> podían quedar mal clasificadas: `BLOQUEAR_PUERTO`, que podría tumbar un servicio si el puerto
+> cerrado es de producción y no solo de gestión; y `LIMITAR_BANDA`, que figuraba como «según umbral»
+> sin umbral escrito. En `prototipo/catalogo.yml` ambas quedan con impacto `alcanza_servicio`, de
+> modo que por la política de continuidad de la §9 pasan por validación humana y no se ejecutan solas.
 
 ---
 
@@ -202,9 +203,12 @@ La razón de medirlas: **un triaje con buen F1 que corta el servicio del cliente
 sistema al que sustituye.** Sin estas dos métricas, el informe final no podría demostrar lo
 contrario.
 
-Requiere que cada respuesta lleve su nivel de impacto declarado en la traza. Es un añadido pequeño
-al [plan de métricas](../04-fase4-diseno-de-arquitectura/metricas-y-evaluacion.md) y al contrato de
-la orden de acción, pendiente de aplicar.
+Requiere que cada respuesta lleve su nivel de impacto declarado en la traza. **Ya está implementado**
+(RF-17): `prototipo/traza.py` guarda `impacto` e `impacto_determinado` en cada decisión, y las dos
+métricas de continuidad se computan en `evaluacion/metricas.py` (`disruptivas_indebidas` y
+`retencion_correcta`). Fue un añadido pequeño al
+[plan de métricas](../04-fase4-diseno-de-arquitectura/metricas-y-evaluacion.md) y al contrato de la
+orden de acción.
 
 ---
 

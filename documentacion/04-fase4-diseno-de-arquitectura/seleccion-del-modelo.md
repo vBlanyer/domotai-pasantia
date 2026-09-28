@@ -56,6 +56,14 @@ El factor limitante no es el modelo por sí solo, sino que **el sandbox se ejecu
 
 **Por qué el encoder para clasificar:** entra sobrado en memoria, responde en milisegundos, es determinista —lo que satisface RNF-03 mejor que cualquier generativo— y entrega la confianza numérica que el umbral de validación humana necesita.
 
+> **Corrección de diseño (Fase 5).** El **ajuste fino del encoder de seguridad se descartó**. Con solo
+> unos cientos de filas etiquetadas (el dataset de la Fase 3), un encoder de ~110M de parámetros
+> **memoriza** el conjunto y no puede validarse sin fuga entre entrenamiento y evaluación. La
+> clasificación la resuelve en su lugar un **árbol de decisión** (CART, `prototipo/arbol.py`):
+> determinista, entrenable y auditable con esa cantidad de datos, y que conserva la confianza numérica
+> que el umbral de validación humana necesita. **No se aplicó fine-tuning a ningún modelo.** El diseño
+> original con encoder se conserva a continuación por trazabilidad de la decisión.
+
 > **Desmentido por medición (02/09/2026).** Lo que sigue supone 10–12 tokens/s en CPU. La medición
 > real en la máquina de desarrollo fue de **~3,7 tokens/s**, así que una justificación breve con un 3B
 > tardaría ~50–100 s, fuera del presupuesto de latencia. La Fase 5C implementó el justificador con un
@@ -65,7 +73,7 @@ El factor limitante no es el modelo por sí solo, sino que **el sandbox se ejecu
 
 **Por qué un tercer componente de 3B.** Sin él, el Perfil A entraba en contradicción con el propio diseño del flujo: la [validación humana](./flujo-triaje-playbook-sandbox.md) ocurre **antes** de ejecutar la acción y necesita la justificación delante, pero un 8B en lote la produce después. Un modelo de 3B cuantizado ocupa ~2 GB y rinde del orden de 10–12 tokens/s en CPU según mediciones publicadas, así que una justificación breve de unos 200 tokens sale en **15–20 segundos**: tolerable para que una persona decida con el razonamiento a la vista.
 
-El 8B en lote no desaparece: produce la justificación extensa que alimenta la traza de auditoría y la evaluación de la Fase 6, donde la latencia no importa.
+El 8B en lote no desaparece: produce la justificación extensa que alimenta la traza de auditoría y la evaluación de la Fase 6, donde la latencia no importa. (El 8B en lote que se **implementó y evaluó** fue **Llama-3.1-8B-Instruct** —`llama-3.1-8b-instruct-q4.gguf`—, no Foundation-Sec-8B; ver la corrección del §4 y la nota de la tabla de candidatos del §7.)
 
 **Por qué la variante Instruct y no Reasoning** en el componente de 8B: emite bastantes menos tokens que el modelo de razonamiento, lo que sobre CPU es la diferencia entre viable e impracticable.
 
@@ -99,6 +107,13 @@ Con una GPU dedicada, o con 32 GB de RAM y tolerancia a una latencia mayor, la a
 | Clasificación, prioridad **y** justificación | **Foundation-Sec-8B-Reasoning** (o `-Instruct`) |
 
 [Foundation-Sec-8B](https://huggingface.co/fdtn-ai/Foundation-Sec-8B), de Cisco Foundation AI, es un Llama-3.1-8B con preentrenamiento continuado sobre corpus de seguridad: threat intelligence, bases de vulnerabilidades, documentación de respuesta a incidentes y estándares. La variante [Reasoning](https://huggingface.co/fdtn-ai/Foundation-Sec-8B-Reasoning), publicada el 28 de enero de 2026, declara como objetivo explícito la **aceleración de SOC: triaje y resumen de casos** — el caso de uso de este proyecto.
+
+> **Corrección de implementación (Fase 5).** El 8B que efectivamente se **implementó y evaluó** no es
+> Foundation-Sec-8B sino **Llama-3.1-8B-Instruct** (`llama-3.1-8b-instruct-q4.gguf`), desplegado como
+> servidor residente en la máquina objetivo con GPU (ver `evaluacion/resultados/8b-con-rag/`). Es decir:
+> el Perfil B **sí se desplegó y evaluó** con un 8B real; lo no viable fue el portátil, no el modelo.
+> **Foundation-Sec-8B-Reasoning quedó como recomendación/aspiración no adoptada**, no como el modelo
+> medido. El texto de diseño se conserva por trazabilidad de la decisión.
 
 - Contexto de 32.768 tokens: sobra para una alerta enriquecida con el contexto del auditor.
 - Benchmarks reportados: CTI-MCQA 0,691 · CTI-RCM 0,753 · CTI-VSP 0,856 · CTI-Reasoning 0,411.
@@ -161,6 +176,13 @@ Advertencia metodológica que debe recogerse en el informe de la Fase 7:
 | [Foundation-Sec-8B-Instruct](https://huggingface.co/fdtn-ai/Foundation-Sec-8B-Instruct) | Generativo | 8B | Sí | Sí | Solo en lote | Sí |
 | [Foundation-Sec-8B-Reasoning](https://huggingface.co/fdtn-ai/Foundation-Sec-8B-Reasoning) | Generativo + razonamiento | 8B | Sí | Sí | **No viable** | **Recomendado** |
 | APIs alojadas (cualquiera) | — | — | Sí | Sí | **Descartado por RNF-01** | **Descartado por RNF-01** |
+
+> **Nota (Fase 5).** Dos entradas de esta tabla no reflejan lo finalmente implementado: (1) el **ajuste
+> fino del encoder** («Con fine-tuning») se **descartó** a favor de un árbol de decisión
+> (`prototipo/arbol.py`); no se aplicó fine-tuning a ningún modelo. (2) El 8B «Recomendado» para el
+> Perfil B —como el «Solo en lote» (Instruct) del Perfil A— eran una aspiración; el 8B que se implementó
+> y evaluó realmente es **Llama-3.1-8B-Instruct** (`llama-3.1-8b-instruct-q4.gguf`), no Foundation-Sec-8B.
+> Ver las correcciones en las §3 y §4.
 
 ---
 

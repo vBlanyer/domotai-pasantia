@@ -108,7 +108,7 @@ No sustituyen a SSH, pero pueden aportar en puntos concretos:
 
 ---
 
-## 6. Cobertura real de SSH: laboratorio vs. cliente de producción
+## 7. Cobertura real de SSH: laboratorio vs. cliente de producción
 
 *(Añadido 02/09/2026, tras verificarlo en vivo en el laboratorio.)*
 
@@ -145,7 +145,7 @@ propiedad del conjunto de ejecutores, no de SSH.
 
 ---
 
-## 7. De la contención *host-based* del laboratorio a la integración con firewalls de producción
+## 8. De la contención *host-based* del laboratorio a la integración con firewalls de producción
 
 *(Añadido 02/09/2026. El prototipo se construye en el laboratorio, pero el diseño debe contemplar la
 integración en un entorno real; esta sección lo fija.)*
@@ -204,7 +204,7 @@ misma interfaz, enrutando la acción por lo que el cliente ya tiene — sin toca
 
 ---
 
-## 8. Retención y anonimización de datos (RNF-12)
+## 9. Retención y anonimización de datos (RNF-12)
 
 *(Añadido 02/09/2026. Política de cumplimiento; en el prototipo se declara, la implementación es de
 despliegue.)*

@@ -62,6 +62,8 @@ Packet Tracer **simula** dispositivos: no ejecuta un sistema operativo real ni e
 
 ## 3. Topología propuesta
 
+> **Nota — divergencia con el despliegue real.** Las §3 y §4 son la propuesta original de la Fase 3 (véanse sus etiquetas de estado más abajo). El despliegue efectivo vive en [`lab/topologias/red-cliente.clab.yml`](../../lab/topologias/red-cliente.clab.yml) y se aparta de este boceto en cuatro puntos: tiene **7 nodos** (`proveedor`, `borde`, `sw-lan`, `puesto`, `iot`, `objetivo-vuln`, `auditor`); el nodo IoT se llama **`iot`**, no `iot-legacy`; **Wazuh corre fuera de la topología clab** —se levanta con [`lab/scripts/wazuh-run.sh`](../../lab/scripts/wazuh-run.sh) y no es un nodo clab, al contrario de lo que sugiere el diagrama de esta sección—; y el **auditor usa Nmap**, no Greenbone.
+
 ```mermaid
 flowchart LR
     subgraph datos["Plano de datos — red del cliente"]

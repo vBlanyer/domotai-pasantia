@@ -135,7 +135,8 @@ flowchart LR
 
 > **Diseño vs implementación (modelo).** El diagrama recoge el **diseño** (Perfil A: 3B interactivo + 8B en
 > lote). El **prototipo implementado usa el 1B** (`llama-3.2-1b-q4`, ~0,8 GB, ~3,7 t/s medidos) para el camino
-> interactivo; el **8B en lote quedó como trabajo futuro** (no viable en el portátil actual). El porqué, en
+> interactivo; el **8B en lote sí se desplegó y evaluó** como servidor residente en la máquina objetivo con GPU
+> (`evaluacion/resultados/8b-con-rag/`). Lo no viable es el **portátil de desarrollo**, no el 8B. El porqué, en
 > [`seleccion-del-modelo.md`](./seleccion-del-modelo.md) y [`estado-y-riesgos §I-6`](../00-general/estado-y-riesgos.md).
 
 **El dataset en disco es la frontera** entre ambos modos, y por eso es también la interfaz del diseño.
