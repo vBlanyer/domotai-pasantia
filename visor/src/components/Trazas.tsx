@@ -3,7 +3,7 @@ import { useSondeo, getTrazas, getVerificacion, type Decision } from "@/api"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, Punto, BarraFiltros } from "./bits"
-import { filtrarDecisiones, clasesDe, claveDe, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, ventanaDe, type Filtro } from "@/datos"
 
 type Estado = { texto: string; ok: boolean; roto?: number | null } | null
 
@@ -35,6 +35,8 @@ export function Trazas() {
   const enFiltro = new Set(filtrarDecisiones(regs, filtro))
   // `i` es la posición en la cadena completa (el backend la anota): la ventana puede empezar a mitad.
   const filas = regs.map((r, k) => ({ r, k, i: r.indice ?? k })).filter(({ r }) => enFiltro.has(r))
+  const ventana = ventanaDe(regs)
+  const rotoFuera = !!ventana && cadena?.roto != null && cadena.roto < ventana.desde
 
   return (
     <div className="space-y-3">
@@ -64,6 +66,16 @@ export function Trazas() {
       ) : (
         <>
         <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(regs)} cuenta={filas.length} />
+        {ventana && (
+          <p className="text-xs text-muted-foreground">
+            Mostrando los últimos {ventana.mostrados} de {ventana.total} registros. La verificación recorre la cadena entera.
+          </p>
+        )}
+        {rotoFuera && cadena?.roto != null && (
+          <p className="text-xs font-medium text-rose-600 dark:text-rose-400">
+            El registro alterado (#{cadena.roto + 1}) queda fuera de los mostrados: la lista solo incluye los últimos {ventana?.mostrados}.
+          </p>
+        )}
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <Table>
             <TableHeader>

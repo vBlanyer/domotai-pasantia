@@ -27,4 +27,10 @@ describe("Equipos", () => {
     expect(screen.getByText("sin actividad")).toBeInTheDocument()
     expect(screen.queryByText(/Postura de seguridad no disponible/)).not.toBeInTheDocument()
   })
+
+  it("si la traza leída es parcial, dice que la postura es de la actividad reciente", () => {
+    h.fuentes.set(getTrazas, [{ indice: 10, id_decision: "s11", activo: "web-banking", clase: "vp_intento_acceso" }])
+    render(<Equipos />)
+    expect(screen.getByText(/últimos 1 de 11 registros/)).toBeInTheDocument()
+  })
 })

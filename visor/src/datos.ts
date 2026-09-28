@@ -90,3 +90,12 @@ export function nivelPrioridad(p?: number | null): { n: number; etiqueta: string
   const n = Math.min(4, Math.round(p))
   return { n, etiqueta: `P${n} · ${NIVELES[n - 1]}` }
 }
+
+// /api/trazas sirve la cola del fichero (los últimos N): si el primer registro no es el 0 de la
+// cadena, lo que se ve es parcial. El total sale del último índice + 1, sin pedir nada más.
+export function ventanaDe(regs: Decision[]): { mostrados: number; total: number; desde: number } | null {
+  const desde = regs[0]?.indice
+  const ultimo = regs[regs.length - 1]?.indice
+  if (desde == null || ultimo == null || desde === 0) return null
+  return { mostrados: regs.length, total: ultimo + 1, desde }
+}

@@ -1,4 +1,5 @@
 import { useSondeo, getEquipos, getTrazas, type Equipo, type Decision } from "@/api"
+import { ventanaDe } from "@/datos"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Punto, Cargando, SinConexion, Vacio, Dato } from "./bits"
 
@@ -138,6 +139,8 @@ export function Equipos() {
   // Si la traza no se pudo leer, la postura es desconocida: no se pinta «sin actividad».
   const sinTraza = !!tz && !Array.isArray(tz)
   const postura = sinTraza ? null : posturaDe(eq, Array.isArray(tz) ? tz : [])
+  // La traza llega acotada a los últimos registros: la postura es la de la actividad reciente.
+  const ventana = Array.isArray(tz) ? ventanaDe(tz) : null
   const criticos = eq.filter((e) => e.criticidad === "critica").length
   const conAmenaza = postura
     ? eq.filter((e) => { const p = postura.get(e.nombre); return p && (p.amenazas > 0 || p.originados > 0) }).length
@@ -150,6 +153,12 @@ export function Equipos() {
         <Mini valor={criticos} etiqueta="de criticidad crítica" />
         <Mini valor={conAmenaza ?? "—"} etiqueta="con actividad de amenaza" tono={conAmenaza ? "text-rose-600 dark:text-rose-400" : ""} />
       </div>
+      {ventana && (
+        <p className="text-xs text-muted-foreground">
+          Postura de seguridad calculada sobre la actividad reciente: los últimos {ventana.mostrados} de {ventana.total} registros
+          de la traza.
+        </p>
+      )}
       {sinTraza && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-300">
           Postura de seguridad no disponible: no se pudo leer la traza de decisiones. El inventario y el

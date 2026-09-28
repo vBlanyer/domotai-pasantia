@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -118,5 +118,17 @@ describe("nivelPrioridad", () => {
   })
   it("por encima de la escala cuenta como crítica", () => {
     expect(nivelPrioridad(7)?.etiqueta).toBe("P4 · crítica")
+  })
+})
+
+describe("ventanaDe", () => {
+  // /api/trazas sirve la cola del fichero: si no empieza en el registro 0, lo mostrado es parcial.
+  it("ventana que empieza a mitad de la cadena: cuántos se ven de cuántos hay", () => {
+    expect(ventanaDe([{ indice: 500 }, { indice: 501 }] as Decision[])).toEqual({ mostrados: 2, total: 502, desde: 500 })
+  })
+  it("cadena completa, vacía o sin índices (daemon antiguo): no es parcial", () => {
+    expect(ventanaDe([{ indice: 0 }, { indice: 1 }] as Decision[])).toBeNull()
+    expect(ventanaDe([])).toBeNull()
+    expect(ventanaDe([{ id_decision: "s1" }] as Decision[])).toBeNull()
   })
 })
