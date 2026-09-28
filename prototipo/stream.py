@@ -346,7 +346,7 @@ _PERFIL_DEF = os.path.join(_RAIZ, "prototipo", "perfiles", "empresarial.yml")
 _HALLAZGOS_DEF = os.path.join(_RAIZ, "lab", "campañas", "2026-08-31-evaluacion", "hallazgos.json")
 
 def parsear_args(argv):
-    pos, con_llm, ventana, salida, sin_lab, agente = [], False, 5, "trazas-stream.jsonl", False, False
+    pos, con_llm, ventana, salida, sin_lab, agente = [], False, 5, "run/trazas-stream.jsonl", False, False
     web, web_puerto, sin_supresion = False, 8787, False
     i = 0
     while i < len(argv):
@@ -495,6 +495,7 @@ def main(argv):
     else:
         escribir_fn, leer_fn = print, _leer_interactivo()   # comportamiento actual (terminal)
     try:
+        os.makedirs(os.path.dirname(cfg["salida"]) or ".", exist_ok=True)  # crea run/ (u otro dir de --salida)
         # Se retoma la cadena del fichero si ya existe: el ultimo hash escrito es el primer
         # hash_previo de esta sesion, asi que la traza de varias sesiones es una sola cadena.
         hash_previo = traza.ultimo_hash(cfg["salida"])

@@ -33,6 +33,7 @@ def main(argv):
         hallazgos = json.load(f)
     catalogo = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
     n = 0
+    os.makedirs(os.path.dirname(salida) or ".", exist_ok=True)  # crea run/ (u otro dir de la salida)
     with open(alertas_path, encoding="utf-8") as fin, open(salida, "w", encoding="utf-8") as fout:
         for i, linea in enumerate(fin):
             linea = linea.strip()

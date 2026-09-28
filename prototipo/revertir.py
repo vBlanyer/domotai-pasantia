@@ -7,7 +7,7 @@ conector que ejecutó la acción, se verifica con la misma verificación (que ah
 fallar: el estado que la acción dejó ya no está), y se anota como un registro más en la
 misma cadena de la traza, con el identificador de la decisión revertida y el motivo.
 
-    python3 -m prototipo.revertir trazas-stream.jsonl s7 --motivo "falso positivo confirmado por el cliente"
+    python3 -m prototipo.revertir run/trazas-stream.jsonl s7 --motivo "falso positivo confirmado por el cliente"
 """
 import datetime
 import json

@@ -206,6 +206,7 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(cfg["ruta"], "alerts.json")
         self.assertFalse(cfg["con_llm"])
         self.assertEqual(cfg["ventana"], 5)
+        self.assertEqual(cfg["salida"], "run/trazas-stream.jsonl")  # runtime bajo run/, no en la raíz
         cfg2 = stream.parsear_args(["-", "prototipo/perfiles/residencial.yml", "--con-llm",
                                     "--ventana-agrupacion", "20", "--sin-lab"])
         self.assertEqual(cfg2["ruta"], "-")

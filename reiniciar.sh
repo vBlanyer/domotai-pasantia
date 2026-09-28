@@ -15,7 +15,8 @@ cd "$RAIZ"
 PERFIL="prototipo/perfiles/bancario.yml"
 HALLAZGOS="lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json"
 WAZUH="clab-red-cliente-wazuh"
-SALIDA="trazas-$(date +%F-%H%M).jsonl"
+mkdir -p run
+SALIDA="run/trazas-$(date +%F-%H%M).jsonl"
 
 echo "→ deteniendo el daemon anterior (si hay)…"
 pkill -9 -f "python3 -m prototipo.stream" 2>/dev/null || true
