@@ -244,6 +244,28 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(r["hash"], "abc123")
         self.assertEqual(r["hash_previo"], "0" * 64)
 
+    def test_resumen_traza_expone_prioridad_veredicto_y_filtro(self):
+        # Lo que el analista necesita en la fila: gravedad, qué decidió el humano (y a qué clase
+        # corrigió) y si la acción propuesta se vetó o degradó antes de ser la final.
+        ruta = self._traza_tmp([{
+            "id_decision": "s1", "prioridad": 7, "veredicto_humano": "reclasificar",
+            "clase_reclasificada": "fp_actividad_legitima", "resultado_filtro": "degrada",
+            "accion_propuesta": "AISLAR_NODO", "accion_final": "BLOQUEAR_IP", "impacto_determinado": {}}])
+        r = tablero.lista_trazas(ruta)[0]
+        self.assertEqual(r["prioridad"], 7)
+        self.assertEqual(r["veredicto_humano"], "reclasificar")
+        self.assertEqual(r["clase_reclasificada"], "fp_actividad_legitima")
+        self.assertEqual(r["resultado_filtro"], "degrada")
+        self.assertEqual(r["accion_propuesta"], "AISLAR_NODO")
+
+    def test_resumen_traza_sin_los_campos_nuevos_los_deja_en_none(self):
+        # Registros antiguos o de supresión no los traen: el resumen no debe romper.
+        r = tablero.lista_trazas(self._traza_tmp([{"id_decision": "s1~sup", "tipo": "actividad_suprimida"}]))[0]
+        for campo in ("prioridad", "veredicto_humano", "clase_reclasificada", "resultado_filtro",
+                      "accion_propuesta"):
+            self.assertIn(campo, r)
+            self.assertIsNone(r[campo])
+
     def test_resumen_traza_marca_con_rag_cuando_hay_pasajes(self):
         ruta = self._traza_tmp([{"id_decision": "s2", "pasajes_usados": ["mitre-T1110"],
                                  "impacto_determinado": {"nivel": "localizado"}}])

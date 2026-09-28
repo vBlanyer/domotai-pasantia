@@ -230,6 +230,12 @@ def _resumen_traza(reg):
     return {"id_decision": reg.get("id_decision"), "timestamp": reg.get("timestamp"),
             "activo": reg.get("activo"), "clase": reg.get("clase"), "confianza": reg.get("confianza"),
             "accion_final": reg.get("accion_final"), "requiere_humano": reg.get("requiere_humano"),
+            # gravedad (ordena la cola), propuesta vs final y cómo la trató el filtro del perfil
+            # (veta/degrada/permite), y qué decidió el analista y a qué clase corrigió
+            "prioridad": reg.get("prioridad"), "accion_propuesta": reg.get("accion_propuesta"),
+            "resultado_filtro": reg.get("resultado_filtro"),
+            "veredicto_humano": reg.get("veredicto_humano"),
+            "clase_reclasificada": reg.get("clase_reclasificada"),
             "impacto": reg.get("impacto") or imp.get("nivel"), "motivo": imp.get("motivo"),
             # activos que caerían en cascada por la acción: se marca en la fila (aviso de seguridad)
             "cascada": imp.get("activos_afectados_en_cascada") or [],
