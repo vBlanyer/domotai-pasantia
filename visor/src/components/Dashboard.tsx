@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
-import { useSondeo, getSalud, getTrazas, getPendientes, getVerificacion, type Decision } from "@/api"
+import { useSondeo, getSalud, getMetricas, getPendientes, getVerificacion } from "@/api"
+import { SinConexion } from "./bits"
 import { Donut, Gauge, Tendencia, type Segmento } from "./charts"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK, ESTADO } from "@/theme"
 import { useTema } from "@/tema"
@@ -45,7 +46,7 @@ const ETIQUETA_CLASE: Record<string, string> = {
 export function Dashboard({ conectado }: { conectado: boolean }) {
   const CAT = useTema().oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
   const salud = useSondeo(getSalud)
-  const trazas = useSondeo(getTrazas)
+  const metricas = useSondeo(getMetricas)
   const pend = useSondeo(getPendientes)
   const verif = useSondeo(getVerificacion)
 
@@ -55,22 +56,17 @@ export function Dashboard({ conectado }: { conectado: boolean }) {
   const sanos = total - caidos
   const pctSanos = total ? Math.round((sanos / total) * 100) : 0
 
-  const regs: Decision[] = Array.isArray(trazas) ? trazas : []
-  const decisiones = regs.filter((d) => d.tipo !== "actividad_suprimida")
-  const suprimidas = regs
-    .filter((d) => d.tipo === "actividad_suprimida")
-    .reduce((a, d) => a + (d.alertas_suprimidas ?? 0), 0)
-  const nPend = Array.isArray(pend) ? pend.length : 0
+  // Totales del periodo: /api/metricas agrega la traza completa (el listado de trazas va acotado a
+  // los últimos registros). Sin datos se pinta «—», nunca un 0 que se lea como «todo tranquilo».
+  const m = metricas && !("error" in metricas) ? metricas : null
+  const sinConexion = !!metricas && "error" in metricas
+  const nPend = Array.isArray(pend) ? pend.length : null
+  const sinDatos = sinConexion ? "sin datos: no hay conexión con el daemon" : null
 
   // Donut por clase: color estable por clase (orden alfabético), nunca por rango.
-  const cuentas = new Map<string, number>()
-  for (const d of decisiones) {
-    const c = d.clase ?? "otra"
-    cuentas.set(c, (cuentas.get(c) ?? 0) + 1)
-  }
-  const clases = [...cuentas.keys()].sort()
+  const clases = m ? Object.keys(m.por_clase).sort() : []
   const porClase: Segmento[] = clases.map((c, i) => ({
-    name: ETIQUETA_CLASE[c] ?? c, value: cuentas.get(c) ?? 0, fill: CAT[i % CAT.length],
+    name: ETIQUETA_CLASE[c] ?? c, value: m?.por_clase[c] ?? 0, fill: CAT[i % CAT.length],
   }))
 
   const saludSeg: Segmento[] = [
@@ -78,24 +74,20 @@ export function Dashboard({ conectado }: { conectado: boolean }) {
     { name: "Caídos", value: caidos, fill: ESTADO.critical },
   ]
 
-  // Tendencia: decisiones por día.
-  const porDia = new Map<string, number>()
-  for (const d of decisiones) {
-    const dia = (d.timestamp ?? "").slice(0, 10)
-    if (dia) porDia.set(dia, (porDia.get(dia) ?? 0) + 1)
-  }
-  const tendencia = [...porDia.entries()].sort().map(([dia, n]) => ({ dia: dia.slice(5), n }))
+  // Tendencia: decisiones por día (ya ordenadas y en MM-DD desde el backend).
+  const tendencia = m ? m.por_dia : []
 
   const cadenaOk = !!verif && !("error" in verif) && verif.ok
 
   return (
     <div className="space-y-6">
+      {sinConexion && <SinConexion />}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi valor={conSalud ? `${sanos}/${total}` : "—"} etiqueta="servicios operativos"
           tono={caidos ? "text-[color:#d03b3b]" : ""} />
-        <Kpi valor={String(decisiones.length)} etiqueta="decisiones tomadas" />
-        <Kpi valor={String(nPend)} etiqueta="esperando aprobación" tono={nPend ? "text-[color:#eda100]" : ""} />
-        <Kpi valor={String(suprimidas)} etiqueta="alertas suprimidas" />
+        <Kpi valor={m ? String(m.total) : "—"} etiqueta="decisiones tomadas" />
+        <Kpi valor={nPend != null ? String(nPend) : "—"} etiqueta="esperando aprobación" tono={nPend ? "text-[color:#eda100]" : ""} />
+        <Kpi valor={m ? String(m.suprimidas) : "—"} etiqueta="alertas suprimidas" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -104,8 +96,8 @@ export function Dashboard({ conectado }: { conectado: boolean }) {
         </Tarjeta>
         <Tarjeta titulo="Decisiones por clase">
           {porClase.length
-            ? <Donut data={porClase} total={decisiones.length} unidad="decisiones" />
-            : <p className="py-14 text-center text-sm text-muted-foreground">aún no hay decisiones</p>}
+            ? <Donut data={porClase} total={m?.total ?? 0} unidad="decisiones" />
+            : <p className="py-14 text-center text-sm text-muted-foreground">{sinDatos ?? "aún no hay decisiones"}</p>}
         </Tarjeta>
         <Tarjeta titulo="Servicios monitoreados">
           <Gauge pct={pctSanos} color={pctSanos >= 100 ? ESTADO.good : pctSanos >= 50 ? ESTADO.warning : ESTADO.critical}
@@ -117,7 +109,7 @@ export function Dashboard({ conectado }: { conectado: boolean }) {
         <Tarjeta titulo="Decisiones por día" className="lg:col-span-2">
           {tendencia.length
             ? <Tendencia data={tendencia} />
-            : <p className="py-16 text-center text-sm text-muted-foreground">sin histórico todavía</p>}
+            : <p className="py-16 text-center text-sm text-muted-foreground">{sinDatos ?? "sin histórico todavía"}</p>}
         </Tarjeta>
         <Tarjeta titulo="Estado del despliegue">
           <ul className="divide-y divide-border">

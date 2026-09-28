@@ -61,7 +61,8 @@ function posturaDe(equipos: Equipo[], trazas: Decision[]) {
   return m
 }
 
-function Seguridad({ p }: { p: Postura }) {
+function Seguridad({ p }: { p: Postura | null }) {
+  if (!p) return <span className="text-muted-foreground">—</span>     // traza ilegible: no se sabe
   if (p.amenazas === 0 && p.originados === 0)
     return <span className="text-muted-foreground">sin actividad</span>
   return (
@@ -83,7 +84,7 @@ function Seguridad({ p }: { p: Postura }) {
   )
 }
 
-function Mini({ valor, etiqueta, tono = "" }: { valor: number; etiqueta: string; tono?: string }) {
+function Mini({ valor, etiqueta, tono = "" }: { valor: number | string; etiqueta: string; tono?: string }) {
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-3">
       <div className={`font-heading text-2xl font-semibold tabular-nums ${tono}`}>{valor}</div>
@@ -92,7 +93,7 @@ function Mini({ valor, etiqueta, tono = "" }: { valor: number; etiqueta: string;
   )
 }
 
-function Grupo({ nombre, equipos, postura }: { nombre: string; equipos: Equipo[]; postura: Map<string, Postura> }) {
+function Grupo({ nombre, equipos, postura }: { nombre: string; equipos: Equipo[]; postura: Map<string, Postura> | null }) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -116,7 +117,9 @@ function Grupo({ nombre, equipos, postura }: { nombre: string; equipos: Equipo[]
               <TableCell><Criticidad v={e.criticidad} /></TableCell>
               <TableCell><Dato>{e.ip}</Dato></TableCell>
               <TableCell><Estado v={e.estado} /></TableCell>
-              <TableCell><Seguridad p={postura.get(e.nombre) ?? { recibidos: 0, amenazas: 0, originados: 0, bloqueado: false }} /></TableCell>
+              <TableCell>
+                <Seguridad p={postura && (postura.get(e.nombre) ?? { recibidos: 0, amenazas: 0, originados: 0, bloqueado: false })} />
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -132,18 +135,27 @@ export function Equipos() {
   if (!Array.isArray(eq)) return <SinConexion />
   if (eq.length === 0) return <Vacio>El perfil no declara equipos.</Vacio>
 
-  const trazas: Decision[] = Array.isArray(tz) ? tz : []
-  const postura = posturaDe(eq, trazas)
+  // Si la traza no se pudo leer, la postura es desconocida: no se pinta «sin actividad».
+  const sinTraza = !!tz && !Array.isArray(tz)
+  const postura = sinTraza ? null : posturaDe(eq, Array.isArray(tz) ? tz : [])
   const criticos = eq.filter((e) => e.criticidad === "critica").length
-  const conAmenaza = eq.filter((e) => { const p = postura.get(e.nombre); return p && (p.amenazas > 0 || p.originados > 0) }).length
+  const conAmenaza = postura
+    ? eq.filter((e) => { const p = postura.get(e.nombre); return p && (p.amenazas > 0 || p.originados > 0) }).length
+    : null
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-4">
         <Mini valor={eq.length} etiqueta="equipos en el inventario" />
         <Mini valor={criticos} etiqueta="de criticidad crítica" />
-        <Mini valor={conAmenaza} etiqueta="con actividad de amenaza" tono={conAmenaza ? "text-rose-600 dark:text-rose-400" : ""} />
+        <Mini valor={conAmenaza ?? "—"} etiqueta="con actividad de amenaza" tono={conAmenaza ? "text-rose-600 dark:text-rose-400" : ""} />
       </div>
+      {sinTraza && (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-300">
+          Postura de seguridad no disponible: no se pudo leer la traza de decisiones. El inventario y el
+          estado de los equipos sí están al día.
+        </p>
+      )}
       {(CATS.map((c) => ({ ...c, items: eq.filter((e) => e.categoria === c.id) }))
         .filter((c) => c.items.length > 0) as { id: string; nombre: string; items: Equipo[] }[])
         .map((c) => <Grupo key={c.id} nombre={c.nombre} equipos={c.items} postura={postura} />)}
