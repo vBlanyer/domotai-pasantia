@@ -125,7 +125,9 @@ export const getEquipos = () => pedir("/api/equipos", z.array(EquipoSchema))
 export const getDecisiones = () => pedir("/api/decisiones", z.array(DecisionSchema))
 export const getPendientes = () => pedir("/api/pendientes", z.array(PendienteSchema))
 export const getTrazas = () => pedir("/api/trazas", z.array(DecisionSchema))
-export const getTrazaDetalle = (id: string) => pedir(`/api/traza/${encodeURIComponent(id)}`, DetalleSchema)
+// Con `indice` el backend devuelve ESE registro aunque su id se repita en la traza (relanzamientos).
+export const getTrazaDetalle = (id: string, indice?: number | null) =>
+  pedir(`/api/traza/${encodeURIComponent(id)}${indice != null ? `?indice=${indice}` : ""}`, DetalleSchema)
 export const getVerificacion = () => pedir("/api/verificar", VerificacionSchema)
 export const getMetricas = () => pedir("/api/metricas", MetricasSchema)
 

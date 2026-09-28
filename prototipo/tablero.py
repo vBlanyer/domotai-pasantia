@@ -293,14 +293,19 @@ def metricas(regs):
     }
 
 
+def _entero(path, nombre):
+    """El parámetro `nombre` de la consulta como entero, o None si falta o no lo es."""
+    valor = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query).get(nombre, [""])[0]
+    try:
+        return int(valor)
+    except ValueError:
+        return None
+
+
 def _limite(path):
     """`?limite=N` (entero > 0) de la consulta, o la cota por defecto si falta o no es válido."""
-    valor = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query).get("limite", [""])[0]
-    try:
-        n = int(valor)
-    except ValueError:
-        return LIMITE_TRAZAS
-    return n if n > 0 else LIMITE_TRAZAS
+    n = _entero(path, "limite")
+    return n if n is not None and n > 0 else LIMITE_TRAZAS
 
 
 def lista_trazas(ruta, n=None):
@@ -338,17 +343,21 @@ def _hidratar_pasajes(reg, corpus):
     return reg
 
 
-def traza_detalle(ruta, id_decision):
+def traza_detalle(ruta, id_decision, indice=None):
     try:
         regs = traza.leer_registros(ruta)
     except FileNotFoundError:
         return None
-    # La última coincidencia: si se relanzó el daemon sobre la misma traza, los id_decision se
-    # repiten entre corridas; la vigente (la del feed) es la más reciente.
+    # Los id_decision se repiten si se relanzó el daemon sobre la misma traza. Con `indice` (la
+    # posición que la fila conoce, ver lista_trazas) se toma ESE registro si es del id pedido; si no,
+    # la última coincidencia, que es la vigente.
     hallado = None
-    for r in regs:
-        if r.get("id_decision") == id_decision:
-            hallado = r
+    if indice is not None and 0 <= indice < len(regs) and regs[indice].get("id_decision") == id_decision:
+        hallado = regs[indice]
+    else:
+        for r in regs:
+            if r.get("id_decision") == id_decision:
+                hallado = r
     return _hidratar_pasajes(hallado, _corpus_por_id()) if hallado is not None else None
 
 
@@ -432,7 +441,7 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/trazas":
                 return self._responder(lista_trazas(s.ruta_traza, n=_limite(self.path)))
             if ruta.startswith("/api/traza/"):
-                d = traza_detalle(s.ruta_traza, ruta[len("/api/traza/"):])
+                d = traza_detalle(s.ruta_traza, ruta[len("/api/traza/"):], indice=_entero(self.path, "indice"))
                 return self._responder(d) if d is not None else self._responder({"error": "no encontrada"}, 404)
             if ruta == "/api/verificar":
                 return self._responder(verificar_traza(s.ruta_traza))

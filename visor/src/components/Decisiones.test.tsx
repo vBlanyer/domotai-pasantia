@@ -3,10 +3,10 @@ import { render, screen, fireEvent } from "@testing-library/react"
 import type { Decision } from "@/api"
 
 // El detalle se pide a /api/traza/<id>: aquí lo sirve un doble.
-const h = vi.hoisted(() => ({ detalle: {} as unknown, decisiones: [] as unknown[] }))
+const h = vi.hoisted(() => ({ detalle: {} as unknown, decisiones: [] as unknown[], pedidos: [] as unknown[][] }))
 vi.mock("@/api", async (orig) => ({
   ...(await orig<typeof import("@/api")>()),
-  getTrazaDetalle: async () => h.detalle,
+  getTrazaDetalle: async (...a: unknown[]) => { h.pedidos.push(a); return h.detalle },
   useSondeo: () => h.decisiones,
 }))
 import { FilaDecision, Decisiones } from "./Decisiones"
@@ -108,6 +108,16 @@ describe("Identidad de las filas", () => {
     rerender(<Decisiones />)
     const detalle = screen.getByText("Justificación").closest("tr")!
     expect(detalle.previousElementSibling).toHaveTextContent("a2")
+  })
+})
+
+describe("Detalle de un registro con id repetido", () => {
+  it("pide el detalle por el índice de la fila, no solo por el id", async () => {
+    h.pedidos = []
+    h.detalle = { id_decision: "s1", justificacion: "x", orden: null }
+    render(<table><tbody><FilaDecision d={{ id_decision: "s1", indice: 4 }} abierto onToggle={() => {}} /></tbody></table>)
+    await screen.findByText("Justificación")
+    expect(h.pedidos[0]).toEqual(["s1", 4])
   })
 })
 

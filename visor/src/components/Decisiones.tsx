@@ -101,13 +101,13 @@ function BloqueContencion({ c }: { c: Contencion }) {
   )
 }
 
-function Detalles({ id }: { id: string }) {
+function Detalles({ id, indice }: { id: string; indice?: number | null }) {
   const [det, setDet] = useState<Detalle | { error: string }>()
   useEffect(() => {
     let vivo = true
-    getTrazaDetalle(id).then((d) => { if (vivo) setDet(d) })
+    getTrazaDetalle(id, indice).then((d) => { if (vivo) setDet(d) })
     return () => { vivo = false }
-  }, [id])
+  }, [id, indice])
 
   if (!det) return <p className="text-sm text-muted-foreground">cargando detalle…</p>
   if ("error" in det) return <p className="text-sm text-muted-foreground">no se pudo cargar el detalle de esta decisión.</p>
@@ -233,7 +233,7 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
       {abierto && d.id_decision && (
         <TableRow className="hover:bg-transparent">
           <TableCell colSpan={COLS} className="bg-muted/30 p-4">
-            <Detalles id={d.id_decision} />
+            <Detalles id={d.id_decision} indice={d.indice} />
           </TableCell>
         </TableRow>
       )}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, EquipoSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar } from "./api"
+import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, EquipoSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -158,5 +158,17 @@ describe("aprobar", () => {
 describe("PendienteSchema.paso", () => {
   it("conserva el paso que manda la cola", () => {
     expect(PendienteSchema.parse({ id: "1", tipo: "menu", prompt: "x", lineas: [], paso: 1 }).paso).toBe(1)
+  })
+})
+
+describe("getTrazaDetalle", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it("pide el detalle del registro concreto cuando conoce su índice", async () => {
+    const f = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id_decision: "s1" }) })
+    vi.stubGlobal("fetch", f)
+    await getTrazaDetalle("s1", 4)
+    expect(f.mock.calls[0][0]).toMatch(/\/api\/traza\/s1\?indice=4$/)
+    await getTrazaDetalle("s1")
+    expect(f.mock.calls[1][0]).toMatch(/\/api\/traza\/s1$/)
   })
 })

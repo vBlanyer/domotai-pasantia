@@ -244,6 +244,16 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(r["hash"], "abc123")
         self.assertEqual(r["hash_previo"], "0" * 64)
 
+    def test_traza_detalle_por_indice_distingue_ids_repetidos(self):
+        # Relanzar el daemon sobre la misma traza repite los id_decision: la fila sabe su índice y el
+        # detalle debe ser el de ESE registro, no el del último con el mismo id.
+        ruta = self._traza_tmp([{"id_decision": "s1", "justificacion": "antigua"},
+                                {"id_decision": "s1", "justificacion": "nueva"}])
+        self.assertEqual(tablero.traza_detalle(ruta, "s1", indice=0)["justificacion"], "antigua")
+        self.assertEqual(tablero.traza_detalle(ruta, "s1")["justificacion"], "nueva")         # sin índice: la última
+        self.assertEqual(tablero.traza_detalle(ruta, "s1", indice=9)["justificacion"], "nueva")   # fuera de rango
+        self.assertEqual(tablero.traza_detalle(ruta, "s2", indice=0), None)                   # índice de otro id
+
     def test_lista_trazas_anota_el_indice_global_en_la_cadena(self):
         # Con la cota, la ventana empieza a mitad de la traza: el índice global identifica cada
         # registro (los id_decision se repiten) y casa con el roto_en de /api/verificar.
@@ -377,6 +387,15 @@ class TestServidor(unittest.TestCase):
         f = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8")
         f.write("".join(json.dumps(r) + "\n" for r in regs)); f.close(); self.addCleanup(os.unlink, f.name)
         return f.name
+
+    def test_detalle_http_acepta_el_indice(self):
+        regs = [traza.encadenar({"id_decision": "s1", "justificacion": "antigua"}, traza.GENESIS)]
+        regs.append(traza.encadenar({"id_decision": "s1", "justificacion": "nueva"}, regs[0]["hash"]))
+        f = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8")
+        f.write("".join(json.dumps(r) + "\n" for r in regs)); f.close(); self.addCleanup(os.unlink, f.name)
+        _, puerto = self._servidor(ruta_traza=f.name)
+        self.assertEqual(json.loads(self._get(puerto, "/api/traza/s1?indice=0")[1])["justificacion"], "antigua")
+        self.assertEqual(json.loads(self._get(puerto, "/api/traza/s1")[1])["justificacion"], "nueva")
 
     def test_trazas_se_acotan_a_los_ultimos_por_defecto(self):
         # El visor sondea /api/trazas cada 2 s: sin cota, cada tick relee y envía la traza entera.
