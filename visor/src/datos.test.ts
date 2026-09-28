@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -99,5 +99,24 @@ describe("filtroLegible", () => {
   it("sin acción y sin dato", () => {
     expect(filtroLegible({ resultado_filtro: "sin_accion" })).toBe("sin acción")
     expect(filtroLegible({})).toBeNull()
+  })
+})
+
+describe("nivelPrioridad", () => {
+  // Escala del motor (analisis._priorizar): 1..4, donde 4 es un acceso consumado o un intento
+  // sobre un activo crítico.
+  it("rotula cada nivel", () => {
+    expect(nivelPrioridad(4)?.etiqueta).toBe("P4 · crítica")
+    expect(nivelPrioridad(3)?.etiqueta).toBe("P3 · alta")
+    expect(nivelPrioridad(2)?.etiqueta).toBe("P2 · media")
+    expect(nivelPrioridad(1)?.etiqueta).toBe("P1 · baja")
+  })
+  it("sin prioridad (o 0, el valor por defecto de la cola) no rotula", () => {
+    expect(nivelPrioridad(null)).toBeNull()
+    expect(nivelPrioridad(undefined)).toBeNull()
+    expect(nivelPrioridad(0)).toBeNull()
+  })
+  it("por encima de la escala cuenta como crítica", () => {
+    expect(nivelPrioridad(7)?.etiqueta).toBe("P4 · crítica")
   })
 })

@@ -74,3 +74,12 @@ export function filtroLegible(d: {
       return d.resultado_filtro ?? null
   }
 }
+
+// Gravedad de una decisión en la escala del motor (analisis._priorizar: 1..4). Rótulo con texto,
+// nunca solo color. 0 es el valor por defecto de la cola cuando no hay prioridad: no se rotula.
+const NIVELES = ["baja", "media", "alta", "crítica"]
+export function nivelPrioridad(p?: number | null): { n: number; etiqueta: string } | null {
+  if (!p || p < 1) return null
+  const n = Math.min(4, Math.round(p))
+  return { n, etiqueta: `P${n} · ${NIVELES[n - 1]}` }
+}

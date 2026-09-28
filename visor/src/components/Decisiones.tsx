@@ -2,18 +2,21 @@ import { useEffect, useState, type ReactNode } from "react"
 import { ChevronDown, ChevronRight, Shield, ShieldCheck, ShieldX, TriangleAlert } from "lucide-react"
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros } from "./bits"
+import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros, Prioridad } from "./bits"
 import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
 
-const COLS = 7
+const COLS = 8
+
+// Desenlace del veredicto humano, en la columna Decisión.
+const DESENLACE: Record<string, string> = { aprobar: "aprobada", rechazar: "rechazada", reclasificar: "reclasificada" }
 
 // De dónde viene la justificación: plantilla (baseline, sin modelo) o el LLM 1B.
 function esLLM(v?: string | null) {
   return !!v && !v.startsWith("plantilla")
 }
 
-function Pildora({ children, tono }: { children: ReactNode; tono: string }) {
-  return <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${tono}`}>{children}</span>
+function Pildora({ children, tono, title }: { children: ReactNode; tono: string; title?: string }) {
+  return <span title={title} className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${tono}`}>{children}</span>
 }
 
 // Chips MITRE + insignia del justificador + señal de RAG, para ver el aporte del LLM/RAG de un vistazo.
@@ -188,6 +191,7 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
         <TableCell className="w-6 text-muted-foreground">
           {abierto ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         </TableCell>
+        <TableCell><Prioridad n={d.prioridad} /></TableCell>
         <TableCell><Dato>{d.timestamp}</Dato></TableCell>
         <TableCell className="font-medium">{d.activo}</TableCell>
         <TableCell>
@@ -198,13 +202,32 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
               <TriangleAlert className="size-3 shrink-0" /> tumba en cascada: {d.cascada.join(", ")}
             </div>
           )}
+          {d.clase_reclasificada && (
+            <div className="mt-1.5 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+              reclasificada: {d.clase} → {d.clase_reclasificada}
+            </div>
+          )}
         </TableCell>
         <TableCell className="tabular-nums">{d.confianza != null ? d.confianza.toFixed(2) : "—"}</TableCell>
-        <TableCell>{d.accion_final ?? <span className="text-muted-foreground">—</span>}</TableCell>
+        <TableCell>
+          {d.accion_final
+            ?? (d.resultado_filtro === "veta" && d.accion_propuesta
+              ? <s className="text-muted-foreground">{d.accion_propuesta}</s>
+              : <span className="text-muted-foreground">—</span>)}
+          {d.resultado_filtro === "degrada" && (
+            <> <Pildora tono="bg-amber-500/15 text-amber-700 dark:text-amber-300" title={`propuesta: ${d.accion_propuesta ?? "—"}`}>degradada</Pildora></>
+          )}
+          {d.resultado_filtro === "veta" && !d.accion_final && (
+            <> <Pildora tono="bg-rose-500/15 text-rose-700 dark:text-rose-300">vetada</Pildora></>
+          )}
+        </TableCell>
         <TableCell>
           {d.requiere_humano
             ? <span className="text-amber-600 dark:text-amber-400">humano</span>
             : <span className="text-muted-foreground">auto</span>}
+          {d.veredicto_humano && (
+            <div className="text-xs text-muted-foreground">{DESENLACE[d.veredicto_humano] ?? d.veredicto_humano}</div>
+          )}
         </TableCell>
       </TableRow>
       {abierto && d.id_decision && (
@@ -234,7 +257,7 @@ export function Decisiones() {
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-6" />
-              <TableHead>Cuándo</TableHead><TableHead>Activo</TableHead><TableHead>Clase</TableHead>
+              <TableHead>Prioridad</TableHead><TableHead>Cuándo</TableHead><TableHead>Activo</TableHead><TableHead>Clase</TableHead>
               <TableHead>Confianza</TableHead><TableHead>Acción</TableHead><TableHead>Decisión</TableHead>
             </TableRow>
           </TableHeader>

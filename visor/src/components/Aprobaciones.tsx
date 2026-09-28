@@ -4,7 +4,7 @@ import { useSondeo, getPendientes, aprobar, parsearPendiente, type Pendiente, ty
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog } from "@/components/ui/alert-dialog"
-import { Cargando, SinConexion, Vacio, Punto } from "./bits"
+import { Cargando, SinConexion, Vacio, Punto, Prioridad } from "./bits"
 
 // Lo que el aviso confirma tras un veredicto aplicado (mismo vocabulario que el menú del daemon).
 const HECHO: Record<string, string> = {
@@ -95,6 +95,7 @@ function Tarjeta({ p }: { p: Pendiente }) {
       <div className="flex items-center gap-2 border-b border-amber-500/20 px-4 py-2.5">
         <Punto estado="pendiente" />
         <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Espera tu decisión</span>
+        {!!p.severidad && <Prioridad n={p.severidad} />}
         {v.incidente && <span className="ml-1 truncate text-xs text-muted-foreground">· {v.incidente}</span>}
         {!!p.suprimidas && p.suprimidas > 0 && (
           <span className="ml-auto shrink-0 rounded bg-rose-500/15 px-1.5 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400">

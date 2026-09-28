@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { type Filtro } from "@/datos"
+import { nivelPrioridad, type Filtro } from "@/datos"
 
 // Barra de filtros (búsqueda + clase) con contador de resultados. Reutilizada por Decisiones y Trazas.
 export function BarraFiltros({ f, set, clases, cuenta }: {
@@ -55,6 +55,23 @@ export function ClaseBadge({ clase }: { clase?: string | null }) {
     : clase === "amenaza_enrutada" ? "default"
     : clase.startsWith("fp_") ? "secondary" : "outline"
   return <Badge variant={v as "destructive" | "default" | "secondary" | "outline"} className="font-normal">{clase}</Badge>
+}
+
+// Gravedad de la decisión (P1..P4) con su rótulo; el color refuerza, no sustituye al texto.
+const TONO_PRIORIDAD = [
+  "bg-slate-500/15 text-slate-600 dark:text-slate-300",
+  "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+]
+export function Prioridad({ n }: { n?: number | null }) {
+  const nivel = nivelPrioridad(n)
+  if (!nivel) return <span className="text-muted-foreground">—</span>
+  return (
+    <span className={cn("whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium", TONO_PRIORIDAD[nivel.n - 1])}>
+      {nivel.etiqueta}
+    </span>
+  )
 }
 
 // Valor de telemetria (IP, id, hora): monoespaciada, es dato tecnico, no etiqueta decorativa.

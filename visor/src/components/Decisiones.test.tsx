@@ -3,12 +3,13 @@ import { render, screen } from "@testing-library/react"
 import type { Decision } from "@/api"
 
 // El detalle se pide a /api/traza/<id>: aquí lo sirve un doble.
-const h = vi.hoisted(() => ({ detalle: {} as unknown }))
+const h = vi.hoisted(() => ({ detalle: {} as unknown, decisiones: [] as unknown[] }))
 vi.mock("@/api", async (orig) => ({
   ...(await orig<typeof import("@/api")>()),
   getTrazaDetalle: async () => h.detalle,
+  useSondeo: () => h.decisiones,
 }))
-import { FilaDecision } from "./Decisiones"
+import { FilaDecision, Decisiones } from "./Decisiones"
 
 const fila = (d: Decision) => render(
   <table><tbody><FilaDecision d={d} abierto onToggle={() => {}} /></tbody></table>,
@@ -50,3 +51,37 @@ describe("Detalle de una decisión", () => {
     expect(screen.queryByText(/→/)).not.toBeInTheDocument()
   })
 })
+
+describe("Fila de la tabla de decisiones", () => {
+  const cerrada = (d: Decision) => render(
+    <table><tbody><FilaDecision d={d} abierto={false} onToggle={() => {}} /></tbody></table>,
+  )
+
+  it("muestra la prioridad y el desenlace de una reclasificación", () => {
+    cerrada({ id_decision: "s1", prioridad: 4, clase: "vp_intento_acceso", requiere_humano: true,
+      veredicto_humano: "reclasificar", clase_reclasificada: "fp_actividad_legitima" })
+    expect(screen.getByText("P4 · crítica")).toBeInTheDocument()
+    expect(screen.getByText("reclasificada: vp_intento_acceso → fp_actividad_legitima")).toBeInTheDocument()
+    expect(screen.getByText("reclasificada")).toBeInTheDocument()
+  })
+
+  it("marca una acción degradada por el perfil", () => {
+    cerrada({ id_decision: "s2", resultado_filtro: "degrada", accion_propuesta: "AISLAR_NODO", accion_final: "BLOQUEAR_IP" })
+    expect(screen.getByText("BLOQUEAR_IP")).toBeInTheDocument()
+    expect(screen.getByText("degradada")).toHaveAttribute("title", "propuesta: AISLAR_NODO")
+  })
+
+  it("marca una acción vetada (sin acción final)", () => {
+    cerrada({ id_decision: "s3", resultado_filtro: "veta", accion_propuesta: "AISLAR_NODO", accion_final: null })
+    expect(screen.getByText("AISLAR_NODO")).toBeInTheDocument()
+    expect(screen.getByText("vetada")).toBeInTheDocument()
+  })
+
+  it("la tabla tiene columna de prioridad", () => {
+    h.decisiones = [{ id_decision: "s1", prioridad: 3, clase: "vp_intento_acceso" }]
+    render(<Decisiones />)
+    expect(screen.getByRole("columnheader", { name: "Prioridad" })).toBeInTheDocument()
+    expect(screen.getByText("P3 · alta")).toBeInTheDocument()
+  })
+})
+

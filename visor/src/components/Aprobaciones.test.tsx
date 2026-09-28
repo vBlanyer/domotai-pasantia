@@ -18,7 +18,7 @@ const MENU = "¿Qué hacer con este incidente?\n  1) aprobar       — ejecuta l
 const CLASES = "Nueva clase:\n  1) fp_actividad_legitima\n  2) fp_exposicion_inexistente\n  3) no_soportada"
 const tarjeta = (over: Partial<Pendiente> = {}): Pendiente => ({
   id: "7", tipo: "menu", prompt: "Elige [1-3]: ", lineas: [INCID, "Acción sugerida: BLOQUEAR_IP", MENU],
-  severidad: 7, suprimidas: 0, paso: 0, ...over,
+  severidad: 3, suprimidas: 0, paso: 0, ...over,
 })
 const vista = () => <Toaster><Aprobaciones /></Toaster>
 const boton = (nombre: string) => screen.getByRole("button", { name: nombre })
@@ -118,6 +118,11 @@ describe("Aprobaciones", () => {
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
       expect(h.aprobar).toHaveBeenCalledWith("7", "2", 0)
     })
+  })
+
+  it("rotula la severidad de la tarjeta para priorizar la cola", () => {
+    render(vista())
+    expect(screen.getByText("P3 · alta")).toBeInTheDocument()
   })
 
   it("una escalada (ruta bloqueante) aprueba sin paso", () => {

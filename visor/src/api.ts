@@ -24,6 +24,10 @@ export const DecisionSchema = z.object({
   tecnica_mitre: z.array(z.string()).nullable().optional(), con_rag: z.boolean().nullable().optional(),
   hash: z.string().nullable().optional(), hash_previo: z.string().nullable().optional(),
   tipo: z.string().nullable().optional(), alertas_suprimidas: z.number().nullable().optional(),
+  // gravedad (1..4), propuesta vs final y cómo la trató el filtro, y el desenlace humano
+  prioridad: z.number().nullable().optional(), accion_propuesta: z.string().nullable().optional(),
+  resultado_filtro: z.string().nullable().optional(), veredicto_humano: z.string().nullable().optional(),
+  clase_reclasificada: z.string().nullable().optional(),
 })
 // Detalle completo de una decisión (/api/traza/<id>): el texto de la justificación y los pasajes
 // del RAG. Laxo a propósito (`passthrough`): la traza lleva muchos más campos que no renderizamos.
