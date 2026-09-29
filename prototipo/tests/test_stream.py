@@ -141,6 +141,67 @@ class TestColaNoBloqueante(unittest.TestCase):
         self.assertEqual(len(estado.decisiones_pendientes()), 1)
 
 
+class TestEscaladaEnModoWeb(unittest.TestCase):
+    """Caso E1 del banco: la víctima no responde al MDR y la escalada al cortafuegos pide humano.
+    En modo web no bloqueante eso congelaba el daemon entero (pregunta invisible y sin plazo)."""
+
+    class HostCaido:
+        def __init__(self): self.aplicado = set()
+        def __call__(self, nodo_ip, cmd):
+            if nodo_ip == "192.168.1.30":
+                return (255, "Connection refused")
+            if "grep" in cmd:
+                return (0, "DROP") if nodo_ip in self.aplicado else (1, "")
+            self.aplicado.add(nodo_ip); return (0, "")
+
+    def _perfil(self):
+        p = dict(y("perfil.yml"))
+        p["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
+                          "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}
+        p["ip_gestion"] = "192.168.1.100"
+        return p
+
+    def _ejecutar(self, estado, buf, ej):
+        def no_leas(*_):
+            raise AssertionError("en modo web el lazo no debe bloquearse leyendo")
+        stream.ejecutar([_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=self._perfil(),
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=ej, justificar_fn=None,
+                        ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
+                        leer=no_leas, estado_web=estado)
+
+    def test_la_escalada_que_pide_humano_se_encola_sin_bloquear(self):
+        estado, buf, ej = tablero.EstadoTablero(), io.StringIO(), self.HostCaido()
+        self._ejecutar(estado, buf, ej)                          # vuelve: no se congela
+        cola = estado.decisiones_pendientes()
+        self.assertEqual(len(cola), 1)
+        self.assertEqual(cola[0]["tipo"], "escalada")
+        self.assertTrue(any("gateway" in l for l in cola[0]["lineas"]))
+        self.assertEqual(buf.getvalue().strip(), "")              # se traza al resolver
+        self.assertEqual(ej.aplicado, set())
+
+    def test_aprobar_la_escalada_contiene_en_el_cortafuegos_y_traza(self):
+        estado, buf, ej = tablero.EstadoTablero(), io.StringIO(), self.HostCaido()
+        self._ejecutar(estado, buf, ej)
+        p = estado.decisiones_pendientes()[0]
+        self.assertTrue(estado.resolver_decision(p["id"], "s", paso=p["paso"]))
+        self.assertEqual(estado.decisiones_pendientes(), [])
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(r["escalada"]["resultado"], "mitigado")
+        self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "gateway")
+        self.assertEqual(r["veredicto_escalada"], "aprobar")
+        self.assertIn("192.168.1.1", ej.aplicado)
+
+    def test_rechazar_la_escalada_no_contiene_y_traza(self):
+        estado, buf, ej = tablero.EstadoTablero(), io.StringIO(), self.HostCaido()
+        self._ejecutar(estado, buf, ej)
+        p = estado.decisiones_pendientes()[0]
+        self.assertTrue(estado.resolver_decision(p["id"], "", paso=p["paso"]))
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(r["escalada"]["resultado"], "cancelado_por_humano")
+        self.assertEqual(r["veredicto_escalada"], "rechazar")
+        self.assertEqual(ej.aplicado, set())
+
+
 class TestModoAgente(unittest.TestCase):
     def test_ejecutar_delega_al_mitigar_fn_y_cuenta(self):
         buf = io.StringIO()

@@ -9,11 +9,36 @@ def decidir_incidente(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_dec
                            justificar_fn=justificar_fn)
 
 
+class _PreguntaPendiente(Exception):
+    """La escalada necesita a un humano y el lazo no puede esperarle (modo web no bloqueante)."""
+
+
+def _escalar(alerta, decision, perfil, catalogo, ejecutor, leer, timestamp, desde, id_decision,
+             escribir=print):
+    from prototipo import agente_mitigacion as ag
+    return ag.escalar_determinista(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
+                                   leer=leer, escribir=escribir, timestamp=timestamp, desde=desde,
+                                   confianza=decision.get("confianza", 1.0), siempre_humano=False,
+                                   decision_id=id_decision)
+
+
+def reanudar_escalada(parcial, alerta, perfil, catalogo, ejecutor, respuesta, desde, timestamp):
+    """Retoma una escalada diferida con la respuesta del analista ("s" aprueba). La pregunta se
+    hace antes de ejecutar en cada dispositivo, así que retomar desde `desde` no repite nada que
+    haya tenido efecto. Devuelve el registro final para la traza."""
+    escalada = _escalar(alerta, parcial, perfil, catalogo, ejecutor, lambda *_: respuesta, timestamp,
+                        desde, parcial.get("id_decision", ""))
+    return {**{k: v for k, v in parcial.items() if k != "en_cola"}, "escalada": escalada}
+
+
 def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision, timestamp,
-                      veredicto=None, clase_reclasificada=None, leer=input):
+                      veredicto=None, clase_reclasificada=None, leer=input, diferir_escalada=None):
     """2ª fase: dado el veredicto (None=automático, 'aprobar', 'rechazar', 'reclasificar'), ejecuta la
     contención + verifica + escala, o retiene. Es lo que corre DESPUÉS de que el humano responde (o
-    inline en el camino automático). Devuelve el registro finalizado para la traza."""
+    inline en el camino automático). Devuelve el registro finalizado para la traza.
+
+    Con `diferir_escalada(parcial, alerta, desde, lineas)` (modo web), si la escalada necesita
+    preguntar no se bloquea: se entrega el contexto para reanudarla y se devuelve `en_cola`."""
     if veredicto in ("rechazar", "reclasificar"):
         # "reclasificar" retiene la alerta sin ejecutar la acción propuesta y registra la clase
         # corregida por el analista como feedback (RF-08/RF-12): si el triaje se equivocó de clase,
@@ -31,18 +56,29 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
     # contencion hacia el perimetro, con el filtro del perfil en cada salto. Sin topologia no hay
     # a donde escalar y la traza lo deja como esta: exito=False, verificado=False.
     escalada = None
+    parcial = {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
+               "orden": o, "ejecucion": ejecucion, "verificacion": verif}
     if not (ejecucion.get("exito") and verif.get("verificado")) and perfil.get("topologia"):
-        from prototipo import agente_mitigacion as ag
-        escalada = ag.escalar_determinista(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
-                                           leer=leer, timestamp=timestamp, desde=o.get("nodo_objetivo"),
-                                           confianza=decision.get("confianza", 1.0), siempre_humano=False,
-                                           decision_id=id_decision)
-    return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
-            "orden": o, "ejecucion": ejecucion, "verificacion": verif, "escalada": escalada}
+        desde = o.get("nodo_objetivo")
+        if diferir_escalada is None:
+            escalada = _escalar(alerta, decision, perfil, catalogo, ejecutor, leer, timestamp, desde,
+                                id_decision)
+        else:
+            lineas = []
+            def _no_bloquear(prompt=""):
+                raise _PreguntaPendiente(prompt)
+            try:
+                escalada = _escalar(alerta, decision, perfil, catalogo, ejecutor, _no_bloquear, timestamp,
+                                    desde, id_decision, escribir=lineas.append)
+            except _PreguntaPendiente:
+                diferir_escalada(parcial, alerta, desde, lineas)
+                return {**parcial, "escalada": None, "en_cola": True}
+    return {**parcial, "escalada": escalada}
 
 
 def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp,
-                  leer=input, justificar_fn=analisis.justificar, mitigar_fn=None, escribir=print, encolar=None):
+                  leer=input, justificar_fn=analisis.justificar, mitigar_fn=None, escribir=print, encolar=None,
+                  diferir_escalada=None):
     decision = decidir_incidente(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
                                  justificar_fn=justificar_fn)
     # Modo agente: si hay contención que aplicar, delega la mitigación al agente ReAct, que decide la
@@ -62,7 +98,8 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
         v = validacion.pedir(decision, alerta, leer=leer, escribir=escribir)
         veredicto, clase_reclasificada = v["veredicto"], v.get("clase_nueva")
     return aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision, timestamp,
-                             veredicto=veredicto, clase_reclasificada=clase_reclasificada, leer=leer)
+                             veredicto=veredicto, clase_reclasificada=clase_reclasificada, leer=leer,
+                             diferir_escalada=diferir_escalada)
 
 class _EjecutorAuto:
     """Ejecutor falso para --auto (sin laboratorio), con estado como el EjecutorFalso de los tests:

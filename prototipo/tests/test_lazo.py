@@ -212,6 +212,44 @@ class TestEscaladaPorDefecto(unittest.TestCase):
         self.assertEqual(r["escalada"]["resultado"], "cancelado_por_humano")
         self.assertEqual(len(preguntas), 1)
 
+    def test_con_diferir_la_pregunta_de_escalada_no_bloquea(self):
+        # Modo web: el lazo no puede quedarse esperando una respuesta (congelaría el daemon). La
+        # escalada que necesita humano se difiere con su contexto y el cortafuegos no se toca.
+        def no_preguntes(p):
+            raise AssertionError("el lazo no debe bloquearse preguntando")
+        diferidas, ej = [], self.HostCaido()
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil_con_topologia(),
+                               "prueba", CAT, ej, "d1", "t", leer=no_preguntes,
+                               diferir_escalada=lambda *a: diferidas.append(a))
+        self.assertTrue(r["en_cola"])
+        self.assertFalse(r["ejecucion"]["exito"])                  # el host falló, y consta
+        self.assertEqual(ej.aplicado, set())                       # el cortafuegos no se tocó
+        self.assertEqual(len(diferidas), 1)
+        parcial, alerta, desde, lineas = diferidas[0]
+        self.assertEqual(desde, "objetivo-vuln")
+        self.assertFalse(parcial["ejecucion"]["exito"])
+        self.assertTrue(any("BLOQUEAR_IP_FIREWALL" in l and "gateway" in l for l in lineas))
+
+    def test_reanudar_escalada_aprobada_contiene_en_el_cortafuegos(self):
+        diferidas, ej = [], self.HostCaido()
+        lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil_con_topologia(),
+                           "prueba", CAT, ej, "d1", "t", diferir_escalada=lambda *a: diferidas.append(a))
+        parcial, alerta, desde, _ = diferidas[0]
+        r = lazo.reanudar_escalada(parcial, alerta, self._perfil_con_topologia(), CAT, ej, "s", desde, "t")
+        self.assertEqual(r["escalada"]["resultado"], "mitigado")
+        self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "gateway")
+        self.assertFalse(r["ejecucion"]["exito"])                  # conserva el intento en el host
+        self.assertNotIn("en_cola", r)
+
+    def test_reanudar_escalada_rechazada_no_toca_el_cortafuegos(self):
+        diferidas, ej = [], self.HostCaido()
+        lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil_con_topologia(),
+                           "prueba", CAT, ej, "d1", "t", diferir_escalada=lambda *a: diferidas.append(a))
+        parcial, alerta, desde, _ = diferidas[0]
+        r = lazo.reanudar_escalada(parcial, alerta, self._perfil_con_topologia(), CAT, ej, "", desde, "t")
+        self.assertEqual(r["escalada"]["resultado"], "cancelado_por_humano")
+        self.assertEqual(ej.aplicado, set())
+
     def test_la_reversion_de_una_escalada_sale_de_la_orden_efectiva(self):
         from prototipo import revertir
         ej = self.HostCaido()

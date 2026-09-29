@@ -103,7 +103,7 @@ def _linea_supresion(reg):
 
 def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
                         id_decision, cadena, escribir, leer, mitigar_fn=None, encolar=None,
-                        escribir_traza=None):
+                        escribir_traza=None, diferir_escalada=None):
     rep = inc["representante"]
     escribir(_resumen_incidente(inc))
     kw = {} if justificar_fn is None else {"justificar_fn": justificar_fn}
@@ -111,6 +111,8 @@ def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecuto
         kw["mitigar_fn"] = mitigar_fn
     if encolar is not None:
         kw["encolar"] = encolar
+    if diferir_escalada is not None:
+        kw["diferir_escalada"] = diferir_escalada
     d = lazo.procesar_lazo(rep, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                            id_decision, rep.get("timestamp", ""), leer=leer, escribir=escribir, **kw)
     if d.get("en_cola"):            # modo web no bloqueante: se resolverá y trazará al aprobar
@@ -144,6 +146,19 @@ def _entrada_cola(decision, alerta):
             "lineas": [incid, validacion.mostrar(decision, alerta), menu]}
 
 
+def _entrada_escalada(parcial, alerta, desde, lineas):
+    """Entrada de cola para una escalada que pide humano (modo web): el activo no respondió y la
+    contención debe subir al perímetro. El visor la pinta como tarjeta «escalada» (s / vacío)."""
+    incid = (f"⚠ Incidente: {alerta.get('origen_ip')} -> {alerta.get('activo')} "
+             f"({alerta.get('servicio')})")
+    return {"clave": ("escalada", alerta.get("origen_ip"), alerta.get("familia")),
+            "severidad": parcial.get("prioridad") or 0,
+            "decision": parcial, "alerta": alerta, "desde": desde, "recibido_en": time.time(),
+            "tipo": "escalada", "prompt": "¿aprobar la ejecución? [s/N] ",
+            "accion_final": parcial.get("accion_final"),
+            "lineas": [incid, f"{desde} no respondió al MDR: la contención escala al perímetro.", *lineas]}
+
+
 def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, escribir):
     """Devuelve resolver(pid, respuesta)->bool: aplica el veredicto del analista a una decisión en
     cola (ejecuta la contención + escribe la traza), sin bloquear el lazo. Reclasificar es en dos
@@ -162,6 +177,17 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
             except (TypeError, ValueError):
                 return False
         respuesta = (respuesta or "").strip()
+        if entrada.get("tipo") == "escalada":          # escalada diferida: se retoma con la respuesta
+            if estado.sacar_decision(pid) is None:
+                return False
+            alerta = entrada["alerta"]
+            r = lazo.reanudar_escalada(entrada["decision"], alerta, perfil, catalogo, ejecutor, respuesta,
+                                       entrada.get("desde"), alerta.get("timestamp", ""))
+            r = {**r, "veredicto_escalada": "aprobar" if respuesta.lower().startswith("s") else "rechazar",
+                 "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time()}
+            escribir(_linea_decision(r))
+            escribir_traza(r)
+            return True
         if not entrada.get("esperando_clase"):
             if respuesta == "3":                       # reclasificar -> submenú de clases (no finaliza)
                 clases = [c for c in analisis.CLASES if c != entrada["decision"].get("clase")]
@@ -230,10 +256,14 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             if cadena is not None:
                 cadena.escribir(reg)
     # Modo web no bloqueante: encolar en vez de bloquear, y registrar cómo se resuelve (ejecuta+traza).
-    encolar = None
+    encolar = diferir_escalada = None
     if estado_web is not None:
         def encolar(decision, alerta):
             estado_web.encolar_decision(_entrada_cola(decision, alerta))
+        # La escalada automática que pide humano tampoco puede bloquear el lazo: sin esto, la
+        # pregunta esperaba sin plazo en una ruta que el visor no muestra y el daemon se congelaba.
+        def diferir_escalada(parcial, alerta, desde, lineas):
+            estado_web.encolar_decision(_entrada_escalada(parcial, alerta, desde, lineas))
         estado_web.fijar_resolutor(
             _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir))
     seq = [0]
@@ -256,7 +286,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             d = _procesar_incidente(
                 inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
                 f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn,
-                encolar=encolar, escribir_traza=escribir_traza)
+                encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada)
             _contar(resumen, d)
             # Las decisiones en cola aún no se deciden: no se recuerdan (la cola deduplica sus
             # repeticiones incrementando el contador del pendiente).

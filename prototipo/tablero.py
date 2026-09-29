@@ -476,7 +476,7 @@ class _Manejador(BaseHTTPRequestHandler):
             return self._responder({"error": str(e)}, 500)
 
 
-_INTERNO_PENDIENTE = ("decision", "alerta", "clave", "orden")   # no se serializan a la web
+_INTERNO_PENDIENTE = ("decision", "alerta", "clave", "orden", "desde")   # no se serializan a la web
 
 
 def _vista_pendiente(p):
