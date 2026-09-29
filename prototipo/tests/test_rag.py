@@ -56,6 +56,25 @@ class TestConsultaAgentica(unittest.TestCase):
         r = rag.consulta_agentica(self.ALERTA, gen)
         self.assertFalse(r["agentica"])
 
+    def test_una_negativa_del_modelo_degrada_a_la_consulta_fija(self):
+        # Medido en el banco con el 1B: ante una alerta de fuerza bruta se niega siempre («Lo siento,
+        # pero no puedo proporcionar ayuda…») y la negativa se pegaba a la consulta, marcada agéntica.
+        negativas = [
+            "Lo siento, pero no puedo proporcionar ayuda o información sobre actividades ilegales o "
+            "inapropiadas, incluidas técnicas o servicios utilizados para evadir la seguridad.",
+            "No puedo ayudarte con eso.",
+            "I'm sorry, but I can't help with that request.",
+            "I cannot assist with this.",
+        ]
+        for texto in negativas:
+            r = rag.consulta_agentica(self.ALERTA, lambda p, t=texto: t)
+            self.assertFalse(r["agentica"], texto)
+            self.assertEqual(r["consulta"], rag.construir_consulta(self.ALERTA), texto)
+
+    def test_una_busqueda_que_menciona_no_poder_no_es_una_negativa(self):
+        gen = lambda p: "Busqueda: por que el atacante no puede acceder tras el bloqueo T1110.001"
+        self.assertTrue(rag.consulta_agentica(self.ALERTA, gen)["agentica"])
+
 
 class TestConsultarConocimiento(unittest.TestCase):
     ALERTA = {"regla_id": "5760", "mitre": ["T1110.001"], "servicio": "ssh"}

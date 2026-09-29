@@ -80,6 +80,17 @@ def _limpiar_consulta(texto):
             return linea
     return ""
 
+# Negativas del modelo: el 1B, ante una alerta de fuerza bruta, se niega siempre («Lo siento, pero no
+# puedo proporcionar ayuda…»). No es una búsqueda: pegarla a la consulta ensucia la traza (RNF-03).
+_NEGATIVA = re.compile(r"^\s*(lo siento|lamentablemente|disculpa|no puedo|i'?m sorry|sorry|i can'?t|"
+                       r"i cannot|i am unable|as an ai)|\bno puedo (proporcionar|ayudar|asistir)",
+                       re.IGNORECASE)
+
+
+def _es_negativa(texto):
+    return bool(_NEGATIVA.search(texto or ""))
+
+
 def consulta_agentica(alerta, generador, clase=None, fallback=construir_consulta):
     """Paso de consulta agentico (1 salto): el modelo decide QUE anadir a la busqueda. **Aumenta** la
     consulta fija (conserva los anclajes estructurados) con la aportacion del modelo, para que nunca sea
@@ -90,7 +101,7 @@ def consulta_agentica(alerta, generador, clase=None, fallback=construir_consulta
         q = _limpiar_consulta(generador(construir_prompt_consulta(alerta, clase)))
     except Exception:
         q = ""
-    if q and not _IP.search(q):
+    if q and not _IP.search(q) and not _es_negativa(q):
         return {"consulta": f"{base} {q}".strip(), "agentica": True}
     return {"consulta": base, "agentica": False}
 
