@@ -12,6 +12,10 @@
     <match>banner exchange: Connection from|Did not receive identification string</match>
     <group>recon,</group>
     <description>sshd: conexion sin banner valido (posible escaneo/reconocimiento)</description>
+    <!-- Sin técnica, la alerta llegaba «s/téc.» y el caso RECON no aparecía en la cobertura ATT&CK. -->
+    <mitre>
+      <id>T1046</id>
+    </mitre>
   </rule>
 </group>
 
