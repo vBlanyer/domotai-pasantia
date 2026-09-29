@@ -474,3 +474,37 @@ class TestVistaDelAgente(unittest.TestCase):
         obs = ag.herramienta_consultar_topologia(ag.resolver_topologia(p))
         self.assertIn("si cae, afecta a: app", obs)
 
+
+
+def y_perfil_dos_hosts():
+    """Dos hosts detrás del mismo cortafuegos: bloquear en él corta al atacante hacia los dos."""
+    p = y_perfil_empresarial()
+    return {**p, "topologia": {**p["topologia"],
+                               "otro-host": {"rol": "host_victima", "ip": "192.168.1.31", "gateway": "gateway"}}}
+
+
+class TestImpactoDelDispositivoQueContiene(unittest.TestCase):
+    ALERTA = {"id_alerta": "a1", "origen_ip": "192.168.1.10", "activo": "objetivo-vuln", "servicio": "ssh"}
+
+    def test_alcance_en_lista_lo_que_enruta_el_dispositivo(self):
+        topo = ag.resolver_topologia(y_perfil_dos_hosts())
+        self.assertEqual(ag.alcance_en(topo, "gateway"), ["objetivo-vuln", "otro-host"])
+        self.assertEqual(ag.alcance_en(topo, "objetivo-vuln"), [])
+
+    def test_la_escalada_registra_el_impacto_en_el_dispositivo_que_contuvo(self):
+        # Bloquear en el cortafuegos no corta solo el acceso al activo: corta todo lo que enruta.
+        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", y_perfil_dos_hosts(), CAT,
+                                       EjecutorEscalado(), autonomo=True, siempre_humano=False,
+                                       desde="objetivo-vuln")
+        imp = plan["impacto_efectivo"]
+        self.assertEqual(imp["dispositivo"], "gateway")
+        self.assertIn("todo lo que enruta", imp["motivo"])
+        self.assertIn("objetivo-vuln, otro-host", imp["motivo"])
+
+    def test_la_pregunta_del_salto_avisa_del_alcance(self):
+        lineas = []
+        ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", y_perfil_dos_hosts(), CAT,
+                                EjecutorEscalado(), leer=lambda p: "s", escribir=lineas.append,
+                                siempre_humano=False, desde="objetivo-vuln")
+        consecuencia = [l for l in lineas if l.startswith("Consecuencia:")]
+        self.assertTrue(consecuencia and "todo lo que enruta" in consecuencia[0])

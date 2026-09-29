@@ -46,6 +46,21 @@ describe("Detalle de una decisión", () => {
     expect(screen.getByText("escalada aprobada por el analista")).toBeInTheDocument()
   })
 
+  it("tras escalar, el impacto es el del dispositivo que contuvo, no el del activo", async () => {
+    h.detalle = {
+      id_decision: "s7",
+      impacto_determinado: { motivo: "bloquea a 198.51.100.10 (origen no inventariado) · 0 servicios detenidos" },
+      orden: { accion_id: "BLOQUEAR_IP", nodo_objetivo: "web-banking" },
+      ejecucion: { exito: false }, verificacion: { verificado: false },
+      escalada: { resultado: "mitigado", escalado: true, dispositivo_ejecutor: "fw-core",
+        impacto_efectivo: { dispositivo: "fw-core",
+          motivo: "bloquea a 198.51.100.10 · en fw-core: corta su tráfico hacia todo lo que enruta (api-movil, atm, web-banking)" } },
+    }
+    fila({ id_decision: "s7", clase: "vp_intento_acceso" })
+    expect(await screen.findByText(/corta su tráfico hacia todo lo que enruta/)).toBeInTheDocument()
+    expect(screen.queryByText(/0 servicios detenidos/)).not.toBeInTheDocument()
+  })
+
   it("una amenaza enrutada muestra su destino, no «sin acción»", async () => {
     h.detalle = { id_decision: "s6", ruta: "cola-appsec-banco", accion_final: null, orden: null, resultado_filtro: "sin_accion" }
     fila({ id_decision: "s6", clase: "amenaza_enrutada" })

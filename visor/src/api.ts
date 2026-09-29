@@ -44,6 +44,10 @@ const PlanSchema = z.object({
   orden_efectiva: z.object({
     accion_id: z.string().nullable().optional(), nodo_objetivo: z.string().nullable().optional(),
   }).passthrough().nullable().optional(),
+  // el impacto de esa orden, con lo que enruta el dispositivo (no el del bloqueo en el activo)
+  impacto_efectivo: z.object({
+    dispositivo: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
+  }).passthrough().nullable().optional(),
 }).passthrough()
 export const DetalleSchema = z.object({
   id_decision: z.string().nullable().optional(),

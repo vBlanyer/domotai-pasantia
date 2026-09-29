@@ -207,6 +207,12 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
         accion_id = f["accion_final"]              # la misma, o la degradada
         requiere_humano = bool(f.get("requiere_humano"))
         consecuencia = (f.get("impacto") or {}).get("motivo")
+        alcance = alcance_en(topo, dispositivo)
+        if alcance:
+            # El impacto del filtro mira a quién se bloquea, no dónde: en un dispositivo que enruta a
+            # otros, el bloqueo corta al atacante hacia todos ellos, no solo hacia el activo atacado.
+            texto = f"en {dispositivo}: corta su tráfico hacia todo lo que enruta ({', '.join(alcance)})"
+            consecuencia = f"{consecuencia} · {texto}" if consecuencia else texto
     comando = catalogo[accion_id]["comando"].format(ip=ip)
     ok, motivo_invalido = validar_comando(comando, ip_gestion)
     reversion_cmd = catalogo[accion_id].get("reversion_cmd", "").format(ip=ip)
@@ -224,7 +230,7 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
     if res.get("exito"):
         return (f"OK: {accion_id} aplicada en {dispositivo} (rc={res.get('codigo_salida')})",
                 {"accion_id": accion_id, "exito": True, "reversion_cmd": reversion_cmd, "resultado": res,
-                 "orden": orden})
+                 "orden": orden, "consecuencia": consecuencia})
     return (f"Error: fallo en {dispositivo} (rc={res.get('codigo_salida')})",
             {"accion_id": accion_id, "exito": False, "reversion_cmd": reversion_cmd, "resultado": res,
              "orden": orden})
@@ -264,6 +270,13 @@ def degradar(alerta, clase, pasos):
     """Red de seguridad (RNF-09): si el agente no produce una accion valida, cae al motor determinista."""
     accion, _params = politica.proponer(clase, alerta)
     return _plan(pasos, [], None, [], "degradado", True, {"accion_determinista": accion})
+
+def alcance_en(topo, dispositivo):
+    """Nodos de la topología cuyo camino al perímetro pasa por `dispositivo` (sin contarlo a él):
+    a quién deja de llegar el atacante si se le bloquea ahí. Vacío en un host final."""
+    return sorted(n for n, v in topo.items()
+                  if n != dispositivo and isinstance(v, dict) and v.get("rol")
+                  and dispositivo in cadena_de_contencion(topo, n))
 
 def cadena_de_contencion(topo, activo):
     """Orden en que se intenta contener: el activo afectado y, tras el, aquel al que apunta su
@@ -327,7 +340,9 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
             pasos.append({"tipo": "verificacion", "dispositivo": dispositivo, "observacion": veredicto})
             if veredicto == "bloqueado":
                 return _plan(pasos, reversiones, dispositivo, tocados, "mitigado", False,
-                             extra={"orden_efectiva": reg.get("orden")})
+                             extra={"orden_efectiva": reg.get("orden"),
+                                    "impacto_efectivo": {"dispositivo": dispositivo,
+                                                         "motivo": reg.get("consecuencia")}})
     return _plan(pasos, reversiones, None, tocados, "fallido", False)
 
 def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input, autonomo=False,

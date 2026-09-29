@@ -120,7 +120,10 @@ function Detalles({ id, indice }: { id: string; indice?: number | null }) {
 
   const ev = det.justificacion_estructurada?.evidencia ?? {}
   const mitre = det.justificacion_estructurada?.tecnica_mitre ?? []
-  const motivo = det.impacto_determinado?.motivo
+  // Si la contención escaló, lo que se aplicó fue el bloqueo en el dispositivo que contuvo: su
+  // impacto (todo lo que enruta) sustituye al del bloqueo en el activo, que no llegó a aplicarse.
+  const efectivo = det.escalada?.resultado === "mitigado" ? det.escalada.impacto_efectivo?.motivo : null
+  const motivo = efectivo ?? det.impacto_determinado?.motivo
   const cascada = det.impacto_determinado?.activos_afectados_en_cascada ?? []
   const pasajes = det.pasajes ?? []
   const filtro = filtroLegible(det)
