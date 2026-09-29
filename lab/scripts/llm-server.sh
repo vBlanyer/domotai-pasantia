@@ -24,6 +24,8 @@
 # El embedder arranca con --pooling cls, que es como se entreno bge-m3 y lo mismo que usa el
 # subproceso (LLAMA_EMBED_POOLING): con la misma agrupacion y un texto por peticion, servidor y
 # subproceso dan el mismo vector y el indice vale para los dos.
+#
+# LLM_CTX fija el contexto del generador (8192 por defecto).
 
 BIN="${LLAMA_SERVER_BIN:-$HOME/miniforge3/envs/triaje-ml/bin/llama-server}"
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -51,7 +53,10 @@ else
     M1="$REPO/modelos/llama-3.2-1b-q4.gguf"
     if [ -n "$1" ]; then MODELO="$1"; elif [ -f "$M8" ]; then MODELO="$M8"; else MODELO="$M1"; fi
     PUERTO="${2:-8080}"
-    EXTRA=""
+    # Contexto acotado: sin -c, llama-server reserva el del modelo (128k en Llama 3.x), unos 4 GB de
+    # cache KV para el 1B y ~16 GB para el 8B, que no caben en 16 GB. Una justificacion con los
+    # pasajes del RAG no pasa de ~3k tokens.
+    EXTRA="-c ${LLM_CTX:-8192}"
 fi
 
 [ -x "$BIN" ] || { echo "ERROR: no encuentro llama-server en $BIN"; exit 1; }
