@@ -338,15 +338,23 @@ def leer_lineas_stdin(stream=sys.stdin, intervalo=0.5):
         for linea in stream:
             yield linea
         return
+    # Se lee el descriptor con os.read y un búfer propio, no con stream.readline(): readline se trae
+    # un bloque entero al búfer de Python y devuelve una sola línea, y el resto queda invisible para
+    # select (el descriptor ya está vacío) hasta que llega otro dato, a veces minutos después.
+    pendiente = b""
     while True:
         listos, _, _ = select.select([fd], [], [], intervalo)
         if not listos:
             yield None                      # reposo -> permite vencer la ventana
             continue
-        linea = stream.readline()
-        if not linea:                       # EOF
+        datos = os.read(fd, 65536)
+        if not datos:                       # EOF: lo que quede sin salto de línea también cuenta
+            if pendiente:
+                yield pendiente.decode("utf-8", "replace")
             return
-        yield linea
+        *completas, pendiente = (pendiente + datos).split(b"\n")
+        for linea in completas:
+            yield linea.decode("utf-8", "replace") + "\n"
 
 def leer_lineas_fichero(ruta, intervalo=0.5, desde_inicio=False, detener=None, dormir=time.sleep):
     """Sigue un fichero como `tail -f`. Tolera que no exista aun (espera activa). Reabre en

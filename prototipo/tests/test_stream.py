@@ -317,6 +317,56 @@ class TestFuentes(unittest.TestCase):
         finally:
             os.close(w); rf.close()
 
+    def _hasta_el_tick(self, gen, maximo=50):
+        """Las líneas que rinde el lector antes de su primer tick de reposo (None)."""
+        lineas = []
+        for _ in range(maximo):
+            v = next(gen)
+            if v is None:
+                if lineas:
+                    return lineas
+                continue
+            lineas.append(v)
+        return lineas
+
+    def test_stdin_entrega_todas_las_lineas_de_una_rafaga_antes_del_reposo(self):
+        # Wazuh escribe varias alertas de golpe. Con readline sobre un stdin con búfer, las líneas
+        # que quedaban en el búfer de Python eran invisibles para select: salían minutos después,
+        # con la siguiente alerta, y se agrupaban con otro ataque (tarjetas duplicadas y tardías).
+        r, w = os.pipe()
+        rf = os.fdopen(r)
+        try:
+            gen = stream.leer_lineas_stdin(rf, intervalo=0.02)
+            os.write(w, b"a1\na2\na3\n")
+            self.assertEqual(self._hasta_el_tick(gen), ["a1\n", "a2\n", "a3\n"])
+        finally:
+            os.close(w); rf.close()
+
+    def test_stdin_recompone_una_linea_partida_entre_dos_escrituras(self):
+        r, w = os.pipe()
+        rf = os.fdopen(r)
+        try:
+            gen = stream.leer_lineas_stdin(rf, intervalo=0.02)
+            os.write(w, b"a1\nmit")
+            self.assertEqual(self._hasta_el_tick(gen), ["a1\n"])       # la mitad no sale sola
+            os.write(w, b"ad\n")
+            self.assertEqual(self._hasta_el_tick(gen), ["mitad\n"])
+        finally:
+            os.close(w); rf.close()
+
+    def test_stdin_entrega_la_ultima_linea_sin_salto_al_cerrarse(self):
+        r, w = os.pipe()
+        rf = os.fdopen(r)
+        try:
+            gen = stream.leer_lineas_stdin(rf, intervalo=0.02)
+            os.write(w, b"a1\nfinal")
+            os.close(w); w = None
+            self.assertEqual([v for v in gen if v is not None], ["a1\n", "final"])
+        finally:
+            if w is not None:
+                os.close(w)
+            rf.close()
+
 
 class TestCLI(unittest.TestCase):
     def test_parsear_args_defaults_y_flags(self):
