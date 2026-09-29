@@ -221,7 +221,9 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
         cola = estado.decisiones_pendientes()
         self.assertEqual(len(cola), 1)
         self.assertEqual(cola[0]["tipo"], "escalada")
-        self.assertTrue(any("gateway" in l for l in cola[0]["lineas"]))
+        # El visor descarta las líneas «──…»: la acción y el dispositivo van en una línea «Acción:».
+        self.assertTrue(any(l.startswith("Acción: BLOQUEAR_IP_FIREWALL en gateway") for l in cola[0]["lineas"]))
+        self.assertFalse(any(l.startswith("──") for l in cola[0]["lineas"]))
         self.assertEqual(buf.getvalue().strip(), "")              # se traza al resolver
         self.assertEqual(ej.aplicado, set())
 

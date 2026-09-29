@@ -39,10 +39,19 @@ describe("contencionDe", () => {
       dispositivo: "objetivo-vuln", accion: "BLOQUEAR_IP", comando: "iptables -A INPUT -s 1.2.3.4 -j DROP" })
   })
 
-  it("el activo no respondió y la escalada contuvo en el perímetro", () => {
-    const c = contencionDe({ orden, ejecucion: { exito: false }, verificacion: { verificado: false },
-      escalada: { resultado: "mitigado", escalado: true, dispositivo_ejecutor: "gateway" } } as Detalle)
-    expect(c).toMatchObject({ estado: "contenida", ejecutada: false, escalada: true, dispositivo: "gateway", desde: "objetivo-vuln" })
+  it("el activo no respondió y la escalada contuvo en el perímetro: manda la orden efectiva", () => {
+    const c = contencionDe({ orden, ejecucion: { exito: false, comando_ejecutado: "iptables -A INPUT -s 1.2.3.4 -j DROP" },
+      verificacion: { verificado: false },
+      escalada: { resultado: "mitigado", escalado: true, dispositivo_ejecutor: "gateway",
+        orden_efectiva: { accion_id: "BLOQUEAR_IP_FIREWALL", nodo_objetivo: "gateway" } } } as Detalle)
+    expect(c).toMatchObject({ estado: "contenida", escalada: true, dispositivo: "gateway", desde: "objetivo-vuln",
+      accion: "BLOQUEAR_IP_FIREWALL", ejecutada: true, verificada: true, comando: undefined,
+      intento: { nodo: "objetivo-vuln", ejecutada: false, verificada: false } })
+  })
+
+  it("una amenaza enrutada dice a dónde se envió", () => {
+    expect(contencionDe({ ruta: "cola-appsec-banco", accion_final: null, orden: null } as Detalle))
+      .toMatchObject({ estado: "enrutada", destino: "cola-appsec-banco" })
   })
 
   it("ni el activo ni la escalada lo lograron -> fallida", () => {

@@ -196,7 +196,15 @@ def _entrada_escalada(parcial, alerta, desde, lineas):
             "decision": parcial, "alerta": alerta, "desde": desde, "recibido_en": time.time(),
             "tipo": "escalada", "prompt": "¿aprobar la ejecución? [s/N] ",
             "accion_final": parcial.get("accion_final"),
-            "lineas": [incid, f"{desde} no respondió al MDR: la contención escala al perímetro.", *lineas]}
+            "lineas": [incid, f"{desde} no respondió al MDR: la contención escala al perímetro.",
+                       *(_legible(l) for l in lineas)]}
+
+
+def _legible(linea):
+    """«── Validación humana ── ACCION en DISPOSITIVO …» -> «Acción: ACCION en DISPOSITIVO …»: el visor
+    descarta las líneas «──» (son separadores en la terminal) y esta dice qué se va a aprobar."""
+    prefijo = "── Validación humana ── "
+    return "Acción: " + linea[len(prefijo):] if linea.startswith(prefijo) else linea
 
 
 def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, escribir):

@@ -76,6 +76,7 @@ const FRASE: Record<EstadoContencion, (c: Contencion) => string> = {
   retenida: () => "Retenida por el analista: no se ejecutó ninguna acción",
   cancelada: () => "Escalada cancelada por el analista",
   degradada: () => "El agente no respondió: se degradó al motor determinista",
+  enrutada: (c) => `Enrutada a ${c.destino ?? "—"}: se deriva al equipo, sin contención (por diseño)`,
   sin_accion: () => "Sin acción de contención",
 }
 
@@ -92,9 +93,14 @@ function BloqueContencion({ c }: { c: Contencion }) {
       {c.accion && (
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           <span>{c.accion}</span>
-          <span>ejecutada en el activo: {siNo(c.ejecutada)}</span>
+          <span>ejecutada: {siNo(c.ejecutada)}</span>
           <span>verificada: {siNo(c.verificada)}</span>
           {c.comando && <Dato>{c.comando}</Dato>}
+        </div>
+      )}
+      {c.intento && (
+        <div className="mt-0.5 text-xs text-muted-foreground">
+          intento en {c.intento.nodo ?? "el activo"}: {c.intento.ejecutada ? "se ejecutó pero no se verificó" : "no respondió"}
         </div>
       )}
     </Campo>
@@ -165,6 +171,11 @@ function Detalles({ id, indice }: { id: string; indice?: number | null }) {
                 : det.accion_propuesta ?? det.accion_final ?? "—"}
             </div>
             {filtro && <div className="mt-0.5 text-muted-foreground">{filtro}</div>}
+            {det.veredicto_escalada && (
+              <div className="mt-0.5 text-muted-foreground">
+                escalada {det.veredicto_escalada === "aprobar" ? "aprobada" : "rechazada"} por el analista
+              </div>
+            )}
           </Campo>
         )}
         {motivo && <Campo etiqueta="Impacto"><span className="text-muted-foreground">{motivo}</span></Campo>}

@@ -29,6 +29,30 @@ describe("Detalle de una decisión", () => {
     expect(screen.getByText(/escaló desde objetivo-vuln/)).toBeInTheDocument()
   })
 
+  it("tras escalar muestra la orden efectiva y el intento fallido por separado", async () => {
+    h.detalle = {
+      id_decision: "s5", accion_propuesta: "BLOQUEAR_IP", accion_final: "BLOQUEAR_IP", resultado_filtro: "permite",
+      orden: { accion_id: "BLOQUEAR_IP", nodo_objetivo: "web-banking" },
+      ejecucion: { exito: false, comando_ejecutado: "iptables -A INPUT -s 198.51.100.10 -j DROP" },
+      verificacion: { verificado: false }, veredicto_escalada: "aprobar",
+      escalada: { resultado: "mitigado", escalado: true, dispositivo_ejecutor: "fw-core",
+        orden_efectiva: { accion_id: "BLOQUEAR_IP_FIREWALL", nodo_objetivo: "fw-core" } },
+    }
+    fila({ id_decision: "s5", clase: "vp_intento_acceso" })
+    expect(await screen.findByText(/Contenida en fw-core/)).toBeInTheDocument()
+    expect(screen.getByText("BLOQUEAR_IP_FIREWALL")).toBeInTheDocument()
+    expect(screen.getByText(/intento en web-banking: no respondió/)).toBeInTheDocument()
+    expect(screen.queryByText("iptables -A INPUT -s 198.51.100.10 -j DROP")).not.toBeInTheDocument()
+    expect(screen.getByText("escalada aprobada por el analista")).toBeInTheDocument()
+  })
+
+  it("una amenaza enrutada muestra su destino, no «sin acción»", async () => {
+    h.detalle = { id_decision: "s6", ruta: "cola-appsec-banco", accion_final: null, orden: null, resultado_filtro: "sin_accion" }
+    fila({ id_decision: "s6", clase: "amenaza_enrutada" })
+    expect(await screen.findByText(/Enrutada a cola-appsec-banco/)).toBeInTheDocument()
+    expect(screen.queryByText("Sin acción de contención")).not.toBeInTheDocument()
+  })
+
   it("una decisión retenida por el analista dice que no se ejecutó nada", async () => {
     h.detalle = { id_decision: "s2", veredicto_humano: "rechazar", accion_final: "BLOQUEAR_IP", orden: null }
     fila({ id_decision: "s2", clase: "vp_intento_acceso" })

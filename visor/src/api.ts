@@ -40,6 +40,10 @@ export const PasajeSchema = z.object({
 const PlanSchema = z.object({
   resultado: z.string().nullable().optional(), escalado: z.boolean().nullable().optional(),
   dispositivo_ejecutor: z.string().nullable().optional(),
+  // la orden que contuvo de verdad (en el dispositivo al que se escaló)
+  orden_efectiva: z.object({
+    accion_id: z.string().nullable().optional(), nodo_objetivo: z.string().nullable().optional(),
+  }).passthrough().nullable().optional(),
 }).passthrough()
 export const DetalleSchema = z.object({
   id_decision: z.string().nullable().optional(),
@@ -64,6 +68,8 @@ export const DetalleSchema = z.object({
   // Desenlace de la contención: la orden, si se ejecutó y se verificó en el activo, y —si el activo
   // no respondió— la escalada hacia el perímetro (o el plan del agente en modo --agente).
   veredicto_humano: z.string().nullable().optional(),
+  veredicto_escalada: z.string().nullable().optional(),   // aprobar/rechazar la escalada diferida
+  ruta: z.string().nullable().optional(),                  // destino de una amenaza enrutada
   orden: z.object({
     accion_id: z.string().nullable().optional(), nodo_objetivo: z.string().nullable().optional(),
   }).passthrough().nullable().optional(),

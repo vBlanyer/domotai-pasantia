@@ -25,7 +25,8 @@ export function clasesDe(ds: Decision[]): string[] {
 }
 
 // Desenlace de la contención de una decisión, a partir de su registro de traza.
-export type EstadoContencion = "contenida" | "fallida" | "retenida" | "cancelada" | "degradada" | "sin_accion"
+export type EstadoContencion =
+  "contenida" | "fallida" | "retenida" | "cancelada" | "degradada" | "enrutada" | "sin_accion"
 export type Contencion = {
   estado: EstadoContencion
   ejecutada?: boolean      // la orden se aplicó en el activo (código 0)
@@ -35,6 +36,9 @@ export type Contencion = {
   desde?: string           // activo desde el que se escaló
   accion?: string
   comando?: string
+  destino?: string         // amenaza enrutada: a qué cola/equipo
+  // tras escalar: el intento en el activo, que no respondió (la orden efectiva va arriba)
+  intento?: { nodo?: string; ejecutada: boolean; verificada: boolean }
 }
 
 const ESTADO_PLAN: Record<string, EstadoContencion> = {
@@ -48,6 +52,8 @@ export function contencionDe(det: Detalle): Contencion {
       dispositivo: agente.dispositivo_ejecutor ?? undefined }
   }
   const orden = det.orden
+  if (!orden && det.ruta)                                  // triar y enrutar: no se contiene, se deriva
+    return { estado: "enrutada", escalada: false, destino: det.ruta }
   if (!orden) {
     const v = det.veredicto_humano
     return { estado: v === "rechazar" || v === "reclasificar" ? "retenida" : "sin_accion", escalada: false }
@@ -57,9 +63,17 @@ export function contencionDe(det: Detalle): Contencion {
   if (base.ejecutada && base.verificada)
     return { ...base, estado: "contenida", escalada: false, dispositivo: orden.nodo_objetivo ?? undefined }
   const esc = det.escalada                                 // el activo no respondió: ¿contuvo el perímetro?
-  if (esc)
-    return { ...base, estado: ESTADO_PLAN[esc.resultado ?? ""] ?? "fallida", escalada: !!esc.escalado,
+  if (esc) {
+    const estado = ESTADO_PLAN[esc.resultado ?? ""] ?? "fallida"
+    const efectiva = esc.orden_efectiva
+    const intento = { nodo: orden.nodo_objetivo ?? undefined, ejecutada: base.ejecutada, verificada: base.verificada }
+    // Contenida al escalar: arriba va la orden que contuvo; el intento fallido en el activo, aparte.
+    const arriba = estado === "contenida" && efectiva
+      ? { accion: efectiva.accion_id ?? undefined, comando: undefined, ejecutada: true, verificada: true }
+      : base
+    return { ...arriba, estado, escalada: !!esc.escalado, intento,
       dispositivo: esc.dispositivo_ejecutor ?? undefined, desde: orden.nodo_objetivo ?? undefined }
+  }
   return { ...base, estado: "fallida", escalada: false }  // sin topología a la que escalar
 }
 
