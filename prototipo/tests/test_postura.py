@@ -23,6 +23,33 @@ class TestPostura(unittest.TestCase):
         self.assertIsNone(postura.postura_de(H, "fantasma", "ssh"))
 
 
+class TestNombresDeServicioWeb(unittest.TestCase):
+    """El SIEM nombra el servicio por el programa que escribió el log (apache, nginx…); el auditor
+    (nmap) por el protocolo del puerto (http, https). Caso EXPLOIT del banco: un ataque web real
+    salía «no expuesto», y en la familia servicio_expuesto habría sido un falso positivo."""
+    WEB = {"nodos": {"web-banking": [{"servicio": "ssh", "estado": "open"},
+                                     {"servicio": "http", "estado": "open"},
+                                     {"servicio": "https", "estado": "open"},
+                                     {"servicio": "http-proxy", "estado": "closed"}]}}
+    SOLO_TLS = {"nodos": {"api": [{"servicio": "https", "estado": "open"}]}}
+    SIN_WEB = {"nodos": {"db": [{"servicio": "ssh", "estado": "open"}]}}
+
+    def test_el_programa_web_casa_con_el_protocolo_del_auditor(self):
+        for prog in ("apache", "apache2", "httpd", "nginx"):
+            self.assertTrue(postura.postura_de(self.WEB, "web-banking", prog)["expuesto"], prog)
+
+    def test_basta_con_https_abierto(self):
+        self.assertTrue(postura.postura_de(self.SOLO_TLS, "api", "apache")["expuesto"])
+        self.assertTrue(postura.postura_de(self.SOLO_TLS, "api", "http")["expuesto"])
+
+    def test_sin_puertos_web_abiertos_sigue_sin_exponer(self):
+        self.assertFalse(postura.postura_de(self.SIN_WEB, "db", "apache")["expuesto"])
+
+    def test_los_otros_expuestos_no_repiten_el_servicio_atacado(self):
+        p = postura.postura_de(self.WEB, "web-banking", "apache")
+        self.assertEqual(postura.otros_servicios_expuestos(p, "apache"), ["ssh"])
+
+
 class TestOtrosExpuestos(unittest.TestCase):
     def test_lista_los_otros_servicios_abiertos(self):
         p = postura.postura_de(H, "objetivo-vuln", "ssh")
