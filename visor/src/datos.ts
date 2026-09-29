@@ -77,18 +77,28 @@ export function contencionDe(det: Detalle): Contencion {
   return { ...base, estado: "fallida", escalada: false }  // sin topología a la que escalar
 }
 
-// Cómo trató el filtro del perfil la acción propuesta (mismas frases que validacion.filtro_legible
-// en la terminal del daemon). El «por qué» fino (veto de gestión, cascada…) está en el motivo del impacto.
+// Cómo trató el filtro del perfil la acción propuesta. Mientras espera, con las frases de
+// validacion.filtro_legible en la terminal del daemon (más «permitida — espera…» cuando otra regla pide
+// humano, que la terminal no distingue); ya resuelta, en pasado y con lo que decidió el analista.
+// El «por qué» fino (veto de gestión, cascada…) está en el motivo del impacto.
+const DESENLACE_HUMANO: Record<string, string> = { aprobar: "aprobada", rechazar: "rechazada", reclasificar: "reclasificada" }
+
 export function filtroLegible(d: {
   resultado_filtro?: string | null; accion_final?: string | null; requiere_humano?: boolean | null
+  veredicto_humano?: string | null
 }): string | null {
+  const v = d.veredicto_humano
+  const humano = v ? ` · requirió aprobación · ${DESENLACE_HUMANO[v] ?? v}` : "; espera tu aprobación"
   switch (d.resultado_filtro) {
     case "veta":
-      return d.accion_final ? "retenida — espera tu aprobación" : "vetada — no se puede ejecutar"
+      if (!d.accion_final) return "vetada — no se puede ejecutar"
+      return v ? `retenida — requirió aprobación · ${DESENLACE_HUMANO[v] ?? v}` : "retenida — espera tu aprobación"
     case "degrada":
-      return `degradada — se sustituye por ${d.accion_final ?? "—"}` + (d.requiere_humano ? "; espera tu aprobación" : "")
+      return v ? `degradada — se sustituyó por ${d.accion_final ?? "—"}` + humano
+        : `degradada — se sustituye por ${d.accion_final ?? "—"}` + (d.requiere_humano ? humano : "")
     case "permite":
-      return d.requiere_humano ? "permitida — espera tu aprobación" : "automática"
+      if (!d.requiere_humano) return "automática"
+      return v ? `permitida — requirió aprobación · ${DESENLACE_HUMANO[v] ?? v}` : "permitida — espera tu aprobación"
     case "sin_accion":
       return "sin acción"
     default:

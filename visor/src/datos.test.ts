@@ -105,7 +105,16 @@ describe("filtroLegible", () => {
     expect(filtroLegible({ resultado_filtro: "permite" })).toBe("automática")
     expect(filtroLegible({ resultado_filtro: "permite", requiere_humano: true })).toBe("permitida — espera tu aprobación")
   })
+  it("en una decisión ya resuelta habla en pasado y dice qué decidió el analista", () => {
+    expect(filtroLegible({ resultado_filtro: "veta", accion_final: "BLOQUEAR_IP", veredicto_humano: "rechazar" }))
+      .toBe("retenida — requirió aprobación · rechazada")
+    expect(filtroLegible({ resultado_filtro: "degrada", accion_final: "BLOQUEAR_IP", requiere_humano: true,
+      veredicto_humano: "aprobar" })).toBe("degradada — se sustituyó por BLOQUEAR_IP · requirió aprobación · aprobada")
+    expect(filtroLegible({ resultado_filtro: "permite", requiere_humano: true, veredicto_humano: "reclasificar" }))
+      .toBe("permitida — requirió aprobación · reclasificada")
+  })
   it("sin acción y sin dato", () => {
+
     expect(filtroLegible({ resultado_filtro: "sin_accion" })).toBe("sin acción")
     expect(filtroLegible({})).toBeNull()
   })
