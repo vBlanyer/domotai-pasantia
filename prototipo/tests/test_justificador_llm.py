@@ -310,3 +310,82 @@ class TestPromptRafaga(unittest.TestCase):
         p = jl.construir_prompt(ALERTA, ctx, "vp_intento_acceso")
         self.assertNotIn("A PESAR", p); self.assertNotIn("rafaga", p)
 
+
+
+class GenJSON:
+    """Doble del servidor con salida restringida: registra el esquema y devuelve un JSON fijo."""
+    def __init__(self, salida): self.salida, self.esquemas, self.prompts = salida, [], []
+    def __call__(self, prompt, esquema=None):
+        self.prompts.append(prompt); self.esquemas.append(esquema)
+        return self.salida if isinstance(self.salida, str) else json.dumps(self.salida)
+
+
+ALERTA_SUB = {**ALERTA, "mitre": ["T1110.001", "T1021.004"]}
+
+
+class TestJustificacionEstructurada(unittest.TestCase):
+    def test_el_esquema_solo_admite_las_tecnicas_de_la_alerta_y_sus_padres(self):
+        esq = jl.esquema_justificacion(ALERTA_SUB)
+        self.assertEqual(sorted(esq["properties"]["tecnicas"]["items"]["enum"]),
+                         ["T1021", "T1021.004", "T1110", "T1110.001"])
+        self.assertIn("maxLength", esq["properties"]["explicacion"])      # cierra antes del límite
+
+    def test_pide_la_salida_con_el_esquema(self):
+        gen = GenJSON({"tecnicas": ["T1110"], "explicacion": "Fuerza bruta desde 192.168.1.10 contra objetivo-vuln."})
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen, estructurada=True)
+        self.assertIsNotNone(gen.esquemas[0])
+        self.assertEqual(r["justificador"], "llm")
+        self.assertIn("192.168.1.10", r["texto"])
+        self.assertTrue(r["version_justificador"].startswith(jl.VERSION_ESTRUCTURADA))
+
+    def test_una_subtecnica_inventada_en_el_texto_se_generaliza_al_padre(self):
+        # El caso 3 del banco: la alerta trae T1110 y el 1B escribía T1110.001 -> plantilla.
+        gen = GenJSON({"tecnicas": ["T1110"],
+                       "explicacion": "Fuerza bruta (T1110.001) desde 192.168.1.10 contra objetivo-vuln."})
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen, estructurada=True)
+        self.assertEqual(r["justificador"], "llm")
+        self.assertNotIn("T1110.001", r["texto"])
+        self.assertIn("T1110", r["texto"])
+
+    def test_una_tecnica_ajena_en_el_texto_se_quita(self):
+        gen = GenJSON({"tecnicas": ["T1110"],
+                       "explicacion": "Acceso remoto (T1021) desde 192.168.1.10 contra objetivo-vuln."})
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen, estructurada=True)
+        self.assertEqual(r["justificador"], "llm")
+        self.assertNotIn("T1021", r["texto"])
+        self.assertNotIn("()", r["texto"])
+
+    def test_las_tecnicas_del_campo_se_citan_si_el_texto_no_las_nombra(self):
+        gen = GenJSON({"tecnicas": ["T1110"], "explicacion": "Intentos repetidos desde 192.168.1.10 contra objetivo-vuln."})
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen, estructurada=True)
+        self.assertIn("T1110", r["texto"])
+
+    def test_una_negativa_del_modelo_cae_a_plantilla(self):
+        gen = GenJSON({"tecnicas": [], "explicacion": "Lo siento, no puedo ayudar con 192.168.1.10 en objetivo-vuln."})
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen, estructurada=True)
+        self.assertEqual(r["justificador"], "plantilla")
+
+    def test_un_json_roto_cae_a_plantilla(self):
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", GenJSON('{"explicacion": "corta'),
+                              estructurada=True)
+        self.assertEqual(r["justificador"], "plantilla")
+
+    def test_una_ip_inventada_sigue_cayendo_a_plantilla(self):
+        gen = GenJSON({"tecnicas": ["T1110"], "explicacion": "Desde 8.8.8.8 contra objetivo-vuln."})
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen, estructurada=True)
+        self.assertEqual(r["justificador"], "plantilla")
+
+    def test_con_rag_tambien_es_estructurada(self):
+        gen = GenJSON({"tecnicas": ["T1110"], "explicacion": "Fuerza bruta desde 192.168.1.10 contra objetivo-vuln."})
+        rec = lambda a, c: [{"id": "T1110", "titulo": "Brute Force", "texto": "adivinar credenciales"}]
+        r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", gen, rec, estructurada=True)
+        self.assertEqual(r["justificador"], "llm")
+        self.assertIsNotNone(gen.esquemas[0])
+        self.assertEqual(r["pasajes_usados"], ["T1110"])
+
+    def test_sin_bandera_el_modo_libre_no_cambia(self):
+        # Las campañas llm-6 se reproducen igual: el generador se llama sin esquema.
+        llamadas = []
+        gen = lambda p: (llamadas.append(p), "Fuerza bruta desde 192.168.1.10 contra objetivo-vuln.")[1]
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen)
+        self.assertEqual(r["version_justificador"].split(":")[0], jl.VERSION_JUSTIFICADOR)

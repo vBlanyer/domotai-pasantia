@@ -3,9 +3,14 @@ import json, os, re, subprocess, urllib.request
 from prototipo import analisis
 from prototipo.analisis import CLASES_SIN_AMENAZA
 from prototipo import postura as postura_mod
+from prototipo import rag
 
 # Sube con cada cambio que altere el texto generado: el enunciado, la invocacion o el modelo.
 VERSION_JUSTIFICADOR = "llm-6"
+# Modo estructurado (salida JSON restringida por esquema): texto distinto, version propia. Las
+# campanas llm-6 se reproducen sin la bandera.
+VERSION_ESTRUCTURADA = "llm-7e"
+_MAX_EXPLICACION = 400    # caracteres: el JSON cierra muy por debajo de n_tokens, no se trunca
 
 _IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 _TECNICA = re.compile(r'\bT\d{4}(?:\.\d{3})?\b')
@@ -101,6 +106,72 @@ def construir_prompt(alerta, contexto, clase, pasajes=None):
               f"{refs}\n")
     return f"{cabecera}{bloque}Datos: {datos}\nExplicacion:"
 
+# ------------------------------------------------------------- modo estructurado --
+# Con el 1B, la justificacion libre caia casi siempre a plantilla: citaba una subtecnica que la
+# alerta no trae (T1110.001 con T1110), se cortaba a mitad de frase o se negaba a responder. En
+# modo estructurado el modelo rellena un JSON cuyo campo de tecnicas es una enumeracion cerrada
+# (el servidor la impone al muestrear) y el texto final lo compone el codigo: las tecnicas ajenas
+# que el modelo escriba en la explicacion se generalizan al padre admitido o se quitan.
+
+def tecnicas_admitidas(alerta):
+    """Las tecnicas de la alerta y sus padres, en orden y sin repetir."""
+    propias = list(alerta.get("mitre") or [])
+    return list(dict.fromkeys(propias + [t.split(".")[0] for t in propias]))
+
+def esquema_justificacion(alerta):
+    props = {"explicacion": {"type": "string", "minLength": 20, "maxLength": _MAX_EXPLICACION}}
+    tecnicas = tecnicas_admitidas(alerta)
+    if tecnicas:
+        props = {"tecnicas": {"type": "array", "items": {"enum": tecnicas}, "maxItems": len(tecnicas)},
+                 **props}
+    return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
+
+_INSTRUCCION_JSON = ("Responde SOLO con un objeto JSON. En el campo tecnicas pon las tecnicas MITRE de los "
+                     "datos que apliquen; en el campo explicacion, la explicacion en una o dos frases, sin "
+                     "escribir identificadores de tecnica.")
+
+def _prompt_estructurado(prompt):
+    return prompt.rsplit("\nExplicacion:", 1)[0] + "\n" + _INSTRUCCION_JSON
+
+def _sanear_tecnicas(texto, admitidas):
+    def _sub(m):
+        t = m.group(0)
+        if t in admitidas:
+            return t
+        padre = t.split(".")[0]
+        return padre if padre in admitidas else ""
+    texto = _TECNICA.sub(_sub, texto)
+    texto = re.sub(r"\(\s*[,;]?\s*\)", "", texto)          # parentesis que quedaron vacios
+    texto = re.sub(r"\s+([.,;])", r"\1", texto)
+    return re.sub(r"\s{2,}", " ", texto).strip()
+
+def componer_estructurada(salida, alerta):
+    """JSON del modelo -> texto de la justificacion, o "" si no sirve (-> plantilla)."""
+    try:
+        datos = json.loads(salida)
+    except (TypeError, ValueError):
+        return ""
+    if not isinstance(datos, dict):
+        return ""
+    explicacion = str(datos.get("explicacion") or "").strip()
+    if not explicacion or rag._es_negativa(explicacion):
+        return ""
+    admitidas = tecnicas_admitidas(alerta)
+    explicacion = _sanear_tecnicas(explicacion, set(admitidas))
+    tecnicas = [t for t in datos.get("tecnicas") or [] if t in admitidas]
+    if tecnicas and not any(t in explicacion for t in tecnicas):
+        explicacion = f"{explicacion.rstrip('.')}. Técnica MITRE: {', '.join(dict.fromkeys(tecnicas))}."
+    return explicacion
+
+def _generar(generador, prompt, alerta, estructurada):
+    try:
+        if not estructurada:
+            return (generador(prompt) or "").strip()
+        salida = generador(_prompt_estructurado(prompt), esquema=esquema_justificacion(alerta))
+        return componer_estructurada(salida or "", alerta)
+    except Exception:
+        return ""
+
 _MODELO_SERVIDOR = None    # lo que el servidor dice estar sirviendo; se consulta una sola vez
 
 def _modelo_del_servidor(url, _abrir=urllib.request.urlopen):
@@ -118,24 +189,22 @@ def _modelo_del_servidor(url, _abrir=urllib.request.urlopen):
         # caiga al valor de la variable de entorno en vez de inventar un nombre.
     return _MODELO_SERVIDOR
 
-def _version_llm():
+def _version_llm(estructurada=False):
     # Identidad del justificador para la traza (RF-09/RNF-03): versión + modelo.
     modelo = _MODELO_SERVIDOR or os.path.basename(MODELO)
-    return f"{VERSION_JUSTIFICADOR}:{modelo}"
+    return f"{VERSION_ESTRUCTURADA if estructurada else VERSION_JUSTIFICADOR}:{modelo}"
 
-def justificar_llm(alerta, contexto, clase, generador, fallback=analisis.justificar):
-    try:
-        texto = (generador(construir_prompt(alerta, contexto, clase)) or "").strip()
-    except Exception:
-        texto = ""
+def justificar_llm(alerta, contexto, clase, generador, fallback=analisis.justificar, estructurada=False):
+    texto = _generar(generador, construir_prompt(alerta, contexto, clase), alerta, estructurada)
     if texto and verificar_anclaje(texto, alerta):
         return {"texto": texto, "justificador": "llm", "anclaje_verificado": True,
-                "version_justificador": _version_llm()}
+                "version_justificador": _version_llm(estructurada)}
     # Degradación (RNF-09): la plantilla, que está anclada por construcción.
     return {"texto": fallback(alerta, contexto, clase), "justificador": "plantilla",
             "anclaje_verificado": True, "version_justificador": "plantilla-0"}
 
-def justificar_con_rag(alerta, contexto, clase, generador, recuperar_fn, fallback=analisis.justificar):
+def justificar_con_rag(alerta, contexto, clase, generador, recuperar_fn, fallback=analisis.justificar,
+                       estructurada=False):
     # El recuperador recibe `(alerta, clase)`, no solo la alerta: la pregunta que la justificacion
     # tiene que responder cambia con la clase ya decidida, y con ella el conocimiento que hace
     # falta. Recuperar material sobre la tecnica de ataque para una alerta que el motor acaba de
@@ -148,16 +217,13 @@ def justificar_con_rag(alerta, contexto, clase, generador, recuperar_fn, fallbac
         consulta_usada, recuperacion_agentica = rec.get("consulta", ""), bool(rec.get("agentica"))
     else:
         pasajes, consulta_usada, recuperacion_agentica = rec, "", False
-    try:
-        texto = (generador(construir_prompt(alerta, contexto, clase, pasajes)) or "").strip()
-    except Exception:
-        texto = ""
+    texto = _generar(generador, construir_prompt(alerta, contexto, clase, pasajes), alerta, estructurada)
     ids = [p["id"] for p in pasajes]
     meta = {"pasajes_usados": ids, "consulta_usada": consulta_usada,
             "recuperacion_agentica": recuperacion_agentica}
     if texto and verificar_anclaje(texto, alerta):
         return {"texto": texto, "justificador": "llm", "anclaje_verificado": True,
-                "version_justificador": _version_llm(), **meta}
+                "version_justificador": _version_llm(estructurada), **meta}
     return {"texto": fallback(alerta, contexto, clase), "justificador": "plantilla",
             "anclaje_verificado": True, "version_justificador": "plantilla-0", **meta}
 
@@ -166,11 +232,11 @@ def adaptador(generador, fallback=analisis.justificar):
         return justificar_llm(alerta, contexto, clase, generador, fallback)["texto"]
     return _fn
 
-def justificar_fn_rag(generador, recuperar_fn, fallback=analisis.justificar):
+def justificar_fn_rag(generador, recuperar_fn, fallback=analisis.justificar, estructurada=False):
     """Justificador con RAG apto para `triaje.procesar` conservando la metadata (RF-09): devuelve el
     dict completo `{texto, version_justificador, pasajes_usados, ...}`, no solo el texto."""
     def _fn(alerta, contexto, clase):
-        return justificar_con_rag(alerta, contexto, clase, generador, recuperar_fn, fallback)
+        return justificar_con_rag(alerta, contexto, clase, generador, recuperar_fn, fallback, estructurada)
     return _fn
 
 BINARIO = os.environ.get("LLAMA_BIN", os.path.expanduser("~/miniforge3/envs/triaje-ml/bin/llama-simple"))

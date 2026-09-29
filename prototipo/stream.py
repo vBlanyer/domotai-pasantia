@@ -515,7 +515,7 @@ def construir_justificar_fn(con_llm, escribir=print):
         # conocimiento (palanca 3). La traza registra consulta_rag/recuperacion_agentica/pasajes_usados.
         gen = justificador_llm.generador_por_defecto()
         recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_por_defecto(), generador=gen, k=3)
-        return justificador_llm.justificar_fn_rag(gen, recuperar_fn)
+        return justificador_llm.justificar_fn_rag(gen, recuperar_fn, estructurada=True)
     except Exception as e:                          # sin indice/modelo -> degradar a plantilla (RNF-09)
         escribir(f"[aviso] justificador LLM/RAG no disponible ({e}); se usara la plantilla.")
         return None

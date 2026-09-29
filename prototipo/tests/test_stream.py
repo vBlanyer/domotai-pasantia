@@ -434,6 +434,17 @@ class TestCLI(unittest.TestCase):
     def test_sin_llm_no_construye_justificador(self):
         self.assertIsNone(stream.construir_justificar_fn(False))
 
+    def test_con_llm_la_justificacion_es_estructurada(self):
+        # En vivo se usa la salida JSON restringida: con el 1B, la libre caía casi siempre a plantilla.
+        from unittest import mock
+        from prototipo import justificador_llm, rag
+        with mock.patch.object(rag, "cargar_indice", return_value={}), \
+             mock.patch.object(rag, "embedder_por_defecto", return_value=None), \
+             mock.patch.object(rag, "recuperar_fn_agentico", return_value=lambda a, c: []), \
+             mock.patch.object(justificador_llm, "justificar_fn_rag") as fn_rag:
+            stream.construir_justificar_fn(True, escribir=lambda *_: None)
+        self.assertTrue(fn_rag.call_args.kwargs.get("estructurada"))
+
     def test_parsear_args_agente(self):
         self.assertFalse(stream.parsear_args(["alerts.json"])["agente"])
         self.assertTrue(stream.parsear_args(["-", "p.yml", "--agente"])["agente"])
