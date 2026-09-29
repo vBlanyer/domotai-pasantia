@@ -207,6 +207,12 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual({t["tecnica"]: t["n"] for t in m["mitre"]}["T1110.001"], 2)
         self.assertEqual([d["n"] for d in m["por_dia"]], [1, 2])   # 23 (1) antes que 24 (2)
 
+    def test_metricas_no_cuentan_la_actividad_propia_del_mdr_como_decision(self):
+        m = tablero.metricas([{"id_decision": "s1", "clase": "vp_intento_acceso", "requiere_humano": False},
+                              {"id_decision": "p1", "tipo": "actividad_propia", "activo": "web-banking"}])
+        self.assertEqual(m["total"], 1)
+        self.assertEqual(m["por_clase"], {"vp_intento_acceso": 1})
+
     def test_metricas_sin_decisiones_no_divide_por_cero(self):
         m = tablero.metricas([])
         self.assertEqual((m["total"], m["tasa_fp"], m["pct_auto"], m["mttr_seg"]), (0, 0.0, 0.0, None))

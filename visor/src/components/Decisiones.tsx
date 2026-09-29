@@ -177,6 +177,14 @@ function Detalles({ id, indice }: { id: string; indice?: number | null }) {
 }
 
 export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: boolean; onToggle: () => void }) {
+  if (d.tipo === "actividad_propia")
+    return (
+      <TableRow className="text-muted-foreground">
+        <TableCell colSpan={COLS} className="italic">
+          ↺ actividad propia del MDR en {d.activo}: login de gestión al aplicar o verificar una contención (no es un ataque)
+        </TableCell>
+      </TableRow>
+    )
   if (d.tipo === "actividad_suprimida")
     return (
       <TableRow className="text-muted-foreground">

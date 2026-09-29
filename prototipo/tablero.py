@@ -255,7 +255,8 @@ def metricas(regs):
     """Indicadores del periodo (vista SLA) calculados de la traza: tasa de FP, % automatizado, MTTR
     (tiempo medio de respuesta humana, de recibido_en/resuelto_en), ruido evitado (suprimidas), y
     distribuciones por clase, veredicto, día, activo y técnica MITRE."""
-    dec = [r for r in regs if r.get("tipo") != "actividad_suprimida"]
+    # Ni los resúmenes de supresión ni el eco del login del propio MDR son decisiones.
+    dec = [r for r in regs if r.get("tipo") not in ("actividad_suprimida", "actividad_propia")]
     total = len(dec)
     por_clase, veredictos, por_dia, activos, mitre = {}, {}, {}, {}, {}
     fp = auto = 0

@@ -1,5 +1,5 @@
 import { useSondeo, getEquipos, getTrazas, type Equipo, type Decision } from "@/api"
-import { ventanaDe } from "@/datos"
+import { esDecision, ventanaDe } from "@/datos"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Punto, Cargando, SinConexion, Vacio, Dato } from "./bits"
 
@@ -34,7 +34,7 @@ function Estado({ v }: { v?: string | null }) {
 type Postura = { recibidos: number; amenazas: number; originados: number; bloqueado: boolean }
 
 function posturaDe(equipos: Equipo[], trazas: Decision[]) {
-  const decisiones = trazas.filter((d) => d.tipo !== "actividad_suprimida")
+  const decisiones = trazas.filter(esDecision)
   const porActivo = new Map<string, { recibidos: number; amenazas: number }>()
   const porOrigen = new Map<string, number>()
   const bloqueada = new Set<string>()

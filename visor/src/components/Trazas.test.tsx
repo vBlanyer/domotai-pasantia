@@ -46,4 +46,10 @@ describe("Trazas", () => {
     expect(await screen.findByText(/registro alterado \(#4\) queda fuera de los mostrados/)).toBeInTheDocument()
     expect(screen.queryByText("alterado")).not.toBeInTheDocument()
   })
+
+  it("rotula la actividad propia del MDR en el registro", () => {
+    h.trazas = [{ ...reg(0, "p1"), tipo: "actividad_propia", activo: "web-banking" }]
+    render(<Trazas />)
+    expect(screen.getByText(/actividad propia del MDR/)).toBeInTheDocument()
+  })
 })

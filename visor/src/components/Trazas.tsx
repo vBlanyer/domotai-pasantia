@@ -98,7 +98,9 @@ export function Trazas() {
                     <TableCell className="text-xs">
                       {suprimida
                         ? <span className="text-muted-foreground italic">actividad suprimida (+{r.alertas_suprimidas})</span>
-                        : <span>{r.clase ?? "—"}</span>}
+                        : r.tipo === "actividad_propia"
+                          ? <span className="text-muted-foreground italic">actividad propia del MDR ({r.activo})</span>
+                          : <span>{r.clase ?? "—"}</span>}
                     </TableCell>
                     <TableCell><Hash h={r.hash_previo} previo /></TableCell>
                     <TableCell className="text-muted-foreground">→</TableCell>

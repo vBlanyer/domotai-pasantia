@@ -99,3 +99,9 @@ export function ventanaDe(regs: Decision[]): { mostrados: number; total: number;
   if (desde == null || ultimo == null || desde === 0) return null
   return { mostrados: regs.length, total: ultimo + 1, desde }
 }
+
+// Qué registros de la traza son decisiones: no los resúmenes de supresión («el ataque sigue, ya
+// decidido») ni el eco del login del propio MDR al contener («actividad propia»).
+export function esDecision(d: Decision): boolean {
+  return d.tipo !== "actividad_suprimida" && d.tipo !== "actividad_propia"
+}

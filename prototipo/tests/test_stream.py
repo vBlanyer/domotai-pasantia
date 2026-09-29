@@ -141,6 +141,52 @@ class TestColaNoBloqueante(unittest.TestCase):
         self.assertEqual(len(estado.decisiones_pendientes()), 1)
 
 
+class TestActividadPropiaDelMDR(unittest.TestCase):
+    """Para contener, el conector entra por SSH desde el nodo de gestión al activo, y Wazuh registra
+    ese login (regla 5715) como una alerta más: cada contención generaba una decisión fantasma."""
+
+    def _perfil(self):
+        p = dict(y("perfil.yml"))
+        p["activos"] = {**p["activos"], "objetivo-vuln": {**p["activos"]["objetivo-vuln"], "ip": "192.168.1.30"}}
+        p["ip_gestion"] = "192.168.1.100"
+        return p
+
+    def _login_mdr(self, host="objetivo-vuln"):
+        return json.dumps({
+            "id": "e1", "rule": {"id": "5715", "level": 3, "description": "sshd: authentication success.",
+                                 "groups": ["syslog", "sshd", "authentication_success"]},
+            "predecoder": {"hostname": host, "program_name": "sshd"}, "data": {"srcip": "192.168.1.100"},
+            "timestamp": "2026-08-31T00:00:05Z", "full_log": "Accepted password for msfadmin from 192.168.1.100"})
+
+    def _correr(self, lineas):
+        buf = io.StringIO()
+        resumen = stream.ejecutar(lineas, hallazgos=j("hallazgos.json"), perfil=self._perfil(),
+                                  perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
+                                  justificar_fn=None, ventana_agrupacion=0, salida_traza=buf,
+                                  escribir=lambda *a, **k: None, leer=lambda *_: "1")
+        return resumen, [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
+
+    def test_el_login_del_mdr_tras_contener_es_actividad_propia(self):
+        resumen, regs = self._correr([_linea_wazuh(), self._login_mdr(), None])
+        self.assertIsNotNone(regs[0]["orden"])                            # hubo contención
+        self.assertEqual([r.get("tipo") for r in regs], [None, "actividad_propia"])
+        self.assertEqual(regs[1]["activo"], "objetivo-vuln")
+        self.assertEqual(resumen["incidentes"], 1)                        # no cuenta como decisión
+        self.assertEqual(resumen["propias"], 1)
+
+    def test_sin_una_orden_previa_del_mdr_el_login_se_tria(self):
+        _, regs = self._correr([self._login_mdr(), None])
+        self.assertIsNone(regs[0].get("tipo"))
+        self.assertEqual(regs[0]["clase"], "no_soportada")
+
+    def test_un_ataque_desde_el_nodo_de_gestion_no_se_oculta(self):
+        # Fallos de login desde ip_gestion tras una contención: si mdr-siem estuviera comprometido,
+        # sería una amenaza real, no un eco.
+        _, regs = self._correr([_linea_wazuh(), _linea_wazuh(srcip="192.168.1.100"), None])
+        self.assertNotIn("actividad_propia", [r.get("tipo") for r in regs])
+        self.assertEqual(len(regs), 2)
+
+
 class TestEscaladaEnModoWeb(unittest.TestCase):
     """Caso E1 del banco: la víctima no responde al MDR y la escalada al cortafuegos pide humano.
     En modo web no bloqueante eso congelaba el daemon entero (pregunta invisible y sin plazo)."""

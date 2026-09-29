@@ -95,6 +95,46 @@ class MemoriaDecisiones:
                 "veredicto_previo": prev["veredicto"]}
 
 
+class ActividadMDR:
+    """Nodos en los que el MDR acaba de ejecutar algo (aplicar/verificar una contención). Para eso el
+    conector entra por SSH desde el nodo de gestión y Wazuh registra ese login como una alerta: sin
+    esto, cada contención generaba una decisión fantasma («no_soportada») en la consola."""
+    VENTANA_SEG = 120
+
+    def __init__(self, reloj=time.monotonic):
+        self._reloj, self._ultima = reloj, {}
+
+    def envolver(self, ejecutor):
+        def _ejecutor(nodo_ip, comando):
+            self._ultima[nodo_ip] = self._reloj()
+            return ejecutor(nodo_ip, comando)
+        return _ejecutor
+
+    def reciente(self, ip):
+        t = self._ultima.get(ip)
+        return t is not None and self._reloj() - t <= self.VENTANA_SEG
+
+
+def _es_actividad_propia(rep, perfil, actividad):
+    """El login de gestión contra un nodo que el MDR acaba de tocar. Tres condiciones a la vez: origen
+    = ip_gestion, fuera de toda familia de amenaza (un login correcto, no fallos: si el nodo de gestión
+    estuviera comprometido y atacara, se triaría) y el MDR ejecutó en ese nodo hace poco."""
+    from prototipo import familias, perfil as perfilm
+    gestion = (perfil or {}).get("ip_gestion")
+    if not gestion or rep.get("origen_ip") != gestion or rep.get("familia") in familias.registro():
+        return False
+    ip = perfilm.ip_de(perfil, rep.get("activo"))
+    return bool(ip) and actividad.reciente(ip)
+
+
+def _registro_propio(inc, id_registro):
+    rep = inc["representante"]
+    return {"id_decision": id_registro, "tipo": "actividad_propia", "timestamp": rep.get("timestamp"),
+            "activo": rep.get("activo"), "origen_ip": rep.get("origen_ip"), "alertas": inc["conteo"],
+            "reglas": dict(inc["reglas"]),
+            "motivo": "login del nodo de gestión del MDR al aplicar o verificar una orden en el activo"}
+
+
 def _linea_supresion(reg):
     c = reg["clave"]
     return (f"↩ {c['origen_ip']} · {c['familia']} — ya decidido ({reg['veredicto_previo'] or 'auto'}) "
@@ -245,7 +285,11 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                                 incidentes; los ticks None permiten vencer la ventana sin lineas nuevas.
     """
     resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
-               "reclasificadas": 0, "ejecutadas": 0, "suprimidas": 0}
+               "reclasificadas": 0, "ejecutadas": 0, "suprimidas": 0, "propias": 0}
+    # Toda ejecución del MDR (lazo, resolutor web, escalada) pasa por aquí: se anota el nodo tocado
+    # para reconocer después el eco de su propio login.
+    actividad = ActividadMDR()          # tiempo de pared propio: no consume el reloj de la ventana
+    ejecutor = actividad.envolver(ejecutor)
     cadena = (traza.Cadena(salida_traza, hash_previo, n=n_previos, nombre=nombre_traza, linaje=linaje)
               if salida_traza is not None else None)
     # La traza puede escribirse desde dos hilos (el lazo y el servidor web al resolver una decisión
@@ -272,6 +316,12 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     def _procesa_lote(lote):
         # E-minimo: bajo carga (muchos ataques distintos a la vez) se decide primero lo mas grave.
         for inc in _ordenar_por_severidad(agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1))):
+            if _es_actividad_propia(inc["representante"], perfil, actividad):
+                resumen["propias"] += 1
+                reg = _registro_propio(inc, f"p{resumen['propias']}")
+                escribir(f"↺ actividad propia del MDR en {reg['activo']} ({reg['alertas']} alerta(s)): no es un ataque")
+                escribir_traza(reg)
+                continue
             if suprimir and memoria.decidida(inc):
                 # Ya se decidio sobre esta (origen_ip, familia): no se re-justifica ni se pregunta;
                 # se cuenta y se deja un resumen encadenado en la traza (el ataque siguio).

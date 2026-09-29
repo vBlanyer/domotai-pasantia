@@ -71,6 +71,12 @@ describe("Fila de la tabla de decisiones", () => {
     expect(screen.getByText("degradada")).toHaveAttribute("title", "propuesta: AISLAR_NODO")
   })
 
+  it("la actividad propia del MDR se pinta como tal, no como decisión", () => {
+    cerrada({ id_decision: "p1", tipo: "actividad_propia", activo: "web-banking" })
+    expect(screen.getByText(/actividad propia del MDR en web-banking/)).toBeInTheDocument()
+    expect(screen.queryByText("—")).not.toBeInTheDocument()
+  })
+
   it("marca una acción vetada (sin acción final)", () => {
     cerrada({ id_decision: "s3", resultado_filtro: "veta", accion_propuesta: "AISLAR_NODO", accion_final: null })
     expect(screen.getByText("AISLAR_NODO")).toBeInTheDocument()

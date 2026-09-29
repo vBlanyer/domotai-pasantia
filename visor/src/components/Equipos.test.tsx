@@ -33,4 +33,12 @@ describe("Equipos", () => {
     render(<Equipos />)
     expect(screen.getByText(/últimos 1 de 11 registros/)).toBeInTheDocument()
   })
+
+  it("el login del propio MDR no cuenta como ataque originado por su nodo", () => {
+    h.fuentes.set(getEquipos, [{ nombre: "mdr-siem", categoria: "gestion", ip: "10.100.0.10", criticidad: "critica", estado: "ok" }])
+    h.fuentes.set(getTrazas, [{ indice: 0, id_decision: "p1", tipo: "actividad_propia", origen_ip: "10.100.0.10", activo: "web-banking" }])
+    render(<Equipos />)
+    expect(screen.queryByText(/originó/)).not.toBeInTheDocument()
+    expect(screen.getByText("sin actividad")).toBeInTheDocument()
+  })
 })
