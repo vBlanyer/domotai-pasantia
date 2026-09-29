@@ -1,6 +1,8 @@
+import contextlib
+import io
 import subprocess
 import unittest
-from lab.banco import demo
+from lab.banco import casos, demo
 
 
 class TestDemo(unittest.TestCase):
@@ -47,7 +49,8 @@ class TestDemo(unittest.TestCase):
             self.assertNotIn(ultimo, (0, 1, 10, 255))
 
     def test_ataque_rotado_agrega_alias_y_ata_el_ssh(self):
-        caso = {"ataque": ("internet", "x"), "origen": "198.51.100.10", "destino_ip": "10.10.0.10"}
+        caso = {"ataque": casos._fuerza_bruta("internet", "10.10.0.10"), "origen": "198.51.100.10",
+                "destino_ip": "10.10.0.10"}
         nodo, cmd = demo.ataque_rotado(caso, "198.51.100.11")
         self.assertEqual(nodo, "internet")
         self.assertIn("ip addr add 198.51.100.11/24 dev eth1", cmd)  # alias en la interfaz de datos
@@ -56,7 +59,8 @@ class TestDemo(unittest.TestCase):
 
     def test_lanzar_con_src_ip_usa_ataque_rotado(self):
         llamadas, ejecutar = self._fake()
-        caso = {"ataque": ("internet", "base"), "origen": "198.51.100.10", "destino_ip": "10.10.0.10"}
+        caso = {"ataque": casos._fuerza_bruta("internet", "10.10.0.10"), "origen": "198.51.100.10",
+                "destino_ip": "10.10.0.10"}
         demo.lanzar(caso, ejecutar=ejecutar, src_ip="198.51.100.11")
         self.assertIn("ssh -b 198.51.100.11", llamadas[0][-1])
         self.assertNotEqual(llamadas[0][-1], "base")                 # no usó el comando base
@@ -83,6 +87,53 @@ class TestDemo(unittest.TestCase):
         self.assertTrue(ataques, "D1 debía lanzar un ataque")
         self.assertIn("ssh -b 198.51.100.11", ataques[0])           # primera IP rotada de la /24 externa
         self.assertIn("ip addr add 198.51.100.11/24 dev eth1", ataques[0])
+
+
+    def _caso(self, id_):
+        return next(c for c in demo.casos_vivos() if c["id"] == id_)
+
+    def test_la_rotacion_ata_el_propio_ataque_del_caso(self):
+        # Antes solo sabía rotar una fuerza bruta: RECON (nc), EXPLOIT (curl) y TELNET (nc) no rotaban
+        # y la tecla r se ignoraba en silencio, atacando desde una IP ya bloqueada.
+        esperado = {"D1": "ssh -b 198.51.100.11", "RECON": "nc -s 198.51.100.11",
+                    "EXPLOIT": "curl --interface 198.51.100.11", "TELNET": "nc -s 198.51.100.11"}
+        for id_, atado in esperado.items():
+            caso = self._caso(id_)
+            self.assertTrue(demo.rotable(caso), id_)
+            nodo, cmd = demo.ataque_rotado(caso, "198.51.100.11")
+            self.assertEqual(nodo, caso["ataque"][0])
+            self.assertIn("ip addr add 198.51.100.11/24 dev eth1", cmd, id_)
+            self.assertIn(atado, cmd, id_)
+
+    def test_todos_los_casos_que_atacan_son_rotables(self):
+        self.assertTrue(all(demo.rotable(c) for c in demo.casos_vivos() if c.get("ataque")))
+
+    def _main(self, respuestas):
+        llamadas, ejecutar = self._fake()
+        salida = io.StringIO()
+        r = iter(respuestas)
+        with contextlib.redirect_stdout(salida):
+            demo.main(leer=lambda _="": next(r), ejecutar=ejecutar, dormir=lambda _: None)
+        return salida.getvalue()
+
+    def test_avisa_si_un_caso_reusa_un_origen_que_quedo_sin_deshacer(self):
+        # D1 (2) sin deshacer y luego RECON (6) desde la misma IP: el MDR ya la bloqueó.
+        out = self._main(["2", "N", "6", "N", "0"])
+        self.assertIn("198.51.100.10 ya atacó en D1 sin deshacer", out)
+
+    def test_no_avisa_si_el_caso_anterior_se_deshizo(self):
+        out = self._main(["2", "s", "6", "N", "0"])
+        self.assertNotIn("ya atacó en", out)
+
+    def test_no_avisa_si_se_rota_la_ip(self):
+        out = self._main(["2", "N", "r", "6", "N", "0"])
+        self.assertNotIn("ya atacó en", out)
+
+    def test_la_preparacion_de_e1_no_se_acumula(self):
+        # Cada lanzamiento insertaba otra regla; si no se deshacía, quedaban varias.
+        _, cmd = self._caso("E1")["preparar"][0]
+        self.assertIn("iptables -C INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP", cmd)
+        self.assertLess(cmd.index("-C INPUT"), cmd.index("-I INPUT"))
 
 
 if __name__ == "__main__":

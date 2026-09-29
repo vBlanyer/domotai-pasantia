@@ -48,6 +48,14 @@ def _exploit_web(origen, destino_ip, puerto=443):
                     f"\"http://{destino_ip}:{puerto}/?id=1%27+OR+%271%27=%271\" || true; sleep 1; done; true")
 
 
+def atar_a_ip(cmd, src_ip):
+    """El mismo ataque, saliendo desde `src_ip`: ata cada cliente que usan los casos (ssh, nc, curl) a
+    esa IP de origen. Así cualquier caso puede rotar su IP sin cambiar de tipo de ataque."""
+    return (cmd.replace("ssh -o", f"ssh -b {src_ip} -o")
+               .replace("nc -w", f"nc -s {src_ip} -w")
+               .replace("curl -s", f"curl --interface {src_ip} -s"))
+
+
 def fuerza_bruta_atada(origen, destino_ip, src_ip, iface="eth1"):
     """Fuerza bruta desde una IP de origen NUEVA: añade el alias en la interfaz de datos del nodo y
     ata el cliente SSH a esa IP, para que Wazuh registre un origen distinto en cada lanzamiento
@@ -89,7 +97,9 @@ CASOS = [
                   "regla": ("core-db", "-A INPUT -s 10.40.0.10/32 -j DROP"), "caen": K1_CAEN},
      "deshacer": [("core-db", "iptables -D INPUT -s 10.40.0.10 -j DROP")]},
     {"nivel": "vivo", "id": "E1", "titulo": "La victima no responde al MDR: escalada a fw-core, aprobada",
-     "preparar": [("web-banking", "iptables -I INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP")],
+     # Idempotente: sin el -C, cada lanzamiento sin deshacer dejaba otra copia de la regla.
+     "preparar": [("web-banking", "iptables -C INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP 2>/dev/null"
+                                  " || iptables -I INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP")],
      "ataque": _fuerza_bruta("internet", "10.10.0.10"), "origen": "198.51.100.10", "destino_ip": "10.10.0.10", "escalada": "s",
      "esperado": {"escalado": True, "dispositivo_ejecutor": "fw-core",
                   "regla": ("fw-core", "-A FORWARD -s 198.51.100.10/32 -j DROP"), "caen": set()},

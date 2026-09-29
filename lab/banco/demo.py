@@ -27,8 +27,8 @@ def casos_vivos():
 
 
 def rotable(caso):
-    """Un caso admite IP de origen rotativa si lanza un ataque con origen y destino conocidos."""
-    return bool(caso.get("ataque") and caso.get("origen") and caso.get("destino_ip"))
+    """Un caso admite IP de origen rotativa si lanza un ataque desde un origen conocido."""
+    return bool(caso.get("ataque") and caso.get("origen"))
 
 
 def ip_rotada(base_ip, n):
@@ -40,9 +40,11 @@ def ip_rotada(base_ip, n):
 
 
 def ataque_rotado(caso, src_ip):
-    """El ataque del caso, pero desde `src_ip` (alias en la interfaz de datos + `ssh -b`)."""
-    nodo = caso["ataque"][0]
-    return casos.fuerza_bruta_atada(nodo, caso["destino_ip"], src_ip, iface=IFACE_DATOS)
+    """El ataque del propio caso, pero desde `src_ip`: alias en la interfaz de datos y el cliente
+    (ssh, nc o curl) atado a esa IP. Antes solo sabía rotar una fuerza bruta SSH."""
+    nodo, cmd = caso["ataque"]
+    alias = f"ip addr add {src_ip}/24 dev {IFACE_DATOS} 2>/dev/null; "
+    return nodo, alias + casos.atar_a_ip(cmd, src_ip)
 
 
 def deshacer_rotado(caso, src_ip):
@@ -84,6 +86,7 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
     ultimo = 0.0
     rotar = False
     contadores = {}                 # subred -> nº de lanzamientos rotados (para IPs nuevas contiguas)
+    sin_deshacer = {}               # origen -> caso que atacó desde él y no se deshizo (puede estar bloqueado)
     try:
         while True:
             print("\n== Ataques del banco (para el daemon/tablero) ==")
@@ -120,13 +123,24 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
                     print(f"  (esperando {int(espera)} s: la regla 5763 se silencia 60 s tras dispararse)")
                     dormir(espera)
 
+            origen = caso.get("origen")
+            if rotar and caso.get("ataque") and not rotable(caso):
+                print(f"  (el caso {caso['id']} no admite IP rotativa: sale desde {origen})")
+            if caso.get("ataque") and src is None and origen in sin_deshacer:
+                print(f"  ⚠ {origen} ya atacó en {sin_deshacer[origen]} sin deshacer: puede que el MDR la haya "
+                      "bloqueado y este ataque no llegue. Usa r (IP rotativa) o sh lab/banco/banco.sh restaurar.")
+
             desde = f" desde {src}" if src else ""
             print(f"  lanzando {caso['id']} — {caso['titulo']}{desde}...")
             lanzar(caso, ejecutar=ejecutar, src_ip=src)
             if caso.get("ataque") and src is None:
                 ultimo = time.time()
+                if origen:
+                    sin_deshacer[origen] = caso["id"]
             if caso.get("deshacer") and leer("  ¿deshacer/restaurar el caso? [s/N] ").strip().lower().startswith("s"):
                 deshacer(caso, ejecutar=ejecutar, src_ip=src)
+                if src is None:
+                    sin_deshacer.pop(origen, None)
                 print("  restaurado")
     except (KeyboardInterrupt, EOFError):
         print()

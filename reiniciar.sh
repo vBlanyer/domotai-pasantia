@@ -28,6 +28,10 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${WAZUH}$"; then
   exit 1
 fi
 
+# El `tail` de las alertas corre DENTRO del contenedor de Wazuh: el pkill de arriba (en el host, sin
+# permisos sobre procesos root del contenedor) no lo alcanza, y quedaba uno huérfano por reinicio.
+docker exec "$WAZUH" pkill -f "tail -n0 -F /var/ossec/logs/alerts/alerts.json" 2>/dev/null || true
+
 export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
 echo "→ relanzando daemon --web (traza: ${SALIDA})"
 echo "  Abre http://127.0.0.1:8787  ·  Ctrl+C para detener"
