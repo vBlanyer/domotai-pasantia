@@ -109,6 +109,27 @@ class TestEjecutorClave(unittest.TestCase):
                 os.environ.pop("TRIAJE_SSH_MODO", None)
 
 
+class TestSshConPlazo(unittest.TestCase):
+    """Un docker exec colgado bloqueaba el lazo (o el hilo HTTP) sin límite."""
+    def test_un_ssh_colgado_devuelve_un_codigo_en_lugar_de_bloquear(self):
+        import subprocess
+        from unittest import mock
+        visto = {}
+        def colgado(args, **kw):
+            visto.update(kw); raise subprocess.TimeoutExpired(args, kw.get("timeout"))
+        with mock.patch("subprocess.run", colgado):
+            rc, salida = conector._ssh_en_auditor("ssh x")
+        self.assertEqual(rc, 124)
+        self.assertTrue(visto.get("timeout"))
+
+    def test_sin_docker_devuelve_un_codigo(self):
+        from unittest import mock
+        with mock.patch("subprocess.run", side_effect=FileNotFoundError("docker")):
+            rc, salida = conector._ssh_en_auditor("ssh x")
+        self.assertEqual(rc, 127)
+        self.assertIn("docker", salida)
+
+
 class TestNodoGestion(unittest.TestCase):
     """H3: el nodo desde el que ejecuta el conector es configurable; por defecto, el de la red pequeña."""
     def test_por_defecto_el_auditor_de_la_red_pequena(self):

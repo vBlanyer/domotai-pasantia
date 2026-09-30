@@ -207,6 +207,19 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual({t["tecnica"]: t["n"] for t in m["mitre"]}["T1110.001"], 2)
         self.assertEqual([d["n"] for d in m["por_dia"]], [1, 2])   # 23 (1) antes que 24 (2)
 
+    def test_metricas_no_cuentan_los_errores_ni_las_reversiones_como_decisiones(self):
+        m = tablero.metricas([{"id_decision": "s1", "clase": "vp_intento_acceso", "requiere_humano": False},
+                              {"id_decision": "s2", "tipo": "error", "error": "boom"},
+                              {"tipo": "reversion", "id_decision_revertida": "s1", "exito": True}])
+        self.assertEqual((m["total"], m["por_clase"]), (1, {"vp_intento_acceso": 1}))
+
+    def test_leer_salud_con_docker_colgado_es_none_y_con_plazo(self):
+        visto = {}
+        def colgado(args, **kw):
+            visto.update(kw); raise subprocess.TimeoutExpired(args, kw.get("timeout"))
+        self.assertIsNone(tablero.leer_salud(contenedor="c", fichero_en_contenedor="/x", ejecutar=colgado))
+        self.assertTrue(visto.get("timeout"))
+
     def test_metricas_no_cuentan_la_actividad_propia_del_mdr_como_decision(self):
         m = tablero.metricas([{"id_decision": "s1", "clase": "vp_intento_acceso", "requiere_humano": False},
                               {"id_decision": "p1", "tipo": "actividad_propia", "activo": "web-banking"}])

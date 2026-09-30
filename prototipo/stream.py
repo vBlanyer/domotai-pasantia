@@ -22,7 +22,13 @@ def _parsear(linea):
         cruda = json.loads(linea)
     except json.JSONDecodeError:
         return None
-    return ingesta.normalizar(cruda, _ADAPTADOR)
+    if not isinstance(cruda, dict):          # JSON válido pero no es una alerta: [1,2], null, "x"
+        return None
+    try:
+        return ingesta.normalizar(cruda, _ADAPTADOR)
+    except Exception as e:                   # campos con el tipo que no toca ({"rule": null}, data lista…)
+        print(f"[aviso] alerta descartada, no se pudo normalizar: {type(e).__name__}: {e}", file=sys.stderr)
+        return None
 
 def _resumen_incidente(inc):
     c = inc["clave"]
@@ -189,6 +195,13 @@ def _registro_propio(inc, id_registro):
             "motivo": "login del nodo de gestión del MDR al aplicar o verificar una orden en el activo"}
 
 
+def _registro_error(inc, id_decision, error):
+    rep = inc["representante"]
+    return {"id_decision": id_decision, "tipo": "error", "timestamp": rep.get("timestamp"),
+            "activo": rep.get("activo"), "origen_ip": rep.get("origen_ip"), "familia": rep.get("familia"),
+            "alertas": inc.get("conteo"), "error": f"{type(error).__name__}: {error}"}
+
+
 def _linea_supresion(reg):
     c = reg["clave"]
     return (f"↩ {c['origen_ip']} → {c.get('activo')} · {c['familia']} — ya decidido "
@@ -288,9 +301,13 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
             if estado.sacar_decision(pid) is None:
                 return False
             alerta = entrada["alerta"]
-            r = lazo.reanudar_escalada(entrada["decision"], alerta, perfil, catalogo, ejecutor, respuesta,
-                                       entrada.get("desde"), alerta.get("timestamp", ""),
-                                       diferir_escalada=diferir_escalada)
+            try:
+                r = lazo.reanudar_escalada(entrada["decision"], alerta, perfil, catalogo, ejecutor, respuesta,
+                                           entrada.get("desde"), alerta.get("timestamp", ""),
+                                           diferir_escalada=diferir_escalada)
+            except Exception as e:           # la tarjeta ya salió de la cola: la decisión no se pierde
+                r = {**entrada["decision"], "escalada": {"resultado": "fallido", "error": f"{type(e).__name__}: {e}"}}
+                r.pop("en_cola", None)
             if r.get("en_cola"):                       # el salto siguiente también pide humano
                 return True
             r = {**r, "veredicto_escalada": "aprobar" if respuesta.lower().startswith("s") else "rechazar",
@@ -319,10 +336,16 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         if estado.sacar_decision(pid) is None:         # otra respuesta ya la resolvió (carrera)
             return False
         decision, alerta = entrada["decision"], entrada["alerta"]
-        r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
-                                   decision.get("id_decision", ""), alerta.get("timestamp", ""),
-                                   veredicto=veredicto, clase_reclasificada=clase,
-                                   diferir_escalada=diferir_escalada, leer=lambda *_: "")
+        try:
+            r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
+                                       decision.get("id_decision", ""), alerta.get("timestamp", ""),
+                                       veredicto=veredicto, clase_reclasificada=clase,
+                                       diferir_escalada=diferir_escalada, leer=lambda *_: "")
+        except Exception as e:
+            # La tarjeta ya salió de la cola (no se reencola: podría reejecutar a medias). Se traza la
+            # decisión con el fallo, en vez de un 500 que la hacía desaparecer sin rastro.
+            r = {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase,
+                 "ejecucion": {"exito": False, "error": f"{type(e).__name__}: {e}"}}
         if r.get("en_cola"):                           # escala y el salto pide humano: su tarjeta trazará
             return True
         # Marcas de tiempo para el MTTR (tiempo de respuesta del analista) en el panel de métricas.
@@ -438,10 +461,19 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 _suprimir(inc, previa)
                 continue
             seq[0] += 1
-            d = _procesar_incidente(
-                inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
-                f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn,
-                encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada)
+            try:
+                d = _procesar_incidente(
+                    inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
+                    f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn,
+                    encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada)
+            except Exception as e:
+                # Barrera: un fallo con un incidente (un ejecutor que lanza, un dato inesperado) no
+                # tumba el daemon ni el visor; queda un registro 'error' encadenado y se sigue.
+                reg = _registro_error(inc, f"s{seq[0]}", e)
+                escribir(f"✗ {reg['id_decision']}: no se pudo procesar el incidente de {reg['origen_ip']} "
+                         f"-> {reg['activo']}: {reg['error']}")
+                escribir_traza(reg)
+                continue
             with _resumen_lock:
                 _contar(resumen, d)
             # Las decisiones en cola aún no se deciden: se recuerdan al resolverlas (al_resolver).

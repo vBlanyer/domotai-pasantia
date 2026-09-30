@@ -66,9 +66,17 @@ def nodo_gestion():
     el auditor de la red pequena; el banco usa TRIAJE_NODO_GESTION=clab-banco-mdr-siem (H3)."""
     return os.environ.get("TRIAJE_NODO_GESTION", _AUDITOR)
 
+PLAZO_SSH_S = 30     # ssh ya corta la conexión a los 5 s; esto acota un comando remoto colgado
+
 def _ssh_en_auditor(linea):
     import subprocess
-    cp = subprocess.run(["docker", "exec", nodo_gestion(), "sh", "-c", linea], capture_output=True, text=True)
+    try:
+        cp = subprocess.run(["docker", "exec", nodo_gestion(), "sh", "-c", linea], capture_output=True,
+                            text=True, timeout=PLAZO_SSH_S)
+    except subprocess.TimeoutExpired:
+        return (124, f"sin respuesta en {PLAZO_SSH_S} s")          # 124: el código de timeout(1)
+    except OSError as e:                                            # docker ausente o no ejecutable
+        return (127, f"no se pudo lanzar docker: {e}")
     return (cp.returncode, cp.stdout + cp.stderr)
 
 def ejecutor_ssh_lab(nodo_ip, comando):  # el ejecutor del laboratorio (se valida en vivo, no en unittest)

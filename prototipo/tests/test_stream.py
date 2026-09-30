@@ -843,5 +843,51 @@ class TestCierreConCtrlC(unittest.TestCase):
                              "--sin-lab", "--ventana-agrupacion", "0", "--salida", os.path.join(d, "t.jsonl")])
         self.assertIn("Alertas vistas: 2 · Incidentes: 2", salida.getvalue())
 
+
+class TestBarreraDeExcepciones(unittest.TestCase):
+    """Una alerta rara o un ejecutor que lanza no pueden tumbar el daemon ni perder una decisión."""
+
+    def _correr(self, lineas, ejecutor, estado_web=None):
+        buf = io.StringIO()
+        resumen = stream.ejecutar(lineas, hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+                                  perfil_nombre="prueba", catalogo=CAT, ejecutor=ejecutor, justificar_fn=None,
+                                  ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
+                                  leer=lambda *_: "2", estado_web=estado_web)
+        return resumen, [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
+
+    def test_json_valido_pero_mal_tipado_se_descarta(self):
+        raras = ["[1,2]", "null", '"x"', '{"rule": null}',
+                 json.dumps({**json.loads(_linea_wazuh()), "data": [1]})]
+        resumen, regs = self._correr(raras + [_linea_wazuh()], lazo._EjecutorAuto())
+        self.assertEqual(resumen["incidentes"], 1)
+
+    def test_un_ejecutor_que_lanza_deja_un_error_en_la_traza_y_el_daemon_sigue(self):
+        def roto(ip, cmd):
+            raise OSError("docker: no such file")
+        resumen, regs = self._correr([_linea_wazuh("1.1.1.1"), _linea_wazuh("2.2.2.2")], roto)
+        errores = [r for r in regs if r.get("tipo") == "error"]
+        self.assertEqual(len(errores), 2)
+        self.assertIn("docker", errores[0]["error"])
+        self.assertEqual(errores[0]["origen_ip"], "1.1.1.1")
+        from prototipo import traza as tm
+        self.assertTrue(tm.verificar(regs)["valida"])
+
+    def test_un_ejecutor_que_lanza_al_aprobar_en_la_web_deja_la_decision_en_la_traza(self):
+        def roto(ip, cmd):
+            raise OSError("docker: no such file")
+        estado = tablero.EstadoTablero()
+        d = json.loads(_linea_wazuh()); d["predecoder"]["hostname"] = "fantasma"    # requiere humano
+        buf = io.StringIO()
+        stream.ejecutar([json.dumps(d)], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=roto, justificar_fn=None,
+                        ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
+                        estado_web=estado)
+        p = estado.decisiones_pendientes()[0]
+        self.assertTrue(estado.resolver_decision(p["id"], "1", paso=p["paso"]))
+        r = json.loads(buf.getvalue().splitlines()[0])
+        self.assertEqual(r["veredicto_humano"], "aprobar")
+        self.assertFalse(r["ejecucion"]["exito"])
+        self.assertIn("docker", r["ejecucion"]["error"])
+
 if __name__ == "__main__":
     unittest.main()

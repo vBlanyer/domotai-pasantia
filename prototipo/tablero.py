@@ -172,8 +172,8 @@ def leer_salud(ruta=None, contenedor=None, fichero_en_contenedor=None, ejecutar=
     elif contenedor is not None:
         try:
             r = ejecutar(["docker", "exec", contenedor, "tail", "-n1", fichero_en_contenedor],
-                         capture_output=True, text=True)
-        except OSError:
+                         capture_output=True, text=True, timeout=3)
+        except (OSError, subprocess.TimeoutExpired):     # sin docker, o un contenedor pausado
             return None
         if r.returncode != 0 or not r.stdout.strip():
             return None
@@ -263,12 +263,16 @@ def _resumen_traza(reg):
             "tipo": reg.get("tipo"), "alertas_suprimidas": reg.get("alertas_suprimidas")}
 
 
+# Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
+# fallos al procesar un incidente y reversiones de una contención ya decidida.
+_NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion")
+
 def metricas(regs):
     """Indicadores del periodo (vista SLA) calculados de la traza: tasa de FP, % automatizado, MTTR
     (tiempo medio de respuesta humana, de recibido_en/resuelto_en), ruido evitado (suprimidas), y
     distribuciones por clase, veredicto, día, activo y técnica MITRE."""
     # Ni los resúmenes de supresión ni el eco del login del propio MDR son decisiones.
-    dec = [r for r in regs if r.get("tipo") not in ("actividad_suprimida", "actividad_propia")]
+    dec = [r for r in regs if r.get("tipo") not in _NO_DECISIONES]
     total = len(dec)
     por_clase, veredictos, por_dia, activos, mitre = {}, {}, {}, {}, {}
     fp = auto = 0
