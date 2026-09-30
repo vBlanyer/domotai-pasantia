@@ -65,22 +65,30 @@ def red_de(perfil):
             n = enlaces[n]
 
     zonas = []
+    nodos_en_zona = {}  # Tracks which zone each node was placed in (first placement wins)
     if "zonas" in seccion:
         for zona, miembros in (seccion.get("zonas") or {}).items():
             validos = []
             for m in _lista(miembros):
-                if m in nodos:
-                    validos.append(m)
-                else:
+                if m not in nodos:
                     avisos.append(f"zona {zona}: nodo desconocido {m}, se ignora")
+                elif m in nodos_en_zona:
+                    avisos.append(f"zona {zona}: {m} ya está en la zona {nodos_en_zona[m]}, se ignora")
+                else:
+                    validos.append(m)
+                    nodos_en_zona[m] = zona
             zonas.append([zona, validos])
     else:
         zonas.append(["Red", sorted(n for n, v in nodos.items() if v["tipo"] not in ("cortafuegos", "externo"))])
+        for n in zonas[0][1]:
+            nodos_en_zona[n] = "Red"
     en_zona = {m for _, ms in zonas for m in ms}
     conectados = set(enlaces) | set(enlaces.values())
     sueltos = sorted(n for n in nodos if n not in en_zona and n not in conectados)
     if sueltos and "zonas" in seccion:
         zonas.append([SIN_UBICAR, sueltos])
+        for n in sueltos:
+            nodos_en_zona[n] = SIN_UBICAR
     for zona, miembros in zonas:
         for m in miembros:
             nodos[m]["zona"] = zona

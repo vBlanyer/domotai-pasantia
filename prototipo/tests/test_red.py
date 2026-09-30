@@ -69,6 +69,15 @@ class TestRedDelPerfil(unittest.TestCase):
         self.assertEqual(r["zonas"][-1], [red.SIN_UBICAR, ["suelto"]])
         self.assertEqual(r["nodos"]["suelto"]["zona"], red.SIN_UBICAR)
 
+    def test_nodo_en_dos_zonas_se_avisa_y_solo_en_la_primera(self):
+        p = {**BANCO, "red": {**BANCO["red"], "zonas": {"DMZ": ["web-banking"], "Core": ["web-banking", "middleware"]}}}
+        r = red.red_de(p)
+        self.assertEqual(r["nodos"]["web-banking"]["zona"], "DMZ")
+        self.assertEqual(dict(r["zonas"])["DMZ"], ["web-banking"])
+        self.assertEqual(dict(r["zonas"])["Core"], ["middleware"])
+        self.assertEqual(len(r["avisos"]), 1)
+        self.assertTrue(any("ya está en la zona" in a for a in r["avisos"]))
+
 
 if __name__ == "__main__":
     unittest.main()
