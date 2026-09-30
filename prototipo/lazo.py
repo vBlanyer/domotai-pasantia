@@ -133,7 +133,9 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
         # Lo que el analista necesita para aprobar cada paso: la decisión y su justificación. En la
         # web, la tarjeta se arma con lo escrito aquí y con lo que escribe el agente (mismo canal).
         escribir(validacion.mostrar(decision, alerta))
-        plan = mitigar_fn(decision, alerta, leer, escribir=escribir)
+        # El ejecutor del lazo es el que anota lo que toca el MDR (stream.ActividadMDR): con él, el eco
+        # del login de gestión tras la contención del agente se reconoce como actividad propia.
+        plan = mitigar_fn(decision, alerta, leer, escribir=escribir, ejecutor=ejecutor)
         return {**decision, "veredicto_humano": None, "clase_reclasificada": None,
                 "mitigacion_agente": plan, "orden": None, "ejecucion": None, "verificacion": None}
     # Modo web no bloqueante: si requiere humano y hay `encolar`, se encola y se difiere; el veredicto

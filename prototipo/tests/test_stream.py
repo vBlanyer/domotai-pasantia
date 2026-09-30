@@ -322,7 +322,7 @@ class TestEscaladaConHumanoEnCadaSalto(unittest.TestCase):
 class TestModoAgente(unittest.TestCase):
     def test_ejecutar_delega_al_mitigar_fn_y_cuenta(self):
         buf = io.StringIO()
-        def mitigar(decision, alerta, leer, escribir=None):
+        def mitigar(decision, alerta, leer, escribir=None, ejecutor=None):
             return {"resultado": "mitigado", "escalado": True, "dispositivo_ejecutor": "gateway"}
         resumen = stream.ejecutar(
             [_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
@@ -350,6 +350,26 @@ class TestAgenteEscribeEnLaTarjeta(unittest.TestCase):
         self.assertIs(visto["escribir"], web)
 
 
+class TestAgenteYActividadPropia(unittest.TestCase):
+    def test_el_login_del_mdr_tras_contener_con_el_agente_es_actividad_propia(self):
+        # El agente ejecutaba con el conector crudo de main: su SSH no quedaba anotado y el eco del
+        # login de gestión se triaba como una alerta más (s2 no_soportada, 54 s de LLM en vivo).
+        p = {**y("perfil.yml"), "ip_gestion": "10.100.0.10",
+             "activos": {**y("perfil.yml")["activos"], "objetivo-vuln": {"ip": "192.168.1.30"}}}
+        def mitigar(decision, alerta, leer, escribir=None, ejecutor=None):
+            ejecutor("192.168.1.30", "iptables -A INPUT -s 1.1.1.1 -j DROP")
+            return {"resultado": "mitigado", "escalado": False, "dispositivo_ejecutor": "objetivo-vuln"}
+        eco = json.loads(_linea_wazuh("10.100.0.10", rule_id="5715"))
+        eco["rule"]["groups"] = ["sshd", "authentication_success"]
+        buf = io.StringIO()
+        stream.ejecutar([_linea_wazuh("1.1.1.1"), json.dumps(eco)], hallazgos=j("hallazgos.json"), perfil=p,
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None,
+                        ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
+                        leer=lambda *_: "s", mitigar_fn=mitigar)
+        tipos = [json.loads(l).get("tipo") for l in buf.getvalue().splitlines() if l.strip()]
+        self.assertEqual(tipos, ["decision", "actividad_propia"])
+
+
 class TestModoAgenteEscalada(unittest.TestCase):
     def test_daemon_delega_y_el_agente_escala_a_firewall(self):
         from prototipo import agente_mitigacion as ag
@@ -374,7 +394,7 @@ class TestModoAgenteEscalada(unittest.TestCase):
                 v = guion[s.i] if s.i < len(guion) else "ruido"; s.i += 1; return v
 
         ejec = EjecEscalado()
-        mitigar = lambda decision, alerta, leer, escribir=None: ag.bucle_react(
+        mitigar = lambda decision, alerta, leer, escribir=None, ejecutor=None: ag.bucle_react(
             alerta, decision["clase"], perfil, CAT, ejec, Gen(), leer=lambda *_: "s",
             autonomo=False, escribir=lambda *a, **k: None)
         buf = io.StringIO()
