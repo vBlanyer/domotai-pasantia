@@ -130,7 +130,10 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
     # Modo agente: si hay contención que aplicar, delega la mitigación al agente ReAct, que decide la
     # estrategia, ESCALA de dispositivo y aprueba POR PASO (RF-08). El daemon no hace su prompt único.
     if mitigar_fn is not None and decision.get("accion_final"):
-        plan = mitigar_fn(decision, alerta, leer)
+        # Lo que el analista necesita para aprobar cada paso: la decisión y su justificación. En la
+        # web, la tarjeta se arma con lo escrito aquí y con lo que escribe el agente (mismo canal).
+        escribir(validacion.mostrar(decision, alerta))
+        plan = mitigar_fn(decision, alerta, leer, escribir=escribir)
         return {**decision, "veredicto_humano": None, "clase_reclasificada": None,
                 "mitigacion_agente": plan, "orden": None, "ejecucion": None, "verificacion": None}
     # Modo web no bloqueante: si requiere humano y hay `encolar`, se encola y se difiere; el veredicto

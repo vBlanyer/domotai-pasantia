@@ -188,6 +188,10 @@ export function parsearPendiente(p: Pendiente): PendienteVista {
     const op = t.match(/^(\d+)\)\s*(.+)$/)
     if (op) { opciones.push({ n: op[1], etiqueta: op[2] }); continue }
     if (/^⚠?\s*Incidente:/.test(t)) { incidente = t.replace(/^⚠\s*/, ""); continue }
+    // «── Validación humana ── ACCION en DISPOSITIVO …» es la pregunta del agente (--agente): dice qué
+    // se aprueba y dónde. Las demás líneas «──» son separadores de la terminal.
+    const paso = t.match(/^── Validación humana ── (.+)$/)
+    if (paso) { info.push(`Acción: ${paso[1]}`); continue }
     if (t.startsWith("──") || /^Elige \[/.test(t)) continue
     if (t.startsWith("Consecuencia:")) { consecuencia = t.slice("Consecuencia:".length).trim(); continue }
     info.push(t)

@@ -646,7 +646,7 @@ def parsear_args(argv):
             "agente": agente, "web": web, "web_puerto": web_puerto, "sin_supresion": sin_supresion}
 
 def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hallazgos=None):
-    """Modo --agente: devuelve un `mitigar_fn(decision, alerta, leer) -> plan` que delega en el agente
+    """Modo --agente: devuelve un `mitigar_fn(decision, alerta, leer, escribir=...) -> plan` que delega en el agente
     ReAct (decide estrategia, ESCALA host->firewall, aprueba POR PASO, consulta ATT&CK/D3FEND). Usa el 1B
     para el ReAct; sin modelo/indice, bucle_react degrada al motor determinista (RNF-09)."""
     if not agente:
@@ -665,7 +665,9 @@ def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hal
     # textual, que `parsear_accion` sigue aceptando.
     gen = ((lambda p: base(p, esquema=esquema))
            if base is justificador_llm.generador_servidor else base)
-    def _fn(decision, alerta, leer):
+    def _fn(decision, alerta, leer, escribir=escribir):
+        # `escribir` llega del lazo: en la web es el que alimenta la tarjeta; con print, las preguntas
+        # del agente solo salían por la terminal del daemon y la tarjeta quedaba sin contexto.
         return ag.bucle_react(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
                               gen, leer=leer, autonomo=False,
                               timestamp=decision.get("timestamp", ""),

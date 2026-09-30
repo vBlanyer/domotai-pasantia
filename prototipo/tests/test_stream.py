@@ -322,7 +322,7 @@ class TestEscaladaConHumanoEnCadaSalto(unittest.TestCase):
 class TestModoAgente(unittest.TestCase):
     def test_ejecutar_delega_al_mitigar_fn_y_cuenta(self):
         buf = io.StringIO()
-        def mitigar(decision, alerta, leer):
+        def mitigar(decision, alerta, leer, escribir=None):
             return {"resultado": "mitigado", "escalado": True, "dispositivo_ejecutor": "gateway"}
         resumen = stream.ejecutar(
             [_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
@@ -333,6 +333,21 @@ class TestModoAgente(unittest.TestCase):
         self.assertEqual(resumen["ejecutadas"], 1)                 # resultado mitigado -> ejecutada
         traza = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
         self.assertEqual(traza["mitigacion_agente"]["dispositivo_ejecutor"], "gateway")
+
+
+class TestAgenteEscribeEnLaTarjeta(unittest.TestCase):
+    def test_el_agente_usa_el_escribir_que_le_pasa_el_lazo(self):
+        from unittest import mock
+        from prototipo import agente_mitigacion as ag, justificador_llm, rag
+        visto = {}
+        with mock.patch.object(rag, "cargar_indice", return_value=None), \
+             mock.patch.object(rag, "embedder_por_defecto", return_value=None), \
+             mock.patch.object(justificador_llm, "generador_por_defecto", return_value=lambda p: ""), \
+             mock.patch.object(ag, "bucle_react", lambda *a, **k: visto.update(k) or {}):
+            fn = stream.construir_mitigar_fn(True, y("perfil.yml"), CAT, lambda *a: (0, ""))
+            web = lambda *a: None
+            fn({"clase": "vp_intento_acceso"}, {"origen_ip": "1.1.1.1"}, lambda *_: "s", escribir=web)
+        self.assertIs(visto["escribir"], web)
 
 
 class TestModoAgenteEscalada(unittest.TestCase):
@@ -359,7 +374,7 @@ class TestModoAgenteEscalada(unittest.TestCase):
                 v = guion[s.i] if s.i < len(guion) else "ruido"; s.i += 1; return v
 
         ejec = EjecEscalado()
-        mitigar = lambda decision, alerta, leer: ag.bucle_react(
+        mitigar = lambda decision, alerta, leer, escribir=None: ag.bucle_react(
             alerta, decision["clase"], perfil, CAT, ejec, Gen(), leer=lambda *_: "s",
             autonomo=False, escribir=lambda *a, **k: None)
         buf = io.StringIO()

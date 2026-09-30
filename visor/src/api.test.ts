@@ -93,6 +93,16 @@ describe("parsearPendiente", () => {
     const esc = { ...veredicto, lineas: ["Consecuencia: bloquea a middleware · en cascada: api-movil, middleware, web-banking · en fw-core: corta su tráfico hacia todo lo que enruta (api-movil, atm, web-banking)"] }
     expect(parsearPendiente(esc).cascada).toEqual(["api-movil", "middleware", "web-banking"])
   })
+  it("la pregunta del agente dice qué se aprueba y dónde", () => {
+    // Modo --agente: el agente pregunta por paso («── Validación humana ── ACCION en DISPOSITIVO …»).
+    const p = { ...veredicto, prompt: "¿aprobar la ejecución? [s/N] ",
+      lineas: ["⚠ Incidente: 10 alerta(s) · 10.200.0.11 -> web-banking (ssh)",
+               "── Validación humana ── BLOQUEAR_IP en web-banking (10.10.0.10) contra 10.200.0.11",
+               "Consecuencia: bloquea a taquilla (activo interno)"] }
+    const v = parsearPendiente(p)
+    expect(v.info).toContain("Acción: BLOQUEAR_IP en web-banking (10.10.0.10) contra 10.200.0.11")
+    expect(v.consecuencia).toBe("bloquea a taquilla (activo interno)")
+  })
   it("sin cascada en la consecuencia, la lista va vacía", () => {
     const sin = { ...veredicto, lineas: ["Consecuencia: bloquea a 10.40.0.10 · 0 servicios detenidos"] }
     expect(parsearPendiente(sin).cascada).toEqual([])

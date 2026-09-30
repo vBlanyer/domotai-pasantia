@@ -142,7 +142,7 @@ class TestMitigarFn(unittest.TestCase):
     def test_delega_al_agente_cuando_hay_accion(self):
         # vp con accion_final -> se llama a mitigar_fn (agente), no al conector; la traza lleva el plan
         llamadas = []
-        def mitigar(decision, alerta, leer):
+        def mitigar(decision, alerta, leer, escribir=None):
             llamadas.append(decision["clase"])
             return {"resultado": "mitigado", "escalado": True, "dispositivo_ejecutor": "gateway"}
         r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
@@ -150,6 +150,19 @@ class TestMitigarFn(unittest.TestCase):
         self.assertEqual(llamadas, ["vp_intento_acceso"])          # el agente decidió
         self.assertEqual(r["mitigacion_agente"]["dispositivo_ejecutor"], "gateway")
         self.assertIsNone(r["ejecucion"])                          # no pasó por el conector
+
+    def test_en_modo_agente_el_analista_ve_la_decision_y_el_agente_escribe_por_el_mismo_canal(self):
+        # En la web, la tarjeta del agente se arma con lo que escribe el daemon: sin el resumen de la
+        # decisión (clase, justificación) ni las preguntas del agente, solo quedaba «Aprobar/Rechazar».
+        lineas, recibido = [], {}
+        def mitigar(decision, alerta, leer, escribir=None):
+            recibido["escribir"] = escribir
+            return {"resultado": "mitigado", "escalado": False, "dispositivo_ejecutor": "objetivo-vuln"}
+        escribir = lineas.append
+        lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                           ejecutor_ok, "d1", "t", mitigar_fn=mitigar, escribir=escribir)
+        self.assertTrue(any("Justificación:" in l for l in lineas), lineas)
+        self.assertIs(recibido["escribir"], escribir)
 
     def test_no_llama_al_agente_si_no_hay_accion(self):
         # alerta fuera de perímetro -> no_soportada -> accion_final None -> el agente NO se invoca
