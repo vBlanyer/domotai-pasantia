@@ -1,6 +1,6 @@
 """Interfaz de análisis (clasificar/justificar) con implementación baseline determinista."""
 from prototipo.postura import postura_de, resumen_otros_expuestos
-from prototipo import familias
+from prototipo import actores, familias
 
 # Clases en las que la decision del motor es "esto no es una amenaza". La consumen el
 # justificador (para preguntar por que NO lo es) y el RAG (para recuperar el motivo del
@@ -24,7 +24,8 @@ def enriquecer(alerta, hallazgos, perfil):
     criticidad = perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")
     # Orígenes de administración declarados por el cliente (RNF-14): un ataque aparente
     # desde uno de ellos es el FP dominante (RF-03, clase fp_actividad_legitima).
-    origen_legitimo = alerta.get("origen_ip") in set(perfil.get("origenes_legitimos") or [])
+    origen_legitimo = any(actores._coincide(alerta.get("origen_ip"), o)
+                          for o in perfil.get("origenes_legitimos") or [])
     # Rafaga: cuantas alertas del mismo origen en la ventana (la calcula quien alimenta al motor:
     # prototipo/rafaga.py). El umbral es del perfil (RNF-14); sin umbral, la regla no actua.
     return {"postura": postura, "criticidad": criticidad, "origen_legitimo": origen_legitimo,

@@ -25,6 +25,16 @@ class TestLazo(unittest.TestCase):
         self.assertIn("verificacion", r)
         self.assertIsNone(r["veredicto_humano"])   # confianza alta, no requiere humano
 
+    def test_sin_ip_de_origen_no_se_ejecuta_nada(self):
+        # Una alerta de acceso sin srcip no puede producir 'iptables -A INPUT -s None -j DROP'.
+        a = dict(j("alerta_vp.json")); a["origen_ip"] = None
+        llamadas = []
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                               lambda ip, c: (llamadas.append(c), (0, ""))[1], "d1", "t",
+                               leer=lambda *_: "1")
+        self.assertIsNone(r["accion_final"])
+        self.assertEqual(llamadas, [])
+
     def test_lazo_rechazo_humano_no_ejecuta(self):
         # forzamos requiere_humano con confianza baja: activo desconocido -> postura None -> confianza 0.5 -> veta
         a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"

@@ -237,6 +237,16 @@ class TestConcienciaDeActores(unittest.TestCase):
     def _filtrar(self, accion, params, p=PERFIL_INV, **kw):
         return perfil.filtrar(p, accion, params, CAT, "objetivo-vuln", "ssh", 1.0, **kw)
 
+    def test_sin_ip_de_origen_ipv4_no_hay_a_quien_bloquear(self):   # RNF-07
+        for ip in (None, "None", "", "2001:db8::1", "no-es-ip"):
+            r = self._filtrar("BLOQUEAR_IP", {"ip": ip})
+            self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", None, True), ip)
+            self.assertIn("IPv4", r["impacto"]["motivo"])
+
+    def test_una_ipv4_mapeada_sigue_siendo_bloqueable(self):
+        r = self._filtrar("BLOQUEAR_IP", {"ip": "::ffff:198.51.100.9"})
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")
+
     def test_bloquear_la_gestion_es_veto_duro(self):   # RF-19, C4
         r = self._filtrar("BLOQUEAR_IP", {"ip": "172.20.20.4"})
         self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", None, True))

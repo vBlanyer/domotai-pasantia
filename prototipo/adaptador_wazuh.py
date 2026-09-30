@@ -4,6 +4,7 @@ Es la pieza específica de fabricante (RNF-06) del módulo de ingesta. El mapeo 
 con `.get()` y nunca infiere lo que falta (RNF-07); el activo se deriva de los campos del evento, no
 del id de agente (RF-16).
 """
+import ipaddress
 
 FUENTE = "wazuh"
 
@@ -60,12 +61,22 @@ def normalizar_alerta(cruda, campaña):
         "activo": resolver_activo(cruda),
         "servicio": servicio_de(cruda),
         "familia": familia_de(rule),
-        "origen_ip": data.get("srcip"),
+        "origen_ip": _ip_origen(data.get("srcip")),
         "mitre": rule.get("mitre", {}).get("id", []),
         "evento_crudo": cruda.get("full_log"),
         "nivel_wazuh": rule.get("level"),
         "regla_id": rule.get("id"),
     }
+
+def _ip_origen(srcip):
+    """srcip tal cual, salvo una IPv4 mapeada en IPv6 (`::ffff:a.b.c.d`), que se deja en IPv4: es la
+    forma que entiende el catalogo (iptables) y la que se compara con el perfil."""
+    if isinstance(srcip, str) and srcip.lower().startswith("::ffff:"):
+        try:
+            return str(ipaddress.ip_address(srcip).ipv4_mapped or srcip)
+        except ValueError:
+            return srcip
+    return srcip
 
 def adaptador(campaña=""):
     """Fábrica de adaptador para el núcleo de ingesta: devuelve un `cruda -> dict` con la campaña fijada."""

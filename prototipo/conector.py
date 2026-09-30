@@ -9,7 +9,9 @@ def render_comando(catalogo, accion_id, params):
 
 def _params_seguros(params):
     # además del charset: nada que empiece por "-" (evita que un valor se interprete como flag, p.ej. de iptables).
-    return all(_SEGURO.match(str(v)) and not str(v).startswith("-") for v in params.values())
+    # None se renderizaria como el texto "None" (y lo acepta _SEGURO): un parametro ausente no es seguro.
+    return all(v is not None and str(v) != "None" and _SEGURO.match(str(v)) and not str(v).startswith("-")
+               for v in params.values())
 
 def _resultado(orden, comando, rc, salida, exito, idempotente, timestamp):
     return {

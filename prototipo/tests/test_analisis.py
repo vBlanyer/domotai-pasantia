@@ -28,6 +28,11 @@ class TestEnriquecer(unittest.TestCase):
         ctx = analisis.enriquecer(a, self.hallazgos, self.perfil)
         self.assertEqual(ctx["criticidad"], "media")
 
+    def test_el_origen_legitimo_se_reconoce_en_notacion_mapeada(self):
+        perfil = dict(self.perfil); perfil["origenes_legitimos"] = ["192.168.1.1"]
+        a = dict(self.alerta); a["origen_ip"] = "::ffff:192.168.1.1"
+        self.assertTrue(analisis.enriquecer(a, self.hallazgos, perfil)["origen_legitimo"])
+
     def test_marca_origen_legitimo_segun_el_perfil(self):
         perfil = dict(self.perfil); perfil["origenes_legitimos"] = ["192.168.1.1"]
         a = dict(self.alerta); a["origen_ip"] = "192.168.1.1"

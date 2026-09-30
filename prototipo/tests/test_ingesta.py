@@ -23,6 +23,10 @@ class TestNormalizarWazuh(unittest.TestCase):
         self.assertIn("Failed password", reg["evento_crudo"])
         self.assertEqual(reg["campaña"], "c")
 
+    def test_una_ipv4_mapeada_en_ipv6_se_normaliza(self):
+        cruda = j("alerta_cruda_wazuh.json"); cruda["data"]["srcip"] = "::ffff:198.51.100.9"
+        self.assertEqual(ingesta.normalizar(cruda, adaptador_wazuh.adaptador())["origen_ip"], "198.51.100.9")
+
     def test_resuelve_activo_sin_agente(self):
         # RF-16: el activo sale de predecoder.hostname / location, nunca del agent.id 000
         reg = ingesta.normalizar(j("alerta_cruda_wazuh.json"), adaptador_wazuh.adaptador())

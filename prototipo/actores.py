@@ -33,6 +33,13 @@ def _canon(ip):
     return str(mapeada) if mapeada is not None else str(direccion)
 
 
+def es_ipv4(ip):
+    """¿`ip` es una IPv4 utilizable en el catálogo (iptables de IPv4)? Acepta la forma mapeada
+    `::ffff:a.b.c.d`. None, texto, "None" o una IPv6 no lo son (RNF-07: no se adivina)."""
+    c = _canon(ip)
+    return c is not None and ipaddress.ip_address(c).version == 4
+
+
 def _coincide(entrada, declarado):
     """¿`entrada` y `declarado` son la misma IP? Si ambas son IPs parseables, compara su forma
     canónica; si alguna no lo es (p. ej. un nombre en el perfil, o una entrada mal formada), cae a

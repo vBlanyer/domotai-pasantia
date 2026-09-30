@@ -119,9 +119,10 @@ def _es_actividad_propia(rep, perfil, actividad):
     """El login de gestión contra un nodo que el MDR acaba de tocar. Tres condiciones a la vez: origen
     = ip_gestion, fuera de toda familia de amenaza (un login correcto, no fallos: si el nodo de gestión
     estuviera comprometido y atacara, se triaría) y el MDR ejecutó en ese nodo hace poco."""
-    from prototipo import familias, perfil as perfilm
+    from prototipo import actores, familias, perfil as perfilm
     gestion = (perfil or {}).get("ip_gestion")
-    if not gestion or rep.get("origen_ip") != gestion or rep.get("familia") in familias.registro():
+    if (not gestion or not actores._coincide(rep.get("origen_ip"), gestion)
+            or rep.get("familia") in familias.registro()):
         return False
     ip = perfilm.ip_de(perfil, rep.get("activo"))
     return bool(ip) and actividad.reciente(ip)

@@ -117,6 +117,11 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
     if accion_id not in catalogo:
         return _res("veta", None, True)
     det = impactom.determinar(accion_id, params, activo, perfil, catalogo, hallazgos)
+    if accion_id in impactom.ACCIONES_SOBRE_IP and not actores.es_ipv4((params or {}).get("ip")):
+        # Sin IP de origen (p. ej. una alerta sin srcip) o con una IPv6 no hay a quien bloquear con
+        # el catalogo: sin este veto se ejecutaba 'iptables -A INPUT -s None -j DROP' en automatico.
+        return {**_res("veta", None, True),
+                "impacto": {**det, "motivo": "sin IP de origen IPv4 válida: no hay a quién bloquear"}}
     res = _filtrar_reglas(perfil, accion_id, params, catalogo, activo, servicio, confianza, det["nivel"])
     if res["accion_final"] and res["accion_final"] != accion_id:   # degradada: se ejecuta otra acción
         det = impactom.determinar(res["accion_final"], params, activo, perfil, catalogo, hallazgos)

@@ -35,6 +35,11 @@ class TestConector(unittest.TestCase):
         self.assertTrue(r["exito"])
         self.assertNotIn("-A INPUT", " ".join(ej.llamadas))   # NO reejecutó la acción
 
+    def test_un_parametro_ausente_no_se_renderiza_como_none(self):
+        self.assertFalse(conector._params_seguros({"ip": None}))
+        self.assertFalse(conector._params_seguros({"ip": "None"}))
+        self.assertTrue(conector._params_seguros({"ip": "192.168.1.10"}))
+
     def test_params_con_inyeccion_se_rechazan_sin_ejecutar(self):
         ej = EjecutorFalso()
         orden_mala = dict(ORDEN); orden_mala["params"] = {"ip": "1.2.3.4; rm -rf /"}
