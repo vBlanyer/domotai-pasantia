@@ -256,6 +256,14 @@ class TestLectoresDeDatos(unittest.TestCase):
         ruta = self._traza_tmp([{"id_decision": "s2", "impacto_determinado": {"nivel": "localizado"}}])
         self.assertEqual(tablero.lista_trazas(ruta)[0]["cascada"], [])
 
+    def test_resumen_traza_expone_la_reversion_y_el_error(self):
+        rev = tablero._resumen_traza({"tipo": "reversion", "id_decision_revertida": "s3", "indice_revertido": 4,
+                                      "exito": True, "accion_id": "BLOQUEAR_IP", "nodo": "web-banking"})
+        self.assertEqual((rev["id_decision_revertida"], rev["indice_revertido"], rev["exito"], rev["nodo"]),
+                         ("s3", 4, True, "web-banking"))
+        err = tablero._resumen_traza({"tipo": "error", "id_decision": "s5", "error": "OSError: docker"})
+        self.assertEqual(err["error"], "OSError: docker")
+
     def test_resumen_traza_expone_la_cadena_de_hashes(self):
         ruta = self._traza_tmp([{"id_decision": "s1", "hash": "abc123", "hash_previo": "0" * 64,
                                  "impacto_determinado": {}}])

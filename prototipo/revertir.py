@@ -68,22 +68,39 @@ def revertir(registro, catalogo, ejecutor, timestamp, motivo=""):
 
 def _main(argv):
     if len(argv) < 2:
-        print("uso: python3 -m prototipo.revertir <traza.jsonl> <id_decision> [--motivo \"...\"]"); return 2
+        print("uso: python3 -m prototipo.revertir <traza.jsonl> <id_decision> [--indice N] [--motivo \"...\"]")
+        return 2
     ruta, id_decision = argv[0], argv[1]
     motivo = argv[argv.index("--motivo") + 1] if "--motivo" in argv else ""
     regs = traza.leer_registros(ruta)
-    reg = next((r for r in regs if r.get("id_decision") == id_decision), None)
-    if reg is None:
+    # Cada sesion del daemon numera desde s1 y retoma el mismo fichero: el id se repite. Por defecto
+    # la ULTIMA decision con ese id (la de la sesion en curso); --indice N elige una concreta (el
+    # indice que muestra el visor).
+    candidatas = [i for i, r in enumerate(regs) if r.get("id_decision") == id_decision and r.get("tipo") != "reversion"]
+    if "--indice" in argv:
+        indice = int(argv[argv.index("--indice") + 1])
+        if indice not in candidatas:
+            print(f"el registro {indice} de {ruta} no es la decision {id_decision!r}"); return 1
+    elif candidatas:
+        indice = candidatas[-1]
+    else:
         print(f"no hay ninguna decision {id_decision!r} en {ruta}"); return 1
-    ya = [r for r in regs if r.get("tipo") == "reversion" and r.get("id_decision_revertida") == id_decision and r.get("exito")]
+    reg = regs[indice]
+    ya = [r for r in regs if r.get("tipo") == "reversion" and r.get("exito")
+          and (r.get("indice_revertido") == indice
+               or ("indice_revertido" not in r and r.get("id_decision_revertida") == id_decision))]
     if ya:
-        print(f"la decision {id_decision} ya fue revertida el {ya[-1].get('timestamp')}"); return 0
+        print(f"la decision {id_decision} (registro {indice}) ya fue revertida el {ya[-1].get('timestamp')}"); return 0
     cat = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
     ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000"
-    r = revertir(reg, cat, conector.ejecutor_por_defecto(), ts, motivo)
-    # La reversion se anota en la MISMA cadena: es una decision mas, y la traza debe contarla.
+    r = {**revertir(reg, cat, conector.ejecutor_por_defecto(), ts, motivo), "indice_revertido": indice}
+    # La reversion se anota en la MISMA cadena, con el fichero bloqueado y releido (Cadena con
+    # `ruta`): el daemon puede estar escribiendo en el. Nombre, recuento y linaje, para que el ancla
+    # identifique el fichero como las del daemon.
     with open(ruta, "a", encoding="utf-8") as f:
-        traza.Cadena(f, traza.ultimo_hash(ruta)).escribir(r)
+        previos = traza.leer_registros(ruta)
+        traza.Cadena(f, traza.ultimo_hash(ruta), n=len(previos), nombre=os.path.basename(ruta),
+                     linaje=traza.linaje_de(previos), ruta=ruta).escribir(r)
     estado = "revertida" if r["exito"] else "NO revertida"
     print(f"{id_decision}: {r['accion_id']} en {r['nodo']} -> {estado} · comando: {r['comando_ejecutado']}")
     if not r["exito"]:

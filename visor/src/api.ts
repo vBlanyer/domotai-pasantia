@@ -30,6 +30,10 @@ export const DecisionSchema = z.object({
   clase_reclasificada: z.string().nullable().optional(),
   // posición en la cadena completa: identidad de la fila (los id_decision se repiten)
   indice: z.number().nullable().optional(),
+  // registro de reversión (qué deshizo, dónde, si se aplicó) y de error (por qué no se procesó)
+  id_decision_revertida: z.string().nullable().optional(), indice_revertido: z.number().nullable().optional(),
+  exito: z.boolean().nullable().optional(), accion_id: z.string().nullable().optional(),
+  nodo: z.string().nullable().optional(), error: z.string().nullable().optional(),
 })
 // Detalle completo de una decisión (/api/traza/<id>): el texto de la justificación y los pasajes
 // del RAG. Laxo a propósito (`passthrough`): la traza lleva muchos más campos que no renderizamos.

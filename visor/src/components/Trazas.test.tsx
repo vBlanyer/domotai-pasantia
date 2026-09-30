@@ -47,6 +47,14 @@ describe("Trazas", () => {
     expect(screen.queryByText("alterado")).not.toBeInTheDocument()
   })
 
+  it("rotula la reversión y el error en el registro", () => {
+    h.trazas = [{ ...reg(0, "r"), id_decision: null, tipo: "reversion", id_decision_revertida: "s3", exito: true, nodo: "web-banking" },
+                { ...reg(1, "s4"), tipo: "error", error: "OSError: docker" }]
+    render(<Trazas />)
+    expect(screen.getByText(/reversión de s3/)).toBeInTheDocument()
+    expect(screen.getByText(/error al procesar/)).toBeInTheDocument()
+  })
+
   it("rotula la actividad propia del MDR en el registro", () => {
     h.trazas = [{ ...reg(0, "p1"), tipo: "actividad_propia", activo: "web-banking" }]
     render(<Trazas />)

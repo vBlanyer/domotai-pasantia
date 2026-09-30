@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -7,6 +7,13 @@ const D: Decision[] = [
   { id_decision: "s2", activo: "core-db", origen_ip: "203.0.113.9", clase: "fp_actividad_legitima", accion_final: null },
   { id_decision: "s3", activo: "web-banking", origen_ip: "10.200.0.10", clase: "no_soportada" },
 ]
+
+describe("esDecision", () => {
+  it("no cuenta como decisión las reversiones, los errores ni la actividad suprimida o propia", () => {
+    const tipos = ["decision", null, "reversion", "error", "actividad_suprimida", "actividad_propia"]
+    expect(tipos.map((tipo) => esDecision({ tipo } as Decision))).toEqual([true, true, false, false, false, false])
+  })
+})
 
 describe("filtrarDecisiones", () => {
   it("por texto busca en activo, IP, id, clase y acción", () => {

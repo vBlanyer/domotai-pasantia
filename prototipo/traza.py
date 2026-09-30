@@ -70,6 +70,12 @@ def ultimo_hash(ruta):
         return GENESIS
     return regs[-1].get("hash", GENESIS) if regs else GENESIS
 
+def _tamano(ruta):
+    try:
+        return os.path.getsize(ruta) if ruta else None
+    except OSError:
+        return 0
+
 def linaje_de(registros):
     """Identidad de un fichero de traza: los 16 primeros caracteres del hash de su primer registro.
     Un fichero borrado y rehecho con el mismo nombre tiene otro linaje; uno truncado, el mismo."""
@@ -139,15 +145,40 @@ def verificar_contra_anclas(registros, anclas):
 
 class Cadena:
     """Escribe registros encadenados, una linea JSON por registro, sobre un objeto fichero, y
-    ancla cada uno en el manager si hay destino (`ancla`). `n` y `nombre` retoman un fichero."""
-    def __init__(self, fichero, hash_previo=GENESIS, n=0, nombre="", ancla=None, linaje=None):
+    ancla cada uno en el manager si hay destino (`ancla`). `n` y `nombre` retoman un fichero.
+
+    Con `ruta` (el fichero en disco), varios escritores pueden compartirlo —el daemon y la CLI de
+    revertir—: cada escritura toma un flock y, si el fichero crecio desde la ultima escritura propia,
+    relee el ultimo hash y el recuento antes de encadenar. Sin esto, el daemon encadenaba sobre el
+    hash que guardaba en memoria y la reversion escrita entre medias rompia la cadena."""
+    def __init__(self, fichero, hash_previo=GENESIS, n=0, nombre="", ancla=None, linaje=None, ruta=None):
         self.fichero, self.ultimo, self.n, self.nombre = fichero, hash_previo, n, nombre
         self.ancla = ancla if ancla is not None else ANCLA_DESTINO
         self.linaje, self.anclados = linaje, 0
+        self.ruta = ruta
+        self._tamano = _tamano(ruta)
+    def _resincronizar(self):
+        if self.ruta is None or _tamano(self.ruta) == self._tamano:
+            return
+        regs = leer_registros(self.ruta)
+        self.ultimo = regs[-1].get("hash", GENESIS) if regs else GENESIS
+        self.n = len(regs)
+        self.linaje = self.linaje or linaje_de(regs)
     def escribir(self, registro):
+        if self.ruta is None:
+            return self._escribir(registro)
+        import fcntl
+        fcntl.flock(self.fichero.fileno(), fcntl.LOCK_EX)
+        try:
+            self._resincronizar()
+            return self._escribir(registro)
+        finally:
+            fcntl.flock(self.fichero.fileno(), fcntl.LOCK_UN)
+    def _escribir(self, registro):
         reg = encadenar(registro, self.ultimo)
         self.fichero.write(json.dumps(reg, ensure_ascii=False) + "\n")
         self.fichero.flush()
+        self._tamano = _tamano(self.ruta)
         self.ultimo, self.n = reg["hash"], self.n + 1
         if self.linaje is None:
             self.linaje = reg["hash"][:16]        # fichero nuevo: el primer registro fija el linaje

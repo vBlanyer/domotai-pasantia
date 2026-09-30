@@ -390,7 +390,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
-             resumen=None):
+             resumen=None, ruta_traza=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -410,7 +410,10 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     # para reconocer después el eco de su propio login.
     actividad = ActividadMDR()          # tiempo de pared propio: no consume el reloj de la ventana
     ejecutor = actividad.envolver(ejecutor)
-    cadena = (traza.Cadena(salida_traza, hash_previo, n=n_previos, nombre=nombre_traza, linaje=linaje)
+    # Con `ruta_traza`, la cadena bloquea y relee el fichero en cada escritura: la CLI de revertir
+    # puede anotar una reversión en él con el daemon en marcha sin romper la cadena.
+    cadena = (traza.Cadena(salida_traza, hash_previo, n=n_previos, nombre=nombre_traza, linaje=linaje,
+                           ruta=ruta_traza)
               if salida_traza is not None else None)
     # La traza puede escribirse desde dos hilos (el lazo y el servidor web al resolver una decisión
     # en cola): un lock serializa la cadena de hashes.
@@ -769,7 +772,7 @@ def main(argv):
                      mitigar_fn=mitigar_fn, suprimir=not cfg["sin_supresion"],
                      hash_previo=hash_previo, n_previos=n_previos,
                      nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
-                     estado_web=estado_web, resumen=resumen)
+                     estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"])
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))

@@ -903,5 +903,28 @@ class TestTrazaDelDaemon(unittest.TestCase):
         self.assertEqual(r["incidente"]["conteo"], 2)
         self.assertTrue(r["incidente"]["primera_ts"].startswith("2026-08-31T00:00:00"))
 
+
+class TestRevertirConElDaemonVivo(unittest.TestCase):
+    def test_revertir_desde_la_cli_a_mitad_de_sesion_no_rompe_la_cadena(self):
+        from unittest import mock
+        from prototipo import revertir, traza as tm
+        from prototipo.tests.iptables_falso import NodoIptables
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "t.jsonl")
+            def fuente():
+                yield _linea("1.1.1.1")
+                with mock.patch("prototipo.conector.ejecutor_por_defecto",
+                                lambda *a, **k: NodoIptables(drop_input=["1.1.1.1"])), mock.patch("builtins.print"):
+                    self.assertEqual(revertir._main([ruta, "s1"]), 0)
+                yield _linea("2.2.2.2", seg=5)
+            with open(ruta, "a", encoding="utf-8") as f:
+                stream.ejecutar(fuente(), hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+                                perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
+                                justificar_fn=None, ventana_agrupacion=0, salida_traza=f, ruta_traza=ruta,
+                                escribir=lambda *a, **k: None)
+            regs = tm.leer_registros(ruta)
+        self.assertEqual([r.get("tipo") for r in regs], ["decision", "reversion", "decision"])
+        self.assertTrue(tm.verificar(regs)["valida"])
+
 if __name__ == "__main__":
     unittest.main()

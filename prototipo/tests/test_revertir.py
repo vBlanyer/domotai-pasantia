@@ -83,3 +83,62 @@ class TestRevertirConVerificacionExacta(unittest.TestCase):
         r = revertir.revertir(_registro(params={"ip": "192.168.1.11"}), cat, nodo, "t")
         self.assertTrue(r["exito"], r)
         self.assertEqual(nodo.reglas["INPUT"], [("DROP", "192.168.1.110")])
+
+
+class TestCliRevertir(unittest.TestCase):
+    """La traza de varias sesiones repite id (cada sesión empieza en s1): se revierte la última
+    decisión con ese id, o la que indique --indice, y la reversión se encadena bien."""
+    def _traza(self, d):
+        import json, os
+        from prototipo import traza
+        ruta = os.path.join(d, "t.jsonl")
+        with open(ruta, "w", encoding="utf-8") as f:
+            c = traza.Cadena(f, nombre="t.jsonl", ancla="")
+            for ip in ("198.51.100.7", "198.51.100.99"):          # dos sesiones, las dos con s1
+                c.escribir({**_registro(params={"ip": ip}), "id_decision": "s1"})
+        return ruta
+
+    def _correr(self, ruta, *args):
+        import os
+        from unittest import mock
+        from prototipo import catalogo
+        from prototipo.tests.iptables_falso import NodoIptables
+        nodo = NodoIptables(drop_input=["198.51.100.7", "198.51.100.99"])
+        with mock.patch("prototipo.conector.ejecutor_por_defecto", lambda *a, **k: nodo), \
+             mock.patch("builtins.print"):
+            rc = revertir._main([ruta, "s1", *args])
+        return rc, nodo
+
+    def test_se_revierte_la_ultima_decision_con_ese_id(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            rc, nodo = self._correr(self._traza(d))
+        self.assertEqual(rc, 0)
+        self.assertEqual(nodo.reglas["INPUT"], [("DROP", "198.51.100.7")])
+
+    def test_indice_elige_la_decision_y_ya_revertida_mira_esa(self):
+        import tempfile
+        from prototipo import traza
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._traza(d)
+            self._correr(ruta)                                     # revierte la última (índice 1)
+            rc, nodo = self._correr(ruta, "--indice", "0")         # la de la sesión anterior, no «ya revertida»
+            regs = traza.leer_registros(ruta)
+        self.assertEqual(rc, 0)
+        self.assertEqual(nodo.reglas["INPUT"], [("DROP", "198.51.100.99")])
+        self.assertEqual([r.get("indice_revertido") for r in regs if r.get("tipo") == "reversion"], [1, 0])
+        self.assertTrue(traza.verificar(regs)["valida"])
+
+    def test_el_ancla_de_la_reversion_lleva_el_fichero_y_el_recuento(self):
+        import tempfile
+        from unittest import mock
+        from prototipo import traza
+        capturas = []
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._traza(d)
+            with mock.patch.object(traza, "ANCLA_DESTINO", "127.0.0.1:514"), \
+                 mock.patch.object(traza, "anclar", lambda nombre, lin, n, h, destino=None, _enviar=None:
+                                   capturas.append((nombre, lin, n)) or True):
+                self._correr(ruta)
+            linaje = traza.linaje_de(traza.leer_registros(ruta))
+        self.assertEqual(capturas, [("t.jsonl", linaje, 3)])

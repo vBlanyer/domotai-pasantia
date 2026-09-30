@@ -169,6 +169,26 @@ class TestCadena(unittest.TestCase):
         self.assertEqual(a["hash"], b["hash"])
 
 
+class TestDosEscritores(unittest.TestCase):
+    """El daemon y la CLI de revertir escriben en el mismo fichero: la cadena no puede romperse."""
+    def test_una_escritura_ajena_se_encadena_y_el_daemon_continua_tras_ella(self):
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "t.jsonl")
+            with open(ruta, "a", encoding="utf-8") as f_daemon:
+                daemon = traza.Cadena(f_daemon, ruta=ruta)
+                daemon.escribir({"id_decision": "s1"}); daemon.escribir({"id_decision": "s2"})
+                with open(ruta, "a", encoding="utf-8") as f_cli:          # otro proceso: revertir
+                    previos = traza.leer_registros(ruta)
+                    traza.Cadena(f_cli, traza.ultimo_hash(ruta), n=len(previos), ruta=ruta).escribir(
+                        {"tipo": "reversion", "id_decision_revertida": "s1"})
+                daemon.escribir({"id_decision": "s3"})
+            regs = traza.leer_registros(ruta)
+        self.assertEqual(traza.verificar(regs)["valida"], True)
+        self.assertEqual([r.get("id_decision") or r.get("tipo") for r in regs], ["s1", "s2", "reversion", "s3"])
+        self.assertEqual(daemon.n, 4)
+
+
 class TestAncla(unittest.TestCase):
     def test_la_cadena_ancla_cada_registro_con_su_numero_y_su_hash(self):
         import io as _io

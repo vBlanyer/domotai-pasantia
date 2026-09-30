@@ -260,7 +260,11 @@ def _resumen_traza(reg):
             # cadena de hashes (RF-09) para el registro auditable del panel Trazas
             "hash": reg.get("hash"), "hash_previo": reg.get("hash_previo"),
             # discriminador de los resumenes de supresion (RF-11) para que el visor los marque
-            "tipo": reg.get("tipo"), "alertas_suprimidas": reg.get("alertas_suprimidas")}
+            "tipo": reg.get("tipo"), "alertas_suprimidas": reg.get("alertas_suprimidas"),
+            # reversión: qué decisión deshizo, dónde y si se aplicó; error: por qué no se procesó
+            "id_decision_revertida": reg.get("id_decision_revertida"),
+            "indice_revertido": reg.get("indice_revertido"), "exito": reg.get("exito"),
+            "accion_id": reg.get("accion_id"), "nodo": reg.get("nodo"), "error": reg.get("error")}
 
 
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,

@@ -110,6 +110,18 @@ describe("Fila de la tabla de decisiones", () => {
     expect(screen.getByText("degradada")).toHaveAttribute("title", "propuesta: AISLAR_NODO")
   })
 
+  it("una reversión se pinta como tal: qué decisión deshizo, dónde y si se aplicó", () => {
+    cerrada({ tipo: "reversion", id_decision_revertida: "s3", exito: true, nodo: "web-banking" })
+    expect(screen.getByText(/reversión de s3 en web-banking: aplicada/)).toBeInTheDocument()
+    cerrada({ tipo: "reversion", id_decision_revertida: "s4", exito: false, nodo: "fw-core" })
+    expect(screen.getByText(/reversión de s4 en fw-core: falló/)).toBeInTheDocument()
+  })
+
+  it("un error al procesar un incidente se pinta como tal", () => {
+    cerrada({ id_decision: "s5", tipo: "error", activo: "web-banking", origen_ip: "1.1.1.1", error: "OSError: docker" })
+    expect(screen.getByText(/error al procesar el incidente de 1.1.1.1 → web-banking: OSError: docker/)).toBeInTheDocument()
+  })
+
   it("la actividad propia del MDR se pinta como tal, no como decisión", () => {
     cerrada({ id_decision: "p1", tipo: "actividad_propia", activo: "web-banking" })
     expect(screen.getByText(/actividad propia del MDR en web-banking/)).toBeInTheDocument()

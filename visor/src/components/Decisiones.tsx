@@ -199,6 +199,23 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
         </TableCell>
       </TableRow>
     )
+  if (d.tipo === "reversion")
+    return (
+      <TableRow className="text-muted-foreground">
+        <TableCell colSpan={COLS} className="italic">
+          ↶ reversión de {d.id_decision_revertida ?? "—"} en {d.nodo ?? "—"}: {d.exito ? "aplicada" : "falló"}
+          {d.accion_id ? ` (${d.accion_id})` : ""}
+        </TableCell>
+      </TableRow>
+    )
+  if (d.tipo === "error")
+    return (
+      <TableRow className="text-rose-600 dark:text-rose-400">
+        <TableCell colSpan={COLS}>
+          ✗ {d.id_decision}: error al procesar el incidente de {d.origen_ip ?? "—"} → {d.activo ?? "—"}: {d.error}
+        </TableCell>
+      </TableRow>
+    )
   if (d.tipo === "actividad_suprimida")
     return (
       <TableRow className="text-muted-foreground">

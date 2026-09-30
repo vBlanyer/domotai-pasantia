@@ -100,7 +100,11 @@ export function Trazas() {
                         ? <span className="text-muted-foreground italic">actividad suprimida (+{r.alertas_suprimidas})</span>
                         : r.tipo === "actividad_propia"
                           ? <span className="text-muted-foreground italic">actividad propia del MDR ({r.activo})</span>
-                          : <span>{r.clase ?? "—"}</span>}
+                          : r.tipo === "reversion"
+                            ? <span className="text-muted-foreground italic">reversión de {r.id_decision_revertida} ({r.exito ? "aplicada" : "falló"})</span>
+                            : r.tipo === "error"
+                              ? <span className="text-rose-600 dark:text-rose-400">error al procesar ({r.error})</span>
+                              : <span>{r.clase ?? "—"}</span>}
                     </TableCell>
                     <TableCell><Hash h={r.hash_previo} previo /></TableCell>
                     <TableCell className="text-muted-foreground">→</TableCell>
