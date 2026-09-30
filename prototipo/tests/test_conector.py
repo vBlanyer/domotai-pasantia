@@ -28,6 +28,15 @@ class TestConector(unittest.TestCase):
         self.assertFalse(r["idempotente"])
         self.assertEqual(r["comando_ejecutado"], "iptables -A INPUT -s 192.168.1.10 -j DROP")
 
+    def test_registra_la_hora_real_de_ejecucion(self):
+        # `timestamp` es la hora de la alerta; cuándo se contuvo de verdad va en `ejecutado_en`.
+        import datetime
+        r = conector.ejecutar_orden(ORDEN, CAT, EjecutorFalso(), "2026-08-31T00:00:00Z")
+        self.assertEqual(r["timestamp"], "2026-08-31T00:00:00Z")
+        hora = datetime.datetime.fromisoformat(r["ejecutado_en"])
+        self.assertIsNotNone(hora.tzinfo)
+        self.assertLess(abs((datetime.datetime.now(datetime.timezone.utc) - hora).total_seconds()), 60)
+
     def test_idempotente_si_ya_aplicada(self):
         ej = EjecutorFalso(); ej.aplicada = True     # ya está
         r = conector.ejecutar_orden(ORDEN, CAT, ej, "2026-08-31T00:00:00Z")

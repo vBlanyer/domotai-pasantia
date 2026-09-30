@@ -204,8 +204,30 @@ def justificacion_estructurada(alerta, analisis_out, accion_prop):
         "accion_sugerida": accion_prop,
     }
 
-def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto, perfil_nombre, filtro_out, version_perfil):
+VERSION_ESQUEMA = 1   # sube si cambia el significado de un campo del registro de decisión
+
+
+def _contexto(alerta, contexto):
+    """Los insumos con los que se decidió (salida de analisis.enriquecer + la alerta normalizada):
+    con ellos una decisión en vivo se puede re-derivar y auditar (RF-09, RF-13). La ráfaga en vivo
+    depende de qué alertas habían llegado, así que sin guardarla no se sabría por qué salió esa clase."""
+    if contexto is None:
+        return None
+    postura = contexto.get("postura")
+    return {"familia": alerta.get("familia"), "nivel_wazuh": alerta.get("nivel_wazuh"),
+            "regla_id": alerta.get("regla_id"), "mitre": alerta.get("mitre") or [],
+            "origen_ip": alerta.get("origen_ip"), "servicio": alerta.get("servicio"),
+            "rafaga_60s": contexto.get("rafaga"), "umbral_rafaga": contexto.get("umbral_rafaga"),
+            "origen_legitimo": contexto.get("origen_legitimo"), "criticidad": contexto.get("criticidad"),
+            "postura": None if postura is None else {"expuesto": postura.get("expuesto"),
+                                                     "servicios_abiertos": postura.get("servicios_abiertos")}}
+
+
+def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto, perfil_nombre, filtro_out, version_perfil,
+              contexto=None):
     return {
+        "tipo": "decision",
+        "version_esquema": VERSION_ESQUEMA,
         "id_decision": id_decision,
         "timestamp": timestamp,
         "id_alerta": alerta.get("id_alerta"),
@@ -229,4 +251,5 @@ def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto
         "impacto_determinado": filtro_out.get("impacto"),   # a quién bloquea y qué detiene (RF-17)
         "version_baseline": VERSION_BASELINE,
         "version_perfil": version_perfil,
+        "contexto": _contexto(alerta, contexto),
     }

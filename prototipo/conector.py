@@ -19,7 +19,15 @@ def _resultado(orden, comando, rc, salida, exito, idempotente, timestamp):
         "nodo": orden.get("nodo_objetivo"), "comando_ejecutado": comando,
         "codigo_salida": rc, "salida": salida, "exito": exito,
         "idempotente": idempotente, "timestamp": timestamp,
+        # `timestamp` es el de la alerta (compatibilidad); la hora real de la contención es esta.
+        "ejecutado_en": ahora_iso(),
     }
+
+
+def ahora_iso():
+    """Hora de pared en ISO 8601 UTC (con zona), para los campos «…_en» de la traza."""
+    import datetime
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")
 
 def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
     acc = catalogo[orden["accion_id"]]

@@ -195,6 +195,11 @@ def _registro_propio(inc, id_registro):
             "motivo": "login del nodo de gestión del MDR al aplicar o verificar una orden en el activo"}
 
 
+def _ahora_iso():
+    from prototipo import conector
+    return conector.ahora_iso()
+
+
 def _registro_error(inc, id_decision, error):
     rep = inc["representante"]
     return {"id_decision": id_decision, "tipo": "error", "timestamp": rep.get("timestamp"),
@@ -212,17 +217,23 @@ def _linea_supresion(reg):
 def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
                         id_decision, cadena, escribir, leer, mitigar_fn=None, encolar=None,
                         escribir_traza=None, diferir_escalada=None):
+    from prototipo import conector
     rep = inc["representante"]
     escribir(_resumen_incidente(inc))
+    # Qué agrupa esta decisión (RF-11): va en el registro también si pasa por la cola.
+    meta = {"incidente": {"conteo": inc.get("conteo"), "primera_ts": inc.get("primera_ts"),
+                          "ultima_ts": inc.get("ultima_ts")}}
     kw = {} if justificar_fn is None else {"justificar_fn": justificar_fn}
     if mitigar_fn is not None:
         kw["mitigar_fn"] = mitigar_fn
     if encolar is not None:
-        kw["encolar"] = encolar
+        kw["encolar"] = lambda decision, alerta: encolar({**decision, **meta}, alerta)
     if diferir_escalada is not None:
-        kw["diferir_escalada"] = diferir_escalada
+        kw["diferir_escalada"] = (lambda parcial, alerta, desde, lineas:
+                                  diferir_escalada({**parcial, **meta}, alerta, desde, lineas))
     d = lazo.procesar_lazo(rep, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                            id_decision, rep.get("timestamp", ""), leer=leer, escribir=escribir, **kw)
+    d = {**d, **meta, "decidido_en": conector.ahora_iso()}
     if d.get("en_cola"):            # modo web no bloqueante: se resolverá y trazará al aprobar
         escribir(_linea_en_cola(d))
         return d
@@ -311,7 +322,8 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
             if r.get("en_cola"):                       # el salto siguiente también pide humano
                 return True
             r = {**r, "veredicto_escalada": "aprobar" if respuesta.lower().startswith("s") else "rechazar",
-                 "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time()}
+                 "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
+                 "decidido_en": _ahora_iso()}
             escribir(_linea_decision(r))
             escribir_traza(r)
             if al_resolver is not None:
@@ -349,7 +361,8 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         if r.get("en_cola"):                           # escala y el salto pide humano: su tarjeta trazará
             return True
         # Marcas de tiempo para el MTTR (tiempo de respuesta del analista) en el panel de métricas.
-        r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time()}
+        r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
+             "decidido_en": _ahora_iso()}
         escribir(_linea_decision(r))
         escribir_traza(r)
         if al_resolver is not None:

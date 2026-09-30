@@ -23,7 +23,7 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
                     "consulta_rag": consulta_rag, "recuperacion_agentica": recuperacion_agentica, "ruta": ruta}
     version_perfil = perfil_dict.get("version", "v0")
     return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro,
-                            version_perfil=version_perfil)
+                            version_perfil=version_perfil, contexto=ctx)
 
 def main(argv):
     alertas_path, perfil_path, hallazgos_path, salida = argv[1:5]

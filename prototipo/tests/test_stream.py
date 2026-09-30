@@ -169,14 +169,14 @@ class TestActividadPropiaDelMDR(unittest.TestCase):
     def test_el_login_del_mdr_tras_contener_es_actividad_propia(self):
         resumen, regs = self._correr([_linea_wazuh(), self._login_mdr(), None])
         self.assertIsNotNone(regs[0]["orden"])                            # hubo contención
-        self.assertEqual([r.get("tipo") for r in regs], [None, "actividad_propia"])
+        self.assertEqual([r.get("tipo") for r in regs], ["decision", "actividad_propia"])
         self.assertEqual(regs[1]["activo"], "objetivo-vuln")
         self.assertEqual(resumen["incidentes"], 1)                        # no cuenta como decisión
         self.assertEqual(resumen["propias"], 1)
 
     def test_sin_una_orden_previa_del_mdr_el_login_se_tria(self):
         _, regs = self._correr([self._login_mdr(), None])
-        self.assertIsNone(regs[0].get("tipo"))
+        self.assertEqual(regs[0].get("tipo"), "decision")
         self.assertEqual(regs[0]["clase"], "no_soportada")
 
     def test_un_ataque_desde_el_nodo_de_gestion_no_se_oculta(self):
@@ -778,7 +778,7 @@ class TestMemoriaDeSupresion(unittest.TestCase):
         # la descarta: la supresión no puede congelar aquella primera decisión.
         p = {**y("perfil.yml"), "origenes_legitimos": ["1.1.1.1"], "rafaga": {"umbral": 9}}
         resumen, regs = self._correr([_linea(seg=2 * i) for i in range(12)], perfil=p)
-        clases = [r.get("clase") for r in regs if r.get("tipo") is None]
+        clases = [r.get("clase") for r in regs if r.get("tipo") == "decision"]
         self.assertEqual(clases[0], "fp_actividad_legitima")
         self.assertTrue(any(c and c.startswith("vp_") for c in clases), clases)
 
@@ -888,6 +888,20 @@ class TestBarreraDeExcepciones(unittest.TestCase):
         self.assertEqual(r["veredicto_humano"], "aprobar")
         self.assertFalse(r["ejecucion"]["exito"])
         self.assertIn("docker", r["ejecucion"]["error"])
+
+
+class TestTrazaDelDaemon(unittest.TestCase):
+    def test_el_registro_dice_cuando_se_decidio_y_que_agrupa(self):
+        import datetime
+        buf = io.StringIO()
+        stream.ejecutar([_linea("1.1.1.1"), _linea("1.1.1.1", seg=3)], hallazgos=j("hallazgos.json"),
+                        perfil=y("perfil.yml"), perfil_nombre="prueba", catalogo=CAT,
+                        ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=5,
+                        salida_traza=buf, escribir=lambda *a, **k: None, reloj=lambda: 0, suprimir=False)
+        r = json.loads(buf.getvalue().splitlines()[0])
+        self.assertIsNotNone(datetime.datetime.fromisoformat(r["decidido_en"]).tzinfo)
+        self.assertEqual(r["incidente"]["conteo"], 2)
+        self.assertTrue(r["incidente"]["primera_ts"].startswith("2026-08-31T00:00:00"))
 
 if __name__ == "__main__":
     unittest.main()

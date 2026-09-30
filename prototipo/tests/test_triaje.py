@@ -20,6 +20,20 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["resultado_filtro"], "permite")
         self.assertIn("192.168.1.10", r["justificacion"])
 
+    def test_la_traza_guarda_los_insumos_de_la_decision(self):
+        # RF-09/RF-13: sin la ráfaga, el origen legítimo o la postura no se puede auditar por qué
+        # salió esa clase (la regla de ráfaga cambia la clase y la confianza).
+        a = {**j("alerta_vp.json"), "rafaga_60s": 12}
+        p = {**y("perfil.yml"), "rafaga": {"umbral": 9}}
+        r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual((r["tipo"], r["version_esquema"]), ("decision", 1))
+        c = r["contexto"]
+        self.assertEqual((c["rafaga_60s"], c["umbral_rafaga"], c["origen_legitimo"]), (12, 9, False))
+        self.assertEqual(c["familia"], a.get("familia"))
+        self.assertEqual(c["nivel_wazuh"], a.get("nivel_wazuh"))
+        self.assertEqual(c["criticidad"], "alta")
+        self.assertEqual(c["postura"], {"expuesto": True, "servicios_abiertos": ["ssh"]})
+
     def test_amenaza_enrutada_lleva_ruta_en_la_traza_sin_accion(self):
         alerta = {"familia": "explotacion_conocida", "origen_ip": "203.0.113.9",
                   "activo": "web-banking", "servicio": "https", "mitre": ["T1190"]}
