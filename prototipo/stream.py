@@ -7,7 +7,7 @@ testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Waz
 contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.stream -`.
 """
 import io, json, os, select, sys, threading, time
-from prototipo import ingesta, adaptador_wazuh, agrupacion, lazo, rafaga, traza, validacion
+from prototipo import analisis, ingesta, adaptador_wazuh, agrupacion, lazo, rafaga, traza, validacion
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
 
@@ -54,9 +54,41 @@ def _linea_decision(d):
 
 # --------------------------------------------------------------------- bucle --
 
-def _clave_supresion(inc):
-    c = inc["clave"]
-    return (c.get("origen_ip"), c.get("familia"))
+def _clave_supresion(fuente):
+    """(origen_ip, activo, familia) de un incidente (su `clave`) o de una alerta. El activo cuenta:
+    un bloqueo en el host (INPUT) no protege a otro activo, así que el mismo atacante contra otro
+    objetivo es otra decisión."""
+    c = fuente["clave"] if isinstance(fuente.get("clave"), dict) else fuente
+    return (c.get("origen_ip"), c.get("activo"), c.get("familia"))
+
+
+def _desenlace(d, perfil):
+    """(texto, perimetral) de una decisión cerrada, o (None, False) si no está cerrada: una contención
+    que no se aplicó ni se verificó no se recuerda, para que la repetición se vuelva a decidir en vez
+    de quedar silenciada como «ya decidido». `perimetral`: contuvo un cortafuegos perimetral, que
+    corta al atacante hacia todo lo que hay detrás, no solo hacia este activo."""
+    v = d.get("veredicto_humano")
+    if v == "rechazar":
+        return "rechazada por el analista", False
+    if v == "reclasificar":
+        return f"reclasificada a {d.get('clase_reclasificada')}", False
+    for plan in (d.get("escalada"), d.get("mitigacion_agente")):
+        plan = plan or {}
+        if plan.get("resultado") == "mitigado":
+            disp = plan.get("dispositivo_ejecutor")
+            rol = (((perfil or {}).get("topologia") or {}).get(disp) or {}).get("rol")
+            return f"contenida en {disp}", rol == "firewall_perimetral"
+        if plan.get("resultado") == "cancelado_por_humano":
+            return "escalada rechazada por el analista", False
+    orden = d.get("orden")
+    if orden:
+        if (d.get("ejecucion") or {}).get("exito") and (d.get("verificacion") or {}).get("verificado"):
+            return f"contenida en {orden.get('nodo_objetivo')}", False
+        return None, False
+    if d.get("ruta"):
+        return f"enrutada a {d['ruta']}", False
+    clase = d.get("clase") or ""
+    return (f"descartada ({clase})" if clase.startswith("fp_") else f"sin contención ({clase or 'sin clase'})"), False
 
 
 def _ordenar_por_severidad(incidentes):
@@ -68,31 +100,52 @@ def _ordenar_por_severidad(incidentes):
 
 
 class MemoriaDecisiones:
-    """Recuerda las claves (origen_ip, familia) ya decididas en la sesion, para suprimir sus
-    repeticiones (RF-11): una vez tomada una decision sobre un ataque, las alertas siguientes del
-    mismo origen y tipo no se re-justifican ni se vuelven a preguntar. La traza recibe un
-    registro-resumen 'actividad_suprimida' que referencia la decision original, para que muestre que
-    el ataque siguio sin un registro por alerta. Es memoria de sesion: se pierde al reiniciar."""
-    def __init__(self):
+    """Recuerda las decisiones cerradas de la sesión por (origen_ip, activo, familia), para suprimir
+    sus repeticiones (RF-11): una vez decidido un ataque, las alertas siguientes no se re-justifican
+    ni se vuelven a preguntar. La traza recibe un registro-resumen 'actividad_suprimida' que referencia
+    la decisión original. Es memoria de sesión: se pierde al reiniciar.
+
+    - Lo resuelto por el analista en la web se recuerda igual que en la terminal.
+    - Una contención que no se aplicó no se recuerda (la repetición se vuelve a decidir).
+    - Contenido en un cortafuegos perimetral: cubre al atacante contra cualquier activo detrás.
+    - Sin IP de origen no hay a quién atribuir la repetición: nunca se suprime.
+    - Se usa desde el lazo y desde el hilo HTTP (resolutor): lock."""
+    def __init__(self, perfil=None):
         self._decididas = {}
+        self._perfil = perfil
+        self._lock = threading.Lock()
         self.suprimidas = 0
 
-    def decidida(self, inc):
-        return _clave_supresion(inc) in self._decididas
+    def buscar(self, clave):
+        ip, _activo, familia = clave
+        if ip is None:
+            return None
+        with self._lock:
+            return self._decididas.get(clave) or self._decididas.get((ip, "*", familia))
 
-    def recordar(self, inc, id_decision, veredicto):
-        self._decididas[_clave_supresion(inc)] = {"id_decision": id_decision, "veredicto": veredicto}
+    def recordar(self, clave, d):
+        if clave[0] is None:
+            return
+        desenlace, perimetral = _desenlace(d, self._perfil)
+        if desenlace is None:
+            return
+        previa = {"id_decision": d.get("id_decision"), "veredicto": d.get("veredicto_humano"),
+                  "clase": d.get("clase"), "desenlace": desenlace}
+        with self._lock:
+            self._decididas[clave] = previa
+            if perimetral:
+                self._decididas[(clave[0], "*", clave[2])] = previa
 
-    def registro_supresion(self, inc):
-        clave = _clave_supresion(inc)
-        prev = self._decididas[clave]
-        self.suprimidas += inc["conteo"]
-        return {"id_decision": f"{prev['id_decision']}~sup", "tipo": "actividad_suprimida",
-                "referencia": prev["id_decision"],
-                "clave": {"origen_ip": clave[0], "familia": clave[1]},
+    def registro_supresion(self, inc, previa):
+        ip, activo, familia = _clave_supresion(inc)
+        with self._lock:
+            self.suprimidas += inc["conteo"]
+        return {"id_decision": f"{previa['id_decision']}~sup", "tipo": "actividad_suprimida",
+                "referencia": previa["id_decision"],
+                "clave": {"origen_ip": ip, "activo": activo, "familia": familia},
                 "alertas_suprimidas": inc["conteo"],
                 "primera_ts": inc.get("primera_ts"), "ultima_ts": inc.get("ultima_ts"),
-                "veredicto_previo": prev["veredicto"]}
+                "veredicto_previo": previa.get("veredicto"), "desenlace": previa.get("desenlace")}
 
 
 class ActividadMDR:
@@ -138,7 +191,8 @@ def _registro_propio(inc, id_registro):
 
 def _linea_supresion(reg):
     c = reg["clave"]
-    return (f"↩ {c['origen_ip']} · {c['familia']} — ya decidido ({reg['veredicto_previo'] or 'auto'}) "
+    return (f"↩ {c['origen_ip']} → {c.get('activo')} · {c['familia']} — ya decidido "
+            f"({reg.get('desenlace') or reg['veredicto_previo'] or 'auto'}) "
             f"· +{reg['alertas_suprimidas']} suprimida(s) [ref {reg['referencia']}]")
 
 
@@ -177,7 +231,7 @@ def _entrada_cola(decision, alerta):
         f"  {i}) {e}" for i, e in enumerate(validacion._ETIQUETAS_VEREDICTO, 1))
     incid = (f"⚠ Incidente: {alerta.get('origen_ip')} -> {alerta.get('activo')} "
              f"({alerta.get('servicio')})")
-    return {"clave": (alerta.get("origen_ip"), alerta.get("familia")),
+    return {"clave": _clave_supresion(alerta),
             "severidad": decision.get("prioridad") or 0,
             "decision": decision, "alerta": alerta, "recibido_en": time.time(),
             "tipo": "menu", "prompt": "Elige [1-3]: ",
@@ -192,7 +246,7 @@ def _entrada_escalada(parcial, alerta, desde, lineas):
     contención debe subir al perímetro. El visor la pinta como tarjeta «escalada» (s / vacío)."""
     incid = (f"⚠ Incidente: {alerta.get('origen_ip')} -> {alerta.get('activo')} "
              f"({alerta.get('servicio')})")
-    return {"clave": ("escalada", alerta.get("origen_ip"), alerta.get("familia")),
+    return {"clave": ("escalada", *_clave_supresion(alerta)),
             "severidad": parcial.get("prioridad") or 0,
             "decision": parcial, "alerta": alerta, "desde": desde, "recibido_en": time.time(),
             "tipo": "escalada", "prompt": "¿aprobar la ejecución? [s/N] ",
@@ -208,7 +262,8 @@ def _legible(linea):
     return "Acción: " + linea[len(prefijo):] if linea.startswith(prefijo) else linea
 
 
-def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, escribir, diferir_escalada=None):
+def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, escribir, diferir_escalada=None,
+                         al_resolver=None):
     """Devuelve resolver(pid, respuesta)->bool: aplica el veredicto del analista a una decisión en
     cola (ejecuta la contención + escribe la traza), sin bloquear el lazo. Reclasificar es en dos
     pasos: '3' pasa al submenú de clases; el número de clase finaliza.
@@ -242,6 +297,8 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                  "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time()}
             escribir(_linea_decision(r))
             escribir_traza(r)
+            if al_resolver is not None:
+                al_resolver(r, alerta)
             return True
         if not entrada.get("esperando_clase"):
             if respuesta == "3":                       # reclasificar -> submenú de clases (no finaliza)
@@ -272,11 +329,16 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time()}
         escribir(_linea_decision(r))
         escribir_traza(r)
+        if al_resolver is not None:
+            al_resolver(r, alerta)
         return True
     return resolver
 
-def _contar(resumen, d):
-    resumen["incidentes"] += 1
+def _contar(resumen, d, incidente=True):
+    """Suma una decisión al resumen. `incidente=False` al resolver una tarjeta: el incidente ya se
+    contó cuando entró en la cola; ahora se suma su desenlace."""
+    if incidente:
+        resumen["incidentes"] += 1
     v = d.get("veredicto_humano")
     if v == "aprobar": resumen["aprobadas"] += 1
     elif v == "reclasificar": resumen["reclasificadas"] += 1
@@ -317,6 +379,14 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         with _traza_lock:
             if cadena is not None:
                 cadena.escribir(reg)
+    memoria = MemoriaDecisiones(perfil)
+    _resumen_lock = threading.Lock()
+    def al_resolver(r, alerta):
+        # Lo que el analista resuelve en la web se recuerda y se cuenta igual que en la terminal.
+        with _resumen_lock:
+            _contar(resumen, r, incidente=False)
+        if suprimir:
+            memoria.recordar(_clave_supresion(alerta), r)
     # Modo web no bloqueante: encolar en vez de bloquear, y registrar cómo se resuelve (ejecuta+traza).
     encolar = diferir_escalada = None
     if estado_web is not None:
@@ -328,10 +398,17 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             estado_web.encolar_decision(_entrada_escalada(parcial, alerta, desde, lineas))
         estado_web.fijar_resolutor(
             _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir,
-                                 diferir_escalada=diferir_escalada))
+                                 diferir_escalada=diferir_escalada, al_resolver=al_resolver))
     seq = [0]
     ventana_rafaga = rafaga.Ventana()
-    memoria = MemoriaDecisiones()
+    def _suprimir(inc, previa):
+        reg = memoria.registro_supresion(inc, previa)
+        escribir(_linea_supresion(reg))
+        escribir_traza(reg)
+    def _misma_clase(rep_, previa):
+        # La decisión recordada solo vale si el motor la volvería a tomar: con la ráfaga de ahora,
+        # un origen legítimo que no para deja de ser FP (6.ª regla) y hay que decidir de nuevo.
+        return analisis.clasificar(rep_, analisis.enriquecer(rep_, hallazgos, perfil))["clase"] == previa.get("clase")
     def _procesa_lote(lote):
         # E-minimo: bajo carga (muchos ataques distintos a la vez) se decide primero lo mas grave.
         for inc in _ordenar_por_severidad(agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1))):
@@ -341,26 +418,31 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 escribir(f"↺ actividad propia del MDR en {reg['activo']} ({reg['alertas']} alerta(s)): no es un ataque")
                 escribir_traza(reg)
                 continue
-            if suprimir and memoria.decidida(inc):
-                # Ya se decidio sobre esta (origen_ip, familia): no se re-justifica ni se pregunta;
-                # se cuenta y se deja un resumen encadenado en la traza (el ataque siguio).
-                reg = memoria.registro_supresion(inc)
-                escribir(_linea_supresion(reg))
-                escribir_traza(reg)
-                continue
-            seq[0] += 1
             # La rafaga del representante se toma al emitir el incidente, cuando la ventana ya
             # contiene toda la rafaga, no al llegar la primera alerta.
             inc["representante"][rafaga.CAMPO] = ventana_rafaga.contar(inc["representante"].get("origen_ip"))
+            clave = _clave_supresion(inc)
+            if suprimir and estado_web is not None and clave[0] is not None:
+                # Ya espera al analista: se suma a su tarjeta sin triar ni ejecutar otra vez (antes
+                # cada repetición repetía el SSH contra el host caído antes de deduplicar).
+                ref = estado_web.sumar_repeticion({clave, ("escalada", *clave)}, inc["conteo"])
+                if ref is not None:
+                    _suprimir(inc, {"id_decision": ref, "veredicto": None, "desenlace": "pendiente del analista"})
+                    continue
+            previa = memoria.buscar(clave) if suprimir else None
+            if previa is not None and _misma_clase(inc["representante"], previa):
+                _suprimir(inc, previa)
+                continue
+            seq[0] += 1
             d = _procesar_incidente(
                 inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
                 f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn,
                 encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada)
-            _contar(resumen, d)
-            # Las decisiones en cola aún no se deciden: no se recuerdan (la cola deduplica sus
-            # repeticiones incrementando el contador del pendiente).
+            with _resumen_lock:
+                _contar(resumen, d)
+            # Las decisiones en cola aún no se deciden: se recuerdan al resolverlas (al_resolver).
             if suprimir and not d.get("en_cola"):
-                memoria.recordar(inc, f"s{seq[0]}", d.get("veredicto_humano"))
+                memoria.recordar(clave, d)
 
     buffer, t0 = [], None
     def _vencio():

@@ -49,6 +49,18 @@ class EstadoTablero:
             self._cola[pid] = {**entrada, "id": pid, "orden": next(self._orden), "suprimidas": 0, "paso": 0}
             return pid
 
+    def sumar_repeticion(self, claves, n=1):
+        """Si hay en cola una decisión con alguna de `claves`, suma `n` repeticiones a su contador y
+        devuelve su id_decision (el `sN` que se trazará al resolverla); si no, None. El daemon lo
+        consulta ANTES de triar una repetición: así no se vuelve a clasificar, justificar ni
+        ejecutar (SSH) algo que ya espera al analista."""
+        with self._lock:
+            for p in self._cola.values():
+                if p.get("clave") in claves:
+                    p["suprimidas"] += n
+                    return (p.get("decision") or {}).get("id_decision") or p["id"]
+        return None
+
     def decisiones_pendientes(self):
         """Las decisiones en cola, ordenadas por severidad (desc) y, a igualdad, por llegada."""
         with self._lock:

@@ -641,26 +641,32 @@ class TestMemoriaDecisiones(unittest.TestCase):
                 "conteo": conteo, "representante": {"nivel_wazuh": nivel},
                 "primera_ts": "2026-08-31T00:00:00Z", "ultima_ts": "2026-08-31T00:00:05Z"}
 
+    RECHAZADA = {"id_decision": "s5", "veredicto_humano": "rechazar", "clase": "vp_intento_acceso"}
+
     def test_clave_nueva_no_decidida_y_tras_recordar_si(self):
         m = stream.MemoriaDecisiones()
-        self.assertFalse(m.decidida(self._inc()))
-        m.recordar(self._inc(), "s5", "rechazar")
-        self.assertTrue(m.decidida(self._inc()))
+        clave = stream._clave_supresion(self._inc())
+        self.assertIsNone(m.buscar(clave))
+        m.recordar(clave, self.RECHAZADA)
+        self.assertEqual(m.buscar(clave)["id_decision"], "s5")
 
     def test_otra_familia_desde_la_misma_ip_no_esta_decidida(self):
         m = stream.MemoriaDecisiones()
-        m.recordar(self._inc(familia="acceso_credenciales"), "s5", "aprobar")
-        self.assertFalse(m.decidida(self._inc(familia="reconocimiento")))
+        m.recordar(stream._clave_supresion(self._inc(familia="acceso_credenciales")), self.RECHAZADA)
+        self.assertIsNone(m.buscar(stream._clave_supresion(self._inc(familia="reconocimiento"))))
 
     def test_registro_supresion_referencia_la_decision_y_cuenta(self):
         m = stream.MemoriaDecisiones()
-        m.recordar(self._inc(), "s5", "rechazar")
-        reg = m.registro_supresion(self._inc(conteo=3))
+        clave = stream._clave_supresion(self._inc())
+        m.recordar(clave, self.RECHAZADA)
+        reg = m.registro_supresion(self._inc(conteo=3), m.buscar(clave))
         self.assertEqual(reg["tipo"], "actividad_suprimida")
         self.assertEqual(reg["referencia"], "s5")
         self.assertEqual(reg["alertas_suprimidas"], 3)
-        self.assertEqual(reg["clave"], {"origen_ip": "10.200.0.10", "familia": "acceso_credenciales"})
+        self.assertEqual(reg["clave"], {"origen_ip": "10.200.0.10", "activo": "web",
+                                        "familia": "acceso_credenciales"})
         self.assertEqual(reg["veredicto_previo"], "rechazar")
+        self.assertEqual(reg["desenlace"], "rechazada por el analista")
         self.assertEqual(m.suprimidas, 3)
 
     def test_ordenar_por_severidad_descendente(self):
@@ -702,6 +708,109 @@ class TestSupresionEnVivo(unittest.TestCase):
         self.assertFalse(stream.parsear_args(["-", "p"])["sin_supresion"])
         self.assertTrue(stream.parsear_args(["-", "p", "--sin-supresion"])["sin_supresion"])
 
+
+
+def _linea(srcip="1.1.1.1", host="objetivo-vuln", seg=0):
+    d = json.loads(_linea_wazuh(srcip))
+    d["predecoder"]["hostname"] = host
+    d["timestamp"] = f"2026-08-31T00:00:{seg:02d}Z"
+    if srcip is None:
+        del d["data"]["srcip"]
+    return json.dumps(d)
+
+
+class TestMemoriaDeSupresion(unittest.TestCase):
+    """La supresión recuerda lo decidido por (origen, activo, familia), también lo que resuelve el
+    analista en la web, y no congela una decisión que ya no es la que el motor tomaría."""
+    HALLAZGOS = {"nodos": {"objetivo-vuln": [{"puerto": 22, "servicio": "ssh", "estado": "open"}],
+                           "puesto": [{"puerto": 22, "servicio": "ssh", "estado": "open"}]}}
+
+    def _correr(self, fuente, perfil=None, ejecutor=None, leer=lambda *_: "2", estado_web=None,
+                hallazgos=None):
+        buf = io.StringIO()
+        resumen = stream.ejecutar(
+            fuente, hallazgos=hallazgos or self.HALLAZGOS, perfil=perfil or y("perfil.yml"),
+            perfil_nombre="prueba", catalogo=CAT, ejecutor=ejecutor or lazo._EjecutorAuto(),
+            justificar_fn=None, ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
+            leer=leer, estado_web=estado_web)
+        return resumen, [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
+
+    def _perfil_humano(self):
+        p = dict(y("perfil.yml"))
+        p["continuidad"] = {**p["continuidad"], "impacto_localizado": "humano_siempre"}
+        return p
+
+    def test_lo_rechazado_en_la_web_no_vuelve_a_pedir_tarjeta(self):
+        estado = tablero.EstadoTablero()
+        def fuente():
+            yield _linea()
+            p = estado.decisiones_pendientes()[0]
+            estado.resolver_decision(p["id"], "2", paso=p["paso"])
+            yield _linea(seg=5)
+        resumen, regs = self._correr(fuente(), perfil=self._perfil_humano(), estado_web=estado)
+        self.assertEqual(estado.decisiones_pendientes(), [])
+        self.assertEqual((resumen["incidentes"], resumen["rechazadas"], resumen["suprimidas"]), (1, 1, 1))
+        sup = [r for r in regs if r.get("tipo") == "actividad_suprimida"]
+        self.assertEqual(sup[0]["clave"]["activo"], "objetivo-vuln")
+        self.assertIn("rechazada", sup[0]["desenlace"])
+
+    def test_en_terminal_da_lo_mismo_que_en_la_web(self):
+        resumen, _ = self._correr([_linea(), _linea(seg=5)], perfil=self._perfil_humano())
+        self.assertEqual((resumen["incidentes"], resumen["rechazadas"], resumen["suprimidas"]), (1, 1, 1))
+
+    def test_el_mismo_atacante_contra_otro_activo_se_decide(self):
+        resumen, regs = self._correr([_linea(host="objetivo-vuln"), _linea(host="puesto", seg=5)])
+        self.assertEqual((resumen["incidentes"], resumen["suprimidas"]), (2, 0))
+
+    def test_contenido_en_el_perimetro_cubre_a_los_demas_activos(self):
+        p = dict(y("perfil.yml"))
+        p["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
+                          "puesto": {"rol": "host_victima", "ip": "192.168.1.31", "gateway": "gateway"},
+                          "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}
+        ej = TestEscaladaConHumanoEnCadaSalto.Nodos({"192.168.1.30"})
+        resumen, regs = self._correr([_linea(host="objetivo-vuln"), _linea(host="puesto", seg=5)],
+                                     perfil=p, ejecutor=ej, leer=lambda *_: "s")
+        self.assertEqual(regs[0]["escalada"]["dispositivo_ejecutor"], "gateway")
+        self.assertEqual((resumen["incidentes"], resumen["suprimidas"]), (1, 1))
+
+    def test_una_rafaga_lenta_desde_un_origen_legitimo_acaba_decidiendose_como_amenaza(self):
+        # La primera alerta sale FP (origen declarado); al pasar el umbral de ráfaga el motor ya no
+        # la descarta: la supresión no puede congelar aquella primera decisión.
+        p = {**y("perfil.yml"), "origenes_legitimos": ["1.1.1.1"], "rafaga": {"umbral": 9}}
+        resumen, regs = self._correr([_linea(seg=2 * i) for i in range(12)], perfil=p)
+        clases = [r.get("clase") for r in regs if r.get("tipo") is None]
+        self.assertEqual(clases[0], "fp_actividad_legitima")
+        self.assertTrue(any(c and c.startswith("vp_") for c in clases), clases)
+
+    def test_las_repeticiones_de_una_tarjeta_pendiente_no_vuelven_a_ejecutar(self):
+        estado = tablero.EstadoTablero()
+        p = {**y("perfil.yml"), "ip_gestion": "192.168.1.100",
+             "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
+                           "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
+        ej = TestEscaladaConHumanoEnCadaSalto.Nodos({"192.168.1.30"})
+        llamadas = []
+        def contado(ip, cmd):
+            llamadas.append(cmd); return ej(ip, cmd)
+        def fuente():
+            yield _linea()
+            self.antes = len(llamadas)
+            for i in range(3):
+                yield _linea(seg=5 + i)
+        resumen, regs = self._correr(fuente(), perfil=p, ejecutor=contado, estado_web=estado)
+        self.assertEqual(len(llamadas), self.antes)                   # 0 SSH extra contra el host caído
+        cola = estado.decisiones_pendientes()
+        self.assertEqual(len(cola), 1)
+        self.assertEqual(resumen["suprimidas"], 3)
+        self.assertEqual(len([r for r in regs if r.get("tipo") == "actividad_suprimida"]), 3)
+
+    def test_sin_ip_de_origen_no_se_suprime(self):
+        resumen, _ = self._correr([_linea(srcip=None), _linea(srcip=None, seg=5)])
+        self.assertEqual((resumen["incidentes"], resumen["suprimidas"]), (2, 0))
+
+    def test_una_contencion_fallida_no_silencia_al_atacante(self):
+        cae = lambda ip, cmd: (255, "Connection refused")
+        resumen, _ = self._correr([_linea(), _linea(seg=5)], ejecutor=cae)
+        self.assertEqual((resumen["incidentes"], resumen["suprimidas"]), (2, 0))
 
 if __name__ == "__main__":
     unittest.main()
