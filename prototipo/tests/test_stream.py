@@ -812,5 +812,36 @@ class TestMemoriaDeSupresion(unittest.TestCase):
         resumen, _ = self._correr([_linea(), _linea(seg=5)], ejecutor=cae)
         self.assertEqual((resumen["incidentes"], resumen["suprimidas"]), (2, 0))
 
+
+class TestCierreConCtrlC(unittest.TestCase):
+    """El daemon en vivo siempre se cierra con Ctrl+C: el resumen tenía que salir con las cifras de la
+    sesión (salía a ceros) y lo que esperaba en la ventana de agrupación no podía perderse."""
+
+    def _fuente(self):
+        yield _linea("1.1.1.1")
+        yield _linea("2.2.2.2", seg=1)
+        raise KeyboardInterrupt
+
+    def test_ejecutar_descarga_la_ventana_y_deja_el_resumen(self):
+        buf, resumen = io.StringIO(), {}
+        with self.assertRaises(KeyboardInterrupt):
+            stream.ejecutar(self._fuente(), hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+                            perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
+                            justificar_fn=None, ventana_agrupacion=5, salida_traza=buf,
+                            escribir=lambda *a, **k: None, leer=lambda *_: "2",
+                            reloj=lambda: 0, resumen=resumen)
+        self.assertEqual((resumen["alertas"], resumen["incidentes"]), (2, 2))
+        self.assertEqual(len([l for l in buf.getvalue().splitlines() if l.strip()]), 2)
+
+    def test_main_imprime_el_resumen_real(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            salida = io.StringIO()
+            with mock.patch.object(stream, "leer_lineas_fichero", lambda ruta: self._fuente()), \
+                 contextlib.redirect_stdout(salida):
+                stream.main(["alertas.json", os.path.join(FX, "perfil.yml"), os.path.join(FX, "hallazgos.json"),
+                             "--sin-lab", "--ventana-agrupacion", "0", "--salida", os.path.join(d, "t.jsonl")])
+        self.assertIn("Alertas vistas: 2 · Incidentes: 2", salida.getvalue())
+
 if __name__ == "__main__":
     unittest.main()

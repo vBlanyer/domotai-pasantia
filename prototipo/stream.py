@@ -353,7 +353,8 @@ def _contar(resumen, d, incidente=True):
 def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
-             hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None):
+             hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
+             resumen=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -364,8 +365,11 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                                 primera (o al agotarse la fuente), se agrupan (RF-11) y se emiten los
                                 incidentes; los ticks None permiten vencer la ventana sin lineas nuevas.
     """
-    resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
-               "reclasificadas": 0, "ejecutadas": 0, "suprimidas": 0, "propias": 0}
+    # `resumen` puede venir de fuera (main): el daemon se cierra con Ctrl+C, que sale de aquí con una
+    # excepción, y quien lo llama necesita las cifras igualmente.
+    resumen = _resumen_nuevo() if resumen is None else resumen
+    for k, v in _resumen_nuevo().items():
+        resumen.setdefault(k, v)
     # Toda ejecución del MDR (lazo, resolutor web, escalada) pasa por aquí: se anota el nodo tocado
     # para reconocer después el eco de su propio login.
     actividad = ActividadMDR()          # tiempo de pared propio: no consume el reloj de la ventana
@@ -453,28 +457,33 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             _procesa_lote(buffer)
             buffer, t0 = [], None
 
-    for linea in fuente_lineas:
-        if ventana_agrupacion <= 0:                # modo inmediato
-            if linea is None:
-                continue
-            alerta = _parsear(linea)
-            if alerta is None:
-                continue
-            resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
-            _procesa_lote([alerta])
-            continue
-        # modo con ventana
-        if linea is not None:
-            alerta = _parsear(linea)
-            if alerta is not None:
+    try:
+        for linea in fuente_lineas:
+            if ventana_agrupacion <= 0:                # modo inmediato
+                if linea is None:
+                    continue
+                alerta = _parsear(linea)
+                if alerta is None:
+                    continue
                 resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
-                if t0 is None:
-                    t0 = reloj()
-                buffer.append(alerta)
-        if _vencio():
-            _descargar()
-    _descargar()                                   # fuente agotada: descarga lo pendiente
-    resumen["suprimidas"] = memoria.suprimidas
+                _procesa_lote([alerta])
+                continue
+            # modo con ventana
+            if linea is not None:
+                alerta = _parsear(linea)
+                if alerta is not None:
+                    resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
+                    if t0 is None:
+                        t0 = reloj()
+                    buffer.append(alerta)
+            if _vencio():
+                _descargar()
+        _descargar()                               # fuente agotada: descarga lo pendiente
+    except KeyboardInterrupt:
+        _descargar()           # cierre ordenado: lo que esperaba en la ventana se decide y se traza
+        raise
+    finally:
+        resumen["suprimidas"] = memoria.suprimidas
     return resumen
 
 # ------------------------------------------------------------------ fuentes --
@@ -646,10 +655,14 @@ def banner(cfg, ejecutor=None):
             f"\n  Escuchando: {fuente} · ventana de agrupacion: {cfg['ventana']}s · traza {ancla}"
             "\n  (Ctrl+C para detener)\n" + "=" * 72)
 
+def _resumen_nuevo():
+    return {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
+            "reclasificadas": 0, "ejecutadas": 0, "suprimidas": 0, "propias": 0}
+
 def _resumen_final(r):
     return ("\n── Resumen de la sesion ──\n"
             f"  Alertas vistas: {r['alertas']} · Incidentes: {r['incidentes']} · "
-            f"Suprimidas: {r.get('suprimidas', 0)}\n"
+            f"Suprimidas: {r.get('suprimidas', 0)} · Actividad propia: {r.get('propias', 0)}\n"
             f"  Aprobadas: {r['aprobadas']} · Rechazadas: {r['rechazadas']} · "
             f"Reclasificadas: {r['reclasificadas']} · Ejecutadas: {r['ejecutadas']}")
 
@@ -684,8 +697,7 @@ def main(argv):
     mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor, hallazgos=hallazgos)
     fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
     print(banner(cfg, ejecutor))
-    resumen = {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
-               "reclasificadas": 0, "ejecutadas": 0}
+    resumen = _resumen_nuevo()         # lo rellena ejecutar(); sobrevive a Ctrl+C
     servidor, estado_web = None, None
     if cfg["web"]:
         estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil)
@@ -706,13 +718,13 @@ def main(argv):
             previos = []
         n_previos, linaje = len(previos), traza.linaje_de(previos)
         with open(cfg["salida"], "a", encoding="utf-8") as traza_f:
-            resumen = ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
-                               justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
-                               salida_traza=traza_f, escribir=escribir_fn, leer=leer_fn,
-                               mitigar_fn=mitigar_fn, suprimir=not cfg["sin_supresion"],
-                               hash_previo=hash_previo, n_previos=n_previos,
-                               nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
-                               estado_web=estado_web)
+            ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
+                     justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
+                     salida_traza=traza_f, escribir=escribir_fn, leer=leer_fn,
+                     mitigar_fn=mitigar_fn, suprimir=not cfg["sin_supresion"],
+                     hash_previo=hash_previo, n_previos=n_previos,
+                     nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
+                     estado_web=estado_web, resumen=resumen)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))
