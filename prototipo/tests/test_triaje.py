@@ -51,6 +51,13 @@ class TestJustificarFn(unittest.TestCase):
         self.assertEqual(r["justificacion"], "JUSTIFICACION-INYECTADA")
         self.assertEqual(r["version_justificador"], "plantilla-0")   # str -> plantilla (RF-09)
 
+    def test_la_traza_guarda_la_justificacion_del_modelo_descartada(self):
+        desc = {"texto": "texto generico", "motivo": "no citaba ningún dato de la alerta"}
+        just = lambda a, c, cl: {"texto": "PLANTILLA", "version_justificador": "plantilla-0", "llm_descartada": desc}
+        r = triaje.procesar(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                            id_decision="d3", timestamp="t", justificar_fn=just)
+        self.assertEqual(r["justificacion_descartada"], desc)
+
     def test_procesar_registra_metadata_del_justificador_dict(self):
         def just_dict(a, c, cl):
             return {"texto": "TEXTO", "version_justificador": "llm-1b-0:modelo.gguf", "pasajes_usados": ["p1"]}

@@ -272,6 +272,8 @@ def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto
         "pasajes_usados": analisis_out.get("pasajes_usados", []),
         "consulta_rag": analisis_out.get("consulta_rag", ""),                    # Opcion C (RNF-03)
         "recuperacion_agentica": analisis_out.get("recuperacion_agentica", False),
+        # lo que respondió el modelo y por qué no pasó el anclaje (None si no se usó o se aceptó)
+        "justificacion_descartada": analisis_out.get("justificacion_descartada"),
         "ruta": analisis_out.get("ruta"),                    # rol/destino de encaminamiento (triar_y_enrutar)
         "accion_propuesta": accion_prop,
         "impacto": impacto,

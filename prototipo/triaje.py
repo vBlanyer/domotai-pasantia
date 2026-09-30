@@ -11,16 +11,19 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
     if isinstance(res, dict):
         just, version_just, pasajes = res.get("texto", ""), res.get("version_justificador", "desconocido"), res.get("pasajes_usados", [])
         consulta_rag, recuperacion_agentica = res.get("consulta_usada", ""), res.get("recuperacion_agentica", False)
+        descartada = res.get("llm_descartada")
     else:
         just, version_just, pasajes = res, "plantilla-0", []
         consulta_rag, recuperacion_agentica = "", False
+        descartada = None
     accion, params = politica.proponer(clas["clase"], alerta)
     impacto = catalogo[accion]["impacto"] if accion else "ninguno"
     filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),
                              alerta.get("servicio"), clas["confianza"], hallazgos=hallazgos)
     ruta = perfilm.ruta_de(perfil_dict, clas.get("ruta"))
     analisis_out = {**clas, "justificacion": just, "version_justificador": version_just, "pasajes_usados": pasajes,
-                    "consulta_rag": consulta_rag, "recuperacion_agentica": recuperacion_agentica, "ruta": ruta}
+                    "consulta_rag": consulta_rag, "recuperacion_agentica": recuperacion_agentica, "ruta": ruta,
+                    "justificacion_descartada": descartada}
     version_perfil = perfil_dict.get("version", "v0")
     return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro,
                             version_perfil=version_perfil, contexto=ctx)

@@ -144,6 +144,14 @@ function Detalles({ id, indice }: { id: string; indice?: number | null }) {
       <BloqueContencion c={contencionDe(det)} />
       <Campo etiqueta="Justificación">
         <p className="leading-relaxed">{det.justificacion ?? "—"}</p>
+        {det.justificacion_descartada && (
+          <div className="mt-2 rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+            <p>El modelo respondió, pero su texto se descartó: {det.justificacion_descartada.motivo}</p>
+            {det.justificacion_descartada.texto && (
+              <p className="mt-1 italic">«{det.justificacion_descartada.texto}»</p>
+            )}
+          </div>
+        )}
       </Campo>
       <div className="grid gap-4 sm:grid-cols-2">
         {Object.keys(ev).length > 0 && (

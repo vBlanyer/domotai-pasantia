@@ -40,10 +40,15 @@ def mostrar(decision, alerta):
         f"Clase: {decision.get('clase')}  ·  Prioridad: {decision.get('prioridad')}  ·  Confianza: {decision.get('confianza')}\n"
         f"Técnica MITRE: {mitre}\n"
         f"Justificación: {decision.get('justificacion')}\n"
+        f"{_descarte(decision)}"
         f"Acción sugerida: {est.get('accion_sugerida', decision.get('accion_propuesta'))}  ·  Impacto: {decision.get('impacto')}  ·  Filtro: {filtro_legible(decision)}\n"
         f"{consecuencia}"
         f"Acción final: {decision.get('accion_final') or 'ninguna (vetada)'}\n"
     )
+
+def _descarte(decision):
+    d = decision.get("justificacion_descartada")
+    return f"El modelo respondió, pero su texto se descartó: {d.get('motivo')}\n" if d else ""
 
 def _menu(escribir, leer, titulo, etiquetas):
     """Menú numerado cerrado, compartido por el prompt de veredicto y el de clase. Devuelve el índice

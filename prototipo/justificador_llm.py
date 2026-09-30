@@ -16,11 +16,18 @@ _IP = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 _TECNICA = re.compile(r'\bT\d{4}(?:\.\d{3})?\b')
 
 def verificar_anclaje(texto, alerta):
+    return motivo_sin_anclaje(texto, alerta) is None
+
+def motivo_sin_anclaje(texto, alerta):
+    """Por qué `texto` no pasa el anclaje (RNF-02), o None si pasa. Se guarda en la traza cuando se
+    descarta lo que respondió el modelo: sin él, la plantilla parecía decir que el LLM no se usó."""
+    if not texto:
+        return "sin respuesta utilizable del modelo (vacía, JSON no válido o una negativa)"
     origen = alerta.get("origen_ip")
     # 1. Toda IP mencionada debe ser la de la alerta; si aparece otra, es alucinación.
     for ip in _IP.findall(texto):
         if ip != origen:
-            return False
+            return f"citaba una IP que no está en la alerta ({ip})"
     # 1b. Toda tecnica citada debe ser de la alerta, o la tecnica padre de una de ellas (citar
     # T1110 cuando la alerta trae T1110.001 es correcto). Mismo criterio que para las IPs: se
     # vio al modelo atribuir a la alerta una tecnica que venia de un pasaje recuperado, y eso
@@ -30,10 +37,15 @@ def verificar_anclaje(texto, alerta):
     padres = {t.split(".")[0] for t in propias}
     for tecnica in _TECNICA.findall(texto):
         if tecnica not in propias and tecnica not in padres:
-            return False
+            return f"citaba una técnica que no está en la alerta ({tecnica})"
     # 2. Debe referenciar al menos un dato concreto de la alerta.
     campos = [str(alerta.get(k)) for k in ("origen_ip", "activo", "servicio", "regla_id")]
-    return any(c and c != "None" and c in texto for c in campos)
+    if not any(c and c != "None" and c in texto for c in campos):
+        return "no citaba ningún dato de la alerta (IP de origen, activo, servicio ni regla)"
+    return None
+
+def _descartada(texto, alerta):
+    return {"llm_descartada": {"texto": texto, "motivo": motivo_sin_anclaje(texto, alerta)}}
 
 def construir_prompt(alerta, contexto, clase, pasajes=None):
     postura = contexto.get("postura")
@@ -201,7 +213,7 @@ def justificar_llm(alerta, contexto, clase, generador, fallback=analisis.justifi
                 "version_justificador": _version_llm(estructurada)}
     # Degradación (RNF-09): la plantilla, que está anclada por construcción.
     return {"texto": fallback(alerta, contexto, clase), "justificador": "plantilla",
-            "anclaje_verificado": True, "version_justificador": "plantilla-0"}
+            "anclaje_verificado": True, "version_justificador": "plantilla-0", **_descartada(texto, alerta)}
 
 def justificar_con_rag(alerta, contexto, clase, generador, recuperar_fn, fallback=analisis.justificar,
                        estructurada=False):
@@ -225,7 +237,8 @@ def justificar_con_rag(alerta, contexto, clase, generador, recuperar_fn, fallbac
         return {"texto": texto, "justificador": "llm", "anclaje_verificado": True,
                 "version_justificador": _version_llm(estructurada), **meta}
     return {"texto": fallback(alerta, contexto, clase), "justificador": "plantilla",
-            "anclaje_verificado": True, "version_justificador": "plantilla-0", **meta}
+            "anclaje_verificado": True, "version_justificador": "plantilla-0", **meta,
+            **_descartada(texto, alerta)}
 
 def adaptador(generador, fallback=analisis.justificar):
     def _fn(alerta, contexto, clase):

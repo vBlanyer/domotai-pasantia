@@ -389,3 +389,35 @@ class TestJustificacionEstructurada(unittest.TestCase):
         gen = lambda p: (llamadas.append(p), "Fuerza bruta desde 192.168.1.10 contra objetivo-vuln.")[1]
         r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", gen)
         self.assertEqual(r["version_justificador"].split(":")[0], jl.VERSION_JUSTIFICADOR)
+
+
+class TestJustificacionDescartada(unittest.TestCase):
+    """Si el modelo responde y su texto no pasa el anclaje, la traza lo dice (qué respondió y por
+    qué se descartó): la plantilla sola parecía decir que el LLM no se había usado."""
+    def _descartada(self, salida):
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", lambda p: salida)
+        self.assertEqual(r["justificador"], "plantilla")
+        return r["llm_descartada"]
+
+    def test_sin_datos_de_la_alerta(self):
+        d = self._descartada("La fuerza bruta es una tecnica para adivinar contrasenas.")
+        self.assertIn("ningún dato de la alerta", d["motivo"])
+        self.assertIn("adivinar contrasenas", d["texto"])
+
+    def test_con_una_ip_ajena(self):
+        self.assertIn("8.8.8.8", self._descartada("Ataque desde 8.8.8.8 contra objetivo-vuln.")["motivo"])
+
+    def test_con_una_tecnica_ajena(self):
+        self.assertIn("T1021", self._descartada("T1021 desde 192.168.1.10 contra objetivo-vuln.")["motivo"])
+
+    def test_sin_respuesta(self):
+        self.assertIn("sin respuesta", self._descartada("")["motivo"])
+
+    def test_con_rag_tambien(self):
+        rec = lambda a, c: [{"id": "T1110", "titulo": "Brute Force", "texto": "x"}]
+        r = jl.justificar_con_rag(ALERTA, CTX_EXP, "vp_intento_acceso", lambda p: "Texto generico.", rec)
+        self.assertIn("ningún dato", r["llm_descartada"]["motivo"])
+
+    def test_si_se_acepta_no_hay_descarte(self):
+        r = jl.justificar_llm(ALERTA, CTX_EXP, "vp_intento_acceso", lambda p: "Desde 192.168.1.10 contra objetivo-vuln.")
+        self.assertNotIn("llm_descartada", r)

@@ -58,6 +58,10 @@ export const DetalleSchema = z.object({
   justificacion: z.string().nullable().optional(),
   version_justificador: z.string().nullable().optional(),
   consulta_rag: z.string().nullable().optional(),
+  // lo que respondió el modelo y por qué no pasó el anclaje (se muestra la plantilla en su lugar)
+  justificacion_descartada: z.object({
+    motivo: z.string().nullable().optional(), texto: z.string().nullable().optional(),
+  }).passthrough().nullable().optional(),
   recuperacion_agentica: z.boolean().nullable().optional(),
   pasajes_usados: z.array(z.string()).nullable().optional(),   // IDs; el backend los resuelve en `pasajes`
   pasajes: z.array(PasajeSchema).nullable().optional(),         // {id, titulo, texto} del corpus

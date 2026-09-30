@@ -61,6 +61,14 @@ describe("Detalle de una decisión", () => {
     expect(screen.queryByText(/0 servicios detenidos/)).not.toBeInTheDocument()
   })
 
+  it("si el modelo respondió y se descartó, el detalle lo dice y enseña lo que respondió", async () => {
+    h.detalle = { id_decision: "s8", justificacion: "Alerta 5763 … [justificación de plantilla — baseline, no modelo]",
+      justificacion_descartada: { motivo: "no citaba ningún dato de la alerta", texto: "La fuerza bruta en general" } }
+    fila({ id_decision: "s8", clase: "vp_intento_acceso" })
+    expect(await screen.findByText(/El modelo respondió, pero su texto se descartó: no citaba ningún dato de la alerta/)).toBeInTheDocument()
+    expect(screen.getByText(/La fuerza bruta en general/)).toBeInTheDocument()
+  })
+
   it("una amenaza enrutada muestra su destino, no «sin acción»", async () => {
     h.detalle = { id_decision: "s6", ruta: "cola-appsec-banco", accion_final: null, orden: null, resultado_filtro: "sin_accion" }
     fila({ id_decision: "s6", clase: "amenaza_enrutada" })

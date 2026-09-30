@@ -58,6 +58,11 @@ class TestValidacion(unittest.TestCase):
         self.assertNotIn("None", txt)
         self.assertIn("Acción final: ninguna (vetada)", txt)
 
+    def test_mostrar_dice_si_el_modelo_respondio_y_se_descarto(self):
+        d = {**DECISION, "justificacion_descartada": {"texto": "x", "motivo": "no citaba ningún dato de la alerta"}}
+        self.assertIn("El modelo respondió, pero su texto se descartó: no citaba ningún dato de la alerta",
+                      validacion.mostrar(d, ALERTA))
+
     def test_mostrar_incluye_lo_esencial(self):
         txt = validacion.mostrar(DECISION, ALERTA)
         for frag in ("vp_intento_acceso", "0.5", "BLOQUEAR_IP", "192.168.1.10", "objetivo-vuln"):
