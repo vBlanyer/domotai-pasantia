@@ -188,8 +188,9 @@ export function parsearPendiente(p: Pendiente): PendienteVista {
     if (t.startsWith("Consecuencia:")) { consecuencia = t.slice("Consecuencia:".length).trim(); continue }
     info.push(t)
   }
-  // impacto._motivo cierra la consecuencia con « · en cascada: a, b, c» cuando la hay.
-  const m = consecuencia?.match(/en cascada:\s*(.+)$/)
+  // impacto._motivo añade « · en cascada: a, b, c» cuando la hay; en una escalada le sigue « · en
+  // <cortafuegos>: …», que no son activos que caen: la lista acaba en el siguiente « · ».
+  const m = consecuencia?.match(/en cascada:\s*(.+?)(?:\s+·\s+|$)/)
   const cascada = m ? m[1].split(",").map((s) => s.trim()).filter(Boolean) : []
   return { incidente, info, consecuencia, titulo, opciones, cascada }
 }

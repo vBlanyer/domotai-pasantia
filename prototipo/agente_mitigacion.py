@@ -321,13 +321,22 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
     if desde in cadena:
         cadena = cadena[cadena.index(desde) + 1:]
         tocados.append(desde)     # el lazo ya lo intento: cuenta para decir que hubo escalada
+    anterior = desde
     for dispositivo in cadena:
-        obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, "bloquear_ip",
-                                                ip, ip_gestion, decision_id or alerta.get("id_alerta", ""),
-                                                timestamp, autonomo, leer, escribir,
-                                                perfil=perfil, activo=alerta.get("activo"),
-                                                servicio=alerta.get("servicio"), confianza=confianza,
-                                                siempre_humano=siempre_humano)
+        try:
+            obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, "bloquear_ip",
+                                                    ip, ip_gestion, decision_id or alerta.get("id_alerta", ""),
+                                                    timestamp, autonomo, leer, escribir,
+                                                    perfil=perfil, activo=alerta.get("activo"),
+                                                    servicio=alerta.get("servicio"), confianza=confianza,
+                                                    siempre_humano=siempre_humano)
+        except Exception as e:
+            # Quien difiere la pregunta al humano (modo web) necesita saber desde donde reanudar: la
+            # pregunta se hace antes de ejecutar, asi que se retoma justo antes de este salto.
+            if not hasattr(e, "reanudar_desde"):
+                e.reanudar_desde = anterior
+            raise
+        anterior = dispositivo
         pasos.append({"tipo": "accion", "dispositivo": dispositivo, "observacion": obs})
         if reg is None or reg.get("vetado"):  # no aplicable o vetado por el perfil: siguiente salto
             continue

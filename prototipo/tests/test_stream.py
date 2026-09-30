@@ -250,6 +250,75 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
         self.assertEqual(ej.aplicado, set())
 
 
+class TestEscaladaConHumanoEnCadaSalto(unittest.TestCase):
+    """En la web, cada salto que el perfil manda preguntar genera su tarjeta: ni aprobar el bloqueo
+    en el host aprueba el del cortafuegos, ni aprobar un cortafuegos aprueba el siguiente."""
+
+    class Nodos:
+        def __init__(self, caidos): self.caidos, self.aplicado = set(caidos), set()
+        def __call__(self, nodo_ip, cmd):
+            if nodo_ip in self.caidos:
+                return (255, "Connection refused")
+            if "grep" in cmd:
+                return (0, "DROP") if nodo_ip in self.aplicado else (1, "")
+            self.aplicado.add(nodo_ip); return (0, "")
+
+    def _perfil(self, host_humano=False):
+        p = dict(y("perfil.yml"))
+        p["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
+                          "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1", "gateway": "edge"},
+                          "edge": {"rol": "firewall_perimetral", "ip": "192.168.1.2"}}
+        p["ip_gestion"] = "192.168.1.100"
+        if host_humano:
+            p["continuidad"] = {**p["continuidad"], "impacto_localizado": "humano_siempre"}
+        return p
+
+    def _ejecutar(self, estado, buf, ej, perfil):
+        stream.ejecutar([_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=perfil,
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=ej, justificar_fn=None,
+                        ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
+                        leer=lambda *_: (_ for _ in ()).throw(AssertionError("no debe leer")),
+                        estado_web=estado)
+
+    def _resolver(self, estado, respuesta):
+        p = estado.decisiones_pendientes()[0]
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            self.assertTrue(estado.resolver_decision(p["id"], respuesta, paso=p["paso"]))
+        self.assertNotIn("Validación humana", salida.getvalue())     # nada se pregunta por stdout
+        return estado.decisiones_pendientes()
+
+    def test_aprobar_el_bloqueo_en_el_host_caido_encola_la_escalada(self):
+        estado, buf, ej = tablero.EstadoTablero(), io.StringIO(), self.Nodos({"192.168.1.30"})
+        self._ejecutar(estado, buf, ej, self._perfil(host_humano=True))
+        self.assertEqual(estado.decisiones_pendientes()[0]["tipo"], "menu")
+        cola = self._resolver(estado, "1")
+        self.assertEqual([c["tipo"] for c in cola], ["escalada"])
+        self.assertTrue(any("en gateway" in l for l in cola[0]["lineas"]))
+        self.assertEqual(ej.aplicado, set())                         # el cortafuegos, intacto
+        self.assertEqual(buf.getvalue().strip(), "")                 # se traza al resolver la escalada
+        cola = self._resolver(estado, "s")
+        r = json.loads(buf.getvalue().splitlines()[0])
+        self.assertEqual(r["veredicto_humano"], "aprobar")
+        self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "gateway")
+
+    def test_aprobar_un_cortafuegos_caido_no_aprueba_el_siguiente(self):
+        estado, buf, ej = tablero.EstadoTablero(), io.StringIO(), self.Nodos({"192.168.1.30", "192.168.1.1"})
+        self._ejecutar(estado, buf, ej, self._perfil())
+        cola = estado.decisiones_pendientes()
+        self.assertTrue(any("en gateway" in l for l in cola[0]["lineas"]))
+        cola = self._resolver(estado, "s")
+        self.assertEqual([c["tipo"] for c in cola], ["escalada"])
+        self.assertTrue(any("en edge" in l for l in cola[0]["lineas"]), cola[0]["lineas"])
+        self.assertEqual(ej.aplicado, set())
+        self.assertEqual(buf.getvalue().strip(), "")
+        self.assertEqual(self._resolver(estado, "s"), [])
+        r = json.loads(buf.getvalue().splitlines()[0])
+        self.assertEqual(r["escalada"]["resultado"], "mitigado")
+        self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "edge")
+        self.assertEqual(ej.aplicado, {"192.168.1.2"})
+
+
 class TestModoAgente(unittest.TestCase):
     def test_ejecutar_delega_al_mitigar_fn_y_cuenta(self):
         buf = io.StringIO()

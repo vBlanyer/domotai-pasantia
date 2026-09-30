@@ -53,6 +53,11 @@ class TestFiltroLegible(unittest.TestCase):
 
 
 class TestValidacion(unittest.TestCase):
+    def test_una_accion_vetada_sin_sustituta_no_se_muestra_como_none(self):
+        txt = validacion.mostrar({**DECISION, "accion_final": None}, ALERTA)
+        self.assertNotIn("None", txt)
+        self.assertIn("Acción final: ninguna (vetada)", txt)
+
     def test_mostrar_incluye_lo_esencial(self):
         txt = validacion.mostrar(DECISION, ALERTA)
         for frag in ("vp_intento_acceso", "0.5", "BLOQUEAR_IP", "192.168.1.10", "objetivo-vuln"):

@@ -35,6 +35,32 @@ class TestLazo(unittest.TestCase):
         self.assertIsNone(r["accion_final"])
         self.assertEqual(llamadas, [])
 
+    def test_reanudar_una_escalada_no_aprueba_el_salto_siguiente(self):
+        # La respuesta del analista vale para el salto que vio. Sin quien difiera el siguiente,
+        # ese salto no se aprueba; con él, se encola desde el cortafuegos recién intentado.
+        perfil = {**y("perfil.yml"), "ip_gestion": "192.168.1.100",
+                  "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gw"},
+                                "gw": {"rol": "firewall_perimetral", "ip": "192.168.1.1", "gateway": "edge"},
+                                "edge": {"rol": "firewall_perimetral", "ip": "192.168.1.2"}}}
+        caidos = {"192.168.1.30", "192.168.1.1"}
+        aplicado = set()
+        def ej(ip, cmd):
+            if ip in caidos: return (255, "")
+            if "grep" in cmd: return (0, "DROP") if ip in aplicado else (1, "")
+            aplicado.add(ip); return (0, "")
+        a = j("alerta_vp.json")
+        r = lazo.reanudar_escalada({"id_decision": "d1", "clase": "vp_intento_acceso"}, a, perfil, CAT, ej,
+                                   "s", "objetivo-vuln", "t")
+        self.assertEqual(r["escalada"]["resultado"], "cancelado_por_humano")
+        self.assertEqual(aplicado, set())
+        diferidas = []
+        r = lazo.reanudar_escalada({"id_decision": "d1", "clase": "vp_intento_acceso"}, a, perfil, CAT, ej,
+                                   "s", "objetivo-vuln", "t",
+                                   diferir_escalada=lambda *args: diferidas.append(args))
+        self.assertTrue(r["en_cola"])
+        self.assertEqual(diferidas[0][2], "gw")                     # se reanuda tras el intentado
+        self.assertTrue(diferidas[0][3][0].startswith("── Validación humana ── BLOQUEAR_IP_FIREWALL en edge"))
+
     def test_lazo_rechazo_humano_no_ejecuta(self):
         # forzamos requiere_humano con confianza baja: activo desconocido -> postura None -> confianza 0.5 -> veta
         a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"

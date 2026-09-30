@@ -42,7 +42,7 @@ def mostrar(decision, alerta):
         f"Justificación: {decision.get('justificacion')}\n"
         f"Acción sugerida: {est.get('accion_sugerida', decision.get('accion_propuesta'))}  ·  Impacto: {decision.get('impacto')}  ·  Filtro: {filtro_legible(decision)}\n"
         f"{consecuencia}"
-        f"Acción final: {decision.get('accion_final')}\n"
+        f"Acción final: {decision.get('accion_final') or 'ninguna (vetada)'}\n"
     )
 
 def _menu(escribir, leer, titulo, etiquetas):

@@ -88,6 +88,11 @@ describe("parsearPendiente", () => {
   it("extrae los activos que caerían en cascada al aprobar", () => {
     expect(parsearPendiente(veredicto).cascada).toEqual(["api-movil", "middleware", "web-banking"])
   })
+  it("la cascada termina donde empieza el siguiente dato de la consecuencia", () => {
+    // Tarjeta de escalada: tras la cascada viene el alcance del cortafuegos, que no son activos que caen.
+    const esc = { ...veredicto, lineas: ["Consecuencia: bloquea a middleware · en cascada: api-movil, middleware, web-banking · en fw-core: corta su tráfico hacia todo lo que enruta (api-movil, atm, web-banking)"] }
+    expect(parsearPendiente(esc).cascada).toEqual(["api-movil", "middleware", "web-banking"])
+  })
   it("sin cascada en la consecuencia, la lista va vacía", () => {
     const sin = { ...veredicto, lineas: ["Consecuencia: bloquea a 10.40.0.10 · 0 servicios detenidos"] }
     expect(parsearPendiente(sin).cascada).toEqual([])

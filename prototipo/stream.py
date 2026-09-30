@@ -208,10 +208,13 @@ def _legible(linea):
     return "Acción: " + linea[len(prefijo):] if linea.startswith(prefijo) else linea
 
 
-def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, escribir):
+def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, escribir, diferir_escalada=None):
     """Devuelve resolver(pid, respuesta)->bool: aplica el veredicto del analista a una decisión en
     cola (ejecuta la contención + escribe la traza), sin bloquear el lazo. Reclasificar es en dos
-    pasos: '3' pasa al submenú de clases; el número de clase finaliza."""
+    pasos: '3' pasa al submenú de clases; el número de clase finaliza.
+
+    Si la contención aprobada tiene que escalar y el salto pide humano, no se aprueba solo: se
+    encola una tarjeta de escalada (`diferir_escalada`) y el registro se traza cuando se resuelva."""
     from prototipo import analisis
     def resolver(pid, respuesta, paso=None):
         entrada = estado.ver_decision(pid)
@@ -231,7 +234,10 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                 return False
             alerta = entrada["alerta"]
             r = lazo.reanudar_escalada(entrada["decision"], alerta, perfil, catalogo, ejecutor, respuesta,
-                                       entrada.get("desde"), alerta.get("timestamp", ""))
+                                       entrada.get("desde"), alerta.get("timestamp", ""),
+                                       diferir_escalada=diferir_escalada)
+            if r.get("en_cola"):                       # el salto siguiente también pide humano
+                return True
             r = {**r, "veredicto_escalada": "aprobar" if respuesta.lower().startswith("s") else "rechazar",
                  "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time()}
             escribir(_linea_decision(r))
@@ -258,7 +264,10 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         decision, alerta = entrada["decision"], entrada["alerta"]
         r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
                                    decision.get("id_decision", ""), alerta.get("timestamp", ""),
-                                   veredicto=veredicto, clase_reclasificada=clase, leer=lambda *_: "s")
+                                   veredicto=veredicto, clase_reclasificada=clase,
+                                   diferir_escalada=diferir_escalada, leer=lambda *_: "")
+        if r.get("en_cola"):                           # escala y el salto pide humano: su tarjeta trazará
+            return True
         # Marcas de tiempo para el MTTR (tiempo de respuesta del analista) en el panel de métricas.
         r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time()}
         escribir(_linea_decision(r))
@@ -318,7 +327,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         def diferir_escalada(parcial, alerta, desde, lineas):
             estado_web.encolar_decision(_entrada_escalada(parcial, alerta, desde, lineas))
         estado_web.fijar_resolutor(
-            _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir))
+            _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir,
+                                 diferir_escalada=diferir_escalada))
     seq = [0]
     ventana_rafaga = rafaga.Ventana()
     memoria = MemoriaDecisiones()
