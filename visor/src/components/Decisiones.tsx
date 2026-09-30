@@ -190,11 +190,16 @@ function Detalles({ id, indice }: { id: string; indice?: number | null }) {
   )
 }
 
+// Las filas de ancho completo (detalle, supresión, reversión, error) llevan texto largo: sin partir
+// líneas (TableCell es whitespace-nowrap) estiraban toda la tabla y obligaban a desplazarse en
+// horizontal. overflow-wrap parte también lo que no tiene espacios (hashes, comandos, URLs).
+const FILA_ANCHA = "whitespace-normal [overflow-wrap:anywhere]"
+
 export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: boolean; onToggle: () => void }) {
   if (d.tipo === "actividad_propia")
     return (
       <TableRow className="text-muted-foreground">
-        <TableCell colSpan={COLS} className="italic">
+        <TableCell colSpan={COLS} className={`${FILA_ANCHA} italic`}>
           ↺ actividad propia del MDR en {d.activo}: login de gestión al aplicar o verificar una contención (no es un ataque)
         </TableCell>
       </TableRow>
@@ -202,7 +207,7 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
   if (d.tipo === "reversion")
     return (
       <TableRow className="text-muted-foreground">
-        <TableCell colSpan={COLS} className="italic">
+        <TableCell colSpan={COLS} className={`${FILA_ANCHA} italic`}>
           ↶ reversión de {d.id_decision_revertida ?? "—"} en {d.nodo ?? "—"}: {d.exito ? "aplicada" : "falló"}
           {d.accion_id ? ` (${d.accion_id})` : ""}
         </TableCell>
@@ -211,7 +216,7 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
   if (d.tipo === "error")
     return (
       <TableRow className="text-rose-600 dark:text-rose-400">
-        <TableCell colSpan={COLS}>
+        <TableCell colSpan={COLS} className={FILA_ANCHA}>
           ✗ {d.id_decision}: error al procesar el incidente de {d.origen_ip ?? "—"} → {d.activo ?? "—"}: {d.error}
         </TableCell>
       </TableRow>
@@ -219,7 +224,7 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
   if (d.tipo === "actividad_suprimida")
     return (
       <TableRow className="text-muted-foreground">
-        <TableCell colSpan={COLS} className="italic">
+        <TableCell colSpan={COLS} className={`${FILA_ANCHA} italic`}>
           ↩ el ataque continúa · {d.alertas_suprimidas} alerta(s) suprimida(s) (ya decidido)
         </TableCell>
       </TableRow>
@@ -271,7 +276,7 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
       </TableRow>
       {abierto && d.id_decision && (
         <TableRow className="hover:bg-transparent">
-          <TableCell colSpan={COLS} className="bg-muted/30 p-4">
+          <TableCell colSpan={COLS} className={`${FILA_ANCHA} bg-muted/30 p-4`}>
             <Detalles id={d.id_decision} indice={d.indice} />
           </TableCell>
         </TableRow>

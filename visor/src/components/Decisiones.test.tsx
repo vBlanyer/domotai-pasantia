@@ -110,6 +110,18 @@ describe("Fila de la tabla de decisiones", () => {
     expect(screen.getByText("degradada")).toHaveAttribute("title", "propuesta: AISLAR_NODO")
   })
 
+  it("el detalle y las filas de texto largo parten líneas: no desbordan la tabla en horizontal", async () => {
+    // TableCell es whitespace-nowrap (columnas cortas); el texto largo tiene que poder partirse.
+    h.detalle = { id_decision: "s9", justificacion: "una justificación larga ".repeat(30) }
+    const { container } = fila({ id_decision: "s9", clase: "vp_intento_acceso" })
+    await screen.findByText(/una justificación larga/)
+    const detalle = container.querySelector("td[colspan]") as HTMLElement
+    expect(detalle.className).toContain("whitespace-normal")
+    cerrada({ tipo: "error", id_decision: "s5", activo: "a", origen_ip: "1.1.1.1", error: "x ".repeat(80) })
+    const celdas = Array.from(document.querySelectorAll("td[colspan]")) as HTMLElement[]
+    expect(celdas.every((c) => c.className.includes("whitespace-normal"))).toBe(true)
+  })
+
   it("una reversión se pinta como tal: qué decisión deshizo, dónde y si se aplicó", () => {
     cerrada({ tipo: "reversion", id_decision_revertida: "s3", exito: true, nodo: "web-banking" })
     expect(screen.getByText(/reversión de s3 en web-banking: aplicada/)).toBeInTheDocument()
