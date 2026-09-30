@@ -25,9 +25,10 @@ def _instante(alerta):
         return None
 
 
-def contar_en_lote(alertas, ventana_s=VENTANA_S):
+def contar_en_lote(alertas, ventana_s=VENTANA_S, solo_pasado=False):
     """Anota en cada alerta cuantas del mismo origen hay a menos de `ventana_s` segundos (ella
-    incluida), mirando hacia atras y hacia delante: en un lote cerrado se conoce toda la rafaga."""
+    incluida), mirando hacia atras y hacia delante: en un lote cerrado se conoce toda la rafaga.
+    Con `solo_pasado`, solo hacia atras: es lo que ve el daemon en vivo cuando llega cada alerta."""
     por_origen = collections.defaultdict(list)
     for a in alertas:
         if a.get("origen_ip"):
@@ -38,8 +39,11 @@ def contar_en_lote(alertas, ventana_s=VENTANA_S):
         if t is None:
             a[CAMPO] = 1
             continue
+        # En lote la ventana es bidireccional (±ventana_s): una alerta ve tambien las que llegaron
+        # despues. solo_pasado cuenta como el daemon en vivo, que solo tiene las anteriores.
         a[CAMPO] = sum(1 for g in vecinas if _instante(g) is not None
-                       and abs((_instante(g) - t).total_seconds()) <= ventana_s)
+                       and (0 <= (t - _instante(g)).total_seconds() <= ventana_s if solo_pasado
+                            else abs((_instante(g) - t).total_seconds()) <= ventana_s))
     return alertas
 
 

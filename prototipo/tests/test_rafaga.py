@@ -17,6 +17,12 @@ class TestLote(unittest.TestCase):
         rafaga.contar_en_lote(lote, ventana_s=60)
         self.assertEqual([x[rafaga.CAMPO] for x in lote], [1, 1])
 
+    def test_solo_pasado_no_cuenta_alertas_futuras(self):
+        # Lo que ve el daemon en vivo: al llegar una alerta, solo existen las anteriores.
+        lote = [_a("a", 50), _a("a", 0), _a("a", 10), _a("b", 12), _a("a", 59)]
+        rafaga.contar_en_lote(lote, ventana_s=60, solo_pasado=True)
+        self.assertEqual([x[rafaga.CAMPO] for x in lote], [3, 1, 2, 1, 4])
+
     def test_sin_origen_o_sin_tiempo_vale_uno(self):
         lote = [{"origen_ip": None, "timestamp": "2026-09-11T10:00:00"}, {"origen_ip": "a", "timestamp": "x"}]
         rafaga.contar_en_lote(lote)

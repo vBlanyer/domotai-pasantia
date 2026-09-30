@@ -1,5 +1,5 @@
 import unittest
-from lab.banco import casos
+from lab.banco import casos, pruebas
 
 
 class TestCatalogo(unittest.TestCase):
@@ -15,6 +15,12 @@ class TestCatalogo(unittest.TestCase):
         for c in casos.CASOS:
             if c["nivel"] == "vivo":
                 self.assertIn("deshacer", c, c["id"])
+
+    def test_los_casos_vivos_solo_esperan_lo_que_se_comprueba(self):
+        # Una clave de `esperado` que evaluar() no mira se da por buena en silencio.
+        for c in casos.CASOS:
+            if c["nivel"] == "vivo":
+                self.assertLessEqual(set(c["esperado"]), set(pruebas.CLAVES_VIVO), c["id"])
 
     def test_todo_caso_tiene_esperado(self):
         for c in casos.CASOS:

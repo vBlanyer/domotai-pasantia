@@ -95,16 +95,23 @@ def fuente_filtrada(lineas, ip, parar):
             yield linea
 
 
+# Claves de `esperado` que evaluar() compara con el registro de la decision, y todas las que
+# entiende en un caso vivo. Una clave fuera de CLAVES_VIVO se ignoraria en silencio (lo vigila
+# test_casos).
+CLAVES_REGISTRO = ("clase", "requiere_humano", "accion_final", "veredicto", "escalado",
+                   "dispositivo_ejecutor", "prediccion_cascada")
+CLAVES_VIVO = CLAVES_REGISTRO + ("preguntas", "regla", "sin_reglas", "caen", "fallo_esperado")
+
+
 def evaluar(esperado, registro, reglas, caidos_obs, preguntas):
     """Diferencias entre lo esperado y lo observado ([] = el caso pasa)."""
     fallos = []
-    if registro is not None or any(k in esperado for k in ("requiere_humano", "accion_final", "veredicto",
-                                                            "escalado", "dispositivo_ejecutor",
-                                                            "prediccion_cascada")):
+    if registro is not None or any(k in esperado for k in CLAVES_REGISTRO):
         if registro is None:
             return ["el prototipo no produjo ninguna decision (sin alerta de Wazuh o sin incidente)"]
         esc = registro.get("escalada") or {}
-        obs = {"requiere_humano": registro.get("requiere_humano"),
+        obs = {"clase": registro.get("clase"),
+               "requiere_humano": registro.get("requiere_humano"),
                "accion_final": registro.get("accion_final"),
                "veredicto": registro.get("veredicto_humano"),
                "escalado": esc.get("escalado"),

@@ -91,6 +91,14 @@ class TestEvaluar(unittest.TestCase):
         self.assertEqual(rg.evaluar(esperado, reg, {}, set(), []), [])
         self.assertTrue(rg.evaluar({"dispositivo_ejecutor": "fw-edge"}, reg, {}, set(), []))
 
+    def test_la_clase_se_comprueba(self):
+        # EXPLOIT espera amenaza_enrutada: sin comparar la clase, un no_soportada sin acción pasaba.
+        esperado = {"clase": "amenaza_enrutada", "accion_final": None, "sin_reglas": True, "caen": set()}
+        fallos = rg.evaluar(esperado, {"clase": "no_soportada", "accion_final": None}, {}, set(), [])
+        self.assertTrue(any("clase" in f for f in fallos), fallos)
+        self.assertEqual(rg.evaluar(esperado, {"clase": "amenaza_enrutada", "accion_final": None},
+                                    {}, set(), []), [])
+
     def test_sin_registro_es_un_fallo(self):
         self.assertEqual(rg.evaluar({"requiere_humano": True}, None, {}, set(), []),
                          ["el prototipo no produjo ninguna decision (sin alerta de Wazuh o sin incidente)"])
