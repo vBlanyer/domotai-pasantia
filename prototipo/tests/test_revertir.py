@@ -71,3 +71,15 @@ class TestRevertir(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRevertirConVerificacionExacta(unittest.TestCase):
+    def test_revertir_una_ip_prefijo_de_otra_bloqueada_se_da_por_revertida(self):
+        import os
+        from prototipo import catalogo
+        from prototipo.tests.iptables_falso import NodoIptables
+        cat = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
+        nodo = NodoIptables(drop_input=["192.168.1.11", "192.168.1.110"])
+        r = revertir.revertir(_registro(params={"ip": "192.168.1.11"}), cat, nodo, "t")
+        self.assertTrue(r["exito"], r)
+        self.assertEqual(nodo.reglas["INPUT"], [("DROP", "192.168.1.110")])

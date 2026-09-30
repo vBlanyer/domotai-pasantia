@@ -134,3 +134,27 @@ class TestNodoGestion(unittest.TestCase):
             conector._ssh_en_auditor("true")
         self.assertEqual(visto["args"][:3], ["docker", "exec", "clab-banco-mdr-siem"])
 
+
+
+class TestVerificacionExacta(unittest.TestCase):
+    """La verificación no puede dar por bloqueada una IP que solo es prefijo de otra ya bloqueada."""
+    def _orden(self, ip):
+        return {**ORDEN, "params": {"ip": ip}}
+
+    def test_una_ip_prefijo_de_otra_bloqueada_no_es_idempotente(self):
+        from prototipo.tests.iptables_falso import NodoIptables
+        for ya, nueva in (("198.51.100.110", "198.51.100.11"), ("192.168.1.10", "192.168.1.1")):
+            nodo = NodoIptables(drop_input=[ya])
+            r = conector.ejecutar_orden(self._orden(nueva), CAT, nodo, "t")
+            self.assertFalse(r["idempotente"], (ya, nueva))
+            self.assertEqual(r["comando_ejecutado"], f"iptables -A INPUT -s {nueva} -j DROP")
+            self.assertTrue(r["exito"])
+            self.assertIn(("DROP", nueva), nodo.reglas["INPUT"])
+
+    def test_una_regla_accept_no_cuenta_como_bloqueo(self):
+        from prototipo.tests.iptables_falso import NodoIptables
+        from prototipo import verificacion
+        nodo = NodoIptables(accept_input=["192.168.1.10"])
+        self.assertFalse(verificacion.confirmar(ORDEN, CAT, nodo)["verificado"])
+        nodo.reglas["INPUT"].append(("DROP", "192.168.1.10"))
+        self.assertTrue(verificacion.confirmar(ORDEN, CAT, nodo)["verificado"])

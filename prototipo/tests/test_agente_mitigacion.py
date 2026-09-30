@@ -508,3 +508,18 @@ class TestImpactoDelDispositivoQueContiene(unittest.TestCase):
                                 siempre_humano=False, desde="objetivo-vuln")
         consecuencia = [l for l in lineas if l.startswith("Consecuencia:")]
         self.assertTrue(consecuencia and "todo lo que enruta" in consecuencia[0])
+
+
+class TestComparacionExactaDeIps(unittest.TestCase):
+    def test_verificar_en_el_cortafuegos_no_confunde_prefijos(self):
+        from prototipo.tests.iptables_falso import NodoIptables
+        topo = ag.resolver_topologia(y_perfil())
+        nodo = NodoIptables(drop_forward=["192.168.1.110"])
+        self.assertEqual(ag.herramienta_verificar_mitigacion(topo, CAT, nodo, "gateway", "192.168.1.11"), "activo")
+        self.assertEqual(ag.herramienta_verificar_mitigacion(topo, CAT, nodo, "gateway", "192.168.1.110"),
+                         "bloqueado")
+
+    def test_el_veto_de_gestion_compara_la_ip_entera(self):
+        ok, _ = ag.validar_comando("iptables -A FORWARD -s 172.20.20.41 -j DROP", "172.20.20.4")
+        self.assertTrue(ok)
+        self.assertFalse(ag.validar_comando("iptables -A FORWARD -s 172.20.20.4 -j DROP", "172.20.20.4")[0])

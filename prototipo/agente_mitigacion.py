@@ -3,7 +3,7 @@ dispositivo eligiendo acciones de un catálogo CERRADO; el código renderiza el 
 pide aprobación humana y lo ejecuta de forma reversible reutilizando conector.ejecutar_orden.
 """
 import json, re
-from prototipo import conector, impacto, politica, rag
+from prototipo import actores, conector, impacto, politica, rag
 from prototipo import perfil as perfilm
 
 def resolver_topologia(perfil, hallazgos=None):
@@ -38,7 +38,8 @@ _DESTRUCTIVO = re.compile(r'(-F|--flush|-X|-Z|\brm\b|\breboot\b|\bshutdown\b|;|\
 
 def validar_comando(comando, ip_gestion):
     """Última línea de defensa (RF-19): veta gestión y patrones destructivos/encadenados."""
-    if ip_gestion and ip_gestion in comando:
+    # Por token y comparando direcciones, no por subcadena: 10.0.0.1 no esta en 10.0.0.10.
+    if ip_gestion and any(actores._coincide(t, ip_gestion) for t in comando.split()):
         return (False, "el comando afecta al plano de gestion (RF-19)")
     if _DESTRUCTIVO.search(comando):
         return (False, "patron destructivo o encadenamiento no permitido")
