@@ -29,6 +29,24 @@ def _lineas_de_la_pregunta(lineas):
     return lineas[inicios[-1]:] if inicios else lineas
 
 
+def _acumular(parcial, excepcion=None, respuesta=None):
+    """Lleva en `escalada_previa` lo que ya hizo la escalada antes de diferirse (pasos, reglas
+    aplicadas, respuestas del analista): una escalada diferida varias veces se traza entera."""
+    previa = parcial.get("escalada_previa") or {"pasos": [], "reversiones": [], "veredictos": []}
+    return {"pasos": previa["pasos"] + list(getattr(excepcion, "pasos", [])),
+            "reversiones": previa["reversiones"] + list(getattr(excepcion, "reversiones", [])),
+            "veredictos": previa["veredictos"] + ([] if respuesta is None else
+                                                  ["aprobar" if respuesta.lower().startswith("s") else "rechazar"])}
+
+
+def _fusionar(escalada, previa):
+    if not previa or escalada is None:
+        return escalada
+    return {**escalada, "pasos": previa["pasos"] + escalada.get("pasos", []),
+            "reversiones": previa["reversiones"] + escalada.get("reversiones", []),
+            "escalado": True}
+
+
 def reanudar_escalada(parcial, alerta, perfil, catalogo, ejecutor, respuesta, desde, timestamp,
                       diferir_escalada=None):
     """Retoma una escalada diferida con la respuesta del analista ("s" aprueba). La pregunta se
@@ -38,7 +56,7 @@ def reanudar_escalada(parcial, alerta, perfil, catalogo, ejecutor, respuesta, de
     La respuesta vale solo para el salto que el analista vio: si el siguiente también pide humano,
     se difiere otra vez con `diferir_escalada` (nueva tarjeta, devuelve `en_cola`); sin él, ese
     salto no se aprueba."""
-    base = {k: v for k, v in parcial.items() if k != "en_cola"}
+    base = {k: v for k, v in parcial.items() if k not in ("en_cola", "escalada_previa")}
     respondidas, lineas = [], []
     def _una_respuesta(prompt=""):
         if not respondidas:
@@ -51,9 +69,11 @@ def reanudar_escalada(parcial, alerta, perfil, catalogo, ejecutor, respuesta, de
         escalada = _escalar(alerta, parcial, perfil, catalogo, ejecutor, _una_respuesta, timestamp,
                             desde, parcial.get("id_decision", ""), escribir=lineas.append)
     except _PreguntaPendiente as e:
-        diferir_escalada(base, alerta, getattr(e, "reanudar_desde", desde), _lineas_de_la_pregunta(lineas))
+        diferir_escalada({**base, "escalada_previa": _acumular(parcial, e, respuesta)}, alerta,
+                         getattr(e, "reanudar_desde", desde), _lineas_de_la_pregunta(lineas))
         return {**base, "escalada": None, "en_cola": True}
-    return {**base, "escalada": escalada}
+    previa = _acumular(parcial, respuesta=respuesta)
+    return {**base, "escalada": _fusionar(escalada, previa), "veredictos_escalada": previa["veredictos"]}
 
 
 def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision, timestamp,
@@ -96,7 +116,8 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
                 escalada = _escalar(alerta, decision, perfil, catalogo, ejecutor, _no_bloquear, timestamp,
                                     desde, id_decision, escribir=lineas.append)
             except _PreguntaPendiente as e:
-                diferir_escalada(parcial, alerta, getattr(e, "reanudar_desde", desde), lineas)
+                diferir_escalada({**parcial, "escalada_previa": _acumular(parcial, e)}, alerta,
+                                 getattr(e, "reanudar_desde", desde), lineas)
                 return {**parcial, "escalada": None, "en_cola": True}
     return {**parcial, "escalada": escalada}
 

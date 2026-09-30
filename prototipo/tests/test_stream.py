@@ -926,5 +926,99 @@ class TestRevertirConElDaemonVivo(unittest.TestCase):
         self.assertEqual([r.get("tipo") for r in regs], ["decision", "reversion", "decision"])
         self.assertTrue(tm.verificar(regs)["valida"])
 
+
+class TestRevisionFinal(unittest.TestCase):
+    """Fallos del camino en vivo encontrados en la revisión final de la tanda 1."""
+
+    def _perfil(self, host_humano=True, topologia=None):
+        p = dict(y("perfil.yml"))
+        p["ip_gestion"] = "192.168.1.100"
+        p["topologia"] = topologia or {
+            "objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
+            "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1", "gateway": "edge"},
+            "edge": {"rol": "firewall_perimetral", "ip": "192.168.1.2"}}
+        if host_humano:
+            p["continuidad"] = {**p["continuidad"], "impacto_localizado": "humano_siempre"}
+        return p
+
+    def test_una_repeticion_mientras_se_ejecuta_la_aprobacion_no_duplica_la_tarjeta(self):
+        import threading
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        dentro, seguir = threading.Event(), threading.Event()
+        base = lazo._EjecutorAuto()
+        def lento(ip, cmd):
+            if threading.current_thread() is not threading.main_thread() and not seguir.is_set():
+                dentro.set(); seguir.wait(5)
+            return base(ip, cmd)
+        hilo = []
+        def fuente():
+            yield _linea()
+            p = estado.decisiones_pendientes()[0]
+            t = threading.Thread(target=estado.resolver_decision, args=(p["id"], "1"), kwargs={"paso": p["paso"]})
+            t.start(); hilo.append(t)
+            self.assertTrue(dentro.wait(5))            # el analista aprobó y el SSH está en curso
+            yield _linea(seg=5)                        # llega una repetición del mismo ataque
+            seguir.set(); t.join(5)
+        resumen = stream.ejecutar(fuente(), hallazgos=j("hallazgos.json"), perfil=self._perfil(topologia={}),
+                                  perfil_nombre="prueba", catalogo=CAT, ejecutor=lento, justificar_fn=None,
+                                  ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
+                                  estado_web=estado)
+        regs = [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
+        self.assertEqual(estado.decisiones_pendientes(), [])          # sin tarjeta duplicada
+        self.assertEqual(resumen["incidentes"], 1)
+        self.assertEqual(sorted(r.get("tipo") for r in regs), ["actividad_suprimida", "decision"])
+
+    def test_la_traza_conserva_los_saltos_de_una_escalada_diferida_varias_veces(self):
+        # gateway aplica la regla pero no la verifica; edge contiene. La regla puesta en gateway tiene
+        # que quedar en la traza (y su reversión), y el tiempo de espera cuenta desde la primera tarjeta.
+        aplicado = set()
+        def nodos(ip, cmd):
+            if ip == "192.168.1.30": return (255, "Connection refused")
+            if "grep" in cmd: return (0, "DROP") if (ip in aplicado and ip != "192.168.1.1") else (1, "")
+            aplicado.add(ip); return (0, "")
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        stream.ejecutar([_linea()], hallazgos=j("hallazgos.json"), perfil=self._perfil(host_humano=False),
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=nodos, justificar_fn=None,
+                        ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None, estado_web=estado)
+        primera = estado.decisiones_pendientes()[0]
+        estado.resolver_decision(primera["id"], "s", paso=primera["paso"])
+        segunda = estado.decisiones_pendientes()[0]
+        estado.resolver_decision(segunda["id"], "s", paso=segunda["paso"])
+        r = json.loads(buf.getvalue().splitlines()[0])
+        esc = r["escalada"]
+        self.assertEqual(esc["dispositivo_ejecutor"], "edge")
+        self.assertIn("gateway", [p["dispositivo"] for p in esc["pasos"]])
+        self.assertIn("iptables -D FORWARD -s 1.1.1.1 -j DROP", esc["reversiones"])
+        self.assertEqual(len(esc["reversiones"]), 2)
+        self.assertEqual(r["veredictos_escalada"], ["aprobar", "aprobar"])
+        self.assertEqual(r["recibido_en"], primera["recibido_en"])
+
+    def test_ctrl_c_a_mitad_de_un_lote_no_lo_vuelve_a_procesar(self):
+        preguntas = []
+        def leer(*_):
+            preguntas.append(1); raise KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            stream.ejecutar([_linea("1.1.1.1"), _linea("2.2.2.2", seg=1)], hallazgos=j("hallazgos.json"),
+                            perfil=self._perfil(topologia={}), perfil_nombre="prueba", catalogo=CAT,
+                            ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=5,
+                            salida_traza=io.StringIO(), escribir=lambda *a, **k: None, leer=leer, reloj=lambda: 0)
+        self.assertEqual(len(preguntas), 1)
+
+    def test_si_la_aprobacion_falla_la_amenaza_no_queda_como_cerrada(self):
+        estado = tablero.EstadoTablero()
+        def roto(ip, cmd):
+            raise OSError("docker: no such file")
+        def fuente():
+            yield _linea()
+            p = estado.decisiones_pendientes()[0]
+            estado.resolver_decision(p["id"], "1", paso=p["paso"])
+            yield _linea(seg=5)
+        resumen = stream.ejecutar(fuente(), hallazgos=j("hallazgos.json"), perfil=self._perfil(topologia={}),
+                                  perfil_nombre="prueba", catalogo=CAT, ejecutor=roto, justificar_fn=None,
+                                  ventana_agrupacion=0, salida_traza=io.StringIO(), escribir=lambda *a, **k: None,
+                                  estado_web=estado)
+        self.assertEqual(resumen["suprimidas"], 0)
+        self.assertEqual(len(estado.decisiones_pendientes()), 1)       # vuelve a pedir al analista
+
 if __name__ == "__main__":
     unittest.main()

@@ -335,6 +335,9 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
             # pregunta se hace antes de ejecutar, asi que se retoma justo antes de este salto.
             if not hasattr(e, "reanudar_desde"):
                 e.reanudar_desde = anterior
+                # Lo hecho hasta aquí (pasos y reglas aplicadas) viaja con la pregunta: al reanudar
+                # solo se recorre lo que queda, y sin esto la traza perdería los saltos anteriores.
+                e.pasos, e.reversiones = list(pasos), list(reversiones)
             raise
         anterior = dispositivo
         pasos.append({"tipo": "accion", "dispositivo": dispositivo, "observacion": obs})

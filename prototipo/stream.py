@@ -73,6 +73,8 @@ def _desenlace(d, perfil):
     que no se aplicó ni se verificó no se recuerda, para que la repetición se vuelva a decidir en vez
     de quedar silenciada como «ya decidido». `perimetral`: contuvo un cortafuegos perimetral, que
     corta al atacante hacia todo lo que hay detrás, no solo hacia este activo."""
+    if (d.get("ejecucion") or {}).get("error"):   # la ejecución lanzó: no hay nada cerrado
+        return None, False
     v = d.get("veredicto_humano")
     if v == "rechazar":
         return "rechazada por el analista", False
@@ -272,7 +274,8 @@ def _entrada_escalada(parcial, alerta, desde, lineas):
              f"({alerta.get('servicio')})")
     return {"clave": ("escalada", *_clave_supresion(alerta)),
             "severidad": parcial.get("prioridad") or 0,
-            "decision": parcial, "alerta": alerta, "desde": desde, "recibido_en": time.time(),
+            "decision": parcial, "alerta": alerta, "desde": desde,
+            "recibido_en": parcial.get("recibido_en") or time.time(),
             "tipo": "escalada", "prompt": "¿aprobar la ejecución? [s/N] ",
             "accion_final": parcial.get("accion_final"),
             "lineas": [incid, f"{desde} no respondió al MDR: la contención escala al perímetro.",
@@ -295,9 +298,63 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
     Si la contención aprobada tiene que escalar y el salto pide humano, no se aprueba solo: se
     encola una tarjeta de escalada (`diferir_escalada`) y el registro se traza cuando se resuelva."""
     from prototipo import analisis
+    def _cerrar(r, entrada, alerta):
+        # Marcas de tiempo para el MTTR (tiempo de respuesta del analista) en el panel de métricas.
+        r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
+             "decidido_en": _ahora_iso()}
+        escribir(_linea_decision(r))
+        escribir_traza(r)
+        if al_resolver is not None:
+            al_resolver(r, alerta)
+
+    def _resolver_escalada(entrada, respuesta):
+        alerta = entrada["alerta"]
+        # La espera cuenta desde la primera tarjeta aunque la escalada se difiera varias veces.
+        decision = {**entrada["decision"], "recibido_en": entrada.get("recibido_en")}
+        try:
+            r = lazo.reanudar_escalada(decision, alerta, perfil, catalogo, ejecutor, respuesta,
+                                       entrada.get("desde"), alerta.get("timestamp", ""),
+                                       diferir_escalada=diferir_escalada)
+        except Exception as e:               # la decisión no se pierde: se traza con el fallo
+            r = {**decision, "escalada": {"resultado": "fallido", "error": f"{type(e).__name__}: {e}"}}
+            r.pop("en_cola", None)
+        if r.get("en_cola"):                           # el salto siguiente también pide humano
+            return
+        _cerrar({**r, "veredicto_escalada": "aprobar" if respuesta.lower().startswith("s") else "rechazar"},
+                entrada, alerta)
+
+    def _resolver_menu(entrada, veredicto, clase):
+        decision = {**entrada["decision"], "recibido_en": entrada.get("recibido_en")}
+        alerta = entrada["alerta"]
+        try:
+            r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
+                                       decision.get("id_decision", ""), alerta.get("timestamp", ""),
+                                       veredicto=veredicto, clase_reclasificada=clase,
+                                       diferir_escalada=diferir_escalada, leer=lambda *_: "")
+        except Exception as e:
+            # No se reencola (podría reejecutar a medias): se traza la decisión con el fallo, en vez
+            # de un 500 que la hacía desaparecer sin rastro.
+            r = {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase,
+                 "ejecucion": {"exito": False, "error": f"{type(e).__name__}: {e}"}}
+        if r.get("en_cola"):                           # escala y el salto pide humano: su tarjeta trazará
+            return
+        _cerrar(r, entrada, alerta)
+
+    def _con_la_tarjeta_tomada(pid, fn):
+        # La tarjeta sigue en la cola, marcada en curso, mientras se ejecuta la respuesta (SSH de
+        # varios segundos): una repetición que llega entonces se suma a ella en vez de abrir otra.
+        # Sale de la cola al terminar, cuando la decisión ya está trazada y recordada.
+        if estado.tomar_decision(pid) is None:         # otra respuesta ya la está resolviendo
+            return False
+        try:
+            fn()
+            return True
+        finally:
+            estado.sacar_decision(pid)
+
     def resolver(pid, respuesta, paso=None):
         entrada = estado.ver_decision(pid)
-        if entrada is None:
+        if entrada is None or entrada.get("en_curso"):
             return False
         # Una respuesta dada a un menú ya superado (p. ej. «Aprobar» pulsado justo después de
         # «Reclasificar», antes de que el visor refresque) no se reinterpreta en el menú nuevo.
@@ -309,26 +366,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                 return False
         respuesta = (respuesta or "").strip()
         if entrada.get("tipo") == "escalada":          # escalada diferida: se retoma con la respuesta
-            if estado.sacar_decision(pid) is None:
-                return False
-            alerta = entrada["alerta"]
-            try:
-                r = lazo.reanudar_escalada(entrada["decision"], alerta, perfil, catalogo, ejecutor, respuesta,
-                                           entrada.get("desde"), alerta.get("timestamp", ""),
-                                           diferir_escalada=diferir_escalada)
-            except Exception as e:           # la tarjeta ya salió de la cola: la decisión no se pierde
-                r = {**entrada["decision"], "escalada": {"resultado": "fallido", "error": f"{type(e).__name__}: {e}"}}
-                r.pop("en_cola", None)
-            if r.get("en_cola"):                       # el salto siguiente también pide humano
-                return True
-            r = {**r, "veredicto_escalada": "aprobar" if respuesta.lower().startswith("s") else "rechazar",
-                 "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
-                 "decidido_en": _ahora_iso()}
-            escribir(_linea_decision(r))
-            escribir_traza(r)
-            if al_resolver is not None:
-                al_resolver(r, alerta)
-            return True
+            return _con_la_tarjeta_tomada(pid, lambda: _resolver_escalada(entrada, respuesta))
         if not entrada.get("esperando_clase"):
             if respuesta == "3":                       # reclasificar -> submenú de clases (no finaliza)
                 clases = [c for c in analisis.CLASES if c != entrada["decision"].get("clase")]
@@ -345,29 +383,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                 veredicto, clase = "reclasificar", clases[int(respuesta) - 1]
             else:
                 veredicto, clase = "rechazar", None
-        if estado.sacar_decision(pid) is None:         # otra respuesta ya la resolvió (carrera)
-            return False
-        decision, alerta = entrada["decision"], entrada["alerta"]
-        try:
-            r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
-                                       decision.get("id_decision", ""), alerta.get("timestamp", ""),
-                                       veredicto=veredicto, clase_reclasificada=clase,
-                                       diferir_escalada=diferir_escalada, leer=lambda *_: "")
-        except Exception as e:
-            # La tarjeta ya salió de la cola (no se reencola: podría reejecutar a medias). Se traza la
-            # decisión con el fallo, en vez de un 500 que la hacía desaparecer sin rastro.
-            r = {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase,
-                 "ejecucion": {"exito": False, "error": f"{type(e).__name__}: {e}"}}
-        if r.get("en_cola"):                           # escala y el salto pide humano: su tarjeta trazará
-            return True
-        # Marcas de tiempo para el MTTR (tiempo de respuesta del analista) en el panel de métricas.
-        r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
-             "decidido_en": _ahora_iso()}
-        escribir(_linea_decision(r))
-        escribir_traza(r)
-        if al_resolver is not None:
-            al_resolver(r, alerta)
-        return True
+        return _con_la_tarjeta_tomada(pid, lambda: _resolver_menu(entrada, veredicto, clase))
     return resolver
 
 def _contar(resumen, d, incidente=True):
@@ -502,8 +518,10 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     def _descargar():
         nonlocal buffer, t0
         if buffer:
-            _procesa_lote(buffer)
-            buffer, t0 = [], None
+            # Se vacía ANTES de procesar: si Ctrl+C corta a mitad del lote (p. ej. en la pregunta al
+            # analista), el cierre no vuelve a procesar ni a preguntar lo mismo.
+            lote, buffer, t0 = buffer, [], None
+            _procesa_lote(lote)
 
     try:
         for linea in fuente_lineas:

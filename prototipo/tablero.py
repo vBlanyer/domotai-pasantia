@@ -40,7 +40,9 @@ class EstadoTablero:
             clave = entrada.get("clave")
             if clave is not None:
                 for p in self._cola.values():
-                    if p.get("clave") == clave:
+                    # Una tarjeta en curso ya tiene respuesta: lo que se encole ahora (la escalada que
+                    # esa respuesta provoca) es una tarjeta nueva, no una repetición de aquella.
+                    if p.get("clave") == clave and not p.get("en_curso"):
                         p["suprimidas"] += 1
                         return p["id"]
             pid = str(next(self._seq))
@@ -61,10 +63,22 @@ class EstadoTablero:
                     return (p.get("decision") or {}).get("id_decision") or p["id"]
         return None
 
-    def decisiones_pendientes(self):
-        """Las decisiones en cola, ordenadas por severidad (desc) y, a igualdad, por llegada."""
+    def tomar_decision(self, pid):
+        """Marca la decisión como en curso (el analista ya respondió y se está ejecutando) y la
+        devuelve; None si no está o ya la tomó otra respuesta. Sigue en la cola hasta sacar_decision:
+        así sumar_repeticion la encuentra mientras dura la ejecución."""
         with self._lock:
-            return sorted((dict(p) for p in self._cola.values()),
+            p = self._cola.get(pid)
+            if p is None or p.get("en_curso"):
+                return None
+            p["en_curso"] = True
+            return dict(p)
+
+    def decisiones_pendientes(self):
+        """Las decisiones que esperan al analista (sin las que ya se están ejecutando), ordenadas por
+        severidad (desc) y, a igualdad, por llegada."""
+        with self._lock:
+            return sorted((dict(p) for p in self._cola.values() if not p.get("en_curso")),
                           key=lambda p: (-(p.get("severidad") or 0), p.get("orden", 0)))
 
     def sacar_decision(self, pid):
