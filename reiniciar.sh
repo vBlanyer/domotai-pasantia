@@ -3,8 +3,9 @@
 # relanza leyendo las alertas de Wazuh, con una traza NUEVA (evita id_decision duplicados).
 #
 #   sh reiniciar.sh                 # modo plantilla (rápido, ideal para probar la UI)
-#   sh reiniciar.sh --con-llm       # con el justificador LLM + RAG (necesita el llama-server)
-#   sh reiniciar.sh --agente        # mitigación con el agente ReAct
+#   sh reiniciar.sh --con-llm       # EXPERIMENTAL: justificador LLM + RAG (necesita el llama-server;
+#                                   #   sin GPU tarda minutos por alerta; sin servidor arranca sin LLM)
+#   sh reiniciar.sh --agente        # EXPERIMENTAL: mitigación con el agente ReAct (mismos requisitos)
 #   (cualquier flag extra de prototipo.stream se pasa tal cual)
 #
 # Ctrl+C para detener. Requiere el banco levantado (sh lab/lab.sh up banco) y aprovisionado.

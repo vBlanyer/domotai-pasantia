@@ -523,3 +523,23 @@ class TestComparacionExactaDeIps(unittest.TestCase):
         ok, _ = ag.validar_comando("iptables -A FORWARD -s 172.20.20.41 -j DROP", "172.20.20.4")
         self.assertTrue(ok)
         self.assertFalse(ag.validar_comando("iptables -A FORWARD -s 172.20.20.4 -j DROP", "172.20.20.4")[0])
+
+
+class TestRespaldoDelAgente(unittest.TestCase):
+    def test_sin_una_accion_valida_del_modelo_el_respaldo_pregunta_al_humano(self):
+        # B4: el respaldo determinista ejecutaba con confianza 1.0 y sin preguntar, también lo que el
+        # perfil retenía. En modo agente se aprueba por paso: también en el respaldo.
+        preguntas = []
+        class HostVivo:                                      # el host responde: el perfil no preguntaría
+            def __init__(self): self.aplicado = set()
+            def __call__(self, ip, cmd):
+                if "grep" in cmd: return (0, "DROP") if ip in self.aplicado else (1, "")
+                self.aplicado.add(ip); return (0, "")
+        ej = HostVivo()
+        plan = ag.bucle_react({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln", "id_alerta": "a1"},
+                              "vp_intento_acceso", y_perfil_empresarial(), CAT, ej, GeneradorGuion([]),
+                              leer=lambda p: (preguntas.append(p), "n")[1], escribir=lambda *a: None,
+                              max_pasos=1, confianza=0.6)
+        self.assertTrue(plan["degradado"])
+        self.assertTrue(preguntas)
+        self.assertEqual(ej.aplicado, set())

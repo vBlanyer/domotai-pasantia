@@ -360,7 +360,7 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
 
 def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input, autonomo=False,
                 max_pasos=6, escribir=print, timestamp="", indice=None, embedder=None, gen_conocimiento=None,
-                hallazgos=None):
+                hallazgos=None, confianza=1.0):
     """Agente ReAct: itera Thought->Action->Observation, escala host->firewall al recibir un error,
     y degrada al motor determinista si no produce accion valida. El comando lo renderiza el codigo
     (RF-15); la ejecucion reutiliza conector.ejecutar_orden."""
@@ -401,7 +401,7 @@ def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input
             obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, disp, args.get("accion"),
                         ip_atacante, ip_gestion, alerta.get("id_alerta", ""), timestamp, autonomo, leer, escribir,
                         perfil=perfil, activo=alerta.get("activo"), servicio=alerta.get("servicio"),
-                        confianza=1.0)
+                        confianza=confianza)
             if reg is not None:
                 tocados.append(disp)
                 if reg.get("reversion_cmd"):
@@ -422,8 +422,11 @@ def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input
     # anotaba la accion que la politica habria propuesto; ahora se contiene igual recorriendo la
     # cadena de forma determinista. El plan sigue marcado como degradado, para que la traza
     # distinga lo que decidio el modelo de lo que decidio la regla.
+    # Como el agente, el respaldo aprueba por paso y con la confianza real de la decisión: antes
+    # ejecutaba sin preguntar (confianza 1.0), también lo que el perfil retenía (B4).
     plan = escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=leer,
-                                autonomo=autonomo, escribir=escribir, timestamp=timestamp)
+                                autonomo=autonomo, escribir=escribir, timestamp=timestamp,
+                                confianza=confianza, siempre_humano=True)
     accion, _params = politica.proponer(clase, alerta)
     plan.update({"pasos": pasos + plan["pasos"], "degradado": True, "accion_determinista": accion})
     return plan

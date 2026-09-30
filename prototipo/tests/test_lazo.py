@@ -164,6 +164,22 @@ class TestMitigarFn(unittest.TestCase):
         self.assertTrue(any("Justificación:" in l for l in lineas), lineas)
         self.assertIs(recibido["escribir"], escribir)
 
+    def test_en_modo_agente_lo_retenido_se_pregunta_antes_de_delegar(self):
+        # B4: una decisión que el perfil retiene para el humano pasa por el menú antes de que el
+        # agente actúe; rechazar no lo invoca, aprobar queda como veredicto en la traza.
+        a = dict(j("alerta_vp.json")); a["activo"] = "fantasma"          # confianza 0.5: requiere humano
+        llamado = []
+        mitigar = lambda *args, **kw: (llamado.append(1), {"resultado": "mitigado"})[1]
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, ejecutor_ok, "d1", "t",
+                               mitigar_fn=mitigar, leer=lambda *_: "2", escribir=lambda *_: None)
+        self.assertEqual(llamado, [])
+        self.assertEqual(r["veredicto_humano"], "rechazar")
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, ejecutor_ok, "d1", "t",
+                               mitigar_fn=mitigar, leer=lambda *_: "1", escribir=lambda *_: None)
+        self.assertEqual(llamado, [1])
+        self.assertEqual(r["veredicto_humano"], "aprobar")
+        self.assertEqual(r["mitigacion_agente"]["resultado"], "mitigado")
+
     def test_no_llama_al_agente_si_no_hay_accion(self):
         # alerta fuera de perímetro -> no_soportada -> accion_final None -> el agente NO se invoca
         a = dict(j("alerta_vp.json")); a["familia"] = "plataforma"

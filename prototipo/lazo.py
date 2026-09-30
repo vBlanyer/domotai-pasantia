@@ -130,13 +130,23 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
     # Modo agente: si hay contención que aplicar, delega la mitigación al agente ReAct, que decide la
     # estrategia, ESCALA de dispositivo y aprueba POR PASO (RF-08). El daemon no hace su prompt único.
     if mitigar_fn is not None and decision.get("accion_final"):
-        # Lo que el analista necesita para aprobar cada paso: la decisión y su justificación. En la
-        # web, la tarjeta se arma con lo escrito aquí y con lo que escribe el agente (mismo canal).
-        escribir(validacion.mostrar(decision, alerta))
+        # Lo que el analista necesita para aprobar: la decisión y su justificación. En la web, la
+        # tarjeta se arma con lo escrito aquí y con lo que escribe el agente (mismo canal).
+        veredicto = None
+        if decision.get("requiere_humano"):
+            # Lo que el perfil retiene para el humano se decide ANTES de que el agente actúe (B4):
+            # rechazar o reclasificar no lo invoca, y la aprobación queda como veredicto en la traza.
+            v = validacion.pedir(decision, alerta, leer=leer, escribir=escribir)
+            veredicto = v["veredicto"]
+            if veredicto != "aprobar":
+                return aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision, timestamp,
+                                         veredicto=veredicto, clase_reclasificada=v.get("clase_nueva"))
+        else:
+            escribir(validacion.mostrar(decision, alerta))
         # El ejecutor del lazo es el que anota lo que toca el MDR (stream.ActividadMDR): con él, el eco
         # del login de gestión tras la contención del agente se reconoce como actividad propia.
         plan = mitigar_fn(decision, alerta, leer, escribir=escribir, ejecutor=ejecutor)
-        return {**decision, "veredicto_humano": None, "clase_reclasificada": None,
+        return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": None,
                 "mitigacion_agente": plan, "orden": None, "ejecucion": None, "verificacion": None}
     # Modo web no bloqueante: si requiere humano y hay `encolar`, se encola y se difiere; el veredicto
     # se aplica (ejecuta + traza) cuando el analista responde, sin bloquear el lazo.

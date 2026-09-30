@@ -672,8 +672,30 @@ def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hal
                               gen, leer=leer, autonomo=False,
                               timestamp=decision.get("timestamp", ""),
                               indice=indice, embedder=rag.embedder_por_defecto(), escribir=escribir,
-                              hallazgos=hallazgos)
+                              hallazgos=hallazgos, confianza=decision.get("confianza", 1.0))
     return _fn
+
+def _servidor_responde(url, plazo=2):
+    import urllib.request
+    try:
+        with urllib.request.urlopen(url.rstrip("/") + "/health", timeout=plazo) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+def ajustar_modo_llm(cfg, sondear=_servidor_responde, escribir=print):
+    """--con-llm y --agente necesitan el servidor del modelo. Sin él, cada alerta pagaba los plazos
+    de espera antes de caer a la plantilla y el banner anunciaba «LLM+RAG»: se avisa y se arranca en
+    modo determinista, que es con el que se decide igualmente (B4)."""
+    if not (cfg.get("con_llm") or cfg.get("agente")):
+        return cfg
+    from prototipo import justificador_llm
+    if sondear(justificador_llm.URL):
+        escribir("[aviso] modo con modelo local (experimental): sin GPU, cada alerta tarda minutos.")
+        return cfg
+    escribir(f"[aviso] el servidor del modelo no responde en {justificador_llm.URL}: se arranca sin LLM "
+             "(justificación de plantilla, contención determinista). Levántalo con lab/scripts/llm-server.sh.")
+    return {**cfg, "con_llm": False, "agente": False}
 
 def construir_justificar_fn(con_llm, escribir=print):
     if not con_llm:
@@ -754,7 +776,7 @@ def _leer_interactivo():
 
 def main(argv):
     from prototipo import perfil as perfilm, catalogo as catm, conector
-    cfg = parsear_args(argv)
+    cfg = ajustar_modo_llm(parsear_args(argv))
     perfil = perfilm.cargar(cfg["perfil"])
     perfil_nombre = os.path.basename(cfg["perfil"]).replace(".yml", "")
     with open(cfg["hallazgos"], encoding="utf-8") as f:

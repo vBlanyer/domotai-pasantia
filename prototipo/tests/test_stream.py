@@ -549,6 +549,18 @@ class TestCLI(unittest.TestCase):
             stream.construir_justificar_fn(True, escribir=lambda *_: None)
         self.assertTrue(fn_rag.call_args.kwargs.get("estructurada"))
 
+    def test_sin_servidor_del_modelo_se_arranca_en_modo_determinista(self):
+        # B4: con --con-llm/--agente y sin servidor, cada alerta pagaba los plazos del modelo y el
+        # banner anunciaba «LLM+RAG». Ahora se avisa y se arranca sin modelo.
+        avisos = []
+        cfg = stream.ajustar_modo_llm({"con_llm": True, "agente": True}, sondear=lambda url: False,
+                                      escribir=avisos.append)
+        self.assertEqual((cfg["con_llm"], cfg["agente"]), (False, False))
+        self.assertTrue(any("modelo" in a for a in avisos))
+        cfg = stream.ajustar_modo_llm({"con_llm": True, "agente": False}, sondear=lambda url: True,
+                                      escribir=avisos.append)
+        self.assertTrue(cfg["con_llm"])
+
     def test_parsear_args_agente(self):
         self.assertFalse(stream.parsear_args(["alerts.json"])["agente"])
         self.assertTrue(stream.parsear_args(["-", "p.yml", "--agente"])["agente"])
