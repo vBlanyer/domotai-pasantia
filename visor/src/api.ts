@@ -94,12 +94,6 @@ export const DetalleSchema = z.object({
   escalada: PlanSchema.nullable().optional(),
   mitigacion_agente: PlanSchema.nullable().optional(),
 }).passthrough()
-export const EquipoSchema = z.object({
-  nombre: z.string(), ip: z.string().nullable().optional(),
-  funcion: z.string().nullable().optional(), criticidad: z.string().nullable().optional(),
-  categoria: z.string(), servicios_prestados: z.array(z.number()).nullable().optional(),
-  depende_de: z.array(z.string()).nullable().optional(), estado: z.string().nullable().optional(),
-})
 const NodoRedSchema = z.object({
   nombre: z.string(), ip: z.string().nullable().optional(), tipo: z.string(),
   zona: z.string().nullable().optional(), funcion: z.string().nullable().optional(),
@@ -144,7 +138,6 @@ export const MetricasSchema = z.object({
 })
 
 export type Salud = z.infer<typeof SaludSchema>
-export type Equipo = z.infer<typeof EquipoSchema>
 export type Decision = z.infer<typeof DecisionSchema>
 export type Detalle = z.infer<typeof DetalleSchema>
 export type Pasaje = z.infer<typeof PasajeSchema>
@@ -165,7 +158,6 @@ async function pedir<T>(ruta: string, esquema: z.ZodType<T>): Promise<T | { erro
 }
 
 export const getSalud = () => pedir("/api/salud", SaludSchema)
-export const getEquipos = () => pedir("/api/equipos", z.array(EquipoSchema))
 export const getDecisiones = () => pedir("/api/decisiones", z.array(DecisionSchema))
 export const getPendientes = () => pedir("/api/pendientes", z.array(PendienteSchema))
 export const getTrazas = () => pedir("/api/trazas", z.array(DecisionSchema))

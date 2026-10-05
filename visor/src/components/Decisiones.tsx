@@ -293,17 +293,18 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
   )
 }
 
-export function Decisiones() {
+export function Decisiones({ equipo = null, onQuitarEquipo }: { equipo?: string | null; onQuitarEquipo?: () => void } = {}) {
   const d = useSondeo(getDecisiones)
   const [abierto, setAbierto] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>({ texto: "", clase: "" })
   if (!d) return <Cargando />
   if ("error" in d) return <SinConexion />
   if (d.length === 0) return <Vacio>Aún no hay decisiones. Lanza un ataque para verlas aquí.</Vacio>
-  const filtradas = filtrarDecisiones(d, filtro)
+  const filtradas = filtrarDecisiones(d, { ...filtro, equipo })
   return (
     <div className="space-y-3">
-      <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(d)} cuenta={filtradas.length} />
+      <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(d)} cuenta={filtradas.length}
+        equipo={equipo} onQuitarEquipo={onQuitarEquipo} />
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
