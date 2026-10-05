@@ -194,8 +194,11 @@ disimularse: un agente que planifica libremente y encadena herramientas por su c
 precisamente lo que la exigencia de auditabilidad de la sección \ref{sec:politica-perfil} rechaza.
 La forma de conservar la utilidad del patrón sin heredar ese problema es acotarlo por construcción,
 y en este trabajo se acota de tres maneras simultáneas: el agente \textbf{selecciona} dentro de un
-catálogo cerrado de acciones y nunca inventa una nueva; cada paso de la escalada requiere
-aprobación humana explícita antes de ejecutarse; y la decisión de contener ---el qué--- sigue
+catálogo cerrado de acciones y nunca inventa una nueva; cada acción de la escalada pasa por el
+mismo filtro del perfil que el camino determinista ---se aplica en automático solo lo que el
+perfil permite y se retiene para validación humana lo que este exige, y el agente no puede saltar
+a un cortafuegos perimetral sin haber intentado antes la contención en el equipo atacado---; y la
+decisión de contener ---el qué--- sigue
 siendo determinista, de modo que el agente elige la estrategia, no si hay que actuar. Un agente así
 no es autónomo en el sentido fuerte del término: es un selector razonado sobre un espacio de
 acciones cerrado y supervisado.
@@ -312,8 +315,8 @@ Esta separación es también la que permite incorporar el agente descrito en la 
 capas: actúa dentro de la tercera, eligiendo entre las acciones que el catálogo ofrece y que el
 perfil ya ha autorizado, cuando la contención en el equipo afectado resulta insuficiente. La
 frontera se mantiene, por tanto, en el mismo sitio: la política determina \emph{qué} debe ocurrir y
-el modelo, en su papel de agente, propone \emph{cómo} lograrlo dentro de lo permitido, sujeto a
-aprobación humana en cada paso.
+el modelo, en su papel de agente, propone \emph{cómo} lograrlo dentro de lo permitido, sujeto al
+mismo filtro del perfil del cliente: automático lo que este permite, validación humana lo que retiene.
 
 % ===========================================================================
 \section{Métricas de evaluación de un clasificador binario}
