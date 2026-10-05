@@ -835,6 +835,8 @@ def main(argv):
     mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor, hallazgos=hallazgos)
     fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
     print(banner(cfg, ejecutor))
+    for aviso in perfilm.validar(perfil):          # cordura del perfil al arrancar (B11), sin romper
+        print(f"[aviso] perfil: {aviso}")
     resumen = _resumen_nuevo()         # lo rellena ejecutar(); sobrevive a Ctrl+C
     servidor, estado_web = None, None
     lector_incidente = None

@@ -356,3 +356,34 @@ class TestConcienciaDeActores(unittest.TestCase):
         self.assertEqual(r["accion_final"], "BLOQUEAR_IP")
         self.assertEqual(r["impacto"]["nivel"], "alcanza_servicio")
         self.assertTrue(r["requiere_humano"])   # hoy da False: bug del salto degradado (F1)
+
+
+class TestValidar(unittest.TestCase):
+    def test_perfil_del_banco_es_coherente(self):
+        p = yaml.safe_load(open(os.path.join("prototipo", "perfiles", "bancario.yml"), encoding="utf-8"))
+        self.assertEqual(perfil.validar(p), [])      # sin avisos
+
+    def test_avisos_de_incoherencias(self):
+        p = {"activos": {"web": {"ip": "nope", "depende_de": ["fantasma"]}},
+             "origenes_legitimos": ["10.0.0.1", "no-ip"],
+             "terceros_confiables": ["1.2.3.0/24", "mal/33"],
+             "continuidad": {"umbral_confianza": 5},
+             "rafaga": {"umbral": -2}}
+        avisos = perfil.validar(p)
+        texto = " | ".join(avisos)
+        self.assertIn("ip_gestion", texto)           # falta el plano de gestión (RF-19)
+        self.assertIn("nope", texto)                 # IP de activo no parseable
+        self.assertIn("fantasma", texto)             # depende_de a un activo inexistente
+        self.assertIn("no-ip", texto)                # origen legítimo no parseable
+        self.assertIn("mal/33", texto)               # CIDR inválido en terceros
+        self.assertIn("umbral_confianza", texto)     # fuera de [0,1]
+        self.assertTrue(any("rafaga" in a or "ráfaga" in a for a in avisos))
+        self.assertTrue(all(isinstance(a, str) for a in avisos))
+
+    def test_activos_o_topologia_mal_formados_avisan_sin_romper(self):
+        self.assertTrue(perfil.validar({"activos": [], "topologia": "x", "ip_gestion": "10.0.0.1"}))
+        self.assertEqual(perfil.validar(None), perfil.validar({}))   # None tolerado
+
+
+if __name__ == "__main__":
+    unittest.main()
