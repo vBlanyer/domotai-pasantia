@@ -407,7 +407,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
-             resumen=None, ruta_traza=None, lector_incidente=None):
+             resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -556,8 +556,6 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 _procesar_incidente_async(inc, id_decision, clave)
 
     buffer, t0 = [], None
-    def _vencio():
-        return t0 is not None and (reloj() - t0) >= ventana_agrupacion
     def _descargar():
         nonlocal buffer, t0
         if buffer:
@@ -566,14 +564,29 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             lote, buffer, t0 = buffer, [], None
             _procesa_lote(lote)
 
+    ultimo_evento = reloj()
+    silencio_avisado = False
+    def _latido(parsee, ahora):
+        # Latido de la ingesta: si la fuente (Wazuh) deja de enviar, se avisa una vez; al volver una
+        # alerta, se rearma. Un fallo silencioso de la ingesta es peor que uno ruidoso.
+        nonlocal ultimo_evento, silencio_avisado
+        if parsee:
+            ultimo_evento = ahora; silencio_avisado = False
+        elif silencio_s and not silencio_avisado and ahora - ultimo_evento >= silencio_s:
+            escribir(f"[aviso] ingesta: sin alertas desde hace {int(ahora - ultimo_evento)} s; "
+                     "¿sigue viva la fuente (Wazuh)?")
+            silencio_avisado = True
     try:
         for linea in fuente_lineas:
+            ahora = reloj()                            # una sola lectura del reloj por iteración
             if ventana_agrupacion <= 0:                # modo inmediato
                 if linea is None:
+                    _latido(False, ahora)
                     continue
                 alerta = _parsear(linea)
                 if alerta is None:
                     continue
+                _latido(True, ahora)
                 resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
                 _procesa_lote([alerta])
                 continue
@@ -581,11 +594,14 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             if linea is not None:
                 alerta = _parsear(linea)
                 if alerta is not None:
+                    _latido(True, ahora)
                     resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
                     if t0 is None:
-                        t0 = reloj()
+                        t0 = ahora
                     buffer.append(alerta)
-            if _vencio():
+            else:
+                _latido(False, ahora)
+            if t0 is not None and (ahora - t0) >= ventana_agrupacion:
                 _descargar()
         _descargar()                               # fuente agotada: descarga lo pendiente
     except KeyboardInterrupt:
