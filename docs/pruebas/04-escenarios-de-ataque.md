@@ -136,7 +136,7 @@ Rechazadas: 1 · Ejecutadas: 0
 ```
 
 > Sustituye `rechazar` por `aprobar` para ejecutar la acción, o `reclasificar` para corregir la clase (RF-08/RF-12).
-> **En el agente de mitigación**, cada acción mutante pide aprobación por paso salvo con `--autonomo`.
+> **En el agente de mitigación**, cada acción pide aprobación **solo cuando el perfil la retiene** (el salto al cortafuegos perimetral, un activo interno, el plano de gestión); lo que el perfil permite —p. ej. bloquear a un atacante externo en el host— se aplica en automático. `--autonomo` ejecuta sin preguntar (demos).
 
 ---
 
@@ -157,7 +157,8 @@ python3 lab/scripts/demo-agente-escalado.py --autonomo
 
 **En el daemon en vivo:** el escalado también ocurre dentro del listener si lo lanzas con **`--agente`** (§3.3
 en [03 · Lab en vivo](03-lab-en-vivo.md)): cuando un incidente de contención llega y la víctima no responde,
-el agente escala al firewall, pidiendo aprobación por paso. La traza registra `mitigacion_agente` con
+el agente **contiene primero en la víctima** y, si no responde, **escala al firewall** — ese salto al
+perímetro sí pide aprobación (el perfil lo retiene). La traza registra `mitigacion_agente` con
 `escalado`/`dispositivo_ejecutor`.
 
 **Esperado** (salida real):
