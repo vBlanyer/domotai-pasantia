@@ -250,7 +250,7 @@ def estado_equipos(activos, topologia, salud):
     return sorted(equipos, key=lambda e: e["nombre"])
 
 
-def _resumen_traza(reg, ips=None):
+def _resumen_traza(reg, ips=None, externos=()):
     imp = reg.get("impacto_determinado") or {}
     est = reg.get("justificacion_estructurada") or {}
     return {"id_decision": reg.get("id_decision"), "timestamp": reg.get("timestamp"),
@@ -280,7 +280,7 @@ def _resumen_traza(reg, ips=None):
             "indice_revertido": reg.get("indice_revertido"), "exito": reg.get("exito"),
             "accion_id": reg.get("accion_id"), "nodo": reg.get("nodo"), "error": reg.get("error"),
             # relación evento-equipo y desenlace de la contención, para la vista Red
-            "relaciones": relaciones(reg, ips or {}), "contencion": contencion_de(reg)[0],
+            "relaciones": relaciones(reg, ips or {}, externos), "contencion": contencion_de(reg)[0],
             "dispositivo": contencion_de(reg)[1]}
 
 
@@ -328,9 +328,12 @@ def ips_de(perfil):
     return {n: v.get("ip") for n, v in _red_segura(perfil)[0]["nodos"].items() if v.get("ip")}
 
 
-def relaciones(reg, ips):
+def relaciones(reg, ips, externos=()):
     """{equipo: [etiquetas]} de un registro: `objetivo` (el activo atacado), `origen` (la IP de origen
-    es la del equipo) y `contuvo_aqui` (el dispositivo donde quedó contenida). Solo decisiones."""
+    es la del equipo) y `contuvo_aqui` (el dispositivo donde quedó contenida). Solo decisiones.
+
+    `externos`: nodos de tipo `externo` (p. ej. internet). La IP de un atacante de fuera no coincide
+    con ningún equipo inventariado, así que se atribuye su origen a esos nodos: «entra desde internet»."""
     if reg.get("tipo") in _NO_DECISIONES:
         return {}
     rel = {}
@@ -341,8 +344,11 @@ def relaciones(reg, ips):
     ip = ((reg.get("contexto") or {}).get("origen_ip")
           or (((reg.get("justificacion_estructurada") or {}).get("evidencia")) or {}).get("origen_ip"))
     if ip:
-        for nombre, ip_nodo in ips.items():
-            if actores._coincide(ip, ip_nodo):
+        internos = [n for n, ip_nodo in ips.items() if actores._coincide(ip, ip_nodo)]
+        for nombre in internos:
+            _anadir(nombre, "origen")
+        if not internos:                       # fuente no inventariada -> viene de internet
+            for nombre in externos:
                 _anadir(nombre, "origen")
     estado, dispositivo = contencion_de(reg)
     if estado == "contenida":
@@ -362,18 +368,23 @@ def _estado_nodo(salud, a):
         if ((clase.startswith("vp_") or clase == "amenaza_enrutada") and estado != "contenida"
                 and ultima.get("veredicto_humano") != "rechazar"):
             return "atacado"
-    return "contenido" if a["_contenido"] else "sin_actividad"
+    if a["_contenido"]:
+        return "contenido"
+    if a.get("origen"):                        # solo originó ataques (p. ej. internet): se señala, no es «sin actividad»
+        return "origen"
+    return "sin_actividad"
 
 
 def estado_red(perfil, registros, pendientes=(), salud=None):
     """El mapa de la red con la actividad de cada equipo, para /api/red (ver prototipo/red.py)."""
     r, extra_avisos = _red_segura(perfil)
     ips = {n: v.get("ip") for n, v in r["nodos"].items() if v.get("ip")}
+    externos = [n for n, v in r["nodos"].items() if v.get("tipo") == "externo"]
     salud_de = {s["nombre"]: s["estado"] for s in (salud or {}).get("servicios", [])}
     act = {n: {"objetivo": 0, "origen": 0, "contuvo_aqui": 0, "pendientes": 0, "ultima": None,
                "_ultima_objetivo": None, "_contenido": False} for n in r["nodos"]}
     for reg in registros:
-        for nombre, etiquetas in relaciones(reg, ips).items():
+        for nombre, etiquetas in relaciones(reg, ips, externos).items():
             a = act.get(nombre)
             if a is None:
                 continue
@@ -471,8 +482,12 @@ def lista_trazas(ruta, n=None, perfil=None):
     # `indice` es la posición del registro en la cadena completa: identifica cada fila en el visor
     # (los id_decision se repiten entre relanzamientos) y casa con el roto_en de /api/verificar.
     inicio = max(0, len(regs) - n) if n else 0
-    ips = ips_de(perfil) if perfil else {}
-    return [{**_resumen_traza(r, ips), "indice": inicio + k} for k, r in enumerate(regs[inicio:])]
+    ips, externos = {}, []
+    if perfil:
+        mapa = _red_segura(perfil)[0]
+        ips = {nm: v.get("ip") for nm, v in mapa["nodos"].items() if v.get("ip")}
+        externos = [nm for nm, v in mapa["nodos"].items() if v.get("tipo") == "externo"]
+    return [{**_resumen_traza(r, ips, externos), "indice": inicio + k} for k, r in enumerate(regs[inicio:])]
 
 
 _CORPUS_POR_ID = None

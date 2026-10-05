@@ -601,12 +601,41 @@ class TestVistaRed(unittest.TestCase):
         e = {n["nombre"]: n["actividad"]["estado"] for n in tablero.estado_red(self.PERFIL, rechazada, [], None)["nodos"]}
         self.assertEqual(e["web-banking"], "sin_actividad")
 
-    def test_estado_red_equipo_solo_de_origen_no_es_contenido(self):
+    def test_estado_red_equipo_solo_de_origen_es_origen_no_contenido(self):
         reg = self._dec(contexto={"origen_ip": "10.200.0.10"}, orden={"nodo_objetivo": "web-banking"},
                         ejecucion={"exito": True}, verificacion={"verificado": True})
         e = {n["nombre"]: n["actividad"] for n in tablero.estado_red(self.PERFIL, [reg], [], None)["nodos"]}
         self.assertEqual(e["web-banking"]["estado"], "contenido")
-        self.assertEqual((e["taquilla"]["estado"], e["taquilla"]["origen"]), ("sin_actividad", 1))
+        # taquilla originó el ataque: estado «origen», nunca «contenido» ni «sin actividad»
+        self.assertEqual((e["taquilla"]["estado"], e["taquilla"]["origen"]), ("origen", 1))
+
+    def test_relaciones_origen_externo_se_atribuye_al_nodo_externo(self):
+        ips = {"web-banking": "10.10.0.10", "taquilla": "10.200.0.10"}
+        reg = self._dec(contexto={"origen_ip": "198.51.100.10"})      # IP externa: no casa con nadie interno
+        self.assertEqual(tablero.relaciones(reg, ips), {"web-banking": ["objetivo"]})           # sin externos
+        self.assertEqual(tablero.relaciones(reg, ips, externos=["internet"]),
+                         {"web-banking": ["objetivo"], "internet": ["origen"]})                 # con externos
+        interno = self._dec(contexto={"origen_ip": "10.200.0.10"})    # origen interno NO va a internet
+        self.assertEqual(tablero.relaciones(interno, ips, externos=["internet"]),
+                         {"web-banking": ["objetivo"], "taquilla": ["origen"]})
+
+    def test_estado_red_internet_cuenta_como_origen_externo(self):
+        perfil = {**self.PERFIL, "red": {"nodos": {"internet": {"tipo": "externo"}},
+                                         "enlaces": {"web-banking": "fw-core", "fw-core": "internet"}}}
+        reg = self._dec(contexto={"origen_ip": "198.51.100.10"}, orden={"nodo_objetivo": "web-banking"},
+                        ejecucion={"exito": True}, verificacion={"verificado": True})
+        nodos = {n["nombre"]: n["actividad"] for n in tablero.estado_red(perfil, [reg], [], None)["nodos"]}
+        self.assertEqual(nodos["internet"]["origen"], 1)              # ya no sale originados 0
+        self.assertEqual(nodos["internet"]["estado"], "origen")       # ya no sale «sin actividad»
+        self.assertEqual(nodos["web-banking"]["estado"], "contenido")
+
+    def test_estado_nodo_origen_informa_pero_objetivo_manda(self):
+        base = {"pendientes": 0, "origen": 2, "_ultima_objetivo": None, "_contenido": False}
+        self.assertEqual(tablero._estado_nodo(None, base), "origen")
+        atacado = {**base, "_ultima_objetivo": self._dec(orden=None)}  # objetivo sin contener gana
+        self.assertEqual(tablero._estado_nodo(None, atacado), "atacado")
+        contenido = {**base, "_contenido": True}                       # contenido gana sobre origen
+        self.assertEqual(tablero._estado_nodo(None, contenido), "contenido")
 
     def test_estado_red_forma_y_pendientes_sin_alerta(self):
         r = tablero.estado_red(self.PERFIL, [{"tipo": "error"}], [{"id": "1", "tipo": "escalada"}], None)

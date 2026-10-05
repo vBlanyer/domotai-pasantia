@@ -9,7 +9,8 @@ const RED: Red = {
           { nombre: "web-banking", tipo: "servidor", zona: "DMZ", actividad: act("atacado") },
           { nombre: "taquilla", tipo: "puesto", zona: "Sucursal", actividad: act("pendiente") },
           { nombre: "core-db", tipo: "servidor", zona: "DMZ", actividad: act("caido") },
-          { nombre: "atm", tipo: "puesto", zona: "Sucursal", actividad: act("sin_actividad") }],
+          { nombre: "atm", tipo: "puesto", zona: "Sucursal", actividad: act("sin_actividad") },
+          { nombre: "internet", tipo: "externo", zona: null, actividad: act("origen") }],
   enlaces: [["web-banking", "fw-core"], ["taquilla", "fw-core"]], dependencias: [["web-banking", "core-db"]],
   zonas: [{ nombre: "DMZ", nodos: ["web-banking", "core-db"] }, { nombre: "Sucursal", nodos: ["taquilla", "atm"] }],
 }
@@ -22,6 +23,7 @@ describe("MapaRed", () => {
     expect(screen.getByRole("button", { name: "fw-core, contenido" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "core-db, caído" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "atm, sin actividad" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "internet, origen de ataques" })).toBeInTheDocument()
     expect(screen.getByText("DMZ")).toBeInTheDocument()
   })
   it("se selecciona con clic y con Enter o Espacio", () => {

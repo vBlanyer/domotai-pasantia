@@ -7,6 +7,7 @@ export const ESTADO_VISUAL: Record<string, { texto: string; icono: string; relle
   atacado:       { texto: "atacado", icono: "⚠", relleno: "fill-rose-500/25", borde: "stroke-rose-500" },
   pendiente:     { texto: "espera tu decisión", icono: "⏸", relleno: "fill-amber-400/25", borde: "stroke-amber-500" },
   contenido:     { texto: "contenido", icono: "✓", relleno: "fill-emerald-500/20", borde: "stroke-emerald-500" },
+  origen:        { texto: "origen de ataques", icono: "↗", relleno: "fill-sky-500/20", borde: "stroke-sky-500" },
   caido:         { texto: "caído", icono: "✕", relleno: "fill-slate-500/30", borde: "stroke-slate-400" },
   sin_actividad: { texto: "sin actividad", icono: "", relleno: "fill-card", borde: "stroke-border" },
 }
