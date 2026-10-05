@@ -19,6 +19,18 @@ class TestFiltro(unittest.TestCase):
         r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip":"1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
         self.assertEqual(r["resultado"], "permite")
 
+    def test_tercero_externo_confiable_no_se_auto_bloquea_sino_que_pide_humano(self):
+        # Un socio externo crítico (pasarela, proveedor) declarado en el perfil: aunque sea una
+        # amenaza real que se auto-bloquearía, se retiene para un humano (no se corta solo).
+        p = perfil_fx(); p["terceros_confiables"] = ["203.0.113.7"]
+        r = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "203.0.113.7"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual(r["resultado"], "permite")          # la acción sigue siendo bloquear...
+        self.assertTrue(r["requiere_humano"])                # ...pero la decide un humano
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")
+        # una IP cualquiera sí se auto-bloquea
+        r2 = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertFalse(r2["requiere_humano"])
+
     def test_umbral_configurable_por_perfil(self):
         # RF-07: el umbral de escalado sale del perfil, no del código
         p = perfil_fx(); p["continuidad"]["umbral_confianza"] = 0.9

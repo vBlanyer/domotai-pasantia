@@ -131,4 +131,13 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         # automático, la acción sigue ejecutándose (sigue "degrada"), pero retenida para el humano.
         if not _permite_nivel(perfil, det["nivel"], confianza):
             res = {**res, "requiere_humano": True}
-    return {**_aplicar_actor(res, perfil, det), "impacto": det}
+    final = _aplicar_actor(res, perfil, det)
+    # Tercero externo de confianza (socio crítico): un ataque aparente desde él no se auto-bloquea
+    # —cortarlo tiraría un servicio de negocio—, se retiene para un humano (la acción se conserva).
+    if (accion_id in impactom.ACCIONES_SOBRE_IP and final.get("accion_final")
+            and not final.get("requiere_humano")
+            and actores.es_tercero_confiable((params or {}).get("ip"), perfil)):
+        final = {**final, "requiere_humano": True}
+        det = {**det, "motivo": f"{det.get('motivo') or ''} · origen en terceros_confiables: "
+                                "no se bloquea en automático, requiere aprobación".strip()}
+    return {**final, "impacto": det}
