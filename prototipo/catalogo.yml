@@ -6,7 +6,20 @@ OBS_ESCUCHA:     { categoria: observacion, impacto: ninguno, reversion: no_aplic
 OBS_CONFIG:      { categoria: observacion, impacto: ninguno, reversion: no_aplica, comando: "ip addr; ip route", verificacion: "salida capturada" }
 OBS_CAPTURA:     { categoria: observacion, impacto: ninguno, reversion: no_aplica, comando: "timeout 10 tcpdump -c 100 -w -", verificacion: "pcap devuelto" }
 BLOQUEAR_IP:     { categoria: contencion, impacto: localizado, reversion: definida, comando: "iptables -A INPUT -s {ip} -j DROP", reversion_cmd: "iptables -D INPUT -s {ip} -j DROP", verificacion: "iptables -L -n | grep DROP | grep -wF -- {ip}" }
-BLOQUEAR_IP_FIREWALL: { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "iptables -A FORWARD -s {ip} -j DROP", reversion_cmd: "iptables -D FORWARD -s {ip} -j DROP", verificacion: "iptables -L FORWARD -n | grep DROP | grep -wF -- {ip}" }
+BLOQUEAR_IP_FIREWALL:
+  categoria: contencion
+  impacto: alcanza_servicio
+  reversion: definida
+  comando: "iptables -A FORWARD -s {ip} -j DROP"
+  reversion_cmd: "iptables -D FORWARD -s {ip} -j DROP"
+  verificacion: "iptables -L FORWARD -n | grep DROP | grep -wF -- {ip}"
+  # Un cortafuegos de borde OpenWrt (22.03+) usa fw4/nftables, no iptables. El conector es el mismo
+  # (SSH); solo cambia el comando para los nodos con `plataforma: openwrt`.
+  plataformas:
+    openwrt:
+      comando: "nft add rule inet fw4 forward ip saddr {ip} drop"
+      reversion_cmd: "nft -a list chain inet fw4 forward | grep -F {ip} | grep -o 'handle [0-9]*' | grep -o '[0-9]*' | xargs -r -n1 nft delete rule inet fw4 forward handle"
+      verificacion: "nft list chain inet fw4 forward | grep -F {ip} | grep -qw drop"
 BLOQUEAR_PUERTO: { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "iptables -A INPUT -p tcp --dport {puerto} -j DROP", reversion_cmd: "iptables -D INPUT -p tcp --dport {puerto} -j DROP", verificacion: "iptables -L -n" }
 AISLAR_NODO:     { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "iptables -A FORWARD -s {ip_nodo} -j DROP", reversion_cmd: "iptables -D FORWARD -s {ip_nodo} -j DROP", verificacion: "iptables -L -n" }
 LIMITAR_BANDA:   { categoria: contencion, impacto: alcanza_servicio, reversion: definida, comando: "tc qdisc add dev {if} root tbf rate {rate}", reversion_cmd: "tc qdisc del dev {if} root", verificacion: "tc qdisc show" }

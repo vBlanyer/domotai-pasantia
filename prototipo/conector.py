@@ -1,11 +1,12 @@
 """El conector: traduce la orden a un comando del catálogo y lo ejecuta por el ejecutor inyectado."""
 import json, os, re, sys
+from prototipo import catalogo as catm
 
 _SEGURO = re.compile(r'^[A-Za-z0-9._:-]+\Z')   # IPs, puertos, nombres de servicio: sin metacaracteres de shell
 # \Z (no $) para que un \n final no cuele -> separador de comandos en el shell remoto.
 
-def render_comando(catalogo, accion_id, params):
-    return catalogo[accion_id]["comando"].format(**params)
+def render_comando(catalogo, accion_id, params, plataforma=None):
+    return catm.campo(catalogo[accion_id], "comando", plataforma).format(**params)
 
 def _params_seguros(params):
     # además del charset: nada que empiece por "-" (evita que un valor se interprete como flag, p.ej. de iptables).
@@ -31,9 +32,10 @@ def ahora_iso():
 
 def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
     acc = catalogo[orden["accion_id"]]
+    plataforma = orden.get("plataforma")            # variante del comando según el SO del nodo (OpenWrt=nft)
     if not _params_seguros(orden.get("params", {})):
         return _resultado(orden, None, -1, "params rechazados: caracteres no permitidos", False, False, timestamp)
-    cmd_verif = acc["verificacion"].format(**orden["params"])
+    cmd_verif = catm.campo(acc, "verificacion", plataforma).format(**orden["params"])
     # 1. Verificar-antes-de-actuar: si ya está en el estado deseado, no reejecutar (idempotencia).
     #    Solo aplica cuando la verificación representa un estado final persistente (p.ej. una regla
     #    de iptables). Para acciones con reversion:transitoria (MATAR_CONEXION), rc0 en la
@@ -45,7 +47,7 @@ def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
         if rc_v == 0:
             return _resultado(orden, None, rc_v, out_v, True, True, timestamp)
     # 2. Ejecutar y volver a verificar para confirmar el efecto.
-    cmd = render_comando(catalogo, orden["accion_id"], orden["params"])
+    cmd = render_comando(catalogo, orden["accion_id"], orden["params"], plataforma)
     rc, out = ejecutor(orden["nodo_ip"], cmd)
     rc_v2, out_v2 = ejecutor(orden["nodo_ip"], cmd_verif)
     return _resultado(orden, cmd, rc, out, rc == 0 and rc_v2 == 0, False, timestamp)
