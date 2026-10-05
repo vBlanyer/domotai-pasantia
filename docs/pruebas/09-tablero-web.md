@@ -54,7 +54,7 @@ http://127.0.0.1:8787
 - **Estado de servicios** — una fila por servicio (`● OK` / `✖ CAÍDO`), de qué depende, y cuántos de los servicios están
   caídos ahora mismo. Se lee del JSONL que escribe `lab/banco/monitor.py`; sin monitor, la vista degrada a
   "sin datos del monitor" en vez de romperse.
-- **Equipos** — el inventario de dispositivos del perfil por categoría, con criticidad, estado y postura.
+- **Red** — el mapa de la red del cliente por zonas (sustituye a la antigua vista Equipos); al pulsar un equipo, se abre el panel con sus eventos y «Ver en Decisiones» filtra por ese equipo.
 - **Decisiones** — el feed de las últimas decisiones ya resueltas (cuándo, activo, clase, acción final, si
   fue automática o exigió humano), leído directamente de la traza.
 - **Aprobaciones** — la cola de decisiones **pendientes ahora mismo**: cada tarjeta muestra el contexto del

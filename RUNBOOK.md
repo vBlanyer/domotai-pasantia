@@ -76,8 +76,8 @@ La salida de `python3 -m prototipo.stream …` es la vista principal:
 ### B. Web — el visor React (con `--web`)
 
 Consola visual que consume la misma API del daemon (tema claro/oscuro). **Siete vistas:** Panel (KPIs +
-gráficos), Métricas (tendencia y distribución en el tiempo), Estado de servicios (las apps de negocio en verde/rojo + dependencias), Equipos (inventario de
-dispositivos del perfil por categoría, con criticidad/estado/postura), Decisiones (el feed; filas
+gráficos), Métricas (tendencia y distribución en el tiempo), Estado de servicios (las apps de negocio en verde/rojo + dependencias), Red (mapa de la red
+del cliente por zonas; al pulsar un equipo, sus eventos), Decisiones (el feed; filas
 expandibles con justificación, MITRE y pasajes del RAG), Aprobaciones (aprobar/rechazar desde el navegador)
 y Trazas (registro completo + verificar la cadena de hashes).
 
