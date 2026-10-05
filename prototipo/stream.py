@@ -712,6 +712,11 @@ def construir_justificar_fn(con_llm, escribir=print):
         escribir(f"[aviso] justificador LLM/RAG no disponible ({e}); se usara la plantilla.")
         return None
 
+def lineas_avisos_red(perfil):
+    """Los avisos de la sección `red` del perfil, listos para imprimir al arrancar (spec §3)."""
+    from prototipo import tablero
+    return [f"[aviso] perfil, sección red: {a}" for a in tablero.estado_red(perfil, [])["avisos"]]
+
 _SALUD_DEF = {"contenedor": "clab-banco-mdr-siem", "fichero_en_contenedor": "/var/log/banco/salud.jsonl"}
 
 def construir_web(cfg, perfil):
@@ -792,6 +797,8 @@ def main(argv):
     servidor, estado_web = None, None
     if cfg["web"]:
         estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil)
+        for linea in lineas_avisos_red(perfil):
+            print(linea)
         if not cfg["agente"]:
             estado_web = estado          # cola no bloqueante (fuera del modo agente)
         threading.Thread(target=servidor.serve_forever, daemon=True).start()

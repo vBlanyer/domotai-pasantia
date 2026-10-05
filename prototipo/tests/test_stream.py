@@ -1067,5 +1067,13 @@ class TestRevisionFinal(unittest.TestCase):
         self.assertEqual(resumen["suprimidas"], 0)
         self.assertEqual(len(estado.decisiones_pendientes()), 1)       # vuelve a pedir al analista
 
+class TestAvisosRed(unittest.TestCase):
+    def test_lineas_avisos_red(self):
+        self.assertEqual(stream.lineas_avisos_red({"activos": {"a": {}}}), [])
+        ls = stream.lineas_avisos_red({"activos": {"a": {}}, "red": "si"})
+        self.assertEqual(len(ls), 1)
+        self.assertTrue(ls[0].startswith("[aviso] perfil, sección red: "))
+
+
 if __name__ == "__main__":
     unittest.main()
