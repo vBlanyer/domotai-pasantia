@@ -51,8 +51,9 @@ def revertir(registro, catalogo, ejecutor, timestamp, motivo=""):
     if not conector._params_seguros(params):
         return {**base, "comando_ejecutado": None, "codigo_salida": -1, "exito": False,
                 "salida": "params rechazados: caracteres no permitidos"}
-    cmd = _render(acc["reversion_cmd"], params)
-    verif = _render(acc.get("verificacion", ""), params)
+    plataforma = orden.get("plataforma")            # misma variante (OpenWrt=nft) que se ejecutó
+    cmd = _render(catm.campo(acc, "reversion_cmd", plataforma), params)
+    verif = _render(catm.campo(acc, "verificacion", plataforma) or "", params)
     if cmd is None:
         return {**base, "comando_ejecutado": None, "codigo_salida": -1, "exito": False,
                 "salida": "la plantilla de reversion pide un parametro que la orden no tiene"}

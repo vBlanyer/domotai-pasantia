@@ -28,7 +28,7 @@ iot .20, vuln .30) · Gestión `172.20.20.0/24`.
 |---|---|---|---|
 | **`red-cliente`** (default) | La red del cliente estándar; el `borde` es un router. La escalada a firewall se demuestra **simulada**. | Uso general: demos, daemon, fuerza bruta SSH, telnet al IoT. | A, B, D, E |
 | **`red-cliente-firewall`** | Igual, pero el `borde` corre **sshd + msfadmin** → el conector empuja `iptables -A FORWARD` de verdad → **escalada host→firewall REAL**. | Probar la escalada multi-nodo con el ejecutor de firewall real (`--lab`). | C (en vivo) |
-| **`red-cliente-openwrt`** | Variante donde el `borde` es OpenWrt (kind `openwrt`). Bloqueada por un cuelgue del bootstrap de vrnetlab (ver `lab/mediciones.md`). | Trabajo futuro, cuando se resuelva el bootstrap. | — |
+| **`red-cliente-openwrt`** | Variante donde el `borde` es OpenWrt (kind `openwrt`), vía vrnetlab (cuyo bootstrap se cuelga con 24.10). La validación de la contención sobre OpenWrt real se hace ahora con **OpenWrt x86 en QEMU** (sin vrnetlab): ver [11 · OpenWrt real](11-openwrt-real.md). El catálogo ya es **portable por plataforma** (nftables para `plataforma: openwrt`). | Validable con QEMU | ver guía 11 |
 | **`smoke-test`** | Topología mínima para validar que Containerlab funciona en la máquina. | Diagnóstico de entorno. | — |
 
 ## Ejemplos
