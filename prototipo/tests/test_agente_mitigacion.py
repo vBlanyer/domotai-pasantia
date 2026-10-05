@@ -475,6 +475,14 @@ class TestVistaDelAgente(unittest.TestCase):
                                              ag.resolver_topologia(y_perfil()))
         self.assertIn("nunca actues sobre el canal de gestion (192.168.1.100)", prompt)
 
+    def test_el_prompt_pide_empezar_por_el_equipo_atacado(self):
+        # El agente debe contener primero en el host (local, automático), no saltar al cortafuegos
+        # perimetral (consecuente, pide humano): es la causa de que todo ataque externo pidiera aprobación.
+        prompt = ag.construir_prompt_sistema({"origen_ip": "203.0.113.9", "activo": "objetivo-vuln"},
+                                             ag.resolver_topologia(y_perfil()))
+        self.assertIn("EMPIEZA por el propio equipo atacado (objetivo-vuln)", prompt)
+        self.assertIn("ultimo recurso", prompt)
+
     def test_sin_ip_de_gestion_conserva_la_consigna_generica(self):
         topo = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30"}, "ip_gestion": None}
         self.assertIn("nunca toques el plano de gestion", ag.construir_prompt_sistema({}, topo))
