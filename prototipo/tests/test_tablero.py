@@ -694,6 +694,19 @@ class TestVistaRed(unittest.TestCase):
         nodo = [n for n in r["nodos"] if n["nombre"] == "web-banking"][0]
         self.assertEqual(nodo["actividad"]["objetivo"], 0)
 
+    def test_registros_cacheados_reusa_mientras_no_cambia_el_fichero(self):
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "t.jsonl")
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(json.dumps(self._dec(orden=None)) + "\n")
+            a = tablero._registros_cacheados(ruta)
+            self.assertIs(tablero._registros_cacheados(ruta), a)   # no cambió: mismo objeto (cache)
+            with open(ruta, "a", encoding="utf-8") as f:           # crece el fichero
+                f.write(json.dumps(self._dec(orden=None)) + "\n")
+            b = tablero._registros_cacheados(ruta)
+            self.assertEqual(len(b), 2)                            # cambió: relee
+            self.assertEqual(tablero._registros_cacheados("/no/existe.jsonl"), [])
+
     def test_resumen_traza_expone_relaciones_y_contencion(self):
         reg = self._dec(orden={"nodo_objetivo": "web-banking"}, ejecucion={"exito": True}, verificacion={"verificado": True})
         r = tablero._resumen_traza(reg, tablero.ips_de(self.PERFIL))

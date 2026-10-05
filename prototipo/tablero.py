@@ -487,10 +487,30 @@ def _limite(path):
     return n if n is not None and n > 0 else LIMITE_TRAZAS
 
 
-def lista_trazas(ruta, n=None, perfil=None):
+_cache_traza = {"ruta": None, "firma": None, "regs": []}
+_cache_traza_lock = threading.Lock()
+
+def _registros_cacheados(ruta):
+    """Registros de la traza, releídos solo si el fichero cambió (mtime+tamaño). El visor sondea
+    cada 2 s cinco endpoints que releían la traza entera cada vez; con la caché, mientras no llegue
+    una decisión nueva la lectura es gratis. [] si el fichero no existe aún."""
     try:
+        st = os.stat(ruta)
+        firma = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return []
+    with _cache_traza_lock:
+        c = _cache_traza
+        if c["ruta"] == ruta and c["firma"] == firma:
+            return c["regs"]
         regs = traza.leer_registros(ruta)
-    except FileNotFoundError:
+        c.update(ruta=ruta, firma=firma, regs=regs)
+        return regs
+
+
+def lista_trazas(ruta, n=None, perfil=None):
+    regs = _registros_cacheados(ruta)
+    if not regs and not os.path.exists(ruta):
         return []
     # `indice` es la posición del registro en la cadena completa: identifica cada fila en el visor
     # (los id_decision se repiten entre relanzamientos) y casa con el roto_en de /api/verificar.
@@ -528,10 +548,7 @@ def _hidratar_pasajes(reg, corpus):
 
 
 def traza_detalle(ruta, id_decision, indice=None):
-    try:
-        regs = traza.leer_registros(ruta)
-    except FileNotFoundError:
-        return None
+    regs = _registros_cacheados(ruta)
     # Los id_decision se repiten si se relanzó el daemon sobre la misma traza. Con `indice` (la
     # posición que la fila conoce, ver lista_trazas) se toma ESE registro si es del id pedido; si no,
     # la última coincidencia, que es la vigente.
@@ -542,14 +559,11 @@ def traza_detalle(ruta, id_decision, indice=None):
         for r in regs:
             if r.get("id_decision") == id_decision:
                 hallado = r
-    return _hidratar_pasajes(hallado, _corpus_por_id()) if hallado is not None else None
+    return _hidratar_pasajes(dict(hallado), _corpus_por_id()) if hallado is not None else None
 
 
 def verificar_traza(ruta):
-    try:
-        regs = traza.leer_registros(ruta)
-    except FileNotFoundError:
-        regs = []
+    regs = _registros_cacheados(ruta)
     v = traza.verificar(regs)
     return {"ok": v["valida"], "roto_en": v["primer_fallo"], "motivo": v["motivo"], "n": v["n"]}
 
@@ -618,10 +632,7 @@ class _Manejador(BaseHTTPRequestHandler):
                 return self._responder(estado_equipos(s.activos, s.topologia, salud))
             if ruta == "/api/red":
                 salud = estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud), s.dependencias)
-                try:
-                    regs = traza.leer_registros(s.ruta_traza)
-                except FileNotFoundError:
-                    regs = []
+                regs = _registros_cacheados(s.ruta_traza)
                 pend = s.estado.decisiones_pendientes() if getattr(s, "async_web", False) else []
                 return self._responder(estado_red(s.perfil, regs, pend, salud))
             if ruta == "/api/decisiones":
@@ -638,11 +649,7 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/verificar":
                 return self._responder(verificar_traza(s.ruta_traza))
             if ruta == "/api/metricas":
-                try:
-                    regs = traza.leer_registros(s.ruta_traza)
-                except FileNotFoundError:
-                    regs = []
-                return self._responder(metricas(regs))
+                return self._responder(metricas(_registros_cacheados(s.ruta_traza)))
             if ruta.startswith("/api/"):
                 return self._responder({"error": "no encontrado"}, 404)
             return self._servir_archivo(ruta)          # el build de React (index.html + assets/)
