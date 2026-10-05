@@ -51,6 +51,25 @@ describe("Red", () => {
     expect(screen.getByText("contuvo aquí")).toBeInTheDocument()
   })
 
+  it("un timestamp ilegible no tumba el panel y se muestra tal cual", () => {
+    h.fuentes.set(getTrazas, [{ ...TRAZAS[0], timestamp: "basura" }])
+    render(<Red onVerDecisiones={() => {}} />)
+    fireEvent.click(screen.getByRole("button", { name: /web-banking/ }))
+    expect(screen.getByText("basura")).toBeInTheDocument()
+  })
+
+  it("muestra los avisos del perfil sobre el mapa", () => {
+    h.fuentes.set(getRed, { ...RED, avisos: ["enlace x -> y: nodo desconocido, se ignora"] })
+    render(<Red onVerDecisiones={() => {}} />)
+    expect(screen.getByText(/1 aviso en la sección red/)).toBeInTheDocument()
+    expect(screen.getByText(/enlace x -> y/)).toBeInTheDocument()
+  })
+
+  it("sin avisos no pinta el aviso", () => {
+    render(<Red onVerDecisiones={() => {}} />)
+    expect(screen.queryByText(/en la sección red/)).not.toBeInTheDocument()
+  })
+
   it("«Ver en Decisiones» pasa el equipo", () => {
     const ver = vi.fn()
     render(<Red onVerDecisiones={ver} />)

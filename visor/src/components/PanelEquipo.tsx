@@ -11,8 +11,12 @@ const DESENLACE: Record<string, (d: Decision) => string> = {
   enrutada: (d) => `enrutada a ${d.dispositivo ?? "—"}`,
   sin_accion: () => "sin contención",
 }
-const hora = (ts?: string | null) =>
-  ts ? new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(new Date(ts)) : "—"
+// Un timestamp que Date no sepa leer (p. ej. «+0000» en Safari) se muestra tal cual: format() lanzaría RangeError.
+const hora = (ts?: string | null) => {
+  if (!ts) return "—"
+  const t = new Date(ts)
+  return isNaN(t.getTime()) ? ts : new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(t)
+}
 
 export function PanelEquipo({ nodo, eventos, onVerDecisiones }: {
   nodo: NodoRed; eventos: Decision[]; onVerDecisiones: () => void
