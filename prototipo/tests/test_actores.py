@@ -107,6 +107,9 @@ class TestPolitica(unittest.TestCase):
         self.assertFalse(actores.es_tercero_confiable("8.8.8.8", p))          # fuera
         self.assertFalse(actores.es_tercero_confiable(None, p))
         self.assertFalse(actores.es_tercero_confiable("203.0.113.7", {}))     # sin lista
+        # una errata (escalar donde va una lista) no debe lanzar: se trata como sin allowlist
+        self.assertFalse(actores.es_tercero_confiable("1.2.3.4", {"terceros_confiables": 7}))
+        self.assertFalse(actores.es_tercero_confiable("1.2.3.4", {"terceros_confiables": "1.2.3.4"}))
 
 
 if __name__ == "__main__":

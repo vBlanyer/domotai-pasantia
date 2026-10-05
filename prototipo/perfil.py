@@ -46,13 +46,23 @@ def validar(perfil):
             continue
         if a.get("ip") is not None and not _ip_ok(a.get("ip")):
             avisos.append(f"activo {nombre}: IP no parseable {a.get('ip')!r}")
-        for dep in a.get("depende_de") or []:
-            if dep not in activos:
-                avisos.append(f"activo {nombre}: depende_de un activo inexistente ({dep})")
+        dep_de = a.get("depende_de")
+        if dep_de is not None and not isinstance(dep_de, (list, tuple)):
+            avisos.append(f"activo {nombre}: depende_de debe ser una lista, no {dep_de!r}")
+        else:
+            for dep in dep_de or []:
+                if dep not in activos:
+                    avisos.append(f"activo {nombre}: depende_de un activo inexistente ({dep})")
     for clave in ("origenes_legitimos", "terceros_confiables", "redes_internas"):
-        for v in perfil.get(clave) or []:
-            if not (_ip_ok(v) or _cidr_ok(v)):
-                avisos.append(f"{clave}: entrada no es IP ni CIDR válido ({v!r})")
+        v = perfil.get(clave)
+        if v is None:
+            continue
+        if not isinstance(v, (list, tuple)):
+            avisos.append(f"{clave}: se esperaba una lista, no {v!r}")
+            continue
+        for item in v:
+            if not (_ip_ok(item) or _cidr_ok(item)):
+                avisos.append(f"{clave}: entrada no es IP ni CIDR válido ({item!r})")
     rutas = perfil.get("rutas")
     if rutas is not None and not isinstance(rutas, dict):
         avisos.append("rutas: se esperaba un mapa rol->destino")

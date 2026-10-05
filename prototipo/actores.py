@@ -111,6 +111,8 @@ def es_tercero_confiable(ip, perfil):
     un proveedor— al que un ataque aparente podría apuntar, pero cuyo bloqueo automático causaría una
     caída, así que se retiene para un humano en vez de cortarlo solo."""
     tcs = (perfil or {}).get("terceros_confiables") or []
+    if not isinstance(tcs, (list, tuple)):     # una errata (escalar) no es allowlist, y no debe lanzar
+        return False
     if any(_coincide(ip, t) for t in tcs):
         return True
     c = _canon(ip)

@@ -384,6 +384,18 @@ class TestValidar(unittest.TestCase):
         self.assertTrue(perfil.validar({"activos": [], "topologia": "x", "ip_gestion": "10.0.0.1"}))
         self.assertEqual(perfil.validar(None), perfil.validar({}))   # None tolerado
 
+    def test_validar_no_revienta_con_escalar_donde_va_una_lista(self):
+        # Una errata de YAML que pone un escalar donde va una lista no debe lanzar (es lo que validar
+        # existe para atrapar), ni iterar carácter a carácter una cadena.
+        p = {"ip_gestion": "10.0.0.1", "activos": {"a": {"depende_de": 5}},
+             "redes_internas": 10, "terceros_confiables": "7"}
+        avisos = perfil.validar(p)                 # no debe lanzar
+        t = " | ".join(avisos)
+        self.assertIn("depende_de", t)
+        self.assertIn("redes_internas", t)
+        self.assertIn("terceros_confiables", t)
+        self.assertTrue(all(isinstance(a, str) for a in avisos))
+
 
 if __name__ == "__main__":
     unittest.main()

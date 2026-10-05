@@ -850,8 +850,11 @@ def main(argv):
     mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor, hallazgos=hallazgos)
     fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
     print(banner(cfg, ejecutor))
-    for aviso in perfilm.validar(perfil):          # cordura del perfil al arrancar (B11), sin romper
-        print(f"[aviso] perfil: {aviso}")
+    try:                                           # cordura del perfil al arrancar (B11), sin romper
+        for aviso in perfilm.validar(perfil):
+            print(f"[aviso] perfil: {aviso}")
+    except Exception as e:
+        print(f"[aviso] perfil: no se pudo validar ({type(e).__name__}: {e})")
     resumen = _resumen_nuevo()         # lo rellena ejecutar(); sobrevive a Ctrl+C
     servidor, estado_web = None, None
     lector_incidente = None
