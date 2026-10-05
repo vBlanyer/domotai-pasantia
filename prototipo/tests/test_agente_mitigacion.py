@@ -196,6 +196,20 @@ class TestBucleReact(unittest.TestCase):
         self.assertEqual(plan["resultado"], "mitigado")
         self.assertEqual(plan["dispositivo_ejecutor"], "objetivo-vuln")
 
+    def test_no_escala_al_cortafuegos_sin_intentar_antes_el_host(self):
+        # Barrera estructural: aunque el LLM elija el cortafuegos perimetral de entrada, el agente
+        # lo rechaza hasta haber intentado contener en el equipo atacado (local, automático). Así
+        # un ataque externo a un host no acaba pidiendo aprobación por un salto al perímetro.
+        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
+                 'Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
+                 'Final: {"resultado":"mitigado","dispositivo_ejecutor":"objetivo-vuln"}']
+        plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil_empresarial(), CAT,
+                              lambda ip, c: (0, ""), GeneradorGuion(guion),
+                              leer=lambda *_: "s", autonomo=False, escribir=lambda *_: None, confianza=1.0)
+        primero = plan["pasos"][0]
+        self.assertIn("equipo atacado", primero["observacion"])       # rechazó el salto al perímetro
+        self.assertEqual(plan["dispositivo_ejecutor"], "objetivo-vuln")  # contuvo en el host, no en gateway
+
     def test_si_el_modelo_no_da_accion_valida_se_contiene_igual(self):
         # Antes esto dejaba la amenaza SIN contener y solo anotaba lo que la politica habria
         # propuesto. Ahora cae a la escalada determinista: el plan sigue marcado como degradado
@@ -210,7 +224,7 @@ class TestBucleReact(unittest.TestCase):
 
     def test_gestion_vetada_por_el_perfil(self):   # F2: cada paso del agente pasa por perfil.filtrar
         alerta = dict(self._alerta()); alerta["origen_ip"] = "192.168.1.100"   # = ip_gestion
-        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
+        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
                  'Final: {"resultado":"fallido"}']
         plan = ag.bucle_react(alerta, "vp_intento_acceso", y_perfil(), CAT,
                               lambda ip, c: (0, ""), GeneradorGuion(guion),
@@ -385,7 +399,10 @@ class TestFinalSinRespaldo(unittest.TestCase):
         self.assertEqual(plan["dispositivo_ejecutor"], "gateway")   # real, no declarado
 
     def test_un_final_respaldado_por_ejecucion_si_vale(self):
+        # El host (.30) está caído en EjecutorEscalado: se intenta primero (barrera) y, al fallar,
+        # se escala al firewall, donde el Final sí queda respaldado por una ejecución real.
         guion = GeneradorGuion([
+            '{"kind":"action","tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
             '{"kind":"action","tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
             '{"kind":"final","resultado":"mitigado","dispositivo_ejecutor":"gateway"}'])
         plan = ag.bucle_react({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},

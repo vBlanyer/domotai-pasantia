@@ -376,6 +376,10 @@ def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input
     ip_gestion, ip_atacante = topo.get("ip_gestion"), alerta.get("origen_ip")
     prompt = construir_prompt_sistema(alerta, topo)
     pasos, reversiones, tocados, dispositivo_ejecutor = [], [], [], None
+    # El equipo atacado, si está en su propia cadena de contención (host del plano de datos): el
+    # agente DEBE intentarlo antes de escalar al perímetro (barrera estructural, no solo el prompt).
+    _cadena = cadena_de_contencion(topo, alerta.get("activo"))
+    host_local = _cadena[0] if _cadena and _cadena[0] == alerta.get("activo") else None
     for _ in range(max_pasos):
         try:
             salida = generador(prompt) or ""
@@ -406,6 +410,15 @@ def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input
             obs = herramienta_verificar_mitigacion(topo, catalogo, ejecutor, args.get("dispositivo"), ip_atacante)
         elif tool == "ejecutar_comando":
             disp = args.get("dispositivo")
+            if (host_local and disp != host_local and host_local not in tocados
+                    and (topo.get(disp) or {}).get("rol") == "firewall_perimetral"):
+                # Barrera: contener primero en el equipo atacado (local, de menor impacto); el
+                # cortafuegos perimetral corta a muchos y exige humano, así que es el último recurso.
+                obs = (f"Error: contén primero en el equipo atacado ({host_local}); el cortafuegos "
+                       "perimetral corta a muchos y es el último recurso.")
+                pasos.append({"tipo": "accion", "thought": thought, "tool": tool, "args": args, "observacion": obs})
+                prompt += salida + f"\nObservation: {obs}\n"
+                continue
             obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, disp, args.get("accion"),
                         ip_atacante, ip_gestion, alerta.get("id_alerta", ""), timestamp, autonomo, leer, escribir,
                         perfil=perfil, activo=alerta.get("activo"), servicio=alerta.get("servicio"),
