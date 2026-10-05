@@ -12,7 +12,7 @@ import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from prototipo import traza
+from prototipo import actores, red, traza
 
 _MARCA_INCIDENTE = "⚠"   # el resumen de incidente de stream empieza por esta marca
 # Cota del listado /api/trazas: el visor lo sondea cada 2 s, y sin ella cada tick releería y
@@ -250,7 +250,7 @@ def estado_equipos(activos, topologia, salud):
     return sorted(equipos, key=lambda e: e["nombre"])
 
 
-def _resumen_traza(reg):
+def _resumen_traza(reg, ips=None):
     imp = reg.get("impacto_determinado") or {}
     est = reg.get("justificacion_estructurada") or {}
     return {"id_decision": reg.get("id_decision"), "timestamp": reg.get("timestamp"),
@@ -278,12 +278,122 @@ def _resumen_traza(reg):
             # reversión: qué decisión deshizo, dónde y si se aplicó; error: por qué no se procesó
             "id_decision_revertida": reg.get("id_decision_revertida"),
             "indice_revertido": reg.get("indice_revertido"), "exito": reg.get("exito"),
-            "accion_id": reg.get("accion_id"), "nodo": reg.get("nodo"), "error": reg.get("error")}
+            "accion_id": reg.get("accion_id"), "nodo": reg.get("nodo"), "error": reg.get("error"),
+            # relación evento-equipo y desenlace de la contención, para la vista Red
+            "relaciones": relaciones(reg, ips or {}), "contencion": contencion_de(reg)[0],
+            "dispositivo": contencion_de(reg)[1]}
 
 
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
 # fallos al procesar un incidente y reversiones de una contención ya decidida.
 _NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion")
+
+
+_ESTADO_PLAN = {"mitigado": "contenida", "fallido": "fallida", "cancelado_por_humano": "cancelada",
+                "degradado": "degradada"}
+
+
+def contencion_de(reg):
+    """(estado, dispositivo) del desenlace de una decisión; misma lógica que datos.contencionDe del
+    visor, que la muestra en el detalle. `dispositivo` es donde quedó contenida (o la ruta si se
+    enrutó)."""
+    agente = reg.get("mitigacion_agente")
+    if agente:
+        return _ESTADO_PLAN.get(agente.get("resultado"), "fallida"), agente.get("dispositivo_ejecutor")
+    orden = reg.get("orden")
+    if not orden:
+        if reg.get("ruta"):
+            return "enrutada", reg.get("ruta")
+        return ("retenida" if reg.get("veredicto_humano") in ("rechazar", "reclasificar") else "sin_accion"), None
+    if (reg.get("ejecucion") or {}).get("exito") and (reg.get("verificacion") or {}).get("verificado"):
+        return "contenida", orden.get("nodo_objetivo")
+    esc = reg.get("escalada")
+    if esc:
+        estado = _ESTADO_PLAN.get(esc.get("resultado"), "fallida")
+        return estado, esc.get("dispositivo_ejecutor") if estado == "contenida" else None
+    return "fallida", None
+
+
+def ips_de(perfil):
+    return {n: v.get("ip") for n, v in red.red_de(perfil)["nodos"].items() if v.get("ip")}
+
+
+def relaciones(reg, ips):
+    """{equipo: [etiquetas]} de un registro: `objetivo` (el activo atacado), `origen` (la IP de origen
+    es la del equipo) y `contuvo_aqui` (el dispositivo donde quedó contenida). Solo decisiones."""
+    if reg.get("tipo") in _NO_DECISIONES:
+        return {}
+    rel = {}
+    def _anadir(nombre, etiqueta):
+        if nombre and etiqueta not in rel.setdefault(nombre, []):
+            rel[nombre].append(etiqueta)
+    _anadir(reg.get("activo"), "objetivo")
+    ip = ((reg.get("contexto") or {}).get("origen_ip")
+          or (((reg.get("justificacion_estructurada") or {}).get("evidencia")) or {}).get("origen_ip"))
+    if ip:
+        for nombre, ip_nodo in ips.items():
+            if actores._coincide(ip, ip_nodo):
+                _anadir(nombre, "origen")
+    estado, dispositivo = contencion_de(reg)
+    if estado == "contenida":
+        _anadir(dispositivo, "contuvo_aqui")
+    return rel
+
+
+def _estado_nodo(salud, a):
+    if salud and salud != "ok":
+        return "caido"
+    if a["pendientes"]:
+        return "pendiente"
+    ultima = a["_ultima_objetivo"]
+    if ultima is not None:
+        clase = ultima.get("clase") or ""
+        estado, _ = contencion_de(ultima)
+        if ((clase.startswith("vp_") or clase == "amenaza_enrutada") and estado != "contenida"
+                and ultima.get("veredicto_humano") != "rechazar"):
+            return "atacado"
+    return "contenido" if a["_contenido"] else "sin_actividad"
+
+
+def estado_red(perfil, registros, pendientes=(), salud=None):
+    """El mapa de la red con la actividad de cada equipo, para /api/red (ver prototipo/red.py)."""
+    r = red.red_de(perfil)
+    ips = {n: v.get("ip") for n, v in r["nodos"].items() if v.get("ip")}
+    salud_de = {s["nombre"]: s["estado"] for s in (salud or {}).get("servicios", [])}
+    act = {n: {"objetivo": 0, "origen": 0, "contuvo_aqui": 0, "pendientes": 0, "ultima": None,
+               "_ultima_objetivo": None, "_contenido": False} for n in r["nodos"]}
+    for reg in registros:
+        for nombre, etiquetas in relaciones(reg, ips).items():
+            a = act.get(nombre)
+            if a is None:
+                continue
+            for e in etiquetas:
+                a[e] += 1
+            ts = reg.get("timestamp")
+            if ts and (a["ultima"] is None or ts > a["ultima"]):
+                a["ultima"] = ts
+            if "objetivo" in etiquetas:
+                a["_ultima_objetivo"] = reg            # la traza está en orden de escritura
+            if contencion_de(reg)[0] == "contenida":
+                a["_contenido"] = True
+    for p in pendientes or ():
+        alerta = p.get("alerta") or p
+        for nombre, ip in ips.items():
+            if alerta.get("activo") == nombre or (alerta.get("origen_ip")
+                                                   and actores._coincide(alerta["origen_ip"], ip)):
+                act[nombre]["pendientes"] += 1
+        if alerta.get("activo") in act and alerta.get("activo") not in ips:
+            act[alerta["activo"]]["pendientes"] += 1
+    nodos = []
+    for nombre, n in r["nodos"].items():
+        a = act[nombre]
+        visible = {k: v for k, v in a.items() if not k.startswith("_")}
+        visible["estado"] = _estado_nodo(salud_de.get(nombre), a)
+        nodos.append({**n, "salud": salud_de.get(nombre), "actividad": visible})
+    return {"nodos": nodos, "enlaces": [[h, p] for h, p in r["enlaces"].items()],
+            "dependencias": [[n["nombre"], d] for n in r["nodos"].values() for d in n["depende_de"]
+                             if d in r["nodos"]],
+            "zonas": [{"nombre": z, "nodos": ms} for z, ms in r["zonas"]], "avisos": r["avisos"]}
 
 def metricas(regs):
     """Indicadores del periodo (vista SLA) calculados de la traza: tasa de FP, % automatizado, MTTR
@@ -343,7 +453,7 @@ def _limite(path):
     return n if n is not None and n > 0 else LIMITE_TRAZAS
 
 
-def lista_trazas(ruta, n=None):
+def lista_trazas(ruta, n=None, perfil=None):
     try:
         regs = traza.leer_registros(ruta)
     except FileNotFoundError:
@@ -351,7 +461,8 @@ def lista_trazas(ruta, n=None):
     # `indice` es la posición del registro en la cadena completa: identifica cada fila en el visor
     # (los id_decision se repiten entre relanzamientos) y casa con el roto_en de /api/verificar.
     inicio = max(0, len(regs) - n) if n else 0
-    return [{**_resumen_traza(r), "indice": inicio + k} for k, r in enumerate(regs[inicio:])]
+    ips = ips_de(perfil) if perfil else {}
+    return [{**_resumen_traza(r, ips), "indice": inicio + k} for k, r in enumerate(regs[inicio:])]
 
 
 _CORPUS_POR_ID = None
@@ -467,14 +578,22 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/equipos":
                 salud = estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud), s.dependencias)
                 return self._responder(estado_equipos(s.activos, s.topologia, salud))
+            if ruta == "/api/red":
+                salud = estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud), s.dependencias)
+                try:
+                    regs = traza.leer_registros(s.ruta_traza)
+                except FileNotFoundError:
+                    regs = []
+                pend = s.estado.decisiones_pendientes() if getattr(s, "async_web", False) else []
+                return self._responder(estado_red(s.perfil, regs, pend, salud))
             if ruta == "/api/decisiones":
-                return self._responder(lista_trazas(s.ruta_traza, n=50))
+                return self._responder(lista_trazas(s.ruta_traza, n=50, perfil=s.perfil))
             if ruta == "/api/pendientes":
                 if getattr(s, "async_web", False):     # cola no bloqueante: lista ordenada por severidad
                     return self._responder([_vista_pendiente(p) for p in s.estado.decisiones_pendientes()])
                 return self._responder(s.estado.pendientes())
             if ruta == "/api/trazas":
-                return self._responder(lista_trazas(s.ruta_traza, n=_limite(self.path)))
+                return self._responder(lista_trazas(s.ruta_traza, n=_limite(self.path), perfil=s.perfil))
             if ruta.startswith("/api/traza/"):
                 d = traza_detalle(s.ruta_traza, ruta[len("/api/traza/"):], indice=_entero(self.path, "indice"))
                 return self._responder(d) if d is not None else self._responder({"error": "no encontrada"}, 404)
@@ -516,12 +635,14 @@ _INTERNO_PENDIENTE = ("decision", "alerta", "clave", "orden", "desde")   # no se
 
 def _vista_pendiente(p):
     """La vista serializable de una decisión en cola (sin el contexto interno de resolución)."""
-    return {k: v for k, v in p.items() if k not in _INTERNO_PENDIENTE}
+    alerta = p.get("alerta") or {}
+    return {**{k: v for k, v in p.items() if k not in _INTERNO_PENDIENTE},
+            "activo": alerta.get("activo"), "origen_ip": alerta.get("origen_ip")}
 
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
                    puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
-                   async_web=False):
+                   async_web=False, perfil=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
     fichero_en_contenedor}. `activos`/`topologia` (del perfil) alimentan /api/equipos. `async_web`
     activa la cola de aprobación no bloqueante. Guarda la config en atributos del servidor."""
@@ -535,4 +656,5 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.activos = activos or {}
     srv.topologia = topologia or {}
     srv.async_web = async_web
+    srv.perfil = perfil or {"activos": activos or {}, "topologia": topologia or {}}
     return srv
