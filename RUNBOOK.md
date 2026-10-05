@@ -164,6 +164,29 @@ python3 -m prototipo.stream <fuente> <perfil> <hallazgos> [flags]
 | `--sin-supresion` | Desactiva la supresión de repetidos (audita cada alerta). |
 | `--sin-lab` | No usa el laboratorio (ejecutor simulado); para probar el motor sin Docker. |
 
+### Probar `--con-llm` y `--agente` con Claude Code (solo pruebas)
+
+Si el portátil no mueve el modelo local, `lab/scripts/llm_claude.py` ocupa el puerto del
+`llama-server` (8080) y genera con `claude -p`, con tu sesión de Claude Code y sin API key. El
+prototipo no cambia: el justificador, el RAG agéntico y el agente le hablan como al modelo local.
+
+```bash
+sh lab/scripts/llm-server.sh --parar                 # si el llama-server ocupa el 8080
+sh lab/scripts/llm-server.sh --embedder              # embeddings del RAG, locales (opcional)
+python3 lab/scripts/llm_claude.py &                  # Haiku por defecto; --modelo sonnet
+sh reiniciar.sh --con-llm --agente
+```
+
+- Cada llamada tarda unos 8–15 s con Haiku (el 3B local, 70–98 s).
+- La traza lo marca: `version_justificador` = `llm-7e:claude-code-haiku`.
+- **Solo con el banco sintético:** los prompts salen hacia Anthropic. Nunca con datos de un cliente.
+- **No vale para el informe:** no es el modelo que se despliega y no es reproducible (sin
+  temperatura 0, RNF-03). Las métricas del LLM se miden con el modelo local
+  (`EVALUAR-LLM-EN-GPU.md`).
+- Gasta la cuota de tu plan de Claude: unas 2 llamadas por alerta en el justificador y varias por
+  incidente en el agente.
+- El banner del daemon sigue diciendo «modelo local (experimental)»: lo que vale es la traza.
+
 ---
 
 ## 5. Una demo completa (tres terminales)
