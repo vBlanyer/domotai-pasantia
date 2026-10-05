@@ -113,12 +113,15 @@ class EstadoTablero:
                 self._lineas = []
             self._lineas.append(linea)
 
-    def registrar_pendiente(self, tipo, prompt):
+    def registrar_pendiente(self, tipo, prompt, lineas=None):
+        # `lineas`: contexto propio de la tarjeta (un agente por incidente trae el suyo); sin él, el
+        # buffer compartido del incidente en curso (camino de un solo incidente a la vez).
         ev = threading.Event()
         with self._lock:
             pid = str(next(self._seq))
             self._pendientes[pid] = {"id": pid, "tipo": tipo, "prompt": prompt,
-                                     "lineas": list(self._lineas), "respuesta": None, "_event": ev}
+                                     "lineas": list(self._lineas if lineas is None else lineas),
+                                     "respuesta": None, "_event": ev}
         return pid, ev
 
     def pendientes(self):
@@ -148,16 +151,17 @@ class EstadoTablero:
 class LectorWeb:
     """leer(prompt)->str respaldado por la web: registra una pendiente y bloquea hasta que la web
     responde. Clasifica el prompt igual que Lector (escalada si contiene '[s/N]', si no menu)."""
-    def __init__(self, estado, timeout=None):
+    def __init__(self, estado, timeout=None, lineas=None):
         self.estado = estado
         self.timeout = timeout
+        self.lineas = lineas          # contexto propio de este incidente (agentes concurrentes); None = buffer compartido
 
     @staticmethod
     def _tipo(prompt):
         return "escalada" if "[s/N]" in prompt else "menu"
 
     def __call__(self, prompt=""):
-        pid, ev = self.estado.registrar_pendiente(self._tipo(prompt), prompt)
+        pid, ev = self.estado.registrar_pendiente(self._tipo(prompt), prompt, lineas=self.lineas)
         respondio = ev.wait(self.timeout)
         respuesta = self.estado.respuesta_de(pid) if respondio else ""
         self.estado.quitar(pid)

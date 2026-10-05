@@ -98,7 +98,10 @@ daemon **sigue procesando** (no se estanca esperándote). El panel muestra la **
 Si el mismo ataque sigue llegando mientras esperas, la tarjeta lo marca (`sigue atacando · +N`). Un clic en
 Aprobar ejecuta la contención real (`iptables`) por el conector y escribe la traza en ese momento (la traza
 queda en **orden de finalización**). Es local (`127.0.0.1`) y **sin autenticación** (etapa inicial). En modo
-`--agente` la aprobación es por paso (bloqueante), no por cola.
+`--agente` el agente **aprueba paso a paso** (bloquear host → si falla, escalar al cortafuegos…), pero ya
+**no congela el daemon**: cada incidente se resuelve en su propio hilo, así que el daemon sigue triando y
+varias tarjetas del agente pueden coexistir en el panel (cada una con su contexto). Una repetición del mismo
+ataque mientras el agente sigue pendiente **no abre un segundo agente**: se suprime y se cuenta.
 
 ### C. Lanzador de ataques por número (para demos)
 
@@ -166,7 +169,7 @@ python3 -m prototipo.stream <fuente> <perfil> <hallazgos> [flags]
 |---|---|
 | `--web [puerto]` | Levanta el visor web (por defecto `8787`). |
 | `--con-llm` / `--sin-llm` | Justificación con el LLM 1B real / por plantilla (rápida). Por defecto sin LLM. |
-| `--agente` | Mitigación con el agente ReAct (escala host→cortafuegos, aprobación por paso). |
+| `--agente` | Mitigación con el agente ReAct (escala host→cortafuegos, aprobación por paso; con `--web`, cada incidente en su hilo: no congela el daemon). |
 | `--ventana-agrupacion N` | Segundos para agrupar alertas en incidentes (por defecto 5). |
 | `--salida F` | Fichero de traza (por defecto `run/trazas-stream.jsonl`). Usa uno nuevo para una cadena limpia. |
 | `--sin-supresion` | Desactiva la supresión de repetidos (audita cada alerta). |

@@ -29,6 +29,33 @@ class TestEstadoYLector(unittest.TestCase):
         self.assertEqual(salida["r"], "1")
         self.assertEqual(estado.pendientes(), [])  # se quita al resolverse
 
+    def test_registrar_pendiente_con_lineas_propias_no_usa_el_buffer_compartido(self):
+        # Con agentes concurrentes, cada tarjeta trae su propio contexto, no el buffer global.
+        estado = tablero.EstadoTablero()
+        estado.anotar_linea("⚠ Incidente compartido")
+        buf = ["⚠ Incidente del agente A", "  paso 1"]
+        pid, _ = estado.registrar_pendiente("menu", "x", lineas=buf)
+        p = [q for q in estado.pendientes() if q["id"] == pid][0]
+        self.assertEqual(p["lineas"], ["⚠ Incidente del agente A", "  paso 1"])
+        buf.append("  paso 2")                                  # la tarjeta guarda una copia
+        self.assertEqual([q for q in estado.pendientes() if q["id"] == pid][0]["lineas"],
+                         ["⚠ Incidente del agente A", "  paso 1"])
+
+    def test_lector_web_con_buffer_propio_registra_esas_lineas(self):
+        estado = tablero.EstadoTablero()
+        buf = ["⚠ A", "paso"]
+        lector = tablero.LectorWeb(estado, lineas=buf)
+        hilo = threading.Thread(target=lambda: lector("Elige [1-3]: "))
+        hilo.start()
+        pid = None
+        for _ in range(200):
+            p = estado.pendientes()
+            if p:
+                pid = p[0]["id"]; break
+            time.sleep(0.005)
+        self.assertEqual(estado.pendientes()[0]["lineas"], ["⚠ A", "paso"])
+        estado.resolver(pid, "1"); hilo.join(timeout=2)
+
     def test_clasifica_escalada_y_menu_como_lector(self):
         estado = tablero.EstadoTablero()
         estado.registrar_pendiente(*("escalada", "¿aprobar? [s/N] "))

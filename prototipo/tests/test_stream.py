@@ -1,4 +1,4 @@
-import contextlib, io, json, os, tempfile, unittest, yaml
+import contextlib, io, json, os, tempfile, time, unittest, yaml
 from prototipo import stream, catalogo, lazo, tablero
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -1073,6 +1073,65 @@ class TestAvisosRed(unittest.TestCase):
         ls = stream.lineas_avisos_red({"activos": {"a": {}}, "red": "si"})
         self.assertEqual(len(ls), 1)
         self.assertTrue(ls[0].startswith("[aviso] perfil, sección red: "))
+
+
+class TestAgenteEnModoWeb(unittest.TestCase):
+    """Modo --agente web: cada incidente se resuelve en su hilo (el agente aprueba paso a paso), de
+    modo que el daemon no se congela y varias tarjetas coexisten, cada una con su propio contexto."""
+
+    def _mitigar(self, llamadas):
+        def fn(decision, alerta, leer, escribir=print, ejecutor=None):
+            escribir(f"🤖 agente contra {alerta.get('origen_ip')}")   # línea propia del incidente
+            llamadas.append(alerta.get("origen_ip"))
+            resp = leer("¿aprobar la ejecución? [s/N] ")              # bloquea hasta que el analista responde
+            return {"pasos": [], "reversiones": [], "dispositivo_ejecutor": "objetivo-vuln",
+                    "escalado": False, "degradado": False,
+                    "resultado": "mitigado" if resp.lower().startswith("s") else "fallido"}
+        return fn
+
+    def _correr(self, estado, buf, mitigar_fn, lineas):
+        stream.ejecutar(lineas, hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
+                        justificar_fn=None, ventana_agrupacion=0, salida_traza=buf,
+                        escribir=lambda *a, **k: None, leer=lambda *_: "s", mitigar_fn=mitigar_fn,
+                        lector_incidente=lambda b: tablero.LectorWeb(estado, lineas=b))
+
+    def _esperar(self, cond, msg):
+        for _ in range(400):
+            if cond():
+                return
+            time.sleep(0.005)
+        self.fail(msg)
+
+    def test_no_bloquea_y_cada_tarjeta_trae_su_contexto(self):
+        estado, buf, llamadas = tablero.EstadoTablero(), io.StringIO(), []
+        self._correr(estado, buf, self._mitigar(llamadas),
+                     [_linea_wazuh(srcip="192.168.1.10"), None, _linea_wazuh(srcip="192.168.1.11"), None])
+        # ejecutar ya volvió (no se congeló) con los dos agentes esperando aprobación en su hilo
+        self._esperar(lambda: len(estado.pendientes()) >= 2, "no llegaron las dos tarjetas")
+        contextos = [" ".join(p["lineas"]) for p in estado.pendientes()]
+        self.assertTrue(any("192.168.1.10" in c for c in contextos))
+        self.assertTrue(any("192.168.1.11" in c for c in contextos))
+        for c in contextos:                                  # cada tarjeta trae SOLO su incidente
+            self.assertFalse("192.168.1.10" in c and "192.168.1.11" in c)
+        for p in estado.pendientes():
+            estado.resolver(p["id"], "s")
+        self._esperar(lambda: len([l for l in buf.getvalue().splitlines() if l.strip()]) >= 2,
+                      "no se trazaron las dos mitigaciones")
+        trazas = [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
+        self.assertTrue(all(t["mitigacion_agente"]["resultado"] == "mitigado" for t in trazas))
+        self.assertEqual(sorted(llamadas), ["192.168.1.10", "192.168.1.11"])
+
+    def test_repeticion_en_vuelo_no_lanza_un_segundo_agente(self):
+        estado, buf, llamadas = tablero.EstadoTablero(), io.StringIO(), []
+        # el mismo (ip, activo, familia) dos veces: la segunda llega mientras el agente sigue pendiente
+        self._correr(estado, buf, self._mitigar(llamadas),
+                     [_linea_wazuh(srcip="192.168.1.10"), None, _linea_wazuh(srcip="192.168.1.10"), None])
+        self._esperar(lambda: len(estado.pendientes()) >= 1, "no llegó la tarjeta del agente")
+        time.sleep(0.05)                                     # margen por si apareciera una segunda
+        self.assertEqual(len(estado.pendientes()), 1)        # un solo agente; la repetición se suprimió
+        self.assertEqual(llamadas, ["192.168.1.10"])
+        estado.resolver(estado.pendientes()[0]["id"], "s")
 
 
 if __name__ == "__main__":

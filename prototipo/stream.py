@@ -406,7 +406,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
-             resumen=None, ruta_traza=None):
+             resumen=None, ruta_traza=None, lector_incidente=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -437,7 +437,12 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     def escribir_traza(reg):
         with _traza_lock:
             if cadena is not None:
-                cadena.escribir(reg)
+                try:
+                    cadena.escribir(reg)
+                except ValueError:
+                    # Fichero ya cerrado en el apagado (un hilo del agente aprobado justo al salir):
+                    # ese registro se pierde, pero la cadena no se corrompe (falla antes de escribir).
+                    pass
     memoria = MemoriaDecisiones(perfil)
     _resumen_lock = threading.Lock()
     def al_resolver(r, alerta):
@@ -468,6 +473,44 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         # La decisión recordada solo vale si el motor la volvería a tomar: con la ráfaga de ahora,
         # un origen legítimo que no para deja de ser FP (6.ª regla) y hay que decidir de nuevo.
         return analisis.clasificar(rep_, analisis.enriquecer(rep_, hallazgos, perfil))["clase"] == previa.get("clase")
+    # Modo --agente web: cada incidente se resuelve en su propio hilo para que el agente, que
+    # aprueba paso a paso, no congele el lazo (con `lector_incidente`, un lector con el contexto
+    # propio de la tarjeta de ese incidente). `_en_vuelo` evita que una repetición lance un segundo
+    # agente mientras el primero sigue pendiente del analista.
+    _en_vuelo, _en_vuelo_lock = {}, threading.Lock()
+    def _procesar_incidente_async(inc, id_decision, clave):
+        esc, lee = escribir, leer
+        if lector_incidente is not None:
+            buf = []
+            def esc(t, _buf=buf):
+                escribir(t); _buf.append(t)
+            lee = lector_incidente(buf)
+        try:
+            try:
+                d = _procesar_incidente(
+                    inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
+                    id_decision, cadena, esc, lee, mitigar_fn=mitigar_fn,
+                    encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada)
+            except Exception as e:
+                # Barrera: un fallo con un incidente (un ejecutor que lanza, un dato inesperado) no
+                # tumba el daemon ni el visor; queda un registro 'error' encadenado y se sigue.
+                reg = _registro_error(inc, id_decision, e)
+                escribir(f"✗ {reg['id_decision']}: no se pudo procesar el incidente de {reg['origen_ip']} "
+                         f"-> {reg['activo']}: {reg['error']}")
+                escribir_traza(reg)
+                d = None
+            if d is not None:
+                with _resumen_lock:
+                    _contar(resumen, d)
+                # Las decisiones en cola aún no se deciden: se recuerdan al resolverlas (al_resolver).
+                if suprimir and not d.get("en_cola"):
+                    memoria.recordar(clave, d)
+        finally:
+            # Quitar de `_en_vuelo` en finally (y DESPUÉS de recordar): sin esto, un fallo en el
+            # apagado dejaría la clave atascada y suprimiría toda repetición futura como «en curso».
+            if lector_incidente is not None:
+                with _en_vuelo_lock:
+                    _en_vuelo.pop(clave, None)
     def _procesa_lote(lote):
         # E-minimo: bajo carga (muchos ataques distintos a la vez) se decide primero lo mas grave.
         for inc in _ordenar_por_severidad(agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1))):
@@ -488,29 +531,28 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 if ref is not None:
                     _suprimir(inc, {"id_decision": ref, "veredicto": None, "desenlace": "pendiente del analista"})
                     continue
+            # El chequeo «en vuelo» va ANTES que la memoria: el hilo recuerda y LUEGO quita de
+            # `_en_vuelo`, así que entre recordar y quitar la repetición aún se ve aquí (sin hueco).
+            if lector_incidente is not None and suprimir and clave[0] is not None:
+                with _en_vuelo_lock:
+                    en_curso = _en_vuelo.get(clave)
+                if en_curso is not None:          # un agente ya resuelve este (ip, activo, familia)
+                    _suprimir(inc, {"id_decision": en_curso, "veredicto": None,
+                                    "desenlace": "en curso (agente)"})
+                    continue
             previa = memoria.buscar(clave) if suprimir else None
             if previa is not None and _misma_clase(inc["representante"], previa):
                 _suprimir(inc, previa)
                 continue
             seq[0] += 1
-            try:
-                d = _procesar_incidente(
-                    inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
-                    f"s{seq[0]}", cadena, escribir, leer, mitigar_fn=mitigar_fn,
-                    encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada)
-            except Exception as e:
-                # Barrera: un fallo con un incidente (un ejecutor que lanza, un dato inesperado) no
-                # tumba el daemon ni el visor; queda un registro 'error' encadenado y se sigue.
-                reg = _registro_error(inc, f"s{seq[0]}", e)
-                escribir(f"✗ {reg['id_decision']}: no se pudo procesar el incidente de {reg['origen_ip']} "
-                         f"-> {reg['activo']}: {reg['error']}")
-                escribir_traza(reg)
-                continue
-            with _resumen_lock:
-                _contar(resumen, d)
-            # Las decisiones en cola aún no se deciden: se recuerdan al resolverlas (al_resolver).
-            if suprimir and not d.get("en_cola"):
-                memoria.recordar(clave, d)
+            id_decision = f"s{seq[0]}"
+            if lector_incidente is not None:
+                with _en_vuelo_lock:
+                    _en_vuelo[clave] = id_decision
+                threading.Thread(target=_procesar_incidente_async, args=(inc, id_decision, clave),
+                                 daemon=True).start()
+            else:
+                _procesar_incidente_async(inc, id_decision, clave)
 
     buffer, t0 = [], None
     def _vencio():
@@ -795,12 +837,18 @@ def main(argv):
     print(banner(cfg, ejecutor))
     resumen = _resumen_nuevo()         # lo rellena ejecutar(); sobrevive a Ctrl+C
     servidor, estado_web = None, None
+    lector_incidente = None
     if cfg["web"]:
         estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil)
         for linea in lineas_avisos_red(perfil):
             print(linea)
         if not cfg["agente"]:
             estado_web = estado          # cola no bloqueante (fuera del modo agente)
+        else:
+            # Modo agente: cada incidente se resuelve en su hilo (no congela el daemon) y su tarjeta
+            # lleva su propio contexto, no el buffer compartido del incidente en curso.
+            from prototipo import tablero
+            lector_incidente = lambda buf: tablero.LectorWeb(estado, lineas=buf)
         threading.Thread(target=servidor.serve_forever, daemon=True).start()
         print(f"[web] tablero en http://127.0.0.1:{servidor.server_address[1]}")
     else:
@@ -822,7 +870,8 @@ def main(argv):
                      mitigar_fn=mitigar_fn, suprimir=not cfg["sin_supresion"],
                      hash_previo=hash_previo, n_previos=n_previos,
                      nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
-                     estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"])
+                     estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
+                     lector_incidente=lector_incidente)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))
