@@ -455,6 +455,14 @@ class TestServidor(unittest.TestCase):
         self.assertEqual(self._get(puerto, "/api/traza/zzz")[0], 404)
         self.assertTrue(json.loads(self._get(puerto, "/api/verificar")[1])["ok"])
 
+    def test_api_red(self):
+        srv, puerto = self._servidor()
+        srv.perfil = TestVistaRed.PERFIL
+        estado, cuerpo = self._get(puerto, "/api/red")
+        self.assertEqual(estado, 200)
+        r = json.loads(cuerpo)
+        self.assertEqual({n["nombre"] for n in r["nodos"]}, {"web-banking", "middleware", "taquilla", "fw-core"})
+
 
 class TestEstaticosReales(unittest.TestCase):
     def test_sirve_estaticos_de_un_directorio(self):
@@ -527,6 +535,126 @@ class TestCORS(unittest.TestCase):
         c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
         c.request("GET", "/"); r = c.getresponse(); r.read(); c.close()
         self.assertEqual(r.status, 404)
+
+
+
+
+class TestVistaRed(unittest.TestCase):
+    PERFIL = {"activos": {"web-banking": {"ip": "10.10.0.10", "depende_de": ["middleware"]},
+                          "middleware": {"ip": "10.40.0.10"},
+                          "taquilla": {"ip": "10.200.0.10"}},
+              "topologia": {"web-banking": {"rol": "host_victima", "ip": "10.10.0.10", "gateway": "fw-core"},
+                            "fw-core": {"rol": "firewall_perimetral", "ip": "10.0.0.1"}}}
+
+    def _dec(self, **kw):
+        return {"tipo": "decision", "id_decision": "s1", "activo": "web-banking", "clase": "vp_intento_acceso",
+                "timestamp": "2026-09-30T10:00:00Z", "contexto": {"origen_ip": "198.51.100.10"}, **kw}
+
+    def test_contencion_de(self):
+        self.assertEqual(tablero.contencion_de(self._dec(
+            orden={"nodo_objetivo": "web-banking"}, ejecucion={"exito": True}, verificacion={"verificado": True})),
+            ("contenida", "web-banking"))
+        self.assertEqual(tablero.contencion_de(self._dec(
+            orden={"nodo_objetivo": "web-banking"}, ejecucion={"exito": False}, verificacion={"verificado": False},
+            escalada={"resultado": "mitigado", "dispositivo_ejecutor": "fw-core"})), ("contenida", "fw-core"))
+        self.assertEqual(tablero.contencion_de(self._dec(orden=None, ruta="cola-appsec")), ("enrutada", "cola-appsec"))
+        self.assertEqual(tablero.contencion_de(self._dec(orden=None, veredicto_humano="rechazar")), ("retenida", None))
+        self.assertEqual(tablero.contencion_de(self._dec(orden=None)), ("sin_accion", None))
+
+    def test_relaciones_objetivo_origen_y_contuvo_aqui(self):
+        ips = tablero.ips_de(self.PERFIL)
+        reg = self._dec(contexto={"origen_ip": "::ffff:10.200.0.10"}, orden={"nodo_objetivo": "web-banking"},
+                        ejecucion={"exito": False}, verificacion={"verificado": False},
+                        escalada={"resultado": "mitigado", "dispositivo_ejecutor": "fw-core"})
+        self.assertEqual(tablero.relaciones(reg, ips),
+                         {"web-banking": ["objetivo"], "taquilla": ["origen"], "fw-core": ["contuvo_aqui"]})
+        propio = self._dec(orden={"nodo_objetivo": "web-banking"}, ejecucion={"exito": True},
+                           verificacion={"verificado": True})
+        self.assertEqual(tablero.relaciones(propio, ips)["web-banking"], ["objetivo", "contuvo_aqui"])
+
+    def test_relaciones_ignora_lo_que_no_es_decision_y_registros_antiguos(self):
+        ips = tablero.ips_de(self.PERFIL)
+        for tipo in ("actividad_suprimida", "actividad_propia", "error", "reversion"):
+            self.assertEqual(tablero.relaciones({"tipo": tipo, "activo": "web-banking"}, ips), {})
+        antiguo = {"id_decision": "s1", "activo": "web-banking",
+                   "justificacion_estructurada": {"evidencia": {"origen_ip": "10.200.0.10"}}}
+        self.assertEqual(tablero.relaciones(antiguo, ips), {"web-banking": ["objetivo"], "taquilla": ["origen"]})
+        self.assertEqual(tablero.relaciones({"activo": "web-banking", "contexto": {"origen_ip": None}}, ips),
+                         {"web-banking": ["objetivo"]})
+
+    def test_estado_red_precedencia(self):
+        pend = [{"alerta": {"activo": "web-banking", "origen_ip": "10.200.0.10"}}]
+        regs = [self._dec(orden=None)]                                   # atacado sin contener
+        e = {n["nombre"]: n["actividad"]["estado"] for n in tablero.estado_red(self.PERFIL, regs, [], None)["nodos"]}
+        self.assertEqual(e["web-banking"], "atacado")
+        e = {n["nombre"]: n for n in tablero.estado_red(self.PERFIL, regs, pend, None)["nodos"]}
+        self.assertEqual(e["web-banking"]["actividad"]["estado"], "pendiente")
+        self.assertEqual(e["taquilla"]["actividad"]["pendientes"], 1)          # también como origen
+        salud = {"servicios": [{"nombre": "web-banking", "estado": "caido"}]}
+        e = {n["nombre"]: n["actividad"]["estado"] for n in tablero.estado_red(self.PERFIL, regs, pend, salud)["nodos"]}
+        self.assertEqual(e["web-banking"], "caido")
+        contenida = [self._dec(orden={"nodo_objetivo": "web-banking"}, ejecucion={"exito": True},
+                               verificacion={"verificado": True})]
+        e = {n["nombre"]: n["actividad"]["estado"] for n in tablero.estado_red(self.PERFIL, contenida, [], None)["nodos"]}
+        self.assertEqual((e["web-banking"], e["middleware"]), ("contenido", "sin_actividad"))
+        rechazada = [self._dec(orden=None, veredicto_humano="rechazar")]
+        e = {n["nombre"]: n["actividad"]["estado"] for n in tablero.estado_red(self.PERFIL, rechazada, [], None)["nodos"]}
+        self.assertEqual(e["web-banking"], "sin_actividad")
+
+    def test_estado_red_equipo_solo_de_origen_no_es_contenido(self):
+        reg = self._dec(contexto={"origen_ip": "10.200.0.10"}, orden={"nodo_objetivo": "web-banking"},
+                        ejecucion={"exito": True}, verificacion={"verificado": True})
+        e = {n["nombre"]: n["actividad"] for n in tablero.estado_red(self.PERFIL, [reg], [], None)["nodos"]}
+        self.assertEqual(e["web-banking"]["estado"], "contenido")
+        self.assertEqual((e["taquilla"]["estado"], e["taquilla"]["origen"]), ("sin_actividad", 1))
+
+    def test_estado_red_forma_y_pendientes_sin_alerta(self):
+        r = tablero.estado_red(self.PERFIL, [{"tipo": "error"}], [{"id": "1", "tipo": "escalada"}], None)
+        self.assertEqual(r["enlaces"], [["web-banking", "fw-core"]])
+        self.assertEqual(r["dependencias"], [["web-banking", "middleware"]])
+        self.assertEqual(r["zonas"], [{"nombre": "Red", "nodos": ["middleware", "taquilla", "web-banking"]}])
+        nodo = [n for n in r["nodos"] if n["nombre"] == "web-banking"][0]
+        self.assertEqual(nodo["actividad"]["objetivo"], 0)
+
+    def test_resumen_traza_expone_relaciones_y_contencion(self):
+        reg = self._dec(orden={"nodo_objetivo": "web-banking"}, ejecucion={"exito": True}, verificacion={"verificado": True})
+        r = tablero._resumen_traza(reg, tablero.ips_de(self.PERFIL))
+        self.assertEqual(r["relaciones"], {"web-banking": ["objetivo", "contuvo_aqui"]})
+        self.assertEqual((r["contencion"], r["dispositivo"]), ("contenida", "web-banking"))
+
+    def test_estado_red_reclasificada_como_fp_no_pinta_atacado(self):
+        reg = self._dec(orden=None, veredicto_humano="reclasificar", clase_reclasificada="fp_actividad_legitima")
+        e = {n["nombre"]: n["actividad"]["estado"] for n in tablero.estado_red(self.PERFIL, [reg], [], None)["nodos"]}
+        self.assertEqual(e["web-banking"], "sin_actividad")
+
+    def test_red_mal_formada_no_tumba_trazas_ni_estado(self):
+        perfil = {**self.PERFIL, "red": {"enlaces": ["a", "b"]}}
+        r = tablero.estado_red(perfil, [self._dec(orden=None)], [], None)
+        self.assertTrue(r["avisos"])
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "t.jsonl")
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(json.dumps(self._dec(orden=None)) + "\n")
+            self.assertEqual(len(tablero.lista_trazas(ruta, perfil=perfil)), 1)
+
+    def test_red_que_revienta_cae_a_la_reconstruccion_con_aviso(self):
+        from unittest import mock
+        real = tablero.red.red_de
+        def rota(p):
+            if "red" in (p or {}):
+                raise RuntimeError("boom")
+            return real(p)
+        with mock.patch.object(tablero.red, "red_de", rota):
+            perfil = {**self.PERFIL, "red": {"zonas": {}}}
+            self.assertIn("web-banking", tablero.ips_de(perfil))
+            r = tablero.estado_red(perfil, [], [], None)
+            self.assertTrue(any("boom" in a for a in r["avisos"]))
+
+    def test_la_vista_de_pendientes_expone_activo_y_origen(self):
+        v = tablero._vista_pendiente({"id": "1", "alerta": {"activo": "web-banking", "origen_ip": "10.200.0.10"},
+                                      "decision": {}, "clave": ("x",)})
+        self.assertEqual((v["activo"], v["origen_ip"]), ("web-banking", "10.200.0.10"))
+        self.assertNotIn("alerta", v)
 
 
 if __name__ == "__main__":

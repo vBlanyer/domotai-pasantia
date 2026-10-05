@@ -196,5 +196,15 @@ describe("Detalle de un registro con id repetido", () => {
     await screen.findByText("Justificación")
     expect(h.pedidos[0]).toEqual(["s1", 4])
   })
-})
 
+  it("con un equipo filtra y muestra una etiqueta que se puede quitar", () => {
+    h.decisiones = [{ id_decision: "s1", clase: "vp_intento_acceso", activo: "web-banking", relaciones: { "web-banking": ["objetivo"] } },
+                    { id_decision: "s2", clase: "vp_intento_acceso", activo: "api-movil", relaciones: { "api-movil": ["objetivo"] } }]
+    const quitar = vi.fn()
+    render(<Decisiones equipo="web-banking" onQuitarEquipo={quitar} />)
+    expect(screen.getAllByText("web-banking").length).toBeGreaterThan(1)
+    expect(screen.queryByText("api-movil")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /Quitar el filtro de equipo/ }))
+    expect(quitar).toHaveBeenCalled()
+  })
+})

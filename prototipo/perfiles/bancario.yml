@@ -63,3 +63,30 @@ topologia:
 # Binding de rutas logicas -> destinos reales del cliente (nivel triar_y_enrutar).
 rutas:
   appsec: cola-appsec-banco
+
+# Mapa de la red para la vista «Red» del visor (solo presentación: la contención lee `topologia`).
+# Refleja lab/topologias/banco.clab.yml; lo comprueba lab/banco/tests/test_red_perfil.py.
+red:
+  nodos:
+    internet: { tipo: externo }
+    sw-soc:   { tipo: switch }
+    auditor:  { tipo: gestion, ip: 10.100.0.20, funcion: "auditor de vulnerabilidades (Nmap)" }
+  enlaces:
+    fw-edge: internet
+    fw-core: fw-edge
+    web-banking: fw-core
+    api-movil: fw-core
+    swift-alliance: fw-core
+    middleware: fw-core
+    core-db: fw-core
+    hsm: fw-core
+    taquilla: fw-core
+    atm: fw-core
+    sw-soc: fw-core
+    mdr-siem: sw-soc
+    auditor: sw-soc
+  zonas:
+    DMZ:      [web-banking, api-movil, swift-alliance]
+    Core:     [middleware, core-db, hsm]
+    Sucursal: [taquilla, atm]
+    SOC:      [sw-soc, mdr-siem, auditor]

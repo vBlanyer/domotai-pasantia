@@ -28,6 +28,13 @@ describe("filtrarDecisiones", () => {
   it("sin filtros devuelve todo", () => {
     expect(filtrarDecisiones(D, { texto: " ", clase: "" }).length).toBe(3)
   })
+  it("filtra por equipo según las relaciones del registro", () => {
+    const ds = [{ id_decision: "s1", relaciones: { "web-banking": ["objetivo"] } },
+                { id_decision: "s2", relaciones: { "fw-core": ["contuvo_aqui"], "api-movil": ["objetivo"] } },
+                { id_decision: "s3" }] as Decision[]
+    expect(filtrarDecisiones(ds, { texto: "", clase: "", equipo: "fw-core" }).map((d) => d.id_decision)).toEqual(["s2"])
+    expect(filtrarDecisiones(ds, { texto: "", clase: "", equipo: null }).length).toBe(3)
+  })
 })
 
 describe("clasesDe", () => {

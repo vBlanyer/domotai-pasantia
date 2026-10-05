@@ -4,8 +4,9 @@ import { Badge } from "@/components/ui/badge"
 import { nivelPrioridad, type Filtro } from "@/datos"
 
 // Barra de filtros (búsqueda + clase) con contador de resultados. Reutilizada por Decisiones y Trazas.
-export function BarraFiltros({ f, set, clases, cuenta }: {
+export function BarraFiltros({ f, set, clases, cuenta, equipo, onQuitarEquipo }: {
   f: Filtro; set: (f: Filtro) => void; clases: string[]; cuenta: number
+  equipo?: string | null; onQuitarEquipo?: () => void
 }) {
   const campo = "h-9 rounded-md border border-border bg-card px-3 text-sm outline-none focus:border-ring"
   return (
@@ -16,6 +17,12 @@ export function BarraFiltros({ f, set, clases, cuenta }: {
         <option value="">Todas las clases</option>
         {clases.map((c) => <option key={c} value={c}>{c}</option>)}
       </select>
+      {equipo && (
+        <span className="flex items-center gap-1 rounded bg-muted px-2 py-1 text-xs">
+          equipo: <b>{equipo}</b>
+          <button aria-label="Quitar el filtro de equipo" onClick={onQuitarEquipo} className="ml-1">✕</button>
+        </span>
+      )}
       <span className="text-xs text-muted-foreground">{cuenta} resultado(s)</span>
     </div>
   )
