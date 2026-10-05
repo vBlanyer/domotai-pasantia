@@ -40,6 +40,24 @@ cd visor && npx vitest run && npx tsc -b && npm run lint && npm run build
   el detalle dicen por qué.
 - **Detalle del visor**: parte líneas en lugar de desbordar en horizontal.
 - **Banco de pruebas**: `pruebas.evaluar` compara la clase.
+- **Vista Red** del visor (mapa de la red del cliente por zonas; sustituye a Equipos) y **ataque a
+  medida** en el lanzador del banco (elegir equipo, servicio y origen).
+- **Tanda de robustez y cierre (05/10, fusionada en `main`):**
+  - terceros externos de confianza (`terceros_confiables`): no se auto-bloquean, se retienen a humano;
+  - validación del perfil al arrancar (`perfil.validar`), avisa sin romper;
+  - latido de la ingesta: avisa si Wazuh deja de enviar;
+  - atribución del operador en la traza (`veredicto_por`) y el visor;
+  - métricas de valor (carga al analista, tasa de override) + KPI en el visor;
+  - **caché de la traza por (mtime, tamaño)** — cierra el punto pendiente de B9;
+  - código muerto de «Equipos» retirado.
+- **Arreglos del modo agente (05/10):** respeta el filtro del perfil (auto lo permitido, pregunta lo
+  retenido), contiene primero en el host (prompt + barrera estructural: no salta al cortafuegos sin
+  intentar el host), limitado a la cadena del activo, un hilo por incidente. Sustituto LLM con Claude
+  Code para probar sin el modelo local (`lab/scripts/llm_claude.py`).
+- **Pulido de documentación (05/10):** README (cifras 646/59/117, consola web + vista Red, agente al
+  día, ataque a medida, sustituto LLM), estado-y-riesgos (fecha 05/10, D14, tanda de robustez),
+  RUNBOOK (modo agente, latido de ingesta) y el informe `.tex` (ip4/ip5: el agente respeta el filtro).
+  Verificado: resultados núcleo y dataset (600) sin cambios.
 
 ---
 
@@ -138,7 +156,7 @@ nodo del backend (contenida | fallida | retenida | enrutada | sin_accion), con l
 - Hacer:
   - caché de 2 s para la salud;
   - un único sondeo en App;
-  - verificar la cadena bajo demanda o cachearla por (mtime, tamaño);
+  - ~~cachear la traza por (mtime, tamaño)~~ **HECHO** (`tablero._registros_cacheados`); verificar la cadena bajo demanda sigue pendiente;
   - guarda de «petición en vuelo» en `useSondeo`.
 
 **B10 (resto). Tests.** S
@@ -174,6 +192,11 @@ libre algo más limpio. Recomendado: `stream.py`, `construir_justificar_fn`, `es
 ---
 
 ## Tanda 3: documentación y evidencia (≈1–2 días)
+
+> **Avance 05/10 (ver «Hecho»):** README, estado-y-riesgos, RUNBOOK y el informe `.tex` se pusieron
+> al día con el estado actual; las cifras de tests y la descripción del agente quedaron congruentes.
+> Siguen SIN marcar los específicos de abajo (p. ej. las cifras exactas del bloque de resultados del
+> README, la regla telnet 5602, regenerar las guías del banco, la corrida con `--con-vivo`).
 
 Regla: los registros congelados (`archivo/`, campañas con fecha, `lab/banco/verificaciones.md`, el
 plan de trabajo) no se corrigen; como mucho se anotan como históricos. ★ = lo que el tutor ve primero.
