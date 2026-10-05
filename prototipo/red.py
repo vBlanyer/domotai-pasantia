@@ -42,7 +42,12 @@ def red_de(perfil):
             avisos.append(f"red.{clave} mal formada (se esperaba un mapa), se ignora")
         elif clave in ("nodos", "enlaces", "zonas"):
             seccion[clave] = v or {}
-    extra = seccion.get("nodos") or {}
+    extra = {}
+    for nombre, v in (seccion.get("nodos") or {}).items():
+        if isinstance(nombre, str):
+            extra[nombre] = v
+        else:
+            avisos.append(f"red.nodos.{nombre}: el nombre de un equipo debe ser texto, se ignora")
 
     nodos = {}
     for nombre in list(activos) + [n for n in topologia if n not in activos] + [n for n in extra if n not in activos and n not in topologia]:
@@ -54,9 +59,13 @@ def red_de(perfil):
         rol = (topologia.get(nombre) or {}).get("rol")
         funcion = info.get("funcion") or ("cortafuegos perimetral" if rol == "firewall_perimetral" else None)
         servicios = [x for x in _lista(info.get("servicios_prestados")) if isinstance(x, (int, str))]
+        depende = _lista(info.get("depende_de"))
+        if not all(isinstance(d, str) for d in depende):
+            avisos.append(f"{nombre}: depende_de solo admite nombres de equipo, se ignora el resto")
+            depende = [d for d in depende if isinstance(d, str)]
         nodos[nombre] = {"nombre": nombre, "ip": info.get("ip") or (topologia.get(nombre) or {}).get("ip"),
                          "funcion": funcion, "criticidad": info.get("criticidad"),
-                         "servicios_prestados": servicios, "depende_de": _lista(info.get("depende_de")),
+                         "servicios_prestados": servicios, "depende_de": depende,
                          "tipo": _tipo(info.get("tipo"), rol, funcion, servicios), "zona": None}
 
     crudos = (dict(seccion.get("enlaces") or {}) if "enlaces" in seccion
@@ -84,7 +93,7 @@ def red_de(perfil):
     nodos_en_zona = {}  # Tracks which zone each node was placed in (first placement wins)
     if "zonas" in seccion:
         for zona, miembros in (seccion.get("zonas") or {}).items():
-            validos = []
+            zona, validos = str(zona), []
             if not isinstance(miembros, (list, str)) and miembros is not None:
                 avisos.append(f"zona {zona}: se esperaba una lista de equipos, se ignoran sus miembros")
                 miembros = []

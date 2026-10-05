@@ -117,6 +117,20 @@ class TestRedMalFormada(unittest.TestCase):
         self.assertEqual(r["nodos"]["c"]["servicios_prestados"], [80, "ssh"])
         self.assertIn("a", r["nodos"])
 
+    def test_depende_de_con_entradas_no_hashables(self):
+        from prototipo import tablero
+        seccion = {"nodos": {"internet": {"tipo": "externo", "depende_de": [["b"], {"x": 1}, "web-banking"]}}}
+        r = self._ok(seccion)
+        self.assertEqual(r["nodos"]["internet"]["depende_de"], ["web-banking"])
+        perfil = {**{k: v for k, v in BANCO.items() if k != "red"}, "red": seccion}
+        self.assertIn(["internet", "web-banking"], tablero.estado_red(perfil, [])["dependencias"])
+
+    def test_nombres_de_nodo_y_zona_no_str(self):
+        r = self._ok({"nodos": {7: {"tipo": "switch"}}, "zonas": {1: ["web-banking"]}})
+        self.assertNotIn(7, r["nodos"])
+        self.assertEqual(r["zonas"][0], ["1", ["web-banking"]])
+        self.assertEqual(r["nodos"]["web-banking"]["zona"], "1")
+
 
 if __name__ == "__main__":
     unittest.main()
