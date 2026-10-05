@@ -374,7 +374,7 @@ def estado_red(perfil, registros, pendientes=(), salud=None):
                 a["ultima"] = ts
             if "objetivo" in etiquetas:
                 a["_ultima_objetivo"] = reg            # la traza está en orden de escritura
-            if contencion_de(reg)[0] == "contenida":
+            if ("objetivo" in etiquetas or "contuvo_aqui" in etiquetas) and contencion_de(reg)[0] == "contenida":
                 a["_contenido"] = True
     for p in pendientes or ():
         alerta = p.get("alerta") or p

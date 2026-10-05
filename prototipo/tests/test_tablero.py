@@ -601,6 +601,13 @@ class TestVistaRed(unittest.TestCase):
         e = {n["nombre"]: n["actividad"]["estado"] for n in tablero.estado_red(self.PERFIL, rechazada, [], None)["nodos"]}
         self.assertEqual(e["web-banking"], "sin_actividad")
 
+    def test_estado_red_equipo_solo_de_origen_no_es_contenido(self):
+        reg = self._dec(contexto={"origen_ip": "10.200.0.10"}, orden={"nodo_objetivo": "web-banking"},
+                        ejecucion={"exito": True}, verificacion={"verificado": True})
+        e = {n["nombre"]: n["actividad"] for n in tablero.estado_red(self.PERFIL, [reg], [], None)["nodos"]}
+        self.assertEqual(e["web-banking"]["estado"], "contenido")
+        self.assertEqual((e["taquilla"]["estado"], e["taquilla"]["origen"]), ("sin_actividad", 1))
+
     def test_estado_red_forma_y_pendientes_sin_alerta(self):
         r = tablero.estado_red(self.PERFIL, [{"tipo": "error"}], [{"id": "1", "tipo": "escalada"}], None)
         self.assertEqual(r["enlaces"], [["web-banking", "fw-core"]])
