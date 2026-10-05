@@ -105,6 +105,20 @@ def quien_es(ip, perfil):
     return _actor("desconocido", ip, None)
 
 
+def es_tercero_confiable(ip, perfil):
+    """¿`ip` es un tercero externo declarado de confianza (`terceros_confiables` del perfil)? Admite
+    IP exacta o CIDR. No es un origen legítimo (eso sería FP): es un externo —una pasarela de pago,
+    un proveedor— al que un ataque aparente podría apuntar, pero cuyo bloqueo automático causaría una
+    caída, así que se retiene para un humano en vez de cortarlo solo."""
+    tcs = (perfil or {}).get("terceros_confiables") or []
+    if not isinstance(tcs, (list, tuple)):     # una errata (escalar) no es allowlist, y no debe lanzar
+        return False
+    if any(_coincide(ip, t) for t in tcs):
+        return True
+    c = _canon(ip)
+    return c is not None and _en_redes(c, [t for t in tcs if isinstance(t, str) and "/" in t])
+
+
 def politica(perfil, tipo):
     """Política del perfil para bloquear un actor de `tipo` (`continuidad.actores`). Por defecto
     `humano_siempre` (C1). Un valor que no es una política conocida también cae a

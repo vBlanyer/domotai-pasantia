@@ -67,12 +67,10 @@ cd visor && npx vitest run && npx tsc -b && npm run lint && npm run build
   - sacar las `no_soportada` del porcentaje automatizado;
   - test de Métricas.
 
-**A10. La vista Equipos da una postura falsa.** S
-- `Equipos.tsx:45-50`, `:76-77`: marca como «bloqueado» lo que el analista rechazó, cuenta los FP
-  como ataques y rotula las enrutadas como «sin acción».
-- Hacer:
-  - `_resumen_traza` expone `contencion` (contenida | fallida | retenida | enrutada | sin_accion | revertida) y `dispositivo`, con la misma lógica que `datos.contencionDe`;
-  - Equipos y Decisiones usan ese campo.
+**A10. La vista Equipos da una postura falsa.** HECHO / OBSOLETO — la vista Equipos se retiró y la
+sustituyó la vista **Red** (05/10), que usa `_resumen_traza.contencion`/`dispositivo` y el estado de
+nodo del backend (contenida | fallida | retenida | enrutada | sin_accion), con la misma lógica que
+`datos.contencionDe`. Ya no hay `Equipos.tsx`.
 
 **A11. Feed de Decisiones.** S
 - Hoy: lo más antiguo arriba, la hora en UTC cruda, sin columna de origen y las supresiones anónimas.
@@ -297,7 +295,7 @@ sh reiniciar.sh
 ```
 
 1. **D1**: atacante externo, contención automática en web-banking.
-2. **A1**: la taquilla (activo interno) queda retenida. Rechazar; al repetirse, «ya decidido» y Equipos correcto.
+2. **A1**: la taquilla (activo interno) queda retenida. Rechazar; al repetirse, «ya decidido» y la vista Red correcta.
 3. **K1**: cascada. Aviso y diálogo; aprobar; atm cae (K3, dependencia no declarada).
 4. **E1**: web-banking no responde, así que sale una tarjeta de escalada a fw-core con su alcance.
 5. **EXPLOIT**: amenaza enrutada al equipo de AppSec, sin contención.

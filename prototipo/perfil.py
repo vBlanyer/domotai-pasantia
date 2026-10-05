@@ -1,4 +1,5 @@
 """El perfil de cliente (V3/V4) y el filtro permite/degrada/veta (RNF-14, RF-17/18/19)."""
+import ipaddress
 import yaml
 from prototipo import actores, impacto as impactom
 from prototipo import catalogo as _cat
@@ -10,6 +11,68 @@ _REVERSION_OK = {"definida", "auto", "transitoria"}
 def cargar(ruta):
     with open(ruta, encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+def _ip_ok(s):
+    return actores._canon(s) is not None
+
+def _cidr_ok(s):
+    try:
+        ipaddress.ip_network(str(s), strict=False)
+        return True
+    except ValueError:
+        return False
+
+def validar(perfil):
+    """Revisa el perfil al cargarlo y devuelve una lista de avisos (vacía = coherente), SIN romper:
+    un perfil mal escrito debe verse al arrancar, no fallar en silencio en la primera alerta. No
+    cambia ninguna decisión; es un chequeo de cordura (B11)."""
+    perfil = perfil or {}
+    avisos = []
+    activos = perfil.get("activos")
+    if activos is not None and not isinstance(activos, dict):
+        avisos.append("activos: se esperaba un mapa de equipos")
+        activos = {}
+    activos = activos or {}
+    topologia = perfil.get("topologia")
+    if topologia is not None and not isinstance(topologia, dict):
+        avisos.append("topologia: se esperaba un mapa")
+    if not perfil.get("ip_gestion"):
+        avisos.append("no hay ip_gestion declarada: RF-19 no puede proteger el plano de gestión")
+    elif not _ip_ok(perfil.get("ip_gestion")):
+        avisos.append(f"ip_gestion no es una IP válida: {perfil.get('ip_gestion')!r}")
+    for nombre, a in activos.items():
+        if not isinstance(a, dict):
+            avisos.append(f"activo {nombre}: se esperaba un mapa")
+            continue
+        if a.get("ip") is not None and not _ip_ok(a.get("ip")):
+            avisos.append(f"activo {nombre}: IP no parseable {a.get('ip')!r}")
+        dep_de = a.get("depende_de")
+        if dep_de is not None and not isinstance(dep_de, (list, tuple)):
+            avisos.append(f"activo {nombre}: depende_de debe ser una lista, no {dep_de!r}")
+        else:
+            for dep in dep_de or []:
+                if dep not in activos:
+                    avisos.append(f"activo {nombre}: depende_de un activo inexistente ({dep})")
+    for clave in ("origenes_legitimos", "terceros_confiables", "redes_internas"):
+        v = perfil.get(clave)
+        if v is None:
+            continue
+        if not isinstance(v, (list, tuple)):
+            avisos.append(f"{clave}: se esperaba una lista, no {v!r}")
+            continue
+        for item in v:
+            if not (_ip_ok(item) or _cidr_ok(item)):
+                avisos.append(f"{clave}: entrada no es IP ni CIDR válido ({item!r})")
+    rutas = perfil.get("rutas")
+    if rutas is not None and not isinstance(rutas, dict):
+        avisos.append("rutas: se esperaba un mapa rol->destino")
+    u = (perfil.get("continuidad") or {}).get("umbral_confianza")
+    if u is not None and not (isinstance(u, (int, float)) and 0 <= u <= 1):
+        avisos.append(f"continuidad.umbral_confianza fuera de [0,1]: {u!r}")
+    r = (perfil.get("rafaga") or {}).get("umbral")
+    if r is not None and not (isinstance(r, int) and r > 0):
+        avisos.append(f"rafaga.umbral debe ser un entero positivo: {r!r}")
+    return avisos
 
 def criticidad_de(perfil, activo):
     return perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")
@@ -131,4 +194,13 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         # automático, la acción sigue ejecutándose (sigue "degrada"), pero retenida para el humano.
         if not _permite_nivel(perfil, det["nivel"], confianza):
             res = {**res, "requiere_humano": True}
-    return {**_aplicar_actor(res, perfil, det), "impacto": det}
+    final = _aplicar_actor(res, perfil, det)
+    # Tercero externo de confianza (socio crítico): un ataque aparente desde él no se auto-bloquea
+    # —cortarlo tiraría un servicio de negocio—, se retiene para un humano (la acción se conserva).
+    if (accion_id in impactom.ACCIONES_SOBRE_IP and final.get("accion_final")
+            and not final.get("requiere_humano")
+            and actores.es_tercero_confiable((params or {}).get("ip"), perfil)):
+        final = {**final, "requiere_humano": True}
+        det = {**det, "motivo": f"{det.get('motivo') or ''} · origen en terceros_confiables: "
+                                "no se bloquea en automático, requiere aprobación".strip()}
+    return {**final, "impacto": det}

@@ -102,10 +102,11 @@ class EstadoTablero:
         """El daemon registra aquí cómo aplicar un veredicto (ejecuta la contención + escribe la traza)."""
         self._resolutor = fn
 
-    def resolver_decision(self, pid, respuesta, paso=None):
+    def resolver_decision(self, pid, respuesta, paso=None, operador=None):
         """Aplica la respuesta del analista a la decisión en cola, vía el resolutor del daemon.
-        `paso` es el del menú que vio el analista (None = no se comprueba)."""
-        return bool(self._resolutor and self._resolutor(pid, respuesta, paso=paso))
+        `paso` es el del menú que vio el analista (None = no se comprueba). `operador` queda en la
+        traza (no repudio: quién aprobó)."""
+        return bool(self._resolutor and self._resolutor(pid, respuesta, paso=paso, operador=operador))
 
     def anotar_linea(self, linea):
         with self._lock:
@@ -216,47 +217,10 @@ def estado_salud(muestra, dependencias=None):
     return {"t": muestra.get("t"), "servicios": servicios, "caidos": caidos, "total": len(estados)}
 
 
-def _categoria_equipo(nombre, info, topologia):
-    """Categoría del dispositivo para el inventario: cortafuegos (por rol en la topología),
-    gestión (SOC/SIEM/MDR, por función), endpoint (sin servicios prestados) o servidor."""
-    if (topologia.get(nombre) or {}).get("rol") == "firewall_perimetral":
-        return "cortafuegos"
-    funcion = (info.get("funcion") or "").lower()
-    if any(p in funcion for p in ("soc", "siem", "mdr", "gestion")):
-        return "gestion"
-    return "servidor" if info.get("servicios_prestados") else "endpoint"
-
-
-def estado_equipos(activos, topologia, salud):
-    """Inventario de dispositivos del cliente (del perfil), con categoría y estado.
-
-    `activos` = {nombre: {ip, funcion, criticidad, servicios_prestados, depende_de}} del perfil;
-    `topologia` = {nombre: {rol, ip, gateway}} (aporta los cortafuegos que no están en activos);
-    `salud` = el JSON de estado_salud ({servicios:[{nombre,estado}]} | {sin_datos} | None): de ahí
-    sale el `estado` de los nodos monitoreados; el resto queda en None (sin monitor de salud)."""
-    activos, topologia = activos or {}, topologia or {}
-    estados = {s["nombre"]: s["estado"] for s in (salud or {}).get("servicios", [])}
-    equipos = []
-    for nombre in list(activos) + [n for n in topologia if n not in activos]:
-        info = activos.get(nombre) or {}
-        topo = topologia.get(nombre) or {}
-        if nombre not in activos:                       # nodo solo en la topología (p.ej. cortafuegos)
-            info = {"ip": topo.get("ip"), "funcion": "cortafuegos perimetral",
-                    "criticidad": "alta", "servicios_prestados": [], "depende_de": []}
-        equipos.append({
-            "nombre": nombre, "ip": info.get("ip") or topo.get("ip"),
-            "funcion": info.get("funcion"), "criticidad": info.get("criticidad"),
-            "categoria": _categoria_equipo(nombre, info, topologia),
-            "servicios_prestados": info.get("servicios_prestados") or [],
-            "depende_de": info.get("depende_de") or [],
-            "estado": estados.get(nombre),
-        })
-    return sorted(equipos, key=lambda e: e["nombre"])
-
-
 def _resumen_traza(reg, ips=None, externos=()):
     imp = reg.get("impacto_determinado") or {}
     est = reg.get("justificacion_estructurada") or {}
+    _conten = contencion_de(reg)                 # una sola vez (desenlace + dispositivo)
     return {"id_decision": reg.get("id_decision"), "timestamp": reg.get("timestamp"),
             "activo": reg.get("activo"), "clase": reg.get("clase"), "confianza": reg.get("confianza"),
             "accion_final": reg.get("accion_final"), "requiere_humano": reg.get("requiere_humano"),
@@ -284,8 +248,8 @@ def _resumen_traza(reg, ips=None, externos=()):
             "indice_revertido": reg.get("indice_revertido"), "exito": reg.get("exito"),
             "accion_id": reg.get("accion_id"), "nodo": reg.get("nodo"), "error": reg.get("error"),
             # relación evento-equipo y desenlace de la contención, para la vista Red
-            "relaciones": relaciones(reg, ips or {}, externos), "contencion": contencion_de(reg)[0],
-            "dispositivo": contencion_de(reg)[1]}
+            "relaciones": relaciones(reg, ips or {}, externos),
+            "contencion": _conten[0], "dispositivo": _conten[1]}
 
 
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
@@ -452,9 +416,17 @@ def metricas(regs):
         if isinstance(ini, (int, float)) and isinstance(fin, (int, float)):
             tiempos.append(fin - ini)
     ranking = lambda d, k: sorted(({k: n, "n": c} for n, c in d.items()), key=lambda x: -x["n"])[:8]
+    # Métricas de valor: cuánta carga va al humano (lo que el MDR NO resuelve solo) y con qué
+    # frecuencia el analista corrige al motor (rechazar o reclasificar una decisión).
+    escalado_humano = total - auto
+    resueltos_humano = sum(veredictos.values())
+    override = veredictos.get("rechazar", 0) + veredictos.get("reclasificar", 0)
     return {
         "total": total, "fp": fp, "tasa_fp": round(fp / total, 3) if total else 0.0,
         "auto": auto, "pct_auto": round(auto / total, 3) if total else 0.0,
+        "escalado_humano": escalado_humano, "pct_humano": round(escalado_humano / total, 3) if total else 0.0,
+        "resueltos_humano": resueltos_humano, "override": override,
+        "tasa_override": round(override / resueltos_humano, 3) if resueltos_humano else 0.0,
         "suprimidas": sum((r.get("alertas_suprimidas") or 0) for r in regs if r.get("tipo") == "actividad_suprimida"),
         "mttr_seg": round(sum(tiempos) / len(tiempos), 1) if tiempos else None,
         "por_clase": por_clase, "veredictos": veredictos,
@@ -478,10 +450,30 @@ def _limite(path):
     return n if n is not None and n > 0 else LIMITE_TRAZAS
 
 
-def lista_trazas(ruta, n=None, perfil=None):
+_cache_traza = {"ruta": None, "firma": None, "regs": []}
+_cache_traza_lock = threading.Lock()
+
+def _registros_cacheados(ruta):
+    """Registros de la traza, releídos solo si el fichero cambió (mtime+tamaño). El visor sondea
+    cada 2 s cinco endpoints que releían la traza entera cada vez; con la caché, mientras no llegue
+    una decisión nueva la lectura es gratis. [] si el fichero no existe aún."""
     try:
+        st = os.stat(ruta)
+        firma = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return []
+    with _cache_traza_lock:
+        c = _cache_traza
+        if c["ruta"] == ruta and c["firma"] == firma:
+            return c["regs"]
         regs = traza.leer_registros(ruta)
-    except FileNotFoundError:
+        c.update(ruta=ruta, firma=firma, regs=regs)
+        return regs
+
+
+def lista_trazas(ruta, n=None, perfil=None):
+    regs = _registros_cacheados(ruta)
+    if not regs and not os.path.exists(ruta):
         return []
     # `indice` es la posición del registro en la cadena completa: identifica cada fila en el visor
     # (los id_decision se repiten entre relanzamientos) y casa con el roto_en de /api/verificar.
@@ -519,10 +511,7 @@ def _hidratar_pasajes(reg, corpus):
 
 
 def traza_detalle(ruta, id_decision, indice=None):
-    try:
-        regs = traza.leer_registros(ruta)
-    except FileNotFoundError:
-        return None
+    regs = _registros_cacheados(ruta)
     # Los id_decision se repiten si se relanzó el daemon sobre la misma traza. Con `indice` (la
     # posición que la fila conoce, ver lista_trazas) se toma ESE registro si es del id pedido; si no,
     # la última coincidencia, que es la vigente.
@@ -533,14 +522,11 @@ def traza_detalle(ruta, id_decision, indice=None):
         for r in regs:
             if r.get("id_decision") == id_decision:
                 hallado = r
-    return _hidratar_pasajes(hallado, _corpus_por_id()) if hallado is not None else None
+    return _hidratar_pasajes(dict(hallado), _corpus_por_id()) if hallado is not None else None
 
 
 def verificar_traza(ruta):
-    try:
-        regs = traza.leer_registros(ruta)
-    except FileNotFoundError:
-        regs = []
+    regs = _registros_cacheados(ruta)
     v = traza.verificar(regs)
     return {"ok": v["valida"], "roto_en": v["primer_fallo"], "motivo": v["motivo"], "n": v["n"]}
 
@@ -604,15 +590,9 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/salud":
                 return self._responder(estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud),
                                                     s.dependencias))
-            if ruta == "/api/equipos":
-                salud = estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud), s.dependencias)
-                return self._responder(estado_equipos(s.activos, s.topologia, salud))
             if ruta == "/api/red":
                 salud = estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud), s.dependencias)
-                try:
-                    regs = traza.leer_registros(s.ruta_traza)
-                except FileNotFoundError:
-                    regs = []
+                regs = _registros_cacheados(s.ruta_traza)
                 pend = s.estado.decisiones_pendientes() if getattr(s, "async_web", False) else []
                 return self._responder(estado_red(s.perfil, regs, pend, salud))
             if ruta == "/api/decisiones":
@@ -629,11 +609,7 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/verificar":
                 return self._responder(verificar_traza(s.ruta_traza))
             if ruta == "/api/metricas":
-                try:
-                    regs = traza.leer_registros(s.ruta_traza)
-                except FileNotFoundError:
-                    regs = []
-                return self._responder(metricas(regs))
+                return self._responder(metricas(_registros_cacheados(s.ruta_traza)))
             if ruta.startswith("/api/"):
                 return self._responder({"error": "no encontrado"}, 404)
             return self._servir_archivo(ruta)          # el build de React (index.html + assets/)
@@ -651,7 +627,8 @@ class _Manejador(BaseHTTPRequestHandler):
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.
             # `paso` es opcional: solo lo usa la cola (la ruta bloqueante no tiene menús con paso).
             if getattr(s, "async_web", False):
-                ok = s.estado.resolver_decision(pid, resp, paso=cuerpo.get("paso"))
+                ok = s.estado.resolver_decision(pid, resp, paso=cuerpo.get("paso"),
+                                                operador=(str(cuerpo.get("operador")) if cuerpo.get("operador") else None))
             else:
                 ok = s.estado.resolver(pid, resp)
             return self._responder({"ok": True}) if ok else self._responder({"error": "pendiente no vigente"}, 409)
@@ -673,7 +650,7 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
                    puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
                    async_web=False, perfil=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
-    fichero_en_contenedor}. `activos`/`topologia` (del perfil) alimentan /api/equipos. `async_web`
+    fichero_en_contenedor}. `async_web`
     activa la cola de aprobación no bloqueante. Guarda la config en atributos del servidor."""
     srv = ThreadingHTTPServer(("127.0.0.1", puerto), _Manejador)
     srv.estado = estado
@@ -682,8 +659,6 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.dependencias = dependencias or {}
     srv.estaticos = estaticos or _DIR_ESTATICOS
     srv.salud_ejecutar = salud_ejecutar
-    srv.activos = activos or {}
-    srv.topologia = topologia or {}
     srv.async_web = async_web
     srv.perfil = perfil or {"activos": activos or {}, "topologia": topologia or {}}
     return srv

@@ -298,16 +298,17 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
     Si la contención aprobada tiene que escalar y el salto pide humano, no se aprueba solo: se
     encola una tarjeta de escalada (`diferir_escalada`) y el registro se traza cuando se resuelva."""
     from prototipo import analisis
-    def _cerrar(r, entrada, alerta):
+    def _cerrar(r, entrada, alerta, operador=None):
         # Marcas de tiempo para el MTTR (tiempo de respuesta del analista) en el panel de métricas.
+        # `veredicto_por`: quién aprobó, para el no repudio en la traza.
         r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
-             "decidido_en": _ahora_iso()}
+             "decidido_en": _ahora_iso(), "veredicto_por": operador or None}
         escribir(_linea_decision(r))
         escribir_traza(r)
         if al_resolver is not None:
             al_resolver(r, alerta)
 
-    def _resolver_escalada(entrada, respuesta):
+    def _resolver_escalada(entrada, respuesta, operador=None):
         alerta = entrada["alerta"]
         # La espera cuenta desde la primera tarjeta aunque la escalada se difiera varias veces.
         decision = {**entrada["decision"], "recibido_en": entrada.get("recibido_en")}
@@ -321,9 +322,9 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         if r.get("en_cola"):                           # el salto siguiente también pide humano
             return
         _cerrar({**r, "veredicto_escalada": "aprobar" if respuesta.lower().startswith("s") else "rechazar"},
-                entrada, alerta)
+                entrada, alerta, operador)
 
-    def _resolver_menu(entrada, veredicto, clase):
+    def _resolver_menu(entrada, veredicto, clase, operador=None):
         decision = {**entrada["decision"], "recibido_en": entrada.get("recibido_en")}
         alerta = entrada["alerta"]
         try:
@@ -338,7 +339,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                  "ejecucion": {"exito": False, "error": f"{type(e).__name__}: {e}"}}
         if r.get("en_cola"):                           # escala y el salto pide humano: su tarjeta trazará
             return
-        _cerrar(r, entrada, alerta)
+        _cerrar(r, entrada, alerta, operador)
 
     def _con_la_tarjeta_tomada(pid, fn):
         # La tarjeta sigue en la cola, marcada en curso, mientras se ejecuta la respuesta (SSH de
@@ -352,7 +353,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         finally:
             estado.sacar_decision(pid)
 
-    def resolver(pid, respuesta, paso=None):
+    def resolver(pid, respuesta, paso=None, operador=None):
         entrada = estado.ver_decision(pid)
         if entrada is None or entrada.get("en_curso"):
             return False
@@ -366,7 +367,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                 return False
         respuesta = (respuesta or "").strip()
         if entrada.get("tipo") == "escalada":          # escalada diferida: se retoma con la respuesta
-            return _con_la_tarjeta_tomada(pid, lambda: _resolver_escalada(entrada, respuesta))
+            return _con_la_tarjeta_tomada(pid, lambda: _resolver_escalada(entrada, respuesta, operador))
         if not entrada.get("esperando_clase"):
             if respuesta == "3":                       # reclasificar -> submenú de clases (no finaliza)
                 clases = [c for c in analisis.CLASES if c != entrada["decision"].get("clase")]
@@ -383,7 +384,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                 veredicto, clase = "reclasificar", clases[int(respuesta) - 1]
             else:
                 veredicto, clase = "rechazar", None
-        return _con_la_tarjeta_tomada(pid, lambda: _resolver_menu(entrada, veredicto, clase))
+        return _con_la_tarjeta_tomada(pid, lambda: _resolver_menu(entrada, veredicto, clase, operador))
     return resolver
 
 def _contar(resumen, d, incidente=True):
@@ -406,7 +407,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
-             resumen=None, ruta_traza=None, lector_incidente=None):
+             resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -555,8 +556,6 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 _procesar_incidente_async(inc, id_decision, clave)
 
     buffer, t0 = [], None
-    def _vencio():
-        return t0 is not None and (reloj() - t0) >= ventana_agrupacion
     def _descargar():
         nonlocal buffer, t0
         if buffer:
@@ -565,14 +564,29 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             lote, buffer, t0 = buffer, [], None
             _procesa_lote(lote)
 
+    ultimo_evento = reloj()
+    silencio_avisado = False
+    def _latido(parsee, ahora):
+        # Latido de la ingesta: si la fuente (Wazuh) deja de enviar, se avisa una vez; al volver una
+        # alerta, se rearma. Un fallo silencioso de la ingesta es peor que uno ruidoso.
+        nonlocal ultimo_evento, silencio_avisado
+        if parsee:
+            ultimo_evento = ahora; silencio_avisado = False
+        elif silencio_s and not silencio_avisado and ahora - ultimo_evento >= silencio_s:
+            escribir(f"[aviso] ingesta: sin alertas desde hace {int(ahora - ultimo_evento)} s; "
+                     "¿sigue viva la fuente (Wazuh)?")
+            silencio_avisado = True
     try:
         for linea in fuente_lineas:
+            ahora = reloj()                            # una sola lectura del reloj por iteración
             if ventana_agrupacion <= 0:                # modo inmediato
                 if linea is None:
+                    _latido(False, ahora)
                     continue
                 alerta = _parsear(linea)
                 if alerta is None:
                     continue
+                _latido(True, ahora)
                 resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
                 _procesa_lote([alerta])
                 continue
@@ -580,11 +594,14 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             if linea is not None:
                 alerta = _parsear(linea)
                 if alerta is not None:
+                    _latido(True, ahora)
                     resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
                     if t0 is None:
-                        t0 = reloj()
+                        t0 = ahora
                     buffer.append(alerta)
-            if _vencio():
+            else:
+                _latido(False, ahora)
+            if t0 is not None and (ahora - t0) >= ventana_agrupacion:
                 _descargar()
         _descargar()                               # fuente agotada: descarga lo pendiente
     except KeyboardInterrupt:
@@ -699,15 +716,18 @@ def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hal
     except Exception as e:
         escribir(f"[aviso] indice RAG no disponible para el agente ({e}); sin herramienta de conocimiento.")
         indice = None
-    # El esquema se deriva del catalogo y de la topologia, y restringe el muestreo: el modelo
-    # no puede nombrar una herramienta, un dispositivo ni una accion que no existan (RF-15).
-    esquema = ag.esquema_accion(catalogo, ag.resolver_topologia(perfil))
     base = justificador_llm.generador_por_defecto()
-    # Solo el generador por servidor entiende el esquema; con el subproceso se cae al formato
-    # textual, que `parsear_accion` sigue aceptando.
-    gen = ((lambda p: base(p, esquema=esquema))
-           if base is justificador_llm.generador_servidor else base)
     def _fn(decision, alerta, leer, escribir=escribir, ejecutor=ejecutor):
+        # El esquema se deriva del catalogo y de la topologia, y restringe el muestreo: el modelo
+        # no puede nombrar una herramienta, un dispositivo ni una accion que no existan (RF-15). Se
+        # construye POR INCIDENTE para limitar los dispositivos a la cadena de contencion del activo
+        # atacado: al fallar un salto, el agente escala por la cadena, no hacia un equipo ajeno.
+        esquema = ag.esquema_accion(catalogo, ag.resolver_topologia(perfil, hallazgos),
+                                    activo=alerta.get("activo"))
+        # Solo el generador por servidor entiende el esquema; con el subproceso se cae al formato
+        # textual, que `parsear_accion` sigue aceptando.
+        gen = ((lambda p: base(p, esquema=esquema))
+               if base is justificador_llm.generador_servidor else base)
         # `escribir` llega del lazo: en la web es el que alimenta la tarjeta; con print, las preguntas
         # del agente solo salían por la terminal del daemon y la tarjeta quedaba sin contexto.
         return ag.bucle_react(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
@@ -771,9 +791,7 @@ def construir_web(cfg, perfil):
     # Cola de aprobación no bloqueante salvo en modo agente (que aprueba por paso, bloqueante).
     async_web = not cfg.get("agente")
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
-                                      puerto=cfg["web_puerto"], activos=activos,
-                                      topologia=perfil.get("topologia") or {}, async_web=async_web,
-                                      perfil=perfil)
+                                      puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil)
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
@@ -835,6 +853,11 @@ def main(argv):
     mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor, hallazgos=hallazgos)
     fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
     print(banner(cfg, ejecutor))
+    try:                                           # cordura del perfil al arrancar (B11), sin romper
+        for aviso in perfilm.validar(perfil):
+            print(f"[aviso] perfil: {aviso}")
+    except Exception as e:
+        print(f"[aviso] perfil: no se pudo validar ({type(e).__name__}: {e})")
     resumen = _resumen_nuevo()         # lo rellena ejecutar(); sobrevive a Ctrl+C
     servidor, estado_web = None, None
     lector_incidente = None

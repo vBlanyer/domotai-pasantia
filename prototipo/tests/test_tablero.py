@@ -56,6 +56,14 @@ class TestEstadoYLector(unittest.TestCase):
         self.assertEqual(estado.pendientes()[0]["lineas"], ["⚠ A", "paso"])
         estado.resolver(pid, "1"); hilo.join(timeout=2)
 
+    def test_resolver_decision_pasa_el_operador_al_resolutor(self):
+        estado = tablero.EstadoTablero()
+        cap = {}
+        estado.fijar_resolutor(lambda pid, respuesta, paso=None, operador=None:
+                               (cap.update(operador=operador, resp=respuesta), True)[1])
+        self.assertTrue(estado.resolver_decision("1", "s", paso=0, operador="ana"))
+        self.assertEqual(cap["operador"], "ana")
+
     def test_clasifica_escalada_y_menu_como_lector(self):
         estado = tablero.EstadoTablero()
         estado.registrar_pendiente(*("escalada", "¿aprobar? [s/N] "))
@@ -107,10 +115,10 @@ class TestEstadoYLector(unittest.TestCase):
     def test_resolver_decision_pasa_el_paso_al_resolutor(self):
         e = tablero.EstadoTablero()
         vistos = []
-        e.fijar_resolutor(lambda pid, resp, paso=None: vistos.append((pid, resp, paso)) or True)
-        self.assertTrue(e.resolver_decision("1", "2", paso=3))
-        self.assertTrue(e.resolver_decision("1", "2"))            # sin paso -> None (rutas viejas)
-        self.assertEqual(vistos, [("1", "2", 3), ("1", "2", None)])
+        e.fijar_resolutor(lambda pid, resp, paso=None, operador=None: vistos.append((pid, resp, paso, operador)) or True)
+        self.assertTrue(e.resolver_decision("1", "2", paso=3, operador="ana"))
+        self.assertTrue(e.resolver_decision("1", "2"))            # sin paso ni operador -> None (rutas viejas)
+        self.assertEqual(vistos, [("1", "2", 3, "ana"), ("1", "2", None, None)])
 
     def test_escribir_web_imprime_y_acumula(self):
         estado = tablero.EstadoTablero()
@@ -149,36 +157,6 @@ class TestLectoresDeDatos(unittest.TestCase):
 
     def test_estado_salud_sin_muestra(self):
         self.assertEqual(tablero.estado_salud(None), {"sin_datos": True})
-
-    def test_estado_equipos_inventario_desde_perfil_con_categoria_y_estado(self):
-        activos = {
-            "web-banking": {"ip": "10.10.0.10", "funcion": "banca en linea", "criticidad": "alta",
-                            "servicios_prestados": [443], "depende_de": ["middleware"]},
-            "mdr-siem": {"ip": "10.100.0.10", "funcion": "consola SOC/MDR (plano de gestion)",
-                         "criticidad": "critica", "servicios_prestados": []},
-            "taquilla": {"ip": "10.200.0.10", "funcion": "puesto de taquilla", "criticidad": "media",
-                         "servicios_prestados": []},
-        }
-        topologia = {"fw-core": {"rol": "firewall_perimetral", "ip": "10.0.0.1", "gateway": "fw-edge"}}
-        salud = {"servicios": [{"nombre": "web-banking", "estado": "ok", "depende_de": []}]}
-        eq = tablero.estado_equipos(activos, topologia, salud)
-        por = {e["nombre"]: e for e in eq}
-        self.assertEqual(len(eq), 4)                              # 3 activos + 1 cortafuegos del topologia
-        self.assertEqual(por["web-banking"]["categoria"], "servidor")
-        self.assertEqual(por["web-banking"]["estado"], "ok")      # cruzado con salud
-        self.assertEqual(por["web-banking"]["criticidad"], "alta")
-        self.assertEqual(por["mdr-siem"]["categoria"], "gestion")
-        self.assertEqual(por["taquilla"]["categoria"], "endpoint")   # sin servicios prestados
-        self.assertEqual(por["fw-core"]["categoria"], "cortafuegos")  # sale del topologia
-        self.assertEqual(por["fw-core"]["ip"], "10.0.0.1")
-        self.assertIsNone(por["fw-core"]["estado"])                  # no monitoreado por salud
-
-    def test_estado_equipos_tolera_salud_sin_datos_o_none(self):
-        activos = {"a": {"ip": "1.1.1.1", "funcion": "x", "criticidad": "alta", "servicios_prestados": [80]}}
-        for salud in ({"sin_datos": True}, None):
-            eq = tablero.estado_equipos(activos, {}, salud)
-            self.assertIsNone(eq[0]["estado"])
-            self.assertEqual(eq[0]["categoria"], "servidor")
 
     def test_leer_salud_de_fichero_toma_la_ultima_linea(self):
         ruta = self._traza_tmp([{"t": "1", "estados": {}}, {"t": "2", "estados": {"a": "ok"}}])
@@ -233,6 +211,20 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual({a["nombre"]: a["n"] for a in m["top_activos"]}["web-banking"], 2)
         self.assertEqual({t["tecnica"]: t["n"] for t in m["mitre"]}["T1110.001"], 2)
         self.assertEqual([d["n"] for d in m["por_dia"]], [1, 2])   # 23 (1) antes que 24 (2)
+        # Métricas de valor: carga del analista y cuánto corrige al motor.
+        self.assertEqual(m["escalado_humano"], 2)                  # 2 de 3 fueron a un humano
+        self.assertEqual(m["pct_humano"], round(2 / 3, 3))
+        self.assertEqual(m["resueltos_humano"], 2)                 # aprobar + rechazar
+        self.assertEqual(m["override"], 1)                         # 1 rechazar (corrigió al motor)
+        self.assertEqual(m["tasa_override"], round(1 / 2, 3))
+
+    def test_metricas_override_cuenta_reclasificar_y_sin_resueltos_no_divide(self):
+        regs = [{"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "reclasificar"},
+                {"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "aprobar"}]
+        m = tablero.metricas(regs)
+        self.assertEqual(m["override"], 1)                         # reclasificar también es override
+        self.assertEqual(m["tasa_override"], 0.5)
+        self.assertEqual(tablero.metricas([])["tasa_override"], 0.0)   # sin decisiones, no divide
 
     def test_metricas_no_cuentan_los_errores_ni_las_reversiones_como_decisiones(self):
         m = tablero.metricas([{"id_decision": "s1", "clase": "vp_intento_acceso", "requiere_humano": False},
@@ -423,15 +415,15 @@ class TestServidor(unittest.TestCase):
     def test_aprobar_async_propaga_el_paso_del_cuerpo(self):
         estado = tablero.EstadoTablero()
         vistos = []
-        estado.fijar_resolutor(lambda pid, resp, paso=None: vistos.append((pid, resp, paso)) or True)
+        estado.fijar_resolutor(lambda pid, resp, paso=None, operador=None: vistos.append((pid, resp, paso, operador)) or True)
         srv = tablero.crear_servidor(estado, "/no/existe.jsonl", puerto=0, estaticos=tempfile.mkdtemp(),
                                      async_web=True)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
         puerto = srv.server_address[1]
-        self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1", "paso": 2})[0], 200)
+        self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1", "paso": 2, "operador": "ana"})[0], 200)
         self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1"})[0], 200)
-        self.assertEqual(vistos, [("1", "1", 2), ("1", "1", None)])
+        self.assertEqual(vistos, [("1", "1", 2, "ana"), ("1", "1", None, None)])
 
     def _traza_n(self, n):
         regs, previo = [], traza.GENESIS
@@ -671,6 +663,19 @@ class TestVistaRed(unittest.TestCase):
         self.assertEqual(r["zonas"], [{"nombre": "Red", "nodos": ["middleware", "taquilla", "web-banking"]}])
         nodo = [n for n in r["nodos"] if n["nombre"] == "web-banking"][0]
         self.assertEqual(nodo["actividad"]["objetivo"], 0)
+
+    def test_registros_cacheados_reusa_mientras_no_cambia_el_fichero(self):
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "t.jsonl")
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(json.dumps(self._dec(orden=None)) + "\n")
+            a = tablero._registros_cacheados(ruta)
+            self.assertIs(tablero._registros_cacheados(ruta), a)   # no cambió: mismo objeto (cache)
+            with open(ruta, "a", encoding="utf-8") as f:           # crece el fichero
+                f.write(json.dumps(self._dec(orden=None)) + "\n")
+            b = tablero._registros_cacheados(ruta)
+            self.assertEqual(len(b), 2)                            # cambió: relee
+            self.assertEqual(tablero._registros_cacheados("/no/existe.jsonl"), [])
 
     def test_resumen_traza_expone_relaciones_y_contencion(self):
         reg = self._dec(orden={"nodo_objetivo": "web-banking"}, ejecucion={"exito": True}, verificacion={"verificado": True})

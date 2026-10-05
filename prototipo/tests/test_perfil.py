@@ -19,6 +19,18 @@ class TestFiltro(unittest.TestCase):
         r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip":"1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
         self.assertEqual(r["resultado"], "permite")
 
+    def test_tercero_externo_confiable_no_se_auto_bloquea_sino_que_pide_humano(self):
+        # Un socio externo crítico (pasarela, proveedor) declarado en el perfil: aunque sea una
+        # amenaza real que se auto-bloquearía, se retiene para un humano (no se corta solo).
+        p = perfil_fx(); p["terceros_confiables"] = ["203.0.113.7"]
+        r = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "203.0.113.7"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual(r["resultado"], "permite")          # la acción sigue siendo bloquear...
+        self.assertTrue(r["requiere_humano"])                # ...pero la decide un humano
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")
+        # una IP cualquiera sí se auto-bloquea
+        r2 = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertFalse(r2["requiere_humano"])
+
     def test_umbral_configurable_por_perfil(self):
         # RF-07: el umbral de escalado sale del perfil, no del código
         p = perfil_fx(); p["continuidad"]["umbral_confianza"] = 0.9
@@ -344,3 +356,46 @@ class TestConcienciaDeActores(unittest.TestCase):
         self.assertEqual(r["accion_final"], "BLOQUEAR_IP")
         self.assertEqual(r["impacto"]["nivel"], "alcanza_servicio")
         self.assertTrue(r["requiere_humano"])   # hoy da False: bug del salto degradado (F1)
+
+
+class TestValidar(unittest.TestCase):
+    def test_perfil_del_banco_es_coherente(self):
+        p = yaml.safe_load(open(os.path.join("prototipo", "perfiles", "bancario.yml"), encoding="utf-8"))
+        self.assertEqual(perfil.validar(p), [])      # sin avisos
+
+    def test_avisos_de_incoherencias(self):
+        p = {"activos": {"web": {"ip": "nope", "depende_de": ["fantasma"]}},
+             "origenes_legitimos": ["10.0.0.1", "no-ip"],
+             "terceros_confiables": ["1.2.3.0/24", "mal/33"],
+             "continuidad": {"umbral_confianza": 5},
+             "rafaga": {"umbral": -2}}
+        avisos = perfil.validar(p)
+        texto = " | ".join(avisos)
+        self.assertIn("ip_gestion", texto)           # falta el plano de gestión (RF-19)
+        self.assertIn("nope", texto)                 # IP de activo no parseable
+        self.assertIn("fantasma", texto)             # depende_de a un activo inexistente
+        self.assertIn("no-ip", texto)                # origen legítimo no parseable
+        self.assertIn("mal/33", texto)               # CIDR inválido en terceros
+        self.assertIn("umbral_confianza", texto)     # fuera de [0,1]
+        self.assertTrue(any("rafaga" in a or "ráfaga" in a for a in avisos))
+        self.assertTrue(all(isinstance(a, str) for a in avisos))
+
+    def test_activos_o_topologia_mal_formados_avisan_sin_romper(self):
+        self.assertTrue(perfil.validar({"activos": [], "topologia": "x", "ip_gestion": "10.0.0.1"}))
+        self.assertEqual(perfil.validar(None), perfil.validar({}))   # None tolerado
+
+    def test_validar_no_revienta_con_escalar_donde_va_una_lista(self):
+        # Una errata de YAML que pone un escalar donde va una lista no debe lanzar (es lo que validar
+        # existe para atrapar), ni iterar carácter a carácter una cadena.
+        p = {"ip_gestion": "10.0.0.1", "activos": {"a": {"depende_de": 5}},
+             "redes_internas": 10, "terceros_confiables": "7"}
+        avisos = perfil.validar(p)                 # no debe lanzar
+        t = " | ".join(avisos)
+        self.assertIn("depende_de", t)
+        self.assertIn("redes_internas", t)
+        self.assertIn("terceros_confiables", t)
+        self.assertTrue(all(isinstance(a, str) for a in avisos))
+
+
+if __name__ == "__main__":
+    unittest.main()

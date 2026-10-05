@@ -23,6 +23,23 @@ def _linea_wazuh(srcip="192.168.1.10", rule_id="5760"):
 
 
 class TestBucleInmediato(unittest.TestCase):
+    def test_avisa_si_la_ingesta_queda_en_silencio(self):
+        t = [0.0]
+        salidas = []
+        def fuente():
+            yield _linea_wazuh()        # una alerta: ultimo_evento = 0
+            t[0] = 200.0                # pasa el tiempo
+            yield None                  # reposo: 200 s de silencio -> avisa
+            yield None                  # otro reposo: no repite el aviso
+        stream.ejecutar(fuente(), hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
+                        justificar_fn=None, ventana_agrupacion=0, salida_traza=io.StringIO(),
+                        reloj=lambda: t[0], silencio_s=120,
+                        escribir=lambda *a, **k: salidas.append(" ".join(str(x) for x in a)),
+                        leer=lambda *_: "2")
+        avisos = [s for s in salidas if "sin alertas" in s]
+        self.assertEqual(len(avisos), 1)            # avisa una vez, no en cada reposo
+
     def test_una_alerta_produce_un_incidente_y_traza(self):
         buf = io.StringIO()
         salidas = []
@@ -239,6 +256,14 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
         self.assertEqual(r["veredicto_escalada"], "aprobar")
         self.assertIn("192.168.1.1", ej.aplicado)
 
+    def test_la_aprobacion_registra_quien_aprobo(self):
+        estado, buf, ej = tablero.EstadoTablero(), io.StringIO(), self.HostCaido()
+        self._ejecutar(estado, buf, ej)
+        p = estado.decisiones_pendientes()[0]
+        self.assertTrue(estado.resolver_decision(p["id"], "s", paso=p["paso"], operador="ana"))
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(r["veredicto_por"], "ana")           # no repudio: queda quién aprobó
+
     def test_rechazar_la_escalada_no_contiene_y_traza(self):
         estado, buf, ej = tablero.EstadoTablero(), io.StringIO(), self.HostCaido()
         self._ejecutar(estado, buf, ej)
@@ -410,7 +435,7 @@ class TestModoAgenteEscalada(unittest.TestCase):
 class TestVentana(unittest.TestCase):
     def test_rafaga_se_colapsa_en_un_incidente(self):
         # 3 alertas de la misma clave llegan "dentro" de la ventana; luego un tick vence la ventana.
-        reloj = iter([0, 0, 1, 2, 100, 100, 100]).__next__   # el 5º valor (100) vence ventana=10
+        reloj = iter([0, 0, 1, 2, 100]).__next__   # init + 1 por iteración; el 100 (None) vence ventana=10
         fuente = [_linea_wazuh(), _linea_wazuh(), _linea_wazuh(), None]
         buf = io.StringIO()
         resumen = stream.ejecutar(

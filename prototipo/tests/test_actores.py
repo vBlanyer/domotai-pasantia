@@ -99,6 +99,18 @@ class TestPolitica(unittest.TestCase):
         p = {"continuidad": {"actores": {"activo_interno": "automatico"}}}
         self.assertEqual(actores.politica(p, "activo_interno"), "humano_siempre")
 
+    def test_tercero_confiable_por_ip_exacta_y_por_rango(self):
+        p = {"terceros_confiables": ["203.0.113.7", "198.51.100.0/24"]}
+        self.assertTrue(actores.es_tercero_confiable("203.0.113.7", p))       # IP exacta
+        self.assertTrue(actores.es_tercero_confiable("::ffff:203.0.113.7", p)) # forma mapeada
+        self.assertTrue(actores.es_tercero_confiable("198.51.100.42", p))     # dentro del /24
+        self.assertFalse(actores.es_tercero_confiable("8.8.8.8", p))          # fuera
+        self.assertFalse(actores.es_tercero_confiable(None, p))
+        self.assertFalse(actores.es_tercero_confiable("203.0.113.7", {}))     # sin lista
+        # una errata (escalar donde va una lista) no debe lanzar: se trata como sin allowlist
+        self.assertFalse(actores.es_tercero_confiable("1.2.3.4", {"terceros_confiables": 7}))
+        self.assertFalse(actores.es_tercero_confiable("1.2.3.4", {"terceros_confiables": "1.2.3.4"}))
+
 
 if __name__ == "__main__":
     unittest.main()

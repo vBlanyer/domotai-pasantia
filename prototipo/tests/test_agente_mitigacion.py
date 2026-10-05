@@ -174,11 +174,41 @@ class TestBucleReact(unittest.TestCase):
         self.assertTrue(any("FORWARD" in r for r in plan["reversiones"]))   # RF-18
 
     def test_rechazo_humano_cancela(self):
+        # y_perfil() no declara continuidad -> todo es humano_siempre: el perfil RETIENE, el agente
+        # pregunta y el rechazo cancela (ya sin depender de siempre_humano).
         guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}']
         plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil(), CAT,
                               lambda ip, c: (0, ""), GeneradorGuion(guion),
                               leer=lambda *_: "n", autonomo=False, escribir=lambda *_: None)
         self.assertEqual(plan["resultado"], "cancelado_por_humano")
+
+    def test_accion_automatica_no_pregunta_en_modo_agente(self):
+        # El agente respeta el filtro: una acción que el perfil marca automática (localizado + conf
+        # alta en el perfil empresarial) se ejecuta SIN preguntar, aunque no sea autónomo. Antes
+        # preguntaba siempre (siempre_humano) y por eso TODO ataque externo pedía aprobación.
+        def _no_preguntes(*_):
+            raise AssertionError("una acción automática no debe preguntar al humano")
+        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
+                 'Final: {"resultado":"mitigado","dispositivo_ejecutor":"objetivo-vuln"}']
+        plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil_empresarial(), CAT,
+                              lambda ip, c: (0, ""), GeneradorGuion(guion),
+                              leer=_no_preguntes, autonomo=False, escribir=lambda *_: None, confianza=1.0)
+        self.assertEqual(plan["resultado"], "mitigado")
+        self.assertEqual(plan["dispositivo_ejecutor"], "objetivo-vuln")
+
+    def test_no_escala_al_cortafuegos_sin_intentar_antes_el_host(self):
+        # Barrera estructural: aunque el LLM elija el cortafuegos perimetral de entrada, el agente
+        # lo rechaza hasta haber intentado contener en el equipo atacado (local, automático). Así
+        # un ataque externo a un host no acaba pidiendo aprobación por un salto al perímetro.
+        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
+                 'Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
+                 'Final: {"resultado":"mitigado","dispositivo_ejecutor":"objetivo-vuln"}']
+        plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil_empresarial(), CAT,
+                              lambda ip, c: (0, ""), GeneradorGuion(guion),
+                              leer=lambda *_: "s", autonomo=False, escribir=lambda *_: None, confianza=1.0)
+        primero = plan["pasos"][0]
+        self.assertIn("equipo atacado", primero["observacion"])       # rechazó el salto al perímetro
+        self.assertEqual(plan["dispositivo_ejecutor"], "objetivo-vuln")  # contuvo en el host, no en gateway
 
     def test_si_el_modelo_no_da_accion_valida_se_contiene_igual(self):
         # Antes esto dejaba la amenaza SIN contener y solo anotaba lo que la politica habria
@@ -194,7 +224,7 @@ class TestBucleReact(unittest.TestCase):
 
     def test_gestion_vetada_por_el_perfil(self):   # F2: cada paso del agente pasa por perfil.filtrar
         alerta = dict(self._alerta()); alerta["origen_ip"] = "192.168.1.100"   # = ip_gestion
-        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
+        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
                  'Final: {"resultado":"fallido"}']
         plan = ag.bucle_react(alerta, "vp_intento_acceso", y_perfil(), CAT,
                               lambda ip, c: (0, ""), GeneradorGuion(guion),
@@ -245,6 +275,26 @@ class TestEsquemaAccion(unittest.TestCase):
         topo = dict(self.topo, switch={"rol": "firewall_perimetral", "ip": "192.168.1.2"})
         disp = ag.esquema_accion(CAT, topo)["properties"]["args"]["properties"]["dispositivo"]["enum"]
         self.assertIn("switch", disp)
+
+    def test_dispositivos_limitados_a_la_cadena_del_activo(self):
+        # Con `activo`, el agente solo puede elegir dispositivos de la cadena de contención de ESE
+        # activo: al fallar un salto no flaquea hacia un equipo ajeno (bug del ataque a auditor).
+        topo = {"A": {"rol": "host_victima", "ip": "10.0.0.1", "gateway": "fw"},
+                "B": {"rol": "host_victima", "ip": "10.0.0.2", "gateway": "fw"},
+                "fw": {"rol": "firewall_perimetral", "ip": "10.0.0.254"}}
+        disp = ag.esquema_accion(CAT, topo, activo="A")["properties"]["args"]["properties"]["dispositivo"]["enum"]
+        self.assertEqual(disp, ag.cadena_de_contencion(topo, "A"))   # [A, fw]
+        self.assertNotIn("B", disp)                                  # no se bloquea en un equipo ajeno
+        todos = ag.esquema_accion(CAT, topo)["properties"]["args"]["properties"]["dispositivo"]["enum"]
+        self.assertIn("B", todos)                                    # sin activo: todos (back-compat)
+
+    def test_activo_sin_cadena_cae_a_los_cortafuegos(self):
+        # Un activo que no está en la topología (p. ej. auditor) escala por el perímetro, no deja el
+        # enum vacío (esquema insatisfacible).
+        topo = {"fw-core": {"rol": "firewall_perimetral", "ip": "10.0.0.1", "gateway": "fw-edge"},
+                "fw-edge": {"rol": "firewall_perimetral", "ip": "10.0.0.254"}}
+        disp = ag.esquema_accion(CAT, topo, activo="auditor")["properties"]["args"]["properties"]["dispositivo"]["enum"]
+        self.assertEqual(set(disp), {"fw-core", "fw-edge"})
 
     def test_solo_admite_las_herramientas_conocidas(self):
         self.assertEqual(set(self.esq["properties"]["tool"]["enum"]), set(ag._HERRAMIENTAS))
@@ -349,7 +399,10 @@ class TestFinalSinRespaldo(unittest.TestCase):
         self.assertEqual(plan["dispositivo_ejecutor"], "gateway")   # real, no declarado
 
     def test_un_final_respaldado_por_ejecucion_si_vale(self):
+        # El host (.30) está caído en EjecutorEscalado: se intenta primero (barrera) y, al fallar,
+        # se escala al firewall, donde el Final sí queda respaldado por una ejecución real.
         guion = GeneradorGuion([
+            '{"kind":"action","tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
             '{"kind":"action","tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
             '{"kind":"final","resultado":"mitigado","dispositivo_ejecutor":"gateway"}'])
         plan = ag.bucle_react({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
@@ -454,6 +507,14 @@ class TestVistaDelAgente(unittest.TestCase):
         prompt = ag.construir_prompt_sistema({"origen_ip": "203.0.113.9", "activo": "objetivo-vuln"},
                                              ag.resolver_topologia(y_perfil()))
         self.assertIn("nunca actues sobre el canal de gestion (192.168.1.100)", prompt)
+
+    def test_el_prompt_pide_empezar_por_el_equipo_atacado(self):
+        # El agente debe contener primero en el host (local, automático), no saltar al cortafuegos
+        # perimetral (consecuente, pide humano): es la causa de que todo ataque externo pidiera aprobación.
+        prompt = ag.construir_prompt_sistema({"origen_ip": "203.0.113.9", "activo": "objetivo-vuln"},
+                                             ag.resolver_topologia(y_perfil()))
+        self.assertIn("EMPIEZA por el propio equipo atacado (objetivo-vuln)", prompt)
+        self.assertIn("ultimo recurso", prompt)
 
     def test_sin_ip_de_gestion_conserva_la_consigna_generica(self):
         topo = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30"}, "ip_gestion": None}

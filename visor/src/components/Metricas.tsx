@@ -59,11 +59,13 @@ export function Metricas() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Kpi valor={pct(m.tasa_fp)} etiqueta="tasa de falsos positivos" tono={m.tasa_fp > 0 ? "text-[color:#eda100]" : ""} />
         <Kpi valor={pct(m.pct_auto)} etiqueta="resuelto sin humano (automatizado)" />
+        <Kpi valor={pct(m.pct_humano ?? 0)} etiqueta="escalado a decisión humana" />
         <Kpi valor={m.mttr_seg != null ? `${m.mttr_seg}s` : "—"} etiqueta="tiempo medio de respuesta (MTTR)" />
         <Kpi valor={String(m.suprimidas)} etiqueta="alertas de ruido evitadas" />
+        <Kpi valor={pct(m.tasa_override ?? 0)} etiqueta="corrección del analista (override)" tono={(m.tasa_override ?? 0) > 0 ? "text-[color:#eda100]" : ""} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

@@ -27,6 +27,7 @@ export const DecisionSchema = z.object({
   // gravedad (1..4), propuesta vs final y cómo la trató el filtro, y el desenlace humano
   prioridad: z.number().nullable().optional(), accion_propuesta: z.string().nullable().optional(),
   resultado_filtro: z.string().nullable().optional(), veredicto_humano: z.string().nullable().optional(),
+  veredicto_por: z.string().nullable().optional(),       // no repudio: quién aprobó
   clase_reclasificada: z.string().nullable().optional(),
   // posición en la cadena completa: identidad de la fila (los id_decision se repiten)
   indice: z.number().nullable().optional(),
@@ -130,6 +131,10 @@ export const VerificacionSchema = z.object({
 export const MetricasSchema = z.object({
   total: z.number(), fp: z.number(), tasa_fp: z.number(),
   auto: z.number(), pct_auto: z.number(), suprimidas: z.number(),
+  // valor: carga que va al humano y con qué frecuencia el analista corrige al motor
+  escalado_humano: z.number().optional(), pct_humano: z.number().optional(),
+  resueltos_humano: z.number().optional(), override: z.number().optional(),
+  tasa_override: z.number().optional(),
   mttr_seg: z.number().nullable(),
   por_clase: z.record(z.string(), z.number()), veredictos: z.record(z.string(), z.number()),
   por_dia: z.array(z.object({ dia: z.string(), n: z.number() })),
@@ -168,12 +173,22 @@ export const getVerificacion = () => pedir("/api/verificar", VerificacionSchema)
 export const getMetricas = () => pedir("/api/metricas", MetricasSchema)
 export const getRed = () => pedir("/api/red", RedSchema)
 
+// Nombre del operador que aprueba (no repudio): se guarda por navegador y viaja en /api/aprobar.
+const OPERADOR_KEY = "mdr.operador"
+export function operadorActual(): string {
+  try { return localStorage.getItem(OPERADOR_KEY) || "" } catch { return "" }
+}
+export function fijarOperador(nombre: string): void {
+  try { localStorage.setItem(OPERADOR_KEY, nombre) } catch { /* modo privado: solo esta sesión */ }
+}
+
 export async function aprobar(id: string, respuesta: string, paso?: number | null): Promise<boolean> {
   try {
+    const operador = operadorActual()
     const r = await fetch(BASE + "/api/aprobar", {
       method: "POST", headers: { "Content-Type": "application/json" },
       // sin paso (escaladas de la ruta bloqueante) no se manda y el backend no lo comprueba
-      body: JSON.stringify({ id, respuesta, ...(paso != null ? { paso } : {}) }),
+      body: JSON.stringify({ id, respuesta, ...(paso != null ? { paso } : {}), ...(operador ? { operador } : {}) }),
     })
     return r.ok            // 200 -> true; 409 (pendiente caduca) -> false, no lanza
   } catch {

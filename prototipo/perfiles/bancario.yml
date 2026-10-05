@@ -25,6 +25,11 @@ redes_internas: ["10.0.0.0/8"]
 # Origenes cuya actividad es legitima (RNF-14). Match EXACTO por IP (redes_internas si admite CIDR):
 # la administracion del banco (SOC/MDR) y el auditor autorizado.
 origenes_legitimos: ["10.100.0.10", "10.100.0.20"]
+# Terceros externos de confianza (socios criticos: pasarela de pago, proveedor). NO son origenes
+# legitimos (eso seria FP e ignorarlo): un ataque aparente desde ellos SI es amenaza, pero no se
+# auto-bloquea —cortarlos tiraria un servicio de negocio—, se retiene para aprobacion humana.
+# Admite IP exacta o CIDR. Ejemplo (vacio por defecto):
+# terceros_confiables: ["203.0.113.7", "198.51.100.0/24"]
 # Plano de gestion: RF-19 (no_cortar_gestion) impide que ninguna accion lo afecte.
 ip_gestion: 10.100.0.10
 
