@@ -80,10 +80,12 @@ desplegarlo y operarlo. El detalle vivo del estado,
 las decisiones cerradas y los riesgos está en
 [`documentacion/00-general/estado-y-riesgos.md`](documentacion/00-general/estado-y-riesgos.md).
 
-**Resultado medido (Fase 6, ampliado el 11/09/2026 a tres familias de ataque):** frente al nivel de
-regla de Wazuh, el prototipo reduce la tasa de falsos positivos **a 0.000** (vs 0.296 del baseline
-sobre 233 alertas) **sin perder ninguna amenaza** (recall 1.0, frente a 0.741 del baseline, que deja
-pasar las conexiones en claro de nivel 3) y sin acciones disruptivas indebidas.
+**Resultado medido (Fase 6, tres familias de ataque):** frente al nivel de regla de Wazuh, sobre la
+partición de evaluación de **300 alertas**, el prototipo reduce la tasa de falsos positivos **a 0.000**
+(vs 0.296 del baseline) **sin perder ninguna amenaza** (recall 1.0, frente a 0.741 del baseline, que
+deja pasar las conexiones en claro de nivel 3). Con la **conciencia de impacto** —medida sobre la red
+real del laboratorio, donde el atacante es interno— escala al analista el **29,7 % (89/300)** y reduce
+a **cero** las contenciones automáticas indebidas (la automatización queda para los orígenes externos).
 Detalle en [`evaluacion/resultados/README.md`](evaluacion/resultados/README.md) y en el
 [informe de evaluación](documentacion/06-fase6-evaluacion-del-prototipo/informe-evaluacion.md).
 
