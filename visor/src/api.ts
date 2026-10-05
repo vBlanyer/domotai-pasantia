@@ -34,6 +34,8 @@ export const DecisionSchema = z.object({
   id_decision_revertida: z.string().nullable().optional(), indice_revertido: z.number().nullable().optional(),
   exito: z.boolean().nullable().optional(), accion_id: z.string().nullable().optional(),
   nodo: z.string().nullable().optional(), error: z.string().nullable().optional(),
+  // relaciones evento-equipo en la red y dispositivo de contención
+  relaciones: z.record(z.string(), z.array(z.string())).nullable().optional(), contencion: z.string().nullable().optional(), dispositivo: z.string().nullable().optional(),
 })
 // Detalle completo de una decisión (/api/traza/<id>): el texto de la justificación y los pasajes
 // del RAG. Laxo a propósito (`passthrough`): la traza lleva muchos más campos que no renderizamos.
@@ -98,6 +100,24 @@ export const EquipoSchema = z.object({
   categoria: z.string(), servicios_prestados: z.array(z.number()).nullable().optional(),
   depende_de: z.array(z.string()).nullable().optional(), estado: z.string().nullable().optional(),
 })
+const NodoRedSchema = z.object({
+  nombre: z.string(), ip: z.string().nullable().optional(), tipo: z.string(),
+  zona: z.string().nullable().optional(), funcion: z.string().nullable().optional(),
+  criticidad: z.string().nullable().optional(),
+  servicios_prestados: z.array(z.union([z.number(), z.string()])).optional(),
+  depende_de: z.array(z.string()).optional(), salud: z.string().nullable().optional(),
+  actividad: z.object({
+    objetivo: z.number(), origen: z.number(), contuvo_aqui: z.number(), pendientes: z.number(),
+    estado: z.string(), ultima: z.string().nullable().optional(),
+  }),
+})
+export const RedSchema = z.object({
+  nodos: z.array(NodoRedSchema),
+  enlaces: z.array(z.tuple([z.string(), z.string()])),
+  dependencias: z.array(z.tuple([z.string(), z.string()])),
+  zonas: z.array(z.object({ nombre: z.string(), nodos: z.array(z.string()) })),
+  avisos: z.array(z.string()).optional(),
+})
 export const PendienteSchema = z.object({
   id: z.string(), tipo: z.string(), prompt: z.string(), lineas: z.array(z.string()),
   // cola no bloqueante: orden por severidad y cuántas repeticiones llegaron mientras espera.
@@ -107,6 +127,8 @@ export const PendienteSchema = z.object({
   paso: z.number().nullable().optional(),
   // null = vetada sin sustituta: aprobarla no ejecuta nada (ausente en daemons antiguos)
   accion_final: z.string().nullable().optional(),
+  // estado activo y origen de la amenaza
+  activo: z.string().nullable().optional(), origen_ip: z.string().nullable().optional(),
 })
 export const VerificacionSchema = z.object({
   ok: z.boolean(), roto_en: z.number().nullable().optional(), motivo: z.string().optional(),
@@ -129,6 +151,8 @@ export type Pasaje = z.infer<typeof PasajeSchema>
 export type Pendiente = z.infer<typeof PendienteSchema>
 export type Verificacion = z.infer<typeof VerificacionSchema>
 export type Metricas = z.infer<typeof MetricasSchema>
+export type Red = z.infer<typeof RedSchema>
+export type NodoRed = z.infer<typeof NodoRedSchema>
 
 async function pedir<T>(ruta: string, esquema: z.ZodType<T>): Promise<T | { error: string }> {
   try {
@@ -150,6 +174,7 @@ export const getTrazaDetalle = (id: string, indice?: number | null) =>
   pedir(`/api/traza/${encodeURIComponent(id)}${indice != null ? `?indice=${indice}` : ""}`, DetalleSchema)
 export const getVerificacion = () => pedir("/api/verificar", VerificacionSchema)
 export const getMetricas = () => pedir("/api/metricas", MetricasSchema)
+export const getRed = () => pedir("/api/red", RedSchema)
 
 export async function aprobar(id: string, respuesta: string, paso?: number | null): Promise<boolean> {
   try {

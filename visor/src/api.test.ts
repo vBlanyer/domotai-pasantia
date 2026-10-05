@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, EquipoSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle } from "./api"
+import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, EquipoSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -185,5 +185,22 @@ describe("getTrazaDetalle", () => {
     expect(f.mock.calls[0][0]).toMatch(/\/api\/traza\/s1\?indice=4$/)
     await getTrazaDetalle("s1")
     expect(f.mock.calls[1][0]).toMatch(/\/api\/traza\/s1$/)
+  })
+})
+
+describe("RedSchema", () => {
+  it("valida la respuesta de /api/red", () => {
+    const r = RedSchema.parse({
+      nodos: [{ nombre: "web-banking", ip: "10.10.0.10", tipo: "servidor", zona: "DMZ", funcion: null, criticidad: "alta",
+        servicios_prestados: [443], depende_de: ["middleware"], salud: null,
+        actividad: { objetivo: 2, origen: 0, contuvo_aqui: 1, pendientes: 0, estado: "contenido", ultima: "2026-09-30T10:00:00Z" } }],
+      enlaces: [["web-banking", "fw-core"]], dependencias: [], zonas: [{ nombre: "DMZ", nodos: ["web-banking"] }], avisos: [],
+    })
+    expect(r.nodos[0].actividad.estado).toBe("contenido")
+  })
+  it("DecisionSchema conserva relaciones y contención", () => {
+    const d = DecisionSchema.parse({ id_decision: "s1", relaciones: { "web-banking": ["objetivo"] }, contencion: "contenida", dispositivo: "fw-core" })
+    expect(d.relaciones).toEqual({ "web-banking": ["objetivo"] })
+    expect(d.dispositivo).toBe("fw-core")
   })
 })
