@@ -130,6 +130,10 @@ export const VerificacionSchema = z.object({
 export const MetricasSchema = z.object({
   total: z.number(), fp: z.number(), tasa_fp: z.number(),
   auto: z.number(), pct_auto: z.number(), suprimidas: z.number(),
+  // valor: carga que va al humano y con qué frecuencia el analista corrige al motor
+  escalado_humano: z.number().optional(), pct_humano: z.number().optional(),
+  resueltos_humano: z.number().optional(), override: z.number().optional(),
+  tasa_override: z.number().optional(),
   mttr_seg: z.number().nullable(),
   por_clase: z.record(z.string(), z.number()), veredictos: z.record(z.string(), z.number()),
   por_dia: z.array(z.object({ dia: z.string(), n: z.number() })),

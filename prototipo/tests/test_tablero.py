@@ -233,6 +233,20 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual({a["nombre"]: a["n"] for a in m["top_activos"]}["web-banking"], 2)
         self.assertEqual({t["tecnica"]: t["n"] for t in m["mitre"]}["T1110.001"], 2)
         self.assertEqual([d["n"] for d in m["por_dia"]], [1, 2])   # 23 (1) antes que 24 (2)
+        # Métricas de valor: carga del analista y cuánto corrige al motor.
+        self.assertEqual(m["escalado_humano"], 2)                  # 2 de 3 fueron a un humano
+        self.assertEqual(m["pct_humano"], round(2 / 3, 3))
+        self.assertEqual(m["resueltos_humano"], 2)                 # aprobar + rechazar
+        self.assertEqual(m["override"], 1)                         # 1 rechazar (corrigió al motor)
+        self.assertEqual(m["tasa_override"], round(1 / 2, 3))
+
+    def test_metricas_override_cuenta_reclasificar_y_sin_resueltos_no_divide(self):
+        regs = [{"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "reclasificar"},
+                {"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "aprobar"}]
+        m = tablero.metricas(regs)
+        self.assertEqual(m["override"], 1)                         # reclasificar también es override
+        self.assertEqual(m["tasa_override"], 0.5)
+        self.assertEqual(tablero.metricas([])["tasa_override"], 0.0)   # sin decisiones, no divide
 
     def test_metricas_no_cuentan_los_errores_ni_las_reversiones_como_decisiones(self):
         m = tablero.metricas([{"id_decision": "s1", "clase": "vp_intento_acceso", "requiere_humano": False},

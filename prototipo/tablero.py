@@ -452,9 +452,17 @@ def metricas(regs):
         if isinstance(ini, (int, float)) and isinstance(fin, (int, float)):
             tiempos.append(fin - ini)
     ranking = lambda d, k: sorted(({k: n, "n": c} for n, c in d.items()), key=lambda x: -x["n"])[:8]
+    # Métricas de valor: cuánta carga va al humano (lo que el MDR NO resuelve solo) y con qué
+    # frecuencia el analista corrige al motor (rechazar o reclasificar una decisión).
+    escalado_humano = total - auto
+    resueltos_humano = sum(veredictos.values())
+    override = veredictos.get("rechazar", 0) + veredictos.get("reclasificar", 0)
     return {
         "total": total, "fp": fp, "tasa_fp": round(fp / total, 3) if total else 0.0,
         "auto": auto, "pct_auto": round(auto / total, 3) if total else 0.0,
+        "escalado_humano": escalado_humano, "pct_humano": round(escalado_humano / total, 3) if total else 0.0,
+        "resueltos_humano": resueltos_humano, "override": override,
+        "tasa_override": round(override / resueltos_humano, 3) if resueltos_humano else 0.0,
         "suprimidas": sum((r.get("alertas_suprimidas") or 0) for r in regs if r.get("tipo") == "actividad_suprimida"),
         "mttr_seg": round(sum(tiempos) / len(tiempos), 1) if tiempos else None,
         "por_clase": por_clase, "veredictos": veredictos,
