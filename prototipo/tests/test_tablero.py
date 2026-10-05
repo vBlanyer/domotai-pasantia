@@ -158,36 +158,6 @@ class TestLectoresDeDatos(unittest.TestCase):
     def test_estado_salud_sin_muestra(self):
         self.assertEqual(tablero.estado_salud(None), {"sin_datos": True})
 
-    def test_estado_equipos_inventario_desde_perfil_con_categoria_y_estado(self):
-        activos = {
-            "web-banking": {"ip": "10.10.0.10", "funcion": "banca en linea", "criticidad": "alta",
-                            "servicios_prestados": [443], "depende_de": ["middleware"]},
-            "mdr-siem": {"ip": "10.100.0.10", "funcion": "consola SOC/MDR (plano de gestion)",
-                         "criticidad": "critica", "servicios_prestados": []},
-            "taquilla": {"ip": "10.200.0.10", "funcion": "puesto de taquilla", "criticidad": "media",
-                         "servicios_prestados": []},
-        }
-        topologia = {"fw-core": {"rol": "firewall_perimetral", "ip": "10.0.0.1", "gateway": "fw-edge"}}
-        salud = {"servicios": [{"nombre": "web-banking", "estado": "ok", "depende_de": []}]}
-        eq = tablero.estado_equipos(activos, topologia, salud)
-        por = {e["nombre"]: e for e in eq}
-        self.assertEqual(len(eq), 4)                              # 3 activos + 1 cortafuegos del topologia
-        self.assertEqual(por["web-banking"]["categoria"], "servidor")
-        self.assertEqual(por["web-banking"]["estado"], "ok")      # cruzado con salud
-        self.assertEqual(por["web-banking"]["criticidad"], "alta")
-        self.assertEqual(por["mdr-siem"]["categoria"], "gestion")
-        self.assertEqual(por["taquilla"]["categoria"], "endpoint")   # sin servicios prestados
-        self.assertEqual(por["fw-core"]["categoria"], "cortafuegos")  # sale del topologia
-        self.assertEqual(por["fw-core"]["ip"], "10.0.0.1")
-        self.assertIsNone(por["fw-core"]["estado"])                  # no monitoreado por salud
-
-    def test_estado_equipos_tolera_salud_sin_datos_o_none(self):
-        activos = {"a": {"ip": "1.1.1.1", "funcion": "x", "criticidad": "alta", "servicios_prestados": [80]}}
-        for salud in ({"sin_datos": True}, None):
-            eq = tablero.estado_equipos(activos, {}, salud)
-            self.assertIsNone(eq[0]["estado"])
-            self.assertEqual(eq[0]["categoria"], "servidor")
-
     def test_leer_salud_de_fichero_toma_la_ultima_linea(self):
         ruta = self._traza_tmp([{"t": "1", "estados": {}}, {"t": "2", "estados": {"a": "ok"}}])
         self.assertEqual(tablero.leer_salud(ruta=ruta)["t"], "2")

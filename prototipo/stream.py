@@ -788,9 +788,7 @@ def construir_web(cfg, perfil):
     # Cola de aprobación no bloqueante salvo en modo agente (que aprueba por paso, bloqueante).
     async_web = not cfg.get("agente")
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
-                                      puerto=cfg["web_puerto"], activos=activos,
-                                      topologia=perfil.get("topologia") or {}, async_web=async_web,
-                                      perfil=perfil)
+                                      puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil)
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
