@@ -437,7 +437,12 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     def escribir_traza(reg):
         with _traza_lock:
             if cadena is not None:
-                cadena.escribir(reg)
+                try:
+                    cadena.escribir(reg)
+                except ValueError:
+                    # Fichero ya cerrado en el apagado (un hilo del agente aprobado justo al salir):
+                    # ese registro se pierde, pero la cadena no se corrompe (falla antes de escribir).
+                    pass
     memoria = MemoriaDecisiones(perfil)
     _resumen_lock = threading.Lock()
     def al_resolver(r, alerta):
@@ -481,27 +486,31 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 escribir(t); _buf.append(t)
             lee = lector_incidente(buf)
         try:
-            d = _procesar_incidente(
-                inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
-                id_decision, cadena, esc, lee, mitigar_fn=mitigar_fn,
-                encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada)
-        except Exception as e:
-            # Barrera: un fallo con un incidente (un ejecutor que lanza, un dato inesperado) no
-            # tumba el daemon ni el visor; queda un registro 'error' encadenado y se sigue.
-            reg = _registro_error(inc, id_decision, e)
-            escribir(f"✗ {reg['id_decision']}: no se pudo procesar el incidente de {reg['origen_ip']} "
-                     f"-> {reg['activo']}: {reg['error']}")
-            escribir_traza(reg)
-            d = None
-        if d is not None:
-            with _resumen_lock:
-                _contar(resumen, d)
-            # Las decisiones en cola aún no se deciden: se recuerdan al resolverlas (al_resolver).
-            if suprimir and not d.get("en_cola"):
-                memoria.recordar(clave, d)
-        if lector_incidente is not None:
-            with _en_vuelo_lock:
-                _en_vuelo.pop(clave, None)
+            try:
+                d = _procesar_incidente(
+                    inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
+                    id_decision, cadena, esc, lee, mitigar_fn=mitigar_fn,
+                    encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada)
+            except Exception as e:
+                # Barrera: un fallo con un incidente (un ejecutor que lanza, un dato inesperado) no
+                # tumba el daemon ni el visor; queda un registro 'error' encadenado y se sigue.
+                reg = _registro_error(inc, id_decision, e)
+                escribir(f"✗ {reg['id_decision']}: no se pudo procesar el incidente de {reg['origen_ip']} "
+                         f"-> {reg['activo']}: {reg['error']}")
+                escribir_traza(reg)
+                d = None
+            if d is not None:
+                with _resumen_lock:
+                    _contar(resumen, d)
+                # Las decisiones en cola aún no se deciden: se recuerdan al resolverlas (al_resolver).
+                if suprimir and not d.get("en_cola"):
+                    memoria.recordar(clave, d)
+        finally:
+            # Quitar de `_en_vuelo` en finally (y DESPUÉS de recordar): sin esto, un fallo en el
+            # apagado dejaría la clave atascada y suprimiría toda repetición futura como «en curso».
+            if lector_incidente is not None:
+                with _en_vuelo_lock:
+                    _en_vuelo.pop(clave, None)
     def _procesa_lote(lote):
         # E-minimo: bajo carga (muchos ataques distintos a la vez) se decide primero lo mas grave.
         for inc in _ordenar_por_severidad(agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1))):
@@ -522,10 +531,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 if ref is not None:
                     _suprimir(inc, {"id_decision": ref, "veredicto": None, "desenlace": "pendiente del analista"})
                     continue
-            previa = memoria.buscar(clave) if suprimir else None
-            if previa is not None and _misma_clase(inc["representante"], previa):
-                _suprimir(inc, previa)
-                continue
+            # El chequeo «en vuelo» va ANTES que la memoria: el hilo recuerda y LUEGO quita de
+            # `_en_vuelo`, así que entre recordar y quitar la repetición aún se ve aquí (sin hueco).
             if lector_incidente is not None and suprimir and clave[0] is not None:
                 with _en_vuelo_lock:
                     en_curso = _en_vuelo.get(clave)
@@ -533,6 +540,10 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                     _suprimir(inc, {"id_decision": en_curso, "veredicto": None,
                                     "desenlace": "en curso (agente)"})
                     continue
+            previa = memoria.buscar(clave) if suprimir else None
+            if previa is not None and _misma_clase(inc["representante"], previa):
+                _suprimir(inc, previa)
+                continue
             seq[0] += 1
             id_decision = f"s{seq[0]}"
             if lector_incidente is not None:
