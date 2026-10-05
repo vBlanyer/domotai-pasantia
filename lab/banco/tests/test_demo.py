@@ -2,7 +2,7 @@ import contextlib
 import io
 import subprocess
 import unittest
-from lab.banco import casos, demo
+from lab.banco import casos, demo, red
 
 
 class TestDemo(unittest.TestCase):
@@ -134,6 +134,56 @@ class TestDemo(unittest.TestCase):
         _, cmd = self._caso("E1")["preparar"][0]
         self.assertIn("iptables -C INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP", cmd)
         self.assertLess(cmd.index("-C INPUT"), cmd.index("-I INPUT"))
+
+    # --- Ataque a medida: elegir objetivo, servicio y origen ---
+    def _resp(self, respuestas):
+        r = iter(respuestas)
+        return lambda _="": next(r)
+
+    def test_elegir_a_medida_externo(self):
+        objetivos = sorted(red.NODOS)
+        i_wb = objetivos.index("web-banking") + 1
+        # objetivo web-banking -> tipo 1 (fuerza bruta SSH) -> origen 1 (internet)
+        caso = demo.elegir_a_medida(self._resp([str(i_wb), "1", "1"]))
+        self.assertEqual(caso["ataque"][0], "internet")
+        self.assertEqual(caso["origen"], "198.51.100.10")
+        self.assertEqual(caso["destino_ip"], "10.10.0.10")
+        self.assertIn("cliente@10.10.0.10", caso["ataque"][1])
+        self.assertIn("web-banking", caso["titulo"])
+
+    def test_elegir_a_medida_origen_interno(self):
+        objetivos = sorted(red.NODOS)
+        i_wb = objetivos.index("web-banking") + 1
+        origenes = ["internet"] + [n for n in objetivos if n != "web-banking"]
+        i_taq = origenes.index("taquilla") + 1
+        caso = demo.elegir_a_medida(self._resp([str(i_wb), "1", str(i_taq)]))
+        self.assertEqual(caso["ataque"][0], "taquilla")            # el docker exec corre en taquilla
+        self.assertEqual(caso["origen"], "10.200.0.10")            # su IP es el origen
+
+    def test_elegir_a_medida_oculta_web_en_un_objetivo_sin_servicio_http(self):
+        objetivos = sorted(red.NODOS)
+        i_cdb = objetivos.index("core-db") + 1                     # core-db presta sql (1521), no web
+        tipos = casos.tipos_para(red.SERVICIOS["core-db"]["puertos"])
+        self.assertNotIn("exploit_web", [t["clave"] for t in tipos])
+        # elegir el "cuarto tipo" ya no existe: la opción 4 es inválida y cancela
+        self.assertIsNone(demo.elegir_a_medida(self._resp([str(i_cdb), "4"])))
+
+    def test_elegir_a_medida_cancela_con_cero(self):
+        self.assertIsNone(demo.elegir_a_medida(self._resp(["0"])))
+
+    def test_main_ataque_a_medida_lanza_el_ataque(self):
+        objetivos = sorted(red.NODOS)
+        i_wb = objetivos.index("web-banking") + 1
+        llamadas, ejecutar = self._fake()
+        # a -> objetivo web-banking -> tipo 1 -> origen 1 (internet) -> no deshacer -> salir
+        resp = self._resp(["a", str(i_wb), "1", "1", "N", "0"])
+        demo.main(leer=resp, ejecutar=ejecutar, dormir=lambda _: None)
+        ataques = [a[-1] for a in llamadas if "sshpass" in a[-1]]
+        self.assertTrue(ataques, "el ataque a medida debía lanzarse")
+        self.assertIn("cliente@10.10.0.10", ataques[0])
+
+    def test_menu_ofrece_el_ataque_a_medida(self):
+        self.assertIn("a. Ataque a medida", demo.menu(demo.casos_vivos()) + demo.LINEA_A_MEDIDA)
 
 
 if __name__ == "__main__":

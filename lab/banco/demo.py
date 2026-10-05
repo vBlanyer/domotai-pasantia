@@ -62,6 +62,52 @@ def menu(vivos):
     return "\n".join(f"  {i}. {c['id']} — {c['titulo']}" for i, c in enumerate(vivos, 1))
 
 
+LINEA_A_MEDIDA = "  a. Ataque a medida (elige equipo objetivo, servicio y origen)"
+IP_EXTERNA = "198.51.100.10"       # el atacante externo, la misma que usan los casos de internet
+
+
+def _elegir(leer, prompt, opciones, etiqueta):
+    """Imprime `opciones` numeradas (etiqueta(opcion) -> texto) y devuelve la elegida, o None si se
+    cancela (0/intro) o la entrada no es válida."""
+    for i, o in enumerate(opciones, 1):
+        print(f"    {i}. {etiqueta(o)}")
+    sel = (leer(prompt) or "").strip().lower()
+    if sel in ("0", "", "q"):
+        return None
+    try:
+        return opciones[int(sel) - 1] if int(sel) >= 1 else None
+    except (ValueError, IndexError):
+        print("  opción no válida")
+        return None
+
+
+def elegir_a_medida(leer):
+    """Pregunta equipo objetivo, tipo de ataque (solo los que tienen sentido para ese equipo) y
+    origen (internet o un equipo interno), y devuelve un caso a medida listo para `lanzar`. None si
+    se cancela en cualquier paso."""
+    objetivos = sorted(red.NODOS)
+    print("\n  Equipo objetivo:")
+    obj = _elegir(leer, f"  objetivo [1-{len(objetivos)}, 0=cancelar]: ",
+                  objetivos, lambda n: f"{n} ({red.NODOS[n]['ip']})")
+    if obj is None:
+        return None
+    puertos = red.SERVICIOS.get(obj, {}).get("puertos", [])
+    tipos = casos.tipos_para(puertos)
+    print(f"\n  Tipo de ataque contra {obj}:")
+    tipo = _elegir(leer, f"  ataque [1-{len(tipos)}, 0=cancelar]: ", tipos, lambda t: t["titulo"])
+    if tipo is None:
+        return None
+    origenes = ["internet"] + [n for n in objetivos if n != obj]
+    print("\n  Origen del ataque:")
+    org = _elegir(leer, f"  origen [1-{len(origenes)}, 0=cancelar]: ", origenes,
+                  lambda n: "internet (atacante externo)" if n == "internet" else f"{n} ({red.NODOS[n]['ip']})")
+    if org is None:
+        return None
+    origen_nodo, origen_ip = ("internet", IP_EXTERNA) if org == "internet" else (org, red.NODOS[org]["ip"])
+    puerto = next((p for p in puertos if p in casos.PUERTOS_WEB), None)
+    return casos.caso_a_medida(tipo["clave"], origen_nodo, origen_ip, obj, red.NODOS[obj]["ip"], puerto)
+
+
 def lanzar(caso, ejecutar=subprocess.run, src_ip=None):
     """Ejecuta la preparación (si la hay) y luego el ataque, vía docker exec. Con `src_ip`, lanza
     el ataque desde esa IP de origen nueva (rotación); sin él, comportamiento actual."""
@@ -91,22 +137,28 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
         while True:
             print("\n== Ataques del banco (para el daemon/tablero) ==")
             print(menu(vivos))
+            print(LINEA_A_MEDIDA)
             print(f"  r. IP de origen rotativa: {'ON' if rotar else 'OFF'}  "
                   "(cada ataque desde una IP nueva; esquiva supresión y bloqueo previo)")
             print("  0. Salir")
-            sel = leer(f"Elige [0-{len(vivos)}, r]: ").strip().lower()
+            sel = leer(f"Elige [0-{len(vivos)}, a, r]: ").strip().lower()
             if sel in ("0", "", "q"):
                 return 0
             if sel == "r":
                 rotar = not rotar
                 continue
-            try:
-                caso = vivos[int(sel) - 1]
-                if int(sel) < 1:
-                    raise IndexError
-            except (ValueError, IndexError):
-                print("  opción no válida")
-                continue
+            if sel == "a":
+                caso = elegir_a_medida(leer)
+                if caso is None:
+                    continue
+            else:
+                try:
+                    caso = vivos[int(sel) - 1]
+                    if int(sel) < 1:
+                        raise IndexError
+                except (ValueError, IndexError):
+                    print("  opción no válida")
+                    continue
 
             # IP de origen: rotada (si procede) o la base del caso.
             src = None

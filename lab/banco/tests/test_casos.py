@@ -27,5 +27,36 @@ class TestCatalogo(unittest.TestCase):
             self.assertIn("esperado", c, c["id"])
 
 
+class TestAtaqueAMedida(unittest.TestCase):
+    def test_tipos_para_ofrece_web_solo_con_puerto_web(self):
+        claves = lambda p: [t["clave"] for t in casos.tipos_para(p)]
+        self.assertNotIn("exploit_web", claves([1521]))        # core-db (sql): sin web
+        self.assertIn("exploit_web", claves([443, 80]))        # web-banking
+        self.assertIn("exploit_web", claves([8080]))           # atm
+        for p in ([1521], [443], [], None):                    # ssh/recon/telnet, siempre
+            self.assertEqual({"fuerza_bruta", "recon", "telnet"}, set(claves(p)) - {"exploit_web"})
+
+    def test_caso_a_medida_externo_ssh_trae_ataque_origen_y_deshacer(self):
+        c = casos.caso_a_medida("fuerza_bruta", "internet", "198.51.100.10", "web-banking", "10.10.0.10")
+        self.assertEqual(c["nivel"], "vivo")
+        nodo, cmd = c["ataque"]
+        self.assertEqual(nodo, "internet")                     # docker exec corre en el nodo origen
+        self.assertIn("cliente@10.10.0.10", cmd)               # contra la IP objetivo
+        self.assertEqual(c["origen"], "198.51.100.10")         # IP de origen (para rotación y aviso)
+        self.assertEqual(c["destino_ip"], "10.10.0.10")
+        self.assertIn(("web-banking", "iptables -D INPUT -s 198.51.100.10 -j DROP"), c["deshacer"])
+        self.assertIn("web-banking", c["titulo"])
+
+    def test_caso_a_medida_origen_interno_sale_del_nodo_elegido(self):
+        c = casos.caso_a_medida("fuerza_bruta", "taquilla", "10.200.0.10", "web-banking", "10.10.0.10")
+        self.assertEqual(c["ataque"][0], "taquilla")
+        self.assertEqual(c["origen"], "10.200.0.10")
+
+    def test_caso_a_medida_web_usa_el_puerto_y_no_se_deshace(self):
+        c = casos.caso_a_medida("exploit_web", "internet", "198.51.100.10", "web-banking", "10.10.0.10", puerto=443)
+        self.assertIn(":443", c["ataque"][1])                  # al puerto web del objetivo
+        self.assertEqual(c["deshacer"], [])                    # amenaza enrutada: el MDR no bloquea
+
+
 if __name__ == "__main__":
     unittest.main()
