@@ -174,11 +174,27 @@ class TestBucleReact(unittest.TestCase):
         self.assertTrue(any("FORWARD" in r for r in plan["reversiones"]))   # RF-18
 
     def test_rechazo_humano_cancela(self):
+        # y_perfil() no declara continuidad -> todo es humano_siempre: el perfil RETIENE, el agente
+        # pregunta y el rechazo cancela (ya sin depender de siempre_humano).
         guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}']
         plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil(), CAT,
                               lambda ip, c: (0, ""), GeneradorGuion(guion),
                               leer=lambda *_: "n", autonomo=False, escribir=lambda *_: None)
         self.assertEqual(plan["resultado"], "cancelado_por_humano")
+
+    def test_accion_automatica_no_pregunta_en_modo_agente(self):
+        # El agente respeta el filtro: una acción que el perfil marca automática (localizado + conf
+        # alta en el perfil empresarial) se ejecuta SIN preguntar, aunque no sea autónomo. Antes
+        # preguntaba siempre (siempre_humano) y por eso TODO ataque externo pedía aprobación.
+        def _no_preguntes(*_):
+            raise AssertionError("una acción automática no debe preguntar al humano")
+        guion = ['Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
+                 'Final: {"resultado":"mitigado","dispositivo_ejecutor":"objetivo-vuln"}']
+        plan = ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil_empresarial(), CAT,
+                              lambda ip, c: (0, ""), GeneradorGuion(guion),
+                              leer=_no_preguntes, autonomo=False, escribir=lambda *_: None, confianza=1.0)
+        self.assertEqual(plan["resultado"], "mitigado")
+        self.assertEqual(plan["dispositivo_ejecutor"], "objetivo-vuln")
 
     def test_si_el_modelo_no_da_accion_valida_se_contiene_igual(self):
         # Antes esto dejaba la amenaza SIN contener y solo anotaba lo que la politica habria

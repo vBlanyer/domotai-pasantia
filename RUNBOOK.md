@@ -98,10 +98,13 @@ daemon **sigue procesando** (no se estanca esperándote). El panel muestra la **
 Si el mismo ataque sigue llegando mientras esperas, la tarjeta lo marca (`sigue atacando · +N`). Un clic en
 Aprobar ejecuta la contención real (`iptables`) por el conector y escribe la traza en ese momento (la traza
 queda en **orden de finalización**). Es local (`127.0.0.1`) y **sin autenticación** (etapa inicial). En modo
-`--agente` el agente **aprueba paso a paso** (bloquear host → si falla, escalar al cortafuegos…), pero ya
-**no congela el daemon**: cada incidente se resuelve en su propio hilo, así que el daemon sigue triando y
-varias tarjetas del agente pueden coexistir en el panel (cada una con su contexto). Una repetición del mismo
-ataque mientras el agente sigue pendiente **no abre un segundo agente**: se suprime y se cuenta.
+`--agente` el agente ReAct decide la estrategia (**contiene primero en el equipo atacado** y escala al
+cortafuegos solo si ese salto falla) y **respeta el filtro del perfil igual que el modo determinista**: aplica
+en automático lo que el perfil permite (p. ej. bloquear a un atacante externo en el host atacado) y **pregunta
+solo lo que el perfil retiene** (el salto al cortafuegos perimetral, un activo interno, el plano de gestión).
+Además **no congela el daemon**: cada incidente se resuelve en su propio hilo, así que el daemon sigue triando y
+varias tarjetas pueden coexistir en el panel (cada una con su contexto). Una repetición del mismo ataque
+mientras el agente sigue pendiente **no abre un segundo agente**: se suprime y se cuenta.
 
 ### C. Lanzador de ataques por número (para demos)
 
@@ -169,7 +172,7 @@ python3 -m prototipo.stream <fuente> <perfil> <hallazgos> [flags]
 |---|---|
 | `--web [puerto]` | Levanta el visor web (por defecto `8787`). |
 | `--con-llm` / `--sin-llm` | Justificación con el LLM 1B real / por plantilla (rápida). Por defecto sin LLM. |
-| `--agente` | Mitigación con el agente ReAct (escala host→cortafuegos, aprobación por paso; con `--web`, cada incidente en su hilo: no congela el daemon). |
+| `--agente` | Mitigación con el agente ReAct (contiene en el host atacado, escala al cortafuegos solo si falla; respeta el filtro del perfil: auto lo permitido, pregunta lo retenido; con `--web`, cada incidente en su hilo). |
 | `--ventana-agrupacion N` | Segundos para agrupar alertas en incidentes (por defecto 5). |
 | `--salida F` | Fichero de traza (por defecto `run/trazas-stream.jsonl`). Usa uno nuevo para una cadena limpia. |
 | `--sin-supresion` | Desactiva la supresión de repetidos (audita cada alerta). |
