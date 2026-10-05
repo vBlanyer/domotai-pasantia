@@ -111,6 +111,14 @@ sh lab/banco/banco.sh atacar
 Lista los casos vivos; eliges por número, lo lanza (respeta los 60 s de silencio de la regla 5763 de Wazuh
 entre ataques) y ofrece deshacer/restaurar. Cubre las **cuatro familias** que el motor tría, cada una con
 su conducta de respuesta:
+
+**Ataque a medida (tecla `a`):** además de los casos guionizados, eliges tú el **equipo objetivo** (los 10
+nodos del banco), el **servicio/tipo de ataque** (fuerza bruta SSH, reconocimiento, telnet o explotación web
+SQLi — la web solo se ofrece en equipos con servicio HTTP) y el **origen** (internet o cualquier equipo
+interno, p. ej. taquilla contra web-banking como el caso A1). Reutiliza los mismos ataques que los casos
+guionizados; funciona con la rotación `r`, la espera de 60 s y el deshacer igual que el resto. Si el MDR no
+llegó a bloquear (lo rechazaste, o fue amenaza enrutada), el deshacer no encuentra regla que quitar: usa
+`sh lab/banco/banco.sh restaurar` para dejar el banco limpio.
 - **D1/A1/K1/E1** — acceso a credenciales (fuerza bruta SSH): contener / retener / escalar.
 - **RECON** — reconocimiento (escaneo SSH): VP, contiene.
 - **EXPLOIT** — explotación conocida (SQLi web): `amenaza_enrutada`, **enruta** a un equipo (no contiene).

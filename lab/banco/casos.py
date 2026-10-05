@@ -64,6 +64,36 @@ def fuerza_bruta_atada(origen, destino_ip, src_ip, iface="eth1"):
     return (origen, alias + _loop_ssh(destino_ip, bind=src_ip))
 
 
+# --- Ataque a medida (lanzador `banco.sh atacar`): elegir objetivo, servicio y origen ------------
+# Reutiliza los primitivos de arriba; no define ataques nuevos. `bloquea` dice si el MDR contiene
+# la amenaza con un DROP de la IP de origen (por eso hay que deshacerlo); la explotación web es
+# amenaza enrutada, no se bloquea. `web` marca los que necesitan un servicio HTTP en el objetivo.
+TIPOS_ATAQUE = [
+    {"clave": "fuerza_bruta", "titulo": "fuerza bruta SSH",            "fn": _fuerza_bruta, "web": False, "bloquea": True},
+    {"clave": "recon",        "titulo": "reconocimiento (escaneo SSH)", "fn": _recon,       "web": False, "bloquea": True},
+    {"clave": "telnet",       "titulo": "telnet expuesto",             "fn": _telnet,       "web": False, "bloquea": True},
+    {"clave": "exploit_web",  "titulo": "explotación web (SQLi)",      "fn": _exploit_web,  "web": True,  "bloquea": False},
+]
+PUERTOS_WEB = {80, 443, 8080, 8443}
+
+
+def tipos_para(puertos):
+    """Los tipos de ataque que tienen sentido contra un objetivo con esos puertos: la explotación
+    web solo si presta un servicio HTTP; SSH, reconocimiento y telnet siempre."""
+    tiene_web = bool(set(puertos or ()) & PUERTOS_WEB)
+    return [t for t in TIPOS_ATAQUE if tiene_web or not t["web"]]
+
+
+def caso_a_medida(tipo, origen_nodo, origen_ip, destino_nodo, destino_ip, puerto=None):
+    """Un caso 'vivo' a medida listo para demo.lanzar/deshacer: el ataque `tipo` desde `origen_nodo`
+    (IP `origen_ip`, para la rotación y el aviso de bloqueo) contra `destino_nodo` (`destino_ip`)."""
+    t = next(x for x in TIPOS_ATAQUE if x["clave"] == tipo)
+    ataque = t["fn"](origen_nodo, destino_ip, puerto or 443) if t["web"] else t["fn"](origen_nodo, destino_ip)
+    deshacer = [(destino_nodo, f"iptables -D INPUT -s {origen_ip} -j DROP")] if t["bloquea"] else []
+    return {"id": "MEDIDA", "nivel": "vivo", "titulo": f"{t['titulo']} desde {origen_nodo} contra {destino_nodo}",
+            "ataque": ataque, "origen": origen_ip, "destino_ip": destino_ip, "deshacer": deshacer}
+
+
 def _dec(id_, titulo, alerta, esperado, rafaga=None):
     a = {"familia": "acceso_credenciales", **alerta}
     c = {"id": id_, "titulo": titulo, "nivel": "decision", "alerta": a, "esperado": esperado}
