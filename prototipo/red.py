@@ -13,7 +13,7 @@ SIN_UBICAR = "Sin ubicar"
 def _lista(v):
     if not v:
         return []
-    return [v] if isinstance(v, str) else list(v)
+    return list(v) if isinstance(v, (list, tuple, set)) else [v]
 
 
 def _tipo(declarado, rol, funcion, servicios):
@@ -29,18 +29,31 @@ def _tipo(declarado, rol, funcion, servicios):
 
 def red_de(perfil):
     perfil = perfil or {}
-    activos = perfil.get("activos") or {}
-    topologia = {k: v for k, v in (perfil.get("topologia") or {}).items() if isinstance(v, dict)}
-    seccion = perfil.get("red") or {}
-    extra = seccion.get("nodos") or {}
     avisos = []
+    activos = perfil.get("activos") if isinstance(perfil.get("activos"), dict) else {}
+    topologia = {k: v for k, v in (perfil.get("topologia") or {}).items() if isinstance(v, dict)}
+    bruta = perfil.get("red")
+    if bruta is not None and not isinstance(bruta, dict):
+        avisos.append("sección red mal formada (se esperaba un mapa), se ignora")
+        bruta = None
+    seccion = {}
+    for clave, v in (bruta or {}).items():
+        if clave in ("nodos", "enlaces", "zonas") and v is not None and not isinstance(v, dict):
+            avisos.append(f"red.{clave} mal formada (se esperaba un mapa), se ignora")
+        elif clave in ("nodos", "enlaces", "zonas"):
+            seccion[clave] = v or {}
+    extra = seccion.get("nodos") or {}
 
     nodos = {}
     for nombre in list(activos) + [n for n in topologia if n not in activos] + [n for n in extra if n not in activos and n not in topologia]:
-        info = {**(activos.get(nombre) or {}), **(extra.get(nombre) or {})}
+        a, e = activos.get(nombre) or {}, extra.get(nombre) or {}
+        if not isinstance(e, dict):
+            avisos.append(f"red.nodos.{nombre}: se esperaba un mapa, se ignora")
+            e = {}
+        info = {**(a if isinstance(a, dict) else {}), **e}
         rol = (topologia.get(nombre) or {}).get("rol")
         funcion = info.get("funcion") or ("cortafuegos perimetral" if rol == "firewall_perimetral" else None)
-        servicios = info.get("servicios_prestados") or []
+        servicios = [x for x in _lista(info.get("servicios_prestados")) if isinstance(x, (int, str))]
         nodos[nombre] = {"nombre": nombre, "ip": info.get("ip") or (topologia.get(nombre) or {}).get("ip"),
                          "funcion": funcion, "criticidad": info.get("criticidad"),
                          "servicios_prestados": servicios, "depende_de": _lista(info.get("depende_de")),
@@ -50,6 +63,9 @@ def red_de(perfil):
               else {n: t["gateway"] for n, t in topologia.items() if t.get("gateway")})
     enlaces = {}
     for hijo, padre in crudos.items():
+        if not isinstance(hijo, str) or not isinstance(padre, str):
+            avisos.append(f"enlace {hijo} -> {padre}: se esperaban nombres de equipo, se ignora")
+            continue
         if hijo not in nodos or padre not in nodos:
             avisos.append(f"enlace {hijo} -> {padre}: nodo desconocido, se ignora")
             continue
@@ -69,8 +85,13 @@ def red_de(perfil):
     if "zonas" in seccion:
         for zona, miembros in (seccion.get("zonas") or {}).items():
             validos = []
+            if not isinstance(miembros, (list, str)) and miembros is not None:
+                avisos.append(f"zona {zona}: se esperaba una lista de equipos, se ignoran sus miembros")
+                miembros = []
             for m in _lista(miembros):
-                if m not in nodos:
+                if not isinstance(m, str):
+                    avisos.append(f"zona {zona}: miembro {m!r} no es un nombre de equipo, se ignora")
+                elif m not in nodos:
                     avisos.append(f"zona {zona}: nodo desconocido {m}, se ignora")
                 elif m in nodos_en_zona:
                     avisos.append(f"zona {zona}: {m} ya está en la zona {nodos_en_zona[m]}, se ignora")

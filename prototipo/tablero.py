@@ -314,8 +314,18 @@ def contencion_de(reg):
     return "fallida", None
 
 
+def _red_segura(perfil):
+    """red.red_de que nunca lanza por culpa de la sección `red` (solo presentación): si algo
+    inesperado revienta, se reconstruye sin ella y se avisa. Devuelve (mapa, avisos_extra)."""
+    try:
+        return red.red_de(perfil), []
+    except Exception as e:
+        sin_red = {k: v for k, v in (perfil or {}).items() if k != "red"}
+        return red.red_de(sin_red), [f"sección red inutilizable ({type(e).__name__}: {e}), se ignora"]
+
+
 def ips_de(perfil):
-    return {n: v.get("ip") for n, v in red.red_de(perfil)["nodos"].items() if v.get("ip")}
+    return {n: v.get("ip") for n, v in _red_segura(perfil)[0]["nodos"].items() if v.get("ip")}
 
 
 def relaciones(reg, ips):
@@ -347,7 +357,7 @@ def _estado_nodo(salud, a):
         return "pendiente"
     ultima = a["_ultima_objetivo"]
     if ultima is not None:
-        clase = ultima.get("clase") or ""
+        clase = ultima.get("clase_reclasificada") or ultima.get("clase") or ""
         estado, _ = contencion_de(ultima)
         if ((clase.startswith("vp_") or clase == "amenaza_enrutada") and estado != "contenida"
                 and ultima.get("veredicto_humano") != "rechazar"):
@@ -357,7 +367,7 @@ def _estado_nodo(salud, a):
 
 def estado_red(perfil, registros, pendientes=(), salud=None):
     """El mapa de la red con la actividad de cada equipo, para /api/red (ver prototipo/red.py)."""
-    r = red.red_de(perfil)
+    r, extra_avisos = _red_segura(perfil)
     ips = {n: v.get("ip") for n, v in r["nodos"].items() if v.get("ip")}
     salud_de = {s["nombre"]: s["estado"] for s in (salud or {}).get("servicios", [])}
     act = {n: {"objetivo": 0, "origen": 0, "contuvo_aqui": 0, "pendientes": 0, "ultima": None,
@@ -393,7 +403,7 @@ def estado_red(perfil, registros, pendientes=(), salud=None):
     return {"nodos": nodos, "enlaces": [[h, p] for h, p in r["enlaces"].items()],
             "dependencias": [[n["nombre"], d] for n in r["nodos"].values() for d in n["depende_de"]
                              if d in r["nodos"]],
-            "zonas": [{"nombre": z, "nodos": ms} for z, ms in r["zonas"]], "avisos": r["avisos"]}
+            "zonas": [{"nombre": z, "nodos": ms} for z, ms in r["zonas"]], "avisos": r["avisos"] + extra_avisos}
 
 def metricas(regs):
     """Indicadores del periodo (vista SLA) calculados de la traza: tasa de FP, % automatizado, MTTR

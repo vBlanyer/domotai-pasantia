@@ -79,5 +79,44 @@ class TestRedDelPerfil(unittest.TestCase):
         self.assertTrue(any("ya está en la zona" in a for a in r["avisos"]))
 
 
+class TestRedMalFormada(unittest.TestCase):
+    def _ok(self, seccion):
+        perfil = {**{k: v for k, v in BANCO.items() if k != "red"}, "red": seccion}
+        r = red.red_de(perfil)
+        self.assertTrue(r["avisos"], seccion)
+        self.assertIn("web-banking", r["nodos"])
+        self.assertIsInstance(r["enlaces"], dict)
+        for _, ms in r["zonas"]:
+            self.assertTrue(all(isinstance(m, str) for m in ms))
+        return r
+
+    def test_seccion_escalar(self):
+        r = self._ok("si")
+        self.assertEqual(r["enlaces"], {"web-banking": "fw-core", "fw-core": "fw-edge"})   # reconstrucción
+
+    def test_nodos_enlaces_zonas_como_lista(self):
+        for clave in ("nodos", "enlaces", "zonas"):
+            self._ok({clave: ["a", "b"]})
+
+    def test_nodo_escalar(self):
+        self._ok({"nodos": {"internet": "externo"}})
+
+    def test_enlace_con_destino_o_origen_no_hashable(self):
+        self._ok({"enlaces": {"web-banking": {"x": 1}}})
+        self._ok({"enlaces": {"web-banking": ["fw-core"]}})
+        self._ok({"enlaces": {"fw-core": 5}})
+
+    def test_zona_con_valor_escalar_o_miembro_no_str(self):
+        self._ok({"zonas": {"DMZ": 7}})
+        self._ok({"zonas": {"DMZ": [{"a": 1}, ["b"]]}})
+
+    def test_activo_escalar_y_servicios_normalizados(self):
+        perfil = {"activos": {"a": "x", "b": {"servicios_prestados": 443}, "c": {"servicios_prestados": [80, "ssh", {"z": 1}]}}}
+        r = red.red_de(perfil)
+        self.assertEqual(r["nodos"]["b"]["servicios_prestados"], [443])
+        self.assertEqual(r["nodos"]["c"]["servicios_prestados"], [80, "ssh"])
+        self.assertIn("a", r["nodos"])
+
+
 if __name__ == "__main__":
     unittest.main()

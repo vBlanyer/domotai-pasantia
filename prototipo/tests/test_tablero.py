@@ -622,6 +622,34 @@ class TestVistaRed(unittest.TestCase):
         self.assertEqual(r["relaciones"], {"web-banking": ["objetivo", "contuvo_aqui"]})
         self.assertEqual((r["contencion"], r["dispositivo"]), ("contenida", "web-banking"))
 
+    def test_estado_red_reclasificada_como_fp_no_pinta_atacado(self):
+        reg = self._dec(orden=None, veredicto_humano="reclasificar", clase_reclasificada="fp_actividad_legitima")
+        e = {n["nombre"]: n["actividad"]["estado"] for n in tablero.estado_red(self.PERFIL, [reg], [], None)["nodos"]}
+        self.assertEqual(e["web-banking"], "sin_actividad")
+
+    def test_red_mal_formada_no_tumba_trazas_ni_estado(self):
+        perfil = {**self.PERFIL, "red": {"enlaces": ["a", "b"]}}
+        r = tablero.estado_red(perfil, [self._dec(orden=None)], [], None)
+        self.assertTrue(r["avisos"])
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "t.jsonl")
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(json.dumps(self._dec(orden=None)) + "\n")
+            self.assertEqual(len(tablero.lista_trazas(ruta, perfil=perfil)), 1)
+
+    def test_red_que_revienta_cae_a_la_reconstruccion_con_aviso(self):
+        from unittest import mock
+        real = tablero.red.red_de
+        def rota(p):
+            if "red" in (p or {}):
+                raise RuntimeError("boom")
+            return real(p)
+        with mock.patch.object(tablero.red, "red_de", rota):
+            perfil = {**self.PERFIL, "red": {"zonas": {}}}
+            self.assertIn("web-banking", tablero.ips_de(perfil))
+            r = tablero.estado_red(perfil, [], [], None)
+            self.assertTrue(any("boom" in a for a in r["avisos"]))
+
     def test_la_vista_de_pendientes_expone_activo_y_origen(self):
         v = tablero._vista_pendiente({"id": "1", "alerta": {"activo": "web-banking", "origen_ip": "10.200.0.10"},
                                       "decision": {}, "clave": ("x",)})
