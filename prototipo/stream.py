@@ -716,15 +716,18 @@ def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hal
     except Exception as e:
         escribir(f"[aviso] indice RAG no disponible para el agente ({e}); sin herramienta de conocimiento.")
         indice = None
-    # El esquema se deriva del catalogo y de la topologia, y restringe el muestreo: el modelo
-    # no puede nombrar una herramienta, un dispositivo ni una accion que no existan (RF-15).
-    esquema = ag.esquema_accion(catalogo, ag.resolver_topologia(perfil))
     base = justificador_llm.generador_por_defecto()
-    # Solo el generador por servidor entiende el esquema; con el subproceso se cae al formato
-    # textual, que `parsear_accion` sigue aceptando.
-    gen = ((lambda p: base(p, esquema=esquema))
-           if base is justificador_llm.generador_servidor else base)
     def _fn(decision, alerta, leer, escribir=escribir, ejecutor=ejecutor):
+        # El esquema se deriva del catalogo y de la topologia, y restringe el muestreo: el modelo
+        # no puede nombrar una herramienta, un dispositivo ni una accion que no existan (RF-15). Se
+        # construye POR INCIDENTE para limitar los dispositivos a la cadena de contencion del activo
+        # atacado: al fallar un salto, el agente escala por la cadena, no hacia un equipo ajeno.
+        esquema = ag.esquema_accion(catalogo, ag.resolver_topologia(perfil, hallazgos),
+                                    activo=alerta.get("activo"))
+        # Solo el generador por servidor entiende el esquema; con el subproceso se cae al formato
+        # textual, que `parsear_accion` sigue aceptando.
+        gen = ((lambda p: base(p, esquema=esquema))
+               if base is justificador_llm.generador_servidor else base)
         # `escribir` llega del lazo: en la web es el que alimenta la tarjeta; con print, las preguntas
         # del agente solo salían por la terminal del daemon y la tarjeta quedaba sin contexto.
         return ag.bucle_react(alerta, decision.get("clase"), perfil, catalogo, ejecutor,

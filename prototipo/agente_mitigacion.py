@@ -94,7 +94,7 @@ _ACCION_POR_ROL = {
 _HERRAMIENTAS = ("consultar_topologia", "consultar_conocimiento",
                  "ejecutar_comando", "verificar_mitigacion")
 
-def esquema_accion(catalogo, topo):
+def esquema_accion(catalogo, topo, activo=None):
     """json-schema de un paso del bucle, **derivado** del catálogo y de la topología.
 
     No se escribe a mano a propósito: así no puede desincronizarse de lo que el sistema
@@ -103,7 +103,12 @@ def esquema_accion(catalogo, topo):
     estén aquí. RF-15 (catálogo cerrado) deja de ser una validación posterior y pasa a ser
     una imposibilidad estructural.
     """
-    dispositivos = sorted(k for k, v in topo.items() if isinstance(v, dict) and v.get("rol"))
+    todos = sorted(k for k, v in topo.items() if isinstance(v, dict) and v.get("rol"))
+    # Con `activo`, el agente solo puede nombrar dispositivos de la CADENA de contención de ese
+    # activo (host -> cortafuegos -> perímetro), como el camino determinista: al fallar un salto
+    # escala por la cadena, nunca hacia un equipo ajeno. Si el activo no tiene cadena, caen todos
+    # (nunca un enum vacío, que haría el esquema insatisfacible).
+    dispositivos = (cadena_de_contencion(topo, activo) or todos) if activo else todos
     acciones = sorted({a for (a, _rol), aid in _ACCION_POR_ROL.items() if aid in catalogo})
     return {
         "type": "object",

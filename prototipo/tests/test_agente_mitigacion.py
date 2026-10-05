@@ -246,6 +246,26 @@ class TestEsquemaAccion(unittest.TestCase):
         disp = ag.esquema_accion(CAT, topo)["properties"]["args"]["properties"]["dispositivo"]["enum"]
         self.assertIn("switch", disp)
 
+    def test_dispositivos_limitados_a_la_cadena_del_activo(self):
+        # Con `activo`, el agente solo puede elegir dispositivos de la cadena de contención de ESE
+        # activo: al fallar un salto no flaquea hacia un equipo ajeno (bug del ataque a auditor).
+        topo = {"A": {"rol": "host_victima", "ip": "10.0.0.1", "gateway": "fw"},
+                "B": {"rol": "host_victima", "ip": "10.0.0.2", "gateway": "fw"},
+                "fw": {"rol": "firewall_perimetral", "ip": "10.0.0.254"}}
+        disp = ag.esquema_accion(CAT, topo, activo="A")["properties"]["args"]["properties"]["dispositivo"]["enum"]
+        self.assertEqual(disp, ag.cadena_de_contencion(topo, "A"))   # [A, fw]
+        self.assertNotIn("B", disp)                                  # no se bloquea en un equipo ajeno
+        todos = ag.esquema_accion(CAT, topo)["properties"]["args"]["properties"]["dispositivo"]["enum"]
+        self.assertIn("B", todos)                                    # sin activo: todos (back-compat)
+
+    def test_activo_sin_cadena_cae_a_los_cortafuegos(self):
+        # Un activo que no está en la topología (p. ej. auditor) escala por el perímetro, no deja el
+        # enum vacío (esquema insatisfacible).
+        topo = {"fw-core": {"rol": "firewall_perimetral", "ip": "10.0.0.1", "gateway": "fw-edge"},
+                "fw-edge": {"rol": "firewall_perimetral", "ip": "10.0.0.254"}}
+        disp = ag.esquema_accion(CAT, topo, activo="auditor")["properties"]["args"]["properties"]["dispositivo"]["enum"]
+        self.assertEqual(set(disp), {"fw-core", "fw-edge"})
+
     def test_solo_admite_las_herramientas_conocidas(self):
         self.assertEqual(set(self.esq["properties"]["tool"]["enum"]), set(ag._HERRAMIENTAS))
 
