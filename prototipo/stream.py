@@ -298,16 +298,17 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
     Si la contención aprobada tiene que escalar y el salto pide humano, no se aprueba solo: se
     encola una tarjeta de escalada (`diferir_escalada`) y el registro se traza cuando se resuelva."""
     from prototipo import analisis
-    def _cerrar(r, entrada, alerta):
+    def _cerrar(r, entrada, alerta, operador=None):
         # Marcas de tiempo para el MTTR (tiempo de respuesta del analista) en el panel de métricas.
+        # `veredicto_por`: quién aprobó, para el no repudio en la traza.
         r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
-             "decidido_en": _ahora_iso()}
+             "decidido_en": _ahora_iso(), "veredicto_por": operador or None}
         escribir(_linea_decision(r))
         escribir_traza(r)
         if al_resolver is not None:
             al_resolver(r, alerta)
 
-    def _resolver_escalada(entrada, respuesta):
+    def _resolver_escalada(entrada, respuesta, operador=None):
         alerta = entrada["alerta"]
         # La espera cuenta desde la primera tarjeta aunque la escalada se difiera varias veces.
         decision = {**entrada["decision"], "recibido_en": entrada.get("recibido_en")}
@@ -321,9 +322,9 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         if r.get("en_cola"):                           # el salto siguiente también pide humano
             return
         _cerrar({**r, "veredicto_escalada": "aprobar" if respuesta.lower().startswith("s") else "rechazar"},
-                entrada, alerta)
+                entrada, alerta, operador)
 
-    def _resolver_menu(entrada, veredicto, clase):
+    def _resolver_menu(entrada, veredicto, clase, operador=None):
         decision = {**entrada["decision"], "recibido_en": entrada.get("recibido_en")}
         alerta = entrada["alerta"]
         try:
@@ -338,7 +339,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                  "ejecucion": {"exito": False, "error": f"{type(e).__name__}: {e}"}}
         if r.get("en_cola"):                           # escala y el salto pide humano: su tarjeta trazará
             return
-        _cerrar(r, entrada, alerta)
+        _cerrar(r, entrada, alerta, operador)
 
     def _con_la_tarjeta_tomada(pid, fn):
         # La tarjeta sigue en la cola, marcada en curso, mientras se ejecuta la respuesta (SSH de
@@ -352,7 +353,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         finally:
             estado.sacar_decision(pid)
 
-    def resolver(pid, respuesta, paso=None):
+    def resolver(pid, respuesta, paso=None, operador=None):
         entrada = estado.ver_decision(pid)
         if entrada is None or entrada.get("en_curso"):
             return False
@@ -366,7 +367,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                 return False
         respuesta = (respuesta or "").strip()
         if entrada.get("tipo") == "escalada":          # escalada diferida: se retoma con la respuesta
-            return _con_la_tarjeta_tomada(pid, lambda: _resolver_escalada(entrada, respuesta))
+            return _con_la_tarjeta_tomada(pid, lambda: _resolver_escalada(entrada, respuesta, operador))
         if not entrada.get("esperando_clase"):
             if respuesta == "3":                       # reclasificar -> submenú de clases (no finaliza)
                 clases = [c for c in analisis.CLASES if c != entrada["decision"].get("clase")]
@@ -383,7 +384,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                 veredicto, clase = "reclasificar", clases[int(respuesta) - 1]
             else:
                 veredicto, clase = "rechazar", None
-        return _con_la_tarjeta_tomada(pid, lambda: _resolver_menu(entrada, veredicto, clase))
+        return _con_la_tarjeta_tomada(pid, lambda: _resolver_menu(entrada, veredicto, clase, operador))
     return resolver
 
 def _contar(resumen, d, incidente=True):

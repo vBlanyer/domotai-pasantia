@@ -56,6 +56,14 @@ class TestEstadoYLector(unittest.TestCase):
         self.assertEqual(estado.pendientes()[0]["lineas"], ["⚠ A", "paso"])
         estado.resolver(pid, "1"); hilo.join(timeout=2)
 
+    def test_resolver_decision_pasa_el_operador_al_resolutor(self):
+        estado = tablero.EstadoTablero()
+        cap = {}
+        estado.fijar_resolutor(lambda pid, respuesta, paso=None, operador=None:
+                               (cap.update(operador=operador, resp=respuesta), True)[1])
+        self.assertTrue(estado.resolver_decision("1", "s", paso=0, operador="ana"))
+        self.assertEqual(cap["operador"], "ana")
+
     def test_clasifica_escalada_y_menu_como_lector(self):
         estado = tablero.EstadoTablero()
         estado.registrar_pendiente(*("escalada", "¿aprobar? [s/N] "))
@@ -107,10 +115,10 @@ class TestEstadoYLector(unittest.TestCase):
     def test_resolver_decision_pasa_el_paso_al_resolutor(self):
         e = tablero.EstadoTablero()
         vistos = []
-        e.fijar_resolutor(lambda pid, resp, paso=None: vistos.append((pid, resp, paso)) or True)
-        self.assertTrue(e.resolver_decision("1", "2", paso=3))
-        self.assertTrue(e.resolver_decision("1", "2"))            # sin paso -> None (rutas viejas)
-        self.assertEqual(vistos, [("1", "2", 3), ("1", "2", None)])
+        e.fijar_resolutor(lambda pid, resp, paso=None, operador=None: vistos.append((pid, resp, paso, operador)) or True)
+        self.assertTrue(e.resolver_decision("1", "2", paso=3, operador="ana"))
+        self.assertTrue(e.resolver_decision("1", "2"))            # sin paso ni operador -> None (rutas viejas)
+        self.assertEqual(vistos, [("1", "2", 3, "ana"), ("1", "2", None, None)])
 
     def test_escribir_web_imprime_y_acumula(self):
         estado = tablero.EstadoTablero()
@@ -437,15 +445,15 @@ class TestServidor(unittest.TestCase):
     def test_aprobar_async_propaga_el_paso_del_cuerpo(self):
         estado = tablero.EstadoTablero()
         vistos = []
-        estado.fijar_resolutor(lambda pid, resp, paso=None: vistos.append((pid, resp, paso)) or True)
+        estado.fijar_resolutor(lambda pid, resp, paso=None, operador=None: vistos.append((pid, resp, paso, operador)) or True)
         srv = tablero.crear_servidor(estado, "/no/existe.jsonl", puerto=0, estaticos=tempfile.mkdtemp(),
                                      async_web=True)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
         puerto = srv.server_address[1]
-        self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1", "paso": 2})[0], 200)
+        self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1", "paso": 2, "operador": "ana"})[0], 200)
         self.assertEqual(self._post(puerto, "/api/aprobar", {"id": "1", "respuesta": "1"})[0], 200)
-        self.assertEqual(vistos, [("1", "1", 2), ("1", "1", None)])
+        self.assertEqual(vistos, [("1", "1", 2, "ana"), ("1", "1", None, None)])
 
     def _traza_n(self, n):
         regs, previo = [], traza.GENESIS

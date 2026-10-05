@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { TriangleAlert } from "lucide-react"
-import { useSondeo, getPendientes, aprobar, parsearPendiente, type Pendiente, type Opcion } from "@/api"
+import { useSondeo, getPendientes, aprobar, parsearPendiente, operadorActual, fijarOperador, type Pendiente, type Opcion } from "@/api"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -165,16 +165,29 @@ function Tarjeta({ p }: { p: Pendiente }) {
   )
 }
 
+function BarraOperador() {
+  const [nombre, setNombre] = useState(operadorActual())
+  return (
+    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+      <span>Operador:</span>
+      <input value={nombre} placeholder="tu nombre (queda en la traza)"
+        onChange={(e) => { setNombre(e.target.value); fijarOperador(e.target.value) }}
+        className="w-56 rounded-md border border-border bg-card px-2 py-1 text-foreground" />
+    </label>
+  )
+}
+
 export function Aprobaciones() {
   const p = useSondeo(getPendientes)
-  if (!p) return <Cargando />
-  if ("error" in p) return <SinConexion />
-  if (p.length === 0)
-    return <Vacio>Nada que aprobar ahora mismo. Cuando una decisión necesite un humano, aparecerá aquí.</Vacio>
+  const cuerpo = !p ? <Cargando />
+    : "error" in p ? <SinConexion />
+    : p.length === 0 ? <Vacio>Nada que aprobar ahora mismo. Cuando una decisión necesite un humano, aparecerá aquí.</Vacio>
+    // la clave incluye el paso: un menú nuevo (submenú de clases) monta la tarjeta con estado limpio
+    : <div className="space-y-4">{p.map((x) => <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} />)}</div>
   return (
     <div className="space-y-4">
-      {/* la clave incluye el paso: un menú nuevo (submenú de clases) monta la tarjeta con estado limpio */}
-      {p.map((x) => <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} />)}
+      <BarraOperador />
+      {cuerpo}
     </div>
   )
 }

@@ -239,6 +239,14 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
         self.assertEqual(r["veredicto_escalada"], "aprobar")
         self.assertIn("192.168.1.1", ej.aplicado)
 
+    def test_la_aprobacion_registra_quien_aprobo(self):
+        estado, buf, ej = tablero.EstadoTablero(), io.StringIO(), self.HostCaido()
+        self._ejecutar(estado, buf, ej)
+        p = estado.decisiones_pendientes()[0]
+        self.assertTrue(estado.resolver_decision(p["id"], "s", paso=p["paso"], operador="ana"))
+        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        self.assertEqual(r["veredicto_por"], "ana")           # no repudio: queda quién aprobó
+
     def test_rechazar_la_escalada_no_contiene_y_traza(self):
         estado, buf, ej = tablero.EstadoTablero(), io.StringIO(), self.HostCaido()
         self._ejecutar(estado, buf, ej)

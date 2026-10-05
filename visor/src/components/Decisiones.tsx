@@ -278,7 +278,10 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
             ? <span className="text-amber-600 dark:text-amber-400">humano</span>
             : <span className="text-muted-foreground">auto</span>}
           {d.veredicto_humano && (
-            <div className="text-xs text-muted-foreground">{DESENLACE[d.veredicto_humano] ?? d.veredicto_humano}</div>
+            <div className="text-xs text-muted-foreground">
+              {DESENLACE[d.veredicto_humano] ?? d.veredicto_humano}
+              {d.veredicto_por && <> · por {d.veredicto_por}</>}
+            </div>
           )}
         </TableCell>
       </TableRow>

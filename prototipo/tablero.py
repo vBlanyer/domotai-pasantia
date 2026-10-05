@@ -102,10 +102,11 @@ class EstadoTablero:
         """El daemon registra aquí cómo aplicar un veredicto (ejecuta la contención + escribe la traza)."""
         self._resolutor = fn
 
-    def resolver_decision(self, pid, respuesta, paso=None):
+    def resolver_decision(self, pid, respuesta, paso=None, operador=None):
         """Aplica la respuesta del analista a la decisión en cola, vía el resolutor del daemon.
-        `paso` es el del menú que vio el analista (None = no se comprueba)."""
-        return bool(self._resolutor and self._resolutor(pid, respuesta, paso=paso))
+        `paso` es el del menú que vio el analista (None = no se comprueba). `operador` queda en la
+        traza (no repudio: quién aprobó)."""
+        return bool(self._resolutor and self._resolutor(pid, respuesta, paso=paso, operador=operador))
 
     def anotar_linea(self, linea):
         with self._lock:
@@ -659,7 +660,8 @@ class _Manejador(BaseHTTPRequestHandler):
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.
             # `paso` es opcional: solo lo usa la cola (la ruta bloqueante no tiene menús con paso).
             if getattr(s, "async_web", False):
-                ok = s.estado.resolver_decision(pid, resp, paso=cuerpo.get("paso"))
+                ok = s.estado.resolver_decision(pid, resp, paso=cuerpo.get("paso"),
+                                                operador=(str(cuerpo.get("operador")) if cuerpo.get("operador") else None))
             else:
                 ok = s.estado.resolver(pid, resp)
             return self._responder({"ok": True}) if ok else self._responder({"error": "pendiente no vigente"}, 409)
