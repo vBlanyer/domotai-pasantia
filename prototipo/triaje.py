@@ -1,9 +1,9 @@
 """Orquesta el lazo de decisión: ingesta -> análisis -> política -> perfil -> traza."""
 import json, os, sys, yaml
-from prototipo import analisis, politica, perfil as perfilm, traza, catalogo as catm
+from prototipo import analisis, politica, perfil as perfilm, traza, catalogo as catm, correspondencia
 
 def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decision, timestamp,
-             justificar_fn=analisis.justificar):
+             justificar_fn=analisis.justificar, registro_correspondencia=None):
     ctx = analisis.enriquecer(alerta, hallazgos, perfil_dict)
     clas = analisis.clasificar(alerta, ctx)
     # justificar_fn puede devolver str (plantilla, legado) o dict con metadata (LLM: version, pasajes).
@@ -21,9 +21,14 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
     filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),
                              alerta.get("servicio"), clas["confianza"], hallazgos=hallazgos)
     ruta = perfilm.ruta_de(perfil_dict, clas.get("ruta"))
+    # Recomendacion de respuesta dirigida (asesora, NO cambia accion/filtro): la calcula el registro
+    # de correspondencia a partir de la familia y el servicio atacado. El default cachea (registro()).
+    reg_corr = registro_correspondencia if registro_correspondencia is not None else correspondencia.registro()
+    recomendacion = correspondencia.recomendar(alerta.get("familia"), alerta.get("servicio"),
+                                               clas["clase"], reg_corr)
     analisis_out = {**clas, "justificacion": just, "version_justificador": version_just, "pasajes_usados": pasajes,
                     "consulta_rag": consulta_rag, "recuperacion_agentica": recuperacion_agentica, "ruta": ruta,
-                    "justificacion_descartada": descartada}
+                    "justificacion_descartada": descartada, "recomendacion": recomendacion}
     version_perfil = perfil_dict.get("version", "v0")
     return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro,
                             version_perfil=version_perfil, contexto=ctx)
