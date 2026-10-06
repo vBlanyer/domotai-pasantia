@@ -131,7 +131,8 @@ case "${1:-up}" in
     cd "$RAIZ" && exec python3 -m lab.banco.panel
     ;;
   atacar)
-    cd "$RAIZ" && exec python3 -m lab.banco.demo
+    shift   # pasa el resto a demo: `atacar auto [repeticiones] [gap]` corre la tanda automática
+    cd "$RAIZ" && exec python3 -m lab.banco.demo "$@"
     ;;
-  *) echo "uso: $0 up|down|status|test|cascada <servicio>|restaurar|aprovisionar|vigilar|atacar" ;;
+  *) echo "uso: $0 up|down|status|test|cascada <servicio>|restaurar|aprovisionar|vigilar|atacar [auto]" ;;
 esac

@@ -1,10 +1,16 @@
 """Lanzador de ataques del laboratorio del banco, por número, para demostraciones.
 
-    sh lab/banco/banco.sh atacar        (o: python3 -m lab.banco.demo)
+    sh lab/banco/banco.sh atacar             (menú interactivo; o: python3 -m lab.banco.demo)
+    sh lab/banco/banco.sh atacar auto [N] [gap]   (TANDA AUTOMÁTICA: lanza toda la batería sola)
 
 Lista los casos vivos del catálogo (`lab/banco/casos.py`) y lanza el que elijas contra la red, para
 verlo decidir en el daemon/tablero. Reutiliza solo los DATOS del catálogo; no toca el prototipo.
 Respeta los 60 s de silencio de la regla 5763 de Wazuh entre ataques, y ofrece deshacer/restaurar.
+
+La opción `t` del menú (o `atacar auto`) corre la **tanda automática**: lanza TODA la batería de
+ataques vivos, uno tras otro y solos, con IP de origen rotada (sin esperas de 60 s ni supresión, cada
+uno un incidente distinto). Sirve para ver/probar el camino completo en vivo —la plantilla justifica
+cada decisión— sin elegir uno a uno. No deshace: al terminar, `sh lab/banco/banco.sh restaurar`.
 
 Con la tecla `r` se activa la **IP de origen rotativa**: cada ataque sale desde una IP nueva de la
 misma subred del atacante (alias en la interfaz de datos + `ssh -b`), para poder repetir el mismo
@@ -127,7 +133,34 @@ def deshacer(caso, ejecutar=subprocess.run, src_ip=None):
             _exec(nodo, cmd, ejecutar)
 
 
+def tanda_automatica(ejecutar=subprocess.run, dormir=time.sleep, repeticiones=1, gap=6, escribir=print):
+    """Lanza TODA la batería de ataques vivos (los que atacan desde un origen), uno tras otro y solos,
+    con IP de origen ROTADA: sin esperas de 60 s ni supresión, y cada uno aparece como incidente
+    distinto en el tablero. La clase del origen se conserva (interno→retenido, externo→auto), así que
+    la batería ejercita ambos caminos y la plantilla justifica cada decisión. NO deshace: el daemon
+    decide y, al terminar, se restaura con `sh lab/banco/banco.sh restaurar`. `repeticiones` vueltas."""
+    vivos = [c for c in casos_vivos() if rotable(c)]
+    contadores, total, hecho = {}, repeticiones * len(vivos), 0
+    escribir(f"== Tanda automática: {total} ataque(s), IP de origen rotada (ve el tablero) ==")
+    for _ in range(repeticiones):
+        for caso in vivos:
+            subred = caso["origen"].rsplit(".", 1)[0]
+            n = contadores.get(subred, 0)
+            contadores[subred] = n + 1
+            src = ip_rotada(caso["origen"], n)
+            hecho += 1
+            escribir(f"  [{hecho}/{total}] {caso['id']} — {caso['titulo']} desde {src}")
+            lanzar(caso, ejecutar=ejecutar, src_ip=src)
+            dormir(gap)
+    escribir(f"  tanda completa ({total} ataques). Deshaz con: sh lab/banco/banco.sh restaurar")
+
+
 def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
+    if argv and argv[0] == "auto":   # no interactivo: sh lab/banco/banco.sh atacar auto [repeticiones] [gap]
+        reps = int(argv[1]) if len(argv) > 1 else 1
+        gap = float(argv[2]) if len(argv) > 2 else 6
+        tanda_automatica(ejecutar=ejecutar, dormir=dormir, repeticiones=reps, gap=gap)
+        return 0
     vivos = casos_vivos()
     ultimo = 0.0
     rotar = False
@@ -138,14 +171,18 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
             print("\n== Ataques del banco (para el daemon/tablero) ==")
             print(menu(vivos))
             print(LINEA_A_MEDIDA)
+            print("  t. Tanda automática (lanza toda la batería sola, IP rotada)")
             print(f"  r. IP de origen rotativa: {'ON' if rotar else 'OFF'}  "
                   "(cada ataque desde una IP nueva; esquiva supresión y bloqueo previo)")
             print("  0. Salir")
-            sel = leer(f"Elige [0-{len(vivos)}, a, r]: ").strip().lower()
+            sel = leer(f"Elige [0-{len(vivos)}, a, t, r]: ").strip().lower()
             if sel in ("0", "", "q"):
                 return 0
             if sel == "r":
                 rotar = not rotar
+                continue
+            if sel == "t":
+                tanda_automatica(ejecutar=ejecutar, dormir=dormir)
                 continue
             if sel == "a":
                 caso = elegir_a_medida(leer)
@@ -200,4 +237,4 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

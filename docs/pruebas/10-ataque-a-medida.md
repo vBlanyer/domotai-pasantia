@@ -4,6 +4,13 @@ Referencia para validar el banco en vivo con la opción `a` de `sh lab/banco/ban
 [RUNBOOK §C](../../RUNBOOK.md)). Eliges **equipo objetivo**, **servicio/tipo de ataque** y **origen**;
 este cuadro dice qué **debería** decidir el MDR en cada combinación.
 
+> **Tanda automática (sin elegir uno a uno):** la opción `t` del menú —o `sh lab/banco/banco.sh atacar
+> auto [repeticiones] [gap]`— lanza TODA la batería de ataques vivos seguidos y solos, con IP de origen
+> **rotada** (sin esperas de 60 s ni supresión; cada ataque es un incidente distinto). Conserva la clase
+> del origen (interno→retenido, externo→auto), así ejercita ambos caminos y la **plantilla** justifica
+> cada decisión. No deshace: al terminar, `sh lab/banco/banco.sh restaurar`. Útil para ver/probar el
+> camino completo en vivo o como prueba de carga (`auto 5`).
+
 Las cifras salen de pasar la alerta de cada variante por el motor real (`triaje.procesar`) con
 `prototipo/perfiles/bancario.yml` y los hallazgos del auditor del banco
 (`lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json`). **Están verificadas sobre las 460

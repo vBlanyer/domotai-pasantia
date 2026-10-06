@@ -186,5 +186,40 @@ class TestDemo(unittest.TestCase):
         self.assertIn("a. Ataque a medida", demo.menu(demo.casos_vivos()) + demo.LINEA_A_MEDIDA)
 
 
+class TestTandaAutomatica(unittest.TestCase):
+    def _fake(self):
+        llamadas = []
+        def ejecutar(args, **kw):
+            llamadas.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+        return llamadas, ejecutar
+
+    def test_tanda_lanza_la_bateria_rotada_sin_deshacer(self):
+        llamadas, ejecutar = self._fake()
+        dormidas = []
+        demo.tanda_automatica(ejecutar=ejecutar, dormir=dormidas.append, repeticiones=1, gap=6,
+                              escribir=lambda *a: None)
+        rotables = [c for c in demo.casos_vivos() if demo.rotable(c)]
+        cmds = [a[-1] for a in llamadas]
+        rotados = [c for c in cmds if "ip addr add" in c]      # cada ataque rotado lleva el alias
+        self.assertEqual(len(rotados), len(rotables))          # un ataque por caso rotable
+        self.assertEqual(dormidas, [6] * len(rotables))        # un gap por ataque
+        self.assertFalse(any("-D INPUT" in c for c in cmds))   # no deshace (lo hace restaurar)
+
+    def test_repeticiones_repiten_la_bateria(self):
+        llamadas, ejecutar = self._fake()
+        demo.tanda_automatica(ejecutar=ejecutar, dormir=lambda *_: None, repeticiones=2, gap=0,
+                              escribir=lambda *a: None)
+        rotables = [c for c in demo.casos_vivos() if demo.rotable(c)]
+        rotados = [a[-1] for a in llamadas if "ip addr add" in a[-1]]
+        self.assertEqual(len(rotados), 2 * len(rotables))
+
+    def test_main_auto_corre_la_tanda_no_el_menu(self):
+        llamadas, ejecutar = self._fake()
+        rc = demo.main(["auto"], leer=lambda *_: "0", ejecutar=ejecutar, dormir=lambda *_: None)
+        self.assertEqual(rc, 0)
+        self.assertTrue(any("ip addr add" in a[-1] for a in llamadas))
+
+
 if __name__ == "__main__":
     unittest.main()
