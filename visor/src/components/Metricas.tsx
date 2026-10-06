@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { useSondeo, getMetricas } from "@/api"
 import { Donut, Tendencia, Barras, type Segmento } from "./charts"
+import { MatrizAttack } from "./MatrizAttack"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK, ESTADO } from "@/theme"
 import { useTema } from "@/tema"
 import { Cargando, SinConexion, Vacio } from "./bits"
@@ -84,7 +85,7 @@ export function Metricas() {
         </Tarjeta>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6">
         <Tarjeta titulo="Activos más atacados">
           {m.top_activos.length
             ? <Barras data={m.top_activos.map((a) => ({ nombre: a.nombre, n: a.n }))} />
@@ -92,7 +93,7 @@ export function Metricas() {
         </Tarjeta>
         <Tarjeta titulo="Cobertura MITRE ATT&CK">
           {m.mitre.length
-            ? <Barras data={m.mitre.map((t) => ({ nombre: t.tecnica, n: t.n }))} />
+            ? <MatrizAttack tecnicas={m.mitre} />
             : <p className="py-10 text-center text-sm text-muted-foreground">sin técnicas registradas</p>}
         </Tarjeta>
       </div>
