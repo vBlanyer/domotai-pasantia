@@ -20,6 +20,14 @@ describe("DecisionSchema", () => {
     expect(d.version_justificador).toBe("plantilla-0")
     expect(d.con_rag).toBe(false)
   })
+  it("acepta recomendacion (objeto) y recomendacion null", () => {
+    const d = DecisionSchema.parse({
+      id_decision: "s1", clase: "vp_intento_acceso",
+      recomendacion: { respuesta: "endurecer_servicio", accion_sugerida: "CERRAR_SERVICIO", servicio: "rdp", nota: "RDP expuesto", ruta: null },
+    })
+    expect(d.recomendacion?.respuesta).toBe("endurecer_servicio")
+    expect(DecisionSchema.parse({ recomendacion: null }).recomendacion).toBeNull()
+  })
 })
 
 describe("DetalleSchema", () => {
@@ -37,6 +45,14 @@ describe("DetalleSchema", () => {
     expect(d.pasajes?.[0].titulo).toBe("T1110 Brute Force")
     expect(d.justificacion_estructurada?.tecnica_mitre).toEqual(["T1110.001"])
     expect(d.impacto_determinado?.motivo).toBe("bloquea a 1.2.3.4")
+  })
+  it("parsea la recomendacion del detalle", () => {
+    const d = DetalleSchema.parse({
+      id_decision: "s1",
+      recomendacion: { respuesta: "enrutar", ruta: "appsec", servicio: "http", nota: "capa web" },
+    })
+    expect(d.recomendacion?.respuesta).toBe("enrutar")
+    expect(d.recomendacion?.ruta).toBe("appsec")
   })
 })
 
