@@ -47,6 +47,15 @@ class TestRevertir(unittest.TestCase):
         r = revertir.revertir(_registro(), CAT, ej, "t1")
         self.assertFalse(r["exito"]); self.assertEqual(r["codigo_salida"], 2)
 
+    def test_nodo_ip_con_inyeccion_no_se_revierte(self):
+        # #2: revertir lee nodo_ip de la traza (manipulable); debe rechazarlo si no es una IP.
+        ej = EjecutorFalso()
+        reg = _registro(); reg["orden"]["nodo_ip"] = "192.168.1.30; rm -rf /"
+        r = revertir.revertir(reg, CAT, ej, "t1")
+        self.assertFalse(r["exito"])
+        self.assertEqual(ej.llamadas, [])
+        self.assertIn("nodo_ip", r["salida"])
+
     def test_una_accion_transitoria_o_de_observacion_no_se_revierte(self):
         for accion in ("MATAR_CONEXION", "OBS_PROCESOS"):
             ej = EjecutorFalso()

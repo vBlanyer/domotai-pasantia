@@ -51,6 +51,10 @@ def revertir(registro, catalogo, ejecutor, timestamp, motivo=""):
     if not conector._params_seguros(params):
         return {**base, "comando_ejecutado": None, "codigo_salida": -1, "exito": False,
                 "salida": "params rechazados: caracteres no permitidos"}
+    if not conector.ip_valida(orden.get("nodo_ip")):
+        # nodo_ip sale de la traza (manipulable) y se interpola en la linea SSH: exigir una IP real.
+        return {**base, "comando_ejecutado": None, "codigo_salida": -1, "exito": False,
+                "salida": "nodo_ip rechazado: no es una IP valida"}
     cmd = _render(acc["reversion_cmd"], params)
     verif = _render(acc.get("verificacion", ""), params)
     if cmd is None:
