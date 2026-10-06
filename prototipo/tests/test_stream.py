@@ -948,7 +948,10 @@ class TestBarreraDeExcepciones(unittest.TestCase):
         def roto(ip, cmd):
             raise OSError("docker: no such file")
         estado = tablero.EstadoTablero()
-        d = json.loads(_linea_wazuh()); d["predecoder"]["hostname"] = "fantasma"    # requiere humano
+        # Activo sin postura del auditor (iot no escaneado) -> confianza 0.5 -> requiere humano; pero
+        # con IP valida (IP_DE_NODO: 192.168.1.20), asi la orden supera el guard de nodo_ip y llega al
+        # ejecutor (que lanza, para probar la barrera). «fantasma» no servia: sin IP -> guard lo rechaza.
+        d = json.loads(_linea_wazuh()); d["predecoder"]["hostname"] = "iot"
         buf = io.StringIO()
         stream.ejecutar([json.dumps(d)], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
                         perfil_nombre="prueba", catalogo=CAT, ejecutor=roto, justificar_fn=None,

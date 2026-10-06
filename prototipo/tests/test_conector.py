@@ -62,6 +62,26 @@ class TestConector(unittest.TestCase):
         r = conector.ejecutar_orden(orden_mala, CAT, ej, "2026-08-31T00:00:00Z")
         self.assertFalse(r["exito"]); self.assertEqual(ej.llamadas, [])
 
+    def test_nodo_ip_con_inyeccion_se_rechaza_sin_ejecutar(self):
+        # #2: nodo_ip se interpola en la linea SSH que corre por `sh -c` en el nodo de gestion ->
+        # un valor con metacaracteres seria RCE en el auditor. Debe rechazarse sin ejecutar nada.
+        ej = EjecutorFalso()
+        orden_mala = {**ORDEN, "nodo_ip": "192.168.1.30; touch /tmp/pwned #"}
+        r = conector.ejecutar_orden(orden_mala, CAT, ej, "t")
+        self.assertFalse(r["exito"])
+        self.assertEqual(ej.llamadas, [])
+        self.assertIn("nodo_ip", r["salida"])
+
+    def test_nodo_ip_valida_se_ejecuta(self):
+        r = conector.ejecutar_orden(ORDEN, CAT, EjecutorFalso(), "t")   # nodo_ip 192.168.1.30
+        self.assertTrue(r["exito"])
+
+    def test_ip_valida_acepta_v4_y_v6_y_rechaza_el_resto(self):
+        self.assertTrue(conector.ip_valida("192.168.1.1"))
+        self.assertTrue(conector.ip_valida("::1"))
+        for mala in ("1.2.3.4; rm -rf /", "host.local", "", None, "1.2.3.4 2.2.2.2"):
+            self.assertFalse(conector.ip_valida(mala), mala)
+
     def test_params_con_guion_inicial_se_rechazan(self):
         ej = EjecutorFalso()
         orden_mala = dict(ORDEN); orden_mala["params"] = {"ip": "--algo"}

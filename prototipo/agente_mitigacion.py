@@ -166,6 +166,11 @@ def herramienta_verificar_mitigacion(topo, catalogo, ejecutor, dispositivo, ip):
     accion_id = _ACCION_POR_ROL.get(("bloquear_ip", nodo.get("rol")))
     if accion_id is None:
         return f"Error: sin verificacion para '{dispositivo}'"
+    # Misma frontera anti-inyeccion que ejecutar_orden: ni `nodo.ip` ni `{ip}` (origen de la alerta,
+    # no validado en la ingesta) sin comprobar pueden llegar al `sh -c` del SSH. El bucle ReAct puede
+    # invocar esta herramienta por su cuenta con un origen_ip hostil.
+    if not conector.ip_valida(nodo.get("ip")) or not conector._params_seguros({"ip": ip}):
+        return "activo"
     cmd = catalogo[accion_id]["verificacion"].format(ip=ip)
     rc, _ = ejecutor(nodo.get("ip"), cmd)
     return "bloqueado" if rc == 0 else "activo"

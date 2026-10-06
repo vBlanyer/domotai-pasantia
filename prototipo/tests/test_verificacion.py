@@ -21,3 +21,11 @@ class TestVerificacion(unittest.TestCase):
         r = verificacion.confirmar(orden_mala, CAT, ej)
         self.assertFalse(r["verificado"])
         self.assertEqual(llamado, [])   # el ejecutor NUNCA se llamó
+
+    def test_nodo_ip_con_inyeccion_no_ejecuta(self):
+        llamado = []
+        def ej(ip, cmd): llamado.append(cmd); return (0, "")
+        orden_mala = {**ORDEN, "nodo_ip": "192.168.1.30; id"}
+        r = verificacion.confirmar(orden_mala, CAT, ej)
+        self.assertFalse(r["verificado"])
+        self.assertEqual(llamado, [])

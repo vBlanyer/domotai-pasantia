@@ -1,8 +1,22 @@
 """El conector: traduce la orden a un comando del catálogo y lo ejecuta por el ejecutor inyectado."""
-import json, os, re, sys
+import ipaddress, json, os, re, sys
 
 _SEGURO = re.compile(r'^[A-Za-z0-9._:-]+\Z')   # IPs, puertos, nombres de servicio: sin metacaracteres de shell
 # \Z (no $) para que un \n final no cuele -> separador de comandos en el shell remoto.
+
+
+def ip_valida(ip):
+    """`nodo_ip` debe ser una IP (v4/v6) real: se interpola SIN comillas en la línea SSH que corre por
+    `sh -c` en el nodo de gestión (`comando_ssh_clave`/`ejecutor_ssh_lab`), así que un valor con
+    metacaracteres (`;`, espacio, `#`, `$`…) sería inyección de comandos en el auditor. Una IP válida
+    no puede contenerlos. A diferencia de `_params_seguros`, exige que SEA una IP, no solo el charset."""
+    if not isinstance(ip, str):
+        return False
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
 
 def render_comando(catalogo, accion_id, params):
     return catalogo[accion_id]["comando"].format(**params)
@@ -31,6 +45,8 @@ def ahora_iso():
 
 def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
     acc = catalogo[orden["accion_id"]]
+    if not ip_valida(orden.get("nodo_ip")):
+        return _resultado(orden, None, -1, "nodo_ip rechazado: no es una IP valida", False, False, timestamp)
     if not _params_seguros(orden.get("params", {})):
         return _resultado(orden, None, -1, "params rechazados: caracteres no permitidos", False, False, timestamp)
     cmd_verif = acc["verificacion"].format(**orden["params"])

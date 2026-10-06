@@ -887,7 +887,7 @@ def main(argv):
         except FileNotFoundError:
             previos = []
         n_previos, linaje = len(previos), traza.linaje_de(previos)
-        with open(cfg["salida"], "a", encoding="utf-8") as traza_f:
+        with traza.abrir_append(cfg["salida"]) as traza_f:   # permisos 0600 (integridad de la traza)
             ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                      justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
                      salida_traza=traza_f, escribir=escribir_fn, leer=leer_fn,

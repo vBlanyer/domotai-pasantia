@@ -51,6 +51,10 @@ def revertir(registro, catalogo, ejecutor, timestamp, motivo=""):
     if not conector._params_seguros(params):
         return {**base, "comando_ejecutado": None, "codigo_salida": -1, "exito": False,
                 "salida": "params rechazados: caracteres no permitidos"}
+    if not conector.ip_valida(orden.get("nodo_ip")):
+        # nodo_ip sale de la traza (manipulable) y se interpola en la linea SSH: exigir una IP real.
+        return {**base, "comando_ejecutado": None, "codigo_salida": -1, "exito": False,
+                "salida": "nodo_ip rechazado: no es una IP valida"}
     cmd = _render(acc["reversion_cmd"], params)
     verif = _render(acc.get("verificacion", ""), params)
     if cmd is None:
@@ -97,7 +101,7 @@ def _main(argv):
     # La reversion se anota en la MISMA cadena, con el fichero bloqueado y releido (Cadena con
     # `ruta`): el daemon puede estar escribiendo en el. Nombre, recuento y linaje, para que el ancla
     # identifique el fichero como las del daemon.
-    with open(ruta, "a", encoding="utf-8") as f:
+    with traza.abrir_append(ruta) as f:                  # permisos 0600 (integridad de la traza)
         previos = traza.leer_registros(ruta)
         traza.Cadena(f, traza.ultimo_hash(ruta), n=len(previos), nombre=os.path.basename(ruta),
                      linaje=traza.linaje_de(previos), ruta=ruta).escribir(r)

@@ -625,3 +625,19 @@ class TestPromptRecomendacion(unittest.TestCase):
         self.assertNotIn("{", txt)          # no repr de dict
         self.assertIn("http/80", txt)
         self.assertIn("443", txt)
+
+
+class TestVerificarMitigacionSegura(unittest.TestCase):
+    def test_no_ejecuta_con_ip_u_nodo_hostiles(self):
+        # Misma frontera anti-inyeccion que ejecutar_orden: la verificacion del agente ReAct no debe
+        # llevar un origen_ip ni un nodo.ip sin validar al `sh -c` del SSH.
+        llamadas = []
+        ej = lambda nip, cmd: (llamadas.append(cmd), (0, ""))[1]
+        topo = {"web": {"rol": "host_victima", "ip": "10.0.0.5"}}
+        self.assertEqual(ag.herramienta_verificar_mitigacion(topo, CAT, ej, "web", "1.1.1.1; id"), "activo")
+        topo2 = {"web": {"rol": "host_victima", "ip": "10.0.0.5; id"}}
+        self.assertEqual(ag.herramienta_verificar_mitigacion(topo2, CAT, ej, "web", "1.1.1.1"), "activo")
+        self.assertEqual(llamadas, [])           # no se ejecuto nada
+        # con ip y nodo validos, si verifica (ejecuta)
+        self.assertEqual(ag.herramienta_verificar_mitigacion(topo, CAT, ej, "web", "1.1.1.1"), "bloqueado")
+        self.assertEqual(len(llamadas), 1)

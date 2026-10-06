@@ -290,3 +290,26 @@ class TestAncla(unittest.TestCase):
         finally:
             os.unlink(ruta)
 
+
+class TestIntegridadReforzada(unittest.TestCase):
+    def test_hmac_con_clave_firma_la_cadena_y_no_se_reproduce_sin_la_clave(self):
+        import os
+        from unittest import mock
+        reg = {"id_decision": "d1", "clase": "vp_intento_acceso"}
+        sin_clave = traza._hash(traza.GENESIS, reg)
+        with mock.patch.dict(os.environ, {"TRIAJE_TRAZA_CLAVE": "secreta-del-SOC"}):
+            con_clave = traza._hash(traza.GENESIS, reg)
+            firmado = traza.encadenar(reg, traza.GENESIS)
+            self.assertTrue(traza.verificar([firmado])["valida"])   # con la clave: cadena válida
+        self.assertNotEqual(sin_clave, con_clave)                   # HMAC != SHA-256 plano
+        # sin la clave, el hash firmado no se reproduce -> un reescritor del fichero sin la clave
+        # no puede forjar una cadena que `verificar` acepte
+        self.assertFalse(traza.verificar([firmado])["valida"])
+
+    def test_abrir_append_crea_con_permisos_0600(self):
+        import os, tempfile, stat
+        ruta = os.path.join(tempfile.mkdtemp(), "traza.jsonl")
+        with traza.abrir_append(ruta) as f:
+            f.write("x\n")
+        self.assertEqual(stat.S_IMODE(os.stat(ruta).st_mode), 0o600)
+

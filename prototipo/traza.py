@@ -17,6 +17,7 @@ registros de los que hay, la traza esta truncada; si el registro que el ancla se
 hash, esta alterada o no es ese fichero.
 """
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -34,7 +35,27 @@ def _canonico(registro):
     return json.dumps(limpio, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 def _hash(hash_previo, registro):
-    return hashlib.sha256((hash_previo + _canonico(registro)).encode("utf-8")).hexdigest()
+    # Con TRIAJE_TRAZA_CLAVE la cadena se FIRMA con HMAC-SHA256: quien pueda reescribir el fichero no
+    # puede recalcular una cadena válida sin la clave (que vive fuera del alcance del escritor). Sin
+    # clave, SHA-256 encadenado como siempre (tamper-evident solo frente a quien no reescriba el todo).
+    msg = (hash_previo + _canonico(registro)).encode("utf-8")
+    clave = os.environ.get("TRIAJE_TRAZA_CLAVE")
+    if clave:
+        return hmac.new(clave.encode("utf-8"), msg, hashlib.sha256).hexdigest()
+    return hashlib.sha256(msg).hexdigest()
+
+
+def abrir_append(ruta):
+    """Abre la traza para añadir con permisos 0600 (solo el dueño). La cadena es tamper-evident, pero
+    quien pueda ESCRIBIR el fichero puede recalcularla (salvo con TRIAJE_TRAZA_CLAVE); restringir la
+    escritura al usuario del daemon es la primera línea de defensa (RF-09). Se crea con 0600 en el
+    propio open (sin ventana de carrera por umask) y se endurece también un fichero preexistente."""
+    fd = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        os.chmod(ruta, 0o600)
+    except OSError:
+        pass
+    return os.fdopen(fd, "a", encoding="utf-8")
 
 def encadenar(registro, hash_previo):
     """Copia del registro con `hash_previo` y su `hash`."""
