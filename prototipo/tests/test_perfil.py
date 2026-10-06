@@ -211,6 +211,15 @@ class TestPerfilBancario(unittest.TestCase):
         self.assertEqual(r["accion_final"], "BLOQUEAR_IP_FIREWALL")
         self.assertTrue(r["requiere_humano"])
 
+    def test_un_tercero_confiable_en_el_perimetro_no_se_auto_bloquea(self):
+        # Válvula de seguridad del auto-bloqueo perimetral: una IP externa compartida declarada como
+        # socio crítico (CDN, pasarela de pago) NO se corta sola en el cortafuegos —cortarla ahí la
+        # niega a toda la red—, se retiene para un humano aunque el origen parezca no inventariado.
+        p = dict(self.p); p["terceros_confiables"] = ["203.0.113.7"]
+        r = perfil.filtrar(p, "BLOQUEAR_IP_FIREWALL", {"ip": "203.0.113.7"}, CAT, "web-banking", "443", 0.95)
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP_FIREWALL")
+        self.assertTrue(r["requiere_humano"])
+
     def test_cada_activo_declara_ip_y_funcion(self):
         for nombre, a in self.p["activos"].items():
             self.assertIn("ip", a, nombre)
