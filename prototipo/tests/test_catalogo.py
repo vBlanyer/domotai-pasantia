@@ -65,36 +65,3 @@ class TestMinimoPrivilegio(unittest.TestCase):
             self.assertNotIn(descriptivo, binarios)
         self.assertTrue({"iptables", "ss", "tc", "service", "passwd"} <= binarios)
 
-
-
-class TestPlataforma(unittest.TestCase):
-    ACC = {"comando": "iptables -A FORWARD -s {ip} -j DROP",
-           "verificacion": "iptables -L FORWARD -n | grep -F {ip}",
-           "reversion_cmd": "iptables -D FORWARD -s {ip} -j DROP",
-           "plataformas": {"openwrt": {"comando": "nft add rule inet fw4 forward ip saddr {ip} drop"}}}
-
-    def test_campo_por_defecto_sin_plataforma(self):
-        self.assertEqual(catalogo.campo(self.ACC, "comando"), "iptables -A FORWARD -s {ip} -j DROP")
-        self.assertEqual(catalogo.campo(self.ACC, "comando", "linux"), "iptables -A FORWARD -s {ip} -j DROP")
-
-    def test_campo_variante_de_openwrt(self):
-        self.assertEqual(catalogo.campo(self.ACC, "comando", "openwrt"),
-                         "nft add rule inet fw4 forward ip saddr {ip} drop")
-        # un campo que la variante NO redefine cae al por defecto
-        self.assertEqual(catalogo.campo(self.ACC, "reversion_cmd", "openwrt"),
-                         "iptables -D FORWARD -s {ip} -j DROP")
-
-    def test_el_catalogo_real_tiene_la_variante_openwrt_del_cortafuegos(self):
-        cat = catalogo.cargar_catalogo(RAIZ)
-        nft = catalogo.campo(cat["BLOQUEAR_IP_FIREWALL"], "comando", "openwrt")
-        self.assertIn("nft", nft); self.assertNotIn("iptables", nft)
-
-    def test_el_sudoers_incluye_los_comandos_de_las_variantes(self):
-        # la frontera de privilegio es el catálogo: si una variante usa nft, el sudoers lo cubre
-        cat = catalogo.cargar_catalogo(RAIZ)
-        binarios = {b for b, _ in catalogo.comandos_privilegiados(cat)}
-        self.assertIn("nft", binarios)
-
-
-if __name__ == "__main__":
-    unittest.main()

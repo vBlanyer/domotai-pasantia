@@ -25,15 +25,6 @@ def construir(decision, alerta, perfil=None):
         "nodo_objetivo": activo,
         "nodo_ip": (perfilm.ip_de(perfil, activo) if perfil else None) or IP_DE_NODO.get(activo),
         "params": params,
-        "plataforma": _plataforma(perfil, activo),   # SO del nodo (OpenWrt=nft); None -> comando por defecto
         "impacto": decision.get("impacto"),
         "justificacion": decision.get("justificacion"),
     }
-
-def _plataforma(perfil, nodo):
-    """La `plataforma` declarada del nodo en el perfil (topología o inventario), o None."""
-    for mapa in ("topologia", "activos"):
-        v = ((perfil or {}).get(mapa) or {}).get(nodo)
-        if isinstance(v, dict) and v.get("plataforma"):
-            return v["plataforma"]
-    return None

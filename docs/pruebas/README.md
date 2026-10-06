@@ -60,7 +60,6 @@ python3 -m prototipo.stream <fuente-wazuh> prototipo/perfiles/bancario.yml \
 - [08 · Prueba manual en el laboratorio del banco](08-laboratorio-banco.md) — su apartado 10 remite al **banco de pruebas automático** (`python3 -m lab.banco.pruebas`, catálogo de casos con veredicto OK/FALLO/BLOQUEADO/OMITIDO y guías por caso en [banco/](banco/))
 - [09 · Tablero web](09-tablero-web.md) — consola local de observabilidad y aprobación para el daemon (`stream.py --web`), sus siete vistas y la verificación manual de extremo a extremo
 - [10 · Ataque a medida: qué resultado esperar](10-ataque-a-medida.md) — cuadro verificado con el motor de qué decide el MDR para cada combinación de equipo objetivo, servicio y origen en el lanzador `banco.sh atacar`
-- [11 · Validar la contención sobre un OpenWrt real](11-openwrt-real.md) — el catálogo es portable por plataforma (nftables/fw4 para OpenWrt); cómo arrancar OpenWrt x86 en QEMU (sin vrnetlab) y validar la contención
 
 ---
 

@@ -193,38 +193,3 @@ class TestVerificacionExacta(unittest.TestCase):
         self.assertFalse(verificacion.confirmar(ORDEN, CAT, nodo)["verificado"])
         nodo.reglas["INPUT"].append(("DROP", "192.168.1.10"))
         self.assertTrue(verificacion.confirmar(ORDEN, CAT, nodo)["verificado"])
-
-
-class EjecutorRed:
-    """Cortafuegos simulado para iptables Y nft: la regla no existe hasta aplicarla."""
-    def __init__(self): self.aplicada = False; self.llamadas = []
-    def __call__(self, nodo_ip, comando):
-        self.llamadas.append(comando)
-        if "grep" in comando:                                   # verificación (iptables o nft)
-            return (0, "drop 192.168.1.10") if self.aplicada else (1, "")
-        if "-A FORWARD" in comando or comando.startswith("nft add"):   # aplicar
-            self.aplicada = True; return (0, "")
-        return (0, "")
-
-
-class TestPlataformaOpenWrt(unittest.TestCase):
-    FW = {"decision_id": "d1", "accion_id": "BLOQUEAR_IP_FIREWALL", "nodo_objetivo": "fw-edge",
-          "nodo_ip": "10.0.0.254", "params": {"ip": "192.168.1.10"}, "impacto": "alcanza_servicio"}
-
-    def test_cortafuegos_openwrt_usa_nft_no_iptables(self):
-        ej = EjecutorRed()
-        r = conector.ejecutar_orden({**self.FW, "plataforma": "openwrt"}, CAT, ej, "t")
-        self.assertTrue(r["exito"])
-        self.assertTrue(any(c.startswith("nft add rule inet fw4 forward") for c in ej.llamadas))
-        self.assertFalse(any("iptables" in c for c in ej.llamadas))   # ni rastro de iptables
-
-    def test_cortafuegos_sin_plataforma_usa_iptables(self):
-        ej = EjecutorRed()
-        r = conector.ejecutar_orden(self.FW, CAT, ej, "t")             # sin plataforma
-        self.assertTrue(r["exito"])
-        self.assertTrue(any("iptables -A FORWARD" in c for c in ej.llamadas))
-        self.assertFalse(any("nft" in c for c in ej.llamadas))
-
-
-if __name__ == "__main__":
-    unittest.main()

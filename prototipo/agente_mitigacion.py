@@ -3,7 +3,7 @@ dispositivo eligiendo acciones de un catálogo CERRADO; el código renderiza el 
 pide aprobación humana y lo ejecuta de forma reversible reutilizando conector.ejecutar_orden.
 """
 import json, re
-from prototipo import actores, catalogo as catm, conector, impacto, politica, rag
+from prototipo import actores, conector, impacto, politica, rag
 from prototipo import perfil as perfilm
 
 def resolver_topologia(perfil, hallazgos=None):
@@ -159,7 +159,7 @@ def herramienta_verificar_mitigacion(topo, catalogo, ejecutor, dispositivo, ip):
     accion_id = _ACCION_POR_ROL.get(("bloquear_ip", nodo.get("rol")))
     if accion_id is None:
         return f"Error: sin verificacion para '{dispositivo}'"
-    cmd = catm.campo(catalogo[accion_id], "verificacion", nodo.get("plataforma")).format(ip=ip)
+    cmd = catalogo[accion_id]["verificacion"].format(ip=ip)
     rc, _ = ejecutor(nodo.get("ip"), cmd)
     return "bloqueado" if rc == 0 else "activo"
 
@@ -219,10 +219,9 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
             # otros, el bloqueo corta al atacante hacia todos ellos, no solo hacia el activo atacado.
             texto = f"en {dispositivo}: corta su tráfico hacia todo lo que enruta ({', '.join(alcance)})"
             consecuencia = f"{consecuencia} · {texto}" if consecuencia else texto
-    plataforma = nodo.get("plataforma")         # SO del dispositivo (OpenWrt=nft); None -> por defecto
-    comando = catm.campo(catalogo[accion_id], "comando", plataforma).format(ip=ip)
+    comando = catalogo[accion_id]["comando"].format(ip=ip)
     ok, motivo_invalido = validar_comando(comando, ip_gestion)
-    reversion_cmd = (catm.campo(catalogo[accion_id], "reversion_cmd", plataforma) or "").format(ip=ip)
+    reversion_cmd = catalogo[accion_id].get("reversion_cmd", "").format(ip=ip)
     if not ok:
         return (f"Error: {motivo_invalido}",
                 {"accion_id": accion_id, "vetado": True, "reversion_cmd": reversion_cmd})
@@ -232,8 +231,7 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
         return (f"Cancelado por el humano: {accion_id} en {dispositivo}",
                 {"accion_id": accion_id, "cancelado": True, "reversion_cmd": reversion_cmd})
     orden = {"decision_id": decision_id, "accion_id": accion_id, "nodo_objetivo": dispositivo,
-             "nodo_ip": nodo.get("ip"), "params": {"ip": ip}, "plataforma": plataforma,
-             "impacto": catalogo[accion_id]["impacto"]}
+             "nodo_ip": nodo.get("ip"), "params": {"ip": ip}, "impacto": catalogo[accion_id]["impacto"]}
     res = conector.ejecutar_orden(orden, catalogo, ejecutor, timestamp)
     if res.get("exito"):
         return (f"OK: {accion_id} aplicada en {dispositivo} (rc={res.get('codigo_salida')})",

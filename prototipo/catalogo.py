@@ -9,24 +9,6 @@ def cargar_catalogo(ruta):
 def impacto_de(catalogo, accion_id):
     return catalogo[accion_id]["impacto"]
 
-def campo(acc, nombre, plataforma=None):
-    """El campo `nombre` (comando/reversion_cmd/verificacion) de una acción del catálogo, con la
-    variante de la PLATAFORMA del nodo objetivo si existe (p. ej. un cortafuegos OpenWrt usa nftables
-    en vez de iptables). Sin variante o sin plataforma, el valor por defecto. El conector sigue siendo
-    agnóstico: solo cambia el comando que se renderiza para ese nodo."""
-    if plataforma:
-        v = ((acc.get("plataformas") or {}).get(plataforma) or {}).get(nombre)
-        if v is not None:
-            return v
-    return acc.get(nombre)
-
-def _variantes(accion):
-    """La acción y cada una de sus variantes por plataforma (para derivar el privilegio de TODAS)."""
-    yield accion
-    for var in (accion.get("plataformas") or {}).values():
-        if isinstance(var, dict):
-            yield var
-
 # ------------------------------------------------------------ minimo privilegio --
 # El catalogo cerrado (RF-15) ya es la frontera de las ACCIONES: el motor no puede ordenar nada
 # que no este en el. Aqui pasa a ser tambien la frontera de PRIVILEGIO en el nodo: el usuario
@@ -60,17 +42,15 @@ def comandos_privilegiados(catalogo):
             vistos.add(clave); salida.append(clave)
     binarios_de_accion = set()
     for accion in catalogo.values():
-        for sub in _variantes(accion):          # incluye las variantes por plataforma (p. ej. nft)
-            for nombre in ("comando", "reversion_cmd"):
-                for clave in _tramos(sub.get(nombre)):
-                    binarios_de_accion.add(clave[0]); anadir(clave)
+        for campo in ("comando", "reversion_cmd"):
+            for clave in _tramos(accion.get(campo)):
+                binarios_de_accion.add(clave[0]); anadir(clave)
     for accion in catalogo.values():
-        for sub in _variantes(accion):
-            v = sub.get("verificacion") or ""
-            tramos = _tramos(v)
-            if tramos and ("{" in v or "|" in v or tramos[0][0] in binarios_de_accion):
-                for clave in tramos:
-                    anadir(clave)
+        v = accion.get("verificacion") or ""
+        tramos = _tramos(v)
+        if tramos and ("{" in v or "|" in v or tramos[0][0] in binarios_de_accion):
+            for clave in tramos:
+                anadir(clave)
     return salida
 
 def sudoers(catalogo, usuario, rutas):
