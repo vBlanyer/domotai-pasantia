@@ -535,19 +535,57 @@ class TestCORS(unittest.TestCase):
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
         return srv.server_address[1]
 
-    def test_get_lleva_cabecera_cors(self):
-        puerto = self._srv()
+    def _req(self, puerto, metodo, ruta, headers=None, obj=None):
         c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
-        c.request("GET", "/api/pendientes"); r = c.getresponse(); r.read(); c.close()
-        self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "*")
+        cuerpo = json.dumps(obj) if obj is not None else None
+        c.request(metodo, ruta, cuerpo, headers or {})
+        r = c.getresponse(); r.read()
+        h = {k.lower(): v for k, v in r.getheaders()}
+        c.close()
+        return r.status, h
 
-    def test_options_preflight_devuelve_204_con_cors(self):
+    def test_cors_refleja_origen_localhost_no_asterisco(self):
         puerto = self._srv()
-        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
-        c.request("OPTIONS", "/api/aprobar"); r = c.getresponse(); r.read(); c.close()
-        self.assertEqual(r.status, 204)
-        self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "*")
-        self.assertIn("POST", r.getheader("Access-Control-Allow-Methods") or "")
+        st, h = self._req(puerto, "GET", "/api/pendientes", {"Origin": f"http://localhost:{puerto}"})
+        self.assertEqual(st, 200)
+        self.assertEqual(h.get("access-control-allow-origin"), f"http://localhost:{puerto}")
+
+    def test_cors_no_refleja_origen_ajeno(self):     # #6: una web de terceros no puede leer la respuesta
+        puerto = self._srv()
+        _, h = self._req(puerto, "GET", "/api/pendientes", {"Origin": "http://evil.com"})
+        self.assertIsNone(h.get("access-control-allow-origin"))
+
+    def test_options_preflight_204_con_cors_localhost(self):
+        puerto = self._srv()
+        st, h = self._req(puerto, "OPTIONS", "/api/aprobar", {"Origin": f"http://127.0.0.1:{puerto}"})
+        self.assertEqual(st, 204)
+        self.assertEqual(h.get("access-control-allow-origin"), f"http://127.0.0.1:{puerto}")
+        self.assertIn("POST", h.get("access-control-allow-methods") or "")
+
+    def test_host_ajeno_se_rechaza(self):            # anti DNS-rebinding (el Host no es localhost)
+        puerto = self._srv()
+        st, _ = self._req(puerto, "GET", "/api/pendientes", {"Host": "evil.com"})
+        self.assertEqual(st, 403)
+
+    def test_post_origen_ajeno_no_ejecuta(self):     # anti-CSRF: 403 ANTES del resolutor
+        puerto = self._srv()
+        st, _ = self._req(puerto, "POST", "/api/aprobar",
+                          {"Content-Type": "application/json", "Origin": "http://evil.com"},
+                          {"id": "1", "respuesta": "s"})
+        self.assertEqual(st, 403)
+
+    def test_post_origen_localhost_pasa_el_guardia(self):   # llega al resolutor (409: sin pendiente)
+        puerto = self._srv()
+        st, _ = self._req(puerto, "POST", "/api/aprobar",
+                          {"Content-Type": "application/json", "Origin": f"http://127.0.0.1:{puerto}"},
+                          {"id": "1", "respuesta": "s"})
+        self.assertEqual(st, 409)
+
+    def test_post_sin_origen_se_permite(self):       # cliente no-navegador (sin Origin) no se bloquea
+        puerto = self._srv()
+        st, _ = self._req(puerto, "POST", "/api/aprobar",
+                          {"Content-Type": "application/json"}, {"id": "1", "respuesta": "s"})
+        self.assertEqual(st, 409)
 
     def test_dist_ausente_da_404_claro(self):
         puerto = self._srv(estaticos="/directorio/que/no/existe")

@@ -539,17 +539,55 @@ _TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript; c
 _DIR_ESTATICOS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "visor", "dist")
 
 
+# Solo estos hostnames son el propio tablero. Ligamos a 127.0.0.1, así que un `Host` u `Origin` con
+# otro hostname es un navegador ajeno (ataque entre-sitios) o un DNS-rebinding que apunta a nuestra IP
+# con un nombre de dominio del atacante. En ambos casos se rechaza. (El puerto no se compara: el
+# hostname basta para distinguir al propio tablero del navegador de evil.com.)
+_HOSTS_OK = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _host_de(valor):
+    """Hostname (sin esquema ni puerto), en minúsculas, de una cabecera Host u Origin. '' si no hay."""
+    if not valor:
+        return ""
+    v = valor.strip().lower()
+    if "://" in v:
+        v = v.split("://", 1)[1]
+    if v.startswith("["):                       # IPv6 entre corchetes: [::1]:puerto -> ::1
+        return v[1:v.index("]")] if "]" in v else v[1:]
+    return v.split(":", 1)[0]
+
+
 class _Manejador(BaseHTTPRequestHandler):
     def log_message(self, *a):        # silencioso: el daemon ya imprime lo suyo
         pass
 
+    def _host_ok(self):
+        # Anti DNS-rebinding: el navegador manda el hostname que escribió el usuario; si no es el
+        # propio tablero (localhost), la petición viene de un dominio ajeno que resuelve a nuestra IP.
+        return _host_de(self.headers.get("Host")) in _HOSTS_OK
+
+    def _origen_ok(self):
+        # Anti-CSRF para las acciones: un POST desde el navegador SIEMPRE trae Origin; si viene de un
+        # sitio que no es localhost, es una web de terceros forzando una acción. Sin Origin = cliente
+        # no-navegador (curl, la propia herramienta): no es el vector entre-sitios, se permite.
+        o = self.headers.get("Origin")
+        return o is None or _host_de(o) in _HOSTS_OK
+
     def _cors(self):
-        # Liga solo a 127.0.0.1, asi que abrir CORS es aceptable (el visor React lo consume en dev).
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        # NO '*': se refleja el Origin solo si es el propio tablero (localhost, cualquier puerto: cubre
+        # el visor en dev :5173 y el build servido en el mismo origen). Así una web de terceros no puede
+        # LEER las respuestas de la API (fuga del estado del SOC).
+        o = self.headers.get("Origin")
+        if o and _host_de(o) in _HOSTS_OK:
+            self.send_header("Access-Control-Allow-Origin", o)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def do_OPTIONS(self):
+        if not self._host_ok():
+            return self._responder({"error": "host no permitido"}, 403)
         self.send_response(204)
         self._cors()
         self.send_header("Content-Length", "0")
@@ -585,6 +623,8 @@ class _Manejador(BaseHTTPRequestHandler):
         self.wfile.write(datos)
 
     def do_GET(self):
+        if not self._host_ok():
+            return self._responder({"error": "host no permitido"}, 403)
         s = self.server
         ruta = self.path.split("?", 1)[0]
         try:
@@ -618,6 +658,12 @@ class _Manejador(BaseHTTPRequestHandler):
             return self._responder({"error": str(e)}, 500)
 
     def do_POST(self):
+        # Guardia de seguridad ANTES de resolver nada (el POST ejecuta una contención real): Host del
+        # propio tablero (anti-rebinding) y Origin de confianza (anti-CSRF entre-sitios).
+        if not self._host_ok():
+            return self._responder({"error": "host no permitido"}, 403)
+        if not self._origen_ok():
+            return self._responder({"error": "origen no permitido"}, 403)
         try:
             s = self.server
             if self.path.split("?", 1)[0] != "/api/aprobar":

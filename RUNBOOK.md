@@ -97,7 +97,9 @@ daemon **sigue procesando** (no se estanca esperándote). El panel muestra la **
 (en rojo si hay cascada) y los botones **Aprobar · Rechazar · Reclasificar** (reclasificar abre las clases).
 Si el mismo ataque sigue llegando mientras esperas, la tarjeta lo marca (`sigue atacando · +N`). Un clic en
 Aprobar ejecuta la contención real (`iptables`) por el conector y escribe la traza en ese momento (la traza
-queda en **orden de finalización**). Es local (`127.0.0.1`) y **sin autenticación** (etapa inicial). En modo
+queda en **orden de finalización**). Es local (`127.0.0.1`), valida `Host` y `Origin` (anti DNS-rebinding
+y anti-CSRF: un POST de aprobación solo se acepta desde el propio origen localhost, y CORS no es `*`) y
+**aún sin login** (el inicio de sesión lo añade la empresa; la validación de Host/Origin ya es nuestra). En modo
 `--agente` el agente ReAct decide la estrategia (**contiene primero en el equipo atacado** y escala al
 cortafuegos solo si ese salto falla) y **respeta el filtro del perfil igual que el modo determinista**: aplica
 en automático lo que el perfil permite (p. ej. bloquear a un atacante externo en el host atacado) y **pregunta
