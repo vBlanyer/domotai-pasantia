@@ -6,9 +6,11 @@ este cuadro dice qué **debería** decidir el MDR en cada combinación.
 
 Las cifras salen de pasar la alerta de cada variante por el motor real (`triaje.procesar`) con
 `prototipo/perfiles/bancario.yml` y los hallazgos del auditor del banco
-(`lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json`). **Están verificadas sobre las 340
-combinaciones que el menú puede producir** (10 objetivos × tipos aplicables × 10 orígenes), no sobre
-una muestra; el script del final las regenera.
+(`lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json`). **Están verificadas sobre las 460
+combinaciones que el menú puede producir** (10 objetivos × tipos aplicables × 10 orígenes; los 4
+objetivos con web ofrecen 7 tipos, el resto 3), no sobre una muestra; el script del final las
+regenera. Los 4 exploits web dan el **mismo** resultado del motor (ver la nota de arriba), así que a
+efectos del veredicto son una sola fila.
 
 Recuerda que el MDR **no detecta la alerta** — eso lo hace el SIEM (Wazuh). El MDR **refina**: decide
 si la alerta del SIEM es una amenaza real y qué contención aplica. Todo lo de abajo es «qué hace el
@@ -102,7 +104,7 @@ reconocimiento / telnet.
 | cualquier otro del plano de datos | gestión | `fp_actividad_legitima` | 1.0 | no | Nada: origen legítimo |
 | **mdr-siem / auditor** | internet o interno | `vp_intento_acceso` | **0.5** | **sí** | **Retenida** (sin postura, no se puede descartar) |
 
-### C · Explotación web (SQLi) — solo web-banking, api-movil, atm, middleware
+### C · Explotación web (SQLi, path traversal, Log4Shell, inyección de comandos) — solo web-banking, api-movil, atm, middleware
 
 | Objetivo | Origen | Clase | Conf. | ¿Humano? | Resultado |
 |---|---|---|:--:|:--:|---|
@@ -165,6 +167,10 @@ TIPOS = {
  "telnet":       dict(familia="servicio_expuesto",   servicio="telnet", regla_id="5706", nivel_wazuh=6),
  "exploit_web":  dict(familia="explotacion_conocida",servicio="http",   regla_id="5710", nivel_wazuh=7),
 }
+# Los 3 exploits web nuevos (traversal, Log4Shell, cmd injection) son INDISTINGUIBLES del SQLi a nivel
+# de motor (misma familia/servicio -> misma clase, veredicto y recomendacion): son alias del SQLi aqui.
+for _w in ("traversal", "log4shell", "cmdi"):
+    TIPOS[_w] = TIPOS["exploit_web"]
 def run(tipo, activo, oip, raf=1):
     a = {**TIPOS[tipo], "activo":activo, "origen_ip":oip, "timestamp":"t", "rafaga_60s":raf}
     t = triaje.procesar(a, hall, perfil, "bancario", cat, "x", "t")
