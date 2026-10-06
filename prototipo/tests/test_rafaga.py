@@ -62,5 +62,17 @@ class TestArbol(unittest.TestCase):
         self.assertTrue(m["hoja"]); self.assertEqual(m["clase"], "VP")
 
 
+class TestCotaDeOrigenes(unittest.TestCase):
+    def test_ventana_acota_origenes_lru(self):
+        # #13: un atacante que rota millones de srcip no puede hacer crecer la ventana sin límite.
+        v = rafaga.Ventana(max_origenes=3)
+        for i in range(10):
+            v.registrar({"origen_ip": f"10.0.0.{i}", "timestamp": "2026-01-01T00:00:00"})
+        self.assertLessEqual(len(v._por_origen), 3)
+        # el más reciente sigue contando; el más viejo fue evictado
+        self.assertEqual(v.contar("10.0.0.9"), 1)
+        self.assertEqual(v.contar("10.0.0.0"), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
