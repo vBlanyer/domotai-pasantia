@@ -1,6 +1,6 @@
 """Interfaz de análisis (clasificar/justificar) con implementación baseline determinista."""
 from prototipo.postura import postura_de, resumen_otros_expuestos
-from prototipo import actores, familias
+from prototipo import actores, familias, servicios
 
 # Clases en las que la decision del motor es "esto no es una amenaza". La consumen el
 # justificador (para preguntar por que NO lo es) y el RAG (para recuperar el motivo del
@@ -21,7 +21,9 @@ _PRIORIDAD_BASE = {
 def enriquecer(alerta, hallazgos, perfil):
     activo = alerta.get("activo")
     postura = postura_de(hallazgos, activo, alerta.get("servicio"))
-    criticidad = perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")
+    # Criticidad del SERVICIO atacado (no solo la del equipo): un golpe a un servicio crítico pesa
+    # más. Fallback a la del activo cuando el servicio no declara criticidad propia (RF-17).
+    criticidad = servicios.criticidad_servicio(perfil, activo, alerta.get("servicio"), hallazgos)
     # Orígenes de administración declarados por el cliente (RNF-14): un ataque aparente
     # desde uno de ellos es el FP dominante (RF-03, clase fp_actividad_legitima).
     origen_legitimo = any(actores._coincide(alerta.get("origen_ip"), o)
