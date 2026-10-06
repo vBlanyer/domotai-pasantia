@@ -47,6 +47,13 @@ class TestFiltro(unittest.TestCase):
         r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
         self.assertFalse(r["requiere_humano"])
 
+    def test_accion_nunca_automatica_siempre_requiere_humano(self):
+        # #10: REINICIAR/AISLAR_NODO no se auto-ejecutan ni con un perfil permisivo (guard del catálogo)
+        p = perfil_fx(); p["continuidad"]["impacto_alcanza_servicio"] = "automatica"   # perfil laxo
+        for accion, params in (("AISLAR_NODO", {"ip_nodo": "1.2.3.4"}), ("REINICIAR_NODO", {"ip_nodo": "1.2.3.4"})):
+            r = perfil.filtrar(p, accion, params, CAT, "objetivo-vuln", "ssh", 1.0)
+            self.assertTrue(r["requiere_humano"], accion)
+
     def test_umbral_configurable_por_perfil(self):
         # RF-07: el umbral de escalado sale del perfil, no del código
         p = perfil_fx(); p["continuidad"]["umbral_confianza"] = 0.9

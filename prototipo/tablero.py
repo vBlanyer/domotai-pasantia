@@ -544,6 +544,7 @@ _DIR_ESTATICOS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "visor
 # con un nombre de dominio del atacante. En ambos casos se rechaza. (El puerto no se compara: el
 # hostname basta para distinguir al propio tablero del navegador de evil.com.)
 _HOSTS_OK = frozenset({"127.0.0.1", "localhost", "::1"})
+_MAX_CUERPO = 64 * 1024   # tope del cuerpo de un POST (anti-DoS por memoria): los legítimos son < 1 KiB
 
 
 def _host_de(valor):
@@ -668,7 +669,14 @@ class _Manejador(BaseHTTPRequestHandler):
             s = self.server
             if self.path.split("?", 1)[0] != "/api/aprobar":
                 return self._responder({"error": "no encontrado"}, 404)
-            n = int(self.headers.get("Content-Length") or 0)
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                return self._responder({"error": "Content-Length invalido"}, 400)
+            # Un Content-Length NEGATIVO no es > max y haría `rfile.read(n<0)` leer hasta EOF (sin
+            # tope): se rechaza explícitamente. Los cuerpos legítimos (id/respuesta/paso) son < 1 KiB.
+            if not 0 <= n <= _MAX_CUERPO:
+                return self._responder({"error": "Content-Length fuera de rango"}, 413)
             cuerpo = json.loads(self.rfile.read(n) or b"{}")
             pid, resp = str(cuerpo.get("id")), str(cuerpo.get("respuesta", ""))
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.

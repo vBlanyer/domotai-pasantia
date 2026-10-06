@@ -6,7 +6,7 @@ La fuente de lineas es inyectable (fichero seguido estilo `tail -f`, o stdin), l
 testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Wazuh vive dentro del
 contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.stream -`.
 """
-import io, json, os, select, sys, threading, time
+import collections, io, json, os, select, sys, threading, time
 from prototipo import analisis, ingesta, adaptador_wazuh, agrupacion, lazo, rafaga, traza, validacion
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
@@ -118,11 +118,14 @@ class MemoriaDecisiones:
     - Contenido en un cortafuegos perimetral: cubre al atacante contra cualquier activo detrás.
     - Sin IP de origen no hay a quién atribuir la repetición: nunca se suprime.
     - Se usa desde el lazo y desde el hilo HTTP (resolutor): lock."""
-    def __init__(self, perfil=None):
-        self._decididas = {}
+    MAX_ENTRADAS = 50000   # cota LRU: un flood de orígenes falsificados no agota memoria
+
+    def __init__(self, perfil=None, max_entradas=MAX_ENTRADAS):
+        self._decididas = collections.OrderedDict()
         self._perfil = perfil
         self._lock = threading.Lock()
         self.suprimidas = 0
+        self.max_entradas = max_entradas
 
     def buscar(self, clave):
         ip, _activo, familia = clave
@@ -143,6 +146,8 @@ class MemoriaDecisiones:
             self._decididas[clave] = previa
             if perimetral:
                 self._decididas[(clave[0], "*", clave[2])] = previa
+            while len(self._decididas) > self.max_entradas:
+                self._decididas.popitem(last=False)   # evicta la entrada menos reciente
 
     def registro_supresion(self, inc, previa):
         ip, activo, familia = _clave_supresion(inc)
@@ -613,6 +618,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
 
 # ------------------------------------------------------------------ fuentes --
 
+_MAX_LINEA = 1024 * 1024   # tope de una línea de la fuente (anti-OOM): una alerta real es < 64 KiB
+
 def leer_lineas_stdin(stream=sys.stdin, intervalo=0.5):
     """Rinde líneas de stdin y, en reposo, `None` (tick) para que la ventana de agrupación pueda
     cerrarse aunque no lleguen alertas nuevas. Usa select sobre el descriptor; si no hay uno real
@@ -627,6 +634,7 @@ def leer_lineas_stdin(stream=sys.stdin, intervalo=0.5):
     # un bloque entero al búfer de Python y devuelve una sola línea, y el resto queda invisible para
     # select (el descriptor ya está vacío) hasta que llega otro dato, a veces minutos después.
     pendiente = b""
+    descartando = False                     # tras una línea sin fin sobredimensionada: resync al próximo \n
     while True:
         listos, _, _ = select.select([fd], [], [], intervalo)
         if not listos:
@@ -634,12 +642,21 @@ def leer_lineas_stdin(stream=sys.stdin, intervalo=0.5):
             continue
         datos = os.read(fd, 65536)
         if not datos:                       # EOF: lo que quede sin salto de línea también cuenta
-            if pendiente:
+            if pendiente and not descartando:
                 yield pendiente.decode("utf-8", "replace")
             return
-        *completas, pendiente = (pendiente + datos).split(b"\n")
+        buf = pendiente + datos
+        if descartando:                     # venimos de una línea gigante: descartar hasta el \n
+            nl = buf.find(b"\n")
+            if nl == -1:
+                pendiente = b""
+                continue
+            buf, descartando = buf[nl + 1:], False
+        *completas, pendiente = buf.split(b"\n")
         for linea in completas:
             yield linea.decode("utf-8", "replace") + "\n"
+        if len(pendiente) > _MAX_LINEA:     # línea sin salto demasiado larga -> descartar (anti-OOM)
+            pendiente, descartando = b"", True
 
 def leer_lineas_fichero(ruta, intervalo=0.5, desde_inicio=False, detener=None, dormir=time.sleep):
     """Sigue un fichero como `tail -f`. Tolera que no exista aun (espera activa). Reabre en

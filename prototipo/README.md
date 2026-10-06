@@ -356,8 +356,10 @@ nodo es exactamente el catálogo cerrado de acciones (RF-15), con los parámetro
 seguros porque el conector rechaza parámetros con espacios o metacaracteres. Se aprovisiona con
 `sh lab/scripts/aprovisionar-minimo-privilegio.sh`, que termina comprobando que un comando del catálogo
 pasa y que `cat /etc/shadow` e `iptables -F` (mismo binario, otros argumentos) se deniegan.
-`conector.ejecutor_por_defecto()` elige la clave si está aprovisionada en el auditor; `TRIAJE_SSH_MODO=password`
-fuerza el sustituto de laboratorio, y nunca se cae de clave a contraseña en silencio. Verificado en vivo:
+`conector.ejecutor_por_defecto()` elige la clave si está aprovisionada en el auditor; si NO lo está y
+no hay `TRIAJE_SSH_MODO` explícito, **rechaza** (fail-closed: no contiene con la credencial del
+laboratorio). `TRIAJE_SSH_MODO=password` fuerza el sustituto de laboratorio (solo en el lab), y nunca
+se cae de clave a contraseña en silencio. Verificado en vivo:
 el bloqueo del lazo completo aparece en el `auth.log` del objetivo como
 `sudo: triaje : … COMMAND=/sbin/iptables -A INPUT -s 192.168.1.10 -j DROP`. Dos rarezas del objetivo
 (2007–2008) que costaron una hora y quedan en el script: su `passwd -l` caduca la cuenta además de

@@ -139,18 +139,26 @@ def _clave_aprovisionada():
     except OSError:
         return False
 
+def _ejecutor_sin_configurar(nodo_ip, comando):
+    """Ejecutor FAIL-CLOSED: no ejecuta nada y devuelve un error. Es el que se usa cuando no hay ni
+    clave aprovisionada ni modo explícito, para NO contener con la credencial de laboratorio."""
+    return (126, "conector sin configurar: aprovisiona el minimo privilegio "
+                 "(sh lab/scripts/aprovisionar-minimo-privilegio.sh) o fija TRIAJE_SSH_MODO")
+
 def ejecutor_por_defecto(escribir=print):
-    """TRIAJE_SSH_MODO=clave|password decide; sin ella, la clave si esta aprovisionada en el auditor
-    y, si no, el ejecutor del laboratorio con un aviso. No se cae de clave a contrasena en silencio:
-    eso escondería una configuracion rota detras de una credencial que no deberia existir."""
+    """TRIAJE_SSH_MODO=clave|password decide; si no, la clave SI está aprovisionada en el auditor.
+    FAIL-CLOSED: sin clave y sin modo explícito NO se cae a la contraseña del laboratorio (msfadmin)
+    —eso escondería una produccion mal configurada tras una credencial que no deberia existir—; se
+    devuelve un ejecutor que rechaza. El laboratorio opta a la contraseña con TRIAJE_SSH_MODO=password."""
     modo = os.environ.get("TRIAJE_SSH_MODO")
     if modo == "password":
         return ejecutor_ssh_lab
     if modo == "clave" or _clave_aprovisionada():
         return ejecutor_ssh_clave
-    escribir("[aviso] conector con la contrasena del laboratorio: aprovisiona el minimo privilegio con "
-             "sh lab/scripts/aprovisionar-minimo-privilegio.sh")
-    return ejecutor_ssh_lab
+    escribir("[ERROR] conector sin clave de minimo privilegio y sin TRIAJE_SSH_MODO: no se ejecutara "
+             "ninguna contencion. Aprovisiona la clave (sh lab/scripts/aprovisionar-minimo-privilegio.sh) "
+             "o, SOLO en el laboratorio, fija TRIAJE_SSH_MODO=password.")
+    return _ejecutor_sin_configurar
 
 if __name__ == "__main__":
     _main(sys.argv)

@@ -51,17 +51,27 @@ class Ventana:
     """Ventana deslizante por origen para el servicio en tiempo real. `registrar` anota una alerta
     y `contar` dice cuantas del origen quedan dentro de la ventana; el tiempo es el de las
     alertas, no el de pared, para que una repeticion de la traza cuente lo mismo (RNF-03)."""
-    def __init__(self, ventana_s=VENTANA_S):
+    MAX_ORIGENES = 50000   # cota de orígenes rastreados: un atacante que rota srcip no agota memoria
+
+    def __init__(self, ventana_s=VENTANA_S, max_origenes=MAX_ORIGENES):
         self.ventana_s = ventana_s
-        self._por_origen = collections.defaultdict(collections.deque)
+        self.max_origenes = max_origenes
+        self._por_origen = collections.OrderedDict()    # LRU: el origen menos reciente se evicta
 
     def registrar(self, alerta):
         origen, t = alerta.get("origen_ip"), _instante(alerta)
         if not origen or t is None:
             return 1
-        cola = self._por_origen[origen]
+        cola = self._por_origen.get(origen)
+        if cola is None:
+            cola = collections.deque()
+            self._por_origen[origen] = cola
+        else:
+            self._por_origen.move_to_end(origen)        # recién usado -> al final
         cola.append(t)
         self._purgar(cola, t)
+        while len(self._por_origen) > self.max_origenes:
+            self._por_origen.popitem(last=False)        # evicta el menos reciente (su ventana se reinicia)
         return len(cola)
 
     def contar(self, origen, ahora=None):

@@ -707,6 +707,21 @@ class TestWeb(unittest.TestCase):
             servidor.server_close()
 
 
+class TestTopeLineaStdin(unittest.TestCase):
+    def test_linea_gigante_sin_salto_se_descarta_y_resincroniza(self):
+        # #13: una «alerta» enorme sin salto de línea no debe acumularse en memoria sin límite.
+        import os, threading
+        r, w = os.pipe()
+        gigante = b"x" * (stream._MAX_LINEA + 100000)      # supera el tope, sin \n
+        payload = gigante + b"\n" + b'{"id":"ok"}' + b"\n"
+        # el pipe tiene búfer pequeño: escribir 1 MB bloquea sin lector -> hilo aparte mientras se lee
+        threading.Thread(target=lambda: (os.write(w, payload), os.close(w)), daemon=True).start()
+        st = os.fdopen(r, "rb")
+        lineas = [l for l in stream.leer_lineas_stdin(stream=st, intervalo=0.01) if l is not None]
+        self.assertIn('{"id":"ok"}\n', lineas)              # la línea buena posterior sí llega
+        self.assertFalse(any(len(l) > stream._MAX_LINEA for l in lineas))   # la gigante se descartó
+
+
 class TestMemoriaDecisiones(unittest.TestCase):
     def _inc(self, ip="10.200.0.10", familia="acceso_credenciales", conteo=1, nivel=10):
         return {"clave": {"origen_ip": ip, "activo": "web", "servicio": "ssh", "familia": familia},
@@ -726,6 +741,15 @@ class TestMemoriaDecisiones(unittest.TestCase):
         m = stream.MemoriaDecisiones()
         m.recordar(stream._clave_supresion(self._inc(familia="acceso_credenciales")), self.RECHAZADA)
         self.assertIsNone(m.buscar(stream._clave_supresion(self._inc(familia="reconocimiento"))))
+
+    def test_memoria_acota_por_lru(self):
+        # #13: un flood de orígenes distintos no hace crecer la memoria de supresión sin límite.
+        m = stream.MemoriaDecisiones(max_entradas=3)
+        for i in range(20):
+            m.recordar((f"10.0.0.{i}", "web", "acceso_credenciales"), self.RECHAZADA)
+        self.assertLessEqual(len(m._decididas), 3)
+        self.assertIsNotNone(m.buscar(("10.0.0.19", "web", "acceso_credenciales")))   # el reciente sigue
+        self.assertIsNone(m.buscar(("10.0.0.0", "web", "acceso_credenciales")))        # el viejo se evictó
 
     def test_registro_supresion_referencia_la_decision_y_cuenta(self):
         m = stream.MemoriaDecisiones()
