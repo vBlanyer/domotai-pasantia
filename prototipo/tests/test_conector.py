@@ -137,6 +137,18 @@ class TestEjecutorClave(unittest.TestCase):
             finally:
                 os.environ.pop("TRIAJE_SSH_MODO", None)
 
+    def test_fail_closed_sin_clave_ni_modo_no_cae_a_msfadmin(self):
+        # #7: sin clave aprovisionada y sin TRIAJE_SSH_MODO explicito, el conector NO debe caer en
+        # silencio a la credencial de laboratorio (msfadmin); rechaza (fail-closed).
+        import os
+        from unittest import mock
+        os.environ.pop("TRIAJE_SSH_MODO", None)
+        with mock.patch.object(conector, "_clave_aprovisionada", return_value=False):
+            ej = conector.ejecutor_por_defecto(escribir=lambda *a: None)
+        self.assertIsNot(ej, conector.ejecutor_ssh_lab)
+        rc, _ = ej("1.2.3.4", "iptables -A INPUT -s 1.2.3.4 -j DROP")
+        self.assertNotEqual(rc, 0)
+
 
 class TestSshConPlazo(unittest.TestCase):
     """Un docker exec colgado bloqueaba el lazo (o el hilo HTTP) sin límite."""
