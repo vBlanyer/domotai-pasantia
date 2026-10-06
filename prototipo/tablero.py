@@ -673,8 +673,10 @@ class _Manejador(BaseHTTPRequestHandler):
                 n = int(self.headers.get("Content-Length") or 0)
             except ValueError:
                 return self._responder({"error": "Content-Length invalido"}, 400)
-            if n > _MAX_CUERPO:   # los cuerpos legítimos (id/respuesta/paso/operador) son < 1 KiB
-                return self._responder({"error": "cuerpo demasiado grande"}, 413)
+            # Un Content-Length NEGATIVO no es > max y haría `rfile.read(n<0)` leer hasta EOF (sin
+            # tope): se rechaza explícitamente. Los cuerpos legítimos (id/respuesta/paso) son < 1 KiB.
+            if not 0 <= n <= _MAX_CUERPO:
+                return self._responder({"error": "Content-Length fuera de rango"}, 413)
             cuerpo = json.loads(self.rfile.read(n) or b"{}")
             pid, resp = str(cuerpo.get("id")), str(cuerpo.get("respuesta", ""))
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.

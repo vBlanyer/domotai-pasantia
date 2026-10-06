@@ -594,6 +594,22 @@ class TestCORS(unittest.TestCase):
                           {"id": "x" * 70000, "respuesta": "s"})
         self.assertEqual(st, 413)
 
+    def test_content_length_negativo_se_rechaza(self):   # #16: un CL<0 hacía read(n) leer hasta EOF
+        import socket
+        puerto = self._srv()
+        req = (f"POST /api/aprobar HTTP/1.1\r\nHost: 127.0.0.1:{puerto}\r\n"
+               f"Origin: http://127.0.0.1:{puerto}\r\nContent-Type: application/json\r\n"
+               f"Content-Length: -1\r\nConnection: close\r\n\r\n" + '{"id":"1"}')
+        s = socket.create_connection(("127.0.0.1", puerto), timeout=3)
+        s.sendall(req.encode()); resp = b""
+        while True:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            resp += chunk
+        s.close()
+        self.assertIn(b"413", resp.split(b"\r\n", 1)[0])
+
     def test_dist_ausente_da_404_claro(self):
         puerto = self._srv(estaticos="/directorio/que/no/existe")
         c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
