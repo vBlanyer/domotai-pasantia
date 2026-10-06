@@ -48,13 +48,14 @@ def _hash(hash_previo, registro):
 def abrir_append(ruta):
     """Abre la traza para añadir con permisos 0600 (solo el dueño). La cadena es tamper-evident, pero
     quien pueda ESCRIBIR el fichero puede recalcularla (salvo con TRIAJE_TRAZA_CLAVE); restringir la
-    escritura al usuario del daemon es la primera línea de defensa (RF-09)."""
-    f = open(ruta, "a", encoding="utf-8")
+    escritura al usuario del daemon es la primera línea de defensa (RF-09). Se crea con 0600 en el
+    propio open (sin ventana de carrera por umask) y se endurece también un fichero preexistente."""
+    fd = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     try:
         os.chmod(ruta, 0o600)
     except OSError:
         pass
-    return f
+    return os.fdopen(fd, "a", encoding="utf-8")
 
 def encadenar(registro, hash_previo):
     """Copia del registro con `hash_previo` y su `hash`."""
