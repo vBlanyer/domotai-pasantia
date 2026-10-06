@@ -20,6 +20,9 @@ def impacto_de(catalogo, accion_id):
 
 _PLANTILLA = re.compile(r"\{[a-z_]+\}")
 _BINARIO = re.compile(r"^[a-z][a-z0-9_-]*$")
+# Valores de allowlist del sudoers: nombres de servicio/cuenta limpios. Rechaza `*` (reabriría el
+# comodín), espacios y metacaracteres (sudoers roto) — misma disciplina que conector._SEGURO.
+_VALOR_SEGURO = re.compile(r"^[A-Za-z0-9._-]+\Z")
 
 def _tramos(plantilla):
     """Los comandos de una plantilla: cada tramo de ';' y solo el primer tramo de una tuberia
@@ -70,7 +73,7 @@ def sudoers(catalogo, usuario, rutas, allowlist=None):
             if binario not in faltan:
                 faltan.append(binario)
             continue
-        valores = allowlist.get(binario)
+        valores = [v for v in (allowlist.get(binario) or []) if _VALOR_SEGURO.match(str(v))]
         if valores and args.count("*") == 1:
             for v in valores:
                 lineas.append(f"{usuario} ALL=(root) NOPASSWD: {ruta} {args.replace('*', v)}".rstrip())
