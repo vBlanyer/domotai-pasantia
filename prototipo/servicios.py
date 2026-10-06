@@ -52,20 +52,26 @@ def criticidad_servicio(perfil, activo, servicio, hallazgos=None):
     if not servicio or servicio == "desconocido":
         return criticidad_base
     entradas = de_activo(perfil, activo)
+    abiertos = [s for s in (((hallazgos or {}).get("nodos") or {}).get(activo) or [])
+                if s.get("estado") == "open"]
     # 1) nombre exacto declarado
     for e in entradas:
         if e["servicio"] == servicio:
             return e["criticidad"]
-    # 2) alias de protocolo (apache/nginx -> http/https)
+    # 2) por puerto con el nombre EXACTO del auditor: no confunde http(80) con https(443) aunque el
+    #    alias web los meta en el mismo bucket (el fallo que corregimos: coger la criticidad del otro).
+    puertos_exactos = {s.get("puerto") for s in abiertos if s.get("servicio") == servicio}
+    for e in entradas:
+        if e["puerto"] is not None and e["puerto"] in puertos_exactos:
+            return e["criticidad"]
+    # 3) alias de protocolo por nombre declarado (apache/nginx <-> http/https): ultimo recurso.
     prot = postura._protocolos(servicio)
     for e in entradas:
         if e["servicio"] and (postura._protocolos(e["servicio"]) & prot):
             return e["criticidad"]
-    # 3) por puerto: el nombre atacado -> puertos abiertos del auditor -> entrada declarada
-    nodos = (hallazgos or {}).get("nodos") or {}
-    puertos = {s.get("puerto") for s in (nodos.get(activo) or [])
-               if s.get("estado") == "open" and (postura._protocolos(s.get("servicio")) & prot)}
+    # 4) alias por puerto (bucket web): solo cuando no hubo coincidencia exacta de nombre ni puerto.
+    puertos_alias = {s.get("puerto") for s in abiertos if postura._protocolos(s.get("servicio")) & prot}
     for e in entradas:
-        if e["puerto"] is not None and e["puerto"] in puertos:
+        if e["puerto"] is not None and e["puerto"] in puertos_alias:
             return e["criticidad"]
     return criticidad_base

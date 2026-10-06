@@ -129,6 +129,13 @@ def esquema_accion(catalogo, topo, activo=None):
         "additionalProperties": False,
     }
 
+def _fmt_servicio(x):
+    """Render legible de una entrada de servicios_prestados (entero o dict del esquema enriquecido)."""
+    if isinstance(x, dict):
+        s, p = x.get("servicio"), x.get("puerto")
+        return f"{s}/{p}" if s and p is not None else str(p if p is not None else s)
+    return str(x)
+
 def _describir_nodo(nombre, nodo):
     """`nombre=rol` y, entre parentesis, lo que el inventario sabe del equipo (si sabe algo)."""
     detalles = []
@@ -137,7 +144,7 @@ def _describir_nodo(nombre, nodo):
     if nodo.get("criticidad"):
         detalles.append(f"criticidad {nodo['criticidad']}")
     if "servicios_prestados" in nodo:
-        detalles.append("servicios declarados: " + (", ".join(map(str, nodo["servicios_prestados"])) or "ninguno"))
+        detalles.append("servicios declarados: " + (", ".join(_fmt_servicio(x) for x in nodo["servicios_prestados"]) or "ninguno"))
     if "servicios_abiertos" in nodo:
         detalles.append("abiertos segun el auditor: " + (", ".join(map(str, nodo["servicios_abiertos"])) or "ninguno"))
     if nodo.get("afecta_en_cascada"):

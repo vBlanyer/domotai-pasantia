@@ -2,6 +2,7 @@ import os
 import unittest
 import yaml
 from lab.banco import red
+from prototipo import servicios
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 with open(os.path.join(RAIZ, "prototipo", "perfiles", "bancario.yml"), encoding="utf-8") as f:
@@ -27,7 +28,7 @@ class TestCoherenciaConElPerfil(unittest.TestCase):
 
     def test_cada_servicio_del_laboratorio_esta_declarado_en_el_perfil(self):
         for nombre, s in red.SERVICIOS.items():
-            declarados = set(PERFIL["activos"][nombre].get("servicios_prestados") or [])
+            declarados = servicios.puertos_declarados(PERFIL, nombre)   # robusto al esquema enriquecido (dicts)
             self.assertTrue(set(s["puertos"]) <= declarados, f"{nombre}: {s['puertos']} vs {declarados}")
 
 

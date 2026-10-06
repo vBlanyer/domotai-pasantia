@@ -618,3 +618,10 @@ class TestPromptRecomendacion(unittest.TestCase):
         topo = {"web": {"rol": "host_victima"}, "ip_gestion": "10.0.0.1"}
         p = ag.construir_prompt_sistema({"origen_ip": "x", "activo": "web"}, topo)
         self.assertNotIn("Recomendacion del triaje", p)
+
+    def test_describir_nodo_renderiza_servicios_dict_legibles(self):
+        txt = ag._describir_nodo("web", {"rol": "host_victima",
+                                         "servicios_prestados": [443, {"puerto": 80, "servicio": "http"}]})
+        self.assertNotIn("{", txt)          # no repr de dict
+        self.assertIn("http/80", txt)
+        self.assertIn("443", txt)

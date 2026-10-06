@@ -16,6 +16,15 @@ def _lista(v):
     return list(v) if isinstance(v, (list, tuple, set)) else [v]
 
 
+def _puerto_declarado(x):
+    """Puerto de una entrada de `servicios_prestados` del esquema enriquecido: un dict aporta su
+    `puerto`; un entero/cadena se conserva tal cual. Así la vista Red no pierde los servicios en
+    forma de dict (misma fuente que servicios.puertos_declarados)."""
+    if isinstance(x, dict):
+        return x.get("puerto")
+    return x if isinstance(x, (int, str)) else None
+
+
 def _tipo(declarado, rol, funcion, servicios):
     if declarado in TIPOS:
         return declarado
@@ -58,7 +67,7 @@ def red_de(perfil):
         info = {**(a if isinstance(a, dict) else {}), **e}
         rol = (topologia.get(nombre) or {}).get("rol")
         funcion = info.get("funcion") or ("cortafuegos perimetral" if rol == "firewall_perimetral" else None)
-        servicios = [x for x in _lista(info.get("servicios_prestados")) if isinstance(x, (int, str))]
+        servicios = [p for p in map(_puerto_declarado, _lista(info.get("servicios_prestados"))) if p is not None]
         depende = _lista(info.get("depende_de"))
         if not all(isinstance(d, str) for d in depende):
             avisos.append(f"{nombre}: depende_de solo admite nombres de equipo, se ignora el resto")

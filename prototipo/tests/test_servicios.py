@@ -49,6 +49,16 @@ class TestCriticidadServicio(unittest.TestCase):
     def test_por_puerto_via_hallazgos(self):
         self.assertEqual(servicios.criticidad_servicio(PERFIL, "web", "https", HALLAZGOS), "alta")
 
+    def test_no_confunde_http_y_https_por_puerto(self):
+        # Puertos web declarados con criticidad distinta y SIN nombre: el alias web no debe colapsar
+        # 80 y 443. Atacar http (puerto 80, baja) no puede devolver la critica de 443.
+        p = {"activos": {"web": {"criticidad": "baja", "servicios_prestados": [
+            {"puerto": 443, "criticidad": "critica"}, {"puerto": 80, "criticidad": "baja"}]}}}
+        hall = {"nodos": {"web": [{"puerto": 443, "servicio": "https", "estado": "open"},
+                                  {"puerto": 80, "servicio": "http", "estado": "open"}]}}
+        self.assertEqual(servicios.criticidad_servicio(p, "web", "http", hall), "baja")
+        self.assertEqual(servicios.criticidad_servicio(p, "web", "https", hall), "critica")
+
     def test_fallback_al_activo_si_no_empareja(self):
         self.assertEqual(servicios.criticidad_servicio(PERFIL, "db", "desconocido"), "critica")
 
