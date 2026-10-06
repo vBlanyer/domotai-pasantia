@@ -313,3 +313,19 @@ class TestIntegridadReforzada(unittest.TestCase):
             f.write("x\n")
         self.assertEqual(stat.S_IMODE(os.stat(ruta).st_mode), 0o600)
 
+    def test_ancla_firmada_descarta_una_falsificada(self):
+        # #11: con clave, el ancla va firmada (HMAC) y una falsificada por syslog (sin mac válido) se
+        # descarta -> un atacante que reescribe la traza no puede spoofear un ancla que la avale.
+        import os, tempfile
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"TRIAJE_TRAZA_CLAVE": "clave-soc"}):
+            firmada = traza.formatear_ancla("t.jsonl", "a" * 16, 3, "b" * 64)
+            self.assertIn(" mac=", firmada)
+            forjada = ("<38>Jan 01 00:00:00 triaje triaje-ancla: fichero=t.jsonl "
+                       "linaje=%s registros=9 hash=%s" % ("a" * 16, "c" * 64))
+            ruta = os.path.join(tempfile.mkdtemp(), "alerts.json")
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(firmada + "\n" + forjada + "\n")
+            anclas = traza.leer_anclas(ruta, "t.jsonl")
+            self.assertEqual(sorted(n for n, _, _ in anclas), [3])   # solo la firmada; la forjada (9) fuera
+
