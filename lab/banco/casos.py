@@ -198,6 +198,35 @@ CASOS = [
           "familia": "explotacion_conocida", "regla_id": "5710"},
          {"clase": "amenaza_enrutada", "accion_final": None}),
 
+    # --- G4: ataques realistas INYECTADOS (el lab no hospeda RDP/SMB/Oracle reales) -----------------
+    # Cada uno trae su POSTURA propia (hallazgos) exponiendo el servicio atacado, para que el motor lo
+    # triaje como VP y ejercite la correspondencia por servicio (prototipo/correspondencia.yml). La
+    # accion automatica NO cambia (bloquear IP / humano); `recomendacion` es asesora. No tocan las 600.
+    {"id": "RDP", "nivel": "decision",
+     "titulo": "Fuerza bruta RDP contra web-banking (3389 expuesto) -> VP; recomienda endurecer el servicio",
+     "alerta": {"familia": "acceso_credenciales", "activo": "web-banking", "servicio": "rdp",
+                "origen_ip": "198.51.100.20", "regla_id": "rdp-bruteforce", "mitre": ["T1110"]},
+     "hallazgos": {"nodos": {"web-banking": [{"puerto": 3389, "servicio": "rdp", "estado": "open"}]}},
+     "esperado": {"clase": "vp_intento_acceso", "recomendacion": "endurecer_servicio"}},
+    {"id": "SMB", "nivel": "decision",
+     "titulo": "SMB expuesto en atm (445) -> VP; recomienda endurecer el servicio",
+     "alerta": {"familia": "servicio_expuesto", "activo": "atm", "servicio": "smb",
+                "origen_ip": "198.51.100.21", "regla_id": "smb-exposed", "mitre": ["T1190"]},
+     "hallazgos": {"nodos": {"atm": [{"puerto": 445, "servicio": "smb", "estado": "open"}]}},
+     "esperado": {"clase": "vp_intento_acceso", "recomendacion": "endurecer_servicio"}},
+    {"id": "DBDIR", "nivel": "decision",
+     "titulo": "Acceso directo a la BD core-db (sql/1521 expuesto) -> VP; recomienda endurecer el servicio",
+     "alerta": {"familia": "acceso_credenciales", "activo": "core-db", "servicio": "sql",
+                "origen_ip": "198.51.100.22", "regla_id": "db-bruteforce", "mitre": ["T1110"]},
+     "hallazgos": {"nodos": {"core-db": [{"puerto": 1521, "servicio": "sql", "estado": "open"}]}},
+     "esperado": {"clase": "vp_intento_acceso", "recomendacion": "endurecer_servicio"}},
+    {"id": "FPNEX", "nivel": "decision",
+     "titulo": "Ataque a un servicio NO expuesto (rdp en core-db) -> FP exposicion inexistente, sin recomendacion",
+     "alerta": {"familia": "servicio_expuesto", "activo": "core-db", "servicio": "rdp",
+                "origen_ip": "198.51.100.23", "regla_id": "rdp-probe", "mitre": ["T1190"]},
+     "hallazgos": {"nodos": {"core-db": [{"puerto": 1521, "servicio": "sql", "estado": "open"}]}},
+     "esperado": {"clase": "fp_exposicion_inexistente", "recomendacion": None}},
+
     {"id": "C1", "titulo": "BLOQUEAR_PUERTO 1521 en core-db (excepción nunca_automatica) -> degrada a BLOQUEAR_IP",
      "nivel": "inyectada", "accion": "BLOQUEAR_PUERTO", "params": {"puerto": 1521, "ip": "203.0.113.9"},
      "activo": "core-db", "servicio": "sql", "confianza": 0.99,

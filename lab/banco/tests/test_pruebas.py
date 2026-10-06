@@ -172,6 +172,38 @@ class TestNivelDecision(unittest.TestCase):
             r = rg.correr_decision(caso, self.p, self.h, self.c)
             self.assertEqual(r["resultado"], "OK", f"{id_}: {r['detalle']}")
 
+    def test_ataques_realistas_inyectados(self):
+        # G4: ataques realistas que el lab no puede hospedar (RDP/SMB/BD), inyectados con su postura
+        # propia; cada uno ejercita la correspondencia por servicio, y la variante honesta es FP.
+        from lab.banco import casos
+        for id_ in ("RDP", "SMB", "DBDIR", "FPNEX"):
+            caso = next(c for c in casos.CASOS if c["id"] == id_)
+            r = rg.correr_decision(caso, self.p, self.h, self.c)
+            self.assertEqual(r["resultado"], "OK", f"{id_}: {r['detalle']}")
+
+    def test_correr_decision_usa_hallazgos_por_caso(self):
+        # Un ataque inyectado a un servicio que el auditor GLOBAL no ve expuesto (rdp) seria FP; con
+        # su postura propia (hallazgos por caso) exponiendo rdp, el motor lo triaja como VP.
+        glob = {"nodos": {"web-banking": [{"puerto": 80, "servicio": "http", "estado": "open"}]}}
+        caso = {"id": "RDPd", "titulo": "RDP brute", "nivel": "decision",
+                "alerta": {"origen_ip": "198.51.100.10", "activo": "web-banking", "servicio": "rdp",
+                           "familia": "acceso_credenciales", "regla_id": "x"},
+                "hallazgos": {"nodos": {"web-banking": [{"puerto": 3389, "servicio": "rdp", "estado": "open"}]}},
+                "esperado": {"clase": "vp_intento_acceso", "recomendacion": "endurecer_servicio"}}
+        r = rg.correr_decision(caso, self.p, glob, self.c)
+        self.assertEqual(r["resultado"], "OK", r["detalle"])
+
+    def test_recomendacion_se_observa_en_decision(self):
+        # Una recomendacion esperada que NO coincide debe FALLAR (prueba que _comparar_decision la mira).
+        glob = {"nodos": {"web-banking": [{"puerto": 3389, "servicio": "rdp", "estado": "open"}]}}
+        caso = {"id": "RECd", "titulo": "x", "nivel": "decision",
+                "alerta": {"origen_ip": "198.51.100.10", "activo": "web-banking", "servicio": "rdp",
+                           "familia": "acceso_credenciales", "regla_id": "x"},
+                "esperado": {"clase": "vp_intento_acceso", "recomendacion": "enrutar"}}   # real: endurecer_servicio
+        r = rg.correr_decision(caso, self.p, glob, self.c)
+        self.assertEqual(r["resultado"], "FALLO")
+        self.assertTrue(any("recomendacion" in d for d in r["detalle"]), r["detalle"])
+
 
 class TestNivelInyectadaPerfil(unittest.TestCase):
     def setUp(self):
