@@ -294,6 +294,7 @@ def _comparar_decision(esperado, traza):
     obs = {"clase": traza.get("clase"), "confianza": traza.get("confianza"),
            "accion_final": traza.get("accion_final"), "requiere_humano": traza.get("requiere_humano"),
            "filtro": validacion.filtro_legible(traza),
+           "recomendacion": (traza.get("recomendacion") or {}).get("respuesta"),
            "prediccion_cascada": (traza.get("impacto_determinado") or {}).get("activos_afectados_en_cascada")}
     return [f"{k}: esperado {esperado[k]!r}, obtenido {obs[k]!r}"
             for k in obs if k in esperado and obs[k] != esperado[k]]
@@ -303,6 +304,7 @@ def correr_decision(caso, perfil, hallazgos, catalogo):
     import time
     from prototipo import triaje, rafaga
     t0 = time.time()
+    hallazgos = caso.get("hallazgos", hallazgos)   # postura propia del caso (p. ej. un servicio expuesto inyectado)
     a = dict(caso["alerta"]); a.setdefault("timestamp", "2026-09-22T00:00:00Z"); a.setdefault("mitre", [])
     a.setdefault("id_alerta", caso["id"])
     if "rafaga_60s" in caso:

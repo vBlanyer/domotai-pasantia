@@ -30,11 +30,12 @@ class TestCatalogo(unittest.TestCase):
 class TestAtaqueAMedida(unittest.TestCase):
     def test_tipos_para_ofrece_web_solo_con_puerto_web(self):
         claves = lambda p: [t["clave"] for t in casos.tipos_para(p)]
-        self.assertNotIn("exploit_web", claves([1521]))        # core-db (sql): sin web
-        self.assertIn("exploit_web", claves([443, 80]))        # web-banking
-        self.assertIn("exploit_web", claves([8080]))           # atm
+        web = {t["clave"] for t in casos.TIPOS_ATAQUE if t["web"]}   # exploit_web, traversal, log4shell, cmdi
+        self.assertFalse(web & set(claves([1521])))            # core-db (sql): sin web
+        self.assertTrue(web <= set(claves([443, 80])))         # web-banking: todos los web
+        self.assertTrue(web <= set(claves([8080])))            # atm
         for p in ([1521], [443], [], None):                    # ssh/recon/telnet, siempre
-            self.assertEqual({"fuerza_bruta", "recon", "telnet"}, set(claves(p)) - {"exploit_web"})
+            self.assertEqual({"fuerza_bruta", "recon", "telnet"}, set(claves(p)) - web)
 
     def test_caso_a_medida_externo_ssh_trae_ataque_origen_y_deshacer(self):
         c = casos.caso_a_medida("fuerza_bruta", "internet", "198.51.100.10", "web-banking", "10.10.0.10")
@@ -56,6 +57,27 @@ class TestAtaqueAMedida(unittest.TestCase):
         c = casos.caso_a_medida("exploit_web", "internet", "198.51.100.10", "web-banking", "10.10.0.10", puerto=443)
         self.assertIn(":443", c["ataque"][1])                  # al puerto web del objetivo
         self.assertEqual(c["deshacer"], [])                    # amenaza enrutada: el MDR no bloquea
+
+
+class TestAtaquesWebRealistas(unittest.TestCase):
+    def test_nuevos_tipos_web_en_el_catalogo(self):
+        claves = {t["clave"] for t in casos.TIPOS_ATAQUE}
+        self.assertTrue({"traversal", "log4shell", "cmdi"} <= claves, claves)
+        for t in casos.TIPOS_ATAQUE:
+            if t["clave"] in ("traversal", "log4shell", "cmdi"):
+                self.assertTrue(t["web"] and not t["bloquea"], t["clave"])   # web, amenaza enrutada
+
+    def test_builders_llevan_la_firma_y_el_destino(self):
+        _, cmd = casos._exploit_log4shell("internet", "10.10.0.10", 443)
+        self.assertIn("jndi", cmd); self.assertIn("10.10.0.10", cmd)
+        _, cmd = casos._exploit_traversal("internet", "10.10.0.10", 443)
+        self.assertIn("etc/passwd", cmd)
+        _, cmd = casos._exploit_cmdi("internet", "10.10.0.10", 443)
+        self.assertIn("cmd=", cmd)
+
+    def test_sqli_sigue_igual(self):
+        _, cmd = casos._exploit_web("internet", "10.10.0.10")
+        self.assertIn("OR", cmd); self.assertIn("10.10.0.10", cmd)
 
 
 if __name__ == "__main__":
