@@ -222,4 +222,9 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         final = {**final, "requiere_humano": True}
         det = {**det, "motivo": f"{det.get('motivo') or ''} · externo desconocido: "
                                 "no se bloquea en automático (política del perfil)".strip()}
+    # Acciones marcadas `nunca_automatica` en el catálogo (REINICIAR_NODO/AISLAR_NODO): guard duro,
+    # jamás se auto-ejecutan aunque el perfil del cliente las autorizara. Un atacante que forje una
+    # alerta de alta confianza no puede disparar un reinicio/aislamiento de una joya de la corona.
+    if final.get("accion_final") and catalogo.get(final["accion_final"], {}).get("nunca_automatica"):
+        final = {**final, "requiere_humano": True}
     return {**final, "impacto": det}
