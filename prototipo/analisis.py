@@ -1,6 +1,14 @@
 """Interfaz de análisis (clasificar/justificar) con implementación baseline determinista."""
+import re
 from prototipo.postura import postura_de, resumen_otros_expuestos
 from prototipo import actores, familias, servicios
+
+
+def _sanear(v, tope=64):
+    """Neutraliza un campo de la alerta controlable por el atacante antes de meterlo en texto
+    (justificación/prompt del LLM): colapsa espacios y saltos de línea —para que no rompa la
+    estructura del prompt ni inyecte una línea falsa— y acota la longitud. NO se usa en la lógica."""
+    return re.sub(r"\s+", " ", str(v if v is not None else "")).strip()[:tope]
 
 # Clases en las que la decision del motor es "esto no es una amenaza". La consumen el
 # justificador (para preguntar por que NO lo es) y el RAG (para recuperar el motivo del
@@ -69,19 +77,23 @@ def clasificar(alerta, contexto, registro=None):
 
 def justificar(alerta, contexto, clase):
     postura = contexto.get("postura")
+    # activo/servicio derivan de campos controlables por el atacante (hostname/program_name): se
+    # sanean antes de meterlos en texto (saltos de línea y longitud) para que no rompan la estructura
+    # del prompt del LLM ni inyecten instrucciones. La decisión NO depende de este texto (RF-05).
+    act, svc = _sanear(alerta.get("activo")), _sanear(alerta.get("servicio"))
     if postura is None:
         veredicto = "el auditor no tiene postura del activo (contexto incompleto)"
     elif postura.get("expuesto"):
-        veredicto = f"el auditor confirma que {alerta.get('servicio')} está expuesto en {alerta.get('activo')}"
+        veredicto = f"el auditor confirma que {svc} está expuesto en {act}"
         otros = resumen_otros_expuestos(postura, alerta.get("servicio"))
         if otros:
             veredicto += f" (el activo también expone: {otros})"
     else:
-        veredicto = f"el auditor no confirma exposición de {alerta.get('servicio')} en {alerta.get('activo')}"
+        veredicto = f"el auditor no confirma exposición de {svc} en {act}"
     mitre = ", ".join(alerta.get("mitre", []) or ["s/téc."])
     umbral = contexto.get("umbral_rafaga")
     if umbral and (contexto.get("rafaga") or 0) >= umbral:
         veredicto += f"; ráfaga de {contexto['rafaga']} alertas del mismo origen en un minuto"
     return (f"Alerta {alerta.get('regla_id')} (técnica {mitre}) desde {alerta.get('origen_ip')} "
-            f"contra {alerta.get('activo')} ({alerta.get('servicio')}). {veredicto}. "
+            f"contra {act} ({svc}). {veredicto}. "
             f"Clasificada como {clase}. [justificación de plantilla — baseline, no modelo]")

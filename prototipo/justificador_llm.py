@@ -49,15 +49,19 @@ def _descartada(texto, alerta):
 
 def construir_prompt(alerta, contexto, clase, pasajes=None):
     postura = contexto.get("postura")
+    # activo/servicio son campos controlables por el atacante (hostname/program_name): se sanean
+    # (saltos de línea + longitud) antes de interpolarlos para que no rompan la estructura del prompt
+    # ni inyecten instrucciones. La decisión no depende del texto del LLM (el motor es determinista).
+    act, svc = analisis._sanear(alerta.get("activo")), analisis._sanear(alerta.get("servicio"))
     if postura is None:
         verd = "el auditor no tiene postura del activo"
     elif postura.get("expuesto"):
-        verd = f"el auditor confirma que {alerta.get('servicio')} esta expuesto en {alerta.get('activo')}"
+        verd = f"el auditor confirma que {svc} esta expuesto en {act}"
         otros = postura_mod.resumen_otros_expuestos(postura, alerta.get("servicio"))
         if otros:
             verd += f"; el activo tambien expone {otros}"
     else:
-        verd = f"el auditor no confirma exposicion de {alerta.get('servicio')} en {alerta.get('activo')}"
+        verd = f"el auditor no confirma exposicion de {svc} en {act}"
     mitre = ", ".join(alerta.get("mitre", []) or ["s/tecnica"])
     familia = (alerta.get("familia") or "desconocida").replace("_", " ")
     # SOLO campos estructurados (parseados por Wazuh). El full_log/evento_crudo NO entra (RNF-08).
@@ -67,8 +71,8 @@ def construir_prompt(alerta, contexto, clase, pasajes=None):
     # apuntan a acceso y explotacion. Los roles se nombran (origen de la actividad / activo
     # afectado) porque se vio al modelo situar al activo "en la direccion" del atacante.
     datos = (f"regla {alerta.get('regla_id')}, familia de la alerta: {familia}, tecnica MITRE {mitre}, "
-             f"origen de la actividad {alerta.get('origen_ip')}, activo afectado {alerta.get('activo')}, "
-             f"servicio {alerta.get('servicio')}, clase {clase}. {verd}")
+             f"origen de la actividad {alerta.get('origen_ip')}, activo afectado {act}, "
+             f"servicio {svc}, clase {clase}. {verd}")
     # El motivo real por el que una alerta asi es falso positivo. Sin este dato el modelo lo
     # deduce mal: se le vio argumentar que el origen "es una IP interna", que no es la razon.
     if contexto.get("origen_legitimo"):
