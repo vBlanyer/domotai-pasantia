@@ -200,5 +200,14 @@ class TestCascada(unittest.TestCase):
         self.assertEqual(ip["activos_afectados_en_cascada"], [])
 
 
+class TestDeclaradosRetrocompat(unittest.TestCase):
+    def test_declarados_igual_para_enteros_y_dicts(self):
+        p_int = {"activos": {"web": {"criticidad": "alta", "servicios_prestados": [443, 80]}}}
+        p_dict = {"activos": {"web": {"criticidad": "alta",
+                  "servicios_prestados": [{"puerto": 443}, {"puerto": 80, "criticidad": "media"}]}}}
+        self.assertEqual(impacto._declarados(p_int, "web"), {443, 80})
+        self.assertEqual(impacto._declarados(p_dict, "web"), {443, 80})
+
+
 if __name__ == "__main__":
     unittest.main()

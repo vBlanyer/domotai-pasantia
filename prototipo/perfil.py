@@ -7,6 +7,7 @@ from prototipo import catalogo as _cat
 UMBRAL_CONFIANZA = 0.7   # default; configurable por perfil en continuidad.umbral_confianza (RF-07). Sin calibrar aún (barrido pendiente)
 DEGRADACION = {"BLOQUEAR_PUERTO": "BLOQUEAR_IP"}   # alcanza_servicio -> localizado
 _REVERSION_OK = {"definida", "auto", "transitoria"}
+_CRITICIDADES = ("baja", "media", "alta", "critica")
 
 def cargar(ruta):
     with open(ruta, encoding="utf-8") as f:
@@ -53,6 +54,13 @@ def validar(perfil):
             for dep in dep_de or []:
                 if dep not in activos:
                     avisos.append(f"activo {nombre}: depende_de un activo inexistente ({dep})")
+        for sp in a.get("servicios_prestados") or []:
+            if isinstance(sp, dict):
+                if sp.get("puerto") is None:
+                    avisos.append(f"activo {nombre}: servicio sin puerto ({sp!r})")
+                c = sp.get("criticidad")
+                if c is not None and c not in _CRITICIDADES:
+                    avisos.append(f"activo {nombre}: criticidad de servicio no reconocida ({c!r})")
     for clave in ("origenes_legitimos", "terceros_confiables", "redes_internas"):
         v = perfil.get(clave)
         if v is None:

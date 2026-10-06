@@ -69,5 +69,14 @@ class TestCLI(unittest.TestCase):
             self.assertEqual(inventario.main([]), 2)
 
 
+class TestReconciliarDicts(unittest.TestCase):
+    def test_servicios_dict_dan_mismo_declarado_que_enteros(self):
+        p_int = {"activos": {"x": {"servicios_prestados": [22, 80]}}}
+        p_dict = {"activos": {"x": {"servicios_prestados": [{"puerto": 22}, {"puerto": 80}]}}}
+        h = {"nodos": {"x": [{"puerto": 22, "servicio": "ssh", "estado": "open"}]}}
+        self.assertEqual(inventario.reconciliar(p_int, h)["activos"]["x"],
+                         inventario.reconciliar(p_dict, h)["activos"]["x"])
+
+
 if __name__ == "__main__":
     unittest.main()
