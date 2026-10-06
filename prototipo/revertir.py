@@ -101,7 +101,7 @@ def _main(argv):
     # La reversion se anota en la MISMA cadena, con el fichero bloqueado y releido (Cadena con
     # `ruta`): el daemon puede estar escribiendo en el. Nombre, recuento y linaje, para que el ancla
     # identifique el fichero como las del daemon.
-    with open(ruta, "a", encoding="utf-8") as f:
+    with traza.abrir_append(ruta) as f:                  # permisos 0600 (integridad de la traza)
         previos = traza.leer_registros(ruta)
         traza.Cadena(f, traza.ultimo_hash(ruta), n=len(previos), nombre=os.path.basename(ruta),
                      linaje=traza.linaje_de(previos), ruta=ruta).escribir(r)
