@@ -41,11 +41,25 @@ def _telnet(origen, destino_ip):
                     "sleep 1; done; true")
 
 
-def _exploit_web(origen, destino_ip, puerto=443):
-    # Petición HTTP con firma de ataque (SQLi): Wazuh la levanta con la regla 31164 (grupo 'attack'),
-    # que el adaptador mapea a explotacion_conocida -> amenaza_enrutada (enrutar, sin contener).
+def _curl_payload(origen, destino_ip, ruta, puerto):
+    # Petición HTTP con una firma de ataque en la URL. El señuelo web (servicio.py) registra la
+    # petición en formato Apache combined; Wazuh la decodifica y sus reglas (de fábrica 31xxx o las
+    # locales de local_rules_banco.xml, grupo 'attack') la levantan -> explotacion_conocida ->
+    # amenaza_enrutada (enrutar a appsec, sin contener).
     return (origen, f"for i in 1 2 3; do curl -s -m3 -o /dev/null "
-                    f"\"http://{destino_ip}:{puerto}/?id=1%27+OR+%271%27=%271\" || true; sleep 1; done; true")
+                    f"\"http://{destino_ip}:{puerto}{ruta}\" || true; sleep 1; done; true")
+
+def _exploit_web(origen, destino_ip, puerto=443):      # SQLi (regla de fábrica 31164)
+    return _curl_payload(origen, destino_ip, "/?id=1%27+OR+%271%27=%271", puerto)
+
+def _exploit_traversal(origen, destino_ip, puerto=443):   # path traversal (LFI): .../etc/passwd
+    return _curl_payload(origen, destino_ip, "/?file=../../../../etc/passwd", puerto)
+
+def _exploit_log4shell(origen, destino_ip, puerto=443):   # Log4Shell / JNDI: ${jndi:ldap://...}
+    return _curl_payload(origen, destino_ip, "/?x=%24%7Bjndi%3Aldap%3A%2F%2F127.0.0.1%3A1389%2Fa%7D", puerto)
+
+def _exploit_cmdi(origen, destino_ip, puerto=443):        # inyeccion de comandos: ;id
+    return _curl_payload(origen, destino_ip, "/?cmd=%3Bid", puerto)
 
 
 def atar_a_ip(cmd, src_ip):
@@ -73,6 +87,9 @@ TIPOS_ATAQUE = [
     {"clave": "recon",        "titulo": "reconocimiento (escaneo SSH)", "fn": _recon,       "web": False, "bloquea": True},
     {"clave": "telnet",       "titulo": "telnet expuesto",             "fn": _telnet,       "web": False, "bloquea": True},
     {"clave": "exploit_web",  "titulo": "explotación web (SQLi)",      "fn": _exploit_web,  "web": True,  "bloquea": False},
+    {"clave": "traversal",    "titulo": "path traversal / LFI (web)",  "fn": _exploit_traversal, "web": True, "bloquea": False},
+    {"clave": "log4shell",    "titulo": "Log4Shell / JNDI (web)",      "fn": _exploit_log4shell, "web": True, "bloquea": False},
+    {"clave": "cmdi",         "titulo": "inyección de comandos (web)", "fn": _exploit_cmdi,  "web": True,  "bloquea": False},
 ]
 PUERTOS_WEB = {80, 443, 8080, 8443}
 

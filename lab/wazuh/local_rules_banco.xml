@@ -24,3 +24,40 @@
      (grupo 'telnetd', que el adaptador mapea a servicio_expuesto), con srcip vía el telnet decoder
      local (local_decoder_telnetd.xml). -->
 
+<!-- explotacion_conocida (web, G4): firmas de ataque web contra el señuelo HTTP (servicio.py las
+     registra en formato Apache combined, que Wazuh decodifica como `web-accesslog`). El SQLi ya lo
+     levanta la regla de fábrica 31164; estas reglas locales cubren otras firmas realistas. Grupo
+     'attack' -> el adaptador (familia_de) las mapea a explotacion_conocida -> amenaza enrutada.
+     VALIDAR EN VIVO con el banco levantado (como todo caso vivo): si el decoder o el token no casan
+     en tu versión de Wazuh, ajusta el <url> o usa <decoded_as>. -->
+<group name="local,web,attack,">
+  <rule id="100300" level="6">
+    <decoded_as>web-accesslog</decoded_as>
+    <url>etc/passwd</url>
+    <group>attack,</group>
+    <description>web: path traversal / LFI (lectura de ficheros del sistema)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+  <rule id="100301" level="8">
+    <decoded_as>web-accesslog</decoded_as>
+    <url>jndi</url>
+    <group>attack,</group>
+    <description>web: Log4Shell (inyeccion JNDI)</description>
+    <mitre>
+      <id>T1190</id>
+      <id>T1203</id>
+    </mitre>
+  </rule>
+  <rule id="100302" level="6">
+    <decoded_as>web-accesslog</decoded_as>
+    <url>%3Bid|%3bid</url>
+    <group>attack,</group>
+    <description>web: inyeccion de comandos (;id)</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+  </rule>
+</group>
+
