@@ -8,6 +8,16 @@ import ipaddress
 
 FUENTE = "wazuh"
 
+def _texto(v):
+    """str o None. Campos que aguas abajo se usan como clave (origen_ip/activo) o se recortan
+    (`timestamp[:19]`) deben ser str o None: un tipo hostil (número, objeto, lista) de una alerta
+    controlada por el atacante reventaría el motor FUERA de la barrera de excepciones (DoS). Las
+    malformaciones de contenedor (rule/data/predecoder no-dict) siguen reventando AQUÍ, dentro de la
+    barrera de `_parsear`, que las descarta: solo coaccionamos los campos escalar que pasan el
+    adaptador y explotan después."""
+    return v if isinstance(v, str) else None
+
+
 def resolver_activo(cruda):
     # En Containerlab todo entra como agent.id 000: el activo se deduce del
     # hostname que decodifica Wazuh, no del id de agente (RF-16).
@@ -55,11 +65,11 @@ def normalizar_alerta(cruda, campaña):
     data = cruda.get("data", {})
     return {
         "id_alerta": cruda.get("id"),
-        "timestamp": cruda.get("timestamp"),
+        "timestamp": _texto(cruda.get("timestamp")),
         "campaña": campaña,
         "fuente": FUENTE,
-        "activo": resolver_activo(cruda),
-        "servicio": servicio_de(cruda),
+        "activo": _texto(resolver_activo(cruda)),
+        "servicio": _texto(servicio_de(cruda)) or "desconocido",
         "familia": familia_de(rule),
         "origen_ip": _ip_origen(data.get("srcip")),
         "mitre": rule.get("mitre", {}).get("id", []),
@@ -69,9 +79,12 @@ def normalizar_alerta(cruda, campaña):
     }
 
 def _ip_origen(srcip):
-    """srcip tal cual, salvo una IPv4 mapeada en IPv6 (`::ffff:a.b.c.d`), que se deja en IPv4: es la
-    forma que entiende el catalogo (iptables) y la que se compara con el perfil."""
-    if isinstance(srcip, str) and srcip.lower().startswith("::ffff:"):
+    """srcip tal cual (str), salvo una IPv4 mapeada en IPv6 (`::ffff:a.b.c.d`), que se deja en IPv4: es
+    la forma que entiende el catalogo (iptables) y la que se compara con el perfil. Un srcip no-str
+    (objeto/lista de una alerta hostil) -> None: no es una IP y aguas abajo se usa como clave."""
+    if not isinstance(srcip, str):
+        return None
+    if srcip.lower().startswith("::ffff:"):
         try:
             return str(ipaddress.ip_address(srcip).ipv4_mapped or srcip)
         except ValueError:
