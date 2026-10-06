@@ -43,6 +43,10 @@ continuidad:
   impacto_alcanza_servicio:   humano_siempre        # nada que roce un servicio se corta solo
   reversibilidad_obligatoria: true                  # RF-18: solo acciones reversibles y verificables
   no_cortar_gestion:          true                  # RF-19: jamas el plano SOC/gestion
+  # Postura conservadora opcional: no auto-bloquear un origen EXTERNO no inventariado (podria ser una
+  # IP legitima SUPLANTADA via srcip/XFF forjado -> auto-DoS). Descomentar para retenerlo a humano.
+  # El control recomendado es poblar `terceros_confiables` con los socios criticos (abajo).
+  # contener_externos_desconocidos: humano_siempre
   umbral_confianza:           0.9                   # barra alta para cualquier automatismo (RF-07)
   actores:                                          # C1: bloquear lo propio exige humano
     activo_interno:           humano_siempre

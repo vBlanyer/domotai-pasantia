@@ -31,6 +31,22 @@ class TestFiltro(unittest.TestCase):
         r2 = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
         self.assertFalse(r2["requiere_humano"])
 
+    def test_contener_externos_desconocidos_retiene_si_el_perfil_lo_pide(self):
+        # #4 (postura conservadora OPCIONAL): un externo desconocido podría ser una IP legítima
+        # suplantada (srcip/XFF falsificado) -> el cliente puede exigir humano antes de cortarlo.
+        p = perfil_fx(); p["continuidad"]["contener_externos_desconocidos"] = "humano_siempre"
+        r = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")   # la acción no cambia
+        self.assertTrue(r["requiere_humano"])                # pero la decide un humano
+        # un activo interno NO lo toca este interruptor (lo gobierna la política de actores)
+        ri = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "192.168.1.10"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertTrue(ri["requiere_humano"])               # interno: humano por su propia regla
+
+    def test_externos_desconocidos_auto_por_defecto(self):
+        # SIN el interruptor: comportamiento actual (auto) -> métricas canónicas intactas
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertFalse(r["requiere_humano"])
+
     def test_umbral_configurable_por_perfil(self):
         # RF-07: el umbral de escalado sale del perfil, no del código
         p = perfil_fx(); p["continuidad"]["umbral_confianza"] = 0.9

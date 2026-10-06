@@ -51,6 +51,36 @@ class TestTolerancia(unittest.TestCase):
         reg = ingesta.normalizar(j("alerta_cruda_wazuh.json"), adaptador_wazuh.adaptador())
         self.assertEqual(ingesta.campos_ausentes(reg), [])
 
+    def test_tipos_hostiles_se_coaccionan_a_texto_o_none(self):
+        # Defensa anti-DoS: un atacante que controla campos de la alerta (srcip, hostname,
+        # program_name, timestamp) podía colar un número/objeto/lista que luego reventaba aguas
+        # abajo (rafaga._instante hace [:19]; Ventana/agrupar/postura usan claves hashables). El
+        # adaptador los coacciona a str o None, así ninguno llega como tipo hostil al motor.
+        cruda = {"id": "x", "timestamp": 99999,
+                 "rule": {"id": "5760", "groups": ["authentication_failed"], "level": 10},
+                 "predecoder": {"hostname": {"x": 1}, "program_name": {"y": 2}},
+                 "data": {"srcip": {"a": 1}}}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        for k in ("timestamp", "activo", "servicio", "origen_ip"):
+            self.assertTrue(a[k] is None or isinstance(a[k], str), f"{k}={a[k]!r}")
+
+    def test_srcip_lista_no_rompe(self):
+        a = adaptador_wazuh.normalizar_alerta({"data": {"srcip": [1, 2, 3]}}, "c")
+        self.assertIsNone(a["origen_ip"])
+
+    def test_regla_id_y_nivel_hostiles_no_rompen_la_agrupacion(self):
+        # regla_id se usa como clave de Counter (agrupacion) y nivel_wazuh en comparaciones max/sorted:
+        # un tipo hostil ahi tambien tumba el daemon FUERA de la barrera. Deben quedar hashable/comparable.
+        from prototipo import agrupacion
+        cr = lambda i, rid, lvl: {"id": i, "rule": {"id": rid, "groups": ["authentication_failed"], "level": lvl},
+                                  "predecoder": {"hostname": "web", "program_name": "sshd"},
+                                  "data": {"srcip": "1.2.3.4"}, "timestamp": "2026-01-01T00:00:00Z"}
+        a1 = adaptador_wazuh.normalizar_alerta(cr("1", [1, 2], [9]), "c")
+        a2 = adaptador_wazuh.normalizar_alerta(cr("2", "5760", 10), "c")
+        self.assertTrue(a1["regla_id"] is None or isinstance(a1["regla_id"], str))
+        self.assertTrue(a1["nivel_wazuh"] is None or isinstance(a1["nivel_wazuh"], int))
+        agrupacion.agrupar([a1, a2])   # Counter(regla_id) + max/sorted(nivel_wazuh): no debe lanzar
+
 
 class TestIngerirFichero(unittest.TestCase):
     def test_linea_corrupta_se_salta(self):
