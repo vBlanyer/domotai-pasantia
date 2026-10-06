@@ -38,7 +38,11 @@ class TestLazo(unittest.TestCase):
     def test_reanudar_una_escalada_no_aprueba_el_salto_siguiente(self):
         # La respuesta del analista vale para el salto que vio. Sin quien difiera el siguiente,
         # ese salto no se aprueba; con él, se encola desde el cortafuegos recién intentado.
+        # Atacante interno (192.168.1.10): host auto, perímetro humano -> la escalada pide por salto.
         perfil = {**y("perfil.yml"), "ip_gestion": "192.168.1.100",
+                  "redes_internas": ["192.168.1.0/24"],
+                  "continuidad": {**y("perfil.yml")["continuidad"],
+                                  "actores": {"activo_interno": "automatica_si_confianza"}},
                   "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gw"},
                                 "gw": {"rol": "firewall_perimetral", "ip": "192.168.1.1", "gateway": "edge"},
                                 "edge": {"rol": "firewall_perimetral", "ip": "192.168.1.2"}}}
@@ -229,10 +233,16 @@ class TestEscaladaPorDefecto(unittest.TestCase):
     """Requisito del tutor industrial: si no se puede cortar en el host, saltar al cortafuegos."""
 
     def _perfil_con_topologia(self):
+        # El atacante (192.168.1.10) es un equipo INTERNO comprometido: se auto-contiene en su propio
+        # host (actores.activo_interno automático), pero cortarlo en el cortafuegos perimetral —que lo
+        # aísla de toda la red— sigue exigiendo humano. Es el escenario donde la escalada pide
+        # aprobación tras el cambio «externo -> perímetro automático»: un externo ya no se retiene ahí.
         p = dict(y("perfil.yml"))
         p["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
                           "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}
         p["ip_gestion"] = "192.168.1.100"
+        p["redes_internas"] = ["192.168.1.0/24"]
+        p["continuidad"] = {**p["continuidad"], "actores": {"activo_interno": "automatica_si_confianza"}}
         return p
 
     class HostCaido:

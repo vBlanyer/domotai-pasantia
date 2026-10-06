@@ -422,22 +422,30 @@ def y_perfil_empresarial():
 
 
 class TestEscaladaConPerfil(unittest.TestCase):
+    # El atacante (192.168.1.10) es un equipo INTERNO comprometido: el perfil lo auto-contiene en su
+    # host (actores.activo_interno automático) pero exige humano para cortarlo en el cortafuegos
+    # perimetral. Tras el cambio «externo -> perímetro automático», este es el caso que aún pregunta:
+    # un atacante externo no inventariado ya no se retiene en el perímetro.
     ALERTA = {"id_alerta": "a1", "origen_ip": "192.168.1.10", "activo": "objetivo-vuln", "servicio": "ssh"}
+
+    def _perfil(self):
+        p = y_perfil_empresarial()
+        return {**p, "redes_internas": ["192.168.1.0/24"],
+                "continuidad": {**p["continuidad"], "actores": {"activo_interno": "automatica_si_confianza"}}}
 
     def test_el_salto_al_cortafuegos_pregunta_al_humano_porque_el_perfil_lo_exige(self):
         # BLOQUEAR_IP_FIREWALL alcanza servicio: humano_siempre. Sin siempre_humano, manda el perfil.
         preguntas = []
-        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", y_perfil_empresarial(), CAT,
+        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", self._perfil(), CAT,
                                        EjecutorEscalado(), leer=lambda p: (preguntas.append(p), "s")[1],
                                        escribir=lambda *a: None, siempre_humano=False, confianza=1.0)
         self.assertEqual(plan["resultado"], "mitigado")
-        self.assertEqual(len(preguntas), 1)                 # solo el cortafuegos; el host fallo antes de preguntar? no:
-        # el host (localizado, automatica_si_confianza, 1.0) NO pregunta; el cortafuegos si.
+        self.assertEqual(len(preguntas), 1)                 # el host (interno, auto) NO pregunta; el cortafuegos sí
 
     def test_el_humano_puede_negar_el_salto_al_cortafuegos(self):
-        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", y_perfil_empresarial(), CAT,
+        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", self._perfil(), CAT,
                                        EjecutorEscalado(), leer=lambda p: "n", escribir=lambda *a: None,
-                                       siempre_humano=False)
+                                       siempre_humano=False, confianza=1.0)
         self.assertEqual(plan["resultado"], "cancelado_por_humano")
 
     def test_un_veto_duro_del_perfil_salta_el_dispositivo(self):
@@ -538,10 +546,14 @@ class TestVistaDelAgente(unittest.TestCase):
 
 
 def y_perfil_dos_hosts():
-    """Dos hosts detrás del mismo cortafuegos: bloquear en él corta al atacante hacia los dos."""
+    """Dos hosts detrás del mismo cortafuegos: bloquear en él corta al atacante hacia los dos. El
+    atacante (192.168.1.10) es interno: host auto, perímetro humano -> el salto perimetral pregunta
+    (un externo ya no se retiene ahí)."""
     p = y_perfil_empresarial()
-    return {**p, "topologia": {**p["topologia"],
-                               "otro-host": {"rol": "host_victima", "ip": "192.168.1.31", "gateway": "gateway"}}}
+    return {**p, "redes_internas": ["192.168.1.0/24"],
+            "continuidad": {**p["continuidad"], "actores": {"activo_interno": "automatica_si_confianza"}},
+            "topologia": {**p["topologia"],
+                          "otro-host": {"rol": "host_victima", "ip": "192.168.1.31", "gateway": "gateway"}}}
 
 
 class TestImpactoDelDispositivoQueContiene(unittest.TestCase):
