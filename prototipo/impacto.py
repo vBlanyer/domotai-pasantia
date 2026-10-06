@@ -9,7 +9,7 @@ puerto abierto no implica que alguien lo use).
 C2: el nivel determinado nunca queda por debajo del catálogo; solo lo mantiene o lo sube. Un
 inventario incompleto no puede rebajar una protección.
 """
-from prototipo import actores
+from prototipo import actores, servicios
 
 NIVELES = ("ninguno", "localizado", "alcanza_servicio")
 ACCIONES_SOBRE_IP = frozenset({"BLOQUEAR_IP", "BLOQUEAR_IP_FIREWALL", "MATAR_CONEXION"})
@@ -81,7 +81,8 @@ def _servicio(puerto, nombre, declarados, abiertos):
 
 
 def _declarados(perfil, activo):
-    return {como_puerto(p) for p in _activo(perfil, activo).get("servicios_prestados") or []}
+    # Fuente única (servicios.py): trata igual enteros y dicts del esquema enriquecido.
+    return servicios.puertos_declarados(perfil, activo)
 
 
 def _servicios_de_puerto(accion_id, params, activo, perfil, hallazgos):

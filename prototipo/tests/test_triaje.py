@@ -106,3 +106,32 @@ class TestImpactoDeterminado(unittest.TestCase):
                   "activo": "web-banking", "servicio": "https", "mitre": ["T1190"]}
         tr = triaje.procesar(alerta, {"nodos": {}}, {"activos": {}, "continuidad": {}}, "p", CAT, "d1", "t")
         self.assertIsNone(tr["impacto_determinado"])
+
+
+class TestRecomendacion(unittest.TestCase):
+    def test_fuerza_bruta_ssh_recomienda_contener_origen_sin_cambiar_accion(self):
+        r = triaje.procesar(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),
+                            "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["recomendacion"]["respuesta"], "contener_origen")
+        self.assertEqual(r["recomendacion"]["accion_sugerida"], "BLOQUEAR_IP")
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")      # la accion automatica NO cambia
+
+    def test_servicio_rdp_expuesto_recomienda_endurecer(self):
+        alerta = {"familia": "acceso_credenciales", "activo": "srv", "servicio": "rdp",
+                  "origen_ip": "203.0.113.9", "regla_id": "5763"}
+        perfil = {"activos": {"srv": {"ip": "10.0.0.5", "criticidad": "alta", "servicios_prestados": [3389]}},
+                  "ip_gestion": "10.0.0.1"}
+        hall = {"nodos": {"srv": [{"puerto": 3389, "servicio": "rdp", "estado": "open"}]}}
+        r = triaje.procesar(alerta, hall, perfil, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_intento_acceso")       # rdp expuesto -> VP
+        self.assertEqual(r["recomendacion"]["respuesta"], "endurecer_servicio")
+
+    def test_fp_no_lleva_recomendacion(self):
+        # explotacion no es FP; usa un origen legitimo para caer en fp_actividad_legitima
+        alerta = {"familia": "acceso_credenciales", "activo": "web-banking", "servicio": "ssh",
+                  "origen_ip": "10.100.0.10", "regla_id": "5763"}
+        perfil = {"activos": {"web-banking": {"servicios_prestados": [22]}},
+                  "origenes_legitimos": ["10.100.0.10"], "ip_gestion": "10.100.0.10"}
+        r = triaje.procesar(alerta, {"nodos": {}}, perfil, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "fp_actividad_legitima")
+        self.assertIsNone(r["recomendacion"])

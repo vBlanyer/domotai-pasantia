@@ -734,7 +734,8 @@ def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hal
                               gen, leer=leer, autonomo=False,
                               timestamp=decision.get("timestamp", ""),
                               indice=indice, embedder=rag.embedder_por_defecto(), escribir=escribir,
-                              hallazgos=hallazgos, confianza=decision.get("confianza", 1.0))
+                              hallazgos=hallazgos, confianza=decision.get("confianza", 1.0),
+                              recomendacion=decision.get("recomendacion"))
     return _fn
 
 def _servidor_responde(url, plazo=2):

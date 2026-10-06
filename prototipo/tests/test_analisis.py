@@ -166,3 +166,23 @@ class TestClasificarRegistro(unittest.TestCase):
         self.assertEqual(r["confianza"], 0.5)
         self.assertNotIn("ruta", r)
 
+
+class TestPrioridadPorServicio(unittest.TestCase):
+    def test_prioridad_pondera_por_servicio_atacado(self):
+        perfil = {"activos": {"web": {"criticidad": "baja", "servicios_prestados": [
+            {"puerto": 443, "servicio": "https", "criticidad": "critica"},
+            {"puerto": 80, "servicio": "http", "criticidad": "baja"}]}}}
+        hall = {"nodos": {"web": [{"puerto": 443, "servicio": "https", "estado": "open"},
+                                  {"puerto": 80, "servicio": "http", "estado": "open"}]}}
+        base = {"familia": "acceso_credenciales", "activo": "web", "origen_ip": "203.0.113.9"}
+        a = {**base, "servicio": "https"}
+        b = {**base, "servicio": "http"}
+        alta = analisis.clasificar(a, analisis.enriquecer(a, hall, perfil))
+        baja = analisis.clasificar(b, analisis.enriquecer(b, hall, perfil))
+        self.assertGreater(alta["prioridad"], baja["prioridad"])
+
+    def test_sin_criticidad_por_servicio_criticidad_identica_al_activo(self):
+        perfil = {"activos": {"web": {"criticidad": "media", "servicios_prestados": [443]}}}
+        a = {"familia": "acceso_credenciales", "activo": "web", "servicio": "https", "origen_ip": "203.0.113.9"}
+        self.assertEqual(analisis.enriquecer(a, {"nodos": {}}, perfil)["criticidad"], "media")
+

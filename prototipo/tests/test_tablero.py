@@ -718,5 +718,15 @@ class TestVistaRed(unittest.TestCase):
         self.assertNotIn("alerta", v)
 
 
+class TestResumenRecomendacion(unittest.TestCase):
+    def test_resumen_traza_expone_la_recomendacion(self):
+        reg = {"id_decision": "d1", "recomendacion": {"respuesta": "endurecer_servicio", "servicio": "rdp"}}
+        self.assertEqual(tablero._resumen_traza(reg)["recomendacion"],
+                         {"respuesta": "endurecer_servicio", "servicio": "rdp"})
+
+    def test_resumen_traza_sin_recomendacion_es_none(self):
+        self.assertIsNone(tablero._resumen_traza({"id_decision": "d1"})["recomendacion"])
+
+
 if __name__ == "__main__":
     unittest.main()

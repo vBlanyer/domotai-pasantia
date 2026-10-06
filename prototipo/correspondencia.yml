@@ -1,0 +1,14 @@
+# Correspondencia amenaza -> respuesta recomendada (ASESORA; no cambia la accion automatica ni el
+# filtro del perfil). respuesta en {contener_origen, endurecer_servicio, enrutar, observar}.
+# Agnostico del SIEM: se indexa por familia y, opcionalmente, por nombre de servicio (que prevalece).
+por_familia:
+  acceso_credenciales:  { respuesta: contener_origen }
+  reconocimiento:       { respuesta: contener_origen, nota: "escaneo: bloquear o vigilar el origen" }
+  servicio_expuesto:    { respuesta: endurecer_servicio, nota: "exposicion del servicio: cerrar/endurecer o quitar la exposicion" }
+  explotacion_conocida: { respuesta: enrutar, ruta: appsec }
+por_servicio:
+  rdp:    { respuesta: endurecer_servicio, nota: "RDP expuesto: alto riesgo, cerrar o publicar tras VPN" }
+  smb:    { respuesta: endurecer_servicio, nota: "SMB no deberia estar expuesto en el borde" }
+  telnet: { respuesta: endurecer_servicio, nota: "telnet en claro: desactivar, migrar a SSH" }
+  sql:    { respuesta: endurecer_servicio, nota: "base de datos: no deberia aceptar conexiones externas" }
+  http:   { respuesta: enrutar, ruta: appsec, nota: "capa web: enrutar a appsec para revision/parcheo" }

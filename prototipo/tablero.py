@@ -228,6 +228,7 @@ def _resumen_traza(reg, ips=None, externos=()):
             # (veta/degrada/permite), y qué decidió el analista y a qué clase corrigió
             "prioridad": reg.get("prioridad"), "accion_propuesta": reg.get("accion_propuesta"),
             "resultado_filtro": reg.get("resultado_filtro"),
+            "recomendacion": reg.get("recomendacion"),   # respuesta dirigida recomendada (asesora)
             "veredicto_humano": reg.get("veredicto_humano"),
             "clase_reclasificada": reg.get("clase_reclasificada"),
             "impacto": reg.get("impacto") or imp.get("nivel"), "motivo": imp.get("motivo"),

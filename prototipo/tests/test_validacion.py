@@ -165,3 +165,16 @@ class TestValidacion(unittest.TestCase):
         v = validacion.pedir(DECISION, ALERTA, leer=_Leer("3", ""), escribir=lambda _: None)
         self.assertEqual(v["veredicto"], "rechazar")
         self.assertIsNone(v["clase_nueva"])
+
+
+class TestRecomendacion(unittest.TestCase):
+    def test_mostrar_incluye_la_recomendacion(self):
+        d = {**DECISION, "recomendacion": {"respuesta": "endurecer_servicio", "servicio": "rdp",
+                                           "accion_sugerida": "CERRAR_SERVICIO", "ruta": None,
+                                           "nota": "RDP expuesto: alto riesgo"}}
+        txt = validacion.mostrar(d, ALERTA)
+        self.assertIn("Recomendado:", txt)
+        self.assertIn("rdp", txt)
+
+    def test_mostrar_sin_recomendacion_no_pone_la_linea(self):
+        self.assertNotIn("Recomendado:", validacion.mostrar(DECISION, ALERTA))

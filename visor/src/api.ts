@@ -13,6 +13,13 @@ export const SaludSchema = z.union([
   z.object({ sin_datos: z.literal(true) }),
   z.object({ t: z.string().nullable(), servicios: z.array(ServicioSchema), caidos: z.number(), total: z.number() }),
 ])
+// Recomendación de respuesta dirigida (asesora): no es la acción que se ejecuta, es lo que el
+// triaje sugiere valorar (contener origen / endurecer servicio / enrutar / observar).
+export const RecomendacionSchema = z.object({
+  respuesta: z.string().nullable().optional(), accion_sugerida: z.string().nullable().optional(),
+  ruta: z.string().nullable().optional(), servicio: z.string().nullable().optional(),
+  nota: z.string().nullable().optional(),
+}).passthrough()
 export const DecisionSchema = z.object({
   id_decision: z.string().nullable().optional(), timestamp: z.string().nullable().optional(),
   activo: z.string().nullable().optional(), clase: z.string().nullable().optional(),
@@ -26,6 +33,7 @@ export const DecisionSchema = z.object({
   tipo: z.string().nullable().optional(), alertas_suprimidas: z.number().nullable().optional(),
   // gravedad (1..4), propuesta vs final y cómo la trató el filtro, y el desenlace humano
   prioridad: z.number().nullable().optional(), accion_propuesta: z.string().nullable().optional(),
+  recomendacion: RecomendacionSchema.nullable().optional(),
   resultado_filtro: z.string().nullable().optional(), veredicto_humano: z.string().nullable().optional(),
   veredicto_por: z.string().nullable().optional(),       // no repudio: quién aprobó
   clase_reclasificada: z.string().nullable().optional(),
@@ -94,6 +102,7 @@ export const DetalleSchema = z.object({
   verificacion: z.object({ verificado: z.boolean().nullable().optional() }).passthrough().nullable().optional(),
   escalada: PlanSchema.nullable().optional(),
   mitigacion_agente: PlanSchema.nullable().optional(),
+  recomendacion: RecomendacionSchema.nullable().optional(),
 }).passthrough()
 const NodoRedSchema = z.object({
   nombre: z.string(), ip: z.string().nullable().optional(), tipo: z.string(),

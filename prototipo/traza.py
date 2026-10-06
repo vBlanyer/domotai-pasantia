@@ -275,6 +275,7 @@ def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto
         # lo que respondió el modelo y por qué no pasó el anclaje (None si no se usó o se aceptó)
         "justificacion_descartada": analisis_out.get("justificacion_descartada"),
         "ruta": analisis_out.get("ruta"),                    # rol/destino de encaminamiento (triar_y_enrutar)
+        "recomendacion": analisis_out.get("recomendacion"),  # respuesta dirigida recomendada (asesora)
         "accion_propuesta": accion_prop,
         "impacto": impacto,
         "perfil_aplicado": perfil_nombre,

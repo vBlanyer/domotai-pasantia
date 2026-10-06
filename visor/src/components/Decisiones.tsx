@@ -190,6 +190,19 @@ function Detalles({ id, indice }: { id: string; indice?: number | null }) {
           </Campo>
         )}
         {motivo && <Campo etiqueta="Impacto"><span className="text-muted-foreground">{motivo}</span></Campo>}
+        {det.recomendacion?.respuesta && (
+          <Campo etiqueta="Recomendación">
+            <div>
+              {det.recomendacion.respuesta === "endurecer_servicio" && det.recomendacion.servicio
+                ? `Endurecer el servicio ${det.recomendacion.servicio}`
+                : det.recomendacion.respuesta}
+              {det.recomendacion.ruta ? ` → ${det.recomendacion.ruta}` : ""}
+            </div>
+            {det.recomendacion.nota && (
+              <div className="mt-0.5 text-xs text-muted-foreground">{det.recomendacion.nota}</div>
+            )}
+          </Campo>
+        )}
       </div>
       <Campo etiqueta="Conocimiento recuperado (RAG)">
         <Pasajes pasajes={pasajes} consulta={det.consulta_rag} />
@@ -271,6 +284,11 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
           )}
           {d.resultado_filtro === "veta" && !d.accion_final && (
             <> <Pildora tono="bg-rose-500/15 text-rose-700 dark:text-rose-300">vetada</Pildora></>
+          )}
+          {d.recomendacion?.respuesta && d.recomendacion.respuesta !== "contener_origen" && (
+            <> <Pildora tono="bg-sky-500/15 text-sky-700 dark:text-sky-300" title={d.recomendacion.nota ?? undefined}>
+              rec: {d.recomendacion.respuesta === "endurecer_servicio" ? "endurecer servicio" : d.recomendacion.respuesta}
+            </Pildora></>
           )}
         </TableCell>
         <TableCell>

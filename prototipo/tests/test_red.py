@@ -132,5 +132,14 @@ class TestRedMalFormada(unittest.TestCase):
         self.assertEqual(r["nodos"]["web-banking"]["zona"], "1")
 
 
+class TestServiciosEnriquecidos(unittest.TestCase):
+    def test_servicios_en_dict_conservan_su_puerto(self):
+        perfil = {"activos": {"web": {"ip": "10.0.0.1",
+                                      "servicios_prestados": [443, {"puerto": 80, "servicio": "http"}]}},
+                  "topologia": {"web": {"rol": "host_victima", "ip": "10.0.0.1"}}}
+        r = red.red_de(perfil)
+        self.assertEqual(r["nodos"]["web"]["servicios_prestados"], [443, 80])
+
+
 if __name__ == "__main__":
     unittest.main()

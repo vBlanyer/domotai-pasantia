@@ -19,6 +19,21 @@ class TestConstruir(unittest.TestCase):
         self.assertEqual(r["version_baseline"], "baseline-0")
         self.assertEqual(r["version_perfil"], "v0")
 
+    def test_guarda_la_recomendacion(self):
+        rec = {"respuesta": "endurecer_servicio", "accion_sugerida": "CERRAR_SERVICIO",
+               "ruta": None, "servicio": "rdp", "nota": "RDP expuesto"}
+        r = traza.construir("d1", "t", {"id_alerta": "a1"},
+                            {"clase": "vp_intento_acceso", "recomendacion": rec},
+                            "BLOQUEAR_IP", "localizado", "empresarial",
+                            {"resultado": "permite", "accion_final": "BLOQUEAR_IP", "requiere_humano": False}, "v0")
+        self.assertEqual(r["recomendacion"], rec)
+
+    def test_sin_recomendacion_queda_none(self):
+        r = traza.construir("d1", "t", {"id_alerta": "a1"}, {"clase": "vp_intento_acceso"},
+                            "BLOQUEAR_IP", "localizado", "empresarial",
+                            {"resultado": "permite", "accion_final": "BLOQUEAR_IP", "requiere_humano": False}, "v0")
+        self.assertIsNone(r["recomendacion"])
+
     def test_registra_el_impacto_determinado(self):
         det = {"nivel": "localizado", "actor": {"tipo": "activo_interno", "nombre": "puesto"},
                "motivo": "bloquea a puesto (activo interno) · 0 servicios detenidos"}

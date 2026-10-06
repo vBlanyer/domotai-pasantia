@@ -397,5 +397,19 @@ class TestValidar(unittest.TestCase):
         self.assertTrue(all(isinstance(a, str) for a in avisos))
 
 
+class TestValidarServicios(unittest.TestCase):
+    def test_avisa_servicio_sin_puerto_y_criticidad_invalida(self):
+        p = {"activos": {"web": {"criticidad": "alta", "servicios_prestados": [
+            443, {"criticidad": "media"}, {"puerto": 80, "criticidad": "altisima"}]}}}
+        avisos = perfil.validar(p)
+        self.assertTrue(any("sin puerto" in a for a in avisos), avisos)
+        self.assertTrue(any("criticidad" in a and "altisima" in a for a in avisos), avisos)
+
+    def test_servicios_bien_formados_no_avisan(self):
+        p = {"activos": {"web": {"criticidad": "alta", "servicios_prestados": [
+            443, {"puerto": 80, "criticidad": "media"}]}}}
+        self.assertEqual([a for a in perfil.validar(p) if "servicio" in a or "criticidad" in a], [])
+
+
 if __name__ == "__main__":
     unittest.main()
