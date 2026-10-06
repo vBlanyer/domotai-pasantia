@@ -587,6 +587,13 @@ class TestCORS(unittest.TestCase):
                           {"Content-Type": "application/json"}, {"id": "1", "respuesta": "s"})
         self.assertEqual(st, 409)
 
+    def test_cuerpo_demasiado_grande_se_rechaza(self):   # #16: DoS por cuerpo sin límite
+        puerto = self._srv()
+        st, _ = self._req(puerto, "POST", "/api/aprobar",
+                          {"Content-Type": "application/json", "Origin": f"http://127.0.0.1:{puerto}"},
+                          {"id": "x" * 70000, "respuesta": "s"})
+        self.assertEqual(st, 413)
+
     def test_dist_ausente_da_404_claro(self):
         puerto = self._srv(estaticos="/directorio/que/no/existe")
         c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
