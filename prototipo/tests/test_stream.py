@@ -218,10 +218,15 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
             self.aplicado.add(nodo_ip); return (0, "")
 
     def _perfil(self):
+        # Atacante INTERNO (192.168.1.10): se auto-contiene en su host, pero cortarlo en el cortafuegos
+        # perimetral (lo aísla de toda la red) sigue exigiendo humano -> es el caso donde la escalada
+        # pide aprobación tras el cambio «externo -> perímetro automático» (un externo ya no se retiene).
         p = dict(y("perfil.yml"))
         p["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
                           "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}
         p["ip_gestion"] = "192.168.1.100"
+        p["redes_internas"] = ["192.168.1.0/24"]
+        p["continuidad"] = {**p["continuidad"], "actores": {"activo_interno": "automatica_si_confianza"}}
         return p
 
     def _ejecutar(self, estado, buf, ej):
@@ -289,11 +294,15 @@ class TestEscaladaConHumanoEnCadaSalto(unittest.TestCase):
             self.aplicado.add(nodo_ip); return (0, "")
 
     def _perfil(self, host_humano=False):
+        # Atacante INTERNO: host auto, perímetro humano (ver TestEscaladaEnModoWeb._perfil). Con
+        # host_humano el host pasa a humano por nivel; el perímetro pide humano en ambos casos.
         p = dict(y("perfil.yml"))
         p["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
                           "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1", "gateway": "edge"},
                           "edge": {"rol": "firewall_perimetral", "ip": "192.168.1.2"}}
         p["ip_gestion"] = "192.168.1.100"
+        p["redes_internas"] = ["192.168.1.0/24"]
+        p["continuidad"] = {**p["continuidad"], "actores": {"activo_interno": "automatica_si_confianza"}}
         if host_humano:
             p["continuidad"] = {**p["continuidad"], "impacto_localizado": "humano_siempre"}
         return p
@@ -880,7 +889,10 @@ class TestMemoriaDeSupresion(unittest.TestCase):
 
     def test_las_repeticiones_de_una_tarjeta_pendiente_no_vuelven_a_ejecutar(self):
         estado = tablero.EstadoTablero()
-        p = {**y("perfil.yml"), "ip_gestion": "192.168.1.100",
+        # Atacante interno (192.168.1.10): host auto, perímetro humano -> la escalada encola una tarjeta.
+        p = {**y("perfil.yml"), "ip_gestion": "192.168.1.100", "redes_internas": ["192.168.1.0/24"],
+             "continuidad": {**y("perfil.yml")["continuidad"],
+                             "actores": {"activo_interno": "automatica_si_confianza"}},
              "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
                            "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
         ej = TestEscaladaConHumanoEnCadaSalto.Nodos({"192.168.1.30"})
@@ -888,10 +900,10 @@ class TestMemoriaDeSupresion(unittest.TestCase):
         def contado(ip, cmd):
             llamadas.append(cmd); return ej(ip, cmd)
         def fuente():
-            yield _linea()
+            yield _linea("192.168.1.10")
             self.antes = len(llamadas)
             for i in range(3):
-                yield _linea(seg=5 + i)
+                yield _linea("192.168.1.10", seg=5 + i)
         resumen, regs = self._correr(fuente(), perfil=p, ejecutor=contado, estado_web=estado)
         self.assertEqual(len(llamadas), self.antes)                   # 0 SSH extra contra el host caído
         cola = estado.decisiones_pendientes()
@@ -1030,8 +1042,12 @@ class TestRevisionFinal(unittest.TestCase):
     """Fallos del camino en vivo encontrados en la revisión final de la tanda 1."""
 
     def _perfil(self, host_humano=True, topologia=None):
+        # redes_internas + actores: un atacante de 192.168.1.0/24 es interno (host auto, perímetro
+        # humano); tras «externo -> perímetro automático» ese es el caso que aún escala al humano.
         p = dict(y("perfil.yml"))
         p["ip_gestion"] = "192.168.1.100"
+        p["redes_internas"] = ["192.168.1.0/24"]
+        p["continuidad"] = {**p["continuidad"], "actores": {"activo_interno": "automatica_si_confianza"}}
         p["topologia"] = topologia or {
             "objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
             "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1", "gateway": "edge"},
@@ -1076,7 +1092,7 @@ class TestRevisionFinal(unittest.TestCase):
             if "grep" in cmd: return (0, "DROP") if (ip in aplicado and ip != "192.168.1.1") else (1, "")
             aplicado.add(ip); return (0, "")
         estado, buf = tablero.EstadoTablero(), io.StringIO()
-        stream.ejecutar([_linea()], hallazgos=j("hallazgos.json"), perfil=self._perfil(host_humano=False),
+        stream.ejecutar([_linea("192.168.1.10")], hallazgos=j("hallazgos.json"), perfil=self._perfil(host_humano=False),
                         perfil_nombre="prueba", catalogo=CAT, ejecutor=nodos, justificar_fn=None,
                         ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None, estado_web=estado)
         primera = estado.decisiones_pendientes()[0]
@@ -1087,7 +1103,7 @@ class TestRevisionFinal(unittest.TestCase):
         esc = r["escalada"]
         self.assertEqual(esc["dispositivo_ejecutor"], "edge")
         self.assertIn("gateway", [p["dispositivo"] for p in esc["pasos"]])
-        self.assertIn("iptables -D FORWARD -s 1.1.1.1 -j DROP", esc["reversiones"])
+        self.assertIn("iptables -D FORWARD -s 192.168.1.10 -j DROP", esc["reversiones"])
         self.assertEqual(len(esc["reversiones"]), 2)
         self.assertEqual(r["veredictos_escalada"], ["aprobar", "aprobar"])
         self.assertEqual(r["recibido_en"], primera["recibido_en"])

@@ -193,7 +193,17 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         # el catalogo: sin este veto se ejecutaba 'iptables -A INPUT -s None -j DROP' en automatico.
         return {**_res("veta", None, True),
                 "impacto": {**det, "motivo": "sin IP de origen IPv4 válida: no hay a quién bloquear"}}
-    res = _filtrar_reglas(perfil, accion_id, params, catalogo, activo, servicio, confianza, det["nivel"])
+    # Bloquear por ORIGEN a un externo NO inventariado (el atacante) corta SOLO a esa IP —0 colateral,
+    # "0 servicios detenidos"—, lo mismo en el host que en el perímetro: no se retiene al humano solo
+    # por ser un salto perimetral (impacto de catálogo alcanza_servicio). Así la escalada de un ataque
+    # externo cuyo activo no responde (E1) se contiene sola en el cortafuegos. El humano se reserva para
+    # cuando el bloqueado podría ser una IP PROPIA: un activo_interno o un dispositivo_red conservan su
+    # nivel y su política de actor (abajo), y un cliente cauto lo retiene con
+    # continuidad.contener_externos_desconocidos (el guard de más abajo sigue actuando).
+    nivel_efectivo = det["nivel"]
+    if (accion_id in impactom.ACCIONES_SOBRE_IP and (det.get("actor") or {}).get("tipo") == "desconocido"):
+        nivel_efectivo = min(det["nivel"], "localizado", key=impactom.NIVELES.index)
+    res = _filtrar_reglas(perfil, accion_id, params, catalogo, activo, servicio, confianza, nivel_efectivo)
     if res["accion_final"] and res["accion_final"] != accion_id:   # degradada: se ejecuta otra acción
         det = impactom.determinar(res["accion_final"], params, activo, perfil, catalogo, hallazgos)
         # C2: `_filtrar_reglas` decidió con el nivel de la acción PROPUESTA; la acción degradada

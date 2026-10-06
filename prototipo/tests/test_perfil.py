@@ -180,6 +180,37 @@ class TestPerfilBancario(unittest.TestCase):
         self.assertEqual(r["impacto"]["nivel"], "alcanza_servicio")
         self.assertTrue(r["requiere_humano"])
 
+    def test_bloquear_un_externo_en_el_perimetro_es_automatico(self):
+        # Escalada al cortafuegos perimetral (E1: la víctima no responde). Bloquear por ORIGEN a un
+        # atacante EXTERNO no inventariado corta solo a esa IP (0 colateral), lo mismo en el host que
+        # en el perímetro: es automático, no se retiene al humano solo por ser un salto perimetral.
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP_FIREWALL", {"ip": "203.0.113.9"}, CAT, "web-banking", "443", 0.95)
+        self.assertEqual(r["resultado"], "permite")
+        self.assertFalse(r["requiere_humano"])
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP_FIREWALL")
+
+    def test_bloquear_un_interno_en_el_perimetro_sigue_exigiendo_humano(self):
+        # El humano se reserva para cuando el bloqueado podría ser una IP PROPIA: un activo interno
+        # en el perímetro conserva su gate (cortarlo ahí lo aísla de toda la red, no solo de un host).
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP_FIREWALL", {"ip": "10.200.0.10"}, CAT, "web-banking", "443", 0.99)
+        self.assertTrue(r["requiere_humano"])
+        self.assertEqual(r["impacto"]["actor"]["nombre"], "taquilla")
+
+    def test_bloquear_un_firewall_en_el_perimetro_sigue_exigiendo_humano(self):
+        # Un dispositivo de red conserva nivel alcanza_servicio (puede cortar todo lo que enruta).
+        r = perfil.filtrar(self.p, "BLOQUEAR_IP_FIREWALL", {"ip": "10.0.0.1"}, CAT, "web-banking", "443", 0.99)
+        self.assertTrue(r["requiere_humano"])
+        self.assertEqual(r["impacto"]["actor"]["tipo"], "dispositivo_red")
+
+    def test_externo_en_el_perimetro_se_retiene_si_el_perfil_es_cauto(self):
+        # El escape de la postura conservadora sigue valiendo en el perímetro: si el cliente activa
+        # contener_externos_desconocidos, el externo no inventariado se retiene también ahí.
+        p = dict(self.p); p["continuidad"] = {**self.p["continuidad"],
+                                              "contener_externos_desconocidos": "humano_siempre"}
+        r = perfil.filtrar(p, "BLOQUEAR_IP_FIREWALL", {"ip": "203.0.113.9"}, CAT, "web-banking", "443", 0.95)
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP_FIREWALL")
+        self.assertTrue(r["requiere_humano"])
+
     def test_cada_activo_declara_ip_y_funcion(self):
         for nombre, a in self.p["activos"].items():
             self.assertIn("ip", a, nombre)
