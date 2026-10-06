@@ -22,7 +22,13 @@ MDR con la alerta que ya levantó Wazuh».
    | Fuerza bruta SSH | `acceso_credenciales` | contener (bloquear la IP de origen) |
    | Reconocimiento (escaneo SSH) | `reconocimiento` | contener |
    | Telnet expuesto | `servicio_expuesto` | contener **solo si el servicio está expuesto** |
-   | Explotación web (SQLi) | `explotacion_conocida` | **enrutar** (triar y encaminar, sin contener) |
+   | Explotación web: **SQLi, path traversal, Log4Shell, inyección de comandos** | `explotacion_conocida` | **enrutar** (triar y encaminar, sin contener) |
+
+   > **Honesto sobre los cuatro ataques web:** a nivel del **motor** son **indistinguibles** — todos
+   > llegan como `explotacion_conocida` sobre `http` y se **enrutan a appsec**; ni la clase ni el
+   > veredicto cambian entre un SQLi y un Log4Shell. La diferencia es de **detección** (cada uno lo
+   > levanta una regla de Wazuh distinta, con su técnica MITRE) y de **lo que recibe appsec**, no del
+   > triaje. El realismo amplía lo que el SIEM caza y encamina, no el dictamen del MDR.
 
 2. **El objetivo → la exposición.** El auditor dice qué puertos están abiertos en cada equipo. Hay
    **tres situaciones** según el objetivo:
@@ -64,8 +70,14 @@ MDR con la alerta que ya levantó Wazuh».
 | **mdr-siem** | **gestión** | **no escaneado** | | | consola SOC/MDR |
 | **auditor** | **gestión** | **no escaneado** | | | auditor Nmap |
 
-El menú ofrece **explotación web** solo donde hay puerto web: **web-banking, api-movil, atm,
-middleware**. El resto solo ofrece SSH / reconocimiento / telnet.
+El menú ofrece las **explotaciones web** (SQLi, path traversal, Log4Shell, inyección de comandos) solo
+donde hay puerto web: **web-banking, api-movil, atm, middleware**. El resto solo ofrece SSH /
+reconocimiento / telnet.
+
+> **Recomendación dirigida (nueva):** desde la correspondencia servicio↔vulnerabilidad, cada decisión
+> lleva además una **recomendación asesora** —`contener_origen` / `endurecer_servicio` / `enrutar`— que
+> ve el analista y el agente, **sin cambiar** la acción automática. Para las explotaciones web la
+> recomendación es **enrutar → appsec**; para la fuerza bruta/recon, **contener el origen**.
 
 ## Cuadro de resultados (verificado con el motor)
 
@@ -110,6 +122,32 @@ Notas de lectura:
   (↗, azul) y suma a su contador «originados»: la IP del atacante externo no es de ningún equipo
   inventariado, así que su origen se atribuye al nodo externo. Un equipo interno que ataca a otro
   queda igual («origen de ataques») en vez de «sin actividad».
+
+## Ataques realistas INYECTADOS (fuera del alcance vivo del lab)
+
+El laboratorio hospeda señuelos **HTTP/SSH/telnet**, no RDP/SMB/Oracle reales, así que estos ataques
+no se pueden *lanzar* en vivo. Se incluyen como **casos inyectados** (`lab/banco/casos.py`, nivel
+`decision`): cada uno trae su **postura propia** exponiendo el servicio atacado, para demostrar cómo
+el MDR triaja la amenaza y **qué recomienda por servicio**. Son el equivalente a que el SIEM del
+cliente entregue esa alerta. No tocan las 600 alertas de la evaluación (métricas canónicas intactas).
+
+| Caso | Ataque | Familia / servicio | Clase | Recomendación | ¿Humano? |
+|---|---|---|---|---|---|
+| `RDP` | Fuerza bruta RDP (3389) en web-banking | `acceso_credenciales` / rdp | `vp_intento_acceso` | **endurecer el servicio** (RDP: cerrar o tras VPN) | automático el bloqueo de IP; la recomendación es asesora |
+| `SMB` | SMB expuesto (445) en atm | `servicio_expuesto` / smb | `vp_intento_acceso` | **endurecer el servicio** (SMB no debería estar en el borde) | — |
+| `DBDIR` | Acceso directo a la BD (1521) en core-db | `acceso_credenciales` / sql | `vp_intento_acceso` | **endurecer el servicio** (BD no debería aceptar conexiones externas) | — |
+| `FPNEX` | RDP contra core-db (sin RDP abierto) | `servicio_expuesto` / rdp | `fp_exposicion_inexistente` | **ninguna** (no es amenaza) | no |
+
+La recomendación **no cambia** la acción que ejecuta el MDR (sigue siendo bloquear la IP de origen, o
+retención a humano según el perfil): es la respuesta dirigida que el analista debería valorar. El
+último caso muestra la **frontera honesta**: un ataque a un servicio que el auditor no ve expuesto se
+descarta como falso positivo, sin recomendación.
+
+Reproducirlos (sin lab, segundos):
+
+```bash
+python3 -m lab.banco.pruebas --caso RDP      # o SMB, DBDIR, FPNEX
+```
 
 ## Cómo reproducir todo el cuadro
 
