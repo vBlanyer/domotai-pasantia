@@ -211,4 +211,15 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         final = {**final, "requiere_humano": True}
         det = {**det, "motivo": f"{det.get('motivo') or ''} · origen en terceros_confiables: "
                                 "no se bloquea en automático, requiere aprobación".strip()}
+    # Postura conservadora OPCIONAL (continuidad.contener_externos_desconocidos: humano_siempre): un
+    # externo no inventariado puede ser una IP legítima SUPLANTADA (srcip/XFF forjado) para provocar un
+    # auto-bloqueo dañino. Si el perfil lo activa, se retiene para humano. Apagado por defecto -> el
+    # comportamiento (y las métricas canónicas) no cambian.
+    if (accion_id in impactom.ACCIONES_SOBRE_IP and final.get("accion_final")
+            and not final.get("requiere_humano")
+            and (det.get("actor") or {}).get("tipo") == "desconocido"
+            and perfil.get("continuidad", {}).get("contener_externos_desconocidos") == "humano_siempre"):
+        final = {**final, "requiere_humano": True}
+        det = {**det, "motivo": f"{det.get('motivo') or ''} · externo desconocido: "
+                                "no se bloquea en automático (política del perfil)".strip()}
     return {**final, "impacto": det}
