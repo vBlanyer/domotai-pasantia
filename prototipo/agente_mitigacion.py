@@ -243,12 +243,23 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
 
 # --------------------------------------------------------------- bucle ReAct --
 
-def construir_prompt_sistema(alerta, topo):
+def _linea_recomendacion(recomendacion):
+    """Contexto INFORMATIVO del triaje para el agente (no una instrucción: su única acción es
+    bloquear_ip). Da al agente conciencia de la respuesta dirigida sugerida."""
+    if not recomendacion:
+        return ""
+    nota = recomendacion.get("nota") or recomendacion.get("respuesta")
+    svc = recomendacion.get("servicio")
+    svc = f" sobre {svc}" if svc else ""
+    return f"Recomendacion del triaje (informativa{svc}): {nota}.\n"
+
+def construir_prompt_sistema(alerta, topo, recomendacion=None):
     nodos = ", ".join(f"{k}({v.get('rol')})" for k, v in topo.items() if isinstance(v, dict) and v.get("rol"))
     gestion = topo.get("ip_gestion")
     regla_gestion = (f"nunca actues sobre el canal de gestion ({gestion}): cortarlo impide responder y verificar"
                      if gestion else "nunca toques el plano de gestion")
     return (
+        _linea_recomendacion(recomendacion) +
         "Eres un agente de respuesta a incidentes. Objetivo: cortar el trafico del atacante "
         f"{alerta.get('origen_ip')} hacia la victima {alerta.get('activo')}. NO escribes comandos de "
         "shell; SOLO invocas herramientas.\n"
@@ -368,13 +379,13 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
 
 def bucle_react(alerta, clase, perfil, catalogo, ejecutor, generador, leer=input, autonomo=False,
                 max_pasos=6, escribir=print, timestamp="", indice=None, embedder=None, gen_conocimiento=None,
-                hallazgos=None, confianza=1.0):
+                hallazgos=None, confianza=1.0, recomendacion=None):
     """Agente ReAct: itera Thought->Action->Observation, escala host->firewall al recibir un error,
     y degrada al motor determinista si no produce accion valida. El comando lo renderiza el codigo
     (RF-15); la ejecucion reutiliza conector.ejecutar_orden."""
     topo = resolver_topologia(perfil, hallazgos)
     ip_gestion, ip_atacante = topo.get("ip_gestion"), alerta.get("origen_ip")
-    prompt = construir_prompt_sistema(alerta, topo)
+    prompt = construir_prompt_sistema(alerta, topo, recomendacion)
     pasos, reversiones, tocados, dispositivo_ejecutor = [], [], [], None
     # El equipo atacado, si está en su propia cadena de contención (host del plano de datos): el
     # agente DEBE intentarlo antes de escalar al perímetro (barrera estructural, no solo el prompt).

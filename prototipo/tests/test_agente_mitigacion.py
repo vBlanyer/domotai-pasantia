@@ -604,3 +604,17 @@ class TestRespaldoDelAgente(unittest.TestCase):
         self.assertTrue(plan["degradado"])
         self.assertTrue(preguntas)
         self.assertEqual(ej.aplicado, set())
+
+
+class TestPromptRecomendacion(unittest.TestCase):
+    def test_prompt_incluye_recomendacion_informativa(self):
+        topo = {"web": {"rol": "host_victima"}, "ip_gestion": "10.0.0.1"}
+        rec = {"respuesta": "endurecer_servicio", "servicio": "rdp", "nota": "RDP expuesto"}
+        p = ag.construir_prompt_sistema({"origen_ip": "203.0.113.9", "activo": "web"}, topo, rec)
+        self.assertIn("Recomendacion del triaje", p)
+        self.assertIn("rdp", p)
+
+    def test_prompt_sin_recomendacion_no_pone_la_linea(self):
+        topo = {"web": {"rol": "host_victima"}, "ip_gestion": "10.0.0.1"}
+        p = ag.construir_prompt_sistema({"origen_ip": "x", "activo": "web"}, topo)
+        self.assertNotIn("Recomendacion del triaje", p)

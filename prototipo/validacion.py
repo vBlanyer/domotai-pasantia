@@ -23,6 +23,24 @@ def filtro_legible(decision):
         return txt + "; espera tu aprobación" if decision.get("requiere_humano") else txt
     return {"permite": "automática", "sin_accion": "sin acción"}.get(r, str(r))
 
+_RESPUESTA_LEGIBLE = {"contener_origen": "contener el origen (bloquear la IP atacante)",
+                      "endurecer_servicio": "endurecer el servicio", "enrutar": "enrutar para revision/parcheo",
+                      "observar": "observar/vigilar"}
+
+def _recomendado(decision):
+    """Línea asesora (RF-05): la respuesta dirigida que recomienda el triaje. NO es la acción que se
+    ejecuta (esa es `accion_final`), es lo que el analista/agente debería valorar."""
+    rec = decision.get("recomendacion")
+    if not rec:
+        return ""
+    txt = _RESPUESTA_LEGIBLE.get(rec.get("respuesta"), rec.get("respuesta"))
+    if rec.get("respuesta") == "endurecer_servicio" and rec.get("servicio"):
+        txt = f"endurecer el servicio {rec['servicio']}"
+    if rec.get("ruta"):
+        txt += f" → {rec['ruta']}"
+    nota = f" — {rec['nota']}" if rec.get("nota") else ""
+    return f"Recomendado: {txt}{nota}\n"
+
 def mostrar(decision, alerta):
     est = decision.get("justificacion_estructurada", {}) or {}
     mitre = ", ".join(est.get("tecnica_mitre") or []) or "—"
@@ -42,6 +60,7 @@ def mostrar(decision, alerta):
         f"Justificación: {decision.get('justificacion')}\n"
         f"{_descarte(decision)}"
         f"Acción sugerida: {est.get('accion_sugerida', decision.get('accion_propuesta'))}  ·  Impacto: {decision.get('impacto')}  ·  Filtro: {filtro_legible(decision)}\n"
+        f"{_recomendado(decision)}"
         f"{consecuencia}"
         f"Acción final: {decision.get('accion_final') or 'ninguna (vetada)'}\n"
     )
