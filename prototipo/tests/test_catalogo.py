@@ -57,6 +57,26 @@ class TestMinimoPrivilegio(unittest.TestCase):
         self.assertNotIn("timeout", texto)
         self.assertEqual(sorted(faltan), ["ip", "service", "timeout"])
 
+    def test_sudoers_allowlist_restringe_los_comodines(self):
+        # #9: un allowlist de valores reemplaza el comodín `*` (p. ej. no permitir `service * stop`
+        # ni `passwd -u root`, solo los servicios/cuentas declarados).
+        rutas = {"service": "/usr/sbin/service", "iptables": "/sbin/iptables"}
+        texto, _ = catalogo.sudoers(self.CAT, "triaje", rutas, allowlist={"service": ["nginx", "apache2"]})
+        self.assertIn("/usr/sbin/service nginx stop", texto)
+        self.assertIn("/usr/sbin/service apache2 start", texto)
+        self.assertNotIn("service * stop", texto)                     # el comodín se expandió
+        self.assertIn("/sbin/iptables -A INPUT -s * -j DROP", texto)  # {ip} sin allowlist: comodín intacto
+
+    def test_sudoers_allowlist_ignora_valores_inseguros(self):
+        # #9 (revisión): un valor con `*`, espacio o metacaracter no debe reabrir el comodín ni
+        # colar tokens extra en el sudoers; se descarta (solo pasan nombres limpios).
+        rutas = {"service": "/usr/sbin/service"}
+        texto, _ = catalogo.sudoers(self.CAT, "triaje", rutas,
+                                    allowlist={"service": ["*", "nginx start; rm -rf /", "nginx"]})
+        self.assertNotIn("service * stop", texto)            # `*` no reabre el comodín
+        self.assertNotIn("rm -rf", texto)                    # valor con metacaracteres descartado
+        self.assertIn("/usr/sbin/service nginx stop", texto) # el nombre limpio sí entra
+
     def test_el_catalogo_real_no_deja_pasar_texto_descriptivo(self):
         import os
         cat = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))

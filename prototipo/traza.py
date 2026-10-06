@@ -28,7 +28,8 @@ VERSION_BASELINE = "baseline-0"
 GENESIS = "0" * 64
 _CAMPOS_CADENA = ("hash", "hash_previo")
 ANCLA_DESTINO = os.environ.get("TRIAJE_ANCLA")          # "host:puerto" del syslog del manager; sin ella no se ancla
-_ANCLA_RE = re.compile(r"triaje-ancla: fichero=(\S+) linaje=([0-9a-f]{16}) registros=(\d+) hash=([0-9a-f]{64})")
+_ANCLA_RE = re.compile(r"triaje-ancla: fichero=(\S+) linaje=([0-9a-f]{16}) registros=(\d+) "
+                       r"hash=([0-9a-f]{64})(?: mac=([0-9a-f]{64}))?")
 
 def _canonico(registro):
     limpio = {k: v for k, v in registro.items() if k not in _CAMPOS_CADENA}
@@ -102,10 +103,18 @@ def linaje_de(registros):
     Un fichero borrado y rehecho con el mismo nombre tiene otro linaje; uno truncado, el mismo."""
     return registros[0]["hash"][:16] if registros and registros[0].get("hash") else None
 
+def _mac_ancla(nombre, linaje, n, hash_, clave):
+    msg = f"{nombre}|{linaje}|{n}|{hash_}".encode("utf-8")
+    return hmac.new(clave.encode("utf-8"), msg, hashlib.sha256).hexdigest()
+
 def formatear_ancla(nombre, linaje, n, hash_):
-    """Linea syslog (prioridad 38 = auth.info, como el resto del laboratorio) con el ancla."""
-    return (f"<38>{time.strftime('%b %d %H:%M:%S')} triaje triaje-ancla: fichero={nombre} linaje={linaje} "
+    """Linea syslog (prioridad 38 = auth.info, como el resto del laboratorio) con el ancla. Con
+    TRIAJE_TRAZA_CLAVE se firma con HMAC (`mac=`): el canal syslog UDP no está autenticado, así que
+    sin firma un atacante podría spoofear un ancla que avale una traza forjada."""
+    base = (f"<38>{time.strftime('%b %d %H:%M:%S')} triaje triaje-ancla: fichero={nombre} linaje={linaje} "
             f"registros={n} hash={hash_}")
+    clave = os.environ.get("TRIAJE_TRAZA_CLAVE")
+    return base + (f" mac={_mac_ancla(nombre, linaje, n, hash_, clave)}" if clave else "")
 
 def _enviar_udp(linea, destino):
     host, puerto = destino.rsplit(":", 1)
@@ -125,15 +134,22 @@ def anclar(nombre, linaje, n, hash_, destino=None, _enviar=_enviar_udp):
         return False
 
 def leer_anclas(ruta_alerts, nombre):
-    """[(registros, hash, linaje)] de las anclas de `nombre` en un alerts.json de Wazuh."""
+    """[(registros, hash, linaje)] de las anclas de `nombre` en un alerts.json de Wazuh. Con
+    TRIAJE_TRAZA_CLAVE se exige HMAC válido: una ancla sin `mac` o con firma incorrecta (spoofeada por
+    el canal syslog) se descarta. Sin clave, se aceptan todas (compatibilidad)."""
+    clave = os.environ.get("TRIAJE_TRAZA_CLAVE")
     anclas = []
     with open(ruta_alerts, encoding="utf-8", errors="replace") as f:
         for l in f:
             if "triaje-ancla" not in l:
                 continue
             m = _ANCLA_RE.search(l)
-            if m and m.group(1) == nombre:
-                anclas.append((int(m.group(3)), m.group(4), m.group(2)))
+            if not (m and m.group(1) == nombre):
+                continue
+            nom, linaje, n, hash_, mac = m.group(1), m.group(2), int(m.group(3)), m.group(4), m.group(5)
+            if clave and (mac is None or not hmac.compare_digest(mac, _mac_ancla(nom, linaje, n, hash_, clave))):
+                continue                      # ancla no firmada o firma inválida: descartada
+            anclas.append((n, hash_, linaje))
     return anclas
 
 def verificar_contra_anclas(registros, anclas):

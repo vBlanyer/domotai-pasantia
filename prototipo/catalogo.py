@@ -20,6 +20,9 @@ def impacto_de(catalogo, accion_id):
 
 _PLANTILLA = re.compile(r"\{[a-z_]+\}")
 _BINARIO = re.compile(r"^[a-z][a-z0-9_-]*$")
+# Valores de allowlist del sudoers: nombres de servicio/cuenta limpios. Rechaza `*` (reabriría el
+# comodín), espacios y metacaracteres (sudoers roto) — misma disciplina que conector._SEGURO.
+_VALOR_SEGURO = re.compile(r"^[A-Za-z0-9._-]+\Z")
 
 def _tramos(plantilla):
     """Los comandos de una plantilla: cada tramo de ';' y solo el primer tramo de una tuberia
@@ -53,17 +56,27 @@ def comandos_privilegiados(catalogo):
                 anadir(clave)
     return salida
 
-def sudoers(catalogo, usuario, rutas):
+def sudoers(catalogo, usuario, rutas, allowlist=None):
     """Texto de sudoers para `usuario`: NOPASSWD solo sobre los comandos del catalogo, con la
-    ruta absoluta de cada binario en `rutas` (resuelta en el nodo objetivo, porque sudoers
-    exige rutas absolutas). Devuelve (texto, faltan): los binarios sin ruta quedan fuera y se
-    devuelven para que el aprovisionamiento los declare."""
+    ruta absoluta de cada binario en `rutas`. Devuelve (texto, faltan).
+
+    `allowlist` {binario: [valores]} RESTRINGE el comodin `*` de ese binario a una lista cerrada:
+    en vez de `service * stop` (cualquier servicio) o `passwd -u *` (cualquier cuenta, incl. root),
+    emite una linea por valor declarado (`service nginx stop`, ...). Sin allowlist para un binario,
+    se mantiene el `*` (comportamiento por defecto). Solo acota comandos con UN comodin (los
+    objetivos tipo servicio/cuenta); `{ip}`/`{puerto}` son arbitrarios por naturaleza y siguen `*`."""
+    allowlist = allowlist or {}
     lineas, faltan = [], []
     for binario, args in comandos_privilegiados(catalogo):
         ruta = rutas.get(binario)
         if not ruta:
             if binario not in faltan:
                 faltan.append(binario)
+            continue
+        valores = [v for v in (allowlist.get(binario) or []) if _VALOR_SEGURO.match(str(v))]
+        if valores and args.count("*") == 1:
+            for v in valores:
+                lineas.append(f"{usuario} ALL=(root) NOPASSWD: {ruta} {args.replace('*', v)}".rstrip())
             continue
         lineas.append(f"{usuario} ALL=(root) NOPASSWD: {ruta} {args}".rstrip())
     cabecera = ("# Generado desde prototipo/catalogo.yml: la frontera de privilegio del conector es\n"
@@ -82,13 +95,20 @@ def _main(argv):
                     b, p = par.split("=", 1)
                     if p:
                         rutas[b.strip()] = p.strip()
+        allowlist = {}
+        if "--allowlist" in argv:   # p. ej. --allowlist service=nginx:apache2,passwd=appuser
+            for par in argv[argv.index("--allowlist") + 1].split(","):
+                if "=" in par:
+                    b, vals = par.split("=", 1)
+                    allowlist[b.strip()] = [v for v in vals.split(":") if v]
         cat = cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
-        texto, faltan = sudoers(cat, usuario, rutas)
+        texto, faltan = sudoers(cat, usuario, rutas, allowlist=allowlist or None)
         sys.stdout.write(texto)
         if faltan:
             print(f"# AVISO: sin ruta en el nodo, fuera del sudoers: {', '.join(faltan)}", file=sys.stderr)
         return 0
-    print("uso: python3 -m prototipo.catalogo --sudoers <usuario> --rutas iptables=/sbin/iptables,...")
+    print("uso: python3 -m prototipo.catalogo --sudoers <usuario> --rutas iptables=/sbin/iptables,... "
+          "[--allowlist service=nginx:apache2,passwd=appuser]")
     return 2
 
 if __name__ == "__main__":
