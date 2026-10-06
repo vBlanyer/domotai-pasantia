@@ -18,6 +18,13 @@ def _texto(v):
     return v if isinstance(v, str) else None
 
 
+def _entero(v):
+    """int o None (nunca bool). `nivel_wazuh` se compara numéricamente (max/sorted en agrupacion y
+    en el orden por severidad): un tipo hostil —o incluso un string— rompería esa comparación fuera
+    de la barrera de excepciones."""
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
 def resolver_activo(cruda):
     # En Containerlab todo entra como agent.id 000: el activo se deduce del
     # hostname que decodifica Wazuh, no del id de agente (RF-16).
@@ -74,8 +81,8 @@ def normalizar_alerta(cruda, campaña):
         "origen_ip": _ip_origen(data.get("srcip")),
         "mitre": rule.get("mitre", {}).get("id", []),
         "evento_crudo": cruda.get("full_log"),
-        "nivel_wazuh": rule.get("level"),
-        "regla_id": rule.get("id"),
+        "nivel_wazuh": _entero(rule.get("level")),   # se compara numéricamente (agrupación/severidad)
+        "regla_id": _texto(rule.get("id")),           # clave de Counter en la agrupación -> hashable
     }
 
 def _ip_origen(srcip):

@@ -68,6 +68,19 @@ class TestTolerancia(unittest.TestCase):
         a = adaptador_wazuh.normalizar_alerta({"data": {"srcip": [1, 2, 3]}}, "c")
         self.assertIsNone(a["origen_ip"])
 
+    def test_regla_id_y_nivel_hostiles_no_rompen_la_agrupacion(self):
+        # regla_id se usa como clave de Counter (agrupacion) y nivel_wazuh en comparaciones max/sorted:
+        # un tipo hostil ahi tambien tumba el daemon FUERA de la barrera. Deben quedar hashable/comparable.
+        from prototipo import agrupacion
+        cr = lambda i, rid, lvl: {"id": i, "rule": {"id": rid, "groups": ["authentication_failed"], "level": lvl},
+                                  "predecoder": {"hostname": "web", "program_name": "sshd"},
+                                  "data": {"srcip": "1.2.3.4"}, "timestamp": "2026-01-01T00:00:00Z"}
+        a1 = adaptador_wazuh.normalizar_alerta(cr("1", [1, 2], [9]), "c")
+        a2 = adaptador_wazuh.normalizar_alerta(cr("2", "5760", 10), "c")
+        self.assertTrue(a1["regla_id"] is None or isinstance(a1["regla_id"], str))
+        self.assertTrue(a1["nivel_wazuh"] is None or isinstance(a1["nivel_wazuh"], int))
+        agrupacion.agrupar([a1, a2])   # Counter(regla_id) + max/sorted(nivel_wazuh): no debe lanzar
+
 
 class TestIngerirFichero(unittest.TestCase):
     def test_linea_corrupta_se_salta(self):
