@@ -4,6 +4,7 @@ Este fichero NO importa nada de lab/: la salud se lee como JSONL generico y las 
 llegan desde el perfil. Contiene el estado compartido y la costura de aprobacion (Task 1), los
 lectores de datos (Task 2) y el servidor HTTP (Task 3).
 """
+import glob
 import itertools
 import json
 import os
@@ -489,6 +490,20 @@ def _registros_cacheados(ruta):
         return regs
 
 
+def _registros_periodo(ruta):
+    """Registros de TODAS las trazas del directorio (hay una por ejecución del daemon: trazas-*.jsonl),
+    para que el informe por periodo cubra el histórico y no solo la ejecución en curso. Sin caché: es
+    de uso bajo demanda (el informe), no el sondeo cada 2 s."""
+    carpeta = os.path.dirname(ruta) or "."
+    regs = []
+    for f in sorted(glob.glob(os.path.join(carpeta, "trazas-*.jsonl"))):
+        try:
+            regs.extend(traza.leer_registros(f))
+        except OSError:
+            pass
+    return regs
+
+
 def lista_trazas(ruta, n=None, perfil=None):
     regs = _registros_cacheados(ruta)
     if not regs and not os.path.exists(ruta):
@@ -668,8 +683,10 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/verificar":
                 return self._responder(verificar_traza(s.ruta_traza))
             if ruta == "/api/metricas":
-                return self._responder(metricas(_registros_cacheados(s.ruta_traza),
-                                                desde=_fecha(self.path, "desde"), hasta=_fecha(self.path, "hasta")))
+                desde, hasta = _fecha(self.path, "desde"), _fecha(self.path, "hasta")
+                # El informe (con periodo) agrega TODAS las trazas; las métricas en vivo, la ejecución actual.
+                regs = _registros_periodo(s.ruta_traza) if (desde or hasta) else _registros_cacheados(s.ruta_traza)
+                return self._responder(metricas(regs, desde=desde, hasta=hasta))
             if ruta.startswith("/api/"):
                 return self._responder({"error": "no encontrado"}, 404)
             return self._servir_archivo(ruta)          # el build de React (index.html + assets/)

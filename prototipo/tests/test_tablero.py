@@ -230,6 +230,19 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual((m["desde"], m["hasta"]), ("2026-09-24", "2026-09-30"))  # el periodo viaja en la respuesta
         self.assertIsNone(tablero.metricas(regs)["desde"])                   # sin filtro -> sin periodo
 
+    def test_registros_periodo_agrega_todas_las_trazas_del_directorio(self):
+        # El informe por periodo cubre el histórico (una traza por ejecución), no solo la actual.
+        import tempfile, os, json
+        with tempfile.TemporaryDirectory() as d:
+            for nombre, regs in [("trazas-2026-10-05-1000.jsonl", [{"id_decision": "a"}, {"id_decision": "b"}]),
+                                 ("trazas-2026-10-06-1000.jsonl", [{"id_decision": "c"}])]:
+                with open(os.path.join(d, nombre), "w", encoding="utf-8") as f:
+                    for r in regs:
+                        f.write(json.dumps(r) + "\n")
+            open(os.path.join(d, "otro.jsonl"), "w").close()        # un fichero que no es traza no entra
+            regs = tablero._registros_periodo(os.path.join(d, "trazas-2026-10-06-1000.jsonl"))
+            self.assertEqual(sorted(r.get("id_decision") for r in regs), ["a", "b", "c"])
+
     def test_metricas_override_cuenta_reclasificar_y_sin_resueltos_no_divide(self):
         regs = [{"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "reclasificar"},
                 {"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "aprobar"}]
