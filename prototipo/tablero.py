@@ -682,6 +682,9 @@ class _Manejador(BaseHTTPRequestHandler):
                 return self._responder(d) if d is not None else self._responder({"error": "no encontrada"}, 404)
             if ruta == "/api/verificar":
                 return self._responder(verificar_traza(s.ruta_traza))
+            if ruta == "/api/contenciones":
+                from prototipo import contenciones
+                return self._responder(contenciones.activas(_registros_cacheados(s.ruta_traza), s.catalogo))
             if ruta == "/api/metricas":
                 desde, hasta = _fecha(self.path, "desde"), _fecha(self.path, "hasta")
                 # El informe (con periodo) agrega TODAS las trazas; las métricas en vivo, la ejecución actual.
@@ -738,7 +741,7 @@ def _vista_pendiente(p):
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
                    puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
-                   async_web=False, perfil=None):
+                   async_web=False, perfil=None, catalogo=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
     fichero_en_contenedor}. `async_web`
     activa la cola de aprobación no bloqueante. Guarda la config en atributos del servidor."""
@@ -751,4 +754,5 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.salud_ejecutar = salud_ejecutar
     srv.async_web = async_web
     srv.perfil = perfil or {"activos": activos or {}, "topologia": topologia or {}}
+    srv.catalogo = catalogo or {}        # para reconstruir las contenciones activas (#4)
     return srv

@@ -220,6 +220,10 @@ tail -n0 -F /ruta/al/alerts.json \
 - La respuesta del analista en terminal se lee de `/dev/tty` (no de stdin), para no consumir alertas del *pipe*.
 - Un cambio en el backend requiere **reiniciar el daemon**; el `dist` del visor se sirve por petición (basta
   `npm run build`).
+- **`--salida` estable.** El daemon reconstruye su estado (supresión y contenciones activas) de la traza que
+  retoma al arrancar. Para que un reinicio recupere ese estado, usa un `--salida` **fijo** por cliente (p. ej.
+  `run/trazas-<cliente>.jsonl`), no un nombre por arranque; así la traza de varias sesiones es una sola cadena y
+  el reinicio no «olvida» qué estaba bloqueado.
 
 ---
 

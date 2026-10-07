@@ -9,11 +9,12 @@ import { Red } from "@/components/Red"
 import { Decisiones } from "@/components/Decisiones"
 import { Aprobaciones } from "@/components/Aprobaciones"
 import { Trazas } from "@/components/Trazas"
+import { Contenciones } from "@/components/Contenciones"
 import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas" | "incidente"
+type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas" | "contenciones" | "incidente"
 
 const NAV: { id: Vista; nombre: string }[] = [
   { id: "panel", nombre: "Panel" },
@@ -22,6 +23,7 @@ const NAV: { id: Vista; nombre: string }[] = [
   { id: "red", nombre: "Red" },
   { id: "decisiones", nombre: "Decisiones" },
   { id: "aprobaciones", nombre: "Aprobaciones" },
+  { id: "contenciones", nombre: "Contenciones activas" },
   { id: "trazas", nombre: "Trazas" },
 ]
 
@@ -97,6 +99,7 @@ export default function App() {
           )}
           {vista === "aprobaciones" && <Aprobaciones />}
           {vista === "trazas" && <Trazas />}
+          {vista === "contenciones" && <Contenciones />}
           {vista === "incidente" && incidente && (
             <VistaIncidente decision={incidente} onVolver={() => setVista("decisiones")} />
           )}

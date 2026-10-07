@@ -127,6 +127,25 @@ class MemoriaDecisiones:
         self.suprimidas = 0
         self.max_entradas = max_entradas
 
+    @classmethod
+    def desde_traza(cls, registros, perfil=None, max_entradas=MAX_ENTRADAS):
+        """Reconstruye la memoria reproduciendo las decisiones cerradas de la traza (#4): tras
+        reiniciar, la repetición de un ataque ya decidido sigue suprimida. Excluye las revertidas
+        (vuelven a ser decidibles) y las que no se pueden re-clavar (sin `contexto`, falta
+        origen_ip/familia). La fuente es la propia traza (RF-09), no un estado paralelo."""
+        mem = cls(perfil, max_entradas)
+        revertidas = {r.get("id_decision_revertida") for r in registros
+                      if r.get("tipo") == "reversion" and r.get("exito")}
+        for reg in registros:
+            if reg.get("tipo") not in (None, "decision") or reg.get("id_decision") in revertidas:
+                continue
+            ctx = reg.get("contexto") or {}
+            ip, familia = ctx.get("origen_ip"), ctx.get("familia")
+            if ip is None or familia is None:
+                continue
+            mem.recordar((ip, reg.get("activo"), familia), reg)
+        return mem
+
     def buscar(self, clave):
         ip, _activo, familia = clave
         if ip is None:
@@ -412,7 +431,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
-             resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120):
+             resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -449,7 +468,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                     # Fichero ya cerrado en el apagado (un hilo del agente aprobado justo al salir):
                     # ese registro se pierde, pero la cadena no se corrompe (falla antes de escribir).
                     pass
-    memoria = MemoriaDecisiones(perfil)
+    memoria = memoria if memoria is not None else MemoriaDecisiones(perfil)
     _resumen_lock = threading.Lock()
     def al_resolver(r, alerta):
         # Lo que el analista resuelve en la web se recuerda y se cuenta igual que en la terminal.
@@ -799,9 +818,10 @@ def lineas_avisos_red(perfil):
 
 _SALUD_DEF = {"contenedor": "clab-banco-mdr-siem", "fichero_en_contenedor": "/var/log/banco/salud.jsonl"}
 
-def construir_web(cfg, perfil):
+def construir_web(cfg, perfil, catalogo=None):
     """Arma el tablero para --web: EstadoTablero, el servidor (ligado a 127.0.0.1, SIN arrancar el
-    hilo), y los `escribir`/`leer` web que se inyectan en ejecutar. Las dependencias salen del perfil."""
+    hilo), y los `escribir`/`leer` web que se inyectan en ejecutar. Las dependencias salen del perfil.
+    El `catalogo` sirve para reconstruir las contenciones activas de la traza (/api/contenciones)."""
     from prototipo import tablero
     estado = tablero.EstadoTablero()
     activos = perfil.get("activos") or {}
@@ -809,7 +829,8 @@ def construir_web(cfg, perfil):
     # Cola de aprobación no bloqueante salvo en modo agente (que aprueba por paso, bloqueante).
     async_web = not cfg.get("agente")
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
-                                      puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil)
+                                      puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
+                                      catalogo=catalogo)
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
@@ -880,7 +901,7 @@ def main(argv):
     servidor, estado_web = None, None
     lector_incidente = None
     if cfg["web"]:
-        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil)
+        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo)
         for linea in lineas_avisos_red(perfil):
             print(linea)
         if not cfg["agente"]:
@@ -904,6 +925,9 @@ def main(argv):
         except FileNotFoundError:
             previos = []
         n_previos, linaje = len(previos), traza.linaje_de(previos)
+        # #4: al reiniciar, la supresión se reconstruye de la traza que se retoma (para que
+        # persista, en producción el daemon usa un --salida estable; ver integracion-en-produccion.md).
+        memoria = MemoriaDecisiones.desde_traza(previos, perfil)
         with traza.abrir_append(cfg["salida"]) as traza_f:   # permisos 0600 (integridad de la traza)
             ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                      justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
@@ -912,7 +936,7 @@ def main(argv):
                      hash_previo=hash_previo, n_previos=n_previos,
                      nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
                      estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
-                     lector_incidente=lector_incidente)
+                     lector_incidente=lector_incidente, memoria=memoria)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))
