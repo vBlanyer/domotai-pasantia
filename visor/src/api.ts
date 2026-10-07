@@ -123,7 +123,9 @@ export const RedSchema = z.object({
   avisos: z.array(z.string()).optional(),
 })
 export const ContencionSchema = z.object({
-  id_decision: z.string(), ip: z.string().nullable(), activo: z.string().nullable(),
+  id_decision: z.string(), objetivo: z.string().nullable(),           // IP, cuenta o servicio bloqueado
+  ip: z.string().nullable().optional(), usuario: z.string().nullable().optional(),
+  servicio: z.string().nullable().optional(), activo: z.string().nullable(),
   nodo: z.string().nullable(), accion_id: z.string(), ts: z.string().nullable(),
   via_escalada: z.boolean().optional(),
 })

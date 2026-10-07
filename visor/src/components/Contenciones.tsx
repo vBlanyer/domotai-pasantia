@@ -20,14 +20,14 @@ export function Contenciones() {
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead>Origen bloqueado</TableHead><TableHead>Activo</TableHead>
+            <TableHead>Objetivo bloqueado</TableHead><TableHead>Activo</TableHead>
             <TableHead>Dónde</TableHead><TableHead>Acción</TableHead><TableHead>Decisión</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {c.map((x) => (
-            <TableRow key={`${x.id_decision}:${x.ip}:${x.nodo}`}>
-              <TableCell className="font-mono text-xs">{x.ip ?? "—"}</TableCell>
+            <TableRow key={`${x.id_decision}:${x.objetivo}:${x.nodo}`}>
+              <TableCell className="font-mono text-xs">{x.objetivo ?? x.ip ?? "—"}</TableCell>
               <TableCell>{x.activo ?? "—"}</TableCell>
               <TableCell className="text-muted-foreground">
                 {x.nodo ?? "—"}{x.via_escalada ? " (escalada)" : ""}

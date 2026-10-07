@@ -805,6 +805,16 @@ class TestMemoriaDesdeTraza(unittest.TestCase):
         m = stream.MemoriaDecisiones.desde_traza([reg])
         self.assertEqual(len(m._decididas), 0)
 
+    def test_reversion_por_indice_no_descarta_la_otra_sesion(self):
+        # Traza multi-sesión (--salida estable): "s1" se repite; la reversión apunta por índice al
+        # s1 de la 2ª sesión. El s1 de la 1ª mantiene su supresión.
+        regs = [self._dec("s1", "198.51.100.10", "web"),                      # índice 0: vive
+                self._dec("s1", "203.0.113.9", "db"),                          # índice 1: revertido
+                {"tipo": "reversion", "id_decision_revertida": "s1", "indice_revertido": 1, "exito": True}]
+        m = stream.MemoriaDecisiones.desde_traza(regs)
+        self.assertIsNotNone(m.buscar(("198.51.100.10", "web", "acceso_credenciales")))
+        self.assertIsNone(m.buscar(("203.0.113.9", "db", "acceso_credenciales")))
+
 
 class TestSupresionEnVivo(unittest.TestCase):
     def _correr(self, lineas, **kw):

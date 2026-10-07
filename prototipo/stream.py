@@ -133,11 +133,11 @@ class MemoriaDecisiones:
         reiniciar, la repetición de un ataque ya decidido sigue suprimida. Excluye las revertidas
         (vuelven a ser decidibles) y las que no se pueden re-clavar (sin `contexto`, falta
         origen_ip/familia). La fuente es la propia traza (RF-09), no un estado paralelo."""
+        from prototipo import contenciones
         mem = cls(perfil, max_entradas)
-        revertidas = {r.get("id_decision_revertida") for r in registros
-                      if r.get("tipo") == "reversion" and r.get("exito")}
-        for reg in registros:
-            if reg.get("tipo") not in (None, "decision") or reg.get("id_decision") in revertidas:
+        rev_idx, rev_id = contenciones.revertidas(registros)   # por índice (único en traza multi-sesión)
+        for i, reg in enumerate(registros):
+            if reg.get("tipo") not in (None, "decision") or i in rev_idx or reg.get("id_decision") in rev_id:
                 continue
             ctx = reg.get("contexto") or {}
             ip, familia = ctx.get("origen_ip"), ctx.get("familia")
