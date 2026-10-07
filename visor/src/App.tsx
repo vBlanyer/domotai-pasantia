@@ -9,22 +9,20 @@ import { Red } from "@/components/Red"
 import { Decisiones } from "@/components/Decisiones"
 import { Aprobaciones } from "@/components/Aprobaciones"
 import { Trazas } from "@/components/Trazas"
-import { Informe } from "@/components/Informe"
 import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas" | "informe" | "incidente"
+type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas" | "incidente"
 
 const NAV: { id: Vista; nombre: string }[] = [
   { id: "panel", nombre: "Panel" },
-  { id: "metricas", nombre: "Métricas" },
+  { id: "metricas", nombre: "Métricas e informe" },
   { id: "salud", nombre: "Estado de servicios" },
   { id: "red", nombre: "Red" },
   { id: "decisiones", nombre: "Decisiones" },
   { id: "aprobaciones", nombre: "Aprobaciones" },
   { id: "trazas", nombre: "Trazas" },
-  { id: "informe", nombre: "Informe" },
 ]
 
 export default function App() {
@@ -99,7 +97,6 @@ export default function App() {
           )}
           {vista === "aprobaciones" && <Aprobaciones />}
           {vista === "trazas" && <Trazas />}
-          {vista === "informe" && <Informe />}
           {vista === "incidente" && incidente && (
             <VistaIncidente decision={incidente} onVolver={() => setVista("decisiones")} />
           )}
