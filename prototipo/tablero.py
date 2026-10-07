@@ -385,10 +385,18 @@ def estado_red(perfil, registros, pendientes=(), salud=None):
                              if d in r["nodos"]],
             "zonas": [{"nombre": z, "nodos": ms} for z, ms in r["zonas"]], "avisos": r["avisos"] + extra_avisos}
 
-def metricas(regs):
+def metricas(regs, desde=None, hasta=None):
     """Indicadores del periodo (vista SLA) calculados de la traza: tasa de FP, % automatizado, MTTR
     (tiempo medio de respuesta humana, de recibido_en/resuelto_en), ruido evitado (suprimidas), y
-    distribuciones por clase, veredicto, día, activo y técnica MITRE."""
+    distribuciones por clase, veredicto, día, activo y técnica MITRE.
+
+    Con `desde`/`hasta` (YYYY-MM-DD) acota al periodo por el día del `timestamp` (para el informe
+    exportable). Sin ellos, sobre todo el fichero (comportamiento de siempre)."""
+    if desde or hasta:
+        def _en_rango(r):
+            dia = (r.get("timestamp") or "")[:10]
+            return bool(dia) and (not desde or dia >= desde) and (not hasta or dia <= hasta)
+        regs = [r for r in regs if _en_rango(r)]
     # Ni los resúmenes de supresión ni el eco del login del propio MDR son decisiones.
     dec = [r for r in regs if r.get("tipo") not in _NO_DECISIONES]
     total = len(dec)
@@ -433,6 +441,7 @@ def metricas(regs):
         "por_clase": por_clase, "veredictos": veredictos,
         "por_dia": [{"dia": d[5:], "n": n} for d, n in sorted(por_dia.items())],
         "top_activos": ranking(activos, "nombre"), "mitre": ranking(mitre, "tecnica"),
+        "desde": desde, "hasta": hasta,
     }
 
 
@@ -449,6 +458,14 @@ def _limite(path):
     """`?limite=N` (entero > 0) de la consulta, o la cota por defecto si falta o no es válido."""
     n = _entero(path, "limite")
     return n if n is not None and n > 0 else LIMITE_TRAZAS
+
+
+def _fecha(path, nombre):
+    """El parámetro `nombre` de la consulta como fecha YYYY-MM-DD válida (solo dígitos y guiones), o
+    None. Se usa para comparar con `timestamp[:10]`; no llega a ningún comando."""
+    v = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query).get(nombre, [""])[0]
+    p = v.split("-")
+    return v if len(p) == 3 and len(p[0]) == 4 and all(t.isdigit() for t in p) else None
 
 
 _cache_traza = {"ruta": None, "firma": None, "regs": []}
@@ -651,7 +668,8 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/verificar":
                 return self._responder(verificar_traza(s.ruta_traza))
             if ruta == "/api/metricas":
-                return self._responder(metricas(_registros_cacheados(s.ruta_traza)))
+                return self._responder(metricas(_registros_cacheados(s.ruta_traza),
+                                                desde=_fecha(self.path, "desde"), hasta=_fecha(self.path, "hasta")))
             if ruta.startswith("/api/"):
                 return self._responder({"error": "no encontrado"}, 404)
             return self._servir_archivo(ruta)          # el build de React (index.html + assets/)

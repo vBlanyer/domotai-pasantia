@@ -149,6 +149,8 @@ export const MetricasSchema = z.object({
   por_dia: z.array(z.object({ dia: z.string(), n: z.number() })),
   top_activos: z.array(z.object({ nombre: z.string(), n: z.number() })),
   mitre: z.array(z.object({ tecnica: z.string(), n: z.number() })),
+  // periodo del informe (null = todo el histórico)
+  desde: z.string().nullable().optional(), hasta: z.string().nullable().optional(),
 })
 
 export type Salud = z.infer<typeof SaludSchema>
@@ -179,7 +181,13 @@ export const getTrazas = () => pedir("/api/trazas", z.array(DecisionSchema))
 export const getTrazaDetalle = (id: string, indice?: number | null) =>
   pedir(`/api/traza/${encodeURIComponent(id)}${indice != null ? `?indice=${indice}` : ""}`, DetalleSchema)
 export const getVerificacion = () => pedir("/api/verificar", VerificacionSchema)
-export const getMetricas = () => pedir("/api/metricas", MetricasSchema)
+export const getMetricas = (p?: { desde?: string; hasta?: string }) => {
+  const q = new URLSearchParams()
+  if (p?.desde) q.set("desde", p.desde)
+  if (p?.hasta) q.set("hasta", p.hasta)
+  const qs = q.toString()
+  return pedir(`/api/metricas${qs ? `?${qs}` : ""}`, MetricasSchema)
+}
 export const getRed = () => pedir("/api/red", RedSchema)
 
 // Nombre del operador que aprueba (no repudio): se guarda por navegador y viaja en /api/aprobar.

@@ -218,6 +218,18 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(m["override"], 1)                         # 1 rechazar (corrigió al motor)
         self.assertEqual(m["tasa_override"], round(1 / 2, 3))
 
+    def test_metricas_filtra_por_rango_de_fechas_para_el_informe(self):
+        regs = [
+            {"id_decision": "s1", "clase": "vp_intento_acceso", "requiere_humano": False, "timestamp": "2026-09-23T09:00:00Z"},
+            {"id_decision": "s2", "clase": "vp_intento_acceso", "requiere_humano": False, "timestamp": "2026-09-24T10:00:00Z"},
+            {"id_decision": "s3", "clase": "no_soportada", "timestamp": "2026-10-05T10:00:00Z"},
+        ]
+        self.assertEqual(tablero.metricas(regs)["total"], 3)                 # sin filtro: todo (intacto)
+        m = tablero.metricas(regs, desde="2026-09-24", hasta="2026-09-30")
+        self.assertEqual(m["total"], 1)                                      # solo s2 (24 sep)
+        self.assertEqual((m["desde"], m["hasta"]), ("2026-09-24", "2026-09-30"))  # el periodo viaja en la respuesta
+        self.assertIsNone(tablero.metricas(regs)["desde"])                   # sin filtro -> sin periodo
+
     def test_metricas_override_cuenta_reclasificar_y_sin_resueltos_no_divide(self):
         regs = [{"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "reclasificar"},
                 {"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "aprobar"}]
