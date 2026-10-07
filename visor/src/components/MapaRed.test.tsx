@@ -34,6 +34,17 @@ describe("MapaRed", () => {
     fireEvent.keyDown(screen.getByRole("button", { name: /atm/ }), { key: " " })
     expect(sel.mock.calls.map((c) => c[0])).toEqual(["web-banking", "taquilla", "atm"])
   })
+  it("superpone la flecha del ataque y las aristas de cascada de un incidente", () => {
+    const { container } = render(
+      <MapaRed red={RED} seleccionado={null} onSeleccionar={() => {}} dependencias={false}
+        incidente={{ origen: "internet", activo: "web-banking", cascada: ["core-db"] }} />)
+    expect(container.querySelectorAll("[data-ataque]").length).toBe(1)             // origen -> activo
+    expect(container.querySelectorAll("[data-cascada-incidente]").length).toBe(1)  // origen -> dependiente
+  })
+  it("sin incidente no dibuja la flecha de ataque", () => {
+    const { container } = render(<MapaRed red={RED} seleccionado={null} onSeleccionar={() => {}} dependencias={false} />)
+    expect(container.querySelectorAll("[data-ataque]").length).toBe(0)
+  })
   it("marca el seleccionado y puede ocultar las dependencias", () => {
     const { container, rerender } = render(<MapaRed red={RED} seleccionado="web-banking" onSeleccionar={() => {}} dependencias />)
     expect(screen.getByRole("button", { name: /web-banking/ })).toHaveAttribute("aria-pressed", "true")

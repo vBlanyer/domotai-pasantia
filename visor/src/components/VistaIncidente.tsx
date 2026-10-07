@@ -38,6 +38,8 @@ export function VistaIncidente({ decision, onVolver }: { decision: Decision; onV
   ])]
   const pendiente = !!decision.requiere_humano && !decision.veredicto_humano
   const contuvo = det?.escalada?.dispositivo_ejecutor ?? (det?.ejecucion?.exito ? decision.activo : null)
+  const origenNodo = decision.origen_ip
+    ? (red.nodos.find((n) => n.ip === decision.origen_ip)?.nombre ?? null) : null
   const mitre = decision.tecnica_mitre ?? det?.justificacion_estructurada?.tecnica_mitre ?? []
   const [desenlace, tono] = pendiente
     ? ["Pendiente de aprobación", "text-amber-600 dark:text-amber-400"]
@@ -66,7 +68,8 @@ export function VistaIncidente({ decision, onVolver }: { decision: Decision; onV
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <div className="rounded-lg border border-border bg-card p-3">
-          <MapaRed red={redInc} seleccionado={null} onSeleccionar={() => {}} dependencias={true} />
+          <MapaRed red={redInc} seleccionado={null} onSeleccionar={() => {}} dependencias={false}
+            incidente={{ origen: origenNodo, activo: decision.activo, cascada }} />
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             {LEYENDA.map((k) => <span key={k}>{ESTADO_VISUAL[k].icono || "○"} {ESTADO_VISUAL[k].texto}</span>)}
           </div>
