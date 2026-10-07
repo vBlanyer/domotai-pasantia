@@ -49,6 +49,10 @@ case "${1:-up}" in
       docker exec $P-$n sh -c 'iptables -A INPUT -i eth0 -p tcp -j DROP'
       CMD=$(red servicio $n)
       if [ -n "$CMD" ]; then docker exec -d $P-$n sh -c "$CMD"; fi
+      # La imagen banco-nodo:1 puede traer una reenviador.py anterior (sin --auth/--telnet): se copia
+      # la actual a CADA nodo antes de arrancarla, o un flag nuevo mataría el reenviador al arrancar
+      # (argparse: "unrecognized arguments"). Mismo criterio que el señuelo telnet de atm.
+      docker cp "$HERE/reenviador.py" $P-$n:/opt/banco/reenviador.py 2>/dev/null || true
       docker exec -d $P-$n python3 /opt/banco/reenviador.py --nodo $n --destino "$W:514" \
         --sshd /var/log/banco/sshd.log --web /var/log/banco/access.log --auth /var/log/banco/auth.log
     done
