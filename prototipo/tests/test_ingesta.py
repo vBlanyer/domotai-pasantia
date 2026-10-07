@@ -61,14 +61,16 @@ class TestTolerancia(unittest.TestCase):
         self.assertEqual(a["familia"], "abuso_de_cuenta")
         self.assertEqual(a["usuario"], "backdoor")
 
-    def test_abuso_de_sudo_es_abuso_de_cuenta_y_usa_srcuser_si_no_hay_dstuser(self):
+    def test_abuso_de_sudo_bloquea_al_invocador_no_al_objetivo_root(self):
+        # En un evento de sudo, dstuser es el OBJETIVO de la escalada (root) y srcuser QUIEN abusa. La
+        # cuenta a bloquear es la que abusa, no root (bloquear root dejaría fuera al admin legítimo).
         cruda = {"id": "s1", "timestamp": "t",
                  "rule": {"id": "5402", "groups": ["syslog", "sudo"], "level": 10, "mitre": {"id": ["T1548"]}},
                  "predecoder": {"hostname": "web-banking", "program_name": "sudo"},
-                 "data": {"srcuser": "www-data"}}
+                 "data": {"srcuser": "www-data", "dstuser": "root"}}
         a = adaptador_wazuh.normalizar_alerta(cruda, "c")
         self.assertEqual(a["familia"], "abuso_de_cuenta")
-        self.assertEqual(a["usuario"], "www-data")
+        self.assertEqual(a["usuario"], "www-data")           # el invocador, NO root
 
     def test_un_fallo_de_autenticacion_sigue_siendo_acceso_credenciales(self):
         # Regresión: la familia nueva no debe robarle las alertas a acceso_credenciales (canónico).

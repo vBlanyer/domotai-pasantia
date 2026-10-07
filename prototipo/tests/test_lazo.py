@@ -281,6 +281,17 @@ class TestEscaladaPorDefecto(unittest.TestCase):
         self.assertEqual(r["escalada"]["orden_efectiva"]["accion_id"], "BLOQUEAR_IP_FIREWALL")
         self.assertEqual(len(preguntas), 1)                       # el perfil exige humano en el cortafuegos
 
+    def test_un_bloqueo_de_cuenta_fallido_no_escala_a_bloqueo_de_ip(self):
+        # La escalada contiene el ORIGEN subiendo por la cadena (bloquear IP). Para una acción sobre
+        # CUENTA (FORZAR_CAMBIO_PASS) eso sería una respuesta cruzada sin sentido: no se escala.
+        a = {"id_alerta": "u2", "activo": "objetivo-vuln", "servicio": "ssh", "familia": "abuso_de_cuenta",
+             "usuario": "backdoor", "origen_ip": "203.0.113.9", "mitre": ["T1136"], "timestamp": "t", "rafaga_60s": 0}
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), self._perfil_con_topologia(), "prueba", CAT,
+                               lambda ip, c: (1, ""), "u2", "t", leer=lambda *_: "1")   # todo falla
+        self.assertEqual(r["orden"]["accion_id"], "FORZAR_CAMBIO_PASS")
+        self.assertFalse(r["ejecucion"]["exito"])
+        self.assertIsNone(r["escalada"])                 # no cruza a bloquear la IP
+
     def test_sin_topologia_no_hay_a_donde_escalar(self):
         r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),
                                "prueba", CAT, self.HostCaido(), "d1", "t")

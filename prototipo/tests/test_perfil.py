@@ -47,10 +47,19 @@ class TestFiltro(unittest.TestCase):
         r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
         self.assertFalse(r["requiere_humano"])
 
+    def test_bloquear_cuenta_sin_usuario_es_veto_duro(self):
+        # Simétrico al veto "sin IP": si no hay cuenta que bloquear, no hay acción (no se gasta una
+        # decisión humana sobre la cuenta "None"; falla-cerrado antes).
+        r = perfil.filtrar(perfil_fx(), "FORZAR_CAMBIO_PASS", {"usuario": None}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+        self.assertTrue(r["requiere_humano"])
+
     def test_accion_nunca_automatica_siempre_requiere_humano(self):
-        # #10: REINICIAR/AISLAR_NODO no se auto-ejecutan ni con un perfil permisivo (guard del catálogo)
+        # #10: REINICIAR/AISLAR_NODO no se auto-ejecutan ni con un perfil permisivo (guard del catálogo).
+        # FORZAR_CAMBIO_PASS (bloquear una cuenta) es igual de destructivo: suelo duro de humano.
         p = perfil_fx(); p["continuidad"]["impacto_alcanza_servicio"] = "automatica"   # perfil laxo
-        for accion, params in (("AISLAR_NODO", {"ip_nodo": "1.2.3.4"}), ("REINICIAR_NODO", {"ip_nodo": "1.2.3.4"})):
+        for accion, params in (("AISLAR_NODO", {"ip_nodo": "1.2.3.4"}), ("REINICIAR_NODO", {"ip_nodo": "1.2.3.4"}),
+                               ("FORZAR_CAMBIO_PASS", {"usuario": "backdoor"})):
             r = perfil.filtrar(p, accion, params, CAT, "objetivo-vuln", "ssh", 1.0)
             self.assertTrue(r["requiere_humano"], accion)
 

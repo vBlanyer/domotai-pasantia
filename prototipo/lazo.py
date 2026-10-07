@@ -103,7 +103,11 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
     escalada = None
     parcial = {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
                "orden": o, "ejecucion": ejecucion, "verificacion": verif}
-    if not (ejecucion.get("exito") and verif.get("verificado")) and perfil.get("topologia"):
+    # La escalada sube por la cadena de contención bloqueando el ORIGEN (su IP): solo tiene sentido para
+    # acciones sobre el origen. Una acción sobre CUENTA que falla no se escala a bloquear una IP (sería
+    # una respuesta cruzada); la traza la deja como está (exito=False).
+    sobre_cuenta = o.get("accion_id") in ordenm._ACCIONES_SOBRE_CUENTA
+    if not (ejecucion.get("exito") and verif.get("verificado")) and perfil.get("topologia") and not sobre_cuenta:
         desde = o.get("nodo_objetivo")
         if diferir_escalada is None:
             escalada = _escalar(alerta, decision, perfil, catalogo, ejecutor, leer, timestamp, desde,
