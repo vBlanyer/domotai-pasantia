@@ -9,9 +9,12 @@ import { Red } from "@/components/Red"
 import { Decisiones } from "@/components/Decisiones"
 import { Aprobaciones } from "@/components/Aprobaciones"
 import { Trazas } from "@/components/Trazas"
+import { Informe } from "@/components/Informe"
+import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
+import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas"
+type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas" | "informe" | "incidente"
 
 const NAV: { id: Vista; nombre: string }[] = [
   { id: "panel", nombre: "Panel" },
@@ -21,21 +24,23 @@ const NAV: { id: Vista; nombre: string }[] = [
   { id: "decisiones", nombre: "Decisiones" },
   { id: "aprobaciones", nombre: "Aprobaciones" },
   { id: "trazas", nombre: "Trazas" },
+  { id: "informe", nombre: "Informe" },
 ]
 
 export default function App() {
   const [vista, setVista] = useState<Vista>("panel")
   const [equipo, setEquipo] = useState<string | null>(null)
+  const [incidente, setIncidente] = useState<Decision | null>(null)
   const { oscuro, alternar } = useTema()
   const salud = useSondeo(getSalud)
   const pend = useSondeo(getPendientes)
   const conectado = salud !== undefined && !("error" in salud)
   const nPend = Array.isArray(pend) ? pend.length : 0
-  const titulo = NAV.find((n) => n.id === vista)!.nombre
+  const titulo = vista === "incidente" ? "Incidente" : NAV.find((n) => n.id === vista)!.nombre
 
   return (
     <div className="flex min-h-screen bg-[#f7f7f5] text-foreground dark:bg-[#0d0d0d]">
-      <aside className="flex w-56 shrink-0 flex-col bg-[#0f1e33] text-slate-300">
+      <aside className="flex w-56 shrink-0 flex-col bg-[#0f1e33] text-slate-300 print:hidden">
         <div className="flex items-center gap-2.5 px-5 py-5">
           <div className="grid size-8 place-items-center rounded-md bg-cyan-500/20 text-sm font-bold text-cyan-300">M</div>
           <div className="leading-tight">
@@ -66,7 +71,7 @@ export default function App() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-card px-8 py-4">
+        <header className="flex items-center justify-between border-b border-border bg-card px-8 py-4 print:hidden">
           <h1 className="font-heading text-lg font-semibold">{titulo}</h1>
           <div className="flex items-center gap-4 text-sm">
             <span className="flex items-center gap-2">
@@ -83,14 +88,21 @@ export default function App() {
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto px-8 py-6">
+        <main className="flex-1 overflow-auto px-8 py-6 print:overflow-visible print:p-0">
           {vista === "panel" && <Dashboard conectado={conectado} />}
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}
           {vista === "red" && <Red onVerDecisiones={(n) => { setEquipo(n); setVista("decisiones") }} />}
-          {vista === "decisiones" && <Decisiones equipo={equipo} onQuitarEquipo={() => setEquipo(null)} />}
+          {vista === "decisiones" && (
+            <Decisiones equipo={equipo} onQuitarEquipo={() => setEquipo(null)}
+              onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }} />
+          )}
           {vista === "aprobaciones" && <Aprobaciones />}
           {vista === "trazas" && <Trazas />}
+          {vista === "informe" && <Informe />}
+          {vista === "incidente" && incidente && (
+            <VistaIncidente decision={incidente} onVolver={() => setVista("decisiones")} />
+          )}
         </main>
       </div>
     </div>
