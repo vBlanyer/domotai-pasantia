@@ -9,9 +9,11 @@ import { Red } from "@/components/Red"
 import { Decisiones } from "@/components/Decisiones"
 import { Aprobaciones } from "@/components/Aprobaciones"
 import { Trazas } from "@/components/Trazas"
+import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
+import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas"
+type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas" | "incidente"
 
 const NAV: { id: Vista; nombre: string }[] = [
   { id: "panel", nombre: "Panel" },
@@ -26,12 +28,13 @@ const NAV: { id: Vista; nombre: string }[] = [
 export default function App() {
   const [vista, setVista] = useState<Vista>("panel")
   const [equipo, setEquipo] = useState<string | null>(null)
+  const [incidente, setIncidente] = useState<Decision | null>(null)
   const { oscuro, alternar } = useTema()
   const salud = useSondeo(getSalud)
   const pend = useSondeo(getPendientes)
   const conectado = salud !== undefined && !("error" in salud)
   const nPend = Array.isArray(pend) ? pend.length : 0
-  const titulo = NAV.find((n) => n.id === vista)!.nombre
+  const titulo = vista === "incidente" ? "Incidente" : NAV.find((n) => n.id === vista)!.nombre
 
   return (
     <div className="flex min-h-screen bg-[#f7f7f5] text-foreground dark:bg-[#0d0d0d]">
@@ -88,9 +91,15 @@ export default function App() {
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}
           {vista === "red" && <Red onVerDecisiones={(n) => { setEquipo(n); setVista("decisiones") }} />}
-          {vista === "decisiones" && <Decisiones equipo={equipo} onQuitarEquipo={() => setEquipo(null)} />}
+          {vista === "decisiones" && (
+            <Decisiones equipo={equipo} onQuitarEquipo={() => setEquipo(null)}
+              onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }} />
+          )}
           {vista === "aprobaciones" && <Aprobaciones />}
           {vista === "trazas" && <Trazas />}
+          {vista === "incidente" && incidente && (
+            <VistaIncidente decision={incidente} onVolver={() => setVista("decisiones")} />
+          )}
         </main>
       </div>
     </div>

@@ -216,7 +216,9 @@ function Detalles({ id, indice }: { id: string; indice?: number | null }) {
 // horizontal. overflow-wrap parte también lo que no tiene espacios (hashes, comandos, URLs).
 const FILA_ANCHA = "whitespace-normal [overflow-wrap:anywhere]"
 
-export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: boolean; onToggle: () => void }) {
+export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
+  d: Decision; abierto: boolean; onToggle: () => void; onVerIncidente?: (d: Decision) => void
+}) {
   if (d.tipo === "actividad_propia")
     return (
       <TableRow className="text-muted-foreground">
@@ -306,6 +308,12 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
       {abierto && d.id_decision && (
         <TableRow className="hover:bg-transparent">
           <TableCell colSpan={COLS} className={`${FILA_ANCHA} bg-muted/30 p-4`}>
+            {onVerIncidente && (d.tipo ?? "decision") === "decision" && (
+              <button onClick={() => onVerIncidente(d)}
+                className="mb-3 flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                ↗ Ver grafo del incidente
+              </button>
+            )}
             <Detalles id={d.id_decision} indice={d.indice} />
           </TableCell>
         </TableRow>
@@ -314,7 +322,9 @@ export function FilaDecision({ d, abierto, onToggle }: { d: Decision; abierto: b
   )
 }
 
-export function Decisiones({ equipo = null, onQuitarEquipo }: { equipo?: string | null; onQuitarEquipo?: () => void } = {}) {
+export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
+  equipo?: string | null; onQuitarEquipo?: () => void; onVerIncidente?: (d: Decision) => void
+} = {}) {
   const d = useSondeo(getDecisiones)
   const [abierto, setAbierto] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>({ texto: "", clase: "" })
@@ -344,6 +354,7 @@ export function Decisiones({ equipo = null, onQuitarEquipo }: { equipo?: string 
                   d={x}
                   abierto={abierto === clave}
                   onToggle={() => setAbierto((a) => (a === clave ? null : clave))}
+                  onVerIncidente={onVerIncidente}
                 />
               )
             })}
