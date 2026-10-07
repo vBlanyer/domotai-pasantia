@@ -779,6 +779,43 @@ class TestMemoriaDecisiones(unittest.TestCase):
         self.assertEqual(stream._ordenar_por_severidad([bajo, alto]), [alto, bajo])
 
 
+class TestMemoriaDesdeTraza(unittest.TestCase):
+    """#4: al reiniciar, la memoria de supresión se reconstruye de la traza (la repetición de un
+    ataque ya decidido sigue suprimida). Una decisión revertida vuelve a ser decidible."""
+    def _dec(self, id_decision, ip, activo, familia="acceso_credenciales"):
+        return {"tipo": "decision", "id_decision": id_decision, "activo": activo,
+                "orden": {"accion_id": "BLOQUEAR_IP", "nodo_objetivo": activo, "params": {"ip": ip}},
+                "ejecucion": {"exito": True}, "verificacion": {"verificado": True},
+                "clase": "vp_intento_acceso", "veredicto_humano": None,
+                "contexto": {"origen_ip": ip, "familia": familia}}
+
+    def test_reproduce_una_decision_cerrada(self):
+        m = stream.MemoriaDecisiones.desde_traza([self._dec("s1", "198.51.100.10", "web")])
+        self.assertEqual(m.buscar(("198.51.100.10", "web", "acceso_credenciales"))["id_decision"], "s1")
+
+    def test_excluye_las_revertidas(self):
+        regs = [self._dec("s2", "198.51.100.11", "db"),
+                {"tipo": "reversion", "id_decision_revertida": "s2", "exito": True}]
+        m = stream.MemoriaDecisiones.desde_traza(regs)
+        self.assertIsNone(m.buscar(("198.51.100.11", "db", "acceso_credenciales")))
+
+    def test_registro_sin_contexto_no_se_puede_reclavar(self):
+        reg = self._dec("s3", "198.51.100.12", "x")
+        del reg["contexto"]
+        m = stream.MemoriaDecisiones.desde_traza([reg])
+        self.assertEqual(len(m._decididas), 0)
+
+    def test_reversion_por_indice_no_descarta_la_otra_sesion(self):
+        # Traza multi-sesión (--salida estable): "s1" se repite; la reversión apunta por índice al
+        # s1 de la 2ª sesión. El s1 de la 1ª mantiene su supresión.
+        regs = [self._dec("s1", "198.51.100.10", "web"),                      # índice 0: vive
+                self._dec("s1", "203.0.113.9", "db"),                          # índice 1: revertido
+                {"tipo": "reversion", "id_decision_revertida": "s1", "indice_revertido": 1, "exito": True}]
+        m = stream.MemoriaDecisiones.desde_traza(regs)
+        self.assertIsNotNone(m.buscar(("198.51.100.10", "web", "acceso_credenciales")))
+        self.assertIsNone(m.buscar(("203.0.113.9", "db", "acceso_credenciales")))
+
+
 class TestSupresionEnVivo(unittest.TestCase):
     def _correr(self, lineas, **kw):
         buf = io.StringIO()
@@ -808,6 +845,15 @@ class TestSupresionEnVivo(unittest.TestCase):
         resumen, _ = self._correr([_linea_wazuh("1.1.1.1"), _linea_wazuh("1.1.1.1")], suprimir=False)
         self.assertEqual(resumen["incidentes"], 2)
         self.assertEqual(resumen["suprimidas"], 0)
+
+    def test_reinicio_mantiene_la_supresion(self):
+        # #4: run 1 decide; reconstruyo la memoria de su traza; run 2 (reinicio) suprime la repetición.
+        _, run1 = self._correr([_linea_wazuh("1.1.1.1")])
+        self.assertTrue(any(r.get("tipo") == "decision" for r in run1))
+        mem = stream.MemoriaDecisiones.desde_traza(run1, perfil=y("perfil.yml"))
+        resumen, _ = self._correr([_linea_wazuh("1.1.1.1")], memoria=mem)
+        self.assertEqual(resumen["incidentes"], 0)      # no re-decide tras el reinicio
+        self.assertEqual(resumen["suprimidas"], 1)      # la repetición se suprime
 
     def test_parsear_args_sin_supresion(self):
         self.assertFalse(stream.parsear_args(["-", "p"])["sin_supresion"])

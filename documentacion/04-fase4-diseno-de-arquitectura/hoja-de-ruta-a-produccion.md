@@ -23,7 +23,7 @@ Cada punto indica **quién lo cierra**:
 | 1 | Receptor de alertas de red (SIEM remoto) | 🛠 Prototipo | Alta | Pendiente |
 | 2 | Validar el contenido de detección del SIEM del cliente | 🤝 Integración | Alta | Pendiente |
 | 3 | Desplegar el auditor (postura/Nmap) en producción | 🤝 Integración | Media | Pendiente |
-| 4 | Persistencia de estado al reiniciar | 🛠 Prototipo | Alta | Pendiente |
+| 4 | Persistencia de estado al reiniciar | 🛠 Prototipo | Alta | **Hecho** |
 | 5 | Supervisión y resiliencia del daemon | 🛠 Prototipo + 🤝 | Alta | Pendiente |
 | 6 | Rotación y retención de la traza | 🛠 Prototipo | Media | Pendiente |
 | 7 | Sincronización de reloj (NTP) y manejo de tiempos | 🤝 + 🛠 | Media | Pendiente |
@@ -67,15 +67,18 @@ confirma la contención sobre dispositivos reales.
 
 ## B. Operación Día-2
 
-### 4. Persistencia de estado al reiniciar — 🛠 Prototipo · Alta
-**Estado.** La memoria de supresión (`MemoriaDecisiones`) vive **en proceso**; al reiniciar se pierde. No hay
-registro persistente de **bloqueos activos**: el conector es idempotente (verifica antes de actuar, así que no
-re-bloquea), pero el MDR no «recuerda» qué tiene contenido tras un reinicio, ni puede listarlo o revertirlo en
-masa.
-**Qué falta.** Persistir (fichero/estado) la supresión y un **registro de contenciones activas** que sobreviva
-al reinicio; reconstruirlo al arrancar (desde la traza + reverificación).
-**Criterio de cierre.** Tras reiniciar el daemon, la supresión y los bloqueos activos se recuperan; el visor los
-lista.
+### 4. Persistencia de estado al reiniciar — 🛠 Prototipo · Alta · **HECHO**
+**Lo que era.** La memoria de supresión (`MemoriaDecisiones`) vivía en proceso y se perdía al reiniciar; no
+había registro de bloqueos activos (el MDR no «recordaba» qué tenía contenido).
+**Lo que se hizo.** Reconstrucción **desde la propia traza** (fuente de verdad, sin fichero paralelo):
+`MemoriaDecisiones.desde_traza(previos, perfil)` repone la supresión al arrancar (excluye las revertidas y las
+no re-clavables sin `contexto`); `prototipo/contenciones.py:activas(regs, catalogo)` deriva las contenciones
+activas (ejecutadas, verificadas, reversibles `definida`, no revertidas) y `/api/contenciones` las sirve; el
+visor las lista en **«Contenciones activas»**. Para que persista entre reinicios, el daemon usa un `--salida`
+estable (ver [integración §2.5](integracion-en-produccion.md)).
+**Queda como mejora (no bloquea):** reverificar los bloqueos contra los dispositivos al arrancar (requiere
+conectividad en el *boot*) y el TTL de bloqueos (#7). El des-bloqueo en masa llega con el *kill switch* (#8).
+**Criterio de cierre.** ✔ Tras reiniciar, la supresión se recupera y el visor lista los bloqueos activos.
 
 ### 5. Supervisión y resiliencia del daemon — 🛠 Prototipo + 🤝 · Alta
 **Estado.** Existe el **latido de ingesta** (aviso tras 120 s de silencio), pero nada vigila el proceso desde

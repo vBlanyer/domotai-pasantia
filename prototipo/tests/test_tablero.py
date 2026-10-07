@@ -508,6 +508,40 @@ class TestServidor(unittest.TestCase):
         self.assertEqual({n["nombre"] for n in r["nodos"]}, {"web-banking", "middleware", "taquilla", "fw-core"})
 
 
+class TestContencionesAPI(unittest.TestCase):
+    """#4: /api/contenciones lista las contenciones activas reconstruidas de la traza (el daemon
+    'recuerda' qué tiene bloqueado aunque se reinicie)."""
+    CAT = {"BLOQUEAR_IP": {"reversion": "definida", "reversion_cmd": "iptables -D INPUT -s {ip} -j DROP"}}
+
+    def _traza(self, registros):
+        d = tempfile.mkdtemp()
+        ruta = os.path.join(d, "trazas.jsonl")
+        with open(ruta, "w", encoding="utf-8") as f:
+            for r in registros:
+                f.write(json.dumps(r) + "\n")
+        return ruta
+
+    def _get(self, puerto, ruta):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", ruta); r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, json.loads(cuerpo)
+
+    def test_lista_un_bloqueo_activo(self):
+        ruta = self._traza([{"tipo": "decision", "id_decision": "s1", "activo": "api-movil",
+                             "orden": {"accion_id": "BLOQUEAR_IP", "nodo_objetivo": "api-movil",
+                                       "params": {"ip": "198.51.100.10"}},
+                             "ejecucion": {"exito": True}, "verificacion": {"verificado": True}}])
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), ruta, puerto=0,
+                                     estaticos=tempfile.mkdtemp(), catalogo=self.CAT)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        estado, cuerpo = self._get(srv.server_address[1], "/api/contenciones")
+        self.assertEqual(estado, 200)
+        self.assertEqual(len(cuerpo), 1)
+        self.assertEqual(cuerpo[0]["ip"], "198.51.100.10")
+        self.assertEqual(cuerpo[0]["accion_id"], "BLOQUEAR_IP")
+
+
 class TestEstaticosReales(unittest.TestCase):
     def test_sirve_estaticos_de_un_directorio(self):
         d = tempfile.mkdtemp()

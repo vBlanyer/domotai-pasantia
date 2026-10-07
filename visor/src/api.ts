@@ -122,6 +122,14 @@ export const RedSchema = z.object({
   zonas: z.array(z.object({ nombre: z.string(), nodos: z.array(z.string()) })),
   avisos: z.array(z.string()).optional(),
 })
+export const ContencionSchema = z.object({
+  id_decision: z.string(), objetivo: z.string().nullable(),           // IP, cuenta o servicio bloqueado
+  ip: z.string().nullable().optional(), usuario: z.string().nullable().optional(),
+  servicio: z.string().nullable().optional(), activo: z.string().nullable(),
+  nodo: z.string().nullable(), accion_id: z.string(), ts: z.string().nullable(),
+  via_escalada: z.boolean().optional(),
+})
+export type Contencion = z.infer<typeof ContencionSchema>
 export const PendienteSchema = z.object({
   id: z.string(), tipo: z.string(), prompt: z.string(), lineas: z.array(z.string()),
   // cola no bloqueante: orden por severidad y cuántas repeticiones llegaron mientras espera.
@@ -189,6 +197,7 @@ export const getMetricas = (p?: { desde?: string; hasta?: string }) => {
   return pedir(`/api/metricas${qs ? `?${qs}` : ""}`, MetricasSchema)
 }
 export const getRed = () => pedir("/api/red", RedSchema)
+export const getContenciones = () => pedir("/api/contenciones", z.array(ContencionSchema))
 
 // Nombre del operador que aprueba (no repudio): se guarda por navegador y viaja en /api/aprobar.
 const OPERADOR_KEY = "mdr.operador"
