@@ -45,6 +45,10 @@ def servicio_de(cruda):
 def familia_de(rule):
     g = set(rule.get("groups", []))
     rid = rule.get("id")
+    # Escalada de privilegios / manipulacion de cuentas (sudo, alta de cuenta, cambios de cuenta):
+    # mas especifico que un fallo de autenticacion, asi que se comprueba primero.
+    if g & {"sudo", "adduser", "account_changed"}:
+        return "abuso_de_cuenta"
     if g & {"authentication_failed", "authentication_failures", "invalid_login"}:
         return "acceso_credenciales"
     if "recon" in g or rid == "5706":
@@ -65,6 +69,15 @@ GRUPOS_PROPIOS = {"triaje"}
 def es_propia(cruda):
     return bool(set(cruda.get("rule", {}).get("groups", [])) & GRUPOS_PROPIOS)
 
+def _usuario_de(rule, data):
+    """Cuenta sobre la que actuaría FORZAR_CAMBIO_PASS, según la técnica. En una ESCALADA (sudo) la
+    cuenta que abusa es QUIEN invoca (srcuser), no el objetivo de la escalada (dstuser suele ser root):
+    bloquear root dejaría fuera al admin. En un ALTA/CAMBIO de cuenta, la cuenta afectada es la
+    creada/modificada (dstuser). `_texto` coacciona tipos hostiles."""
+    if "sudo" in set(rule.get("groups", [])):
+        return _texto(data.get("srcuser") or data.get("dstuser") or data.get("user"))
+    return _texto(data.get("dstuser") or data.get("srcuser") or data.get("user"))
+
 def normalizar_alerta(cruda, campaña):
     if es_propia(cruda):
         return None
@@ -79,6 +92,9 @@ def normalizar_alerta(cruda, campaña):
         "servicio": _texto(servicio_de(cruda)) or "desconocido",
         "familia": familia_de(rule),
         "origen_ip": _ip_origen(data.get("srcip")),
+        # Cuenta objeto del evento (familia abuso_de_cuenta): la que se bloquearia (FORZAR_CAMBIO_PASS).
+        # Consciente de la tecnica (ver _usuario_de); ausente en el resto de familias.
+        "usuario": _usuario_de(rule, data),
         "mitre": rule.get("mitre", {}).get("id", []),
         "evento_crudo": cruda.get("full_log"),
         "nivel_wazuh": _entero(rule.get("level")),   # se compara numéricamente (agrupación/severidad)

@@ -15,6 +15,25 @@ class TestRegistroFamilias(unittest.TestCase):
     def test_familia_ausente_es_none(self):
         self.assertIsNone(familias.registro().get("plataforma"))
 
+    def test_abuso_de_cuenta_declara_su_clase_de_respuesta(self):
+        # Familia nueva (escalada/manipulación de cuentas): 'actuar' y con una CLASE declarada, que es
+        # como el registro extiende la taxonomía sin tocar el código del clasificador.
+        e = familias.registro()["abuso_de_cuenta"]
+        self.assertEqual(e["nivel"], "actuar")
+        self.assertEqual(e["clase"], "vp_abuso_cuenta")
+        self.assertIn("T1548", e["mitre"])
+
+    def test_clase_declarada_debe_ser_texto(self):
+        import tempfile, os
+        with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False, encoding="utf-8") as f:
+            f.write("mala: { mitre: [T1], nivel: actuar, clase: 123 }\n")   # clase no es texto
+            ruta = f.name
+        try:
+            with self.assertRaises(ValueError):
+                familias.cargar_registro(ruta)
+        finally:
+            os.unlink(ruta)
+
     def test_triar_y_enrutar_sin_ruta_falla_al_cargar(self):
         import tempfile, os
         with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False, encoding="utf-8") as f:

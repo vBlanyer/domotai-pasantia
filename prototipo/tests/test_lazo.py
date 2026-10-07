@@ -25,6 +25,22 @@ class TestLazo(unittest.TestCase):
         self.assertIn("verificacion", r)
         self.assertIsNone(r["veredicto_humano"])   # confianza alta, no requiere humano
 
+    def test_abuso_de_cuenta_bloquea_la_cuenta_y_pide_humano(self):
+        # Familia nueva de punta a punta: evento de cuenta (useradd/sudo) -> clase vp_abuso_cuenta ->
+        # FORZAR_CAMBIO_PASS sobre el USUARIO (no la IP), retenido para humano por impacto (passwd -l
+        # es alcanza_servicio -> humano_siempre en el perfil).
+        a = {"id_alerta": "u1", "activo": "objetivo-vuln", "servicio": "ssh", "familia": "abuso_de_cuenta",
+             "usuario": "backdoor", "origen_ip": None, "mitre": ["T1136"], "timestamp": "t", "rafaga_60s": 0}
+        pedido = []
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                               lambda ip, c: (0, ""), "u1", "t",
+                               leer=lambda *_: (pedido.append(1), "1")[1])
+        self.assertEqual(r["clase"], "vp_abuso_cuenta")
+        self.assertEqual(r["orden"]["accion_id"], "FORZAR_CAMBIO_PASS")
+        self.assertEqual(r["orden"]["params"], {"usuario": "backdoor"})   # la cuenta, no la IP ni el servicio
+        self.assertEqual(r["veredicto_humano"], "aprobar")                # el perfil lo retuvo al humano
+        self.assertTrue(pedido)                                           # se pidió aprobación
+
     def test_sin_ip_de_origen_no_se_ejecuta_nada(self):
         # Una alerta de acceso sin srcip no puede producir 'iptables -A INPUT -s None -j DROP'.
         a = dict(j("alerta_vp.json")); a["origen_ip"] = None
@@ -264,6 +280,17 @@ class TestEscaladaPorDefecto(unittest.TestCase):
         self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "gateway")
         self.assertEqual(r["escalada"]["orden_efectiva"]["accion_id"], "BLOQUEAR_IP_FIREWALL")
         self.assertEqual(len(preguntas), 1)                       # el perfil exige humano en el cortafuegos
+
+    def test_un_bloqueo_de_cuenta_fallido_no_escala_a_bloqueo_de_ip(self):
+        # La escalada contiene el ORIGEN subiendo por la cadena (bloquear IP). Para una acción sobre
+        # CUENTA (FORZAR_CAMBIO_PASS) eso sería una respuesta cruzada sin sentido: no se escala.
+        a = {"id_alerta": "u2", "activo": "objetivo-vuln", "servicio": "ssh", "familia": "abuso_de_cuenta",
+             "usuario": "backdoor", "origen_ip": "203.0.113.9", "mitre": ["T1136"], "timestamp": "t", "rafaga_60s": 0}
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), self._perfil_con_topologia(), "prueba", CAT,
+                               lambda ip, c: (1, ""), "u2", "t", leer=lambda *_: "1")   # todo falla
+        self.assertEqual(r["orden"]["accion_id"], "FORZAR_CAMBIO_PASS")
+        self.assertFalse(r["ejecucion"]["exito"])
+        self.assertIsNone(r["escalada"])                 # no cruza a bloquear la IP
 
     def test_sin_topologia_no_hay_a_donde_escalar(self):
         r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),

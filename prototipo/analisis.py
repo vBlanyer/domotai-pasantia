@@ -16,12 +16,14 @@ def _sanear(v, tope=64):
 # Las clases que el motor produce hoy (fuente de verdad, p. ej. para el menú de reclasificación).
 # Las 2 clases finas del caso de uso (vp_acceso_consumado, vp_exposicion_gestion) no entran: el
 # baseline no las emite por falta de etiquetas finas (límite de datos, ver README).
-CLASES = ("vp_intento_acceso", "fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada")
+# vp_abuso_cuenta va al final: el submenú de reclasificación numera por este orden, y añadirla al
+# final no desplaza la numeración de las clases previas (menos fricción para el analista).
+CLASES = ("vp_intento_acceso", "fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada", "vp_abuso_cuenta")
 
 CLASES_SIN_AMENAZA = ("fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada")
 
 _PRIORIDAD_BASE = {
-    "vp_acceso_consumado": 4, "vp_intento_acceso": 3, "vp_exposicion_gestion": 2,
+    "vp_acceso_consumado": 4, "vp_abuso_cuenta": 4, "vp_intento_acceso": 3, "vp_exposicion_gestion": 2,
     "fp_actividad_legitima": 1, "fp_exposicion_inexistente": 1, "no_soportada": 1,
     "amenaza_enrutada": 3,
 }
@@ -63,6 +65,11 @@ def clasificar(alerta, contexto, registro=None):
         clase, confianza = "vp_intento_acceso", 0.6
     elif contexto.get("origen_legitimo"):
         clase, confianza = "fp_actividad_legitima", 1.0
+    elif entrada.get("clase"):
+        # La familia declara su propia clase de respuesta (registro extensible): el evento mismo es la
+        # amenaza (sudo, cuenta nueva), no depende de que haya un 'servicio expuesto'. Las 4 familias
+        # históricas no declaran 'clase', así que esta rama no las toca (métricas canónicas intactas).
+        clase, confianza = entrada["clase"], 1.0
     elif postura is None:
         clase, confianza = "vp_intento_acceso", 0.5
     elif postura.get("expuesto"):

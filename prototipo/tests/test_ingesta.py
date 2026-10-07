@@ -8,7 +8,7 @@ def j(n):
         return json.loads(f.read().strip())
 
 CAMPOS = {"id_alerta", "timestamp", "campaña", "fuente", "activo", "servicio",
-          "familia", "origen_ip", "mitre", "evento_crudo", "nivel_wazuh", "regla_id"}
+          "familia", "origen_ip", "mitre", "evento_crudo", "nivel_wazuh", "regla_id", "usuario"}
 
 
 class TestNormalizarWazuh(unittest.TestCase):
@@ -50,6 +50,34 @@ class TestTolerancia(unittest.TestCase):
     def test_campos_ausentes_vacio_cuando_completo(self):
         reg = ingesta.normalizar(j("alerta_cruda_wazuh.json"), adaptador_wazuh.adaptador())
         self.assertEqual(ingesta.campos_ausentes(reg), [])
+
+    def test_evento_de_cuenta_nueva_es_abuso_de_cuenta_y_extrae_el_usuario(self):
+        # useradd (T1136): la familia nueva, y el usuario objetivo (la cuenta a bloquear) sale del log.
+        cruda = {"id": "u1", "timestamp": "t",
+                 "rule": {"id": "5902", "groups": ["syslog", "adduser"], "level": 8, "mitre": {"id": ["T1136"]}},
+                 "predecoder": {"hostname": "core-db", "program_name": "useradd"},
+                 "data": {"dstuser": "backdoor"}}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        self.assertEqual(a["familia"], "abuso_de_cuenta")
+        self.assertEqual(a["usuario"], "backdoor")
+
+    def test_abuso_de_sudo_bloquea_al_invocador_no_al_objetivo_root(self):
+        # En un evento de sudo, dstuser es el OBJETIVO de la escalada (root) y srcuser QUIEN abusa. La
+        # cuenta a bloquear es la que abusa, no root (bloquear root dejaría fuera al admin legítimo).
+        cruda = {"id": "s1", "timestamp": "t",
+                 "rule": {"id": "5402", "groups": ["syslog", "sudo"], "level": 10, "mitre": {"id": ["T1548"]}},
+                 "predecoder": {"hostname": "web-banking", "program_name": "sudo"},
+                 "data": {"srcuser": "www-data", "dstuser": "root"}}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        self.assertEqual(a["familia"], "abuso_de_cuenta")
+        self.assertEqual(a["usuario"], "www-data")           # el invocador, NO root
+
+    def test_un_fallo_de_autenticacion_sigue_siendo_acceso_credenciales(self):
+        # Regresión: la familia nueva no debe robarle las alertas a acceso_credenciales (canónico).
+        cruda = {"id": "a1", "rule": {"id": "5760", "groups": ["authentication_failed"], "level": 10},
+                 "predecoder": {"hostname": "web-banking", "program_name": "sshd"}, "data": {"srcip": "1.2.3.4"}}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        self.assertEqual(a["familia"], "acceso_credenciales")
 
     def test_tipos_hostiles_se_coaccionan_a_texto_o_none(self):
         # Defensa anti-DoS: un atacante que controla campos de la alerta (srcip, hostname,

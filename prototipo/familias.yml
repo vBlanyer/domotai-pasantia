@@ -5,3 +5,6 @@ acceso_credenciales:  { mitre: [T1110, T1078], nivel: actuar }
 reconocimiento:       { mitre: [T1595, T1046], nivel: actuar }
 servicio_expuesto:    { mitre: [T1190],        nivel: actuar }
 explotacion_conocida: { mitre: [T1190, T1210, T1203], nivel: triar_y_enrutar, ruta: appsec }
+# Escalada de privilegios / manipulacion de cuentas: la respuesta no es bloquear la IP origen sino la
+# CUENTA. El campo opcional 'clase' deja que el registro declare esa respuesta sin tocar el clasificador.
+abuso_de_cuenta:      { mitre: [T1548, T1136, T1098], nivel: actuar, clase: vp_abuso_cuenta }

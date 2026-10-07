@@ -6,6 +6,7 @@ from prototipo import catalogo as _cat
 
 UMBRAL_CONFIANZA = 0.7   # default; configurable por perfil en continuidad.umbral_confianza (RF-07). Sin calibrar aún (barrido pendiente)
 DEGRADACION = {"BLOQUEAR_PUERTO": "BLOQUEAR_IP"}   # alcanza_servicio -> localizado
+_ACCIONES_SOBRE_CUENTA = frozenset({"FORZAR_CAMBIO_PASS"})   # la acción recae sobre una cuenta (usuario)
 _REVERSION_OK = {"definida", "auto", "transitoria"}
 _CRITICIDADES = ("baja", "media", "alta", "critica")
 
@@ -193,6 +194,11 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         # el catalogo: sin este veto se ejecutaba 'iptables -A INPUT -s None -j DROP' en automatico.
         return {**_res("veta", None, True),
                 "impacto": {**det, "motivo": "sin IP de origen IPv4 válida: no hay a quién bloquear"}}
+    if accion_id in _ACCIONES_SOBRE_CUENTA and not (params or {}).get("usuario"):
+        # Simétrico al veto anterior: sin la cuenta en el evento no hay nada que bloquear; se veta en
+        # duro en vez de gastar una decisión humana sobre la cuenta "None" (falla-cerrado antes).
+        return {**_res("veta", None, True),
+                "impacto": {**det, "motivo": "sin usuario: no hay cuenta que bloquear"}}
     # Bloquear por ORIGEN a un externo NO inventariado (el atacante) corta SOLO a esa IP —0 colateral,
     # "0 servicios detenidos"—, lo mismo en el host que en el perímetro: no se retiene al humano solo
     # por ser un salto perimetral (impacto de catálogo alcanza_servicio). Así la escalada de un ataque

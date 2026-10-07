@@ -3,6 +3,7 @@
 ACCION_POR_CLASE = {
     "vp_acceso_consumado": "MATAR_CONEXION",
     "vp_intento_acceso": "BLOQUEAR_IP",
+    "vp_abuso_cuenta": "FORZAR_CAMBIO_PASS",
     "vp_exposicion_gestion": "CERRAR_SERVICIO",
     "fp_actividad_legitima": None,
     "fp_exposicion_inexistente": None,
@@ -16,6 +17,8 @@ def proponer(clase, alerta):
         return (None, {})
     if accion in ("BLOQUEAR_IP", "MATAR_CONEXION"):
         params = {"ip": alerta.get("origen_ip")}
+    elif accion == "FORZAR_CAMBIO_PASS":
+        params = {"usuario": alerta.get("usuario")}     # se bloquea la CUENTA, no la IP
     else:
         params = {"servicio": alerta.get("servicio")}
     return (accion, params)

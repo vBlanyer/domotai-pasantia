@@ -14,6 +14,9 @@ def cargar_registro(ruta=RUTA):
     for familia, entrada in reg.items():
         if entrada.get("nivel") == "triar_y_enrutar" and not entrada.get("ruta"):
             raise ValueError(f"familia '{familia}' es triar_y_enrutar pero no define 'ruta'")
+        clase = entrada.get("clase")
+        if clase is not None and not isinstance(clase, str):
+            raise ValueError(f"familia '{familia}': 'clase' debe ser texto, no {clase!r}")
     return reg
 
 def registro():
