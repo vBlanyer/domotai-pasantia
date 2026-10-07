@@ -39,7 +39,7 @@ case "${1:-up}" in
     [ -n "$W" ] || { echo "Wazuh sin IP"; exit 1; }
     echo "== 3. sshd, servicios y reenviadores =="
     for n in web-banking api-movil swift-alliance middleware core-db hsm atm taquilla fw-core fw-edge mdr-siem auditor; do
-      docker exec $P-$n sh -c 'pgrep -x sshd >/dev/null || /usr/sbin/sshd -E /var/log/banco/sshd.log; touch /var/log/banco/access.log'
+      docker exec $P-$n sh -c 'pgrep -x sshd >/dev/null || /usr/sbin/sshd -E /var/log/banco/sshd.log; touch /var/log/banco/access.log /var/log/banco/auth.log'
       # I2: sshd y los servicios HTTP escuchan en 0.0.0.0, es decir tambien en eth0 (gestion),
       # que no pasa por ningun cortafuegos del banco. Sin esta regla, alguien con acceso a la
       # red de gestion (p.ej. 'internet', que solo deberia llegar por el plano de datos 10.x a
@@ -49,8 +49,12 @@ case "${1:-up}" in
       docker exec $P-$n sh -c 'iptables -A INPUT -i eth0 -p tcp -j DROP'
       CMD=$(red servicio $n)
       if [ -n "$CMD" ]; then docker exec -d $P-$n sh -c "$CMD"; fi
+      # La imagen banco-nodo:1 puede traer una reenviador.py anterior (sin --auth/--telnet): se copia
+      # la actual a CADA nodo antes de arrancarla, o un flag nuevo mataría el reenviador al arrancar
+      # (argparse: "unrecognized arguments"). Mismo criterio que el señuelo telnet de atm.
+      docker cp "$HERE/reenviador.py" $P-$n:/opt/banco/reenviador.py 2>/dev/null || true
       docker exec -d $P-$n python3 /opt/banco/reenviador.py --nodo $n --destino "$W:514" \
-        --sshd /var/log/banco/sshd.log --web /var/log/banco/access.log
+        --sshd /var/log/banco/sshd.log --web /var/log/banco/access.log --auth /var/log/banco/auth.log
     done
     # Señuelo telnet EXPUESTO en atm (familia servicio_expuesto): "connect from <ip> (<ip>)" -> Wazuh
     # (regla de fábrica 5602, grupo telnetd) vía un reenviador --telnet. El auditor lo marca expuesto

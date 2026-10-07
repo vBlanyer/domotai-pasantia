@@ -33,6 +33,12 @@ def desde_telnet(nodo, linea, instante):
     # in.telnetd para que el telnet decoder de Wazuh saque el srcip (familia servicio_expuesto).
     return linea_syslog(38, nodo, "in.telnetd", linea.rstrip("\n"), instante)
 
+def desde_auth(nodo, linea, instante):
+    # auth.log ya trae "programa[pid]: mensaje" (sudo/useradd/...): se reenvia tal cual bajo la
+    # cabecera syslog, sin anteponer programa, para que Wazuh decodifique sudo/adduser de la linea
+    # (reglas 5402/5902, familia abuso_de_cuenta). Mismo patron que el senuelo telnet.
+    return linea_syslog(38, nodo, None, linea.rstrip("\r\n"), instante)
+
 
 def seguir(rutas_y_formateadores, enviar, dormir=time.sleep, parar=lambda: False):
     """Como tail -F sobre varios ficheros: desde el final, envia cada linea nueva formateada."""
@@ -64,6 +70,7 @@ def main(argv=None):
     ap.add_argument("--sshd", default=None)
     ap.add_argument("--web", default=None)
     ap.add_argument("--telnet", default=None)
+    ap.add_argument("--auth", default=None, help="log de sudo/useradd (familia abuso_de_cuenta)")
     a = ap.parse_args(argv)
     host, puerto = a.destino.rsplit(":", 1)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -74,6 +81,8 @@ def main(argv=None):
         fuentes.append((a.web, lambda l, t: desde_web(a.nodo, l, t)))
     if a.telnet:
         fuentes.append((a.telnet, lambda l, t: desde_telnet(a.nodo, l, t)))
+    if a.auth:
+        fuentes.append((a.auth, lambda l, t: desde_auth(a.nodo, l, t)))
     seguir(fuentes, lambda linea: sock.sendto(linea.encode(), (host, int(puerto))))
 
 

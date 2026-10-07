@@ -23,6 +23,21 @@ class TestDemo(unittest.TestCase):
         self.assertIn("1. CASCADA", m)
         self.assertIn("5. E1", m)
 
+    def test_ataque_abuso_cuenta_crea_la_cuenta_e_inyecta_el_evento(self):
+        llamadas, ejecutar = self._fake()
+        demo.ataque_abuso_cuenta(ejecutar=ejecutar)
+        cmd = llamadas[0][-1]
+        self.assertEqual(llamadas[0][2], "clab-banco-web-banking")
+        self.assertIn("adduser -D backdoor", cmd)                     # crea la cuenta (para poder bloquearla)
+        self.assertIn("name=backdoor", cmd)                           # evento useradd que Wazuh decodifica
+        self.assertIn(">> /var/log/banco/auth.log", cmd)              # lo recoge el reenviador --auth
+
+    def test_la_tanda_automatica_incluye_el_abuso_de_cuenta(self):
+        llamadas, ejecutar = self._fake()
+        demo.tanda_automatica(ejecutar=ejecutar, dormir=lambda *_: None, escribir=lambda *_: None)
+        self.assertTrue(any("adduser -D backdoor" in a[-1] for a in llamadas),
+                        "la tanda debe lanzar también el abuso de cuenta")
+
     def test_lanzar_ejecuta_preparar_y_luego_ataque_en_orden(self):
         llamadas, ejecutar = self._fake()
         caso = {"preparar": [("web-banking", "echo prep")], "ataque": ("internet", "echo atk")}
@@ -202,8 +217,9 @@ class TestTandaAutomatica(unittest.TestCase):
         rotables = [c for c in demo.casos_vivos() if demo.rotable(c)]
         cmds = [a[-1] for a in llamadas]
         rotados = [c for c in cmds if "ip addr add" in c]      # cada ataque rotado lleva el alias
-        self.assertEqual(len(rotados), len(rotables))          # un ataque por caso rotable
-        self.assertEqual(dormidas, [6] * len(rotables))        # un gap por ataque
+        self.assertEqual(len(rotados), len(rotables))          # un ataque rotado por caso rotable
+        self.assertTrue(any("adduser -D backdoor" in c for c in cmds))   # + el abuso de cuenta (no rota)
+        self.assertEqual(dormidas, [6] * (len(rotables) + 1))  # un gap por ataque, incluido el de cuenta
         self.assertFalse(any("-D INPUT" in c for c in cmds))   # no deshace (lo hace restaurar)
 
     def test_repeticiones_repiten_la_bateria(self):
