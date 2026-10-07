@@ -9,6 +9,7 @@ IP_DE_NODO = {
     "iot": "192.168.1.20", "borde": "192.168.1.1",
 }
 _ACCIONES_SOBRE_ORIGEN = {"BLOQUEAR_IP", "MATAR_CONEXION"}
+_ACCIONES_SOBRE_CUENTA = {"FORZAR_CAMBIO_PASS"}   # la acción recae sobre el usuario, no la IP ni el servicio
 
 def construir(decision, alerta, perfil=None):
     accion = decision.get("accion_final")
@@ -17,6 +18,8 @@ def construir(decision, alerta, perfil=None):
     activo = decision.get("activo")
     if accion in _ACCIONES_SOBRE_ORIGEN:
         params = {"ip": alerta.get("origen_ip")}
+    elif accion in _ACCIONES_SOBRE_CUENTA:
+        params = {"usuario": alerta.get("usuario")}
     else:
         params = {"servicio": alerta.get("servicio")}
     return {

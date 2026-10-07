@@ -12,6 +12,12 @@ class TestProponer(unittest.TestCase):
         self.assertEqual(acc, "BLOQUEAR_IP")
         self.assertEqual(params["ip"], "192.168.1.10")
 
+    def test_vp_abuso_cuenta_propone_bloquear_la_cuenta(self):
+        a = alerta(); a["usuario"] = "backdoor"
+        acc, params = politica.proponer("vp_abuso_cuenta", a)
+        self.assertEqual(acc, "FORZAR_CAMBIO_PASS")
+        self.assertEqual(params, {"usuario": "backdoor"})     # la cuenta, no la IP
+
     def test_no_soportada_no_propone_accion(self):
         acc, params = politica.proponer("no_soportada", alerta())
         self.assertIsNone(acc)

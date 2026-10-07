@@ -45,6 +45,10 @@ def servicio_de(cruda):
 def familia_de(rule):
     g = set(rule.get("groups", []))
     rid = rule.get("id")
+    # Escalada de privilegios / manipulacion de cuentas (sudo, alta de cuenta, cambios de cuenta):
+    # mas especifico que un fallo de autenticacion, asi que se comprueba primero.
+    if g & {"sudo", "adduser", "account_changed"}:
+        return "abuso_de_cuenta"
     if g & {"authentication_failed", "authentication_failures", "invalid_login"}:
         return "acceso_credenciales"
     if "recon" in g or rid == "5706":
@@ -79,6 +83,9 @@ def normalizar_alerta(cruda, campaña):
         "servicio": _texto(servicio_de(cruda)) or "desconocido",
         "familia": familia_de(rule),
         "origen_ip": _ip_origen(data.get("srcip")),
+        # Cuenta objeto del evento (familia abuso_de_cuenta): la que se bloquearia (FORZAR_CAMBIO_PASS).
+        # dstuser (la cuenta afectada) antes que srcuser (quien actuo); ausente en el resto de familias.
+        "usuario": _texto(data.get("dstuser") or data.get("srcuser") or data.get("user")),
         "mitre": rule.get("mitre", {}).get("id", []),
         "evento_crudo": cruda.get("full_log"),
         "nivel_wazuh": _entero(rule.get("level")),   # se compara numéricamente (agrupación/severidad)

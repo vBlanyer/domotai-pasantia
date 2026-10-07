@@ -82,6 +82,21 @@ class TestClasificar(unittest.TestCase):
         r = analisis.clasificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "alta"})
         self.assertIn(r["prioridad"], (1, 2, 3, 4))
 
+    def test_abuso_de_cuenta_usa_la_clase_declarada_por_el_registro(self):
+        # El registro declara clase=vp_abuso_cuenta; el evento (sudo/cuenta) ES la amenaza, así que NO
+        # pasa por el filtro de 'servicio expuesto': aunque el servicio no esté expuesto, no es un FP.
+        a = dict(self.alerta); a["familia"] = "abuso_de_cuenta"
+        r = analisis.clasificar(a, {"postura": {"expuesto": False}, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "vp_abuso_cuenta")
+        self.assertEqual(r["confianza"], 1.0)
+        self.assertEqual(r["prioridad"], 4)                 # amenaza seria (criticidad alta no la sube de 4)
+
+    def test_abuso_de_cuenta_desde_origen_legitimo_sigue_siendo_fp(self):
+        # El origen legítimo precede a la clase declarada: un admin declarado no se trata como amenaza.
+        a = dict(self.alerta); a["familia"] = "abuso_de_cuenta"
+        r = analisis.clasificar(a, {"origen_legitimo": True, "postura": None, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "fp_actividad_legitima")
+
 class TestJustificar(unittest.TestCase):
     def setUp(self):
         self.alerta = cargar_json("alerta_vp.json")

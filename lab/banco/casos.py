@@ -243,6 +243,11 @@ CASOS = [
                 "origen_ip": "198.51.100.23", "regla_id": "rdp-probe", "mitre": ["T1190"]},
      "hallazgos": {"nodos": {"core-db": [{"puerto": 1521, "servicio": "sql", "estado": "open"}]}},
      "esperado": {"clase": "fp_exposicion_inexistente", "recomendacion": None}},
+    {"id": "CUENTA", "nivel": "decision",
+     "titulo": "Cuenta privilegiada nueva en core-db (useradd, T1136) -> abuso de cuenta; bloquea la CUENTA, humano",
+     "alerta": {"familia": "abuso_de_cuenta", "activo": "core-db", "servicio": "ssh", "usuario": "backdoor",
+                "origen_ip": None, "regla_id": "5902", "mitre": ["T1136"]},
+     "esperado": {"clase": "vp_abuso_cuenta", "accion_final": "FORZAR_CAMBIO_PASS", "requiere_humano": True}},
 
     {"id": "C1", "titulo": "BLOQUEAR_PUERTO 1521 en core-db (excepción nunca_automatica) -> degrada a BLOQUEAR_IP",
      "nivel": "inyectada", "accion": "BLOQUEAR_PUERTO", "params": {"puerto": 1521, "ip": "203.0.113.9"},

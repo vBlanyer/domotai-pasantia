@@ -25,6 +25,22 @@ class TestLazo(unittest.TestCase):
         self.assertIn("verificacion", r)
         self.assertIsNone(r["veredicto_humano"])   # confianza alta, no requiere humano
 
+    def test_abuso_de_cuenta_bloquea_la_cuenta_y_pide_humano(self):
+        # Familia nueva de punta a punta: evento de cuenta (useradd/sudo) -> clase vp_abuso_cuenta ->
+        # FORZAR_CAMBIO_PASS sobre el USUARIO (no la IP), retenido para humano por impacto (passwd -l
+        # es alcanza_servicio -> humano_siempre en el perfil).
+        a = {"id_alerta": "u1", "activo": "objetivo-vuln", "servicio": "ssh", "familia": "abuso_de_cuenta",
+             "usuario": "backdoor", "origen_ip": None, "mitre": ["T1136"], "timestamp": "t", "rafaga_60s": 0}
+        pedido = []
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                               lambda ip, c: (0, ""), "u1", "t",
+                               leer=lambda *_: (pedido.append(1), "1")[1])
+        self.assertEqual(r["clase"], "vp_abuso_cuenta")
+        self.assertEqual(r["orden"]["accion_id"], "FORZAR_CAMBIO_PASS")
+        self.assertEqual(r["orden"]["params"], {"usuario": "backdoor"})   # la cuenta, no la IP ni el servicio
+        self.assertEqual(r["veredicto_humano"], "aprobar")                # el perfil lo retuvo al humano
+        self.assertTrue(pedido)                                           # se pidió aprobación
+
     def test_sin_ip_de_origen_no_se_ejecuta_nada(self):
         # Una alerta de acceso sin srcip no puede producir 'iptables -A INPUT -s None -j DROP'.
         a = dict(j("alerta_vp.json")); a["origen_ip"] = None
