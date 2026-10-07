@@ -64,6 +64,27 @@ def _exec(nodo, cmd, ejecutar=subprocess.run):
     return ejecutar(["docker", "exec", f"{P}-{nodo}", "sh", "-c", cmd], capture_output=True, text=True)
 
 
+# --- Ataque de ABUSO DE CUENTA (familia abuso_de_cuenta) ---------------------------------------
+# No es un ataque de red con IP de origen, sino un evento de cuenta en el equipo comprometido. En
+# Alpine useradd/sudo no dejan log, así que el ataque CREA la cuenta (para que el bloqueo pueda
+# aplicarse) y escribe la línea de useradd en el auth.log que el reenviador --auth manda a Wazuh
+# (mismo patrón que el señuelo telnet). Wazuh dispara 5902 (grupo adduser) y el MDR la triaja como
+# abuso_de_cuenta -> FORZAR_CAMBIO_PASS sobre la cuenta, retenido para humano. Por eso vive como paso
+# propio (no como caso con `origen` de red): su respuesta es sobre el usuario, no una IP.
+_AUTH_LOG = "/var/log/banco/auth.log"
+
+def _linea_useradd(usuario):
+    return (f"useradd[1234]: new user: name={usuario}, UID=1001, GID=1001, "
+            f"home=/home/{usuario}, shell=/bin/ash")
+
+def ataque_abuso_cuenta(destino="web-banking", usuario="backdoor", ejecutar=subprocess.run):
+    cmd = f"adduser -D {usuario} 2>/dev/null; echo '{_linea_useradd(usuario)}' >> {_AUTH_LOG}"
+    return _exec(destino, cmd, ejecutar)
+
+def deshacer_abuso_cuenta(destino="web-banking", usuario="backdoor", ejecutar=subprocess.run):
+    return _exec(destino, f"passwd -u {usuario} 2>/dev/null; deluser {usuario} 2>/dev/null", ejecutar)
+
+
 def menu(vivos):
     return "\n".join(f"  {i}. {c['id']} — {c['titulo']}" for i, c in enumerate(vivos, 1))
 
@@ -140,7 +161,7 @@ def tanda_automatica(ejecutar=subprocess.run, dormir=time.sleep, repeticiones=1,
     la batería ejercita ambos caminos y la plantilla justifica cada decisión. NO deshace: el daemon
     decide y, al terminar, se restaura con `sh lab/banco/banco.sh restaurar`. `repeticiones` vueltas."""
     vivos = [c for c in casos_vivos() if rotable(c)]
-    contadores, total, hecho = {}, repeticiones * len(vivos), 0
+    contadores, total, hecho = {}, repeticiones * len(vivos) + 1, 0   # +1: el abuso de cuenta (sin origen de red)
     escribir(f"== Tanda automática: {total} ataque(s), IP de origen rotada (ve el tablero) ==")
     for _ in range(repeticiones):
         for caso in vivos:
@@ -152,6 +173,11 @@ def tanda_automatica(ejecutar=subprocess.run, dormir=time.sleep, repeticiones=1,
             escribir(f"  [{hecho}/{total}] {caso['id']} — {caso['titulo']} desde {src}")
             lanzar(caso, ejecutar=ejecutar, src_ip=src)
             dormir(gap)
+    # Abuso de cuenta: no rota (no tiene IP de origen); se lanza una vez, al final de la batería.
+    hecho += 1
+    escribir(f"  [{hecho}/{total}] CUENTA — alta de cuenta 'backdoor' en web-banking (abuso_de_cuenta)")
+    ataque_abuso_cuenta(ejecutar=ejecutar)
+    dormir(gap)
     escribir(f"  tanda completa ({total} ataques). Deshaz con: sh lab/banco/banco.sh restaurar")
 
 
@@ -172,10 +198,11 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
             print(menu(vivos))
             print(LINEA_A_MEDIDA)
             print("  t. Tanda automática (lanza toda la batería sola, IP rotada)")
+            print("  c. Abuso de cuenta (alta de 'backdoor' en web-banking -> bloquear la cuenta)")
             print(f"  r. IP de origen rotativa: {'ON' if rotar else 'OFF'}  "
                   "(cada ataque desde una IP nueva; esquiva supresión y bloqueo previo)")
             print("  0. Salir")
-            sel = leer(f"Elige [0-{len(vivos)}, a, t, r]: ").strip().lower()
+            sel = leer(f"Elige [0-{len(vivos)}, a, t, c, r]: ").strip().lower()
             if sel in ("0", "", "q"):
                 return 0
             if sel == "r":
@@ -183,6 +210,12 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
                 continue
             if sel == "t":
                 tanda_automatica(ejecutar=ejecutar, dormir=dormir)
+                continue
+            if sel == "c":
+                print("  lanzando abuso de cuenta — alta de 'backdoor' en web-banking...")
+                ataque_abuso_cuenta(ejecutar=ejecutar)
+                if leer("  ¿deshacer (desbloquear y borrar la cuenta)? [s/N] ").strip().lower().startswith("s"):
+                    deshacer_abuso_cuenta(ejecutar=ejecutar); print("  restaurado")
                 continue
             if sel == "a":
                 caso = elegir_a_medida(leer)

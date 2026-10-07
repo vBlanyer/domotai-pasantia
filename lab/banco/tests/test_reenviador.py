@@ -34,6 +34,14 @@ class TestLineas(unittest.TestCase):
         self.assertEqual(reenviador.desde_web("web-banking", l, 0),
                          "<30>Jan 01 00:00:00 web-banking apache: " + l)
 
+    def test_auth_conserva_el_programa_de_la_linea(self):
+        # La línea de auth.log ya trae "programa[pid]: mensaje" (sudo/useradd); el reenviador solo
+        # le pone la cabecera syslog, para que Wazuh decodifique el program_name de la propia línea.
+        l = "useradd[1234]: new user: name=backdoor, UID=1001, GID=1001, home=/home/backdoor, shell=/bin/ash\n"
+        self.assertEqual(reenviador.desde_auth("web-banking", l, 0),
+                         "<38>Jan 01 00:00:00 web-banking "
+                         "useradd[1234]: new user: name=backdoor, UID=1001, GID=1001, home=/home/backdoor, shell=/bin/ash")
+
 
 if __name__ == "__main__":
     unittest.main()
