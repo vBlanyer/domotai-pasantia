@@ -11,6 +11,7 @@ export const TACTICAS: Tactica[] = [
   { id: "reconnaissance", nombre: "Reconocimiento" },
   { id: "initial-access", nombre: "Acceso inicial" },
   { id: "execution", nombre: "Ejecución" },
+  { id: "persistence", nombre: "Persistencia" },
   { id: "privilege-escalation", nombre: "Escalada de privilegios" },
   { id: "defense-evasion", nombre: "Evasión de defensas" },
   { id: "credential-access", nombre: "Acceso a credenciales" },
@@ -31,6 +32,11 @@ export const TECNICAS: Record<string, { nombre: string; tactica: string }> = {
   "T1078.001": { nombre: "Cuentas por defecto", tactica: "initial-access" },
   "T1078.003": { nombre: "Cuentas locales", tactica: "initial-access" },
   T1203: { nombre: "Explotación para ejecución en cliente", tactica: "execution" },
+  // Familia abuso_de_cuenta (escalada / manipulación de cuentas). T1548/T1098 son multitáctica; se
+  // colocan en su táctica primaria según cómo las usa el prototipo (escalada y persistencia de cuenta).
+  T1136: { nombre: "Crear cuenta", tactica: "persistence" },
+  T1098: { nombre: "Manipulación de cuentas", tactica: "persistence" },
+  T1548: { nombre: "Abuso de mecanismo de elevación (sudo)", tactica: "privilege-escalation" },
   T1211: { nombre: "Explotación para escalada de privilegios", tactica: "privilege-escalation" },
   // T1055 es multitáctica (evasión de defensas / escalada); su táctica primaria en ATT&CK es la
   // evasión de defensas. Aparece en trazas reales del banco, así que la cubrimos explícitamente.

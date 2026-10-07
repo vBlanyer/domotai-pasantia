@@ -39,4 +39,13 @@ describe("MatrizAttack", () => {
     expect(screen.queryByText("Otras")).not.toBeInTheDocument()
     expect(document.querySelector('[data-tecnica="T1055"]')).toHaveAttribute("data-activa", "true")
   })
+
+  it("cubre la familia abuso de cuenta (T1548 escalada, T1136/T1098 persistencia), no en 'Otras'", () => {
+    render(<MatrizAttack tecnicas={[{ tecnica: "T1548", n: 3 }, { tecnica: "T1136", n: 2 }, { tecnica: "T1098", n: 1 }]} />)
+    expect(screen.getByText("Persistencia")).toBeInTheDocument()
+    expect(screen.queryByText("Otras")).not.toBeInTheDocument()
+    expect(document.querySelector('[data-tecnica="T1548"]')).toHaveAttribute("data-activa", "true")
+    expect(document.querySelector('[data-tecnica="T1136"]')).toHaveAttribute("data-activa", "true")
+    expect(document.querySelector('[data-tecnica="T1098"]')).toHaveAttribute("data-activa", "true")
+  })
 })
