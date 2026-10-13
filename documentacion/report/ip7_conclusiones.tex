@@ -108,13 +108,19 @@ prototipo no usa el nivel: decide con la familia, la postura del activo y el ori
         narra como explotación aunque la familia y el conocimiento recuperado digan lo contrario.
         Una clase con su propio nombre, su propia prioridad ---un sondeo aislado no merece la de
         una fuerza bruta--- y su propia pregunta al justificador resuelve el problema en el único
-        sitio donde puede resolverse. Es un cambio en la capa de decisión y por eso se propone, no
-        se hizo.
+        sitio donde puede resolverse. Se implementó tras cerrar la evaluación, en la variante que no
+        mueve las cifras: el reconocimiento tiene ya clase y pregunta propias ---la explicación deja
+        de narrarlo como explotación--- conservando la acción y la prioridad de un intento de acceso,
+        de modo que la matriz y el escalado medidos no varían; rebajar además su prioridad, como aquí
+        se sugiere, queda para cuando se acepte repetir la evaluación.
   \item \textbf{Crecer el corpus de descarte al ritmo de las clases, no antes.} Hoy contiene una
         ficha por cada clase sin amenaza, y basta porque las clases son tres. Cada motivo nuevo de
         descarte que el perfil de cliente incorpore debe llegar acompañado de su ficha, porque se
         midió que sin ella la justificación del descarte cae a la plantilla. Con el \emph{embedder}
-        dedicado, crecer el corpus ya no degrada la recuperación de forma apreciable.
+        dedicado, crecer el corpus ya no degrada la recuperación de forma apreciable. Tras la
+        evaluación se fijó ese acoplamiento como invariante verificado: cada clase sin amenaza declara
+        la ficha que la fundamenta y una comprobación automática lo exige, de modo que el corpus solo
+        puede crecer al ritmo de las clases y nunca antes.
   \item \textbf{Resolver, junto con Domotai C.A., si el sistema de logs propietario que
         originalmente motivó el proyecto llegará a estar disponible}, y en qué formato entrega sus
         eventos. De confirmarse, se integraría como una segunda fuente a través del mismo módulo de
