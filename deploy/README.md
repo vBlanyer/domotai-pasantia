@@ -59,10 +59,16 @@ antiguos (nunca el que el daemon escribe, nunca uno con la cadena de hashes rota
 ```sh
 # simulación (no borra):
 python3 -m prototipo.retener_trazas run --max 30
-# aplicar (p. ej. cron semanal): conserva los 30 más recientes
-0 4 * * 0  cd /opt/mdr && python3 -m prototipo.retener_trazas run --max 30 --aplicar
+# aplicar (p. ej. cron semanal): conserva los 30 más recientes y nunca el fichero vivo
+0 4 * * 0  cd /opt/mdr && . /etc/mdr/triaje.env && \
+  python3 -m prototipo.retener_trazas run --max 30 --excepto "$TRIAJE_SALIDA" --aplicar
 ```
 
-También admite `--max-dias D` (poda lo más viejo que D días). Verifica la cadena de cada fichero antes de
-borrarlo; si está rota, lo conserva y avisa (posible evidencia de manipulación, RF-09).
+- También admite `--max-dias D` (poda lo más viejo que D días).
+- **`--excepto <ruta>`** protege por nombre el fichero que el daemon está escribiendo (`$TRIAJE_SALIDA`);
+  más fiable que inferir el activo por fecha.
+- Verifica la cadena de cada fichero antes de borrarlo; si **no verifica**, lo conserva y avisa. Si la traza
+  va firmada con HMAC, **el cron debe correr con el mismo `TRIAJE_TRAZA_CLAVE`** que el daemon (por eso el
+  ejemplo hace `. /etc/mdr/triaje.env`); sin la clave, ningún fichero verifica y no se poda nada (sale un
+  aviso, no borra por las dudas).
 

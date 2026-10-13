@@ -98,15 +98,18 @@ biblioteca estándar).
 **Lo que era.** Los ficheros de traza se acumulaban en `run/` sin política; un daemon de larga vida con
 `--salida` fijo podía crecer sin límite.
 **Lo que se hizo.** Comando de **retención offline** `python3 -m prototipo.retener_trazas <dir> [--max N |
---max-dias D] [--aplicar]`: poda los ficheros `trazas-*.jsonl` antiguos por número o antigüedad, **nunca el más
-reciente** (el activo) y **nunca uno con la cadena rota** (posible evidencia de manipulación, se conserva con
-aviso); sin `--aplicar` simula. Y `traza.leer_familia(ruta)` concatena los segmentos de una traza en orden; la
-**reconstrucción de #4** ya la usa, así que el sistema queda listo para múltiples segmentos sin perder
-histórico. Ejemplo de cron en `deploy/README.md`.
+--max-dias D] [--excepto RUTA] [--aplicar]`: poda los ficheros `trazas-*.jsonl` antiguos por número o
+antigüedad, **nunca el más reciente** (el activo) ni el nombrado con `--excepto` (el `$TRIAJE_SALIDA` vivo), ni
+uno cuya cadena **no verifique** (se conserva con aviso); sin `--aplicar` simula. Verifica con HMAC, así que el
+cron debe llevar el mismo `TRIAJE_TRAZA_CLAVE` (documentado en `deploy/README.md`); si falta, no poda nada y
+avisa. Helper `traza.leer_familia(ruta)` (concatena segmentos `<base>.<N>.jsonl` + activo) añadido como
+building block.
 **Decisión de alcance.** NO se hace **rotación en caliente** del fichero vivo: partir la cadena encadenada
 tamper-evident en segmentos choca con el ancla, el flock multi-escritor y los índices de reversión; el patrón
-seguro para un log encadenado es **sellar entre arranques**. La rotación en caliente por tamaño queda como
-mejora (Opción B) si un cliente corre un único daemon durante mucho tiempo.
+seguro para un log encadenado es **sellar entre arranques**. La rotación por tamaño queda como mejora (Opción
+B) para un único daemon de muy larga vida; **cuando se aborde**, debe cablear `leer_familia` en la
+reconstrucción de #4 **y** pasar la exclusión de revertidas a basarse en el `hash` del registro (no en el
+índice posicional), para que la concatenación de segmentos sea consistente (lo detectó la revisión Opus).
 **Criterio de cierre.** ✔ (retención) `run/` no crece sin límite; la poda verifica la cadena y respeta el
 activo y las evidencias.
 

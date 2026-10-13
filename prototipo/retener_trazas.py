@@ -45,22 +45,27 @@ def cadena_valida(ruta):
 
 def _main(argv):
     if not argv or argv[0] in ("-h", "--help"):
-        print("uso: python3 -m prototipo.retener_trazas <dir> [--max N] [--max-dias D] [--aplicar]")
+        print("uso: python3 -m prototipo.retener_trazas <dir> [--max N] [--max-dias D] "
+              "[--excepto RUTA] [--aplicar]\n  (corre con el mismo TRIAJE_TRAZA_CLAVE que el daemon "
+              "si la traza va firmada con HMAC)")
         return 2
     d = argv[0]
     max_n = int(argv[argv.index("--max") + 1]) if "--max" in argv else None
     max_dias = int(argv[argv.index("--max-dias") + 1]) if "--max-dias" in argv else None
     aplicar = "--aplicar" in argv
+    # --excepto protege por NOMBRE el fichero activo del daemon (más fiable que inferirlo por mtime).
+    exentos = {os.path.realpath(argv[i + 1]) for i, a in enumerate(argv) if a == "--excepto"}
     ficheros = [(r, os.path.getmtime(r)) for r in glob.glob(os.path.join(d, "trazas-*.jsonl"))]
     if not ficheros:
         print(f"no hay ficheros de traza (trazas-*.jsonl) en {d}")
         return 0
     import time
     _, podar = plan_retencion(ficheros, max_n=max_n, max_dias=max_dias, ahora=time.time())
+    podar = [p for p in podar if os.path.realpath(p) not in exentos]   # nunca el activo nombrado
     borrados = conservados_rotos = 0
     for ruta in podar:
         if not cadena_valida(ruta):
-            print(f"[aviso] {os.path.basename(ruta)}: cadena ROTA -> se CONSERVA (posible evidencia)")
+            print(f"[aviso] {os.path.basename(ruta)}: no verifica la cadena -> se CONSERVA")
             conservados_rotos += 1
             continue
         if aplicar:
@@ -68,9 +73,15 @@ def _main(argv):
             print(f"podado {os.path.basename(ruta)}")
         else:
             print(f"[seco] podaría {os.path.basename(ruta)}")
-    quedan = len(ficheros) - borrados
-    print(f"{'borrados' if aplicar else 'a podar'}: {borrados if aplicar else len(podar) - conservados_rotos}"
-          f" · conservados: {quedan}" + (f" ({conservados_rotos} por cadena rota)" if conservados_rotos else "")
+    if podar and conservados_rotos == len(podar):
+        # Todo lo que tocaba podar «no verifica»: casi seguro falta TRIAJE_TRAZA_CLAVE en el entorno,
+        # no que N ficheros estén manipulados. Se avisa para no dejar la retención inútil en silencio.
+        print("[aviso] ningún candidato verificó la cadena; ¿falta TRIAJE_TRAZA_CLAVE en el entorno "
+              "del cron (la misma del daemon)? no se podó nada.")
+    a_podar = len(podar) - conservados_rotos
+    print(f"{'borrados' if aplicar else 'a podar'}: {borrados if aplicar else a_podar}"
+          f" · se conservan: {len(ficheros) - (borrados if aplicar else a_podar)}"
+          + (f" ({conservados_rotos} no verifican)" if conservados_rotos else "")
           + ("" if aplicar else "  (simulación; usa --aplicar para borrar)"))
     return 0
 

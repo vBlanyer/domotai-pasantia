@@ -51,6 +51,17 @@ class TestRetenerMain(unittest.TestCase):
         rt._main([d, "--max", "1", "--aplicar"])
         self.assertEqual(os.listdir(d), ["trazas-2.jsonl"])      # el activo (más reciente) se queda
 
+    def test_excepto_protege_el_activo_por_nombre(self):
+        # --excepto nombra el fichero vivo del daemon: no se poda aunque la política lo marque.
+        d = tempfile.mkdtemp()
+        self._fichero(d, "trazas-1.jsonl", 100, [{"tipo": "decision", "id_decision": "s1"}])
+        activo = self._fichero(d, "trazas-2.jsonl", 200, [{"tipo": "decision", "id_decision": "s1"}])
+        self._fichero(d, "trazas-3.jsonl", 300, [{"tipo": "decision", "id_decision": "s1"}])
+        rt._main([d, "--max", "1", "--excepto", activo, "--aplicar"])
+        # el más reciente (trazas-3) se conserva por ser activo-por-mtime; trazas-2 por --excepto;
+        # solo trazas-1 se poda.
+        self.assertEqual(sorted(os.listdir(d)), ["trazas-2.jsonl", "trazas-3.jsonl"])
+
     def test_no_borra_un_fichero_con_la_cadena_rota(self):
         # Una traza con la cadena rota puede ser evidencia de manipulación: se conserva y se avisa.
         d = tempfile.mkdtemp()
