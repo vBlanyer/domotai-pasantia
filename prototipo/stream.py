@@ -759,6 +759,7 @@ _HALLAZGOS_DEF = os.path.join(_RAIZ, "lab", "campañas", "2026-08-31-evaluacion"
 def parsear_args(argv):
     pos, con_llm, ventana, salida, sin_lab, agente = [], False, 5, "run/trazas-stream.jsonl", False, False
     web, web_puerto, sin_supresion = False, 8787, False
+    escuchar, permitir, tls_cert, tls_clave = None, None, None, None   # permitir None = flag ausente (abierto)
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -772,13 +773,18 @@ def parsear_args(argv):
             if i + 1 < len(argv) and argv[i + 1].isdigit(): i += 1; web_puerto = int(argv[i])
         elif a == "--ventana-agrupacion": i += 1; ventana = int(argv[i])
         elif a == "--salida": i += 1; salida = argv[i]
+        elif a == "--escuchar": i += 1; escuchar = argv[i]            # host:puerto (#1 receptor de red)
+        elif a == "--permitir": i += 1; permitir = [x for x in argv[i].split(",") if x]
+        elif a == "--tls-cert": i += 1; tls_cert = argv[i]
+        elif a == "--tls-clave": i += 1; tls_clave = argv[i]
         else: pos.append(a)
         i += 1
     return {"ruta": pos[0] if pos else "-",
             "perfil": pos[1] if len(pos) > 1 else _PERFIL_DEF,
             "hallazgos": pos[2] if len(pos) > 2 else _HALLAZGOS_DEF,
             "con_llm": con_llm, "ventana": ventana, "salida": salida, "sin_lab": sin_lab,
-            "agente": agente, "web": web, "web_puerto": web_puerto, "sin_supresion": sin_supresion}
+            "agente": agente, "web": web, "web_puerto": web_puerto, "sin_supresion": sin_supresion,
+            "escuchar": escuchar, "permitir": permitir, "tls_cert": tls_cert, "tls_clave": tls_clave}
 
 def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hallazgos=None):
     """Modo --agente: devuelve un `mitigar_fn(decision, alerta, leer, escribir=..., ejecutor=...) -> plan` que delega en el agente
@@ -931,7 +937,21 @@ def main(argv):
     justificar_fn = construir_justificar_fn(cfg["con_llm"])
     ejecutor = lazo._EjecutorAuto() if cfg["sin_lab"] else conector.ejecutor_por_defecto()
     mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor, hallazgos=hallazgos)
-    fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
+    if cfg["escuchar"]:                                  # #1: recibir alertas por red del SIEM
+        from prototipo import receptor
+        host, _, puerto = cfg["escuchar"].rpartition(":")
+        if not puerto.isdigit():
+            raise SystemExit(f"--escuchar: se esperaba host:puerto, no {cfg['escuchar']!r}")
+        if cfg["permitir"] is not None and not cfg["permitir"]:
+            raise SystemExit("--permitir vacío: indica las IPs del SIEM o quita el flag (abierto)")
+        ctx = receptor.contexto_tls(cfg["tls_cert"], cfg["tls_clave"]) if cfg["tls_cert"] else None
+        fuente = receptor.escuchar(host or "0.0.0.0", int(puerto),
+                                   permitir=cfg["permitir"], contexto_tls=ctx)   # None=abierto; [ips]=lista
+        print(f"[red] escuchando alertas en {host or '0.0.0.0'}:{puerto}"
+              + (" · TLS" if ctx else "")
+              + (f" · permitidas {','.join(cfg['permitir'])}" if cfg["permitir"] else " · SIN lista blanca (abierto)"))
+    else:
+        fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
     print(banner(cfg, ejecutor))
     try:                                           # cordura del perfil al arrancar (B11), sin romper
         for aviso in perfilm.validar(perfil):
