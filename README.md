@@ -113,14 +113,6 @@ la **conciencia de impacto** —medida sobre la red real del laboratorio, donde 
 analista el **29,7 % (89/300)** y reduce a **cero** las contenciones automáticas indebidas (la automatización
 queda para los orígenes externos). Fuente: [`evaluacion/resultados/`](evaluacion/resultados/README.md).
 
-**Validación pendiente de una segunda mirada (recomendación #6 del informe):** la lectura de *utilidad* de la
-justificación la tiene que confirmar alguien **ajeno** a quien construyó el sistema. El material está listo para
-esa revisión —dos hojas de cálculo (las justificaciones y las decisiones escaladas, esta última *ciega*) y una
-guía paso a paso de ≈1,5 h— en
-[la guía de revisión independiente](documentacion/06-fase6-evaluacion-del-prototipo/guia-revision-independiente.md).
-Una vez rellenadas, `python3 -m evaluacion.puntuar_revision` resume las tasas por criterio y la decisión del
-revisor frente a la verdad en `evaluacion/resultados/revision-independiente.md`.
-
 Decisión de diseño: el clasificador **no** es un codificador con ajuste fino, sino un **árbol de decisión**
 ([`arbol.py`](prototipo/arbol.py)) que valida y descubre reglas para el baseline determinista auditable — la
 escala honesta para un dataset de unos cientos de filas. El justificador LLM sí es real.
