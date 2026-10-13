@@ -50,6 +50,7 @@ comparar contra él es lo único que responde a la pregunta del proyecto.
 - [Arquitectura consolidada](arquitectura-consolidada.md) — vista única: componentes, planos, flujo y los tres puntos de aislamiento.
 - [Integración en producción](integracion-en-produccion.md) — cómo se configura el prototipo para el sistema de un cliente real: arquitectura de despliegue, los puntos de configuración por cliente (perfil, catálogo, adaptador del SIEM, conector), alta de cliente, postura de seguridad y lo listo vs. trabajo futuro.
 - [Hoja de ruta a producción](hoja-de-ruta-a-produccion.md) — los pendientes para pasar de prototipo a producto final (los 12 puntos), con quién los cierra, estado, criterio de cierre y el orden progresivo de cierre del proyecto.
+- [Requisitos del cliente y gobernanza](requisitos-del-cliente-y-gobernanza.md) — lo que no es código y debe aportar la empresa/cliente: autorización para actuar (reglas de enganche), despliegue del auditor, hardware del modelo, custodia de secretos (vault) y control de cambios; con plantillas y listas de verificación.
 
 **Material de referencia:** [EDR, XDR, MDR y telemetría](edr-xdr-mdr-telemetria.md) — encaje de las
 tres siglas y por qué el componente central es un motor de triaje y no un EDR. El material superado
