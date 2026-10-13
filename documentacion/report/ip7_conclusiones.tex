@@ -140,6 +140,24 @@ tampoco pueda hacer desaparecer una decisión borrando el final del registro. La
 credencial del conector cierra el conjunto: todo o nada sobre todos los nodos, verificada antes de
 retirar la anterior, y anotada en el mismo sistema que las decisiones.
 
+Sobre esa base, y ya fuera del prototipo evaluado, se ejecutó una hoja de ruta de endurecimiento
+para acercarlo a un despliegue real, recogida en una guía de integración y una hoja de ruta de
+cierre. En el propio motor en vivo: la reconstrucción del estado al reiniciar ---la memoria de
+supresión y las contenciones vigentes se rederivan de la traza, de modo que un reinicio no olvida
+qué está conteniendo---; una señal de salud del daemon expuesta para su supervisión, con su unidad
+de servicio y reinicio automático ante caída; y una política de retención de la traza que acota su
+crecimiento sin romper la cadena de verificación. En el control del operador: un interruptor que
+detiene toda la automatización al instante y un des-bloqueo en masa, para frenar y revertir si el
+sistema se equivoca. Y en la integración: la recepción de alertas por red con lista blanca de
+orígenes ---en lugar de leer solo un fichero local---, la normalización de la zona horaria de los
+sucesos para que la correlación de ráfaga no dependa del huso del emisor, y una medida de la
+capacidad de un proceso que confirma que el cuello de botella no es el motor sino el ritmo del
+sistema de logs y el canal de respuesta. Como las anteriores, ninguna de estas piezas altera una
+cifra de la evaluación; y lo que queda para un cliente concreto ---validar su conjunto de reglas,
+desplegar el auditor sobre su red y dimensionar el \emph{hardware} del modelo--- junto con las
+decisiones que corresponden a la organización ---la autorización por escrito del alcance de
+actuación y la custodia de los secretos--- se dejan identificadas en esa misma hoja de ruta.
+
 \subsection*{Trabajo futuro}
 
 Quedan fuera del alcance de esta pasantía, y se documentan explícitamente para que no se
@@ -147,6 +165,8 @@ interpreten como un olvido: la respuesta automatizada sin validación humana pre
 actual descarta de forma deliberada; la integración multicapa con fuentes de identidad, correo y
 nube, que ampliaría la correlación más allá de la red del cliente; el aprendizaje continuo a partir
 de la retroalimentación que el analista ya registra en cada validación, hoy almacenada pero no
-utilizada para ajustar ningún modelo; y el despliegue y la escalabilidad del prototipo sobre
-múltiples clientes de forma simultánea. Cada una de estas líneas es una extensión natural sobre la
-arquitectura ya construida, y ninguna exige rediseñarla desde cero.
+utilizada para ajustar ningún modelo; y el servicio simultáneo de varios clientes desde una sola
+instancia ---multi-inquilino---, del que el empaquetado, la supervisión y la medida de capacidad de
+un proceso ya quedaron resueltos, pero no el reparto de varios perfiles dentro del mismo. Cada una
+de estas líneas es una extensión natural sobre la arquitectura ya construida, y ninguna exige
+rediseñarla desde cero.

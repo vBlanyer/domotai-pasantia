@@ -52,11 +52,16 @@ Decanato de Estudios Profesionales de la USB.
 | `ip8_referencias.bib` | Bibliografía (11 fuentes verificadas, estilo `unsrt`/IEEE) |
 
 **Compilar:** `latexmk -pdf ip1_main.tex` desde ese directorio, o `tectonic -X compile ip1_main.tex`
-si se prefiere un motor autocontenido. **Recompilado el 28/09/2026 con tectonic: 61 páginas**, compila
+si se prefiere un motor autocontenido. **Recompilado el 13/10/2026 con tectonic (0.17): ~61 páginas**, compila
 limpio, sin citas ni referencias sin resolver y sin cajas desbordadas. Incorpora la **conciencia de
 impacto (D16)** —escalado 29,7 % sobre el perfil empresarial (atacante interno), dos contenciones
 indebidas expuestas y llevadas a cero, y el perfil bancario / laboratorio del banco como caso al
-límite— en el capítulo de resultados y en las conclusiones.
+límite— en el capítulo de resultados y en las conclusiones. En las conclusiones, el apartado
+**«Sobre el endurecimiento»** se amplió (13/10) con la hoja de ruta de producción ejecutada
+—persistencia al reiniciar, supervisión con healthcheck y servicio, retención de la traza, *kill
+switch*, recepción de alertas por red, normalización de tiempos y medida de escala—, que no altera
+ninguna cifra de la evaluación; lo que queda para un cliente concreto y para la organización se deja
+identificado.
 
 Se versionan solo las **fuentes** (`.tex`, `.bib`), las imágenes y el **PDF final**; los artefactos
 de compilación están en `.gitignore`.
