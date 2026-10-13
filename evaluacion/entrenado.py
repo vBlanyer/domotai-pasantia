@@ -21,7 +21,7 @@ from prototipo import perfil as perfilm
 from prototipo.postura import postura_de
 
 RASGOS = ["familia", "regla_id", "nivel_wazuh", "servicio", "origen_legitimo", "expuesto",
-          "n_origen_60s", "reglas_60s", "nivel_max_60s", "exito_120s"]
+          "n_origen_60s", "reglas_60s", "nivel_max_60s", "exito_120s", "n_origen_600s"]
 REGLAS_EXITO = {"5715", "5501"}      # sshd: acceso correcto; PAM: sesion abierta
 
 
@@ -43,7 +43,8 @@ def rasgos_rafaga(filas):
     for f in filas:
         t, vecinas = _ts(f), por_origen.get(f.get("origen_ip"), [f])   # sin origen: solo ella misma
         if t is None:
-            f.update(n_origen_60s=1, reglas_60s=1, nivel_max_60s=f.get("nivel_wazuh") or 0, exito_120s=False)
+            f.update(n_origen_60s=1, reglas_60s=1, nivel_max_60s=f.get("nivel_wazuh") or 0,
+                     exito_120s=False, n_origen_600s=1)
             continue
         ventana = [g for g in vecinas if _ts(g) and abs((_ts(g) - t).total_seconds()) <= 60]
         despues = [g for g in vecinas if _ts(g) and 0 <= (_ts(g) - t).total_seconds() <= 120]
@@ -51,6 +52,10 @@ def rasgos_rafaga(filas):
         f["reglas_60s"] = len({g.get("regla_id") for g in ventana})
         f["nivel_max_60s"] = max((g.get("nivel_wazuh") or 0) for g in ventana)
         f["exito_120s"] = any(g.get("regla_id") in REGLAS_EXITO for g in despues)
+        # Ventana larga (±600 s): el único rasgo capaz de ver una fuerza bruta LENTA, repartida en
+        # minutos para evadir la ráfaga de 60 s. Es el que el experimento A pone a prueba (ataque
+        # lento desde un origen legítimo); sin él, el árbol no puede separarlo de un admin que teclea mal.
+        f["n_origen_600s"] = len([g for g in vecinas if _ts(g) and abs((_ts(g) - t).total_seconds()) <= 600])
     return filas
 
 
