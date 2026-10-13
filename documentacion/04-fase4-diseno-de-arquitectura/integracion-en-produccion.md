@@ -217,6 +217,10 @@ tail -n0 -F /ruta/al/alerts.json \
 - **Flags útiles:** `--web [puerto]` (visor, def. 8787), `--con-llm` (justificador LLM si el hardware lo
   admite), `--agente` (agente ReAct en vez del lazo determinista), `--sin-supresion`, `--ventana-agrupacion N`,
   `--salida <traza.jsonl>`.
+- **Recibir del SIEM por red (en vez de `tail`):** `--escuchar host:puerto` levanta un receptor **TCP**;
+  `--permitir ip,ip` es la **lista blanca** de IPs del SIEM (solo esas se aceptan; mitiga la inyección de
+  alertas falsas), y `--tls-cert/--tls-clave` activan TLS (o se termina en un proxy delante). El emisor envía
+  un JSON de alerta por línea (el mismo formato de `alerts.json`).
 - La respuesta del analista en terminal se lee de `/dev/tty` (no de stdin), para no consumir alertas del *pipe*.
 - Un cambio en el backend requiere **reiniciar el daemon**; el `dist` del visor se sirve por petición (basta
   `npm run build`).

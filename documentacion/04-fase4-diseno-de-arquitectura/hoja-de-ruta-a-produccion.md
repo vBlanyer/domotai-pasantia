@@ -20,7 +20,7 @@ Cada punto indica **quién lo cierra**:
 
 | # | Punto | Quién | Prioridad | Estado |
 |---|---|---|---|---|
-| 1 | Receptor de alertas de red (SIEM remoto) | 🛠 Prototipo | Alta | Pendiente |
+| 1 | Receptor de alertas de red (SIEM remoto) | 🛠 Prototipo | Alta | **Hecho (transporte)** |
 | 2 | Validar el contenido de detección del SIEM del cliente | 🤝 Integración | Alta | Pendiente |
 | 3 | Desplegar el auditor (postura/Nmap) en producción | 🤝 Integración | Media | Pendiente |
 | 4 | Persistencia de estado al reiniciar | 🛠 Prototipo | Alta | **Hecho** |
@@ -37,14 +37,18 @@ Cada punto indica **quién lo cierra**:
 
 ## A. Integración que aún no está construida
 
-### 1. Receptor de alertas de red (SIEM remoto) — 🛠 Prototipo · Alta
-**Estado.** Hoy `stream.py` solo lee fichero/stdin. Un SIEM de cliente está en otra máquina y reenvía por
-**syslog**; no hay receptor de red.
-**Qué falta.** Un receptor **syslog TCP + TLS** con **lista blanca de IPs** del SIEM (un syslog UDP abierto
-convierte el auto-bloqueo en un arma de DoS por alertas falsas). El análisis CEF ya lo propuso como
-`--escuchar-udp`/receptor; retomar de ahí.
-**Criterio de cierre.** El daemon recibe alertas por red de un emisor autorizado, descarta las de orígenes no
-permitidos, y la misma alerta produce la misma decisión que por fichero.
+### 1. Receptor de alertas de red (SIEM remoto) — 🛠 Prototipo · Alta · **TRANSPORTE HECHO**
+**Lo que era.** `stream.py` solo leía fichero/stdin; un SIEM remoto no tenía por dónde entregar las alertas.
+**Lo que se hizo.** `prototipo/receptor.py`: servidor **TCP** (`escuchar(...)`, generador que rinde líneas +
+`None` en reposo, encaja en el bucle como la fuente de stdin) con **lista blanca de IPs** (`--permitir`: solo
+el SIEM; el resto se cierra al instante → mitiga el DoS por alertas falsas, R1), **TLS opcional**
+(`--tls-cert/--tls-clave`, o terminado por un proxy de la empresa), tope de tamaño de línea y de conexiones.
+Flag del daemon: `--escuchar host:puerto`.
+**Frontera de alcance.** Es el **transporte**: asume el mismo formato de línea que el daemon ya parsea (un JSON
+de alerta por línea). El **enmarcado syslog / multi-formato CEF** (el adaptador recibe la línea cruda, campo
+`severidad`) sigue siendo un ítem aparte (el análisis CEF).
+**Criterio de cierre.** ✔ El daemon recibe alertas por red, descarta las de orígenes no permitidos, y una
+alerta recibida produce la misma decisión que por fichero.
 
 ### 2. Validar el contenido de detección del SIEM del cliente — 🤝 Integración · Alta
 **Estado.** `adaptador_wazuh.familia_de` mapea grupos/reglas de Wazuh → familia. Si el cliente usa otro

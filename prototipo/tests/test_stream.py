@@ -960,6 +960,17 @@ class TestSupresionEnVivo(unittest.TestCase):
         self.assertFalse(stream.parsear_args(["-", "p"])["sin_supresion"])
         self.assertTrue(stream.parsear_args(["-", "p", "--sin-supresion"])["sin_supresion"])
 
+    def test_parsear_args_escuchar_y_permitir(self):
+        # #1: receptor de red. --escuchar host:puerto + lista blanca de IPs del SIEM.
+        cfg = stream.parsear_args(["-", "p", "--escuchar", "0.0.0.0:6514",
+                                   "--permitir", "10.0.0.5,10.0.0.6"])
+        self.assertEqual(cfg["escuchar"], "0.0.0.0:6514")
+        self.assertEqual(cfg["permitir"], ["10.0.0.5", "10.0.0.6"])
+        self.assertEqual(cfg["perfil"], "p")
+        por_defecto = stream.parsear_args(["-", "p"])
+        self.assertIsNone(por_defecto["escuchar"])
+        self.assertEqual(por_defecto["permitir"], [])
+
 
 
 def _linea(srcip="1.1.1.1", host="objetivo-vuln", seg=0):
