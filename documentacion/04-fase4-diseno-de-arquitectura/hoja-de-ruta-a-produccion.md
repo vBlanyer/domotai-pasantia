@@ -22,16 +22,20 @@ Cada punto indica **quién lo cierra**:
 |---|---|---|---|---|
 | 1 | Receptor de alertas de red (SIEM remoto) | 🛠 Prototipo | Alta | **Hecho (transporte)** |
 | 2 | Validar el contenido de detección del SIEM del cliente | 🤝 Integración | Alta | **Herramienta lista** |
-| 3 | Desplegar el auditor (postura/Nmap) en producción | 🤝 Integración | Media | Pendiente |
+| 3 | Desplegar el auditor (postura/Nmap) en producción | 🤝 Integración | Media | **Documentado · del cliente** |
 | 4 | Persistencia de estado al reiniciar | 🛠 Prototipo | Alta | **Hecho** |
 | 5 | Supervisión y resiliencia del daemon | 🛠 Prototipo + 🤝 | Alta | **Hecho** |
 | 6 | Rotación y retención de la traza | 🛠 Prototipo | Media | **Hecho (retención)** |
 | 7 | Sincronización de reloj (NTP) y manejo de tiempos | 🤝 + 🛠 | Media | **Hecho (código)** · NTP 🤝 |
 | 8 | Autorización para actuar + *kill switch* | 🏢 + 🛠 | Alta | **Hecho (🛠)** · falta 🏢 |
-| 9 | Gestión de secretos del conector | 🏢 Empresa | Media | Parcial |
-| 10 | Control de cambios de catálogo y perfil | 🏢 Gobernanza | Baja | Pendiente |
-| 11 | Modelo de análisis y hardware | 🏢 + 🛠 | Media | Parcial |
+| 9 | Gestión de secretos del conector | 🏢 Empresa | Media | **Documentado · de la empresa** |
+| 10 | Control de cambios de catálogo y perfil | 🏢 Gobernanza | Baja | **Documentado · de la empresa** |
+| 11 | Modelo de análisis y hardware | 🏢 + 🛠 | Media | **Documentado · del cliente** |
 | 12 | Escala y volumen real | 🛠 Prototipo | Media | **Hecho (medido)** |
+
+**Todos los puntos de código (🛠) están cerrados.** Lo que queda (#3, #9, #10, #11 y la autorización de #8) no
+es código: lo aporta o decide la empresa/cliente, y su detalle con plantillas está en
+[requisitos del cliente y gobernanza](requisitos-del-cliente-y-gobernanza.md).
 
 ---
 

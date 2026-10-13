@@ -312,4 +312,6 @@ tail -n0 -F /ruta/al/alerts.json \
 
 El detalle de lo pendiente —los puntos a cerrar para pasar de prototipo a producto final, con estado, criterio
 de cierre y orden— está en la **[hoja de ruta a producción](hoja-de-ruta-a-produccion.md)**, que se aborda
-progresivamente.
+progresivamente. Lo que debe aportar o decidir la **empresa/cliente** (autorización para actuar, auditor,
+hardware del modelo, vault, control de cambios), con plantillas, está en
+**[requisitos del cliente y gobernanza](requisitos-del-cliente-y-gobernanza.md)**.
