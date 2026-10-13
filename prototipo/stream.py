@@ -270,7 +270,7 @@ def _linea_supresion(reg):
 
 def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
                         id_decision, cadena, escribir, leer, mitigar_fn=None, encolar=None,
-                        escribir_traza=None, diferir_escalada=None):
+                        escribir_traza=None, diferir_escalada=None, pausa=None):
     from prototipo import conector
     rep = inc["representante"]
     escribir(_resumen_incidente(inc))
@@ -285,6 +285,8 @@ def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecuto
     if diferir_escalada is not None:
         kw["diferir_escalada"] = (lambda parcial, alerta, desde, lineas:
                                   diferir_escalada({**parcial, **meta}, alerta, desde, lineas))
+    if pausa is not None:
+        kw["pausa"] = pausa
     d = lazo.procesar_lazo(rep, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                            id_decision, rep.get("timestamp", ""), leer=leer, escribir=escribir, **kw)
     d = {**d, **meta, "decidido_en": conector.ahora_iso()}
@@ -367,7 +369,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         try:
             r = lazo.reanudar_escalada(decision, alerta, perfil, catalogo, ejecutor, respuesta,
                                        entrada.get("desde"), alerta.get("timestamp", ""),
-                                       diferir_escalada=diferir_escalada)
+                                       diferir_escalada=diferir_escalada, pausa=estado.pausada)
         except Exception as e:               # la decisión no se pierde: se traza con el fallo
             r = {**decision, "escalada": {"resultado": "fallido", "error": f"{type(e).__name__}: {e}"}}
             r.pop("en_cola", None)
@@ -383,7 +385,8 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
             r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
                                        decision.get("id_decision", ""), alerta.get("timestamp", ""),
                                        veredicto=veredicto, clase_reclasificada=clase,
-                                       diferir_escalada=diferir_escalada, leer=lambda *_: "")
+                                       diferir_escalada=diferir_escalada, leer=lambda *_: "",
+                                       pausa=estado.pausada)
         except Exception as e:
             # No se reencola (podría reejecutar a medias): se traza la decisión con el fallo, en vez
             # de un 500 que la hacía desaparecer sin rastro.
@@ -507,6 +510,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             memoria.recordar(_clave_supresion(alerta), r)
     # Modo web no bloqueante: encolar en vez de bloquear, y registrar cómo se resuelve (ejecuta+traza).
     encolar = diferir_escalada = None
+    pausa = estado_web.pausada if estado_web is not None else None   # kill switch (#8)
     if estado_web is not None:
         def encolar(decision, alerta):
             estado_web.encolar_decision(_entrada_cola(decision, alerta))
@@ -544,7 +548,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 d = _procesar_incidente(
                     inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
                     id_decision, cadena, esc, lee, mitigar_fn=mitigar_fn,
-                    encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada)
+                    encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada,
+                    pausa=pausa)
             except Exception as e:
                 # Barrera: un fallo con un incidente (un ejecutor que lanza, un dato inesperado) no
                 # tumba el daemon ni el visor; queda un registro 'error' encadenado y se sigue.
@@ -853,7 +858,7 @@ def lineas_avisos_red(perfil):
 
 _SALUD_DEF = {"contenedor": "clab-banco-mdr-siem", "fichero_en_contenedor": "/var/log/banco/salud.jsonl"}
 
-def construir_web(cfg, perfil, catalogo=None):
+def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
     """Arma el tablero para --web: EstadoTablero, el servidor (ligado a 127.0.0.1, SIN arrancar el
     hilo), y los `escribir`/`leer` web que se inyectan en ejecutar. Las dependencias salen del perfil.
     El `catalogo` sirve para reconstruir las contenciones activas de la traza (/api/contenciones)."""
@@ -865,7 +870,8 @@ def construir_web(cfg, perfil, catalogo=None):
     async_web = not cfg.get("agente")
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
-                                      catalogo=catalogo, latido=Latido())   # salud del daemon (/healthz, #5)
+                                      catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)
+                                      ejecutor=ejecutor)                     # des-bloqueo en masa (#8)
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
@@ -936,7 +942,7 @@ def main(argv):
     servidor, estado_web = None, None
     lector_incidente = None
     if cfg["web"]:
-        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo)
+        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo, ejecutor)
         for linea in lineas_avisos_red(perfil):
             print(linea)
         if not cfg["agente"]:

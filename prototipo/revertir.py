@@ -70,6 +70,39 @@ def revertir(registro, catalogo, ejecutor, timestamp, motivo=""):
             "exito": rc == 0 and rc_v != 0}
 
 
+def revertir_todas(ruta, catalogo, ejecutor, motivo="", operador=None, _ahora=None):
+    """Des-bloqueo en masa (kill switch #8): revierte TODAS las contenciones activas de la traza y
+    anota cada reversión en la MISMA cadena (fichero bloqueado y releído, como la CLI), con
+    `indice_revertido` y `operador`. Las activas salen de contenciones.activas (mismo criterio que
+    la vista /api/contenciones). Síncrono: cada reversión ejecuta su comando real (acotado por el
+    timeout del conector). Devuelve {revertidas, fallidas, detalle}."""
+    from prototipo import contenciones
+    regs = traza.leer_registros(ruta)
+    activas = contenciones.activas(regs, catalogo)
+    if not activas:
+        return {"revertidas": 0, "fallidas": 0, "detalle": []}
+    ts = _ahora or (datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000")
+    revertidas = fallidas = 0
+    detalle = []
+    with traza.abrir_append(ruta) as f:                  # 0600; flock + relectura para coexistir con el daemon
+        previos = traza.leer_registros(ruta)
+        cadena = traza.Cadena(f, traza.ultimo_hash(ruta), n=len(previos),
+                              nombre=os.path.basename(ruta), linaje=traza.linaje_de(previos), ruta=ruta)
+        for a in activas:
+            reg = regs[a["indice"]]
+            r = {**revertir(reg, catalogo, ejecutor, ts, motivo), "indice_revertido": a["indice"]}
+            if operador:
+                r["operador"] = operador
+            cadena.escribir(r)
+            if r.get("exito"):
+                revertidas += 1
+            else:
+                fallidas += 1
+            detalle.append({"id_decision": reg.get("id_decision"), "accion_id": r.get("accion_id"),
+                            "nodo": r.get("nodo"), "objetivo": a.get("objetivo"), "exito": r.get("exito")})
+    return {"revertidas": revertidas, "fallidas": fallidas, "detalle": detalle}
+
+
 def _main(argv):
     if len(argv) < 2:
         print("uso: python3 -m prototipo.revertir <traza.jsonl> <id_decision> [--indice N] [--motivo \"...\"]")

@@ -32,6 +32,18 @@ class EstadoTablero:
         self._cola = {}                    # cola de decisiones humanas (modo web no bloqueante)
         self._orden = itertools.count(1)   # orden de llegada, para desempatar por severidad
         self._resolutor = None             # fn(pid, respuesta, paso=None)->bool, la registra el daemon (ejecuta+traza)
+        self._pausada = False              # kill switch (#8): con True, toda auto-ejecución pasa a esperar humano
+
+    def pausar(self, valor):
+        """Activa/desactiva la pausa global de la automatización (#8). Estado de sesión en memoria:
+        un reinicio del daemon la limpia."""
+        with self._lock:
+            self._pausada = bool(valor)
+        return self._pausada
+
+    def pausada(self):
+        with self._lock:
+            return self._pausada
 
     def encolar_decision(self, entrada):
         """Encola una decisión que espera al humano (modo web no bloqueante). `entrada` lleva la
@@ -661,6 +673,8 @@ class _Manejador(BaseHTTPRequestHandler):
         s = self.server
         ruta = self.path.split("?", 1)[0]
         try:
+            if ruta == "/api/pausa":   # estado del kill switch (#8)
+                return self._responder({"pausada": s.estado.pausada()})
             if ruta == "/healthz":    # salud del PROPIO daemon (#5), distinto de /api/salud (servicios del cliente)
                 return self._responder(s.latido.estado() if s.latido
                                        else {"ok": True, "alertas": 0, "lazo_quietud_s": 0.0, "ingesta_silencio_s": None})
@@ -708,7 +722,8 @@ class _Manejador(BaseHTTPRequestHandler):
             return self._responder({"error": "origen no permitido"}, 403)
         try:
             s = self.server
-            if self.path.split("?", 1)[0] != "/api/aprobar":
+            ruta = self.path.split("?", 1)[0]
+            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo"):
                 return self._responder({"error": "no encontrado"}, 404)
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -719,12 +734,20 @@ class _Manejador(BaseHTTPRequestHandler):
             if not 0 <= n <= _MAX_CUERPO:
                 return self._responder({"error": "Content-Length fuera de rango"}, 413)
             cuerpo = json.loads(self.rfile.read(n) or b"{}")
+            operador = str(cuerpo.get("operador")) if cuerpo.get("operador") else None
+            if ruta == "/api/pausa":      # kill switch (#8): fija la pausa global de la automatización
+                return self._responder({"pausada": s.estado.pausar(bool(cuerpo.get("pausar")))})
+            if ruta == "/api/revertir-todo":   # des-bloqueo en masa (#8)
+                from prototipo import revertir, conector
+                ejecutor = getattr(s, "ejecutor", None) or conector.ejecutor_por_defecto()
+                res = revertir.revertir_todas(s.ruta_traza, s.catalogo, ejecutor,
+                                              motivo="des-bloqueo en masa (kill switch)", operador=operador)
+                return self._responder(res)
             pid, resp = str(cuerpo.get("id")), str(cuerpo.get("respuesta", ""))
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.
             # `paso` es opcional: solo lo usa la cola (la ruta bloqueante no tiene menús con paso).
             if getattr(s, "async_web", False):
-                ok = s.estado.resolver_decision(pid, resp, paso=cuerpo.get("paso"),
-                                                operador=(str(cuerpo.get("operador")) if cuerpo.get("operador") else None))
+                ok = s.estado.resolver_decision(pid, resp, paso=cuerpo.get("paso"), operador=operador)
             else:
                 ok = s.estado.resolver(pid, resp)
             return self._responder({"ok": True}) if ok else self._responder({"error": "pendiente no vigente"}, 409)
@@ -744,7 +767,7 @@ def _vista_pendiente(p):
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
                    puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
-                   async_web=False, perfil=None, catalogo=None, latido=None):
+                   async_web=False, perfil=None, catalogo=None, latido=None, ejecutor=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
     fichero_en_contenedor}. `async_web`
     activa la cola de aprobación no bloqueante. Guarda la config en atributos del servidor."""
@@ -759,4 +782,5 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.perfil = perfil or {"activos": activos or {}, "topologia": topologia or {}}
     srv.catalogo = catalogo or {}        # para reconstruir las contenciones activas (#4)
     srv.latido = latido                  # salud del propio daemon para /healthz (#5)
+    srv.ejecutor = ejecutor              # el ejecutor del daemon, para el des-bloqueo en masa (#8)
     return srv

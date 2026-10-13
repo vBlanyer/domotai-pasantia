@@ -74,6 +74,23 @@ class TestColaNoBloqueante(unittest.TestCase):
                         ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
                         salida_traza=buf, escribir=lambda *a, **k: None, estado_web=estado)
 
+    def _ejecutar_auto(self, estado, buf):
+        # Línea sin host 'fantasma' -> decisión automática (no requiere humano).
+        stream.ejecutar([_linea_wazuh(), None], hallazgos=j("hallazgos.json"),
+                        perfil=y("perfil.yml"), perfil_nombre="prueba", catalogo=CAT,
+                        ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+                        salida_traza=buf, escribir=lambda *a, **k: None, estado_web=estado)
+
+    def test_pausa_encola_lo_que_se_auto_ejecutaria(self):
+        # #8 kill switch: sin pausa la decisión automática se ejecuta (0 pendientes); con la pausa
+        # activa se encola para humano (1 pendiente).
+        sin = tablero.EstadoTablero()
+        self._ejecutar_auto(sin, io.StringIO())
+        self.assertEqual(len(sin.decisiones_pendientes()), 0)
+        con = tablero.EstadoTablero(); con.pausar(True)
+        self._ejecutar_auto(con, io.StringIO())
+        self.assertEqual(len(con.decisiones_pendientes()), 1)
+
     def test_encola_sin_bloquear_y_al_aprobar_ejecuta_y_traza(self):
         estado, buf = tablero.EstadoTablero(), io.StringIO()
         self._ejecutar(estado, buf)                  # NO bloquea (sin leer)
@@ -278,6 +295,51 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
         self.assertEqual(r["escalada"]["resultado"], "cancelado_por_humano")
         self.assertEqual(r["veredicto_escalada"], "rechazar")
         self.assertEqual(ej.aplicado, set())
+
+
+class TestPausaCubreLaEscalada(unittest.TestCase):
+    """#8: con el kill switch, la escalada de una contención aprobada tampoco se auto-aplica — cada
+    salto espera aprobación (antes el bloqueo perimetral de un EXTERNO se aplicaba solo)."""
+    class HostCaido:
+        def __init__(self): self.aplicado = set()
+        def __call__(self, nodo_ip, cmd):
+            if nodo_ip == "192.168.1.30":
+                return (255, "Connection refused")             # el host no responde -> escala
+            if "grep" in cmd:
+                return (0, "DROP") if nodo_ip in self.aplicado else (1, "")
+            self.aplicado.add(nodo_ip); return (0, "")
+
+    def _perfil(self):
+        p = dict(y("perfil.yml"))
+        p["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
+                          "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}
+        p["ip_gestion"] = "192.168.1.100"
+        p["redes_internas"] = ["192.168.1.0/24"]               # el atacante 203.0.113.9 es EXTERNO
+        return p
+
+    def _ejecutar(self, estado, ej):
+        stream.ejecutar([_linea_wazuh("203.0.113.9"), None], hallazgos=j("hallazgos.json"),
+                        perfil=self._perfil(), perfil_nombre="prueba", catalogo=CAT, ejecutor=ej,
+                        justificar_fn=None, ventana_agrupacion=0, salida_traza=io.StringIO(),
+                        escribir=lambda *a, **k: None, leer=lambda *_: "", estado_web=estado)
+
+    def test_sin_pausa_el_perimetro_de_un_externo_se_auto_aplica(self):
+        estado, ej = tablero.EstadoTablero(), self.HostCaido()
+        self._ejecutar(estado, ej)
+        self.assertEqual(estado.decisiones_pendientes(), [])   # se resolvió solo
+        self.assertIn("192.168.1.1", ej.aplicado)              # cortafuegos aplicado automáticamente
+
+    def test_con_pausa_la_escalada_tambien_se_difiere_a_humano(self):
+        estado, ej = tablero.EstadoTablero(), self.HostCaido()
+        estado.pausar(True)
+        self._ejecutar(estado, ej)
+        c1 = estado.decisiones_pendientes()
+        self.assertEqual(len(c1), 1)                            # la decisión de triaje, retenida por la pausa
+        estado.resolver_decision(c1[0]["id"], "1", paso=c1[0]["paso"])   # aprobar el nivel superior
+        c2 = estado.decisiones_pendientes()
+        self.assertEqual(len(c2), 1)
+        self.assertEqual(c2[0]["tipo"], "escalada")            # la escalada NO se auto-aplicó: espera humano
+        self.assertNotIn("192.168.1.1", ej.aplicado)          # el cortafuegos no se tocó
 
 
 class TestEscaladaConHumanoEnCadaSalto(unittest.TestCase):

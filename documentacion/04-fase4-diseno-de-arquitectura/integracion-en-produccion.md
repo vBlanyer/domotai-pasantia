@@ -265,6 +265,9 @@ tail -n0 -F /ruta/al/alerts.json \
 - **Motor/perfil:** acciones `nunca_automatica` jamás automáticas; reversibilidad obligatoria; no cortar el
   plano de gestión; terceros de confianza y externos desconocidos retenidos a humano; veto si no hay IPv4 de
   origen.
+- **Kill switch:** pausa global de la automatización (todo pasa a esperar aprobación) y des-bloqueo en masa
+  desde el visor (`/api/pausa`, `/api/revertir-todo`), para frenar y revertir al instante si el MDR se
+  equivoca. Las reglas de enganche por escrito (qué se puede bloquear y cuándo) las define la empresa.
 
 **Trabajo futuro (lo pone/valida la empresa en el rollout):**
 

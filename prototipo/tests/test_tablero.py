@@ -508,6 +508,89 @@ class TestServidor(unittest.TestCase):
         self.assertEqual({n["nombre"] for n in r["nodos"]}, {"web-banking", "middleware", "taquilla", "fw-core"})
 
 
+class TestPausaEstado(unittest.TestCase):
+    """#8: interruptor de pausa de la automatización en EstadoTablero (seguro entre hilos)."""
+    def test_pausar_y_consultar(self):
+        e = tablero.EstadoTablero()
+        self.assertFalse(e.pausada())
+        e.pausar(True)
+        self.assertTrue(e.pausada())
+        e.pausar(False)
+        self.assertFalse(e.pausada())
+
+
+class TestPausaAPI(unittest.TestCase):
+    """#8: GET /api/pausa lee el estado; POST lo fija (kill switch)."""
+    def _servidor(self, estado):
+        srv = tablero.crear_servidor(estado, "/no/existe.jsonl", puerto=0,
+                                     estaticos=tempfile.mkdtemp(), async_web=True)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv.server_address[1]
+
+    def _get(self, puerto, ruta):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", ruta); r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, json.loads(cuerpo)
+
+    def _post(self, puerto, ruta, obj):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("POST", ruta, json.dumps(obj), {"Content-Type": "application/json"})
+        r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, json.loads(cuerpo)
+
+    def test_get_y_post_pausa(self):
+        estado = tablero.EstadoTablero()
+        puerto = self._servidor(estado)
+        self.assertEqual(self._get(puerto, "/api/pausa"), (200, {"pausada": False}))
+        self.assertEqual(self._post(puerto, "/api/pausa", {"pausar": True}), (200, {"pausada": True}))
+        self.assertTrue(estado.pausada())
+        self.assertEqual(self._get(puerto, "/api/pausa"), (200, {"pausada": True}))
+        self.assertEqual(self._post(puerto, "/api/pausa", {"pausar": False}), (200, {"pausada": False}))
+        self.assertFalse(estado.pausada())
+
+
+class TestRevertirTodoAPI(unittest.TestCase):
+    """#8: POST /api/revertir-todo des-bloquea en masa las contenciones activas de la traza."""
+    CAT = {"BLOQUEAR_IP": {"reversion": "definida", "comando": "iptables -A INPUT -s {ip} -j DROP",
+                           "reversion_cmd": "iptables -D INPUT -s {ip} -j DROP",
+                           "verificacion": "iptables -L -n | grep {ip}"}}
+
+    def _ej(self, nodo_ip, cmd):
+        return (0, "") if cmd.startswith("iptables -D") else (1, "")   # -D ok; la regla ya no aparece
+
+    def _traza_un_bloqueo(self):
+        ruta = os.path.join(tempfile.mkdtemp(), "trazas.jsonl")
+        reg = {"tipo": "decision", "id_decision": "s1", "activo": "objetivo-vuln",
+               "orden": {"accion_id": "BLOQUEAR_IP", "nodo_objetivo": "objetivo-vuln",
+                         "nodo_ip": "192.168.1.30", "params": {"ip": "198.51.100.10"}},
+               "ejecucion": {"exito": True}, "verificacion": {"verificado": True}}
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(json.dumps(traza.encadenar(reg, traza.GENESIS)) + "\n")
+        return ruta
+
+    def _post(self, puerto, ruta, obj):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=5)
+        c.request("POST", ruta, json.dumps(obj), {"Content-Type": "application/json"})
+        r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, json.loads(cuerpo)
+
+    def test_revertir_todo_desbloquea_las_activas(self):
+        ruta = self._traza_un_bloqueo()
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), ruta, puerto=0,
+                                     estaticos=tempfile.mkdtemp(), catalogo=self.CAT, ejecutor=self._ej)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        estado, cuerpo = self._post(srv.server_address[1], "/api/revertir-todo", {"operador": "ana"})
+        self.assertEqual(estado, 200)
+        self.assertEqual(cuerpo["revertidas"], 1)
+        self.assertEqual(cuerpo["fallidas"], 0)
+        # y queda registrado en la traza, con la cadena íntegra
+        regs = traza.leer_registros(ruta)
+        self.assertTrue(any(r.get("tipo") == "reversion" and r.get("operador") == "ana" for r in regs))
+        self.assertTrue(traza.verificar(regs)["valida"])
+
+
 class TestHealthz(unittest.TestCase):
     """#5: /healthz expone la salud del propio daemon (vitalidad del lazo + ingesta) para un monitor."""
     def _get(self, puerto, ruta):

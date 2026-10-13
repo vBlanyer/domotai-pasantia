@@ -151,3 +151,44 @@ class TestCliRevertir(unittest.TestCase):
                 self._correr(ruta)
             linaje = traza.linaje_de(traza.leer_registros(ruta))
         self.assertEqual(capturas, [("t.jsonl", linaje, 3)])
+
+
+class TestRevertirTodas(unittest.TestCase):
+    """#8: des-bloqueo en masa — revierte todas las contenciones activas de la traza."""
+    def _dec(self, id_decision, ip):
+        return {"tipo": "decision", "id_decision": id_decision, "activo": "objetivo-vuln",
+                "orden": {"accion_id": "BLOQUEAR_IP", "nodo_objetivo": "objetivo-vuln",
+                          "nodo_ip": "192.168.1.30", "params": {"ip": ip}},
+                "ejecucion": {"exito": True, "idempotente": False}, "verificacion": {"verificado": True}}
+
+    def _traza(self, registros):
+        import json, os, tempfile
+        from prototipo import traza
+        ruta = os.path.join(tempfile.mkdtemp(), "trazas.jsonl")
+        prev = traza.GENESIS
+        with open(ruta, "w", encoding="utf-8") as f:
+            for r in registros:
+                enc = traza.encadenar(r, prev); prev = enc["hash"]
+                f.write(json.dumps(enc) + "\n")
+        return ruta
+
+    def test_revierte_todas_las_activas_y_escribe_reversiones(self):
+        from prototipo import traza
+        ruta = self._traza([self._dec("s1", "198.51.100.10"), self._dec("s2", "203.0.113.9")])
+        res = revertir.revertir_todas(ruta, CAT, EjecutorFalso(), motivo="masa", operador="ana")
+        self.assertEqual(res["revertidas"], 2)
+        self.assertEqual(res["fallidas"], 0)
+        regs = traza.leer_registros(ruta)
+        revs = [r for r in regs if r.get("tipo") == "reversion"]
+        self.assertEqual(len(revs), 2)
+        self.assertTrue(all(r["exito"] for r in revs))
+        self.assertTrue(all(r.get("operador") == "ana" for r in revs))
+        self.assertTrue(all("indice_revertido" in r for r in revs))
+        self.assertTrue(traza.verificar(regs)["valida"])            # la cadena sigue íntegra
+        # idempotente: ya revertidas -> una segunda pasada no revierte nada
+        self.assertEqual(revertir.revertir_todas(ruta, CAT, EjecutorFalso())["revertidas"], 0)
+
+    def test_sin_activas_no_hace_nada(self):
+        ruta = self._traza([])
+        self.assertEqual(revertir.revertir_todas(ruta, CAT, EjecutorFalso()),
+                         {"revertidas": 0, "fallidas": 0, "detalle": []})

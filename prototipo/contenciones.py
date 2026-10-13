@@ -63,7 +63,7 @@ def activas(registros, catalogo):
         objetivo = params.get("ip") or params.get("usuario") or params.get("servicio") or params.get("puerto")
         nodo = orden.get("nodo_objetivo")
         vivas[(objetivo, nodo, accion_id)] = {
-            "id_decision": reg.get("id_decision"), "objetivo": objetivo,
+            "id_decision": reg.get("id_decision"), "indice": i, "objetivo": objetivo,
             "ip": params.get("ip"), "usuario": params.get("usuario"), "servicio": params.get("servicio"),
             "activo": reg.get("activo"), "nodo": nodo, "accion_id": accion_id,
             "ts": reg.get("decidido_en") or reg.get("timestamp"), "via_escalada": via_escalada,
