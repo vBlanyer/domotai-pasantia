@@ -54,7 +54,7 @@
 % Diagramas vectoriales, dibujados en el propio documento: quedan editables y
 % sin depender de imágenes externas ni de sus licencias.
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit,backgrounds}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit,backgrounds,babel}
 
 % --- Maquetación -----------------------------------------------------------
 \usepackage{titlesec}
@@ -373,10 +373,10 @@
 \listoftables
 \clearpage
 
-% \phantomsection
-% \addcontentsline{toc}{chapter}{Índice de figuras}
-% \listoffigures
-% \clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{Índice de figuras}
+\listoffigures
+\clearpage
 
 % --- Lista de símbolos (norma 3.10, «si los hay») --------------------------
 \input{ip0_simbolos}

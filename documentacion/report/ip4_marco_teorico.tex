@@ -127,7 +127,7 @@ produce el texto que una persona necesita leer para decidir. Pedirle ambas cosas
 componente tiende a producir puntuaciones de confianza inventadas con apariencia de cálculo.
 
 % ===========================================================================
-\section{Generación aumentada por recuperación}
+\section{Generación aumentada por recuperación}\label{sec:rag}
 % ===========================================================================
 
 La generación aumentada por recuperación (RAG) combina un modelo de lenguaje con un mecanismo de
@@ -145,7 +145,7 @@ La forma más simple de recuperación ---la empleada en este trabajo--- represen
 corpus y cada consulta como un vector numérico mediante un modelo de \emph{embeddings}, y ordena
 los documentos por su similitud coseno con la consulta:
 
-\begin{equation}
+\begin{equation}\label{eq:coseno}
   \cos(\mathbf{q}, \mathbf{d}) = \frac{\mathbf{q} \cdot \mathbf{d}}{\lVert \mathbf{q} \rVert \, \lVert \mathbf{d} \rVert}
 \end{equation}
 

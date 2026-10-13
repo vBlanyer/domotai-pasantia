@@ -789,7 +789,8 @@ administrador. La única aportación del aprendizaje supervisado con evidencia f
 una regla auditable; la otra hoja del árbol ---el error seguido de acceso, con tres casos y
 etiquetas mezcladas--- no tenía evidencia para cambiar el diseño, y se dejó. Con la sexta regla,
 sobre la misma partición, el prototipo recupera exhaustividad 1,000 con precisión 0,978 y tasa de
-falsos positivos 0,009; los dos falsos positivos que quedan son el error de tecleo, que el diseño
+falsos positivos 0,009 ---frente a 0,310 del baseline de Wazuh en su umbral óptimo sobre esta misma
+partición de 300 alertas---; los dos falsos positivos que quedan son el error de tecleo, que el diseño
 trata como intento de acceso y que aquí se cuenta contra él. Se verificó en vivo: una fuerza bruta
 desde la dirección del administrador produce una amenaza retenida para validación humana, con la
 ráfaga en la justificación, y la justificación generada la nombra como la razón que pesa más que
