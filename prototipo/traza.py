@@ -16,6 +16,7 @@ con `--anclas <alerts.json>` compara la traza con el ancla mas reciente: si el a
 registros de los que hay, la traza esta truncada; si el registro que el ancla senala tiene otro
 hash, esta alterada o no es ese fichero.
 """
+import glob
 import hashlib
 import hmac
 import json
@@ -82,6 +83,27 @@ def verificar(registros):
 def leer_registros(ruta):
     with open(ruta, encoding="utf-8") as f:
         return [json.loads(l) for l in f if l.strip()]
+
+def familia(ruta):
+    """Segmentos de una traza en orden cronológico (#6): los archivados `<base>.<N>.jsonl` (N
+    ascendente, más antiguos primero) y por último el activo `<base>.jsonl`. Hoy, sin rotación en
+    caliente, suele ser solo el activo; deja el sistema listo para múltiples segmentos."""
+    base = ruta[:-len(".jsonl")] if ruta.endswith(".jsonl") else ruta
+    segs = []
+    for p in glob.glob(f"{base}.*.jsonl"):
+        resto = p[len(base) + 1:-len(".jsonl")]
+        if resto.isdigit():
+            segs.append((int(resto), p))
+    return [p for _, p in sorted(segs)] + ([ruta] if os.path.exists(ruta) else [])
+
+def leer_familia(ruta):
+    """Registros de todos los segmentos de `ruta` concatenados en orden cronológico. La
+    reconstrucción de estado del daemon (#4) la usa para no perder el histórico si la traza se
+    hubiera segmentado."""
+    regs = []
+    for p in familia(ruta):
+        regs.extend(leer_registros(p))
+    return regs
 
 def ultimo_hash(ruta):
     """Hash del ultimo registro de un fichero de traza, o GENESIS si no existe o esta vacio. Sirve

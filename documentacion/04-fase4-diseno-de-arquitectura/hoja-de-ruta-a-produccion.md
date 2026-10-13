@@ -25,7 +25,7 @@ Cada punto indica **quién lo cierra**:
 | 3 | Desplegar el auditor (postura/Nmap) en producción | 🤝 Integración | Media | Pendiente |
 | 4 | Persistencia de estado al reiniciar | 🛠 Prototipo | Alta | **Hecho** |
 | 5 | Supervisión y resiliencia del daemon | 🛠 Prototipo + 🤝 | Alta | **Hecho** |
-| 6 | Rotación y retención de la traza | 🛠 Prototipo | Media | Pendiente |
+| 6 | Rotación y retención de la traza | 🛠 Prototipo | Media | **Hecho (retención)** |
 | 7 | Sincronización de reloj (NTP) y manejo de tiempos | 🤝 + 🛠 | Media | Pendiente |
 | 8 | Autorización para actuar + *kill switch* | 🏢 + 🛠 | Alta | **Hecho (🛠)** · falta 🏢 |
 | 9 | Gestión de secretos del conector | 🏢 Empresa | Media | Parcial |
@@ -94,12 +94,24 @@ gestión (fuera del código). No se usa sd_notify/WatchdogSec (requeriría `pyth
 biblioteca estándar).
 **Criterio de cierre.** ✔ `Restart=on-failure` cubre la caída dura; `/healthz` detecta el cuelgue del lazo.
 
-### 6. Rotación y retención de la traza — 🛠 Prototipo · Media
-**Estado.** La traza se escribe en `run/trazas-<arranque>.jsonl` (una por arranque); dentro de un daemon de
-larga vida crece sin límite y no hay política de archivado/retención.
-**Qué falta.** Rotación por tamaño/tiempo que **preserve la cadena de hashes** (la rotación no puede romper la
-verificación), y política de retención/archivo.
-**Criterio de cierre.** La traza rota sin perder integridad verificable y con retención definida.
+### 6. Rotación y retención de la traza — 🛠 Prototipo · Media · **RETENCIÓN HECHA**
+**Lo que era.** Los ficheros de traza se acumulaban en `run/` sin política; un daemon de larga vida con
+`--salida` fijo podía crecer sin límite.
+**Lo que se hizo.** Comando de **retención offline** `python3 -m prototipo.retener_trazas <dir> [--max N |
+--max-dias D] [--excepto RUTA] [--aplicar]`: poda los ficheros `trazas-*.jsonl` antiguos por número o
+antigüedad, **nunca el más reciente** (el activo) ni el nombrado con `--excepto` (el `$TRIAJE_SALIDA` vivo), ni
+uno cuya cadena **no verifique** (se conserva con aviso); sin `--aplicar` simula. Verifica con HMAC, así que el
+cron debe llevar el mismo `TRIAJE_TRAZA_CLAVE` (documentado en `deploy/README.md`); si falta, no poda nada y
+avisa. Helper `traza.leer_familia(ruta)` (concatena segmentos `<base>.<N>.jsonl` + activo) añadido como
+building block.
+**Decisión de alcance.** NO se hace **rotación en caliente** del fichero vivo: partir la cadena encadenada
+tamper-evident en segmentos choca con el ancla, el flock multi-escritor y los índices de reversión; el patrón
+seguro para un log encadenado es **sellar entre arranques**. La rotación por tamaño queda como mejora (Opción
+B) para un único daemon de muy larga vida; **cuando se aborde**, debe cablear `leer_familia` en la
+reconstrucción de #4 **y** pasar la exclusión de revertidas a basarse en el `hash` del registro (no en el
+índice posicional), para que la concatenación de segmentos sea consistente (lo detectó la revisión Opus).
+**Criterio de cierre.** ✔ (retención) `run/` no crece sin límite; la poda verifica la cadena y respeta el
+activo y las evidencias.
 
 ### 7. Sincronización de reloj (NTP) y manejo de tiempos — 🤝 + 🛠 · Media
 **Estado.** La regla de ráfaga y la correlación dependen de timestamps; ya se midió desfase de reloj como

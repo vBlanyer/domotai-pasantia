@@ -968,6 +968,9 @@ def main(argv):
         n_previos, linaje = len(previos), traza.linaje_de(previos)
         # #4: al reiniciar, la supresión se reconstruye de la traza que se retoma (para que
         # persista, en producción el daemon usa un --salida estable; ver integracion-en-produccion.md).
+        # Lee el fichero activo (los índices de reversión son relativos a él). Leer la FAMILIA de
+        # segmentos (traza.leer_familia) queda para la Opción B de #6, que además debe pasar la
+        # exclusión de revertidas a basarse en el hash del registro (único al concatenar), no en el índice.
         memoria = MemoriaDecisiones.desde_traza(previos, perfil)
         with traza.abrir_append(cfg["salida"]) as traza_f:   # permisos 0600 (integridad de la traza)
             ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
