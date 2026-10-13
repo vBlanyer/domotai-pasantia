@@ -12,17 +12,31 @@ origen que avanza con el reloj de las propias alertas).
 """
 import collections
 import datetime
+import re
 
 VENTANA_S = 60
 CAMPO = "rafaga_60s"
 
 
+_OFFSET_SIN_COLON = re.compile(r"([+-]\d{2})(\d{2})$")   # +0000 -> +00:00 (para fromisoformat antiguo)
+
 def _instante(alerta):
-    t = (alerta.get("timestamp") or "")[:19]
-    try:
-        return datetime.datetime.strptime(t, "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
+    """Instante de la alerta como datetime NAIVE en UTC (#7). Parsea ISO con zona (`Z`, `±HH:MM`,
+    `±HHMM`) o sin ella (se asume UTC) y normaliza a UTC, para que timestamps de zonas distintas se
+    comparen bien en la ventana de ráfaga. Devuelve None si no se puede parsear."""
+    t = (alerta.get("timestamp") or "").strip()
+    if not t:
         return None
+    try:
+        dt = datetime.datetime.fromisoformat(_OFFSET_SIN_COLON.sub(r"\1:\2", t.replace("Z", "+00:00")))
+    except ValueError:
+        try:
+            dt = datetime.datetime.strptime(t[:19], "%Y-%m-%dT%H:%M:%S")   # sin zona: UTC asumido
+        except ValueError:
+            return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)      # a UTC y naive (comparación uniforme)
+    return dt
 
 
 def contar_en_lote(alertas, ventana_s=VENTANA_S, solo_pasado=False):

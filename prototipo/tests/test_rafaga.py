@@ -28,6 +28,20 @@ class TestLote(unittest.TestCase):
         rafaga.contar_en_lote(lote)
         self.assertEqual([x[rafaga.CAMPO] for x in lote], [1, 1])
 
+    def test_zonas_distintas_se_normalizan_a_utc(self):
+        # #7: dos alertas del mismo origen en zonas distintas, a 30 s reales -> misma ráfaga.
+        # +02:00 10:00:00 = 08:00:00Z; la otra 08:00:30Z. Sin normalizar, el [:19] las dejaba a ~2 h.
+        lote = [{"origen_ip": "a", "timestamp": "2026-08-31T10:00:00+02:00"},
+                {"origen_ip": "a", "timestamp": "2026-08-31T08:00:30Z"}]
+        rafaga.contar_en_lote(lote, ventana_s=60)
+        self.assertEqual([x[rafaga.CAMPO] for x in lote], [2, 2])
+
+    def test_sin_zona_se_asume_utc(self):
+        lote = [{"origen_ip": "a", "timestamp": "2026-08-31T08:00:00"},
+                {"origen_ip": "a", "timestamp": "2026-08-31T08:00:30Z"}]
+        rafaga.contar_en_lote(lote, ventana_s=60)
+        self.assertEqual([x[rafaga.CAMPO] for x in lote], [2, 2])
+
 
 class TestVentana(unittest.TestCase):
     def test_desliza_con_el_reloj_de_las_alertas(self):

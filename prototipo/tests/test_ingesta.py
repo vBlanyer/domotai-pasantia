@@ -82,8 +82,8 @@ class TestTolerancia(unittest.TestCase):
     def test_tipos_hostiles_se_coaccionan_a_texto_o_none(self):
         # Defensa anti-DoS: un atacante que controla campos de la alerta (srcip, hostname,
         # program_name, timestamp) podía colar un número/objeto/lista que luego reventaba aguas
-        # abajo (rafaga._instante hace [:19]; Ventana/agrupar/postura usan claves hashables). El
-        # adaptador los coacciona a str o None, así ninguno llega como tipo hostil al motor.
+        # abajo (rafaga._instante parsea el timestamp; Ventana/agrupar/postura usan claves hashables).
+        # El adaptador los coacciona a str o None, así ninguno llega como tipo hostil al motor.
         cruda = {"id": "x", "timestamp": 99999,
                  "rule": {"id": "5760", "groups": ["authentication_failed"], "level": 10},
                  "predecoder": {"hostname": {"x": 1}, "program_name": {"y": 2}},
