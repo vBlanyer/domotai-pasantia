@@ -29,6 +29,39 @@ CONSULTA_DESCARTE = {
                      "se deja a juicio humano conservando su severidad",
 }
 
+# Cada clase sin amenaza se fundamenta con UNA ficha de descarte del corpus. El motor la recupera por
+# similitud (CONSULTA_DESCARTE), pero este mapa fija la correspondencia esperada para poder vigilar que
+# el corpus crezca AL RITMO de las clases (recomendacion #3): una clase sin amenaza nueva debe llegar
+# con su ficha, o la justificacion del descarte cae a la plantilla sin avisar. No se anaden fichas por
+# adelantado; se anaden cuando el perfil incorpora un motivo de descarte nuevo. Ver verificar_cobertura_descarte.
+FICHA_DESCARTE = {
+    "fp_actividad_legitima": "descarte-origen-legitimo",
+    "fp_exposicion_inexistente": "descarte-sin-exposicion",
+    "no_soportada": "descarte-fuera-de-perimetro",
+}
+
+def verificar_cobertura_descarte(corpus=None):
+    """Comprueba el invariante 'una ficha de descarte por clase sin amenaza'. Devuelve la lista de
+    problemas (vacia si todo cuadra): clases sin consulta o sin ficha mapeada, fichas mapeadas que no
+    estan en el corpus, mapeos a clases que ya no son 'sin amenaza', y fichas de descarte del corpus
+    que ninguna clase usa. NO lanza: lo llama el test (y podria llamarlo una validacion de perfil)."""
+    docs = cargar_corpus() if corpus is None else corpus
+    ids = {d.get("id") for d in docs if d.get("tipo") == "descarte"}
+    clases = set(CLASES_SIN_AMENAZA)
+    problemas = []
+    for c in sorted(clases - set(CONSULTA_DESCARTE)):
+        problemas.append(f"clase sin amenaza '{c}' sin consulta de descarte (CONSULTA_DESCARTE)")
+    for c in sorted(clases - set(FICHA_DESCARTE)):
+        problemas.append(f"clase sin amenaza '{c}' sin ficha mapeada (FICHA_DESCARTE)")
+    for c in sorted(set(FICHA_DESCARTE) - clases):
+        problemas.append(f"FICHA_DESCARTE mapea '{c}', que no es una clase sin amenaza")
+    for c, fid in sorted(FICHA_DESCARTE.items()):
+        if fid not in ids:
+            problemas.append(f"la ficha '{fid}' (clase '{c}') no existe en el corpus con tipo=descarte")
+    for fid in sorted(ids - set(FICHA_DESCARTE.values())):
+        problemas.append(f"ficha de descarte '{fid}' en el corpus sin clase que la use (huerfana)")
+    return problemas
+
 def construir_consulta(alerta, clase=None):
     # La consulta depende de la PREGUNTA que la justificacion va a responder, y esa pregunta la
     # fija la clase ya decidida (misma razon que en el enunciado del justificador). Sin esto, un
