@@ -969,7 +969,7 @@ class TestSupresionEnVivo(unittest.TestCase):
         self.assertEqual(cfg["perfil"], "p")
         por_defecto = stream.parsear_args(["-", "p"])
         self.assertIsNone(por_defecto["escuchar"])
-        self.assertEqual(por_defecto["permitir"], [])
+        self.assertIsNone(por_defecto["permitir"])        # ausente = None (abierto); [] sería fail-closed
 
 
 

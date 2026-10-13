@@ -759,7 +759,7 @@ _HALLAZGOS_DEF = os.path.join(_RAIZ, "lab", "campañas", "2026-08-31-evaluacion"
 def parsear_args(argv):
     pos, con_llm, ventana, salida, sin_lab, agente = [], False, 5, "run/trazas-stream.jsonl", False, False
     web, web_puerto, sin_supresion = False, 8787, False
-    escuchar, permitir, tls_cert, tls_clave = None, [], None, None
+    escuchar, permitir, tls_cert, tls_clave = None, None, None, None   # permitir None = flag ausente (abierto)
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -940,11 +940,15 @@ def main(argv):
     if cfg["escuchar"]:                                  # #1: recibir alertas por red del SIEM
         from prototipo import receptor
         host, _, puerto = cfg["escuchar"].rpartition(":")
+        if not puerto.isdigit():
+            raise SystemExit(f"--escuchar: se esperaba host:puerto, no {cfg['escuchar']!r}")
+        if cfg["permitir"] is not None and not cfg["permitir"]:
+            raise SystemExit("--permitir vacío: indica las IPs del SIEM o quita el flag (abierto)")
         ctx = receptor.contexto_tls(cfg["tls_cert"], cfg["tls_clave"]) if cfg["tls_cert"] else None
         fuente = receptor.escuchar(host or "0.0.0.0", int(puerto),
-                                   permitir=set(cfg["permitir"]) or None, contexto_tls=ctx)
+                                   permitir=cfg["permitir"], contexto_tls=ctx)   # None=abierto; [ips]=lista
         print(f"[red] escuchando alertas en {host or '0.0.0.0'}:{puerto}"
-              + (f" · TLS" if ctx else "")
+              + (" · TLS" if ctx else "")
               + (f" · permitidas {','.join(cfg['permitir'])}" if cfg["permitir"] else " · SIN lista blanca (abierto)"))
     else:
         fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])

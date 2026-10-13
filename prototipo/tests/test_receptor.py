@@ -61,6 +61,19 @@ class TestReceptor(unittest.TestCase):
         _cliente_envia(puerto, b"x" * 50 + b"basura\n" + b'{"ok":1}\n')
         self.assertEqual(_recoge(gen, 1), ['{"ok":1}'])   # la gigante se ignora; la buena llega
 
+    def test_lista_vacia_bloquea_a_todos_fail_closed(self):
+        # I-1: permitir=[] (lista dada pero vacía) NO es "sin filtro" -> rechaza a cualquiera.
+        gen, puerto = self._gen(permitir=[])
+        _cliente_envia(puerto, b'{"x":1}\n')
+        vistos = [next(gen) for _ in range(8)]
+        self.assertTrue(all(v is None for v in vistos))
+
+    def test_cola_acotada_no_pierde_lineas_por_backpressure(self):
+        # I-2: con la cola muy pequeña, un consumidor lento no pierde líneas (backpressure TCP).
+        gen, puerto = self._gen(permitir={"127.0.0.1"}, cola_max=1)
+        _cliente_envia(puerto, b'{"a":1}\n{"b":2}\n{"c":3}\n', espera=0.6)
+        self.assertEqual(_recoge(gen, 3), ['{"a":1}', '{"b":2}', '{"c":3}'])
+
 
 if __name__ == "__main__":
     unittest.main()

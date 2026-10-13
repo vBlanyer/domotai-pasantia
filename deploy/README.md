@@ -34,8 +34,11 @@ python3 -m prototipo.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web --salid
   --escuchar 0.0.0.0:6514 --permitir 10.0.0.5,10.0.0.6 [--tls-cert cert.pem --tls-clave clave.pem]
 ```
 
-`--permitir` es la **lista blanca** de IPs del SIEM (solo esas conexiones se aceptan). El emisor envía un JSON
-de alerta por línea (el formato de `alerts.json`). El enmarcado syslog / formato CEF es trabajo futuro.
+`--permitir` es la **lista blanca** de IPs del SIEM (solo esas conexiones se aceptan; un `--permitir` vacío
+aborta el arranque en vez de abrir). El emisor envía un JSON de alerta por línea (el formato de `alerts.json`).
+El enmarcado syslog / formato CEF es trabajo futuro. **Ojo:** si pones un proxy TLS delante, el receptor ve la
+IP del proxy, no la del SIEM, así que la lista blanca deja de distinguir al SIEM — en ese caso restringe en el
+proxy (o usa `--tls-cert/--tls-clave` para TLS directo y que la IP de origen sea la real).
 
 ## Healthcheck
 
