@@ -369,7 +369,7 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         try:
             r = lazo.reanudar_escalada(decision, alerta, perfil, catalogo, ejecutor, respuesta,
                                        entrada.get("desde"), alerta.get("timestamp", ""),
-                                       diferir_escalada=diferir_escalada)
+                                       diferir_escalada=diferir_escalada, pausa=estado.pausada)
         except Exception as e:               # la decisión no se pierde: se traza con el fallo
             r = {**decision, "escalada": {"resultado": "fallido", "error": f"{type(e).__name__}: {e}"}}
             r.pop("en_cola", None)
@@ -385,7 +385,8 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
             r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
                                        decision.get("id_decision", ""), alerta.get("timestamp", ""),
                                        veredicto=veredicto, clase_reclasificada=clase,
-                                       diferir_escalada=diferir_escalada, leer=lambda *_: "")
+                                       diferir_escalada=diferir_escalada, leer=lambda *_: "",
+                                       pausa=estado.pausada)
         except Exception as e:
             # No se reencola (podría reejecutar a medias): se traza la decisión con el fallo, en vez
             # de un 500 que la hacía desaparecer sin rastro.

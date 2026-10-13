@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useSondeo, getContenciones, getPausa, setPausa, revertirTodo } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, Dato } from "./bits"
@@ -8,15 +8,21 @@ import { Cargando, SinConexion, Vacio, Dato } from "./bits"
 export function Contenciones() {
   const c = useSondeo(getContenciones)
   const p = useSondeo(getPausa)
-  const pausada = !!(p && !("error" in p) && p.pausada)
+  const pausadaServidor = !!(p && !("error" in p) && p.pausada)
+  const [pausaLocal, setPausaLocal] = useState<boolean | null>(null)   // optimista hasta que el sondeo confirma
+  const pausada = pausaLocal ?? pausadaServidor
+  useEffect(() => { if (pausaLocal !== null && pausaLocal === pausadaServidor) setPausaLocal(null) },
+    [pausaLocal, pausadaServidor])
   const activas = c && !("error" in c) ? c : []
   const [confirmar, setConfirmar] = useState(false)
+  const [revirtiendo, setRevirtiendo] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
-  const alternarPausa = async () => { await setPausa(!pausada) }
+  const alternarPausa = async () => { const nuevo = !pausada; if (await setPausa(nuevo)) setPausaLocal(nuevo) }
   const desbloquear = async () => {
-    setConfirmar(false)
+    setConfirmar(false); setMsg(null); setRevirtiendo(true)
     const r = await revertirTodo()
+    setRevirtiendo(false)
     setMsg(r ? `Revertidas ${r.revertidas}${r.fallidas ? ` · ${r.fallidas} fallidas` : ""}.` : "No se pudo revertir.")
   }
 
@@ -36,7 +42,9 @@ export function Contenciones() {
             : "Automatización activa."}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          {!confirmar ? (
+          {revirtiendo ? (
+            <span className="text-sm text-muted-foreground">Revirtiendo…</span>
+          ) : !confirmar ? (
             <button onClick={() => { setMsg(null); setConfirmar(true) }} disabled={!activas.length}
               className="rounded-md border border-border px-3 py-2 text-sm text-foreground enabled:hover:bg-muted disabled:opacity-40">
               Revertir todo

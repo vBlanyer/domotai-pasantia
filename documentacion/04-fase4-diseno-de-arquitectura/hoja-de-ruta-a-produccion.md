@@ -123,7 +123,12 @@ operador; `/api/revertir-todo`). Visor: **banner de pausa** persistente en todas
 botón **«Revertir todo»** (con confirmación) en «Contenciones activas».
 **Falta (🏢, de la empresa):** las **reglas de enganche por escrito** (qué se puede bloquear, cuándo, sobre qué
 activos). La pausa es estado de sesión: un reinicio la limpia (el operador la re-activa). El des-bloqueo es
-síncrono (acotado por el timeout del conector); para escala iría en segundo plano (#12).
+síncrono (acotado por el timeout del conector); para escala iría en segundo plano (#12). Seguimiento menor:
+anotar en la traza **quién** activó/soltó la pausa (no-repudio, como en aprobaciones/reversiones); hoy no deja
+rastro.
+**Revisión Opus:** cerrado 1 importante (la pausa también cubre la **escalada** de una contención ya aprobada
+—antes el bloqueo perimetral de un externo se auto-aplicaba—) y 2 menores de UI (botón «Revertir todo»
+deshabilitado mientras revierte; pausa optimista).
 **Criterio de cierre.** ✔ (parte 🛠) Un operador pausa toda la automatización y revierte los bloqueos en un paso.
 
 ### 9. Gestión de secretos del conector — 🏢 Empresa · Media (Parcial)

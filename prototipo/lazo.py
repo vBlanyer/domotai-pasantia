@@ -14,11 +14,11 @@ class _PreguntaPendiente(Exception):
 
 
 def _escalar(alerta, decision, perfil, catalogo, ejecutor, leer, timestamp, desde, id_decision,
-             escribir=print):
+             escribir=print, siempre_humano=False):
     from prototipo import agente_mitigacion as ag
     return ag.escalar_determinista(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
                                    leer=leer, escribir=escribir, timestamp=timestamp, desde=desde,
-                                   confianza=decision.get("confianza", 1.0), siempre_humano=False,
+                                   confianza=decision.get("confianza", 1.0), siempre_humano=siempre_humano,
                                    decision_id=id_decision)
 
 
@@ -48,7 +48,7 @@ def _fusionar(escalada, previa):
 
 
 def reanudar_escalada(parcial, alerta, perfil, catalogo, ejecutor, respuesta, desde, timestamp,
-                      diferir_escalada=None):
+                      diferir_escalada=None, pausa=None):
     """Retoma una escalada diferida con la respuesta del analista ("s" aprueba). La pregunta se
     hace antes de ejecutar en cada dispositivo, así que retomar desde `desde` no repite nada que
     haya tenido efecto. Devuelve el registro final para la traza.
@@ -67,7 +67,8 @@ def reanudar_escalada(parcial, alerta, perfil, catalogo, ejecutor, respuesta, de
         raise _PreguntaPendiente(prompt)
     try:
         escalada = _escalar(alerta, parcial, perfil, catalogo, ejecutor, _una_respuesta, timestamp,
-                            desde, parcial.get("id_decision", ""), escribir=lineas.append)
+                            desde, parcial.get("id_decision", ""), escribir=lineas.append,
+                            siempre_humano=bool(pausa and pausa()))
     except _PreguntaPendiente as e:
         diferir_escalada({**base, "escalada_previa": _acumular(parcial, e, respuesta)}, alerta,
                          getattr(e, "reanudar_desde", desde), _lineas_de_la_pregunta(lineas))
@@ -77,7 +78,7 @@ def reanudar_escalada(parcial, alerta, perfil, catalogo, ejecutor, respuesta, de
 
 
 def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision, timestamp,
-                      veredicto=None, clase_reclasificada=None, leer=input, diferir_escalada=None):
+                      veredicto=None, clase_reclasificada=None, leer=input, diferir_escalada=None, pausa=None):
     """2ª fase: dado el veredicto (None=automático, 'aprobar', 'rechazar', 'reclasificar'), ejecuta la
     contención + verifica + escala, o retiene. Es lo que corre DESPUÉS de que el humano responde (o
     inline en el camino automático). Devuelve el registro finalizado para la traza.
@@ -107,18 +108,21 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
     # acciones sobre el origen. Una acción sobre CUENTA que falla no se escala a bloquear una IP (sería
     # una respuesta cruzada); la traza la deja como está (exito=False).
     sobre_cuenta = o.get("accion_id") in ordenm._ACCIONES_SOBRE_CUENTA
+    # Kill switch (#8): con la pausa activa, cada salto de la escalada también espera aprobación
+    # (si no, el bloqueo perimetral de un externo —automático por defecto— se aplicaría solo).
+    forzar_humano = bool(pausa and pausa())
     if not (ejecucion.get("exito") and verif.get("verificado")) and perfil.get("topologia") and not sobre_cuenta:
         desde = o.get("nodo_objetivo")
         if diferir_escalada is None:
             escalada = _escalar(alerta, decision, perfil, catalogo, ejecutor, leer, timestamp, desde,
-                                id_decision)
+                                id_decision, siempre_humano=forzar_humano)
         else:
             lineas = []
             def _no_bloquear(prompt=""):
                 raise _PreguntaPendiente(prompt)
             try:
                 escalada = _escalar(alerta, decision, perfil, catalogo, ejecutor, _no_bloquear, timestamp,
-                                    desde, id_decision, escribir=lineas.append)
+                                    desde, id_decision, escribir=lineas.append, siempre_humano=forzar_humano)
             except _PreguntaPendiente as e:
                 diferir_escalada({**parcial, "escalada_previa": _acumular(parcial, e)}, alerta,
                                  getattr(e, "reanudar_desde", desde), lineas)
@@ -168,7 +172,7 @@ def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, 
         veredicto, clase_reclasificada = v["veredicto"], v.get("clase_nueva")
     return aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision, timestamp,
                              veredicto=veredicto, clase_reclasificada=clase_reclasificada, leer=leer,
-                             diferir_escalada=diferir_escalada)
+                             diferir_escalada=diferir_escalada, pausa=pausa)
 
 class _EjecutorAuto:
     """Ejecutor falso para --auto (sin laboratorio), con estado como el EjecutorFalso de los tests:
