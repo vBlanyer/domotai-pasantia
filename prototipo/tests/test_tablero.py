@@ -508,6 +508,28 @@ class TestServidor(unittest.TestCase):
         self.assertEqual({n["nombre"] for n in r["nodos"]}, {"web-banking", "middleware", "taquilla", "fw-core"})
 
 
+class TestHealthz(unittest.TestCase):
+    """#5: /healthz expone la salud del propio daemon (vitalidad del lazo + ingesta) para un monitor."""
+    def _get(self, puerto, ruta):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", ruta); r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, json.loads(cuerpo)
+
+    def test_healthz_devuelve_la_salud_del_daemon(self):
+        from prototipo import stream
+        lat = stream.Latido()
+        lat.alerta()
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), "/no/existe.jsonl", puerto=0,
+                                     estaticos=tempfile.mkdtemp(), latido=lat)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        estado, cuerpo = self._get(srv.server_address[1], "/healthz")
+        self.assertEqual(estado, 200)
+        self.assertTrue(cuerpo["ok"])
+        self.assertEqual(cuerpo["alertas"], 1)
+        self.assertIn("lazo_quietud_s", cuerpo)
+
+
 class TestContencionesAPI(unittest.TestCase):
     """#4: /api/contenciones lista las contenciones activas reconstruidas de la traza (el daemon
     'recuerda' qué tiene bloqueado aunque se reinicie)."""

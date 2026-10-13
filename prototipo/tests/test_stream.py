@@ -816,6 +816,39 @@ class TestMemoriaDesdeTraza(unittest.TestCase):
         self.assertIsNone(m.buscar(("203.0.113.9", "db", "acceso_credenciales")))
 
 
+class TestLatido(unittest.TestCase):
+    """#5: señal de vida del lazo para el healthcheck. tick() cada iteración (vitalidad), alerta()
+    por alerta (silencio de ingesta); estado() marca ok=false si el lazo lleva colgado > umbral."""
+    def _reloj(self):
+        return self.t[0]
+
+    def setUp(self):
+        self.t = [0.0]
+
+    def test_recien_creado_esta_vivo_y_sin_alertas(self):
+        lat = stream.Latido(reloj=self._reloj)
+        e = lat.estado()
+        self.assertTrue(e["ok"])
+        self.assertEqual(e["alertas"], 0)
+        self.assertIsNone(e["ingesta_silencio_s"])
+
+    def test_alerta_cuenta_y_marca_el_silencio_de_ingesta(self):
+        lat = stream.Latido(reloj=self._reloj)
+        lat.alerta()
+        self.t[0] = 30.0
+        e = lat.estado()
+        self.assertEqual(e["alertas"], 1)
+        self.assertEqual(e["ingesta_silencio_s"], 30.0)
+
+    def test_lazo_colgado_pasa_a_no_ok_y_un_tick_lo_revive(self):
+        lat = stream.Latido(reloj=self._reloj)
+        self.t[0] = 200.0                                  # 200 s sin tick
+        self.assertFalse(lat.estado(umbral_s=120)["ok"])
+        lat.tick()                                         # el lazo vuelve a iterar
+        self.t[0] = 250.0
+        self.assertTrue(lat.estado(umbral_s=120)["ok"])    # 50 s de quietud < umbral
+
+
 class TestSupresionEnVivo(unittest.TestCase):
     def _correr(self, lineas, **kw):
         buf = io.StringIO()
@@ -845,6 +878,12 @@ class TestSupresionEnVivo(unittest.TestCase):
         resumen, _ = self._correr([_linea_wazuh("1.1.1.1"), _linea_wazuh("1.1.1.1")], suprimir=False)
         self.assertEqual(resumen["incidentes"], 2)
         self.assertEqual(resumen["suprimidas"], 0)
+
+    def test_ejecutar_alimenta_el_latido(self):
+        # #5: cada alerta procesada incrementa el latido (lo lee /healthz).
+        lat = stream.Latido()
+        self._correr([_linea_wazuh("1.1.1.1"), _linea_wazuh("2.2.2.2")], latido=lat)
+        self.assertEqual(lat.estado()["alertas"], 2)
 
     def test_reinicio_mantiene_la_supresion(self):
         # #4: run 1 decide; reconstruyo la memoria de su traza; run 2 (reinicio) suprime la repetición.

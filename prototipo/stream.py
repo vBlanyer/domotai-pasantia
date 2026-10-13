@@ -200,6 +200,34 @@ class ActividadMDR:
         return t is not None and self._reloj() - t <= self.VENTANA_SEG
 
 
+class Latido:
+    """Señal de vida del daemon para el healthcheck (#5). El lazo principal llama a `tick()` en cada
+    iteración (incluidos los ticks de reposo), así que `lazo_quietud_s` mide si el lazo sigue vivo:
+    un lazo colgado deja de iterar y `estado()` pasa a `ok=false`, un fallo que «el proceso existe»
+    no detecta. `alerta()` (por alerta procesada) alimenta el silencio de ingesta y el conteo. Un
+    monitor local sondea /healthz (el daemon liga solo a 127.0.0.1)."""
+    def __init__(self, reloj=time.monotonic):
+        self._reloj = reloj
+        self._desde = _ahora_iso()
+        self._ultimo_tick = reloj()
+        self._ultima_alerta = None
+        self._alertas = 0
+
+    def tick(self):
+        self._ultimo_tick = self._reloj()
+
+    def alerta(self):
+        self._ultima_alerta = self._ultimo_tick = self._reloj()
+        self._alertas += 1
+
+    def estado(self, umbral_s=120):
+        ahora = self._reloj()
+        sil = None if self._ultima_alerta is None else round(ahora - self._ultima_alerta, 1)
+        return {"ok": (ahora - self._ultimo_tick) < umbral_s, "desde": self._desde,
+                "lazo_quietud_s": round(ahora - self._ultimo_tick, 1),
+                "ingesta_silencio_s": sil, "alertas": self._alertas}
+
+
 def _es_actividad_propia(rep, perfil, actividad):
     """El login de gestión contra un nodo que el MDR acaba de tocar. Tres condiciones a la vez: origen
     = ip_gestion, fuera de toda familia de amenaza (un login correcto, no fallos: si el nodo de gestión
@@ -431,7 +459,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
-             resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None):
+             resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
+             latido=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -603,6 +632,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     try:
         for linea in fuente_lineas:
             ahora = reloj()                            # una sola lectura del reloj por iteración
+            if latido is not None:
+                latido.tick()                          # vitalidad del lazo (cada iteración), para /healthz
             if ventana_agrupacion <= 0:                # modo inmediato
                 if linea is None:
                     _latido(False, ahora)
@@ -611,6 +642,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 if alerta is None:
                     continue
                 _latido(True, ahora)
+                if latido is not None:
+                    latido.alerta()
                 resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
                 _procesa_lote([alerta])
                 continue
@@ -619,6 +652,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 alerta = _parsear(linea)
                 if alerta is not None:
                     _latido(True, ahora)
+                    if latido is not None:
+                        latido.alerta()
                     resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
                     if t0 is None:
                         t0 = ahora
@@ -830,7 +865,7 @@ def construir_web(cfg, perfil, catalogo=None):
     async_web = not cfg.get("agente")
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
-                                      catalogo=catalogo)
+                                      catalogo=catalogo, latido=Latido())   # salud del daemon (/healthz, #5)
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
@@ -936,7 +971,8 @@ def main(argv):
                      hash_previo=hash_previo, n_previos=n_previos,
                      nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
                      estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
-                     lector_incidente=lector_incidente, memoria=memoria)
+                     lector_incidente=lector_incidente, memoria=memoria,
+                     latido=(servidor.latido if servidor else None))
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))

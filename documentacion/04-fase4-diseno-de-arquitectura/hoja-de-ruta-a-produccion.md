@@ -24,7 +24,7 @@ Cada punto indica **quién lo cierra**:
 | 2 | Validar el contenido de detección del SIEM del cliente | 🤝 Integración | Alta | Pendiente |
 | 3 | Desplegar el auditor (postura/Nmap) en producción | 🤝 Integración | Media | Pendiente |
 | 4 | Persistencia de estado al reiniciar | 🛠 Prototipo | Alta | **Hecho** |
-| 5 | Supervisión y resiliencia del daemon | 🛠 Prototipo + 🤝 | Alta | Pendiente |
+| 5 | Supervisión y resiliencia del daemon | 🛠 Prototipo + 🤝 | Alta | **Hecho** |
 | 6 | Rotación y retención de la traza | 🛠 Prototipo | Media | Pendiente |
 | 7 | Sincronización de reloj (NTP) y manejo de tiempos | 🤝 + 🛠 | Media | Pendiente |
 | 8 | Autorización para actuar + *kill switch* | 🏢 + 🛠 | Alta | Pendiente |
@@ -80,12 +80,19 @@ estable (ver [integración §2.5](integracion-en-produccion.md)).
 conectividad en el *boot*) y el TTL de bloqueos (#7). El des-bloqueo en masa llega con el *kill switch* (#8).
 **Criterio de cierre.** ✔ Tras reiniciar, la supresión se recupera y el visor lista los bloqueos activos.
 
-### 5. Supervisión y resiliencia del daemon — 🛠 Prototipo + 🤝 · Alta
-**Estado.** Existe el **latido de ingesta** (aviso tras 120 s de silencio), pero nada vigila el proceso desde
-fuera: si el daemon cae, no hay reinicio ni alerta.
-**Qué falta.** Unidad **systemd** (reinicio ante caída), un *endpoint* de *healthcheck* que un monitor externo
-sondee, y una nota de alta disponibilidad del nodo de gestión.
-**Criterio de cierre.** El daemon se reinicia solo ante caída y un monitor externo sabe si está vivo.
+### 5. Supervisión y resiliencia del daemon — 🛠 Prototipo + 🤝 · Alta · **HECHO**
+**Lo que era.** Existía el latido de ingesta (aviso tras 120 s de silencio), pero nada vigilaba el proceso
+desde fuera: si el daemon caía, no había reinicio ni señal.
+**Lo que se hizo.** Healthcheck HTTP **`GET /healthz`** (clase `Latido` en `stream.py`: el lazo llama a
+`tick()` en cada iteración → `ok=false` si se cuelga; `alerta()` alimenta `ingesta_silencio_s` y el conteo).
+Es la salud del **propio MDR**, distinta de `/api/salud` (servicios del cliente). Artefactos de despliegue en
+**`deploy/`**: unidad **systemd** (`mdr-triaje.service`, `Restart=on-failure` + endurecimiento), wrapper del
+*pipe* (`arrancar-mdr.sh`) y `triaje.env.ejemplo`; `deploy/README.md` con la instalación y la sonda local de
+`/healthz`.
+**Parte 🤝 (del cliente):** elegir el monitor local que sondea `/healthz` y la alta disponibilidad del nodo de
+gestión (fuera del código). No se usa sd_notify/WatchdogSec (requeriría `python-systemd`, fuera de la
+biblioteca estándar).
+**Criterio de cierre.** ✔ `Restart=on-failure` cubre la caída dura; `/healthz` detecta el cuelgue del lazo.
 
 ### 6. Rotación y retención de la traza — 🛠 Prototipo · Media
 **Estado.** La traza se escribe en `run/trazas-<arranque>.jsonl` (una por arranque); dentro de un daemon de

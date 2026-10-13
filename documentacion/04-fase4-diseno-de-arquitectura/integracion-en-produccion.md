@@ -224,6 +224,10 @@ tail -n0 -F /ruta/al/alerts.json \
   retoma al arrancar. Para que un reinicio recupere ese estado, usa un `--salida` **fijo** por cliente (p. ej.
   `run/trazas-<cliente>.jsonl`), no un nombre por arranque; así la traza de varias sesiones es una sola cadena y
   el reinicio no «olvida» qué estaba bloqueado.
+- **Servicio supervisado + healthcheck.** En producción el daemon corre como servicio **systemd**
+  (`Restart=on-failure`) y expone `GET /healthz` con la salud del propio MDR (vitalidad del lazo + silencio de
+  ingesta) para un monitor local. Plantillas de unidad, wrapper del *pipe* y `EnvironmentFile` en **`deploy/`**
+  (ver `deploy/README.md`).
 
 ---
 
