@@ -661,6 +661,9 @@ class _Manejador(BaseHTTPRequestHandler):
         s = self.server
         ruta = self.path.split("?", 1)[0]
         try:
+            if ruta == "/healthz":    # salud del PROPIO daemon (#5), distinto de /api/salud (servicios del cliente)
+                return self._responder(s.latido.estado() if s.latido
+                                       else {"ok": True, "alertas": 0, "lazo_quietud_s": 0.0, "ingesta_silencio_s": None})
             if ruta == "/api/salud":
                 return self._responder(estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud),
                                                     s.dependencias))
@@ -741,7 +744,7 @@ def _vista_pendiente(p):
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
                    puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
-                   async_web=False, perfil=None, catalogo=None):
+                   async_web=False, perfil=None, catalogo=None, latido=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
     fichero_en_contenedor}. `async_web`
     activa la cola de aprobación no bloqueante. Guarda la config en atributos del servidor."""
@@ -755,4 +758,5 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.async_web = async_web
     srv.perfil = perfil or {"activos": activos or {}, "topologia": topologia or {}}
     srv.catalogo = catalogo or {}        # para reconstruir las contenciones activas (#4)
+    srv.latido = latido                  # salud del propio daemon para /healthz (#5)
     return srv
