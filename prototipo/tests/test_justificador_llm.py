@@ -15,6 +15,13 @@ class TestPromptOtrosServicios(unittest.TestCase):
         self.assertIn("telnet", p)
 
 class TestPrompt(unittest.TestCase):
+    def test_prompt_de_reconocimiento_lo_narra_como_precursor_no_explotacion(self):
+        # Recomendación #2 (versión segura): el reconocimiento tiene su propia pregunta al justificador
+        # para que lo explique como un PRECURSOR (sondeo/mapeo), no como un ataque ya en curso.
+        p = jl.construir_prompt(ALERTA, CTX_EXP, "vp_reconocimiento")
+        self.assertIn("precursor", p.lower())
+        self.assertIn("reconocimiento", p.lower())
+
     def test_incluye_campos_estructurados(self):
         p = jl.construir_prompt(ALERTA, CTX_EXP, "vp_intento_acceso")
         for frag in ("5763", "T1110", "192.168.1.10", "objetivo-vuln", "ssh"):

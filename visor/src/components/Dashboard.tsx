@@ -36,6 +36,7 @@ function Check({ ok, children }: { ok: boolean; children: ReactNode }) {
 
 const ETIQUETA_CLASE: Record<string, string> = {
   vp_intento_acceso: "Intento de acceso",
+  vp_reconocimiento: "Reconocimiento",
   vp_acceso_consumado: "Acceso consumado",
   fp_actividad_legitima: "Falso positivo (legítimo)",
   fp_exposicion_inexistente: "Falso positivo (exposición)",

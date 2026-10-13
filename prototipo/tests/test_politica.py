@@ -12,6 +12,13 @@ class TestProponer(unittest.TestCase):
         self.assertEqual(acc, "BLOQUEAR_IP")
         self.assertEqual(params["ip"], "192.168.1.10")
 
+    def test_vp_reconocimiento_bloquea_la_ip_igual_que_un_intento(self):
+        # Recomendación #2: el reconocimiento tiene clase propia pero la MISMA acción que
+        # vp_intento_acceso (bloquear la IP origen) -> la automatización no cambia.
+        acc, params = politica.proponer("vp_reconocimiento", alerta())
+        self.assertEqual(acc, "BLOQUEAR_IP")
+        self.assertEqual(params["ip"], "192.168.1.10")
+
     def test_vp_abuso_cuenta_propone_bloquear_la_cuenta(self):
         a = alerta(); a["usuario"] = "backdoor"
         acc, params = politica.proponer("vp_abuso_cuenta", a)

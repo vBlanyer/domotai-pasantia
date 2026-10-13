@@ -40,6 +40,12 @@ def construir_consulta(alerta, clase=None):
         return f"{CONSULTA_DESCARTE[clase]} servicio {alerta.get('servicio')}"
     mitre = " ".join(alerta.get("mitre", []) or [])
     familia = (alerta.get("familia") or "").replace("_", " ")
+    if clase == "vp_reconocimiento":
+        # El recon es un PRECURSOR: lidera igual con familia+MITRE (la recuperacion no cambia), pero
+        # la intencion es la tecnica de sondeo y su fase en la cadena, no "la contramedida defensiva"
+        # (que presupone una explotacion que aun no hay). Recomendacion #2: narrar sin exagerar.
+        return (f"tecnica MITRE {mitre} {familia} servicio {alerta.get('servicio')} "
+                f"sondeo fase de reconocimiento en la cadena de ataque").strip()
     # Lidera con la SEMANTICA del ataque (tecnica MITRE + familia + servicio) y la intencion de
     # contramedida, para recuperar las fichas mitre/mapeo/D3FEND. Se OMITE el numero de regla: sesga
     # los embeddings hacia las fichas regla-* (medido en el banco de simulacion, palanca 1).
@@ -60,6 +66,12 @@ def construir_prompt_consulta(alerta, clase=None):
         encargo = (f"El motor ya clasifico esta alerta como {clase}: NO es una amenaza. Formula UNA "
                    "linea de busqueda para recuperar el criterio por el que una alerta asi se "
                    "descarta, citando SOLO estos datos.")
+    elif clase == "vp_reconocimiento":
+        # Es un precursor, no una explotacion: se recupera conocimiento sobre la TECNICA DE SONDEO y su
+        # lugar en la cadena de ataque, no "la contramedida de la explotacion" (que aun no hay).
+        encargo = ("El motor clasifico esta alerta como reconocimiento (sondeo previo a un ataque). "
+                   "Formula UNA linea de busqueda sobre esa TECNICA DE SONDEO y su lugar en la cadena "
+                   "de ataque, citando SOLO estos datos.")
     else:
         encargo = ("Formula UNA linea de busqueda para recuperar conocimiento defensivo sobre esta "
                    "alerta, citando SOLO estos datos y, si aplica, la contramedida D3FEND.")
