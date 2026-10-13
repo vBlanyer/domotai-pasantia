@@ -263,3 +263,30 @@ class TestEmbedderServidor(unittest.TestCase):
             self.assertEqual(rag.embedder_por_defecto()(["x", "y"]), [[9.0], [9.0]])
         finally:
             rag.embedder_servidor, rag.embedder_llama = original
+
+
+class TestCoberturaDescarte(unittest.TestCase):
+    # Recomendación #3: el corpus de descarte crece AL RITMO de las clases. Cada clase sin amenaza se
+    # fundamenta con una ficha; una clase nueva sin su ficha degrada la justificación a la plantilla
+    # sin avisar. FICHA_DESCARTE fija la correspondencia y el helper vigila que se cumpla.
+    def test_las_tres_fuentes_estan_en_sincronia(self):
+        from prototipo.analisis import CLASES_SIN_AMENAZA
+        self.assertEqual(set(rag.FICHA_DESCARTE), set(CLASES_SIN_AMENAZA))
+        self.assertEqual(set(rag.CONSULTA_DESCARTE), set(CLASES_SIN_AMENAZA))
+
+    def test_el_corpus_real_cubre_cada_clase_sin_amenaza(self):
+        self.assertEqual(rag.verificar_cobertura_descarte(), [])
+
+    def test_detecta_una_ficha_que_falta_en_el_corpus(self):
+        # Si el corpus pierde una ficha mapeada, el helper lo reporta (no pasa en silencio).
+        falta = rag.FICHA_DESCARTE["no_soportada"]
+        corpus = [d for d in rag.cargar_corpus() if d.get("id") != falta]
+        problemas = rag.verificar_cobertura_descarte(corpus)
+        self.assertTrue(any(falta in p for p in problemas), problemas)
+
+    def test_detecta_una_ficha_de_descarte_huerfana(self):
+        # Una ficha de descarte en el corpus que ninguna clase usa también se señala (ruido/olvido).
+        corpus = rag.cargar_corpus() + [{"id": "descarte-huerfana", "tipo": "descarte",
+                                         "titulo": "h", "texto": "sin clase que la use"}]
+        problemas = rag.verificar_cobertura_descarte(corpus)
+        self.assertTrue(any("descarte-huerfana" in p for p in problemas), problemas)
