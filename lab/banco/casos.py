@@ -157,7 +157,7 @@ CASOS = [
     # Cobertura de familias EN VIVO (además de la fuerza bruta): reconocimiento y explotación conocida.
     {"nivel": "vivo", "id": "RECON", "titulo": "Reconocimiento externo (escaneo SSH) -> VP, se contiene",
      "ataque": _recon("internet", "10.10.0.10"), "origen": "198.51.100.10",
-     "esperado": {"clase": "vp_intento_acceso", "accion_final": "BLOQUEAR_IP",
+     "esperado": {"clase": "vp_reconocimiento", "accion_final": "BLOQUEAR_IP",
                   "regla": ("web-banking", "-A INPUT -s 198.51.100.10/32 -j DROP"), "caen": set()},
      "deshacer": [("web-banking", "iptables -D INPUT -s 198.51.100.10 -j DROP")]},
     {"nivel": "vivo", "id": "EXPLOIT", "titulo": "Explotación conocida (SQLi web) -> amenaza enrutada, sin contener",
@@ -205,7 +205,7 @@ CASOS = [
     _dec("F1", "Familia reconocimiento (escaneo externo) -> VP, se contiene",
          {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "ssh",
           "familia": "reconocimiento", "regla_id": "5706"},
-         {"clase": "vp_intento_acceso", "accion_final": "BLOQUEAR_IP", "requiere_humano": False}, rafaga=12),
+         {"clase": "vp_reconocimiento", "accion_final": "BLOQUEAR_IP", "requiere_humano": False}, rafaga=12),
     _dec("F2", "Familia servicio_expuesto no expuesto (telnet en web-banking) -> FP exposición inexistente",
          {"origen_ip": "203.0.113.9", "activo": "web-banking", "servicio": "telnet",
           "familia": "servicio_expuesto", "regla_id": "5706"},

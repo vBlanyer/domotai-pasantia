@@ -98,6 +98,17 @@ def construir_prompt(alerta, contexto, clase, pasajes=None):
         tarea = (f"El motor ya clasifico esta alerta como {clase} A PESAR de que el origen esta declarado "
                  "como legitimo, porque la rafaga pesa mas que la procedencia (origen suplantado o equipo "
                  "comprometido). Explica en una o dos frases por que importa, nombrando la rafaga")
+    elif clase == "vp_reconocimiento":
+        # El reconocimiento es un PRECURSOR (sondeo/mapeo), no una explotacion ni un acceso logrado:
+        # narrarlo como "ataque en curso" desinforma. Se le da su propia pregunta (recomendacion #2).
+        # Esta rama va DESPUES de la de rafaga a proposito: un recon-en-rafaga desde un origen
+        # declarado legitimo (tambien vp_reconocimiento) recibe la narracion de rafaga, porque el
+        # hecho decisivo —origen suplantado o equipo comprometido— pesa mas que el matiz recon; y esa
+        # rama tampoco lo llama explotacion, asi que no viola el objetivo de la recomendacion.
+        tarea = (f"El motor ya clasifico esta alerta como {clase}: es RECONOCIMIENTO (sondeo o mapeo "
+                 "previo a un ataque), no una explotacion ni un acceso logrado. Explica en una o dos "
+                 "frases que esta sondeando el origen y por que importa como precursor, SIN describirlo "
+                 "como un ataque ya en curso")
     else:
         tarea = (f"El motor ya clasifico esta alerta como {clase}. "
                  "Explica en una o dos frases por que importa")

@@ -3,6 +3,7 @@
 ACCION_POR_CLASE = {
     "vp_acceso_consumado": "MATAR_CONEXION",
     "vp_intento_acceso": "BLOQUEAR_IP",
+    "vp_reconocimiento": "BLOQUEAR_IP",   # mismo desenlace que un intento: se bloquea la IP que sondea
     "vp_abuso_cuenta": "FORZAR_CAMBIO_PASS",
     "vp_exposicion_gestion": "CERRAR_SERVICIO",
     "fp_actividad_legitima": None,

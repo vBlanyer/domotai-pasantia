@@ -97,6 +97,38 @@ class TestClasificar(unittest.TestCase):
         r = analisis.clasificar(a, {"origen_legitimo": True, "postura": None, "criticidad": "alta"})
         self.assertEqual(r["clase"], "fp_actividad_legitima")
 
+    def test_reconocimiento_vp_tiene_clase_propia(self):
+        # Recomendación #2 (versión segura): el reconocimiento VP tiene clase propia para que el
+        # justificador no lo narre como explotación. MISMA confianza, prioridad y acción que
+        # vp_intento_acceso -> las cifras canónicas no se mueven (es_amenaza sigue True, prioridad igual).
+        a = dict(self.alerta); a["familia"] = "reconocimiento"
+        r = analisis.clasificar(a, {"postura": {"expuesto": True}, "criticidad": "media"})
+        self.assertEqual(r["clase"], "vp_reconocimiento")
+        self.assertEqual(r["confianza"], 1.0)
+        self.assertEqual(r["prioridad"], analisis._priorizar("vp_intento_acceso", "media"))
+
+    def test_reconocimiento_sin_exposicion_sigue_siendo_fp(self):
+        # Solo se renombra el DESENLACE VP; el FP de exposición inexistente no cambia (metrics-safety).
+        a = dict(self.alerta); a["familia"] = "reconocimiento"
+        r = analisis.clasificar(a, {"postura": {"expuesto": False}, "criticidad": "media"})
+        self.assertEqual(r["clase"], "fp_exposicion_inexistente")
+
+    def test_reconocimiento_postura_gris_tambien_es_vp_reconocimiento(self):
+        a = dict(self.alerta); a["familia"] = "reconocimiento"
+        r = analisis.clasificar(a, {"postura": None, "criticidad": "media"})
+        self.assertEqual(r["clase"], "vp_reconocimiento")
+        self.assertEqual(r["confianza"], 0.5)
+
+    def test_otra_familia_conserva_vp_intento_acceso(self):
+        # El renombrado es SOLO para reconocimiento: acceso_credenciales sigue en vp_intento_acceso.
+        r = analisis.clasificar(self.alerta, {"postura": {"expuesto": True}, "criticidad": "media"})
+        self.assertEqual(r["clase"], "vp_intento_acceso")
+
+    def test_vp_reconocimiento_esta_en_el_catalogo_de_clases(self):
+        # Tiene que entrar en el menú de reclasificación; va al FINAL para no mover la numeración.
+        self.assertIn("vp_reconocimiento", analisis.CLASES)
+        self.assertEqual(analisis.CLASES[-1], "vp_reconocimiento")
+
 class TestJustificar(unittest.TestCase):
     def setUp(self):
         self.alerta = cargar_json("alerta_vp.json")

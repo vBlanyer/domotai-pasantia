@@ -16,14 +16,19 @@ def _sanear(v, tope=64):
 # Las clases que el motor produce hoy (fuente de verdad, p. ej. para el menú de reclasificación).
 # Las 2 clases finas del caso de uso (vp_acceso_consumado, vp_exposicion_gestion) no entran: el
 # baseline no las emite por falta de etiquetas finas (límite de datos, ver README).
-# vp_abuso_cuenta va al final: el submenú de reclasificación numera por este orden, y añadirla al
-# final no desplaza la numeración de las clases previas (menos fricción para el analista).
-CLASES = ("vp_intento_acceso", "fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada", "vp_abuso_cuenta")
+# vp_abuso_cuenta y vp_reconocimiento van al final: el submenú de reclasificación numera por este
+# orden, y añadirlas al final no desplaza la numeración de las clases previas (menos fricción para el
+# analista). vp_reconocimiento es el MISMO desenlace que vp_intento_acceso para la familia
+# 'reconocimiento' (misma amenaza, prioridad y acción): se separa solo para que el justificador lo
+# narre como precursor y no como explotación (recomendación #2 del informe), sin mover las cifras.
+CLASES = ("vp_intento_acceso", "fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada",
+          "vp_abuso_cuenta", "vp_reconocimiento")
 
 CLASES_SIN_AMENAZA = ("fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada")
 
 _PRIORIDAD_BASE = {
-    "vp_acceso_consumado": 4, "vp_abuso_cuenta": 4, "vp_intento_acceso": 3, "vp_exposicion_gestion": 2,
+    "vp_acceso_consumado": 4, "vp_abuso_cuenta": 4, "vp_intento_acceso": 3, "vp_reconocimiento": 3,
+    "vp_exposicion_gestion": 2,
     "fp_actividad_legitima": 1, "fp_exposicion_inexistente": 1, "no_soportada": 1,
     "amenaza_enrutada": 3,
 }
@@ -76,6 +81,12 @@ def clasificar(alerta, contexto, registro=None):
         clase, confianza = "vp_intento_acceso", 1.0
     else:
         clase, confianza = "fp_exposicion_inexistente", 1.0
+    # El reconocimiento VP comparte desenlace con vp_intento_acceso, pero se le da clase propia para
+    # que el justificador lo explique como precursor (sondeo/mapeo) y no como una explotación en curso
+    # (recomendación #2). Se renombra SOLO el desenlace VP: los FP del recon no se tocan, y como
+    # vp_reconocimiento sigue siendo vp_ con la misma prioridad base, las cifras canónicas no cambian.
+    if clase == "vp_intento_acceso" and alerta.get("familia") == "reconocimiento":
+        clase = "vp_reconocimiento"
     salida = {"clase": clase, "prioridad": _priorizar(clase, contexto.get("criticidad")),
               "confianza": confianza}
     if ruta is not None:

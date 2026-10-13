@@ -155,6 +155,24 @@ class TestLogica(unittest.TestCase):
         self.assertEqual(rag.construir_consulta(alerta, "vp_intento_acceso"),
                          rag.construir_consulta(alerta))
 
+    def test_prompt_consulta_de_reconocimiento_pide_la_tecnica_de_sondeo(self):
+        # Recomendación #2: el paso agéntico del RAG pide conocimiento sobre la TECNICA DE SONDEO y su
+        # lugar en la cadena de ataque, no "la contramedida de la explotación" (que no hay aún).
+        alerta = {"regla_id": "5760", "mitre": ["T1046"], "servicio": "ssh", "familia": "reconocimiento"}
+        p = rag.construir_prompt_consulta(alerta, "vp_reconocimiento")
+        self.assertIn("sondeo", p.lower())
+        self.assertNotIn("contramedida D3FEND", p)
+
+    def test_consulta_base_de_reconocimiento_no_pide_contramedida_de_explotacion(self):
+        # La consulta BASE (fallback, y la que se antepone en el camino agéntico) tampoco debe pedir
+        # "contramedida defensiva" para un precursor: lidera con la semántica del sondeo. Sigue
+        # recuperando por familia+MITRE, así que no cambia la recuperación en la práctica.
+        alerta = {"regla_id": "5760", "mitre": ["T1046"], "servicio": "ssh", "familia": "reconocimiento"}
+        q = rag.construir_consulta(alerta, "vp_reconocimiento")
+        self.assertIn("T1046", q)                 # sigue liderando con la técnica MITRE del recon
+        self.assertIn("reconocimiento", q)
+        self.assertNotIn("contramedida defensiva", q)
+
     def test_las_dos_familias_del_corpus_no_se_mezclan(self):
         # Una amenaza no ve fichas de descarte; un descarte no ve fichas de ataque.
         amenaza = rag.tipos_excluidos("vp_intento_acceso")
