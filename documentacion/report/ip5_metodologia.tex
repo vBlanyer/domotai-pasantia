@@ -78,7 +78,38 @@ desde el punto de entrega del proveedor hacia dentro: un equipo de borde, un con
 interna, un puesto de usuario, un dispositivo de tipo IoT con servicios expuestos y un servidor con
 vulnerabilidades documentadas ---Metasploitable2, con diecinueve puertos abiertos y fallos conocidos
 y públicos---, todos conectados además a una red de gestión fuera de banda por la que operan, sin
-contaminar el tráfico observado, el motor de triaje y un nodo auditor con Nmap.
+contaminar el tráfico observado, el motor de triaje y un nodo auditor con Nmap
+(figura~\ref{fig:topologia}).
+
+\begin{figure}[htbp]
+\centering
+\shorthandoff{>}% el español hace activo '>', que tikz usa en >=Stealth/->
+\resizebox{0.9\textwidth}{!}{%
+\begin{tikzpicture}[>=Stealth, node distance=7mm and 13mm,
+  nodo/.style={draw, rounded corners, align=center, minimum height=9mm, inner sep=3pt},
+  gest/.style={draw, rounded corners, fill=black!5, align=center, minimum height=9mm, inner sep=3pt}]
+  \node[nodo] (borde) {Equipo\\de borde};
+  \node[nodo, right=of borde] (sw) {Conmutador\\interno};
+  \node[nodo, right=of sw, yshift=10mm] (puesto) {Puesto\\de usuario};
+  \node[nodo, right=of sw] (iot) {IoT con servicios\\expuestos};
+  \node[nodo, right=of sw, yshift=-10mm] (vuln) {Servidor vulnerable\\(Metasploitable2)};
+  \draw[->] (borde) -- (sw);
+  \draw[->] (sw) -- (puesto);
+  \draw[->] (sw) -- (iot);
+  \draw[->] (sw) -- (vuln);
+  \node[gest, below=16mm of sw] (wz) {Wazuh\\(SIEM)};
+  \node[gest, left=of wz] (mdr) {Motor de\\triaje};
+  \node[gest, right=of wz] (aud) {Auditor\\(Nmap)};
+  \draw[dashed] (wz) -- (sw) node[midway, right, font=\scriptsize] {fuera de banda};
+  \draw[->] (wz) -- (mdr) node[midway, above, font=\scriptsize] {alertas};
+  \draw[dashed] (aud) -- (sw);
+\end{tikzpicture}%
+}
+\shorthandon{>}%
+\caption[Topología del laboratorio]{Topología del laboratorio (Containerlab): la red del cliente
+(plano de datos) y, fuera de banda, el plano de gestión con Wazuh, el motor de triaje y el auditor.}
+\label{fig:topologia}
+\end{figure}
 
 Un mismo laboratorio debía resolver dos necesidades que, se verificó explícitamente, no son
 intercambiables: un \emph{ground truth} de vulnerabilidades ---qué falla exactamente en cada
@@ -92,7 +123,8 @@ más adelante serviría de baseline.
 
 El resultado, cerrado el 31 de agosto de 2026 y ampliado el 11 de septiembre con una segunda y
 una tercera familia de ataque (secciones \ref{sec:segunda-familia} y \ref{sec:tercera-familia}),
-fue un conjunto de 410 alertas reales ---466 tras las ampliaciones--- generadas
+fue un conjunto de 410 alertas reales ---466 tras la segunda y tercera familia, y 600 tras la
+campaña de casos difíciles de la Fase 6 (sección \ref{sec:fase6})--- generadas
 sobre el propio laboratorio, etiquetadas y particionadas por campaña: 20 verdaderos positivos, 16
 falsos positivos y 374 alertas de ruido de plataforma ---telemetría de evaluación de configuración
 que no corresponde a ningún patrón del caso de uso acotado---, todas ellas concentradas, las
@@ -112,7 +144,43 @@ fuente de alertas concreta ---hoy Wazuh, mañana el sistema propietario del clie
 análisis de dos operaciones, \texttt{clasificar} y \texttt{justificar}, que aísla el modelo de
 lenguaje concreto detrás de cada una; y un conector que aísla el protocolo de comunicación hacia el
 equipo objetivo ---hoy SSH sobre un catálogo cerrado de acciones---. Ninguno de los tres exige
-reescribir la lógica de decisión del motor de triaje cuando la pieza que ocultan cambie.
+reescribir la lógica de decisión del motor de triaje cuando la pieza que ocultan cambie
+(figura~\ref{fig:arquitectura}).
+
+\begin{figure}[htbp]
+\centering
+\shorthandoff{>}% el español hace activo '>', que tikz usa en >=Stealth/->
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[>=Stealth, node distance=8mm and 12mm,
+  caja/.style={draw, rounded corners, align=center, minimum height=11mm, inner sep=4pt},
+  adap/.style={draw, rounded corners, align=center, minimum height=11mm, inner sep=4pt, very thick},
+  ext/.style={draw, dashed, rounded corners, align=center, minimum height=11mm, inner sep=4pt}]
+  \node[ext] (wz) {SIEM\\(Wazuh)};
+  \node[adap, right=of wz] (ing) {Ingesta\\{\scriptsize adaptador de fuente}};
+  \node[adap, right=of ing] (ana) {Análisis\\{\scriptsize clasificar / justificar}};
+  \node[caja, right=of ana] (dec) {Decisión\\{\scriptsize política + perfil}};
+  \node[adap, right=of dec] (con) {Conector\\{\scriptsize SSH · catálogo}};
+  \node[ext, right=of con] (red) {Red del\\cliente};
+  \node[ext, below=of ana] (aud) {Auditor\\{\scriptsize postura (Nmap)}};
+  \node[caja, below=of dec] (hum) {Validación\\humana};
+  \node[caja, below=of con] (trz) {Traza\\{\scriptsize encadenada}};
+  \draw[->] (wz) -- (ing);
+  \draw[->] (ing) -- (ana);
+  \draw[->] (ana) -- (dec);
+  \draw[->] (dec) -- (con);
+  \draw[->] (con) -- (red);
+  \draw[->] (aud) -- (ana);
+  \draw[->] (hum) -- (dec);
+  \draw[->] (dec) -- (trz);
+  \draw[->] (con) -- (trz);
+\end{tikzpicture}%
+}
+\shorthandon{>}%
+\caption[Arquitectura del motor de triaje]{Arquitectura del motor de triaje y sus tres puntos de
+aislamiento (trazo grueso: ingesta, análisis y conector). La fuente de alertas, el modelo de lenguaje
+y el canal hacia el objetivo quedan tras un adaptador cada uno, sin tocar la lógica de decisión.}
+\label{fig:arquitectura}
+\end{figure}
 
 Sobre esa interfaz de análisis se definieron dos perfiles de despliegue según el hardware
 disponible: un perfil híbrido para el equipo de desarrollo entonces disponible ---un procesador de
@@ -217,8 +285,8 @@ equivocado: un módulo de generación aumentada por recuperación que indexa, me
 razones que el capítulo \ref{cap:resultados} documenta---, un corpus curado de fichas sobre las
 técnicas MITRE ATT\&CK, las reglas de Wazuh, las vulnerabilidades del laboratorio pertinentes al
 caso de uso y, tras la evaluación, los motivos por los que una alerta se descarta; y recupera los
-tres pasajes más afines a cada alerta ---por similitud coseno, según la ecuación de la sección
-\ref{sec:problema-triaje-referencia} del marco teórico--- antes de invocar al modelo generativo.
+tres pasajes más afines a cada alerta ---por similitud coseno, según la ecuación~\eqref{eq:coseno} del
+marco teórico (sección \ref{sec:rag})--- antes de invocar al modelo generativo.
 Tres decisiones de diseño acotan deliberadamente su alcance. La consulta de recuperación se
 construye únicamente a partir de campos estructurados de la alerta ---la técnica, la familia y el
 servicio--- y de la clase que el motor ya decidió, nunca del registro completo del evento, por la
@@ -279,13 +347,14 @@ incrementó con cada uno de estos cambios, de modo que las campañas anteriores 
 a la invocación con la que se midieron.
 
 Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 353 casos ---284 del motor de triaje, 32 del marco de evaluación y 37 de
-la tubería de construcción del conjunto de datos---, ejecutados con generadores, ejecutores y capa
-de red simulados que permiten probar la lógica de decisión, de idempotencia, de escalada y de
-degradación sin necesidad de un modelo de lenguaje cargado ni de un laboratorio en ejecución.
+este informe, asciende a 788 casos en el motor de triaje ---más 59 del marco de evaluación, 39 de
+la tubería de construcción del conjunto de datos, 128 del laboratorio del banco y 145 del visor web
+(React/TypeScript)---, ejecutados con generadores, ejecutores y capa de red simulados que permiten
+probar la lógica de decisión, de idempotencia, de escalada y de degradación sin necesidad de un
+modelo de lenguaje cargado ni de un laboratorio en ejecución.
 
 % ===========================================================================
-\section{Fase 6: evaluación}
+\section{Fase 6: evaluación}\label{sec:fase6}
 % ===========================================================================
 
 La evaluación se diseñó como una campaña reproducible por línea de comandos que procesa una
@@ -300,6 +369,18 @@ explicación es correcto y no solo si cita los campos adecuados. Esta distinció
 precisamente la que permitió detectar que un anclaje perfecto no garantiza una justificación
 semánticamente correcta, y la que motivó incorporar la recuperación aumentada descrita en la
 sección anterior.
+
+Para acotar el límite de la señal de origen, se añadió una cuarta campaña de \emph{casos difíciles}
+cuya verdad no provenía de la heurística de etiquetado sino del propio experimento: ataques
+diseñados para que el método de referencia fallara ---fuerza bruta lanzada desde la misma dirección
+declarada como administrador legítimo, y ráfagas cuyo nivel de regla no supera ningún umbral---,
+con dos réplicas para dar variedad. Esta campaña llevó el conjunto etiquetado a sus 600 alertas
+(212 soportadas), con la partición de evaluación de 300 que usa el capítulo de resultados. Sobre
+ella se entrenó un árbol de decisión (CART), no como clasificador de producción sino como
+\emph{instrumento de validación}: para ver qué reglas descubriría el aprendizaje supervisado a esta
+escala con una verdad independiente de la heurística. El árbol redescubrió las reglas ya codificadas
+y aportó una nueva ---que la ráfaga pesa más que el origen declarado---, que se adoptó como código
+auditable; el detalle está en el capítulo \ref{cap:resultados}.
 
 Para aislar el efecto de esa incorporación, la campaña se ejecutó dos veces sobre el mismo
 subconjunto de dieciocho alertas soportadas de la partición de evaluación, con el modelo generativo
