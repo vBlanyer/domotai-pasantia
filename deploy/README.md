@@ -50,3 +50,19 @@ ingesta lleva demasiado tiempo en silencio (ajusta el umbral a tu tráfico):
 ```
 
 La autenticación/TLS del visor las pone la empresa delante (no hay login; ver la guía de integración).
+
+## Retención de la traza
+
+Para que `run/` no crezca sin límite, una tarea de mantenimiento **offline** poda los ficheros de traza
+antiguos (nunca el que el daemon escribe, nunca uno con la cadena de hashes rota):
+
+```sh
+# simulación (no borra):
+python3 -m prototipo.retener_trazas run --max 30
+# aplicar (p. ej. cron semanal): conserva los 30 más recientes
+0 4 * * 0  cd /opt/mdr && python3 -m prototipo.retener_trazas run --max 30 --aplicar
+```
+
+También admite `--max-dias D` (poda lo más viejo que D días). Verifica la cadena de cada fichero antes de
+borrarlo; si está rota, lo conserva y avisa (posible evidencia de manipulación, RF-09).
+

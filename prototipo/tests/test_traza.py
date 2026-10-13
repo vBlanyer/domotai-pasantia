@@ -329,3 +329,29 @@ class TestIntegridadReforzada(unittest.TestCase):
             anclas = traza.leer_anclas(ruta, "t.jsonl")
             self.assertEqual(sorted(n for n, _, _ in anclas), [3])   # solo la firmada; la forjada (9) fuera
 
+
+
+class TestFamilia(unittest.TestCase):
+    """#6: leer_familia concatena los segmentos de una traza en orden cronológico (archivados
+    <base>.<N>.jsonl más antiguos primero, y el activo al final). Deja #4 listo para segmentos."""
+    def _escribir(self, ruta, ids):
+        prev = traza.GENESIS
+        with open(ruta, "w", encoding="utf-8") as f:
+            for i in ids:
+                enc = traza.encadenar({"tipo": "decision", "id_decision": i}, prev); prev = enc["hash"]
+                f.write(json.dumps(enc) + "\n")
+
+    def test_solo_activo_cuando_no_hay_segmentos(self):
+        import tempfile, os
+        d = tempfile.mkdtemp(); ruta = os.path.join(d, "trazas-x.jsonl")
+        self._escribir(ruta, ["s1", "s2"])
+        self.assertEqual([r["id_decision"] for r in traza.leer_familia(ruta)], ["s1", "s2"])
+
+    def test_concatena_archivados_y_activo_en_orden(self):
+        import tempfile, os
+        d = tempfile.mkdtemp(); base = os.path.join(d, "trazas-x")
+        self._escribir(f"{base}.1.jsonl", ["a1"])        # archivado más antiguo
+        self._escribir(f"{base}.2.jsonl", ["a2"])        # archivado posterior
+        self._escribir(f"{base}.jsonl", ["b1"])          # activo
+        self.assertEqual([r["id_decision"] for r in traza.leer_familia(f"{base}.jsonl")],
+                         ["a1", "a2", "b1"])

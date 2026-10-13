@@ -968,7 +968,8 @@ def main(argv):
         n_previos, linaje = len(previos), traza.linaje_de(previos)
         # #4: al reiniciar, la supresión se reconstruye de la traza que se retoma (para que
         # persista, en producción el daemon usa un --salida estable; ver integracion-en-produccion.md).
-        memoria = MemoriaDecisiones.desde_traza(previos, perfil)
+        # #6: se lee la FAMILIA (todos los segmentos) para no perder histórico si la traza se segmentó.
+        memoria = MemoriaDecisiones.desde_traza(traza.leer_familia(cfg["salida"]), perfil)
         with traza.abrir_append(cfg["salida"]) as traza_f:   # permisos 0600 (integridad de la traza)
             ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                      justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
