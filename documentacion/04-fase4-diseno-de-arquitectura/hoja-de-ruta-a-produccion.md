@@ -21,7 +21,7 @@ Cada punto indica **quién lo cierra**:
 | # | Punto | Quién | Prioridad | Estado |
 |---|---|---|---|---|
 | 1 | Receptor de alertas de red (SIEM remoto) | 🛠 Prototipo | Alta | **Hecho (transporte)** |
-| 2 | Validar el contenido de detección del SIEM del cliente | 🤝 Integración | Alta | Pendiente |
+| 2 | Validar el contenido de detección del SIEM del cliente | 🤝 Integración | Alta | **Herramienta lista** |
 | 3 | Desplegar el auditor (postura/Nmap) en producción | 🤝 Integración | Media | Pendiente |
 | 4 | Persistencia de estado al reiniciar | 🛠 Prototipo | Alta | **Hecho** |
 | 5 | Supervisión y resiliencia del daemon | 🛠 Prototipo + 🤝 | Alta | **Hecho** |
@@ -50,13 +50,17 @@ de alerta por línea). El **enmarcado syslog / multi-formato CEF** (el adaptador
 **Criterio de cierre.** ✔ El daemon recibe alertas por red, descarta las de orígenes no permitidos, y una
 alerta recibida produce la misma decisión que por fichero.
 
-### 2. Validar el contenido de detección del SIEM del cliente — 🤝 Integración · Alta
+### 2. Validar el contenido de detección del SIEM del cliente — 🤝 Integración · Alta · **HERRAMIENTA LISTA**
 **Estado.** `adaptador_wazuh.familia_de` mapea grupos/reglas de Wazuh → familia. Si el cliente usa otro
 *ruleset* (otros IDs/grupos), el adaptador clasifica como `otra` y el motor no actúa.
-**Qué falta.** Por cliente: inventariar qué reglas genera su SIEM, confirmar que cubren las 5 familias, y
-ajustar el mapeo (o su adaptador). Es tarea de alta de cliente.
-**Criterio de cierre.** Un catálogo de alertas de prueba del cliente cae en las familias correctas, verificado
-en el banco de pruebas con sus reglas.
+**Lo que se hizo (🛠, lado prototipo).** `python3 -m prototipo.validar_reglas <muestra-alerts.json>`: pasa una
+muestra del `alerts.json` del cliente por el adaptador y reporta cuántas alertas caen en cada familia con
+playbook, cuántas quedan **sin cobertura** (`otra`/`plataforma`, con su regla/grupos para afinar) y cuántas son
+telemetría propia. Hace **medible** la cobertura antes del go-live.
+**Qué queda (🤝, alta del cliente).** Con el reporte en mano, inventariar su *ruleset*, confirmar que cubre las
+5 familias y ajustar el mapeo o escribir su adaptador. Necesita una muestra real de sus alertas.
+**Criterio de cierre.** ✔ (herramienta) El integrador mide la cobertura del *ruleset* del cliente con un
+comando; el ajuste fino sigue siendo tarea de alta por cliente.
 
 ### 3. Desplegar el auditor (postura/Nmap) en producción — 🤝 Integración · Media
 **Estado.** El auditor aparece **dos veces** en el flujo (contexto de postura antes de decidir; reverificación

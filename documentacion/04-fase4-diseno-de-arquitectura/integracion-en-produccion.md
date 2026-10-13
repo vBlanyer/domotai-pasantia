@@ -122,6 +122,12 @@ El adaptador normaliza la alerta cruda del SIEM al esquema interno `CAMPOS`
 (`id_alerta, timestamp, activo, servicio, familia, origen_ip, usuario, mitre, nivel, regla_id, …`). A partir de
 ahí el motor es **agnóstico de la fuente**.
 
+**Validar la cobertura antes del go-live.** El mapeo de `adaptador_wazuh.familia_de` asume los grupos/reglas de
+Wazuh; si el *ruleset* del cliente difiere, sus alertas caen en `otra` y el motor no actúa. `python3 -m
+prototipo.validar_reglas <muestra-alerts.json>` toma una exportación de ejemplo de las alertas del cliente y
+reporta cuántas cubre cada familia con playbook y cuáles quedan sin mapear (con su regla/grupos), para afinar
+el adaptador en el alta.
+
 Para **enchufar otro SIEM** (el motor no cambia):
 
 1. Escribir **un adaptador nuevo** análogo a `adaptador_wazuh.py` (su propio parseo → `CAMPOS`).
