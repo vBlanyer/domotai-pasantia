@@ -31,7 +31,7 @@ Cada punto indica **quién lo cierra**:
 | 9 | Gestión de secretos del conector | 🏢 Empresa | Media | Parcial |
 | 10 | Control de cambios de catálogo y perfil | 🏢 Gobernanza | Baja | Pendiente |
 | 11 | Modelo de análisis y hardware | 🏢 + 🛠 | Media | Parcial |
-| 12 | Escala y volumen real | 🛠 Prototipo | Media | Pendiente |
+| 12 | Escala y volumen real | 🛠 Prototipo | Media | **Hecho (medido)** |
 
 ---
 
@@ -181,11 +181,21 @@ estable.
 
 ## E. Escala
 
-### 12. Escala y volumen real — 🛠 Prototipo · Media
-**Estado.** El banco genera pocos eventos; un SIEM real genera muchos más. El daemon es de **proceso único**.
-**Qué falta.** Medir throughput, *back-pressure* de la ventana de agrupación bajo carga, y el límite del proceso
-único (¿particionar por zona/activo?).
-**Criterio de cierre.** Medido el volumen que aguanta un daemon y documentado el punto de partición.
+### 12. Escala y volumen real — 🛠 Prototipo · Media · **MEDIDO**
+**Lo que se hizo.** Benchmark reproducible `python3 -m prototipo.banco_carga [N]`: pasa N alertas sintéticas
+por el motor con ejecutor simulado (sin SSH) y mide decisiones/seg y ms/alerta. Medición en el portátil de
+desarrollo (modo determinista, camino completo ingesta→análisis→decisión→filtro→traza encadenada): **~565
+decisiones/seg (~1.8 ms/alerta)** por proceso. El *back-pressure* del ingreso ya entró con #1 (cola acotada del
+receptor).
+**Hallazgo.** El motor no es el cuello: ~565 dec/seg supera de sobra el ritmo de alertas de un cliente típico.
+Los límites reales de escala son **externos al motor**: (a) el **ritmo del SIEM** (lo que genera), y (b) el
+**SSH por contención** (segundos cada una, serializadas en el lazo) — pero solo una fracción de las alertas
+acaba en contención, y las que se auto-ejecutan no bloquean la cola web.
+**Punto de partición (documentado).** Si un cliente superase lo que un daemon aguanta, se **particiona por
+zona/activo**: varios daemons, cada uno con su perfil (subconjunto de activos) y su `--salida` estable. No hace
+falta memoria compartida porque la supresión y las contenciones son por-origen/activo y se reconstruyen de cada
+traza (#4). Un *pool* de ejecución SSH para paralelizar contenciones queda como mejora si (b) apretara.
+**Criterio de cierre.** ✔ Medido el throughput de un daemon y documentados los límites reales y la partición.
 
 ---
 
