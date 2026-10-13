@@ -221,6 +221,9 @@ tail -n0 -F /ruta/al/alerts.json \
   `--permitir ip,ip` es la **lista blanca** de IPs del SIEM (solo esas se aceptan; mitiga la inyección de
   alertas falsas), y `--tls-cert/--tls-clave` activan TLS (o se termina en un proxy delante). El emisor envía
   un JSON de alerta por línea (el mismo formato de `alerts.json`).
+- **Reloj (NTP):** el MDR normaliza la zona/formato de los timestamps a UTC para la correlación de ráfaga,
+  pero el cliente debe tener **NTP** entre el SIEM, el MDR y los dispositivos: un reloj que deriva de verdad no
+  lo corrige el código.
 - La respuesta del analista en terminal se lee de `/dev/tty` (no de stdin), para no consumir alertas del *pipe*.
 - Un cambio en el backend requiere **reiniciar el daemon**; el `dist` del visor se sirve por petición (basta
   `npm run build`).

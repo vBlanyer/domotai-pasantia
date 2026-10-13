@@ -26,7 +26,7 @@ Cada punto indica **quién lo cierra**:
 | 4 | Persistencia de estado al reiniciar | 🛠 Prototipo | Alta | **Hecho** |
 | 5 | Supervisión y resiliencia del daemon | 🛠 Prototipo + 🤝 | Alta | **Hecho** |
 | 6 | Rotación y retención de la traza | 🛠 Prototipo | Media | **Hecho (retención)** |
-| 7 | Sincronización de reloj (NTP) y manejo de tiempos | 🤝 + 🛠 | Media | Pendiente |
+| 7 | Sincronización de reloj (NTP) y manejo de tiempos | 🤝 + 🛠 | Media | **Hecho (código)** · NTP 🤝 |
 | 8 | Autorización para actuar + *kill switch* | 🏢 + 🛠 | Alta | **Hecho (🛠)** · falta 🏢 |
 | 9 | Gestión de secretos del conector | 🏢 Empresa | Media | Parcial |
 | 10 | Control de cambios de catálogo y perfil | 🏢 Gobernanza | Baja | Pendiente |
@@ -117,12 +117,17 @@ reconstrucción de #4 **y** pasar la exclusión de revertidas a basarse en el `h
 **Criterio de cierre.** ✔ (retención) `run/` no crece sin límite; la poda verifica la cadena y respeta el
 activo y las evidencias.
 
-### 7. Sincronización de reloj (NTP) y manejo de tiempos — 🤝 + 🛠 · Media
-**Estado.** La regla de ráfaga y la correlación dependen de timestamps; ya se midió desfase de reloj como
-problema de latencia. El análisis CEF avisó de timestamps ambiguos (sin año/zona).
-**Qué falta.** NTP entre SIEM/MDR/dispositivos (🤝 infraestructura); en código, normalizar zona/formato de
-tiempo y tolerar desfase en la ventana de ráfaga (🛠).
-**Criterio de cierre.** Reloj sincronizado y timestamps normalizados; la ráfaga no se rompe por desfase.
+### 7. Sincronización de reloj (NTP) y manejo de tiempos — 🤝 + 🛠 · Media · **🛠 HECHO**
+**Lo que era.** `rafaga._instante` parseaba `timestamp[:19]` e **ignoraba la zona horaria**: un SIEM que
+mandara hora local (`+02:00`) o mezclara zonas hacía que la ventana de ráfaga contara mal (desfase = el offset).
+**Lo que se hizo (🛠).** `rafaga._instante` ahora es **consciente de zona**: parsea ISO con `Z`/`±HH:MM`/`±HHMM`
+o sin zona (UTC asumido) y **normaliza a UTC** antes de comparar. Verificado que las métricas canónicas no
+cambian (el dataset es de una sola zona). Timestamps CEF sin año siguen sin parsear (cuentan como 1) → es del
+adaptador CEF (ítem aparte).
+**Falta (🤝, de la empresa):** **NTP** entre SIEM/MDR/dispositivos. El código normaliza zonas/formatos, pero un
+reloj que **deriva** de verdad solo lo corrige NTP (se documenta en la guía de integración).
+**Criterio de cierre.** ✔ (código) Timestamps de zonas distintas se comparan bien en la ráfaga; NTP queda como
+requisito de infraestructura del cliente.
 
 ---
 
