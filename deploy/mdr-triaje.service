@@ -12,10 +12,12 @@ WorkingDirectory=/opt/mdr
 EnvironmentFile=/etc/mdr/triaje.env
 ExecStart=/opt/mdr/deploy/arrancar-mdr.sh
 
-# Resiliencia (#5): si el daemon cae (fuente muerta, excepción no capturada), systemd lo reinicia;
-# al reiniciar retoma su estado de la traza (#4). El healthcheck HTTP /healthz lo sondea un monitor
-# local (el daemon liga solo a 127.0.0.1); ver deploy/README.md.
-Restart=on-failure
+# Resiliencia (#5): se reinicia SIEMPRE que el daemon termina, no solo ante error. Es un daemon
+# perpetuo: si la fuente (tail) muere, python3 recibe EOF y sale 0, y `on-failure` NO lo reiniciaría
+# (quedaría parado en silencio); `always` sí. Un `systemctl stop` explícito no dispara reinicio.
+# Al reiniciar retoma su estado de la traza (#4). El healthcheck /healthz lo sondea un monitor local
+# (el daemon liga solo a 127.0.0.1); ver deploy/README.md.
+Restart=always
 RestartSec=5
 
 # Endurecimiento básico. El daemon solo lee el alerts.json y abre SSH de salida hacia el plano de

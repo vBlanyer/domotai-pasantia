@@ -7,7 +7,7 @@ Son plantillas: ajústalas a las rutas y al usuario del cliente.
 | Fichero | Qué es |
 |---|---|
 | `arrancar-mdr.sh` | Wrapper del *pipe* `tail -F alerts.json \| python3 -m prototipo.stream … --web --salida <fijo>` (systemd no hace *pipes*). Lee las variables del `EnvironmentFile`. |
-| `mdr-triaje.service` | Unidad systemd: `Restart=on-failure` (resiliencia) + endurecimiento básico. |
+| `mdr-triaje.service` | Unidad systemd: `Restart=always` (resiliencia: reinicia aunque el daemon salga 0 tras un EOF de la fuente) + endurecimiento básico. |
 | `triaje.env.ejemplo` | Ejemplo de `EnvironmentFile` (fuente, perfil, `--salida` fijo, conector SSH, HMAC). |
 
 ## Instalar
@@ -36,14 +36,17 @@ curl -fsS http://127.0.0.1:8787/healthz
 ```
 
 - `ok=false` cuando el **lazo principal** lleva demasiado tiempo sin iterar (colgado): un fallo que
-  «el proceso existe» no detecta. `Restart=on-failure` cubre la caída dura; `/healthz` cubre el cuelgue.
-- `ingesta_silencio_s` alto con la red activa sugiere que la **fuente** (SIEM) dejó de enviar.
+  «el proceso existe» no detecta. `Restart=always` cubre la caída/salida; `/healthz` cubre el cuelgue.
+- `ingesta_silencio_s` alto con la red activa sugiere que la **fuente** (SIEM) dejó de enviar. **Ojo:**
+  `ok` mide solo la vitalidad del lazo, **no** el silencio de ingesta (un SIEM callado no es un MDR
+  enfermo), así que una fuente muerta se vigila aparte, con un umbral sobre `ingesta_silencio_s`.
 
-Ejemplo de sonda local cada minuto (systemd timer o cron) que alerta si `ok` es falso:
+Ejemplo de sonda local cada minuto (systemd timer o cron) que alerta si el lazo no está sano o si la
+ingesta lleva demasiado tiempo en silencio (ajusta el umbral a tu tráfico):
 
 ```sh
-* * * * * curl -fsS http://127.0.0.1:8787/healthz | grep -q '"ok": true' \
-  || logger -p daemon.err "MDR /healthz: lazo no saludable"
+* * * * * curl -fsS http://127.0.0.1:8787/healthz | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if d["ok"] and (d["ingesta_silencio_s"] or 0) < 900 else 1)' \
+  || logger -p daemon.err "MDR /healthz: lazo no saludable o ingesta en silencio"
 ```
 
 La autenticación/TLS del visor las pone la empresa delante (no hay login; ver la guía de integración).
