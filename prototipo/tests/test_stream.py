@@ -74,6 +74,23 @@ class TestColaNoBloqueante(unittest.TestCase):
                         ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
                         salida_traza=buf, escribir=lambda *a, **k: None, estado_web=estado)
 
+    def _ejecutar_auto(self, estado, buf):
+        # Línea sin host 'fantasma' -> decisión automática (no requiere humano).
+        stream.ejecutar([_linea_wazuh(), None], hallazgos=j("hallazgos.json"),
+                        perfil=y("perfil.yml"), perfil_nombre="prueba", catalogo=CAT,
+                        ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+                        salida_traza=buf, escribir=lambda *a, **k: None, estado_web=estado)
+
+    def test_pausa_encola_lo_que_se_auto_ejecutaria(self):
+        # #8 kill switch: sin pausa la decisión automática se ejecuta (0 pendientes); con la pausa
+        # activa se encola para humano (1 pendiente).
+        sin = tablero.EstadoTablero()
+        self._ejecutar_auto(sin, io.StringIO())
+        self.assertEqual(len(sin.decisiones_pendientes()), 0)
+        con = tablero.EstadoTablero(); con.pausar(True)
+        self._ejecutar_auto(con, io.StringIO())
+        self.assertEqual(len(con.decisiones_pendientes()), 1)
+
     def test_encola_sin_bloquear_y_al_aprobar_ejecuta_y_traza(self):
         estado, buf = tablero.EstadoTablero(), io.StringIO()
         self._ejecutar(estado, buf)                  # NO bloquea (sin leer)

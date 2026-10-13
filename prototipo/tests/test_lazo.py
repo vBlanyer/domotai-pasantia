@@ -123,6 +123,27 @@ class TestLazo(unittest.TestCase):
         self.assertEqual(encolados, [])
         self.assertIsNotNone(r["orden"])
 
+    def test_pausa_fuerza_humano_en_una_decision_automatica(self):
+        # #8 kill switch: con la pausa activa, una decisión que se auto-ejecutaría pasa a esperar humano.
+        encolados = []
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"), "prueba", CAT,
+                               ejecutor_ok, "d9", "t", encolar=lambda d, al: encolados.append(d),
+                               pausa=lambda: True)
+        self.assertTrue(r["en_cola"])               # se encola en vez de ejecutarse
+        self.assertIsNone(r["orden"])
+        self.assertEqual(len(encolados), 1)
+        self.assertTrue(encolados[0].get("pausa_automatizacion"))   # marcado: retenido por la pausa
+
+    def test_pausa_no_marca_una_decision_sin_accion(self):
+        # La pausa solo retiene lo que se AUTO-EJECUTARÍA; sin accion_final no se marca por la pausa.
+        a = dict(j("alerta_vp.json")); a["origen_ip"] = None        # sin IP -> veta -> accion_final None
+        encolados = []
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, ejecutor_ok,
+                               "d10", "t", encolar=lambda d, al: encolados.append(d), pausa=lambda: True)
+        self.assertIsNone(r["accion_final"])
+        for d in encolados:
+            self.assertFalse(d.get("pausa_automatizacion"))
+
     def test_procesar_lazo_pasa_escribir_a_la_validacion_humana(self):
         # El bloque de validación (con la Consecuencia/cascada) debe salir por `escribir`, no por
         # print: si no, el panel Aprobaciones de la web no lo captura (solo ve la línea del incidente).

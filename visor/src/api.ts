@@ -198,6 +198,7 @@ export const getMetricas = (p?: { desde?: string; hasta?: string }) => {
 }
 export const getRed = () => pedir("/api/red", RedSchema)
 export const getContenciones = () => pedir("/api/contenciones", z.array(ContencionSchema))
+export const getPausa = () => pedir("/api/pausa", z.object({ pausada: z.boolean() }))
 
 // Nombre del operador que aprueba (no repudio): se guarda por navegador y viaja en /api/aprobar.
 const OPERADOR_KEY = "mdr.operador"
@@ -220,6 +221,30 @@ export async function aprobar(id: string, respuesta: string, paso?: number | nul
   } catch {
     return false
   }
+}
+
+// Kill switch (#8): pausa global de la automatización y des-bloqueo en masa.
+export async function setPausa(pausar: boolean): Promise<boolean> {
+  try {
+    const operador = operadorActual()
+    const r = await fetch(BASE + "/api/pausa", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pausar, ...(operador ? { operador } : {}) }),
+    })
+    return r.ok
+  } catch { return false }
+}
+
+export async function revertirTodo(): Promise<{ revertidas: number; fallidas: number } | null> {
+  try {
+    const operador = operadorActual()
+    const r = await fetch(BASE + "/api/revertir-todo", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(operador ? { operador } : {}),
+    })
+    if (!r.ok) return null
+    return await r.json()
+  } catch { return null }
 }
 
 export function controlesDePendiente(p: Pendiente): { etiqueta: string; respuesta: string; variante: "aprobar" | "rechazar" }[] {

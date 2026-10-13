@@ -27,7 +27,7 @@ Cada punto indica **quién lo cierra**:
 | 5 | Supervisión y resiliencia del daemon | 🛠 Prototipo + 🤝 | Alta | **Hecho** |
 | 6 | Rotación y retención de la traza | 🛠 Prototipo | Media | Pendiente |
 | 7 | Sincronización de reloj (NTP) y manejo de tiempos | 🤝 + 🛠 | Media | Pendiente |
-| 8 | Autorización para actuar + *kill switch* | 🏢 + 🛠 | Alta | Pendiente |
+| 8 | Autorización para actuar + *kill switch* | 🏢 + 🛠 | Alta | **Hecho (🛠)** · falta 🏢 |
 | 9 | Gestión de secretos del conector | 🏢 Empresa | Media | Parcial |
 | 10 | Control de cambios de catálogo y perfil | 🏢 Gobernanza | Baja | Pendiente |
 | 11 | Modelo de análisis y hardware | 🏢 + 🛠 | Media | Parcial |
@@ -112,13 +112,19 @@ tiempo y tolerar desfase en la ventana de ráfaga (🛠).
 
 ## C. Gobernanza y seguridad operativa
 
-### 8. Autorización para actuar + *kill switch* — 🏢 + 🛠 · Alta
-**Estado.** El motor ya respeta vetos y retiene a humano, pero no hay un **interruptor global** para desactivar
-la automatización al instante, ni un procedimiento de **des-bloqueo en masa** si el MDR se equivoca.
-**Qué falta.** Reglas de enganche por escrito (qué se puede bloquear, cuándo, sobre qué activos — 🏢) y un
-*kill switch* en el motor/visor (pausa de automatización + reversión en masa — 🛠).
-**Criterio de cierre.** Un operador puede pausar toda la automatización y revertir bloqueos en un paso; el
-alcance de actuación está autorizado por escrito.
+### 8. Autorización para actuar + *kill switch* — 🏢 + 🛠 · Alta · **🛠 HECHO**
+**Lo que era.** El motor respetaba vetos y retenía a humano, pero no había interruptor global para desactivar
+la automatización al instante ni des-bloqueo en masa si el MDR se equivocaba.
+**Lo que se hizo (🛠).** *Kill switch* en dos piezas: **pausa global** (`EstadoTablero.pausar/pausada`;
+`procesar_lazo(pausa=)` fuerza `requiere_humano` cuando la pausa está activa **y** hay `accion_final`, marcando
+`pausa_automatizacion` en la traza; `/api/pausa` GET/POST) y **des-bloqueo en masa**
+(`revertir.revertir_todas` sobre las contenciones activas, anotando reversiones con `indice_revertido` +
+operador; `/api/revertir-todo`). Visor: **banner de pausa** persistente en todas las vistas + **toggle** y
+botón **«Revertir todo»** (con confirmación) en «Contenciones activas».
+**Falta (🏢, de la empresa):** las **reglas de enganche por escrito** (qué se puede bloquear, cuándo, sobre qué
+activos). La pausa es estado de sesión: un reinicio la limpia (el operador la re-activa). El des-bloqueo es
+síncrono (acotado por el timeout del conector); para escala iría en segundo plano (#12).
+**Criterio de cierre.** ✔ (parte 🛠) Un operador pausa toda la automatización y revierte los bloqueos en un paso.
 
 ### 9. Gestión de secretos del conector — 🏢 Empresa · Media (Parcial)
 **Estado.** La clave SSH del conector se pasa por variable de entorno; existe `rotar-clave-conector.sh`

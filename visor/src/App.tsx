@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Moon, Sun } from "lucide-react"
-import { useSondeo, getSalud, getPendientes } from "@/api"
+import { useSondeo, getSalud, getPendientes, getPausa } from "@/api"
 import { useTema } from "@/tema"
 import { Dashboard } from "@/components/Dashboard"
 import { Metricas } from "@/components/Metricas"
@@ -34,6 +34,8 @@ export default function App() {
   const { oscuro, alternar } = useTema()
   const salud = useSondeo(getSalud)
   const pend = useSondeo(getPendientes)
+  const pausa = useSondeo(getPausa)
+  const pausada = !!(pausa && !("error" in pausa) && pausa.pausada)
   const conectado = salud !== undefined && !("error" in salud)
   const nPend = Array.isArray(pend) ? pend.length : 0
   const titulo = vista === "incidente" ? "Incidente" : NAV.find((n) => n.id === vista)!.nombre
@@ -89,6 +91,14 @@ export default function App() {
           </div>
         </header>
         <main className="flex-1 overflow-auto px-8 py-6 print:overflow-visible print:p-0">
+          {pausada && (
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-rose-500/50 bg-rose-500/10 px-4 py-2.5 text-sm font-medium text-rose-700 dark:text-rose-300 print:hidden">
+              ⏸ Automatización en pausa — toda contención automática espera aprobación humana.
+              {vista !== "contenciones" && (
+                <button onClick={() => setVista("contenciones")} className="ml-auto underline underline-offset-2">Gestionar</button>
+              )}
+            </div>
+          )}
           {vista === "panel" && <Dashboard conectado={conectado} />}
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}

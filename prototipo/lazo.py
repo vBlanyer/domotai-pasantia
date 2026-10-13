@@ -128,9 +128,13 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
 
 def procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, id_decision, timestamp,
                   leer=input, justificar_fn=analisis.justificar, mitigar_fn=None, escribir=print, encolar=None,
-                  diferir_escalada=None):
+                  diferir_escalada=None, pausa=None):
     decision = decidir_incidente(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
                                  justificar_fn=justificar_fn)
+    # Kill switch (#8): con la pausa activa, lo que se AUTO-EJECUTARÍA (hay accion_final) pasa a esperar
+    # humano. No toca lo que ya requiere humano ni lo que no tiene acción (FP/vetado): no hay nada que auto-parar.
+    if pausa is not None and pausa() and decision.get("accion_final") and not decision.get("requiere_humano"):
+        decision = {**decision, "requiere_humano": True, "pausa_automatizacion": True}
     # Modo agente: si hay contención que aplicar, delega la mitigación al agente ReAct, que decide la
     # estrategia, ESCALA de dispositivo y aprueba POR PASO (RF-08). El daemon no hace su prompt único.
     if mitigar_fn is not None and decision.get("accion_final"):
