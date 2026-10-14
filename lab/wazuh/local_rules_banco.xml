@@ -96,3 +96,24 @@
   </rule>
 </group>
 
+<!-- acceso_consumado: regla COMPUESTA. Un login sshd ACEPTADO (5715) desde una IP que venia haciendo
+     fuerza bruta (5763, misma IP) = el atacante ENTRO. El ataque (demo.py:ataque_acceso_consumado)
+     inyecta en sshd.log unas lineas de fuerza bruta y luego un login aceptado desde la misma IP.
+     grupo 'intrusion' -> el adaptador lo mapea a acceso_consumado -> MATAR_CONEXION sobre la IP origen
+     (cortar la sesion viva). Un login LEGITIMO no trae el contexto de fuerza bruta, asi que no casa.
+     VALIDAR EN VIVO: los IDs 5715/5763 y la sintaxis if_matched_sid/same_source_ip pueden variar por
+     version de Wazuh; ajusta si no casan. -->
+<group name="local,syslog,sshd,">
+  <rule id="100600" level="10">
+    <if_sid>5715</if_sid>
+    <if_matched_sid>5763</if_matched_sid>
+    <same_source_ip />
+    <group>intrusion,</group>
+    <description>Intrusion: login exitoso desde una IP que venia haciendo fuerza bruta (acceso consumado)</description>
+    <mitre>
+      <id>T1078</id>
+      <id>T1021</id>
+    </mitre>
+  </rule>
+</group>
+

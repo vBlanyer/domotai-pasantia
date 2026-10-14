@@ -115,6 +115,15 @@ class TestClasificar(unittest.TestCase):
     def test_vp_denegacion_servicio_esta_en_el_catalogo_de_clases(self):
         self.assertIn("vp_denegacion_servicio", analisis.CLASES[4:])   # al final, no desplaza la numeración
 
+    def test_acceso_consumado_usa_la_clase_del_registro(self):
+        # 8ª familia (intrusión exitosa): el login consumado ES la amenaza, no depende de la postura.
+        a = dict(self.alerta); a["familia"] = "acceso_consumado"
+        r = analisis.clasificar(a, {"postura": {"expuesto": False}, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "vp_acceso_consumado")
+
+    def test_vp_acceso_consumado_esta_en_el_catalogo_de_clases(self):
+        self.assertIn("vp_acceso_consumado", analisis.CLASES[4:])
+
     def test_abuso_de_cuenta_desde_origen_legitimo_sigue_siendo_fp(self):
         # El origen legítimo precede a la clase declarada: un admin declarado no se trata como amenaza.
         a = dict(self.alerta); a["familia"] = "abuso_de_cuenta"

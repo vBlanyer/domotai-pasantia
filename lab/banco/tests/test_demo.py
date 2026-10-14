@@ -38,11 +38,22 @@ class TestDemo(unittest.TestCase):
         self.assertTrue(any("adduser -D backdoor" in a[-1] for a in llamadas),
                         "la tanda debe lanzar también el abuso de cuenta")
 
-    def test_ataques_host_cubren_las_tres_familias_sin_origen_de_red(self):
-        # Las familias cuya respuesta NO es bloquear una IP de origen (cuenta, FIM, DoS) viven como
-        # "ataques de host" (sin rotación): el lanzador debe cubrir las tres.
+    def test_ataques_host_cubren_las_familias_que_se_inyectan_como_evento(self):
+        # Familias que se inyectan como evento en el host (no un cliente de red rotable): cuenta, FIM,
+        # DoS y acceso consumado. El lanzador debe cubrir las cuatro.
         familias = {h["familia"] for h in demo.ATAQUES_HOST}
-        self.assertEqual(familias, {"abuso_de_cuenta", "integridad_fichero", "denegacion_servicio"})
+        self.assertEqual(familias,
+                         {"abuso_de_cuenta", "integridad_fichero", "denegacion_servicio", "acceso_consumado"})
+
+    def test_ataque_acceso_consumado_inyecta_fuerza_bruta_y_login_exitoso(self):
+        llamadas, ejecutar = self._fake()
+        demo.ataque_acceso_consumado(ejecutar=ejecutar)
+        cmd = llamadas[0][-1]
+        self.assertEqual(llamadas[0][2], "clab-banco-web-banking")
+        self.assertIn("Failed password", cmd)                         # fuerza bruta (dispara 5763)
+        self.assertIn("Accepted password", cmd)                       # login EXITOSO (dispara 5715)
+        self.assertIn(demo.IP_EXTERNA, cmd)                           # misma IP atacante -> regla compuesta 100600
+        self.assertIn("/var/log/banco/sshd.log", cmd)                 # lo recoge el reenviador --sshd
 
     def test_ataque_integridad_fichero_modifica_un_fichero_e_inyecta_el_evento(self):
         llamadas, ejecutar = self._fake()
@@ -67,12 +78,14 @@ class TestDemo(unittest.TestCase):
         txt = " ".join(a[-1] for a in llamadas)
         self.assertIn("ossec-fim", txt, "la tanda debe lanzar el ataque de integridad de ficheros")
         self.assertIn("ossec-flood", txt, "la tanda debe lanzar el ataque de denegación de servicio")
+        self.assertIn("Accepted password", txt, "la tanda debe lanzar el ataque de acceso consumado")
 
     def test_menu_lista_los_ataques_de_host_despues_de_los_de_red(self):
         m = demo.menu(demo.casos_vivos())
         self.assertIn("FIM", m)
         self.assertIn("DOS", m)
         self.assertIn("CUENTA", m)
+        self.assertIn("INTRUSION", m)
 
     def test_lanzar_ejecuta_preparar_y_luego_ataque_en_orden(self):
         llamadas, ejecutar = self._fake()

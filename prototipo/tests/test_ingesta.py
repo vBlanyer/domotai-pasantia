@@ -74,6 +74,18 @@ class TestTolerancia(unittest.TestCase):
         self.assertEqual(a["familia"], "integridad_fichero")
         self.assertNotIn("activo_ip", a)   # M1: el esquema normalizado ya no lleva la IP de agent.ip
 
+    def test_intrusion_exitosa_es_acceso_consumado(self):
+        # 8ª familia: login EXITOSO desde una IP que acababa de hacer fuerza bruta (regla compuesta
+        # local, grupo 'intrusion'). Se comprueba ANTES del fallo de autenticación (que va a credenciales).
+        cruda = {"id": "i1", "timestamp": "t",
+                 "rule": {"id": "100600", "groups": ["syslog", "sshd", "intrusion"], "level": 10,
+                          "mitre": {"id": ["T1078", "T1021"]}},
+                 "agent": {"id": "000"}, "data": {"srcip": "198.51.100.10"},
+                 "full_log": "Accepted password for cliente from 198.51.100.10"}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        self.assertEqual(a["familia"], "acceso_consumado")
+        self.assertEqual(a["origen_ip"], "198.51.100.10")   # MATAR_CONEXION necesita la IP del atacante
+
     def test_flood_es_denegacion_servicio(self):
         # 7ª familia (DoS/flood): una regla de frecuencia de Wazuh (grupo 'flood'/'dos') -> familia
         # denegacion_servicio. Se comprueba ANTES del cajón exploit/attack (un flood suele traer 'attack').

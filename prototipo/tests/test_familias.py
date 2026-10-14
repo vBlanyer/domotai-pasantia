@@ -37,6 +37,13 @@ class TestRegistroFamilias(unittest.TestCase):
         self.assertEqual(e["clase"], "vp_denegacion_servicio")
         self.assertIn("T1498", e["mitre"])
 
+    def test_acceso_consumado_declara_su_clase(self):
+        # 8ª familia (intrusión exitosa): el atacante ya ENTRÓ (login tras fuerza bruta); 'actuar'.
+        e = familias.registro()["acceso_consumado"]
+        self.assertEqual(e["nivel"], "actuar")
+        self.assertEqual(e["clase"], "vp_acceso_consumado")
+        self.assertIn("T1078", e["mitre"])
+
     def test_clase_declarada_debe_ser_texto(self):
         import tempfile, os
         with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False, encoding="utf-8") as f:

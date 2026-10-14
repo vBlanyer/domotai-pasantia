@@ -33,6 +33,7 @@ from lab.banco import casos, red
 P = "clab-banco"
 ESPERA_WAZUH = 65          # la regla 5763 de Wazuh se silencia 60 s tras dispararse
 IFACE_DATOS = "eth1"       # la interfaz del plano de datos en los nodos del banco
+IP_EXTERNA = "198.51.100.10"   # el atacante externo, la misma que usan los casos de internet
 
 
 def casos_vivos():
@@ -131,8 +132,32 @@ def deshacer_denegacion_servicio(destino="web-banking", ejecutar=subprocess.run)
     return _exec(destino, "tc qdisc del dev eth1 root 2>/dev/null || true", ejecutar)
 
 
-# Ataques "de host": su respuesta NO es bloquear una IP de origen, así que no rotan IP y viven fuera
-# del catálogo de casos de red. El menú los lista tras los de red y la tanda los lanza todos.
+# --- Ataque de ACCESO CONSUMADO (familia acceso_consumado) -------------------------------------
+# El atacante YA entró: un login EXITOSO desde una IP que venía haciendo fuerza bruta. Se inyectan en
+# el sshd.log (que el reenviador --sshd manda a Wazuh) unas líneas de fuerza bruta (disparan 5763) y
+# luego un login aceptado desde la MISMA IP; la regla compuesta local 100600 (grupo 'intrusion') lo
+# levanta -> acceso_consumado -> MATAR_CONEXION sobre la IP del atacante (cortar la sesión viva). Un
+# login exitoso LEGÍTIMO no trae el contexto de fuerza bruta, así que no se marca.
+_SSHD_LOG = "/var/log/banco/sshd.log"
+
+def _linea_sshd_fallo(src_ip):
+    return f"sshd[2100]: Failed password for invalid user admin from {src_ip} port 51000 ssh2"
+
+def _linea_sshd_exito(src_ip, usuario="cliente"):
+    return f"sshd[2101]: Accepted password for {usuario} from {src_ip} port 51000 ssh2"
+
+def ataque_acceso_consumado(destino="web-banking", src_ip=IP_EXTERNA, ejecutar=subprocess.run):
+    fallos = "".join(f"echo '{_linea_sshd_fallo(src_ip)}' >> {_SSHD_LOG}; " for _ in range(6))
+    cmd = fallos + f"echo '{_linea_sshd_exito(src_ip)}' >> {_SSHD_LOG}"
+    return _exec(destino, cmd, ejecutar)
+
+def deshacer_acceso_consumado(destino="web-banking", src_ip=IP_EXTERNA, ejecutar=subprocess.run):
+    # MATAR_CONEXION es transitoria; si además se bloqueó la IP, se limpia el DROP.
+    return _exec(destino, f"iptables -D INPUT -s {src_ip} -j DROP 2>/dev/null || true", ejecutar)
+
+
+# Ataques "de host": se inyectan como EVENTO en el host (no un cliente de red que rota IP), así que
+# viven fuera del catálogo de casos de red. El menú los lista tras los de red y la tanda los lanza todos.
 ATAQUES_HOST = [
     {"id": "CUENTA", "familia": "abuso_de_cuenta",
      "titulo": "abuso de cuenta (alta de 'backdoor' en web-banking) -> bloquear la CUENTA, humano",
@@ -143,6 +168,9 @@ ATAQUES_HOST = [
     {"id": "DOS", "familia": "denegacion_servicio",
      "titulo": "denegacion de servicio (inundacion contra web-banking) -> ACOTAR la banda, humano",
      "lanzar": ataque_denegacion_servicio, "deshacer": deshacer_denegacion_servicio},
+    {"id": "INTRUSION", "familia": "acceso_consumado",
+     "titulo": "acceso consumado (login exitoso tras fuerza bruta en web-banking) -> CORTAR la conexion, humano",
+     "lanzar": ataque_acceso_consumado, "deshacer": deshacer_acceso_consumado},
 ]
 
 
@@ -156,7 +184,6 @@ def menu(vivos):
 
 
 LINEA_A_MEDIDA = "  a. Ataque a medida (elige equipo objetivo, servicio y origen)"
-IP_EXTERNA = "198.51.100.10"       # el atacante externo, la misma que usan los casos de internet
 
 
 def _elegir(leer, prompt, opciones, etiqueta):

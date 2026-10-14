@@ -61,6 +61,22 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["clase"], "vp_denegacion_servicio")
         self.assertIsNone(r["accion_final"])          # vetada: sin interfaz no hay throttle
 
+    def test_acceso_consumado_corta_la_conexion_del_atacante(self):
+        # 8ª familia: intrusión exitosa -> vp_acceso_consumado -> MATAR_CONEXION sobre la IP de origen
+        # (cortar la sesión viva). origen_ip presente (login del atacante).
+        a = {**j("alerta_vp.json"), "familia": "acceso_consumado"}   # origen_ip 192.168.1.10
+        r = triaje.procesar(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_acceso_consumado")
+        self.assertEqual(r["accion_propuesta"], "MATAR_CONEXION")
+        self.assertEqual(r["accion_final"], "MATAR_CONEXION")
+
+    def test_acceso_consumado_sin_ip_de_origen_se_veta(self):
+        # Como toda acción sobre IP: sin origen no hay conexión que cortar -> veto fail-closed.
+        a = {**j("alerta_vp.json"), "familia": "acceso_consumado", "origen_ip": None}
+        r = triaje.procesar(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_acceso_consumado")
+        self.assertIsNone(r["accion_final"])
+
     def test_aviso_vigilancia_en_el_punto_ciego(self):
         # low-and-slow desde un origen de confianza: el motor dice legítimo, pero el volumen de la
         # ventana larga dispara el aviso ASESOR (no cambia el veredicto ni ejecuta nada).

@@ -26,7 +26,8 @@ def filtro_legible(decision):
 _RESPUESTA_LEGIBLE = {"contener_origen": "contener el origen (bloquear la IP atacante)",
                       "endurecer_servicio": "endurecer el servicio", "enrutar": "enrutar para revision/parcheo",
                       "observar": "observar/vigilar", "aislar_host": "aislar el host afectado (cuarentena en el borde)",
-                      "limitar_banda": "acotar la banda del enlace (contención gradual)"}
+                      "limitar_banda": "acotar la banda del enlace (contención gradual)",
+                      "cortar_sesion": "cortar la conexión viva del atacante"}
 
 def _recomendado(decision):
     """Línea asesora (RF-05): la respuesta dirigida que recomienda el triaje. NO es la acción que se
