@@ -172,7 +172,7 @@ export function Metricas() {
                   ? <Barras data={m.top_activos.map((a) => ({ nombre: a.nombre, n: a.n }))} />
                   : <p className="py-10 text-center text-sm text-muted-foreground">sin datos</p>}
               </Tarjeta>
-              <Tarjeta titulo="Cobertura MITRE ATT&CK">
+              <Tarjeta titulo="Cobertura MITRE ATT&CK (por familia)">
                 {m.mitre.length
                   ? <MatrizAttack tecnicas={m.mitre} />
                   : <p className="py-10 text-center text-sm text-muted-foreground">sin técnicas registradas</p>}
