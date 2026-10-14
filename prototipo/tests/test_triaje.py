@@ -20,14 +20,29 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["resultado_filtro"], "permite")
         self.assertIn("192.168.1.10", r["justificacion"])
 
-    def test_fim_integridad_aisla_el_host_siempre_con_humano(self):
-        # 6ª familia (FIM): un fichero crítico cambió -> vp_integridad -> AISLAR_NODO, que es
-        # nunca_automatica -> SIEMPRE validación humana (nunca se aísla un host del banco en automático).
-        a = {**j("alerta_vp.json"), "familia": "integridad_fichero", "activo_ip": "192.168.1.30"}
-        r = triaje.procesar(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, id_decision="d1", timestamp="t")
+    def test_fim_integridad_aisla_el_host_en_el_borde_siempre_con_humano(self):
+        # 6ª familia (FIM): un fichero crítico cambió -> vp_integridad -> AISLAR_NODO (cuarentena en el
+        # cortafuegos de borde del host, reusa el mecanismo de BLOQUEAR_IP_FIREWALL). Es nunca_automatica
+        # -> SIEMPRE validación humana. Con topología hay cuarentena ejecutable (retenida, no vetada).
+        a = {**j("alerta_vp.json"), "familia": "integridad_fichero"}   # activo = objetivo-vuln
+        p = {**y("perfil.yml"),
+             "activos": {"objetivo-vuln": {"ip": "192.168.1.30"}, "borde": {"ip": "192.168.1.1"}},
+             "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
+                           "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
+        r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
         self.assertEqual(r["clase"], "vp_integridad")
         self.assertEqual(r["accion_propuesta"], "AISLAR_NODO")
-        self.assertTrue(r["requiere_humano"])        # nunca_automatica -> humano incondicional
+        self.assertEqual(r["accion_final"], "AISLAR_NODO")   # retenida: hay cuarentena ejecutable
+        self.assertTrue(r["requiere_humano"])                # nunca_automatica -> humano incondicional
+
+    def test_fim_sin_cortafuegos_de_borde_no_deja_accion_ejecutable(self):
+        # Sin topología (sin ruta a un cortafuegos) un host hoja no se puede aislar: fail-closed a veto
+        # duro (el humano recibe la alerta, pero no una acción que no se podría ejecutar).
+        a = {**j("alerta_vp.json"), "familia": "integridad_fichero"}
+        r = triaje.procesar(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_integridad")
+        self.assertIsNone(r["accion_final"])          # vetada: no hay cuarentena ejecutable
+        self.assertTrue(r["requiere_humano"])
 
     def test_aviso_vigilancia_en_el_punto_ciego(self):
         # low-and-slow desde un origen de confianza: el motor dice legítimo, pero el volumen de la

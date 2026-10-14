@@ -313,6 +313,34 @@ class TestEscaladaPorDefecto(unittest.TestCase):
         self.assertFalse(r["ejecucion"]["exito"])
         self.assertIsNone(r["escalada"])                 # no cruza a bloquear la IP
 
+    def _alerta_fim(self):
+        # FIM contra objetivo-vuln (host con cortafuegos de borde en _perfil_con_topologia). Sin
+        # origen_ip: un cambio de fichero no tiene IP atacante.
+        return {"id_alerta": "f1", "activo": "objetivo-vuln", "servicio": "ssh", "familia": "integridad_fichero",
+                "origen_ip": None, "mitre": ["T1565"], "timestamp": "t", "rafaga_60s": 0}
+
+    def test_aislar_la_cuarentena_se_ejecuta_en_el_cortafuegos_de_borde(self):
+        # 6ª familia (FIM): AISLAR_NODO corta el reenvío del host en su cortafuegos (nodo_ip = el borde,
+        # ip_nodo = la IP del host). nunca_automatica -> se pregunta al humano; aprobado, se ejecuta.
+        r = lazo.procesar_lazo(self._alerta_fim(), j("hallazgos.json"), self._perfil_con_topologia(),
+                               "prueba", CAT, lazo._EjecutorAuto(), "f1", "t", leer=lambda *_: "1")
+        self.assertEqual(r["clase"], "vp_integridad")
+        self.assertEqual(r["orden"]["accion_id"], "AISLAR_NODO")
+        self.assertEqual(r["orden"]["nodo_ip"], "192.168.1.1")               # el cortafuegos de borde
+        self.assertEqual(r["orden"]["params"], {"ip_nodo": "192.168.1.30"})  # la IP del host, del inventario
+        self.assertEqual(r["veredicto_humano"], "aprobar")
+        self.assertTrue(r["ejecucion"]["exito"])
+        self.assertIsNone(r["escalada"])                 # verificada: no hace falta escalar
+
+    def test_una_cuarentena_fallida_no_escala_bloqueando_el_origen(self):
+        # Si la cuarentena no se verifica, NO se escala bloqueando la IP de origen (un FIM no la tiene;
+        # sería una respuesta cruzada, como con las acciones sobre cuenta).
+        r = lazo.procesar_lazo(self._alerta_fim(), j("hallazgos.json"), self._perfil_con_topologia(),
+                               "prueba", CAT, lambda ip, c: (1, ""), "f1", "t", leer=lambda *_: "1")
+        self.assertEqual(r["orden"]["accion_id"], "AISLAR_NODO")
+        self.assertFalse(r["ejecucion"]["exito"])
+        self.assertIsNone(r["escalada"])                 # no cruza a bloquear el origen
+
     def test_sin_topologia_no_hay_a_donde_escalar(self):
         r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),
                                "prueba", CAT, self.HostCaido(), "d1", "t")

@@ -383,11 +383,21 @@ class TestConcienciaDeActores(unittest.TestCase):
         self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", None, True))
 
     def test_aislar_un_nodo_propio_con_politica_permisiva_sigue_pidiendo_humano(self):   # C1
-        # Aunque el perfil deje automático alcanza_servicio, aislar un activo interno exige humano.
+        # Aunque el perfil deje automático alcanza_servicio, aislar un activo interno exige humano. El
+        # host (objetivo-vuln) tiene cortafuegos de borde (gateway: borde) -> cuarentena ejecutable:
+        # se RETIENE (accion_final AISLAR_NODO), no se veta.
         p = {**PERFIL_INV, "continuidad": {**PERFIL_INV["continuidad"],
                                             "impacto_alcanza_servicio": "automatica_si_confianza"}}
-        r = perfil.filtrar(p, "AISLAR_NODO", {}, CAT, "puesto", None, 1.0)
+        r = perfil.filtrar(p, "AISLAR_NODO", {}, CAT, "objetivo-vuln", None, 1.0)
         self.assertEqual((r["accion_final"], r["requiere_humano"]), ("AISLAR_NODO", True))
+
+    def test_aislar_sin_cortafuegos_de_borde_no_es_ejecutable(self):
+        # Cuarentena real en el borde (6ª familia, FIM): un host sin ruta a un firewall_perimetral no se
+        # puede aislar; fail-closed a veto duro (sin acción ejecutable), no se retiene una acción que no
+        # correría. 'puesto' tiene IP en el inventario pero no está en la topología -> sin gateway.
+        r = perfil.filtrar(PERFIL_INV, "AISLAR_NODO", {}, CAT, "puesto", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", None, True))
+        self.assertIn("cortafuegos", r["impacto"]["motivo"])
 
     def test_una_alerta_sin_servicio_no_se_confunde_con_cortar_la_gestion(self):
         # corta_gestion_si ausente (None) no puede casar con un servicio ausente (None): antes

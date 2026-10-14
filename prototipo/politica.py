@@ -22,7 +22,10 @@ def proponer(clase, alerta):
     elif accion == "FORZAR_CAMBIO_PASS":
         params = {"usuario": alerta.get("usuario")}     # se bloquea la CUENTA, no la IP
     elif accion == "AISLAR_NODO":
-        params = {"ip_nodo": alerta.get("activo_ip")}   # se aisla el HOST afectado (el del FIM)
+        # Se aisla el HOST afectado (FIM). Su IP NO sale de la alerta (agent.ip es poco fiable); se
+        # resuelve del inventario del perfil al construir la orden (orden.construir), donde tambien se
+        # resuelve el cortafuegos de borde que ejecuta la cuarentena.
+        params = {}
     else:
         params = {"servicio": alerta.get("servicio")}
     return (accion, params)

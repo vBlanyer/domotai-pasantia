@@ -96,9 +96,11 @@ def normalizar_alerta(cruda, campaña):
         "servicio": _texto(servicio_de(cruda)) or "desconocido",
         "familia": familia_de(rule),
         "origen_ip": _ip_origen(data.get("srcip")),
-        # IP del HOST afectado (familia integridad_fichero): el nodo a aislar (AISLAR_NODO). Sale del
-        # agent.ip de Wazuh; ausente en el resto de familias (que bloquean por origen_ip o cuenta).
-        "activo_ip": _ip_origen((cruda.get("agent") or {}).get("ip")),
+        # La IP del HOST a aislar (familia integridad_fichero, AISLAR_NODO) NO se toma de la alerta:
+        # agent.ip es poco fiable (en Containerlab todo entra como agent 000 -> seria la del manager,
+        # no la del host vigilado; incoherente con `activo`, que sale de predecoder.hostname, RF-16).
+        # Se resuelve del inventario del perfil aguas abajo (orden.construir / perfil.ejecutor_aislamiento),
+        # igual que el nodo ejecutor de cualquier otra accion.
         # Cuenta objeto del evento (familia abuso_de_cuenta): la que se bloquearia (FORZAR_CAMBIO_PASS).
         # Consciente de la tecnica (ver _usuario_de); ausente en el resto de familias.
         "usuario": _usuario_de(rule, data),

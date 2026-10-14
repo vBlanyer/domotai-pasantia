@@ -38,6 +38,13 @@ class TestRecomendar(unittest.TestCase):
         r = correspondencia.recomendar("servicio_expuesto", None, "vp_intento_acceso", REG)
         self.assertEqual(r["respuesta"], "endurecer_servicio")
 
+    def test_integridad_fichero_recomienda_aislar_el_host(self):
+        # 6ª familia (FIM): el asesor recomienda AISLAR el host (coherente con la acción AISLAR_NODO),
+        # no "observar" (M2: un rótulo "observar/vigilar" contradecía la acción de cuarentena).
+        r = correspondencia.recomendar("integridad_fichero", None, "vp_integridad", REG)
+        self.assertEqual(r["respuesta"], "aislar_host")
+        self.assertEqual(r["accion_sugerida"], "AISLAR_NODO")
+
     def test_registro_cachea(self):
         self.assertIs(correspondencia.registro(), correspondencia.registro())
 
