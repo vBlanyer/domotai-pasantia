@@ -876,10 +876,23 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
     deps = {n: (a or {}).get("depende_de", []) for n, a in activos.items()}
     # Cola de aprobación no bloqueante salvo en modo agente (que aprueba por paso, bloqueante).
     async_web = not cfg.get("agente")
+    # Auth opcional de la consola (#6/#8): sin TRIAJE_CONSOLA_TOKEN la consola queda abierta (como hoy).
+    # TRIAJE_CONSOLA_OPERADORES es un JSON opcional {token: nombre} para el no repudio por persona.
+    token = os.environ.get("TRIAJE_CONSOLA_TOKEN") or None
+    operadores = {}
+    _ops = os.environ.get("TRIAJE_CONSOLA_OPERADORES")
+    if _ops:
+        try:
+            operadores = json.loads(_ops)
+        except (ValueError, TypeError):
+            operadores = {}      # fail-safe: un JSON inválido no tumba el daemon ni abre la consola
+        if not isinstance(operadores, dict):
+            operadores = {}      # un JSON válido pero de otra forma ([..]/42) tampoco debe colarse
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
                                       catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)
-                                      ejecutor=ejecutor)                     # des-bloqueo en masa (#8)
+                                      ejecutor=ejecutor,                     # des-bloqueo en masa (#8)
+                                      token=token, operadores=operadores)    # auth de la consola (#6/#8)
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",

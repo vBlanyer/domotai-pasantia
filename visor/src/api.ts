@@ -174,8 +174,8 @@ export type NodoRed = z.infer<typeof NodoRedSchema>
 
 async function pedir<T>(ruta: string, esquema: z.ZodType<T>): Promise<T | { error: string }> {
   try {
-    const r = await fetch(BASE + ruta)
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)   // 404 del detalle -> rama de error, no se parsea
+    const r = await fetch(BASE + ruta, { headers: cabeceras() })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)   // 404 del detalle / 401 sin token -> rama de error
     return esquema.parse(await r.json())
   } catch (e) {
     return { error: String(e) }
@@ -210,11 +210,26 @@ export function fijarOperador(nombre: string): void {
   try { localStorage.setItem(OPERADOR_KEY, nombre) } catch { /* modo privado: solo esta sesión */ }
 }
 
+// Token opcional de la consola (#6): si el daemon arranca con TRIAJE_CONSOLA_TOKEN, la API exige
+// 'Authorization: Bearer <token>'. Se guarda por sesión (más sensible que el nombre del operador).
+// Sin token guardado no se manda cabecera y una consola abierta funciona igual que siempre.
+const TOKEN_KEY = "mdr.token"
+export function tokenActual(): string {
+  try { return sessionStorage.getItem(TOKEN_KEY) || "" } catch { return "" }
+}
+export function fijarToken(t: string): void {
+  try { sessionStorage.setItem(TOKEN_KEY, t) } catch { /* modo privado */ }
+}
+function cabeceras(base: Record<string, string> = {}): Record<string, string> {
+  const t = tokenActual()
+  return t ? { ...base, Authorization: `Bearer ${t}` } : base
+}
+
 export async function aprobar(id: string, respuesta: string, paso?: number | null): Promise<boolean> {
   try {
     const operador = operadorActual()
     const r = await fetch(BASE + "/api/aprobar", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
       // sin paso (escaladas de la ruta bloqueante) no se manda y el backend no lo comprueba
       body: JSON.stringify({ id, respuesta, ...(paso != null ? { paso } : {}), ...(operador ? { operador } : {}) }),
     })
@@ -229,7 +244,7 @@ export async function setPausa(pausar: boolean): Promise<boolean> {
   try {
     const operador = operadorActual()
     const r = await fetch(BASE + "/api/pausa", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
       body: JSON.stringify({ pausar, ...(operador ? { operador } : {}) }),
     })
     return r.ok
@@ -240,7 +255,7 @@ export async function revertirTodo(): Promise<{ revertidas: number; fallidas: nu
   try {
     const operador = operadorActual()
     const r = await fetch(BASE + "/api/revertir-todo", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
       body: JSON.stringify(operador ? { operador } : {}),
     })
     if (!r.ok) return null

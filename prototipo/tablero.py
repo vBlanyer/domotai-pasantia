@@ -5,6 +5,7 @@ llegan desde el perfil. Contiene el estado compartido y la costura de aprobacion
 lectores de datos (Task 2) y el servidor HTTP (Task 3).
 """
 import glob
+import hmac
 import itertools
 import json
 import os
@@ -603,6 +604,38 @@ def _host_de(valor):
     return v.split(":", 1)[0]
 
 
+def _token_de(cabecera):
+    """El token de una cabecera 'Authorization: Bearer <token>'; '' si no hay o no es Bearer
+    (el esquema es case-insensitive, RFC 6750)."""
+    c = (cabecera or "").strip()
+    return c[7:].strip() if c[:7].lower() == "bearer " else ""
+
+
+def autorizado(tokens_validos, cabecera_authorization):
+    """Auth OPCIONAL de la consola (#6). `tokens_validos` es el token compartido (str) o la colección
+    de tokens válidos (uno por persona, #8). Vacío/None -> True (consola abierta, como hoy). Si hay
+    tokens, exige 'Bearer <token>' con uno de ellos (compare_digest sobre bytes: tiempo constante y
+    admite no-ASCII sin reventar)."""
+    if isinstance(tokens_validos, str):
+        tokens_validos = [tokens_validos]
+    tokens = [t for t in (tokens_validos or []) if t]
+    if not tokens:
+        return True
+    presentado = _token_de(cabecera_authorization)
+    if not presentado:
+        return False
+    pb = presentado.encode("utf-8")
+    return any(hmac.compare_digest(pb, t.encode("utf-8")) for t in tokens)
+
+
+def operador_de(operadores, cabecera_authorization):
+    """El operador que identifica el token presentado (no repudio, #8), o None. `operadores` mapea
+    token->nombre: un token por persona da atribución real; el token compartido simple no mapea."""
+    if not isinstance(operadores, dict):
+        return None
+    return operadores.get(_token_de(cabecera_authorization)) or None
+
+
 class _Manejador(BaseHTTPRequestHandler):
     def log_message(self, *a):        # silencioso: el daemon ya imprime lo suyo
         pass
@@ -611,6 +644,14 @@ class _Manejador(BaseHTTPRequestHandler):
         # Anti DNS-rebinding: el navegador manda el hostname que escribió el usuario; si no es el
         # propio tablero (localhost), la petición viene de un dominio ajeno que resuelve a nuestra IP.
         return _host_de(self.headers.get("Host")) in _HOSTS_OK
+
+    def _auth_ok(self):
+        # Auth opcional (#6): válido = el token compartido Y cualquiera del mapa de operadores (#8),
+        # para que un token por persona autentique y además atribuya. Sin ninguno, consola abierta.
+        s = self.server
+        ops = getattr(s, "operadores", None)
+        claves = list(ops.keys()) if isinstance(ops, dict) else []
+        return autorizado([getattr(s, "token", None), *claves], self.headers.get("Authorization"))
 
     def _origen_ok(self):
         # Anti-CSRF para las acciones: un POST desde el navegador SIEMPRE trae Origin; si viene de un
@@ -628,7 +669,7 @@ class _Manejador(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", o)
             self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
     def do_OPTIONS(self):
         if not self._host_ok():
@@ -670,6 +711,9 @@ class _Manejador(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self._host_ok():
             return self._responder({"error": "host no permitido"}, 403)
+        # La API va protegida; los estáticos no, para que la SPA cargue y pida el token al operador.
+        if self.path.startswith("/api/") and not self._auth_ok():
+            return self._responder({"error": "no autorizado"}, 401)
         s = self.server
         ruta = self.path.split("?", 1)[0]
         try:
@@ -720,6 +764,8 @@ class _Manejador(BaseHTTPRequestHandler):
             return self._responder({"error": "host no permitido"}, 403)
         if not self._origen_ok():
             return self._responder({"error": "origen no permitido"}, 403)
+        if not self._auth_ok():        # un POST ejecuta una contención real: exige auth si hay token
+            return self._responder({"error": "no autorizado"}, 401)
         try:
             s = self.server
             ruta = self.path.split("?", 1)[0]
@@ -734,7 +780,10 @@ class _Manejador(BaseHTTPRequestHandler):
             if not 0 <= n <= _MAX_CUERPO:
                 return self._responder({"error": "Content-Length fuera de rango"}, 413)
             cuerpo = json.loads(self.rfile.read(n) or b"{}")
-            operador = str(cuerpo.get("operador")) if cuerpo.get("operador") else None
+            # No repudio (#8): el operador lo da el TOKEN (autoritativo), no un campo que el cliente
+            # pueda falsear; sin mapa de operadores se cae al campo del cuerpo (compat/token compartido).
+            operador = (operador_de(getattr(s, "operadores", None), self.headers.get("Authorization"))
+                        or (str(cuerpo.get("operador")) if cuerpo.get("operador") else None))
             if ruta == "/api/pausa":      # kill switch (#8): fija la pausa global de la automatización
                 return self._responder({"pausada": s.estado.pausar(bool(cuerpo.get("pausar")))})
             if ruta == "/api/revertir-todo":   # des-bloqueo en masa (#8)
@@ -767,10 +816,12 @@ def _vista_pendiente(p):
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
                    puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
-                   async_web=False, perfil=None, catalogo=None, latido=None, ejecutor=None):
+                   async_web=False, perfil=None, catalogo=None, latido=None, ejecutor=None,
+                   token=None, operadores=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
-    fichero_en_contenedor}. `async_web`
-    activa la cola de aprobación no bloqueante. Guarda la config en atributos del servidor."""
+    fichero_en_contenedor}. `async_web` activa la cola de aprobación no bloqueante. `token` (opcional,
+    #6): si se da, toda la API exige 'Authorization: Bearer <token>'; `operadores` (token->nombre, #8)
+    da no repudio. Guarda la config en atributos del servidor."""
     srv = ThreadingHTTPServer(("127.0.0.1", puerto), _Manejador)
     srv.estado = estado
     srv.ruta_traza = ruta_traza
@@ -783,4 +834,6 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.catalogo = catalogo or {}        # para reconstruir las contenciones activas (#4)
     srv.latido = latido                  # salud del propio daemon para /healthz (#5)
     srv.ejecutor = ejecutor              # el ejecutor del daemon, para el des-bloqueo en masa (#8)
+    srv.token = token                    # auth opcional de la consola (#6): None = abierta
+    srv.operadores = operadores or {}    # token->operador para el no repudio (#8)
     return srv
