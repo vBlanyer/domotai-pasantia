@@ -161,6 +161,11 @@ def _motivo_base(det, perfil):
         elif tipo == "dispositivo_red":
             texto += " · es un dispositivo de red: puede cortar todo lo que enruta"
         return texto
+    if accion == "LIMITAR_BANDA":
+        # Honestidad ante el operador: NO es "DoS contenido". Es shaping de egreso en el propio host
+        # (contención gradual, mitigación parcial); un flujo volumétrico ENTRANTE no se frena así.
+        return (f"acota la banda de egreso del enlace de {det['activo']} (contención gradual; "
+                "mitigación parcial: no frena un flujo entrante)")
     return f"impacto del catálogo: {det['nivel']}"
 
 

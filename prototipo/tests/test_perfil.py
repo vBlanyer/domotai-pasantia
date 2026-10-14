@@ -414,6 +414,22 @@ class TestConcienciaDeActores(unittest.TestCase):
         self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
         self.assertIn("interfaz", r["impacto"]["motivo"])
 
+    def test_limitar_banda_nunca_se_auto_ejecuta_ni_con_perfil_permisivo(self):
+        # Revisión: la señal (regla de frecuencia) es ruidosa y acotar banda degrada el propio enlace.
+        # Aunque el perfil deje automático alcanza_servicio, LIMITAR_BANDA es nunca_automatica -> humano.
+        p = {"activos": {"web": {"ip": "10.0.0.5", "interfaz": "eth1"}},
+             "continuidad": {"impacto_alcanza_servicio": "automatica"}}   # perfil laxo
+        r = perfil.filtrar(p, "LIMITAR_BANDA", {}, CAT, "web", None, 1.0)
+        self.assertEqual(r["accion_final"], "LIMITAR_BANDA")
+        self.assertTrue(r["requiere_humano"])                            # nunca_automatica -> humano incondicional
+
+    def test_limitar_banda_sin_ip_del_host_es_veto(self):
+        # Fail-closed (revisión): sin IP del host no se puede ejecutar NI comprobar que no es gestión.
+        p = {"activos": {"web": {"interfaz": "eth1"}}, "continuidad": {"impacto_alcanza_servicio": "humano_siempre"}}
+        r = perfil.filtrar(p, "LIMITAR_BANDA", {}, CAT, "web", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+        self.assertIn("IP", r["impacto"]["motivo"])
+
     def test_limitar_banda_del_canal_de_gestion_es_veto_duro(self):   # RF-19
         # Acotar la banda del canal de gestión lo degradaría (impide responder/verificar): veto duro.
         p = {"ip_gestion": "172.20.20.4",

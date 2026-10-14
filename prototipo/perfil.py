@@ -285,7 +285,12 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
     if final.get("accion_final") == "LIMITAR_BANDA":
         objetivo_ip = ip_de(perfil, activo)
         gestion = (perfil or {}).get("ip_gestion")
-        if objetivo_ip and gestion and actores._coincide(objetivo_ip, gestion):
+        # Fail-closed: sin IP del host no se puede acotar la banda (el conector la necesita) NI
+        # comprobar que no es el canal de gestión -> veto duro, sin depender de que el conector rechace.
+        if not objetivo_ip:
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede acotar la banda: el activo no tiene IP en el inventario"}}
+        if gestion and actores._coincide(objetivo_ip, gestion):
             return {**_res("veta", None, True),
                     "impacto": {**det, "motivo": "no se acota la banda del canal de gestión (RF-19)"}}
         if not interfaz_de(perfil, activo):

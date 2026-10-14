@@ -85,6 +85,15 @@ class TestConector(unittest.TestCase):
         r = conector.ejecutar_orden(orden_mala, CAT, ej, "2026-08-31T00:00:00Z")
         self.assertFalse(r["exito"]); self.assertEqual(ej.llamadas, [])
 
+    def test_limitar_banda_con_interfaz_hostil_se_rechaza_sin_ejecutar(self):
+        # 7ª familia (DoS): if/rate se interpolan en la línea SSH; una interfaz con metacaracteres
+        # (de un perfil comprometido) se rechaza fail-closed antes de renderizar el `tc`.
+        ej = EjecutorFalso()
+        orden_mala = {**ORDEN, "accion_id": "LIMITAR_BANDA", "params": {"if": "eth0; reboot", "rate": "1mbit"}}
+        r = conector.ejecutar_orden(orden_mala, CAT, ej, "t")
+        self.assertFalse(r["exito"])
+        self.assertEqual(ej.llamadas, [])   # nunca se ejecutó
+
     def test_nodo_ip_con_inyeccion_se_rechaza_sin_ejecutar(self):
         # #2: nodo_ip se interpola en la linea SSH que corre por `sh -c` en el nodo de gestion ->
         # un valor con metacaracteres seria RCE en el auditor. Debe rechazarse sin ejecutar nada.
