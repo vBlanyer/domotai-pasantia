@@ -16,6 +16,10 @@ import re
 
 VENTANA_S = 60
 CAMPO = "rafaga_60s"
+# Ventana LARGA para la señal de vigilancia 'low-and-slow' (asesora, no decide): cuenta las alertas
+# del mismo origen en ~10 min, lo que el daemon anota en rafaga_600s. Ver analisis.aviso_vigilancia.
+VENTANA_LARGA_S = 600
+CAMPO_LARGO = "rafaga_600s"
 
 
 _OFFSET_SIN_COLON = re.compile(r"([+-]\d{2})(\d{2})$")   # +0000 -> +00:00 (para fromisoformat antiguo)

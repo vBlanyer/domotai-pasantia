@@ -335,6 +335,7 @@ def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto
         "justificacion_descartada": analisis_out.get("justificacion_descartada"),
         "ruta": analisis_out.get("ruta"),                    # rol/destino de encaminamiento (triar_y_enrutar)
         "recomendacion": analisis_out.get("recomendacion"),  # respuesta dirigida recomendada (asesora)
+        "aviso": analisis_out.get("aviso"),                  # señal de vigilancia 'low-and-slow' (asesora)
         "accion_propuesta": accion_prop,
         "impacto": impacto,
         "perfil_aplicado": perfil_nombre,

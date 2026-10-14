@@ -523,6 +523,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                                  diferir_escalada=diferir_escalada, al_resolver=al_resolver))
     seq = [0]
     ventana_rafaga = rafaga.Ventana()
+    ventana_larga = rafaga.Ventana(ventana_s=rafaga.VENTANA_LARGA_S)   # señal de vigilancia 'low-and-slow'
     def _suprimir(inc, previa):
         reg = memoria.registro_supresion(inc, previa)
         escribir(_linea_supresion(reg))
@@ -582,6 +583,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             # La rafaga del representante se toma al emitir el incidente, cuando la ventana ya
             # contiene toda la rafaga, no al llegar la primera alerta.
             inc["representante"][rafaga.CAMPO] = ventana_rafaga.contar(inc["representante"].get("origen_ip"))
+            inc["representante"][rafaga.CAMPO_LARGO] = ventana_larga.contar(inc["representante"].get("origen_ip"))
             clave = _clave_supresion(inc)
             if suprimir and estado_web is not None and clave[0] is not None:
                 # Ya espera al analista: se suma a su tarjeta sin triar ni ejecutar otra vez (antes
@@ -649,7 +651,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 _latido(True, ahora)
                 if latido is not None:
                     latido.alerta()
-                resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
+                resumen["alertas"] += 1; ventana_rafaga.registrar(alerta); ventana_larga.registrar(alerta)
                 _procesa_lote([alerta])
                 continue
             # modo con ventana
@@ -659,7 +661,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                     _latido(True, ahora)
                     if latido is not None:
                         latido.alerta()
-                    resumen["alertas"] += 1; ventana_rafaga.registrar(alerta)
+                    resumen["alertas"] += 1; ventana_rafaga.registrar(alerta); ventana_larga.registrar(alerta)
                     if t0 is None:
                         t0 = ahora
                     buffer.append(alerta)

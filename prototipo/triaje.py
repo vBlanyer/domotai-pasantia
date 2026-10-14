@@ -28,7 +28,10 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
                                                clas["clase"], reg_corr)
     analisis_out = {**clas, "justificacion": just, "version_justificador": version_just, "pasajes_usados": pasajes,
                     "consulta_rag": consulta_rag, "recuperacion_agentica": recuperacion_agentica, "ruta": ruta,
-                    "justificacion_descartada": descartada, "recomendacion": recomendacion}
+                    "justificacion_descartada": descartada, "recomendacion": recomendacion,
+                    # Señal ASESORA del punto ciego 'low-and-slow' desde un origen de confianza (no
+                    # cambia clase/accion/filtro): se calcula con el contexto ya enriquecido.
+                    "aviso": analisis.aviso_vigilancia(ctx, clas["clase"])}
     version_perfil = perfil_dict.get("version", "v0")
     return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro,
                             version_perfil=version_perfil, contexto=ctx)

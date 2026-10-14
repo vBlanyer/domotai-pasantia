@@ -20,6 +20,22 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["resultado_filtro"], "permite")
         self.assertIn("192.168.1.10", r["justificacion"])
 
+    def test_aviso_vigilancia_en_el_punto_ciego(self):
+        # low-and-slow desde un origen de confianza: el motor dice legítimo, pero el volumen de la
+        # ventana larga dispara el aviso ASESOR (no cambia el veredicto ni ejecuta nada).
+        a = {**j("alerta_vp.json"), "rafaga_60s": 4, "rafaga_600s": 24}
+        p = {**y("perfil.yml"), "origenes_legitimos": ["192.168.1.10"],
+             "rafaga": {"umbral": 9, "umbral_largo": 15}}
+        r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "fp_actividad_legitima")   # el veredicto NO cambia
+        self.assertIsNone(r["accion_final"])                    # sigue sin contención (asesor)
+        self.assertIsNotNone(r["aviso"])
+
+    def test_sin_aviso_en_una_decision_normal(self):
+        r = triaje.procesar(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),
+                            "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertIsNone(r["aviso"])
+
     def test_la_traza_guarda_los_insumos_de_la_decision(self):
         # RF-09/RF-13: sin la ráfaga, el origen legítimo o la postura no se puede auditar por qué
         # salió esa clase (la regla de ráfaga cambia la clase y la confianza).
