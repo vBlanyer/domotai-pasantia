@@ -355,3 +355,34 @@ class TestFamilia(unittest.TestCase):
         self._escribir(f"{base}.jsonl", ["b1"])          # activo
         self.assertEqual([r["id_decision"] for r in traza.leer_familia(f"{base}.jsonl")],
                          ["a1", "a2", "b1"])
+
+
+class TestVerificarCLI(unittest.TestCase):
+    def test_avisa_si_falta_la_clave_hmac(self):
+        # V1.1 #4: verificar una traza FIRMADA sin su clave da un falso "alterada"; la CLI debe avisar.
+        import io, os, sys, tempfile
+        d = tempfile.mkdtemp(); ruta = os.path.join(d, "t.jsonl")
+        os.environ["TRIAJE_TRAZA_CLAVE"] = "k1"
+        try:
+            prev, regs = traza.GENESIS, []
+            for i in range(2):
+                r = traza.encadenar({"tipo": "decision", "id_decision": f"d{i}"}, prev)
+                regs.append(r); prev = r["hash"]
+        finally:
+            os.environ.pop("TRIAJE_TRAZA_CLAVE", None)
+        with open(ruta, "w", encoding="utf-8") as f:
+            for r in regs:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        orig = sys.stdout; sys.stdout = io.StringIO()
+        try:
+            rc = traza._main(["--verificar", ruta])   # SIN la clave en el entorno
+            out = sys.stdout.getvalue()
+        finally:
+            sys.stdout = orig
+        self.assertEqual(rc, 1)
+        self.assertIn("CADENA ROTA", out)
+        self.assertIn("TRIAJE_TRAZA_CLAVE", out)
+
+
+if __name__ == "__main__":
+    unittest.main()

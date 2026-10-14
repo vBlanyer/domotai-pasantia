@@ -49,6 +49,29 @@ class TestConector(unittest.TestCase):
         self.assertFalse(conector._params_seguros({"ip": "None"}))
         self.assertTrue(conector._params_seguros({"ip": "192.168.1.10"}))
 
+    def test_env_filtrado_excluye_secretos(self):
+        # V1.1 #3: el subproceso (docker/ssh) no debe heredar los secretos del MDR en su entorno.
+        os.environ["TRIAJE_TRAZA_CLAVE"] = "secreto-hmac"
+        try:
+            env = conector._env_filtrado()
+            self.assertNotIn("TRIAJE_TRAZA_CLAVE", env)
+            self.assertIn("PATH", env)      # lo que docker/ssh SÍ necesitan sigue presente
+        finally:
+            os.environ.pop("TRIAJE_TRAZA_CLAVE", None)
+
+    def test_main_orden_malformada_falla_cerrado(self):
+        # V1.1 #5 (#19): una orden sin accion_id no revienta con traceback; se reporta y sale != 0.
+        import io, sys
+        orig_in, orig_out = sys.stdin, sys.stdout
+        sys.stdin, sys.stdout = io.StringIO("{}"), io.StringIO()
+        try:
+            rc = conector._main(["conector"])
+            salida = sys.stdout.getvalue()
+        finally:
+            sys.stdin, sys.stdout = orig_in, orig_out
+        self.assertEqual(rc, 1)
+        self.assertIn("error", salida)
+
     def test_params_con_inyeccion_se_rechazan_sin_ejecutar(self):
         ej = EjecutorFalso()
         orden_mala = dict(ORDEN); orden_mala["params"] = {"ip": "1.2.3.4; rm -rf /"}
