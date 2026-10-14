@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Moon, Sun } from "lucide-react"
-import { useSondeo, getSalud, getPendientes, getPausa } from "@/api"
+import { useSondeo, getSalud, getPendientes, getPausa, tokenActual, fijarToken } from "@/api"
 import { useTema } from "@/tema"
 import { Dashboard } from "@/components/Dashboard"
 import { Metricas } from "@/components/Metricas"
@@ -31,6 +31,7 @@ export default function App() {
   const [vista, setVista] = useState<Vista>("panel")
   const [equipo, setEquipo] = useState<string | null>(null)
   const [incidente, setIncidente] = useState<Decision | null>(null)
+  const [token, setToken] = useState(tokenActual())   // auth opcional de la consola (#6); vacío = abierta
   const { oscuro, alternar } = useTema()
   const salud = useSondeo(getSalud)
   const pend = useSondeo(getPendientes)
@@ -76,6 +77,12 @@ export default function App() {
         <header className="flex items-center justify-between border-b border-border bg-card px-8 py-4 print:hidden">
           <h1 className="font-heading text-lg font-semibold">{titulo}</h1>
           <div className="flex items-center gap-4 text-sm">
+            <input
+              type="password" value={token} placeholder="token"
+              onChange={(e) => { setToken(e.target.value); fijarToken(e.target.value) }}
+              title="Token de la consola (solo si el daemon exige autenticación; en blanco = abierta)"
+              className="w-24 rounded-md border border-border bg-transparent px-2 py-1 text-xs text-muted-foreground"
+            />
             <span className="flex items-center gap-2">
               <Punto estado={conectado ? "ok" : "caido"} />
               <span className="text-muted-foreground">{conectado ? "datos en vivo" : "sin conexión con el daemon"}</span>

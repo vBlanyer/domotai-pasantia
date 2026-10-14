@@ -384,18 +384,53 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(v["roto_en"], 1)
 
 
+class TestAuth(unittest.TestCase):
+    # V1.1 #6/#8: auth OPCIONAL de la consola. Sin token -> abierto (como hoy). Con token -> Bearer exacto.
+    def test_sin_token_configurado_todo_pasa(self):
+        self.assertTrue(tablero.autorizado(None, None))
+        self.assertTrue(tablero.autorizado("", "Bearer lo-que-sea"))
+
+    def test_token_configurado_exige_bearer_correcto(self):
+        self.assertTrue(tablero.autorizado("secreto", "Bearer secreto"))
+        self.assertFalse(tablero.autorizado("secreto", "Bearer otro"))
+        self.assertFalse(tablero.autorizado("secreto", None))
+        self.assertFalse(tablero.autorizado("secreto", "secreto"))      # falta el prefijo 'Bearer '
+
+    def test_operador_derivado_del_token(self):
+        ops = {"tok-ana": "ana", "tok-leo": "leo"}
+        self.assertEqual(tablero.operador_de(ops, "Bearer tok-ana"), "ana")
+        self.assertIsNone(tablero.operador_de(ops, "Bearer desconocido"))
+        self.assertIsNone(tablero.operador_de({}, "Bearer x"))
+
+
 class TestServidor(unittest.TestCase):
     def _servidor(self, estado=None, ruta_traza="/no/existe.jsonl", salud=None,
-                  dependencias=None, salud_ejecutar=subprocess.run, estaticos=None):
+                  dependencias=None, salud_ejecutar=subprocess.run, estaticos=None,
+                  token=None, operadores=None):
         estaticos = estaticos or tempfile.mkdtemp()
         with open(os.path.join(estaticos, "index.html"), "w", encoding="utf-8") as f:
             f.write("<html>tablero</html>")
         srv = tablero.crear_servidor(estado or tablero.EstadoTablero(), ruta_traza, salud=salud,
                                      dependencias=dependencias, estaticos=estaticos, puerto=0,
-                                     salud_ejecutar=salud_ejecutar)
+                                     salud_ejecutar=salud_ejecutar, token=token, operadores=operadores)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
         return srv, srv.server_address[1]
+
+    def _get_h(self, puerto, ruta, headers):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", ruta, headers=headers); r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, cuerpo
+
+    def test_con_token_la_api_exige_autorizacion(self):
+        _, puerto = self._servidor(token="s3creto")
+        self.assertEqual(self._get(puerto, "/api/pendientes")[0], 401)                       # sin cabecera
+        self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer malo"})[0], 401)
+        self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer s3creto"})[0], 200)
+
+    def test_sin_token_la_api_sigue_abierta(self):
+        _, puerto = self._servidor()                                   # comportamiento actual intacto
+        self.assertEqual(self._get(puerto, "/api/pendientes")[0], 200)
 
     def _get(self, puerto, ruta):
         c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
