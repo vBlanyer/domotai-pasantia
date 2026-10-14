@@ -461,19 +461,31 @@ def _contar(resumen, d, incidente=True):
 # Tope de hilos del agente en modo web (#2 / pentest #13b): el modo agente lanza un hilo por
 # incidente; sin cota, un aluvión de incidentes distintos agota los hilos. Se acota con un semáforo
 # que se adquiere ANTES de arrancar (backpressure: el bucle de ingesta espera si el pool está lleno).
-_MAX_HILOS_AGENTE = int(os.environ.get("TRIAJE_MAX_HILOS_AGENTE") or "8")
+# Parseo defensivo: una mala config (no entero, 0, negativo) no debe romper el import ni colgar el lazo.
+try:
+    _MAX_HILOS_AGENTE = max(1, int(os.environ.get("TRIAJE_MAX_HILOS_AGENTE") or "8"))
+except ValueError:
+    _MAX_HILOS_AGENTE = 8
 
 
-def _lanzar_acotado(pool, fn):
+def _lanzar_acotado(pool, fn, latido=None, espera_tick=5.0):
     """Lanza fn() en un hilo demonio acotado por `pool` (BoundedSemaphore): adquiere en el hilo que
-    llama (backpressure si está lleno) y libera al terminar la tarea, pase lo que pase."""
-    pool.acquire()
+    llama (backpressure si está lleno) y libera al terminar, pase lo que pase. Mientras espera un
+    permiso, tickea el `latido` para que el healthcheck NO confunda el backpressure con un lazo
+    colgado y reinicie el daemon justo en el aluvión que esto defiende (revisión V1.1)."""
+    while not pool.acquire(timeout=espera_tick):
+        if latido is not None:
+            latido.tick()
     def _correr():
         try:
             fn()
         finally:
             pool.release()
-    threading.Thread(target=_correr, daemon=True).start()
+    try:
+        threading.Thread(target=_correr, daemon=True).start()
+    except Exception:          # si start() falla (p. ej. agotamiento global de hilos), no fugar el permiso
+        pool.release()
+        raise
 
 
 def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
@@ -630,7 +642,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 with _en_vuelo_lock:
                     _en_vuelo[clave] = id_decision
                 _lanzar_acotado(_pool_agente, lambda inc=inc, id_decision=id_decision, clave=clave:
-                                _procesar_incidente_async(inc, id_decision, clave))
+                                _procesar_incidente_async(inc, id_decision, clave), latido=latido)
             else:
                 _procesar_incidente_async(inc, id_decision, clave)
 

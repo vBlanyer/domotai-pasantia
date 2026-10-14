@@ -1379,6 +1379,25 @@ class TestRobustezV11(unittest.TestCase):
         soltar.set()                            # el 1º termina y libera
         self.assertTrue(segundo.wait(2))        # ahora el 2º sí arranca
 
+    def test_lanzar_acotado_mantiene_el_latido_en_backpressure(self):
+        # Revisión V1.1: mientras el pool está lleno, el acquire NO debe congelar el latido (si no, el
+        # healthcheck daría el lazo por colgado y un watchdog reiniciaría el daemon en pleno aluvión).
+        import threading
+        pool = threading.BoundedSemaphore(1)
+        soltar = threading.Event()
+        ticks = {"n": 0}
+        class LatidoFalso:
+            def tick(self): ticks["n"] += 1
+            def alerta(self): pass
+        stream._lanzar_acotado(pool, lambda: soltar.wait(3))          # ocupa el único permiso
+        hecho = threading.Event()
+        threading.Thread(target=lambda: (stream._lanzar_acotado(
+            pool, lambda: None, latido=LatidoFalso(), espera_tick=0.03), hecho.set()), daemon=True).start()
+        time.sleep(0.2)                                              # varios intentos con timeout corto
+        self.assertGreater(ticks["n"], 0)                           # ha tickeado durante el backpressure
+        soltar.set()
+        self.assertTrue(hecho.wait(3))
+
     def test_leer_fichero_una_vez_termina_en_eof(self):
         # V1.1 #6: con --una-vez un fichero finito se lee hasta EOF y PARA (no se queda como tail -f).
         d = tempfile.mkdtemp(); ruta = os.path.join(d, "a.jsonl")

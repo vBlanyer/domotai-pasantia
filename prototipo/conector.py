@@ -82,9 +82,13 @@ def _main(argv):  # lee una orden de stdin y la ejecuta (frontera de proceso; fu
         cat = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
         r = ejecutar_orden(orden, cat, ejecutor_por_defecto(), argv[1] if len(argv) > 1 else "")
     except Exception as e:
-        # Frontera FAIL-CLOSED (V1.1 #5 / pentest #19): una orden malformada (JSON inválido, sin
-        # accion_id, acción fuera del catálogo, nodo_ip inválido) se reporta y sale != 0 sin ejecutar
-        # nada, en vez de reventar con un traceback que delataría internals.
+        # Frontera FAIL-CLOSED (V1.1 #5 / pentest #19): una orden que NO SE PUEDE siquiera procesar
+        # (JSON inválido, sin accion_id, acción fuera del catálogo) se reporta y sale != 0, en vez de
+        # reventar con un traceback que delataría internals. OJO al contrato: un nodo_ip inválido o
+        # unos params inseguros NO lanzan excepción — `ejecutar_orden` los rechaza EN BANDA (sin
+        # ejecutar el comando) y devuelve {exito: False}, así que salen con 0; el llamador mira
+        # `exito`, no solo el código de salida. El detalle va a stderr; stdout queda JSON limpio.
+        print(f"[conector] orden no ejecutable: {e!r}", file=sys.stderr)
         print(json.dumps({"error": f"orden no ejecutable: {type(e).__name__}"}, ensure_ascii=False))
         return 1
     print(json.dumps(r, ensure_ascii=False))
