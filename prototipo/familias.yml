@@ -8,3 +8,7 @@ explotacion_conocida: { mitre: [T1190, T1210, T1203], nivel: triar_y_enrutar, ru
 # Escalada de privilegios / manipulacion de cuentas: la respuesta no es bloquear la IP origen sino la
 # CUENTA. El campo opcional 'clase' deja que el registro declare esa respuesta sin tocar el clasificador.
 abuso_de_cuenta:      { mitre: [T1548, T1136, T1098], nivel: actuar, clase: vp_abuso_cuenta }
+# Integridad de ficheros (FIM de Wazuh, grupo 'syscheck'): un fichero critico cambio/desaparecio en un
+# activo. El evento es la amenaza; la respuesta no bloquea una IP ni una cuenta, sino que AISLA el host
+# para investigarlo (AISLAR_NODO es nunca_automatica -> siempre validacion humana).
+integridad_fichero:   { mitre: [T1565, T1070], nivel: actuar, clase: vp_integridad }

@@ -8,7 +8,7 @@ def j(n):
         return json.loads(f.read().strip())
 
 CAMPOS = {"id_alerta", "timestamp", "campaña", "fuente", "activo", "servicio",
-          "familia", "origen_ip", "mitre", "evento_crudo", "nivel_wazuh", "regla_id", "usuario"}
+          "familia", "origen_ip", "activo_ip", "mitre", "evento_crudo", "nivel_wazuh", "regla_id", "usuario"}
 
 
 class TestNormalizarWazuh(unittest.TestCase):
@@ -60,6 +60,18 @@ class TestTolerancia(unittest.TestCase):
         a = adaptador_wazuh.normalizar_alerta(cruda, "c")
         self.assertEqual(a["familia"], "abuso_de_cuenta")
         self.assertEqual(a["usuario"], "backdoor")
+
+    def test_fim_syscheck_es_integridad_y_captura_la_ip_del_host(self):
+        # FIM (T1565): un fichero crítico cambió; la familia nueva, y la IP del host afectado (a aislar)
+        # sale del agent.ip de Wazuh. Los grupos traen 'ossec' además de 'syscheck': se comprueba que
+        # syscheck gana al cajón 'plataforma'.
+        cruda = {"id": "f1", "timestamp": "t",
+                 "rule": {"id": "550", "groups": ["ossec", "syscheck"], "level": 7, "mitre": {"id": ["T1565"]}},
+                 "agent": {"id": "001", "name": "core-db", "ip": "10.50.0.10"},
+                 "data": {}, "full_log": "File '/etc/passwd' modified"}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        self.assertEqual(a["familia"], "integridad_fichero")
+        self.assertEqual(a["activo_ip"], "10.50.0.10")
 
     def test_abuso_de_sudo_bloquea_al_invocador_no_al_objetivo_root(self):
         # En un evento de sudo, dstuser es el OBJETIVO de la escalada (root) y srcuser QUIEN abusa. La

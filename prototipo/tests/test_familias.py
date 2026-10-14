@@ -23,6 +23,13 @@ class TestRegistroFamilias(unittest.TestCase):
         self.assertEqual(e["clase"], "vp_abuso_cuenta")
         self.assertIn("T1548", e["mitre"])
 
+    def test_integridad_fichero_declara_su_clase(self):
+        # 6ª familia (FIM): el evento ES la amenaza (un fichero crítico cambió); 'actuar' con clase propia.
+        e = familias.registro()["integridad_fichero"]
+        self.assertEqual(e["nivel"], "actuar")
+        self.assertEqual(e["clase"], "vp_integridad")
+        self.assertIn("T1565", e["mitre"])
+
     def test_clase_declarada_debe_ser_texto(self):
         import tempfile, os
         with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False, encoding="utf-8") as f:

@@ -20,6 +20,15 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["resultado_filtro"], "permite")
         self.assertIn("192.168.1.10", r["justificacion"])
 
+    def test_fim_integridad_aisla_el_host_siempre_con_humano(self):
+        # 6ª familia (FIM): un fichero crítico cambió -> vp_integridad -> AISLAR_NODO, que es
+        # nunca_automatica -> SIEMPRE validación humana (nunca se aísla un host del banco en automático).
+        a = {**j("alerta_vp.json"), "familia": "integridad_fichero", "activo_ip": "192.168.1.30"}
+        r = triaje.procesar(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_integridad")
+        self.assertEqual(r["accion_propuesta"], "AISLAR_NODO")
+        self.assertTrue(r["requiere_humano"])        # nunca_automatica -> humano incondicional
+
     def test_aviso_vigilancia_en_el_punto_ciego(self):
         # low-and-slow desde un origen de confianza: el motor dice legítimo, pero el volumen de la
         # ventana larga dispara el aviso ASESOR (no cambia el veredicto ni ejecuta nada).

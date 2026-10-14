@@ -91,6 +91,20 @@ class TestClasificar(unittest.TestCase):
         self.assertEqual(r["confianza"], 1.0)
         self.assertEqual(r["prioridad"], 4)                 # amenaza seria (criticidad alta no la sube de 4)
 
+    def test_integridad_fichero_usa_la_clase_del_registro(self):
+        # 6ª familia (FIM): el cambio en un fichero crítico ES la amenaza, no depende de la postura.
+        a = dict(self.alerta); a["familia"] = "integridad_fichero"
+        r = analisis.clasificar(a, {"postura": {"expuesto": False}, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "vp_integridad")
+        self.assertEqual(r["confianza"], 1.0)
+        self.assertEqual(r["prioridad"], 4)       # compromiso confirmado -> prioridad alta
+
+    def test_integridad_desde_origen_legitimo_sigue_siendo_fp(self):
+        # Un cambio por el admin declarado (mantenimiento) precede a la clase -> FP, como las demás.
+        a = dict(self.alerta); a["familia"] = "integridad_fichero"
+        r = analisis.clasificar(a, {"origen_legitimo": True, "postura": None, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "fp_actividad_legitima")
+
     def test_abuso_de_cuenta_desde_origen_legitimo_sigue_siendo_fp(self):
         # El origen legítimo precede a la clase declarada: un admin declarado no se trata como amenaza.
         a = dict(self.alerta); a["familia"] = "abuso_de_cuenta"
@@ -125,9 +139,10 @@ class TestClasificar(unittest.TestCase):
         self.assertEqual(r["clase"], "vp_intento_acceso")
 
     def test_vp_reconocimiento_esta_en_el_catalogo_de_clases(self):
-        # Tiene que entrar en el menú de reclasificación; va al FINAL para no mover la numeración.
-        self.assertIn("vp_reconocimiento", analisis.CLASES)
-        self.assertEqual(analisis.CLASES[-1], "vp_reconocimiento")
+        # Tiene que entrar en el menú de reclasificación; las clases nuevas se APPENDEN (tras las 4
+        # originales), para no mover la numeración de las previas en el submenú.
+        self.assertIn("vp_reconocimiento", analisis.CLASES[4:])
+        self.assertIn("vp_integridad", analisis.CLASES[4:])
 
 class TestAvisoVigilancia(unittest.TestCase):
     # Señal ASESORA del punto ciego 'low-and-slow' desde un origen de confianza: no cambia el veredicto,

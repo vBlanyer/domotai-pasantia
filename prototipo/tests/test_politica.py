@@ -19,6 +19,14 @@ class TestProponer(unittest.TestCase):
         self.assertEqual(acc, "BLOQUEAR_IP")
         self.assertEqual(params["ip"], "192.168.1.10")
 
+    def test_vp_integridad_aisla_el_nodo_afectado(self):
+        # FIM: la respuesta no es IP ni cuenta, sino AISLAR el host comprometido (nunca_automatica ->
+        # siempre validación humana). El nodo a aislar es el activo afectado (su activo_ip).
+        a = alerta(); a["activo_ip"] = "10.50.0.10"
+        acc, params = politica.proponer("vp_integridad", a)
+        self.assertEqual(acc, "AISLAR_NODO")
+        self.assertEqual(params, {"ip_nodo": "10.50.0.10"})
+
     def test_vp_abuso_cuenta_propone_bloquear_la_cuenta(self):
         a = alerta(); a["usuario"] = "backdoor"
         acc, params = politica.proponer("vp_abuso_cuenta", a)

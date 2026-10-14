@@ -57,6 +57,10 @@ def familia_de(rule):
         return "servicio_expuesto"
     if g & {"exploit", "attack"}:
         return "explotacion_conocida"
+    # Integridad de ficheros (FIM): un fichero critico cambio. Se comprueba ANTES del cajon 'plataforma'
+    # porque las alertas de syscheck suelen traer tambien el grupo 'ossec'.
+    if "syscheck" in g:
+        return "integridad_fichero"
     if g & {"rootcheck", "cis", "ossec", "sca"}:
         return "plataforma"
     return "otra"
@@ -92,6 +96,9 @@ def normalizar_alerta(cruda, campaña):
         "servicio": _texto(servicio_de(cruda)) or "desconocido",
         "familia": familia_de(rule),
         "origen_ip": _ip_origen(data.get("srcip")),
+        # IP del HOST afectado (familia integridad_fichero): el nodo a aislar (AISLAR_NODO). Sale del
+        # agent.ip de Wazuh; ausente en el resto de familias (que bloquean por origen_ip o cuenta).
+        "activo_ip": _ip_origen((cruda.get("agent") or {}).get("ip")),
         # Cuenta objeto del evento (familia abuso_de_cuenta): la que se bloquearia (FORZAR_CAMBIO_PASS).
         # Consciente de la tecnica (ver _usuario_de); ausente en el resto de familias.
         "usuario": _usuario_de(rule, data),

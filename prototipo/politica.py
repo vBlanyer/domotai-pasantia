@@ -5,6 +5,7 @@ ACCION_POR_CLASE = {
     "vp_intento_acceso": "BLOQUEAR_IP",
     "vp_reconocimiento": "BLOQUEAR_IP",   # mismo desenlace que un intento: se bloquea la IP que sondea
     "vp_abuso_cuenta": "FORZAR_CAMBIO_PASS",
+    "vp_integridad": "AISLAR_NODO",         # FIM: aislar el host comprometido (nunca_automatica -> humano)
     "vp_exposicion_gestion": "CERRAR_SERVICIO",
     "fp_actividad_legitima": None,
     "fp_exposicion_inexistente": None,
@@ -20,6 +21,8 @@ def proponer(clase, alerta):
         params = {"ip": alerta.get("origen_ip")}
     elif accion == "FORZAR_CAMBIO_PASS":
         params = {"usuario": alerta.get("usuario")}     # se bloquea la CUENTA, no la IP
+    elif accion == "AISLAR_NODO":
+        params = {"ip_nodo": alerta.get("activo_ip")}   # se aisla el HOST afectado (el del FIM)
     else:
         params = {"servicio": alerta.get("servicio")}
     return (accion, params)
