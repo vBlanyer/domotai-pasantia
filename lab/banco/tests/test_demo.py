@@ -38,6 +38,42 @@ class TestDemo(unittest.TestCase):
         self.assertTrue(any("adduser -D backdoor" in a[-1] for a in llamadas),
                         "la tanda debe lanzar también el abuso de cuenta")
 
+    def test_ataques_host_cubren_las_tres_familias_sin_origen_de_red(self):
+        # Las familias cuya respuesta NO es bloquear una IP de origen (cuenta, FIM, DoS) viven como
+        # "ataques de host" (sin rotación): el lanzador debe cubrir las tres.
+        familias = {h["familia"] for h in demo.ATAQUES_HOST}
+        self.assertEqual(familias, {"abuso_de_cuenta", "integridad_fichero", "denegacion_servicio"})
+
+    def test_ataque_integridad_fichero_modifica_un_fichero_e_inyecta_el_evento(self):
+        llamadas, ejecutar = self._fake()
+        demo.ataque_integridad_fichero(ejecutar=ejecutar)
+        cmd = llamadas[0][-1]
+        self.assertEqual(llamadas[0][2], "clab-banco-web-banking")
+        self.assertIn("/etc/", cmd)                                   # modifica un fichero crítico (real)
+        self.assertIn("ossec-fim", cmd)                               # evento que la regla local 100400 levanta
+        self.assertIn(">> /var/log/banco/auth.log", cmd)              # lo recoge el reenviador --auth
+
+    def test_ataque_denegacion_servicio_genera_rafaga_e_inyecta_el_evento(self):
+        llamadas, ejecutar = self._fake()
+        demo.ataque_denegacion_servicio(ejecutar=ejecutar)
+        cmd = llamadas[0][-1]
+        self.assertEqual(llamadas[0][2], "clab-banco-web-banking")
+        self.assertIn("ossec-flood", cmd)                             # evento que la regla local 100500 levanta
+        self.assertIn(">> /var/log/banco/auth.log", cmd)
+
+    def test_la_tanda_automatica_incluye_fim_y_dos(self):
+        llamadas, ejecutar = self._fake()
+        demo.tanda_automatica(ejecutar=ejecutar, dormir=lambda *_: None, escribir=lambda *_: None)
+        txt = " ".join(a[-1] for a in llamadas)
+        self.assertIn("ossec-fim", txt, "la tanda debe lanzar el ataque de integridad de ficheros")
+        self.assertIn("ossec-flood", txt, "la tanda debe lanzar el ataque de denegación de servicio")
+
+    def test_menu_lista_los_ataques_de_host_despues_de_los_de_red(self):
+        m = demo.menu(demo.casos_vivos())
+        self.assertIn("FIM", m)
+        self.assertIn("DOS", m)
+        self.assertIn("CUENTA", m)
+
     def test_lanzar_ejecuta_preparar_y_luego_ataque_en_orden(self):
         llamadas, ejecutar = self._fake()
         caso = {"preparar": [("web-banking", "echo prep")], "ataque": ("internet", "echo atk")}
@@ -218,8 +254,11 @@ class TestTandaAutomatica(unittest.TestCase):
         cmds = [a[-1] for a in llamadas]
         rotados = [c for c in cmds if "ip addr add" in c]      # cada ataque rotado lleva el alias
         self.assertEqual(len(rotados), len(rotables))          # un ataque rotado por caso rotable
-        self.assertTrue(any("adduser -D backdoor" in c for c in cmds))   # + el abuso de cuenta (no rota)
-        self.assertEqual(dormidas, [6] * (len(rotables) + 1))  # un gap por ataque, incluido el de cuenta
+        self.assertTrue(any("adduser -D backdoor" in c for c in cmds))   # + los ataques de host (no rotan):
+        self.assertTrue(any("ossec-fim" in c for c in cmds))             #   cuenta, FIM...
+        self.assertTrue(any("ossec-flood" in c for c in cmds))           #   ...y DoS
+        # un gap por ataque: los rotables de red + los ataques de host (cuenta/FIM/DoS)
+        self.assertEqual(dormidas, [6] * (len(rotables) + len(demo.ATAQUES_HOST)))
         self.assertFalse(any("-D INPUT" in c for c in cmds))   # no deshace (lo hace restaurar)
 
     def test_repeticiones_repiten_la_bateria(self):
