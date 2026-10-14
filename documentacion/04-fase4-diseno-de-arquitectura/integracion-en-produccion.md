@@ -67,8 +67,9 @@ del cliente): el daemon (`prototipo/stream.py`), el conector, la traza y el viso
 - **Salida:** alcanzar por SSH el **plano de gestión** de los dispositivos del cliente (no el de datos).
 
 **Binding y frontera.** La API y el visor se ligan **solo a `127.0.0.1:8787`** (`tablero.py`). El sistema **no
-trae login**: el inicio de sesión, el TLS y el *reverse proxy* los pone la empresa delante (lo nuestro es la
-validación de `Host`/`Origin`/CORS; ver §5).
+trae login**: el SSO corporativo, el TLS y el *reverse proxy* los pone la empresa delante. El daemon ya trae una
+**auth opcional por token** (`TRIAJE_CONSOLA_TOKEN`) con no-repudio por operador, **apagada por defecto**, además de
+la validación de `Host`/`Origin`/CORS (ver §5).
 
 **Un daemon = un cliente.** No hay multi-tenant: cada proceso carga **un** perfil (`stream.py`). Varios clientes
 = varios procesos/nodos de gestión, uno por perfil.
@@ -281,10 +282,15 @@ tail -n0 -F /ruta/al/alerts.json \
 - **Kill switch:** pausa global de la automatización (todo pasa a esperar aprobación) y des-bloqueo en masa
   desde el visor (`/api/pausa`, `/api/revertir-todo`), para frenar y revertir al instante si el MDR se
   equivoca. Las reglas de enganche por escrito (qué se puede bloquear y cuándo) las define la empresa.
+- **Robustez (V1.1):** **auth opcional de la consola** por token (`TRIAJE_CONSOLA_TOKEN`) con **no-repudio** por
+  operador; **pool de hilos acotado** en modo agente (backpressure); **entorno filtrado** al subproceso del
+  conector (no hereda secretos); aviso de clave al **verificar** la traza; **frontera stdin del conector
+  fail-closed**. Además, una **señal asesora de vigilancia** para el *low-and-slow* desde un origen de confianza
+  (lo muestra al analista sin cambiar el veredicto ni las cifras).
 
 **Trabajo futuro (lo pone/valida la empresa en el rollout):**
 
-- **Login/autenticación** del tablero (hoy no hay; solo defensas `Host`/`Origin`/CORS).
+- **Login/autenticación** del tablero: **auth opcional por token** (`TRIAJE_CONSOLA_TOKEN`) + no-repudio por operador ya disponibles (apagados por defecto); el SSO corporativo lo pone la empresa. Defensas `Host`/`Origin`/CORS siempre activas.
 - **TLS y canal de alertas seguro**: si se recibe por syslog, el UDP es *spoofable* (una alerta falsa puede
   convertir el auto-bloqueo en un arma de DoS). Mitigaciones: syslog **TCP + TLS** y lista blanca de IPs del
   SIEM.
@@ -304,7 +310,7 @@ tail -n0 -F /ruta/al/alerts.json \
 | Endurecimiento del propio MDR | **Hecho** (CORS/CSRF/Host, HMAC, sudoers, fail-closed, nunca-automáticas). |
 | Conector de producción (`ejecutor_ssh_clave`) | **Diseñado, en código; sin ejercitar contra equipos reales.** |
 | Segunda fuente de SIEM (CEF) | **Analizada, no implementada.** |
-| Login / TLS / multi-tenant / TTL de bloqueos | **Trabajo futuro** (parte, de la empresa). |
+| SSO / TLS / multi-tenant / TTL de bloqueos | **Trabajo futuro** (el login básico por token ya existe; el SSO corporativo lo pone la empresa). |
 
 > En una palabra: **el núcleo que decide y el modo de configurarlo por cliente están listos y endurecidos**; lo
 > que falta para un cliente real es *operativo de rollout* (credenciales reales, canal de alertas seguro, el

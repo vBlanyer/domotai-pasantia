@@ -156,7 +156,7 @@ revierten acciones con `reversion: definida`; las transitorias y las de observac
 | `Permission denied (publickey)` o `sudo: … password` en la traza | el nodo no está aprovisionado, o el catálogo cambió | §3.3 |
 | `Host key verification failed` | la clave del host cambió (reinstalación… o suplantación) | comprueba con el cliente **antes** de re-aprovisionar; el script reescribe el `known_hosts` |
 | El mismo origen genera un incidente tras otro | es un origen legítimo no declarado (administración, escáner, auditor) | decláralo en `origenes_legitimos` del perfil y reinicia el servicio |
-| Alertas con clase `no_soportada` | están fuera del perímetro del caso de uso (tres familias con acción hoy) | quedan en la traza con su severidad de origen; no se descartan, no se actúan |
+| Alertas con clase `no_soportada` | están fuera del perímetro del caso de uso (cuatro familias con acción hoy) | quedan en la traza con su severidad de origen; no se descartan, no se actúan |
 | Wazuh deja de producir alertas | el reenvío syslog del nodo se cayó | en el lab: `sh lab/scripts/reenvio-syslog.sh` |
 | Un bloqueo quedó puesto tras una demo o prueba | acción ejecutada y no revertida | `prototipo.revertir` con su `id_decision` (nunca a mano, para que conste) |
 
@@ -173,10 +173,12 @@ en el código. Para repetir una campaña completa: `python3 -m evaluacion.campan
 
 - **La señal de origen es suplantable.** La distinción administrador/atacante se apoya en la IP declarada.
   Es la señal que hay; no es una prueba de identidad.
-- **Tres familias de alerta soportadas** (acceso a credenciales, reconocimiento y servicio expuesto), un
-  activo y un servicio en la evaluación. Lo demás es `no_soportada`, a juicio humano. Una cuarta familia,
-  `explotacion_conocida`, no se contiene: es de nivel `triar_y_enrutar` (clase `amenaza_enrutada`), así que
-  se clasifica, se prioriza y se **enruta** al equipo correspondiente sin ejecutar acción del catálogo.
+- **Tres familias con datos en la evaluación** (acceso a credenciales, reconocimiento y servicio expuesto),
+  un activo y un servicio. Lo demás es `no_soportada`, a juicio humano. El registro de familias
+  (`familias.yml`) soporta hoy **cinco**: una cuarta, `abuso_de_cuenta` (escalada/manipulación de cuentas),
+  se contiene bloqueando la CUENTA y es siempre de validación humana; y una quinta, `explotacion_conocida`,
+  no se contiene: es de nivel `triar_y_enrutar` (clase `amenaza_enrutada`), así que se clasifica, se prioriza
+  y se **enruta** al equipo correspondiente sin ejecutar acción del catálogo.
 - **El corpus del RAG es pequeño** (32 fichas) y curado a mano. Crece cuando el perímetro crece; con el
   embedder actual crecerlo no degrada la recuperación de forma apreciable.
 - **La explicación hereda las etiquetas de la fuente.** Si Wazuh etiqueta una regla de reconocimiento como

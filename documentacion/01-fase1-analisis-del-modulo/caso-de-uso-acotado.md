@@ -229,7 +229,7 @@ orden de acción.
   integración multicapa queda fuera por el propio plan de trabajo—: es la capa de **triaje y respuesta
   aguas abajo** del SIEM. **Sí hace la segunda**: detecta **cuáles de esas alertas son amenazas reales**,
   y se mide con métricas de detección. Frente al nivel de regla de Wazuh, los falsos positivos bajan de
-  0,296 a 0,000 y la exhaustividad sube de 0,741 a 1,000: el baseline deja pasar amenazas reales de baja
+  0,310 a 0,009 y la exhaustividad sube de 0,920 a 1,000: el baseline deja pasar amenazas reales de baja
   severidad que el prototipo reconoce (ver [resultados](../../evaluacion/resultados/README.md)).
   Lo que queda fuera por diseño es cualquier capacidad que exija **detección primaria nueva**. Caso
   concreto: la **contención lateral / este-oeste** (aislar a un atacante interno que pivota entre

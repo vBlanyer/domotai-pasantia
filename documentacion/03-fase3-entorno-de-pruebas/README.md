@@ -23,7 +23,7 @@ deliberadamente el caso más duro —cortar un servicio bancario es inaceptable 
 propagan el impacto—, y por eso la validación más fuerte: **si el prototipo respeta la continuidad y
 la criticidad aquí, *a fortiori* lo hace en escenarios menos exigentes**. El reparto de roles es
 claro: la red pequeña es el **origen del dataset** etiquetado; el banco es el escenario de
-**validación en vivo** —las cuatro familias de ataque detectables en directo y el banco de pruebas
+**validación en vivo** —las cinco familias de ataque detectables en directo y el banco de pruebas
 del catálogo (última corrida: 21 casos OK)—. Ver [`lab/banco/`](../../lab/banco/README.md) y la
 [prueba manual del banco](../../docs/pruebas/08-laboratorio-banco.md).
 

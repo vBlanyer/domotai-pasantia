@@ -4,7 +4,7 @@ Trabajo autónomo sobre `main` para dejar el prototipo más robusto y limpio, pe
 antes de fusionar. Sale de las consideraciones que surgieron al revisar los límites del sistema
 (seguridad de la contención automática, honestidad de la medición, gobernanza, resiliencia).
 
-**Nada está fusionado en `main`.** Todas las suites quedan en verde: prototipo 640, evaluación 59,
+**(Fusionado en `main`, merge c003d88; write-up congelado de la rama.)** Todas las suites quedaban en verde: prototipo 640, evaluación 59,
 banco 114, dataset 39, visor 117; `tsc` limpio, build OK, 0 errores de lint.
 
 ## Qué cambió

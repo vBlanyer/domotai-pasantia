@@ -20,7 +20,7 @@ recomendado para una primera prueba. El **completo** levanta la demo en vivo.
 
 ```bash
 # a. Las suites del núcleo deben dar OK (≈20 s en total)
-python3 -m unittest discover -s prototipo/tests      # 788 tests
+python3 -m unittest discover -s prototipo/tests      # 824 tests
 python3 -m unittest discover -s evaluacion/tests      # 59 tests
 
 # b. Reproduce la evaluación frente al baseline de Wazuh (determinista, sin modelo)
@@ -65,8 +65,8 @@ En otra terminal, **lanza ataques** por menú: `sh lab/banco/banco.sh atacar`. A
 
 | Componente | Dónde | Estado |
 |------------|-------|--------|
-| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, **788 tests** |
-| **Justificador con LLM real + RAG** (Llama-3.1-8B residente en GPU; recuperación aumentada local con embedder bge-m3 sobre corpus de MITRE/D3FEND/reglas/descartes, dependiente de la clase decidida) | [`prototipo/justificador_llm.py`](prototipo/justificador_llm.py), [`prototipo/rag.py`](prototipo/rag.py) | Funcional (requiere GPU; sustituto [`lab/scripts/llm_claude.py`](lab/scripts/llm_claude.py)) |
+| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, **824 tests** |
+| **Justificador con LLM real + RAG** (LLM local —1B por defecto; Llama-3.1-8B en GPU como objetivo—; recuperación aumentada local con embedder bge-m3 sobre corpus de MITRE/D3FEND/reglas/descartes, dependiente de la clase decidida) | [`prototipo/justificador_llm.py`](prototipo/justificador_llm.py), [`prototipo/rag.py`](prototipo/rag.py) | Funcional (requiere GPU; sustituto [`lab/scripts/llm_claude.py`](lab/scripts/llm_claude.py)) |
 | **Daemon en tiempo real** (agrupa en incidentes; valida con el analista; `--sin-llm`/`--con-llm`/`--agente`; healthcheck `/healthz`) | [`prototipo/stream.py`](prototipo/stream.py) | Funcional |
 | **Consola web** (8 vistas: panel, métricas e informe exportable, estado de servicios, **Red** —mapa del cliente—, decisiones, aprobaciones, **Contenciones activas** + *kill switch*, trazas) | [`prototipo/tablero.py`](prototipo/tablero.py), [`visor/`](visor/) | Funcional, **145 tests** (React/TS) |
 | **Agente de mitigación** (ReAct: contiene en el host, escala al cortafuegos solo si falla; respeta el filtro del perfil) | [`prototipo/agente_mitigacion.py`](prototipo/agente_mitigacion.py) | Funcional, salida restringida por esquema; experimental |

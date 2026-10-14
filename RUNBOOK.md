@@ -183,6 +183,8 @@ python3 -m prototipo.stream <fuente> <perfil> <hallazgos> [flags]
 | `--salida F` | Fichero de traza (por defecto `run/trazas-stream.jsonl`). Usa uno nuevo para una cadena limpia. |
 | `--sin-supresion` | Desactiva la supresión de repetidos (audita cada alerta). |
 | `--sin-lab` | No usa el laboratorio (ejecutor simulado); para probar el motor sin Docker. |
+| `--una-vez` | Procesa un fichero FINITO hasta el final y sale (para pruebas/demos/reproceso puntual), en vez de seguirlo como `tail -f`. |
+| `--escuchar host:puerto` · `--permitir IP,…` · `--tls-cert/-clave` | Recepción de alertas por red (SIEM remoto) con lista blanca y TLS opcional. Ver [deploy/README.md](deploy/README.md). |
 
 ### Probar `--con-llm` y `--agente` con Claude Code (solo pruebas)
 
@@ -197,7 +199,7 @@ python3 lab/scripts/llm_claude.py &                  # Haiku por defecto; --mode
 sh reiniciar.sh --con-llm --agente
 ```
 
-- Cada llamada tarda unos 8–15 s con Haiku (el 3B local, 70–98 s).
+- Cada llamada tarda unos 8–15 s con Haiku (el 1B local, 70–98 s).
 - La traza lo marca: `version_justificador` = `llm-7e:claude-code-haiku`.
 - **Solo con el banco sintético:** los prompts salen hacia Anthropic. Nunca con datos de un cliente.
 - **No vale para el informe:** no es el modelo que se despliega y no es reproducible (sin
