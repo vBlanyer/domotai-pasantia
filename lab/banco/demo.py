@@ -3,14 +3,22 @@
     sh lab/banco/banco.sh atacar             (menú interactivo; o: python3 -m lab.banco.demo)
     sh lab/banco/banco.sh atacar auto [N] [gap]   (TANDA AUTOMÁTICA: lanza toda la batería sola)
 
-Lista los casos vivos del catálogo (`lab/banco/casos.py`) y lanza el que elijas contra la red, para
-verlo decidir en el daemon/tablero. Reutiliza solo los DATOS del catálogo; no toca el prototipo.
-Respeta los 60 s de silencio de la regla 5763 de Wazuh entre ataques, y ofrece deshacer/restaurar.
+El menú cubre LAS 7 FAMILIAS (ninguna queda sin ataque): los casos de red del catálogo
+(`lab/banco/casos.py`) numerados —fuerza bruta, reconocimiento, telnet, explotación web— y, a
+continuación, los **ataques de host** (`ATAQUES_HOST`) cuya respuesta no es bloquear una IP de
+origen: abuso de cuenta (bloquear la CUENTA), integridad de ficheros/FIM (AISLAR el host) y
+denegación de servicio/DoS (ACOTAR la banda). Reutiliza solo DATOS del catálogo; no toca el prototipo.
+Respeta los 60 s de silencio de la regla 5763 de Wazuh entre ataques de red, y ofrece deshacer/restaurar.
 
-La opción `t` del menú (o `atacar auto`) corre la **tanda automática**: lanza TODA la batería de
-ataques vivos, uno tras otro y solos, con IP de origen rotada (sin esperas de 60 s ni supresión, cada
-uno un incidente distinto). Sirve para ver/probar el camino completo en vivo —la plantilla justifica
-cada decisión— sin elegir uno a uno. No deshace: al terminar, `sh lab/banco/banco.sh restaurar`.
+La opción `t` del menú (o `atacar auto`) corre la **tanda automática**: lanza TODA la batería —los de
+red con IP de origen rotada y luego los tres de host—, uno tras otro y solos (sin esperas de 60 s ni
+supresión, cada uno un incidente distinto). Sirve para ver/probar el camino completo en vivo —la
+plantilla justifica cada decisión— sin elegir uno a uno. No deshace: al terminar, `sh lab/banco/banco.sh restaurar`.
+
+Los ataques de host sin origen de red (cuenta/FIM/DoS) escriben su evento en el auth.log que el
+reenviador (canal auth) ya manda a Wazuh; reglas locales (`lab/wazuh/local_rules_banco.xml`: 5902,
+100400 syscheck, 100500 dos) lo levantan con el grupo que el adaptador mapea a la familia. La
+detección en vivo se valida con el banco levantado, como todo caso vivo.
 
 Con la tecla `r` se activa la **IP de origen rotativa**: cada ataque sale desde una IP nueva de la
 misma subred del atacante (alias en la interfaz de datos + `ssh -b`), para poder repetir el mismo
@@ -85,8 +93,66 @@ def deshacer_abuso_cuenta(destino="web-banking", usuario="backdoor", ejecutar=su
     return _exec(destino, f"passwd -u {usuario} 2>/dev/null; deluser {usuario} 2>/dev/null", ejecutar)
 
 
+# --- Ataque de INTEGRIDAD DE FICHEROS (familia integridad_fichero, FIM) ------------------------
+# Como el abuso de cuenta, no tiene IP de origen: es un cambio en un fichero crítico del host. El
+# banco no corre el módulo syscheck de Wazuh (alimenta por syslog, no por agente), así que el ataque
+# MODIFICA de verdad un fichero (reversible) y escribe la línea `ossec-fim[...]` en el auth.log que el
+# reenviador --auth ya manda a Wazuh; la regla local 100400 (grupo 'syscheck') la levanta -> el MDR la
+# triaja integridad_fichero -> AISLAR_NODO (cuarentena en el cortafuegos de borde), humano incondicional.
+_FIM_FICHERO = "/etc/.banco-integridad"
+
+def _linea_fim(fichero):
+    return (f"ossec-fim[1200]: integridad: checksum de '{fichero}' cambiado "
+            "(fichero critico modificado/manipulado)")
+
+def ataque_integridad_fichero(destino="web-banking", fichero=_FIM_FICHERO, ejecutar=subprocess.run):
+    cmd = f"echo '# manipulado {int(time.time())}' >> {fichero}; echo '{_linea_fim(fichero)}' >> {_AUTH_LOG}"
+    return _exec(destino, cmd, ejecutar)
+
+def deshacer_integridad_fichero(destino="web-banking", fichero=_FIM_FICHERO, ejecutar=subprocess.run):
+    return _exec(destino, f"rm -f {fichero} 2>/dev/null", ejecutar)
+
+
+# --- Ataque de DENEGACIÓN DE SERVICIO (familia denegacion_servicio, DoS/flood) -----------------
+# Un flujo volumétrico: no hay una IP única que bloquear, así que el MDR responde ACOTANDO la banda
+# (LIMITAR_BANDA). Se genera una ráfaga MODESTA (no tumba el banco de verdad) y se escribe la línea
+# `ossec-flood[...]` en el auth.log; la regla local 100500 (grupo 'dos') la levanta -> denegacion_servicio.
+def _linea_dos(destino_ip):
+    return (f"ossec-flood[1300]: posible inundacion: 400 conexiones/s hacia {destino_ip} "
+            "(denegacion de servicio volumetrica)")
+
+def ataque_denegacion_servicio(destino="web-banking", destino_ip="10.10.0.10", ejecutar=subprocess.run):
+    rafaga = "for i in $(seq 1 30); do (printf x | nc -w1 127.0.0.1 443 >/dev/null 2>&1 &) done; "
+    cmd = rafaga + f"echo '{_linea_dos(destino_ip)}' >> {_AUTH_LOG}"
+    return _exec(destino, cmd, ejecutar)
+
+def deshacer_denegacion_servicio(destino="web-banking", ejecutar=subprocess.run):
+    # Si el MDR aplicó LIMITAR_BANDA, el throttle se quita con restaurar; aquí se limpia por si acaso.
+    return _exec(destino, "tc qdisc del dev eth1 root 2>/dev/null || true", ejecutar)
+
+
+# Ataques "de host": su respuesta NO es bloquear una IP de origen, así que no rotan IP y viven fuera
+# del catálogo de casos de red. El menú los lista tras los de red y la tanda los lanza todos.
+ATAQUES_HOST = [
+    {"id": "CUENTA", "familia": "abuso_de_cuenta",
+     "titulo": "abuso de cuenta (alta de 'backdoor' en web-banking) -> bloquear la CUENTA, humano",
+     "lanzar": ataque_abuso_cuenta, "deshacer": deshacer_abuso_cuenta},
+    {"id": "FIM", "familia": "integridad_fichero",
+     "titulo": "integridad de ficheros (modifica un fichero critico en web-banking) -> AISLAR el host, humano",
+     "lanzar": ataque_integridad_fichero, "deshacer": deshacer_integridad_fichero},
+    {"id": "DOS", "familia": "denegacion_servicio",
+     "titulo": "denegacion de servicio (inundacion contra web-banking) -> ACOTAR la banda, humano",
+     "lanzar": ataque_denegacion_servicio, "deshacer": deshacer_denegacion_servicio},
+]
+
+
 def menu(vivos):
-    return "\n".join(f"  {i}. {c['id']} — {c['titulo']}" for i, c in enumerate(vivos, 1))
+    """Casos de red numerados 1..N y, a continuación, los ataques de host (cuenta/FIM/DoS) N+1..N+M,
+    para que TODAS las familias sean seleccionables por número desde una sola lista."""
+    lineas = [f"  {i}. {c['id']} — {c['titulo']}" for i, c in enumerate(vivos, 1)]
+    base = len(vivos)
+    lineas += [f"  {base + i}. {h['id']} — {h['titulo']}" for i, h in enumerate(ATAQUES_HOST, 1)]
+    return "\n".join(lineas)
 
 
 LINEA_A_MEDIDA = "  a. Ataque a medida (elige equipo objetivo, servicio y origen)"
@@ -161,7 +227,8 @@ def tanda_automatica(ejecutar=subprocess.run, dormir=time.sleep, repeticiones=1,
     la batería ejercita ambos caminos y la plantilla justifica cada decisión. NO deshace: el daemon
     decide y, al terminar, se restaura con `sh lab/banco/banco.sh restaurar`. `repeticiones` vueltas."""
     vivos = [c for c in casos_vivos() if rotable(c)]
-    contadores, total, hecho = {}, repeticiones * len(vivos) + 1, 0   # +1: el abuso de cuenta (sin origen de red)
+    # +len(ATAQUES_HOST): los ataques de host (cuenta/FIM/DoS), sin origen de red, se lanzan al final.
+    contadores, total, hecho = {}, repeticiones * len(vivos) + len(ATAQUES_HOST), 0
     escribir(f"== Tanda automática: {total} ataque(s), IP de origen rotada (ve el tablero) ==")
     for _ in range(repeticiones):
         for caso in vivos:
@@ -173,11 +240,12 @@ def tanda_automatica(ejecutar=subprocess.run, dormir=time.sleep, repeticiones=1,
             escribir(f"  [{hecho}/{total}] {caso['id']} — {caso['titulo']} desde {src}")
             lanzar(caso, ejecutar=ejecutar, src_ip=src)
             dormir(gap)
-    # Abuso de cuenta: no rota (no tiene IP de origen); se lanza una vez, al final de la batería.
-    hecho += 1
-    escribir(f"  [{hecho}/{total}] CUENTA — alta de cuenta 'backdoor' en web-banking (abuso_de_cuenta)")
-    ataque_abuso_cuenta(ejecutar=ejecutar)
-    dormir(gap)
+    # Ataques de host: no rotan (no tienen IP de origen); se lanzan una vez cada uno, al final.
+    for host in ATAQUES_HOST:
+        hecho += 1
+        escribir(f"  [{hecho}/{total}] {host['id']} — {host['titulo']}")
+        host["lanzar"](ejecutar=ejecutar)
+        dormir(gap)
     escribir(f"  tanda completa ({total} ataques). Deshaz con: sh lab/banco/banco.sh restaurar")
 
 
@@ -194,15 +262,15 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
     sin_deshacer = {}               # origen -> caso que atacó desde él y no se deshizo (puede estar bloqueado)
     try:
         while True:
+            base = len(vivos)
             print("\n== Ataques del banco (para el daemon/tablero) ==")
             print(menu(vivos))
             print(LINEA_A_MEDIDA)
-            print("  t. Tanda automática (lanza toda la batería sola, IP rotada)")
-            print("  c. Abuso de cuenta (alta de 'backdoor' en web-banking -> bloquear la cuenta)")
+            print("  t. Tanda automática (lanza TODA la batería sola: red + host, IP rotada)")
             print(f"  r. IP de origen rotativa: {'ON' if rotar else 'OFF'}  "
-                  "(cada ataque desde una IP nueva; esquiva supresión y bloqueo previo)")
+                  "(cada ataque de red desde una IP nueva; esquiva supresión y bloqueo previo)")
             print("  0. Salir")
-            sel = leer(f"Elige [0-{len(vivos)}, a, t, c, r]: ").strip().lower()
+            sel = leer(f"Elige [0-{base + len(ATAQUES_HOST)}, a, t, r]: ").strip().lower()
             if sel in ("0", "", "q"):
                 return 0
             if sel == "r":
@@ -211,22 +279,29 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
             if sel == "t":
                 tanda_automatica(ejecutar=ejecutar, dormir=dormir)
                 continue
-            if sel == "c":
-                print("  lanzando abuso de cuenta — alta de 'backdoor' en web-banking...")
-                ataque_abuso_cuenta(ejecutar=ejecutar)
-                if leer("  ¿deshacer (desbloquear y borrar la cuenta)? [s/N] ").strip().lower().startswith("s"):
-                    deshacer_abuso_cuenta(ejecutar=ejecutar); print("  restaurado")
-                continue
             if sel == "a":
                 caso = elegir_a_medida(leer)
                 if caso is None:
                     continue
             else:
                 try:
-                    caso = vivos[int(sel) - 1]
-                    if int(sel) < 1:
+                    idx = int(sel)
+                    if idx < 1:
                         raise IndexError
-                except (ValueError, IndexError):
+                except ValueError:
+                    print("  opción no válida")
+                    continue
+                if base < idx <= base + len(ATAQUES_HOST):
+                    # Ataque de host (cuenta/FIM/DoS): sin IP de origen, no rota; lanza y ofrece deshacer.
+                    host = ATAQUES_HOST[idx - base - 1]
+                    print(f"  lanzando {host['id']} — {host['titulo']}...")
+                    host["lanzar"](ejecutar=ejecutar)
+                    if leer("  ¿deshacer/restaurar? [s/N] ").strip().lower().startswith("s"):
+                        host["deshacer"](ejecutar=ejecutar); print("  restaurado")
+                    continue
+                try:
+                    caso = vivos[idx - 1]
+                except IndexError:
                     print("  opción no válida")
                     continue
 

@@ -61,3 +61,38 @@
   </rule>
 </group>
 
+<!-- integridad_fichero (FIM): el banco alimenta Wazuh por syslog (no corre el modulo syscheck por
+     agente), asi que el ataque (lab/banco/demo.py:ataque_integridad_fichero) MODIFICA un fichero
+     critico real y escribe una linea `ossec-fim[...]` en auth.log que el reenviador (canal auth)
+     manda a Wazuh. program_name 'ossec-fim' + grupo 'syscheck' -> el adaptador (familia_de) lo mapea a
+     integridad_fichero -> AISLAR_NODO (cuarentena en el borde), humano incondicional.
+     VALIDAR EN VIVO con el banco levantado (como todo caso vivo). -->
+<group name="local,syscheck,">
+  <rule id="100400" level="7">
+    <program_name>ossec-fim</program_name>
+    <group>syscheck,</group>
+    <description>FIM: cambio/checksum de un fichero critico (integridad de ficheros)</description>
+    <mitre>
+      <id>T1565</id>
+      <id>T1070</id>
+    </mitre>
+  </rule>
+</group>
+
+<!-- denegacion_servicio (DoS/flood): el ataque (demo.py:ataque_denegacion_servicio) genera una
+     rafaga modesta y escribe una linea `ossec-flood[...]` en auth.log. program_name 'ossec-flood' +
+     grupo 'dos' -> el adaptador lo mapea a denegacion_servicio -> LIMITAR_BANDA (acotar banda,
+     contencion gradual), humano. Requiere que el activo victima declare `interfaz` en el perfil
+     (bancario.yml); si no, el MDR veta la cuarentena fail-closed. VALIDAR EN VIVO. -->
+<group name="local,dos,">
+  <rule id="100500" level="8">
+    <program_name>ossec-flood</program_name>
+    <group>dos,</group>
+    <description>DoS: posible inundacion volumetrica (denegacion de servicio)</description>
+    <mitre>
+      <id>T1498</id>
+      <id>T1499</id>
+    </mitre>
+  </rule>
+</group>
+
