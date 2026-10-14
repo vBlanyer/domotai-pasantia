@@ -44,6 +44,23 @@ class TestProcesar(unittest.TestCase):
         self.assertIsNone(r["accion_final"])          # vetada: no hay cuarentena ejecutable
         self.assertTrue(r["requiere_humano"])
 
+    def test_dos_limita_la_banda_del_host_con_interfaz_y_pide_humano(self):
+        # 7ª familia (DoS/flood): vp_denegacion_servicio -> LIMITAR_BANDA (contención gradual) sobre la
+        # interfaz del host víctima; alcanza_servicio -> retenida para humano (no nunca_automatica).
+        a = {**j("alerta_vp.json"), "familia": "denegacion_servicio"}   # activo = objetivo-vuln
+        p = {**y("perfil.yml"), "activos": {"objetivo-vuln": {"ip": "192.168.1.30", "interfaz": "eth1"}}}
+        r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_denegacion_servicio")
+        self.assertEqual(r["accion_propuesta"], "LIMITAR_BANDA")
+        self.assertEqual(r["accion_final"], "LIMITAR_BANDA")   # retenida (hay interfaz)
+        self.assertTrue(r["requiere_humano"])
+
+    def test_dos_sin_interfaz_no_deja_accion_ejecutable(self):
+        a = {**j("alerta_vp.json"), "familia": "denegacion_servicio"}
+        r = triaje.procesar(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_denegacion_servicio")
+        self.assertIsNone(r["accion_final"])          # vetada: sin interfaz no hay throttle
+
     def test_aviso_vigilancia_en_el_punto_ciego(self):
         # low-and-slow desde un origen de confianza: el motor dice legítimo, pero el volumen de la
         # ventana larga dispara el aviso ASESOR (no cambia el veredicto ni ejecuta nada).

@@ -63,3 +63,27 @@ class TestAislarNodo(unittest.TestCase):
     def test_sin_perfil_no_hay_orden(self):
         d = {"id_decision": "d9", "activo": "objetivo-vuln", "accion_final": "AISLAR_NODO"}
         self.assertIsNone(orden.construir(d, {"familia": "integridad_fichero"}))
+
+
+class TestLimitarBanda(unittest.TestCase):
+    """7ª familia (DoS/flood): LIMITAR_BANDA acota la banda del enlace del host víctima (contención
+    gradual con `tc`). if = la interfaz declarada del nodo; rate = política del perfil (defecto)."""
+
+    def test_acota_la_banda_del_host_con_su_interfaz_y_el_rate_del_perfil(self):
+        d = {"id_decision": "d9", "activo": "web", "accion_final": "LIMITAR_BANDA"}
+        p = {"activos": {"web": {"ip": "10.0.0.5", "interfaz": "eth1"}},
+             "continuidad": {"limite_banda": "2mbit"}}
+        o = orden.construir(d, {"familia": "denegacion_servicio"}, p)
+        self.assertEqual(o["accion_id"], "LIMITAR_BANDA")
+        self.assertEqual(o["nodo_ip"], "10.0.0.5")                 # corre en el propio host víctima
+        self.assertEqual(o["params"], {"if": "eth1", "rate": "2mbit"})
+
+    def test_rate_por_defecto_si_el_perfil_no_lo_fija(self):
+        d = {"id_decision": "d9", "activo": "web", "accion_final": "LIMITAR_BANDA"}
+        o = orden.construir(d, {}, {"activos": {"web": {"ip": "10.0.0.5", "interfaz": "eth1"}}})
+        self.assertEqual(o["params"], {"if": "eth1", "rate": "1mbit"})   # defecto sensato
+
+    def test_sin_interfaz_declarada_no_hay_orden(self):
+        # Fail-closed: sin interfaz no se puede acotar la banda (el filtro ya lo veta; cinturón aquí).
+        d = {"id_decision": "d9", "activo": "web", "accion_final": "LIMITAR_BANDA"}
+        self.assertIsNone(orden.construir(d, {}, {"activos": {"web": {"ip": "10.0.0.5"}}}))

@@ -341,6 +341,24 @@ class TestEscaladaPorDefecto(unittest.TestCase):
         self.assertFalse(r["ejecucion"]["exito"])
         self.assertIsNone(r["escalada"])                 # no cruza a bloquear el origen
 
+    def test_dos_acota_la_banda_en_la_victima_y_no_escala(self):
+        # 7ª familia (DoS): LIMITAR_BANDA corre en el host víctima sobre su interfaz; alcanza_servicio
+        # -> pregunta al humano; aprobado, ejecuta. No escala por origen (un flood no tiene IP única).
+        a = {"id_alerta": "d1", "activo": "objetivo-vuln", "servicio": "https", "familia": "denegacion_servicio",
+             "origen_ip": None, "mitre": ["T1499"], "timestamp": "t", "rafaga_60s": 0}
+        p = {**self._perfil_con_topologia(),
+             "activos": {"objetivo-vuln": {"ip": "192.168.1.30", "interfaz": "eth1"}},
+             "continuidad": {**y("perfil.yml")["continuidad"], "limite_banda": "2mbit"}}
+        r = lazo.procesar_lazo(a, j("hallazgos.json"), p, "prueba", CAT, lazo._EjecutorAuto(), "d1", "t",
+                               leer=lambda *_: "1")
+        self.assertEqual(r["clase"], "vp_denegacion_servicio")
+        self.assertEqual(r["orden"]["accion_id"], "LIMITAR_BANDA")
+        self.assertEqual(r["orden"]["nodo_ip"], "192.168.1.30")          # el propio host víctima
+        self.assertEqual(r["orden"]["params"], {"if": "eth1", "rate": "2mbit"})
+        self.assertEqual(r["veredicto_humano"], "aprobar")
+        self.assertTrue(r["ejecucion"]["exito"])
+        self.assertIsNone(r["escalada"])
+
     def test_sin_topologia_no_hay_a_donde_escalar(self):
         r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), y("perfil.yml"),
                                "prueba", CAT, self.HostCaido(), "d1", "t")

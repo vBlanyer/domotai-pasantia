@@ -105,6 +105,16 @@ class TestClasificar(unittest.TestCase):
         r = analisis.clasificar(a, {"origen_legitimo": True, "postura": None, "criticidad": "alta"})
         self.assertEqual(r["clase"], "fp_actividad_legitima")
 
+    def test_denegacion_servicio_usa_la_clase_del_registro(self):
+        # 7ª familia (DoS/flood): el flujo volumétrico ES la amenaza, no depende de la postura.
+        a = dict(self.alerta); a["familia"] = "denegacion_servicio"
+        r = analisis.clasificar(a, {"postura": {"expuesto": False}, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "vp_denegacion_servicio")
+        self.assertEqual(r["confianza"], 1.0)
+
+    def test_vp_denegacion_servicio_esta_en_el_catalogo_de_clases(self):
+        self.assertIn("vp_denegacion_servicio", analisis.CLASES[4:])   # al final, no desplaza la numeración
+
     def test_abuso_de_cuenta_desde_origen_legitimo_sigue_siendo_fp(self):
         # El origen legítimo precede a la clase declarada: un admin declarado no se trata como amenaza.
         a = dict(self.alerta); a["familia"] = "abuso_de_cuenta"

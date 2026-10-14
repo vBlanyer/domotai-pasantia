@@ -2,7 +2,7 @@
 
 Asesor, NO ejecutor: no cambia la accion automatica (`politica.proponer`) ni el filtro del perfil.
 Produce la `recomendacion` que ve el analista/agente: una respuesta de un conjunto cerrado
-{contener_origen, endurecer_servicio, enrutar, observar, aislar_host} y la accion de catalogo sugerida. Se indexa
+{contener_origen, endurecer_servicio, enrutar, observar, aislar_host, limitar_banda} y la accion de catalogo sugerida. Se indexa
 por familia y, opcionalmente, por nombre de servicio (que prevalece sobre la familia).
 """
 import os, yaml
@@ -12,7 +12,8 @@ RUTA = os.path.join(os.path.dirname(__file__), "correspondencia.yml")
 _REGISTRO = None
 # La respuesta mapea a una accion del catalogo por defecto (override con `accion_sugerida` en el dato).
 _ACCION_POR_RESPUESTA = {"contener_origen": "BLOQUEAR_IP", "endurecer_servicio": "CERRAR_SERVICIO",
-                         "enrutar": None, "observar": None, "aislar_host": "AISLAR_NODO"}
+                         "enrutar": None, "observar": None, "aislar_host": "AISLAR_NODO",
+                         "limitar_banda": "LIMITAR_BANDA"}
 
 
 def cargar(ruta=RUTA):
