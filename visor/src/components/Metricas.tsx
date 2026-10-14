@@ -135,7 +135,7 @@ export function Metricas() {
               : "No hay decisiones en este periodo. Prueba otro rango."}</Vacio>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 print:grid-cols-3">
                 <Kpi valor={pct(m.tasa_fp)} etiqueta="tasa de falsos positivos" aviso={m.tasa_fp > 0} />
                 <Kpi valor={pct(m.pct_auto)} etiqueta="resuelto sin humano (automatizado)" />
                 <Kpi valor={pct(m.pct_humano ?? 0)} etiqueta="escalado a decisión humana" />
@@ -144,7 +144,7 @@ export function Metricas() {
                 <Kpi valor={pct(m.tasa_override ?? 0)} etiqueta="corrección del analista (override)" aviso={(m.tasa_override ?? 0) > 0} />
               </div>
 
-              <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 print:grid-cols-2">
                 <Tarjeta titulo="Decisiones por clase">
                   <Donut unidad="decisiones" total={m.total}
                     data={Object.keys(m.por_clase).sort().map((c, i): Segmento =>

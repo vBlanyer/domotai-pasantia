@@ -135,3 +135,24 @@
     @apply font-sans;
   }
 }
+/* ------------------------------------------------------------------ Impresión --
+   El informe ("Métricas e informe" -> Guardar PDF) usa window.print(). Sin esto se
+   descolocaba: en tema oscuro imprimía fondo negro, los grids de 3 columnas no caben
+   en la página y los colores de los gráficos no salían. Forzamos una paleta CLARA para
+   imprimir (aunque el visor esté en oscuro) y que los colores de marcas/gráficos se
+   respeten. El reflujo a una columna lo hacen las utilidades print:grid-cols-1. */
+@media print {
+  @page { margin: 1.2cm; }
+  :root, .dark {
+    --background: #ffffff; --foreground: #111111;
+    --card: #ffffff; --card-foreground: #111111;
+    --muted: #f4f4f5; --muted-foreground: #555555;
+    --border: #d4d4d8; --primary: #1f2937; --primary-foreground: #ffffff;
+    color-scheme: light;
+  }
+  html, body { background: #ffffff !important; color: #111111 !important; }
+  /* que los fondos/colores de gráficos, pastillas y barras laterales salgan impresos */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* evita cortar una tarjeta/sección del informe entre dos páginas */
+  .break-inside-avoid { break-inside: avoid; }
+}
