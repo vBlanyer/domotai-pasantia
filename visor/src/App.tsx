@@ -43,7 +43,7 @@ export default function App() {
   const titulo = vista === "incidente" ? "Incidente" : NAV.find((n) => n.id === vista)!.nombre
 
   return (
-    <div className="flex min-h-screen bg-[#f7f7f5] text-foreground dark:bg-[#0d0d0d]">
+    <div className="flex min-h-screen bg-[#f7f7f5] text-foreground dark:bg-[#0d0d0d] print:bg-white">
       {menu && (
         <div className="fixed inset-0 z-30 bg-black/40 md:hidden print:hidden" onClick={() => setMenu(false)} />
       )}
