@@ -46,7 +46,7 @@ export function MatrizAttack({ tecnicas }: { tecnicas: Tecnica[] }) {
   return (
     <div>
       <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-        <span>cobertura: la reconocemos</span>
+        <span>cobertura por familia: la reconocemos</span>
         <span className="h-3 w-3 rounded-sm border border-dashed border-border" />
         <span className="ml-2">actividad:</span>
         <span className="flex overflow-hidden rounded-sm">

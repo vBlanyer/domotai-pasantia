@@ -191,13 +191,12 @@ class TestLectoresDeDatos(unittest.TestCase):
         regs = [
             {"tipo": "actividad_suprimida", "alertas_suprimidas": 5},
             {"clase": "vp_intento_acceso", "requiere_humano": False, "activo": "web-banking",
-             "timestamp": "2026-09-24T10:00:00Z",
-             "justificacion_estructurada": {"tecnica_mitre": ["T1110.001", "T1021.004"]}},
+             "timestamp": "2026-09-24T10:00:00Z", "contexto": {"familia": "acceso_credenciales"}},
             {"clase": "vp_intento_acceso", "requiere_humano": True, "veredicto_humano": "aprobar",
              "activo": "core-db", "timestamp": "2026-09-24T11:00:00Z", "recibido_en": 100.0, "resuelto_en": 112.0,
-             "justificacion_estructurada": {"tecnica_mitre": ["T1110.001"]}},
+             "contexto": {"familia": "acceso_credenciales"}},
             {"clase": "fp_actividad_legitima", "requiere_humano": True, "veredicto_humano": "rechazar",
-             "activo": "web-banking", "timestamp": "2026-09-23T09:00:00Z"},
+             "activo": "web-banking", "timestamp": "2026-09-23T09:00:00Z", "contexto": {"familia": "reconocimiento"}},
         ]
         m = tablero.metricas(regs)
         self.assertEqual(m["total"], 3)                 # sin la suprimida
@@ -209,7 +208,12 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(m["mttr_seg"], 12.0)           # (112-100) de la única con marcas
         self.assertEqual(m["por_clase"]["vp_intento_acceso"], 2)
         self.assertEqual({a["nombre"]: a["n"] for a in m["top_activos"]}["web-banking"], 2)
-        self.assertEqual({t["tecnica"]: t["n"] for t in m["mitre"]}["T1110.001"], 2)
+        # mitre = COBERTURA POR FAMILIA: cada decisión cuenta por TODAS las técnicas de su familia
+        # (familias.yml), no solo la que trajo la regla. 2 acceso_credenciales -> T1110 y T1078 = 2 c/u.
+        mit = {t["tecnica"]: t["n"] for t in m["mitre"]}
+        self.assertEqual(mit["T1110"], 2)
+        self.assertEqual(mit["T1078"], 2)
+        self.assertEqual(mit["T1595"], 1)               # 1 reconocimiento -> T1595 y T1046
         self.assertEqual([d["n"] for d in m["por_dia"]], [1, 2])   # 23 (1) antes que 24 (2)
         # Métricas de valor: carga del analista y cuánto corrige al motor.
         self.assertEqual(m["escalado_humano"], 2)                  # 2 de 3 fueron a un humano
@@ -217,6 +221,20 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(m["resueltos_humano"], 2)                 # aprobar + rechazar
         self.assertEqual(m["override"], 1)                         # 1 rechazar (corrigió al motor)
         self.assertEqual(m["tasa_override"], round(1 / 2, 3))
+
+    def test_metricas_mitre_es_cobertura_por_familia_incluidas_fim_y_dos(self):
+        # Un ataque por familia enciende TODAS las técnicas de esa familia -> la matriz se llena.
+        regs = [
+            {"clase": "vp_integridad", "contexto": {"familia": "integridad_fichero"}},
+            {"clase": "vp_denegacion_servicio", "contexto": {"familia": "denegacion_servicio"}},
+            {"clase": "no_soportada", "contexto": {"familia": "plataforma"}},   # familia sin técnicas -> no cuenta
+        ]
+        mit = {t["tecnica"]: t["n"] for t in tablero.metricas(regs)["mitre"]}
+        self.assertEqual(mit.get("T1565"), 1)   # integridad_fichero
+        self.assertEqual(mit.get("T1070"), 1)
+        self.assertEqual(mit.get("T1498"), 1)   # denegacion_servicio
+        self.assertEqual(mit.get("T1499"), 1)
+        self.assertNotIn("T9999", mit)          # plataforma no aporta técnicas
 
     def test_metricas_filtra_por_rango_de_fechas_para_el_informe(self):
         regs = [

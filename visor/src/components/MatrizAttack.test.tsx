@@ -1,23 +1,24 @@
 import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { MatrizAttack } from "./MatrizAttack"
+import { TECNICAS } from "@/attack"
 
 describe("MatrizAttack", () => {
   it("agrupa cada técnica observada bajo su táctica y muestra el conteo", () => {
-    render(<MatrizAttack tecnicas={[{ tecnica: "T1110.001", n: 161 }, { tecnica: "T1021.004", n: 137 }]} />)
+    render(<MatrizAttack tecnicas={[{ tecnica: "T1110", n: 161 }, { tecnica: "T1210", n: 137 }]} />)
     // columnas por táctica (nuestra taxonomía, no las 14 de enterprise)
-    expect(screen.getByText("Acceso a credenciales")).toBeInTheDocument()   // T1110.*
-    expect(screen.getByText("Movimiento lateral")).toBeInTheDocument()      // T1021.*
-    const celda = document.querySelector('[data-tecnica="T1110.001"]')
+    expect(screen.getByText("Acceso a credenciales")).toBeInTheDocument()   // T1110
+    expect(screen.getByText("Movimiento lateral")).toBeInTheDocument()      // T1210
+    const celda = document.querySelector('[data-tecnica="T1110"]')
     expect(celda).toHaveAttribute("data-activa", "true")
     expect(celda).toHaveTextContent("161")
   })
 
   it("una técnica cubierta pero no vista aparece inactiva (tenue)", () => {
-    render(<MatrizAttack tecnicas={[{ tecnica: "T1110.001", n: 10 }]} />)
-    expect(document.querySelector('[data-tecnica="T1110.001"]')).toHaveAttribute("data-activa", "true")
-    // T1110.002 está en el mapa (la cubrimos) pero no se ha visto -> inactiva
-    expect(document.querySelector('[data-tecnica="T1110.002"]')).toHaveAttribute("data-activa", "false")
+    render(<MatrizAttack tecnicas={[{ tecnica: "T1110", n: 10 }]} />)
+    expect(document.querySelector('[data-tecnica="T1110"]')).toHaveAttribute("data-activa", "true")
+    // T1548 está en el mapa (la cubrimos) pero no se ha visto -> inactiva
+    expect(document.querySelector('[data-tecnica="T1548"]')).toHaveAttribute("data-activa", "false")
   })
 
   it("una técnica desconocida no rompe la matriz y cae a 'Otras' con su id", () => {
@@ -33,11 +34,12 @@ describe("MatrizAttack", () => {
     expect(screen.queryByText("Otras")).not.toBeInTheDocument()
   })
 
-  it("cubre T1055 (aparece en trazas reales) bajo Evasión de defensas, no en 'Otras'", () => {
-    render(<MatrizAttack tecnicas={[{ tecnica: "T1055", n: 17 }]} />)
-    expect(screen.getByText("Evasión de defensas")).toBeInTheDocument()
+  it("cubre las familias nuevas bajo Impacto: FIM (T1565) y DoS (T1498/T1499), no en 'Otras'", () => {
+    render(<MatrizAttack tecnicas={[{ tecnica: "T1565", n: 2 }, { tecnica: "T1498", n: 1 }, { tecnica: "T1499", n: 1 }]} />)
+    expect(screen.getByText("Impacto")).toBeInTheDocument()
     expect(screen.queryByText("Otras")).not.toBeInTheDocument()
-    expect(document.querySelector('[data-tecnica="T1055"]')).toHaveAttribute("data-activa", "true")
+    expect(document.querySelector('[data-tecnica="T1565"]')).toHaveAttribute("data-activa", "true")
+    expect(document.querySelector('[data-tecnica="T1498"]')).toHaveAttribute("data-activa", "true")
   })
 
   it("cubre la familia abuso de cuenta (T1548 escalada, T1136/T1098 persistencia), no en 'Otras'", () => {
@@ -47,5 +49,15 @@ describe("MatrizAttack", () => {
     expect(document.querySelector('[data-tecnica="T1548"]')).toHaveAttribute("data-activa", "true")
     expect(document.querySelector('[data-tecnica="T1136"]')).toHaveAttribute("data-activa", "true")
     expect(document.querySelector('[data-tecnica="T1098"]')).toHaveAttribute("data-activa", "true")
+  })
+
+  it("con cobertura de las 7 familias, TODAS las celdas de la matriz quedan activas (se llena entera)", () => {
+    // Cobertura por familia: un ataque por familia enciende todas las técnicas de familias.yml.
+    const todas = Object.keys(TECNICAS).map((t) => ({ tecnica: t, n: 1 }))
+    render(<MatrizAttack tecnicas={todas} />)
+    expect(screen.queryByText("Otras")).not.toBeInTheDocument()   // nada fuera del mapa
+    const celdas = Array.from(document.querySelectorAll("[data-tecnica]"))
+    expect(celdas.length).toBe(Object.keys(TECNICAS).length)
+    expect(celdas.every((c) => c.getAttribute("data-activa") === "true")).toBe(true)
   })
 })

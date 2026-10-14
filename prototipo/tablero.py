@@ -14,7 +14,7 @@ import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from prototipo import actores, red, traza
+from prototipo import actores, familias, red, traza
 
 _MARCA_INCIDENTE = "⚠"   # el resumen de incidente de stream empieza por esta marca
 # Cota del listado /api/trazas: el visor lo sondea cada 2 s, y sin ella cada tick releería y
@@ -417,6 +417,7 @@ def metricas(regs, desde=None, hasta=None):
     por_clase, veredictos, por_dia, activos, mitre = {}, {}, {}, {}, {}
     fp = auto = 0
     tiempos = []
+    reg_familias = familias.registro()
     for r in dec:
         c = r.get("clase") or "otra"
         por_clase[c] = por_clase.get(c, 0) + 1
@@ -433,7 +434,14 @@ def metricas(regs, desde=None, hasta=None):
         a = r.get("activo")
         if a:
             activos[a] = activos.get(a, 0) + 1
-        for t in (r.get("justificacion_estructurada") or {}).get("tecnica_mitre") or []:
+        # Matriz ATT&CK = COBERTURA POR FAMILIA: cada decisión cuenta por TODAS las técnicas que su
+        # familia declara en familias.yml, no solo la que trajo la regla (una regla etiqueta menos
+        # técnicas que su familia: fuerza bruta solo T1110, pero acceso_credenciales cubre T1110+T1078).
+        # Así un ataque por familia enciende la columna entera y el visor refleja la cobertura real del
+        # MDR, no el ruido de qué subtécnica concreta puso Wazuh. La traza por incidente conserva la
+        # técnica cruda (justificacion_estructurada.tecnica_mitre); esto es solo el agregado de cobertura.
+        familia = (r.get("contexto") or {}).get("familia")
+        for t in (reg_familias.get(familia) or {}).get("mitre") or []:
             mitre[t] = mitre.get(t, 0) + 1
         ini, fin = r.get("recibido_en"), r.get("resuelto_en")
         if isinstance(ini, (int, float)) and isinstance(fin, (int, float)):

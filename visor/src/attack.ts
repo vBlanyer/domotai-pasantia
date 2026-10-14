@@ -1,8 +1,10 @@
-// Referencia MITRE ATT&CK: dato ESTÁTICO (no de runtime). La API ya agrega el conteo por técnica
-// (`metricas.mitre = [{tecnica, n}]`); aquí vive el único dato que falta para pintar la matriz: a qué
-// TÁCTICA pertenece cada técnica y su nombre legible. Solo cubrimos las técnicas que el sistema
-// reconoce de verdad (dataset + banco + reglas), no las ~200 de enterprise. Una técnica multitáctica
-// se coloca en su táctica PRIMARIA según cómo la usa el prototipo (anotado donde aplica).
+// Referencia MITRE ATT&CK: dato ESTÁTICO (no de runtime). La matriz es una vista de COBERTURA POR
+// FAMILIA: la API agrega `metricas.mitre = [{tecnica, n}]` expandiendo cada decisión a TODAS las
+// técnicas que declara su familia (`prototipo/familias.yml`), no la subtécnica concreta que puso
+// Wazuh. Por eso aquí vive EXACTAMENTE el conjunto de técnicas de las 7 familias (ni más —no las ~200
+// de enterprise ni subtécnicas aspiracionales— ni menos): así un ataque por familia enciende su
+// columna entera y la matriz refleja la cobertura real del MDR. DEBE mantenerse en sync con los
+// campos `mitre` de familias.yml. Cada técnica se coloca en su táctica ATT&CK.
 
 export type Tactica = { id: string; nombre: string }
 
@@ -17,42 +19,31 @@ export const TACTICAS: Tactica[] = [
   { id: "credential-access", nombre: "Acceso a credenciales" },
   { id: "discovery", nombre: "Descubrimiento" },
   { id: "lateral-movement", nombre: "Movimiento lateral" },
+  { id: "impact", nombre: "Impacto" },
 ]
 
+// Las 14 técnicas de las 7 familias (familias.yml). Multitáctica -> táctica primaria según el uso.
 export const TECNICAS: Record<string, { nombre: string; tactica: string }> = {
+  // reconocimiento
   T1595: { nombre: "Escaneo activo", tactica: "reconnaissance" },
-  "T1595.001": { nombre: "Escaneo de bloques IP", tactica: "reconnaissance" },
-  "T1595.002": { nombre: "Escaneo de vulnerabilidades", tactica: "reconnaissance" },
-  "T1595.003": { nombre: "Escaneo con diccionario", tactica: "reconnaissance" },
-  T1190: { nombre: "Explotación de aplicación pública", tactica: "initial-access" },
-  T1133: { nombre: "Servicios remotos externos", tactica: "initial-access" },
-  // T1078 es multitáctica (también persistencia/evasión/escalada); como la usa el prototipo
-  // —entrar con credenciales válidas— su táctica primaria es el acceso inicial.
+  T1046: { nombre: "Descubrimiento de servicios de red", tactica: "discovery" },
+  // acceso_credenciales (T1078 multitáctica; su uso aquí —entrar con credenciales válidas— es acceso inicial)
+  T1110: { nombre: "Fuerza bruta", tactica: "credential-access" },
   T1078: { nombre: "Cuentas válidas", tactica: "initial-access" },
-  "T1078.001": { nombre: "Cuentas por defecto", tactica: "initial-access" },
-  "T1078.003": { nombre: "Cuentas locales", tactica: "initial-access" },
+  // servicio_expuesto / explotacion_conocida
+  T1190: { nombre: "Explotación de aplicación pública", tactica: "initial-access" },
   T1203: { nombre: "Explotación para ejecución en cliente", tactica: "execution" },
-  // Familia abuso_de_cuenta (escalada / manipulación de cuentas). T1548/T1098 son multitáctica; se
-  // colocan en su táctica primaria según cómo las usa el prototipo (escalada y persistencia de cuenta).
+  T1210: { nombre: "Explotación de servicios remotos", tactica: "lateral-movement" },
+  // abuso_de_cuenta (escalada / manipulación de cuentas; T1548/T1098 multitáctica, táctica primaria)
+  T1548: { nombre: "Abuso de mecanismo de elevación (sudo)", tactica: "privilege-escalation" },
   T1136: { nombre: "Crear cuenta", tactica: "persistence" },
   T1098: { nombre: "Manipulación de cuentas", tactica: "persistence" },
-  T1548: { nombre: "Abuso de mecanismo de elevación (sudo)", tactica: "privilege-escalation" },
-  T1211: { nombre: "Explotación para escalada de privilegios", tactica: "privilege-escalation" },
-  // T1055 es multitáctica (evasión de defensas / escalada); su táctica primaria en ATT&CK es la
-  // evasión de defensas. Aparece en trazas reales del banco, así que la cubrimos explícitamente.
-  T1055: { nombre: "Inyección de procesos", tactica: "defense-evasion" },
-  T1110: { nombre: "Fuerza bruta", tactica: "credential-access" },
-  "T1110.001": { nombre: "Adivinación de contraseña", tactica: "credential-access" },
-  "T1110.002": { nombre: "Descifrado de contraseña", tactica: "credential-access" },
-  "T1110.003": { nombre: "Password spraying", tactica: "credential-access" },
-  "T1110.004": { nombre: "Relleno de credenciales", tactica: "credential-access" },
-  T1212: { nombre: "Explotación para acceso a credenciales", tactica: "credential-access" },
-  T1046: { nombre: "Descubrimiento de servicios de red", tactica: "discovery" },
-  T1021: { nombre: "Servicios remotos", tactica: "lateral-movement" },
-  "T1021.001": { nombre: "Escritorio remoto (RDP)", tactica: "lateral-movement" },
-  "T1021.002": { nombre: "SMB / recursos admin", tactica: "lateral-movement" },
-  "T1021.004": { nombre: "SSH", tactica: "lateral-movement" },
-  T1210: { nombre: "Explotación de servicios remotos", tactica: "lateral-movement" },
+  // integridad_fichero (FIM)
+  T1565: { nombre: "Manipulación de datos", tactica: "impact" },
+  T1070: { nombre: "Borrado de indicadores", tactica: "defense-evasion" },
+  // denegacion_servicio (DoS)
+  T1498: { nombre: "Denegación de servicio de red", tactica: "impact" },
+  T1499: { nombre: "Denegación de servicio de endpoint", tactica: "impact" },
 }
 
 // Técnicas de una táctica, ordenadas por id (padre antes que subtécnicas por el orden lexicográfico).
