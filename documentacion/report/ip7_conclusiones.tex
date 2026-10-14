@@ -17,7 +17,7 @@ alertas de seguridad, justificando cada decisión con un modelo de lenguaje apoy
 aumentada por recuperación ejecutada en local, y que redujera los falsos positivos sin sacrificar
 la detección de amenazas reales. Los resultados del capítulo \ref{cap:resultados} sostienen que ese
 objetivo se cumplió dentro del caso de uso acotado sobre el que se evaluó: el prototipo suprimió
-los falsos positivos que el nivel de regla de Wazuh deja pasar ---tasa de 0,000 frente a 0,282---,
+los falsos positivos que el nivel de regla de Wazuh deja pasar ---tasa de 0,000 frente a 0,282 en el caso acotado original de una familia, y de 0,009 frente a 0,310 sobre la partición final de 300 alertas---,
 sin dejar de detectar ninguna amenaza real y sin ejecutar ninguna acción que hubiera interrumpido
 indebidamente un servicio del cliente. Una ampliación posterior ---la conciencia de impacto, medida
 sobre el laboratorio donde el atacante es interno--- ejercitó el escenario más exigente de esta
@@ -173,6 +173,20 @@ que el prototipo evaluado hacía por terminal, se llevó además a un \textbf{vi
 de operaciones con el flujo de decisiones, la cola de aprobaciones, una matriz de cobertura MITRE
 ATT\&CK, el grafo del incidente sobre el mapa de la red y un informe exportable, desde la que el
 analista aprueba, pausa la automatización o revierte una contención sin salir del navegador.
+
+El propio sistema se sometió además a una auditoría de seguridad ---un \emph{pentest} del MDR
+tratándolo como si estuviera en producción--- que enumeró diecinueve puntos y motivó una tanda de
+endurecimiento posterior, también sin alterar las cifras de la evaluación. De ella salieron la firma
+\textbf{HMAC} opcional de la cadena de la traza (para que quien pueda reescribir el fichero no pueda
+recalcular una cadena válida sin la clave), el conector \emph{fail-closed} (no ejecuta nada sin
+credencial), el blindaje de la consola contra peticiones forzadas entre sitios (validación de
+\texttt{Host} y \texttt{Origin}, CORS restringido) y, de forma destacada, una \textbf{autenticación
+opcional de la consola} por \emph{token} con no repudio del operador: la consola, ligada únicamente a
+\texttt{127.0.0.1}, no exigía credencial, y ahora puede hacerlo cuando el cliente lo active. Ninguna de
+estas piezas cambia una decisión del motor; todas responden a la misma pregunta que recorre el trabajo
+---qué hace falta para que un analista pueda creer al sistema--- y, con la misma honestidad, nombran lo
+que todavía falta: el inicio de sesión corporativo y el cifrado del canal son parte del despliegue del
+cliente.
 
 \subsection*{Trabajo futuro}
 
