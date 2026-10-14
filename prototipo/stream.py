@@ -886,6 +886,8 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
             operadores = json.loads(_ops)
         except (ValueError, TypeError):
             operadores = {}      # fail-safe: un JSON inválido no tumba el daemon ni abre la consola
+        if not isinstance(operadores, dict):
+            operadores = {}      # un JSON válido pero de otra forma ([..]/42) tampoco debe colarse
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
                                       catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)

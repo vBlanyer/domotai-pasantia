@@ -401,6 +401,22 @@ class TestAuth(unittest.TestCase):
         self.assertEqual(tablero.operador_de(ops, "Bearer tok-ana"), "ana")
         self.assertIsNone(tablero.operador_de(ops, "Bearer desconocido"))
         self.assertIsNone(tablero.operador_de({}, "Bearer x"))
+        self.assertIsNone(tablero.operador_de([1, 2], "Bearer x"))      # no-dict -> None, no revienta
+
+    def test_autorizado_acepta_coleccion_de_tokens(self):
+        # un token por persona (#8): cualquiera de la colección autentica
+        self.assertTrue(tablero.autorizado(["tok-ana", "tok-leo"], "Bearer tok-leo"))
+        self.assertFalse(tablero.autorizado(["tok-ana", "tok-leo"], "Bearer nadie"))
+        self.assertTrue(tablero.autorizado([None, "x"], "Bearer x"))
+        self.assertTrue(tablero.autorizado([], "Bearer x"))             # sin tokens -> abierta
+
+    def test_token_no_ascii_no_revienta(self):
+        # compare_digest sobre bytes: un token con tildes no debe lanzar TypeError
+        self.assertTrue(tablero.autorizado("café", "Bearer café"))
+        self.assertFalse(tablero.autorizado("café", "Bearer latte"))
+
+    def test_bearer_es_case_insensitive(self):
+        self.assertTrue(tablero.autorizado("s", "bearer s"))
 
 
 class TestServidor(unittest.TestCase):
@@ -431,6 +447,14 @@ class TestServidor(unittest.TestCase):
     def test_sin_token_la_api_sigue_abierta(self):
         _, puerto = self._servidor()                                   # comportamiento actual intacto
         self.assertEqual(self._get(puerto, "/api/pendientes")[0], 200)
+
+    def test_token_por_persona_autentica(self):
+        # #8: cada persona con su token; todos autentican, uno desconocido no (no-repudio real)
+        _, puerto = self._servidor(operadores={"tok-ana": "ana", "tok-leo": "leo"})
+        self.assertEqual(self._get(puerto, "/api/pendientes")[0], 401)
+        self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer tok-ana"})[0], 200)
+        self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer tok-leo"})[0], 200)
+        self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer nadie"})[0], 401)
 
     def _get(self, puerto, ruta):
         c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)

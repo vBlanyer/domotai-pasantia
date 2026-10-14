@@ -605,24 +605,35 @@ def _host_de(valor):
 
 
 def _token_de(cabecera):
-    """El token de una cabecera 'Authorization: Bearer <token>'; '' si no hay o no es Bearer."""
+    """El token de una cabecera 'Authorization: Bearer <token>'; '' si no hay o no es Bearer
+    (el esquema es case-insensitive, RFC 6750)."""
     c = (cabecera or "").strip()
-    return c[7:].strip() if c.startswith("Bearer ") else ""
+    return c[7:].strip() if c[:7].lower() == "bearer " else ""
 
 
-def autorizado(token_configurado, cabecera_authorization):
-    """Auth OPCIONAL de la consola (#6). Sin token configurado -> True (abierta, como hoy). Con token
-    -> exige exactamente 'Bearer <token>', con comparación en tiempo constante (anti-timing)."""
-    if not token_configurado:
+def autorizado(tokens_validos, cabecera_authorization):
+    """Auth OPCIONAL de la consola (#6). `tokens_validos` es el token compartido (str) o la colección
+    de tokens válidos (uno por persona, #8). Vacío/None -> True (consola abierta, como hoy). Si hay
+    tokens, exige 'Bearer <token>' con uno de ellos (compare_digest sobre bytes: tiempo constante y
+    admite no-ASCII sin reventar)."""
+    if isinstance(tokens_validos, str):
+        tokens_validos = [tokens_validos]
+    tokens = [t for t in (tokens_validos or []) if t]
+    if not tokens:
         return True
     presentado = _token_de(cabecera_authorization)
-    return bool(presentado) and hmac.compare_digest(presentado, token_configurado)
+    if not presentado:
+        return False
+    pb = presentado.encode("utf-8")
+    return any(hmac.compare_digest(pb, t.encode("utf-8")) for t in tokens)
 
 
 def operador_de(operadores, cabecera_authorization):
     """El operador que identifica el token presentado (no repudio, #8), o None. `operadores` mapea
     token->nombre: un token por persona da atribución real; el token compartido simple no mapea."""
-    return (operadores or {}).get(_token_de(cabecera_authorization)) or None
+    if not isinstance(operadores, dict):
+        return None
+    return operadores.get(_token_de(cabecera_authorization)) or None
 
 
 class _Manejador(BaseHTTPRequestHandler):
@@ -635,8 +646,12 @@ class _Manejador(BaseHTTPRequestHandler):
         return _host_de(self.headers.get("Host")) in _HOSTS_OK
 
     def _auth_ok(self):
-        # Auth opcional (#6): sin token configurado pasa; con token exige el Bearer correcto.
-        return autorizado(getattr(self.server, "token", None), self.headers.get("Authorization"))
+        # Auth opcional (#6): válido = el token compartido Y cualquiera del mapa de operadores (#8),
+        # para que un token por persona autentique y además atribuya. Sin ninguno, consola abierta.
+        s = self.server
+        ops = getattr(s, "operadores", None)
+        claves = list(ops.keys()) if isinstance(ops, dict) else []
+        return autorizado([getattr(s, "token", None), *claves], self.headers.get("Authorization"))
 
     def _origen_ok(self):
         # Anti-CSRF para las acciones: un POST desde el navegador SIEMPRE trae Origin; si viene de un
@@ -654,7 +669,7 @@ class _Manejador(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", o)
             self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
     def do_OPTIONS(self):
         if not self._host_ok():
