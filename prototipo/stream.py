@@ -458,6 +458,24 @@ def _contar(resumen, d, incidente=True):
     if (d.get("mitigacion_agente") or {}).get("resultado") == "mitigado":   # camino agente
         resumen["ejecutadas"] += 1
 
+# Tope de hilos del agente en modo web (#2 / pentest #13b): el modo agente lanza un hilo por
+# incidente; sin cota, un aluvión de incidentes distintos agota los hilos. Se acota con un semáforo
+# que se adquiere ANTES de arrancar (backpressure: el bucle de ingesta espera si el pool está lleno).
+_MAX_HILOS_AGENTE = int(os.environ.get("TRIAJE_MAX_HILOS_AGENTE") or "8")
+
+
+def _lanzar_acotado(pool, fn):
+    """Lanza fn() en un hilo demonio acotado por `pool` (BoundedSemaphore): adquiere en el hilo que
+    llama (backpressure si está lleno) y libera al terminar la tarea, pase lo que pase."""
+    pool.acquire()
+    def _correr():
+        try:
+            fn()
+        finally:
+            pool.release()
+    threading.Thread(target=_correr, daemon=True).start()
+
+
 def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
              justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
@@ -537,6 +555,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     # propio de la tarjeta de ese incidente). `_en_vuelo` evita que una repetición lance un segundo
     # agente mientras el primero sigue pendiente del analista.
     _en_vuelo, _en_vuelo_lock = {}, threading.Lock()
+    _pool_agente = threading.BoundedSemaphore(_MAX_HILOS_AGENTE)   # acota los hilos del modo agente (#2)
     def _procesar_incidente_async(inc, id_decision, clave):
         esc, lee = escribir, leer
         if lector_incidente is not None:
@@ -610,8 +629,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             if lector_incidente is not None:
                 with _en_vuelo_lock:
                     _en_vuelo[clave] = id_decision
-                threading.Thread(target=_procesar_incidente_async, args=(inc, id_decision, clave),
-                                 daemon=True).start()
+                _lanzar_acotado(_pool_agente, lambda inc=inc, id_decision=id_decision, clave=clave:
+                                _procesar_incidente_async(inc, id_decision, clave))
             else:
                 _procesar_incidente_async(inc, id_decision, clave)
 
@@ -719,14 +738,21 @@ def leer_lineas_stdin(stream=sys.stdin, intervalo=0.5):
         if len(pendiente) > _MAX_LINEA:     # línea sin salto demasiado larga -> descartar (anti-OOM)
             pendiente, descartando = b"", True
 
-def leer_lineas_fichero(ruta, intervalo=0.5, desde_inicio=False, detener=None, dormir=time.sleep):
+def leer_lineas_fichero(ruta, intervalo=0.5, desde_inicio=False, detener=None, dormir=time.sleep,
+                        una_vez=False):
     """Sigue un fichero como `tail -f`. Tolera que no exista aun (espera activa). Reabre en
-    rotacion/truncado. Rinde None en reposo para que la ventana pueda vencer sin lineas nuevas."""
+    rotacion/truncado. Rinde None en reposo para que la ventana pueda vencer sin lineas nuevas.
+    Con `una_vez` lo lee desde el principio y PARA en EOF (procesa-y-sale, para un fichero finito:
+    pruebas, demos, reproceso puntual) en vez de quedarse siguiendolo para siempre (#6)."""
+    if una_vez:
+        desde_inicio = True
     f, pos = None, 0
     try:
         while detener is None or not detener():
             if f is None:
                 if not os.path.exists(ruta):
+                    if una_vez:                    # nada que procesar y no se sigue: termina
+                        return
                     yield None
                     dormir(intervalo)
                     continue
@@ -745,6 +771,8 @@ def leer_lineas_fichero(ruta, intervalo=0.5, desde_inicio=False, detener=None, d
             if linea:
                 pos = f.tell()
                 yield linea
+            elif una_vez:                          # EOF en modo una-vez: procesa y termina
+                return
             else:
                 yield None
                 dormir(intervalo)
@@ -761,6 +789,7 @@ _HALLAZGOS_DEF = os.path.join(_RAIZ, "lab", "campañas", "2026-08-31-evaluacion"
 def parsear_args(argv):
     pos, con_llm, ventana, salida, sin_lab, agente = [], False, 5, "run/trazas-stream.jsonl", False, False
     web, web_puerto, sin_supresion = False, 8787, False
+    una_vez = False
     escuchar, permitir, tls_cert, tls_clave = None, None, None, None   # permitir None = flag ausente (abierto)
     i = 0
     while i < len(argv):
@@ -770,6 +799,7 @@ def parsear_args(argv):
         elif a == "--sin-lab": sin_lab = True
         elif a == "--agente": agente = True
         elif a == "--sin-supresion": sin_supresion = True
+        elif a == "--una-vez": una_vez = True            # lee un fichero finito hasta EOF y sale (#6)
         elif a == "--web":
             web = True
             if i + 1 < len(argv) and argv[i + 1].isdigit(): i += 1; web_puerto = int(argv[i])
@@ -786,6 +816,7 @@ def parsear_args(argv):
             "hallazgos": pos[2] if len(pos) > 2 else _HALLAZGOS_DEF,
             "con_llm": con_llm, "ventana": ventana, "salida": salida, "sin_lab": sin_lab,
             "agente": agente, "web": web, "web_puerto": web_puerto, "sin_supresion": sin_supresion,
+            "una_vez": una_vez,
             "escuchar": escuchar, "permitir": permitir, "tls_cert": tls_cert, "tls_clave": tls_clave}
 
 def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hallazgos=None):
@@ -966,7 +997,8 @@ def main(argv):
               + (" · TLS" if ctx else "")
               + (f" · permitidas {','.join(cfg['permitir'])}" if cfg["permitir"] else " · SIN lista blanca (abierto)"))
     else:
-        fuente = leer_lineas_stdin() if cfg["ruta"] == "-" else leer_lineas_fichero(cfg["ruta"])
+        fuente = (leer_lineas_stdin() if cfg["ruta"] == "-"
+                  else leer_lineas_fichero(cfg["ruta"], una_vez=cfg["una_vez"]))
     print(banner(cfg, ejecutor))
     try:                                           # cordura del perfil al arrancar (B11), sin romper
         for aviso in perfilm.validar(perfil):

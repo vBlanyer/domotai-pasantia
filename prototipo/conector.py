@@ -2,6 +2,14 @@
 import ipaddress, json, os, re, sys
 
 _SEGURO = re.compile(r'^[A-Za-z0-9._:-]+\Z')   # IPs, puertos, nombres de servicio: sin metacaracteres de shell
+
+# Secretos del propio MDR que el subproceso (docker/ssh) NO necesita: se filtran de su entorno para no
+# exponerlos vía /proc/<pid>/environ a un usuario local del nodo de gestión (endurecimiento V1.1 #3).
+_SECRETOS_ENTORNO = ("TRIAJE_TRAZA_CLAVE", "TRIAJE_ANCLA", "TRIAJE_CONSOLA_TOKEN", "TRIAJE_CONSOLA_OPERADORES")
+
+
+def _env_filtrado():
+    return {k: v for k, v in os.environ.items() if k not in _SECRETOS_ENTORNO}
 # \Z (no $) para que un \n final no cuele -> separador de comandos en el shell remoto.
 
 
@@ -69,10 +77,18 @@ def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
 def _main(argv):  # lee una orden de stdin y la ejecuta (frontera de proceso; futuro conector en Go)
     import os
     from prototipo import catalogo as catm
-    orden = json.loads(sys.stdin.read())
-    cat = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
-    r = ejecutar_orden(orden, cat, ejecutor_por_defecto(), argv[1] if len(argv) > 1 else "")
+    try:
+        orden = json.loads(sys.stdin.read())
+        cat = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
+        r = ejecutar_orden(orden, cat, ejecutor_por_defecto(), argv[1] if len(argv) > 1 else "")
+    except Exception as e:
+        # Frontera FAIL-CLOSED (V1.1 #5 / pentest #19): una orden malformada (JSON inválido, sin
+        # accion_id, acción fuera del catálogo, nodo_ip inválido) se reporta y sale != 0 sin ejecutar
+        # nada, en vez de reventar con un traceback que delataría internals.
+        print(json.dumps({"error": f"orden no ejecutable: {type(e).__name__}"}, ensure_ascii=False))
+        return 1
     print(json.dumps(r, ensure_ascii=False))
+    return 0
 
 # ------------------------------------------------------------------ ejecutores SSH --
 # Los dos ejecutan desde el auditor (el nodo de gestion) hacia el nodo objetivo. El primero es el
@@ -96,7 +112,7 @@ def _ssh_en_auditor(linea):
     import subprocess
     try:
         cp = subprocess.run(["docker", "exec", nodo_gestion(), "sh", "-c", linea], capture_output=True,
-                            text=True, timeout=PLAZO_SSH_S)
+                            text=True, timeout=PLAZO_SSH_S, env=_env_filtrado())
     except subprocess.TimeoutExpired:
         return (124, f"sin respuesta en {PLAZO_SSH_S} s")          # 124: el código de timeout(1)
     except OSError as e:                                            # docker ausente o no ejecutable
@@ -135,7 +151,7 @@ def _clave_aprovisionada():
     import subprocess
     try:
         return subprocess.run(["docker", "exec", nodo_gestion(), "test", "-f", SSH_CLAVE],
-                              capture_output=True).returncode == 0
+                              capture_output=True, env=_env_filtrado()).returncode == 0
     except OSError:
         return False
 
@@ -161,4 +177,4 @@ def ejecutor_por_defecto(escribir=print):
     return _ejecutor_sin_configurar
 
 if __name__ == "__main__":
-    _main(sys.argv)
+    sys.exit(_main(sys.argv))

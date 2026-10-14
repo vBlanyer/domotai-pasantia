@@ -1103,7 +1103,7 @@ class TestCierreConCtrlC(unittest.TestCase):
         from unittest import mock
         with tempfile.TemporaryDirectory() as d:
             salida = io.StringIO()
-            with mock.patch.object(stream, "leer_lineas_fichero", lambda ruta: self._fuente()), \
+            with mock.patch.object(stream, "leer_lineas_fichero", lambda ruta, **kw: self._fuente()), \
                  contextlib.redirect_stdout(salida):
                 stream.main(["alertas.json", os.path.join(FX, "perfil.yml"), os.path.join(FX, "hallazgos.json"),
                              "--sin-lab", "--ventana-agrupacion", "0", "--salida", os.path.join(d, "t.jsonl")])
@@ -1358,6 +1358,38 @@ class TestAgenteEnModoWeb(unittest.TestCase):
         self.assertEqual(len(estado.pendientes()), 1)        # un solo agente; la repetición se suprimió
         self.assertEqual(llamadas, ["192.168.1.10"])
         estado.resolver(estado.pendientes()[0]["id"], "s")
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class TestRobustezV11(unittest.TestCase):
+    def test_lanzar_acotado_aplica_backpressure(self):
+        # V1.1 #2: el pool acota los hilos del agente. Con tope 1, un 2º lanzamiento se BLOQUEA en
+        # el acquire (backpressure) hasta que el primero libera.
+        import threading
+        pool = threading.BoundedSemaphore(1)
+        corriendo, soltar, segundo = threading.Event(), threading.Event(), threading.Event()
+        stream._lanzar_acotado(pool, lambda: (corriendo.set(), soltar.wait(2)))
+        self.assertTrue(corriendo.wait(1))
+        threading.Thread(target=lambda: (stream._lanzar_acotado(pool, lambda: None), segundo.set()),
+                         daemon=True).start()
+        self.assertFalse(segundo.wait(0.3))     # pool lleno: el 2º no pasa del acquire todavía
+        soltar.set()                            # el 1º termina y libera
+        self.assertTrue(segundo.wait(2))        # ahora el 2º sí arranca
+
+    def test_leer_fichero_una_vez_termina_en_eof(self):
+        # V1.1 #6: con --una-vez un fichero finito se lee hasta EOF y PARA (no se queda como tail -f).
+        d = tempfile.mkdtemp(); ruta = os.path.join(d, "a.jsonl")
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write('{"x":1}\n{"x":2}\n')
+        lineas = list(stream.leer_lineas_fichero(ruta, una_vez=True, dormir=lambda s: None))
+        self.assertEqual([l.strip() for l in lineas], ['{"x":1}', '{"x":2}'])
+
+    def test_leer_fichero_una_vez_sin_fichero_no_cuelga(self):
+        self.assertEqual(list(stream.leer_lineas_fichero("/no/existe/x.jsonl", una_vez=True,
+                                                          dormir=lambda s: None)), [])
 
 
 if __name__ == "__main__":

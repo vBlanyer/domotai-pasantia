@@ -260,6 +260,11 @@ def _main(argv):
         v = verificar(regs[k:])
         if not v["valida"]:
             print(f"CADENA ROTA en el registro {k + v['primer_fallo']} (de {len(regs)}): {v['motivo']}")
+            # V1.1 #4: el fallo más confuso es verificar una traza FIRMADA sin su clave -> el HMAC no
+            # cuadra y parece "alterada". Si no hay clave en el entorno, avisar de que puede ser eso.
+            if "hash no corresponde" in v["motivo"] and not os.environ.get("TRIAJE_TRAZA_CLAVE"):
+                print("  aviso: si la traza se escribió con TRIAJE_TRAZA_CLAVE (HMAC), fija la MISMA "
+                      "clave antes de verificar; sin ella una cadena firmada se reporta como alterada")
             return 1
         print(f"cadena valida: {v['n']} registros · ultimo hash {regs[-1]['hash'][:16]}..." if regs[k:]
               else "sin registros encadenados: cadena trivialmente valida")
