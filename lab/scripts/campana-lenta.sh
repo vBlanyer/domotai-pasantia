@@ -13,7 +13,9 @@
 #
 #   L1  fuerza bruta LENTA root@ desde el BORDE (IP del admin, declarada legitima)  -> reglas dicen FP; verdad VP
 #
-# Espaciado 18 s x 12 intentos ~= 200 s: n_origen_60s se queda en 3-4 (< umbral 9) y n_origen_600s ~= 12.
+# OJO: cada intento genera ~2 alertas (5503 PAM + 5760 sshd), asi que el espaciado cuenta DOBLE.
+# Espaciado 40 s x 12 intentos ~= 440 s: en cualquier ventana de +-60 s caben 3 intentos ~= 6 alertas
+# (< umbral 9, sigue siendo "lento"), y n_origen_600s en el centro ~= 24 (lo que el arbol SI puede ver).
 # La ventana de reenvio es generosa (90 s) porque el sello de Wazuh es de LLEGADA (un datagrama/seg).
 # Correr DOS veces, una por particion (ver lab/dataset/particion.yml): -entrenamiento y -evaluacion.
 set -e
@@ -39,16 +41,16 @@ echo "== Dejando el objetivo sin bloqueos previos del borde =="
 docker exec $OBJETIVO sh -c "iptables -D INPUT -s $BORDE_IP -j DROP 2>/dev/null" || true
 docker exec $BORDE sh -c 'command -v sshpass >/dev/null 2>&1 || apk add --no-cache openssh-client sshpass >/dev/null 2>&1' || true
 
-echo "== L1 (borde, root@, fuerza bruta LENTA: 1 intento cada 18 s x 12) =="
+echo "== L1 (borde, root@, fuerza bruta LENTA: 1 intento cada 40 s x 12) =="
 T1=$(ahora)
 i=1
 while [ "$i" -le 12 ]; do
   intento $BORDE root "lento_$i"
   echo "   intento $i/12 a las $(ahora)"
-  [ "$i" -lt 12 ] && sleep 18
+  [ "$i" -lt 12 ] && sleep 40
   i=$((i + 1))
 done
-echo "   esperando al reenvio..."; sleep 90
+echo "   esperando al reenvio..."; sleep 120
 T1F=$(ahora)
 
 echo "== Congelando la ventana de alerts.json desde $INICIO =="
