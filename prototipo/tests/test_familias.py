@@ -30,6 +30,13 @@ class TestRegistroFamilias(unittest.TestCase):
         self.assertEqual(e["clase"], "vp_integridad")
         self.assertIn("T1565", e["mitre"])
 
+    def test_denegacion_servicio_declara_su_clase(self):
+        # 7ª familia (DoS/flood): el flujo volumétrico ES la amenaza; 'actuar' con clase propia.
+        e = familias.registro()["denegacion_servicio"]
+        self.assertEqual(e["nivel"], "actuar")
+        self.assertEqual(e["clase"], "vp_denegacion_servicio")
+        self.assertIn("T1498", e["mitre"])
+
     def test_clase_declarada_debe_ser_texto(self):
         import tempfile, os
         with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False, encoding="utf-8") as f:

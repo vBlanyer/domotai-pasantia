@@ -110,6 +110,12 @@ def ejecutor_aislamiento(perfil, activo):
         actual = nodo.get("gateway")
     return None, None
 
+def interfaz_de(perfil, activo):
+    """Interfaz de red declarada del `activo` en el inventario (para LIMITAR_BANDA: la interfaz cuyo
+    `tc` se acota). None si no está declarada -> sin throttle ejecutable (fail-closed)."""
+    info = ((perfil or {}).get("activos") or {}).get(activo) or {}
+    return info.get("interfaz") if isinstance(info, dict) else None
+
 def ruta_de(perfil, rol):
     """Rol logico de ruta (p. ej. 'appsec') -> destino real del cliente. Sin binding, el rol mismo.
     El registro de familias es agnostico; el binding a la cola/equipo del cliente vive en el perfil."""
@@ -273,4 +279,21 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
             return {**_res("veta", None, True),
                     "impacto": {**det, "motivo": "no se puede aislar el host: sin IP en el inventario "
                                 "o sin cortafuegos de borde al que escalar la cuarentena"}}
+    # DoS/flood (7ª familia): LIMITAR_BANDA acota la banda del enlace del host víctima. No se acota el
+    # canal de gestión (RF-19: degradarlo impide responder/verificar), y sin interfaz declarada no hay
+    # throttle ejecutable -> ambos fail-closed a veto duro.
+    if final.get("accion_final") == "LIMITAR_BANDA":
+        objetivo_ip = ip_de(perfil, activo)
+        gestion = (perfil or {}).get("ip_gestion")
+        # Fail-closed: sin IP del host no se puede acotar la banda (el conector la necesita) NI
+        # comprobar que no es el canal de gestión -> veto duro, sin depender de que el conector rechace.
+        if not objetivo_ip:
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede acotar la banda: el activo no tiene IP en el inventario"}}
+        if gestion and actores._coincide(objetivo_ip, gestion):
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se acota la banda del canal de gestión (RF-19)"}}
+        if not interfaz_de(perfil, activo):
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede acotar la banda: el activo no declara interfaz en el inventario"}}
     return {**final, "impacto": det}

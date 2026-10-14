@@ -27,6 +27,13 @@ class TestProponer(unittest.TestCase):
         self.assertEqual(acc, "AISLAR_NODO")
         self.assertEqual(params, {})
 
+    def test_vp_denegacion_servicio_propone_limitar_banda(self):
+        # 7ª familia (DoS): la respuesta no bloquea (no hay una IP única en un flood), sino que ACOTA
+        # la banda (contención gradual). La interfaz y el rate salen del perfil al construir la orden.
+        acc, params = politica.proponer("vp_denegacion_servicio", alerta())
+        self.assertEqual(acc, "LIMITAR_BANDA")
+        self.assertEqual(params, {})
+
     def test_vp_abuso_cuenta_propone_bloquear_la_cuenta(self):
         a = alerta(); a["usuario"] = "backdoor"
         acc, params = politica.proponer("vp_abuso_cuenta", a)

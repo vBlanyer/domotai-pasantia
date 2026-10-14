@@ -399,6 +399,45 @@ class TestConcienciaDeActores(unittest.TestCase):
         self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", None, True))
         self.assertIn("cortafuegos", r["impacto"]["motivo"])
 
+    def test_limitar_banda_con_interfaz_se_retiene_para_humano(self):   # 7ª familia (DoS)
+        # Acotar banda es alcanza_servicio (degrada el enlace de todos) -> humano por defecto, pero NO
+        # nunca_automatica: es reversible y menos drástico que aislar. Con interfaz declarada hay acción.
+        p = {"activos": {"web": {"ip": "10.0.0.5", "interfaz": "eth1"}},
+             "continuidad": {"impacto_alcanza_servicio": "humano_siempre"}}
+        r = perfil.filtrar(p, "LIMITAR_BANDA", {}, CAT, "web", None, 1.0)
+        self.assertEqual((r["accion_final"], r["requiere_humano"]), ("LIMITAR_BANDA", True))
+
+    def test_limitar_banda_sin_interfaz_no_es_ejecutable(self):
+        # Fail-closed: sin interfaz declarada no hay throttle ejecutable -> veto duro.
+        p = {"activos": {"web": {"ip": "10.0.0.5"}}, "continuidad": {"impacto_alcanza_servicio": "humano_siempre"}}
+        r = perfil.filtrar(p, "LIMITAR_BANDA", {}, CAT, "web", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+        self.assertIn("interfaz", r["impacto"]["motivo"])
+
+    def test_limitar_banda_nunca_se_auto_ejecuta_ni_con_perfil_permisivo(self):
+        # Revisión: la señal (regla de frecuencia) es ruidosa y acotar banda degrada el propio enlace.
+        # Aunque el perfil deje automático alcanza_servicio, LIMITAR_BANDA es nunca_automatica -> humano.
+        p = {"activos": {"web": {"ip": "10.0.0.5", "interfaz": "eth1"}},
+             "continuidad": {"impacto_alcanza_servicio": "automatica"}}   # perfil laxo
+        r = perfil.filtrar(p, "LIMITAR_BANDA", {}, CAT, "web", None, 1.0)
+        self.assertEqual(r["accion_final"], "LIMITAR_BANDA")
+        self.assertTrue(r["requiere_humano"])                            # nunca_automatica -> humano incondicional
+
+    def test_limitar_banda_sin_ip_del_host_es_veto(self):
+        # Fail-closed (revisión): sin IP del host no se puede ejecutar NI comprobar que no es gestión.
+        p = {"activos": {"web": {"interfaz": "eth1"}}, "continuidad": {"impacto_alcanza_servicio": "humano_siempre"}}
+        r = perfil.filtrar(p, "LIMITAR_BANDA", {}, CAT, "web", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+        self.assertIn("IP", r["impacto"]["motivo"])
+
+    def test_limitar_banda_del_canal_de_gestion_es_veto_duro(self):   # RF-19
+        # Acotar la banda del canal de gestión lo degradaría (impide responder/verificar): veto duro.
+        p = {"ip_gestion": "172.20.20.4",
+             "activos": {"mdr": {"ip": "172.20.20.4", "interfaz": "eth0"}},
+             "continuidad": {"impacto_alcanza_servicio": "humano_siempre"}}
+        r = perfil.filtrar(p, "LIMITAR_BANDA", {}, CAT, "mdr", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+
     def test_una_alerta_sin_servicio_no_se_confunde_con_cortar_la_gestion(self):
         # corta_gestion_si ausente (None) no puede casar con un servicio ausente (None): antes
         # vetaba en duro cualquier acción de una alerta sin servicio.

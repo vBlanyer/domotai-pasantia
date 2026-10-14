@@ -74,6 +74,15 @@ class TestTolerancia(unittest.TestCase):
         self.assertEqual(a["familia"], "integridad_fichero")
         self.assertNotIn("activo_ip", a)   # M1: el esquema normalizado ya no lleva la IP de agent.ip
 
+    def test_flood_es_denegacion_servicio(self):
+        # 7ª familia (DoS/flood): una regla de frecuencia de Wazuh (grupo 'flood'/'dos') -> familia
+        # denegacion_servicio. Se comprueba ANTES del cajón exploit/attack (un flood suele traer 'attack').
+        cruda = {"id": "d1", "timestamp": "t",
+                 "rule": {"id": "31530", "groups": ["web", "attack", "flood"], "level": 10, "mitre": {"id": ["T1499"]}},
+                 "agent": {"id": "000"}, "data": {"srcip": "203.0.113.9"}, "full_log": "Multiple connections from same source"}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        self.assertEqual(a["familia"], "denegacion_servicio")
+
     def test_abuso_de_sudo_bloquea_al_invocador_no_al_objetivo_root(self):
         # En un evento de sudo, dstuser es el OBJETIVO de la escalada (root) y srcuser QUIEN abusa. La
         # cuenta a bloquear es la que abusa, no root (bloquear root dejaría fuera al admin legítimo).

@@ -45,6 +45,13 @@ class TestRecomendar(unittest.TestCase):
         self.assertEqual(r["respuesta"], "aislar_host")
         self.assertEqual(r["accion_sugerida"], "AISLAR_NODO")
 
+    def test_denegacion_servicio_recomienda_limitar_banda(self):
+        # 7ª familia (DoS): el asesor recomienda acotar la banda (contención gradual), coherente con la
+        # acción LIMITAR_BANDA.
+        r = correspondencia.recomendar("denegacion_servicio", None, "vp_denegacion_servicio", REG)
+        self.assertEqual(r["respuesta"], "limitar_banda")
+        self.assertEqual(r["accion_sugerida"], "LIMITAR_BANDA")
+
     def test_registro_cachea(self):
         self.assertIs(correspondencia.registro(), correspondencia.registro())
 

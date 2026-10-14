@@ -33,6 +33,21 @@ def construir(decision, alerta, perfil=None):
             "params": {"ip_nodo": objetivo},  # a quién corta el reenvío: la IP del host
             "impacto": decision.get("impacto"), "justificacion": decision.get("justificacion"),
         }
+    if accion == "LIMITAR_BANDA":
+        # DoS (7ª familia): acotar la banda del enlace del host víctima (contención gradual con `tc`).
+        # if = la interfaz declarada del nodo en el inventario; rate = política del perfil (defecto
+        # sensato). Sin interfaz no hay throttle ejecutable -> sin orden (el filtro ya lo veta).
+        interfaz = perfilm.interfaz_de(perfil, activo) if perfil else None
+        if not interfaz:
+            return None
+        rate = ((perfil or {}).get("continuidad") or {}).get("limite_banda") or "1mbit"
+        return {
+            "decision_id": decision.get("id_decision"), "accion_id": accion,
+            "nodo_objetivo": activo,          # el host cuyo enlace se acota (corre en él mismo)
+            "nodo_ip": (perfilm.ip_de(perfil, activo) if perfil else None) or IP_DE_NODO.get(activo),
+            "params": {"if": interfaz, "rate": rate},
+            "impacto": decision.get("impacto"), "justificacion": decision.get("justificacion"),
+        }
     if accion in _ACCIONES_SOBRE_ORIGEN:
         params = {"ip": alerta.get("origen_ip")}
     elif accion in _ACCIONES_SOBRE_CUENTA:

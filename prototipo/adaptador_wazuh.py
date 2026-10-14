@@ -55,6 +55,10 @@ def familia_de(rule):
         return "reconocimiento"
     if g & {"telnetd", "telnet"}:
         return "servicio_expuesto"
+    # Denegacion de servicio (flood volumetrico / reglas de frecuencia). Se comprueba ANTES de
+    # exploit/attack porque un flood suele traer tambien el grupo 'attack'.
+    if g & {"dos", "flood"}:
+        return "denegacion_servicio"
     if g & {"exploit", "attack"}:
         return "explotacion_conocida"
     # Integridad de ficheros (FIM): un fichero critico cambio. Se comprueba ANTES del cajon 'plataforma'

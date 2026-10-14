@@ -187,3 +187,9 @@ class TestRecomendacion(unittest.TestCase):
         txt = validacion.mostrar(d, ALERTA)
         self.assertIn("aislar el host", txt)
         self.assertNotIn("observar", txt)
+
+    def test_limitar_banda_se_rotula_como_acotar_la_banda(self):   # 7ª familia (DoS)
+        d = {**DECISION, "recomendacion": {"respuesta": "limitar_banda", "accion_sugerida": "LIMITAR_BANDA",
+                                           "ruta": None, "servicio": None, "nota": "flujo volumétrico"}}
+        txt = validacion.mostrar(d, ALERTA)
+        self.assertIn("acotar la banda", txt)
