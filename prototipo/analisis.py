@@ -45,9 +45,33 @@ def enriquecer(alerta, hallazgos, perfil):
                           for o in perfil.get("origenes_legitimos") or [])
     # Rafaga: cuantas alertas del mismo origen en la ventana (la calcula quien alimenta al motor:
     # prototipo/rafaga.py). El umbral es del perfil (RNF-14); sin umbral, la regla no actua.
+    # Ventana LARGA (p. ej. 10 min): la puebla el daemon en vivo (rafaga.Ventana(600)); la evaluación
+    # no la calcula, así que allí queda None y la señal de vigilancia no actúa (cifras intactas).
+    rc = perfil.get("rafaga") or {}
     return {"postura": postura, "criticidad": criticidad, "origen_legitimo": origen_legitimo,
             "rafaga": alerta.get("rafaga_60s"),
-            "umbral_rafaga": (perfil.get("rafaga") or {}).get("umbral")}
+            "umbral_rafaga": rc.get("umbral"),
+            "rafaga_larga": alerta.get("rafaga_600s"),
+            "umbral_largo": rc.get("umbral_largo")}
+
+
+def aviso_vigilancia(contexto, clase):
+    """Señal ASESORA (no cambia el veredicto): marca para revisión humana el punto ciego del
+    'low-and-slow' — una acumulación de alertas desde un origen DE CONFIANZA en una ventana larga
+    que la ráfaga de 60 s no llega a ver. No se puede clasificar con fiabilidad (un admin ocupado da
+    los mismos recuentos, medido), así que en vez de decidir mal se muestra al analista. Devuelve el
+    texto del aviso o None. NO toca clase/prioridad/acción, así que no afecta a las métricas."""
+    if clase != "fp_actividad_legitima":            # el desenlace 'origen de confianza, sin acción'
+        return None
+    umbral_largo = contexto.get("umbral_largo")
+    larga = contexto.get("rafaga_larga") or 0
+    if not umbral_largo or larga < umbral_largo:     # fail-safe: sin umbral o sin volumen, no actúa
+        return None
+    umbral, rafaga = contexto.get("umbral_rafaga"), contexto.get("rafaga") or 0
+    if umbral and rafaga >= umbral:                  # la ráfaga de 60 s ya disparó -> no hay punto ciego
+        return None
+    return (f"vigilar: {larga} alertas del mismo origen de confianza en la ventana larga; "
+            "volumen inusual que la ráfaga de 60 s no detecta (posible acceso lento, revisar)")
 
 def _priorizar(clase, criticidad):
     base = _PRIORIDAD_BASE.get(clase, 1)

@@ -129,6 +129,34 @@ class TestClasificar(unittest.TestCase):
         self.assertIn("vp_reconocimiento", analisis.CLASES)
         self.assertEqual(analisis.CLASES[-1], "vp_reconocimiento")
 
+class TestAvisoVigilancia(unittest.TestCase):
+    # Señal ASESORA del punto ciego 'low-and-slow' desde un origen de confianza: no cambia el veredicto,
+    # solo marca para que el humano lo mire. Fuera del alcance del clasificador (no mueve las cifras).
+    BASE = {"rafaga": 5, "umbral_rafaga": 9, "rafaga_larga": 24, "umbral_largo": 15}
+
+    def test_marca_el_punto_ciego(self):
+        # legítimo + volumen largo alto + la ráfaga de 60 s NO llegó al umbral -> aviso
+        self.assertIsNotNone(analisis.aviso_vigilancia(self.BASE, "fp_actividad_legitima"))
+
+    def test_no_avisa_si_la_rafaga_60s_ya_disparo(self):
+        # si la ráfaga de 60 s ya alcanzó el umbral, el motor ya lo trató (6ª regla): no hay punto ciego
+        ctx = dict(self.BASE, rafaga=12)
+        self.assertIsNone(analisis.aviso_vigilancia(ctx, "fp_actividad_legitima"))
+
+    def test_no_avisa_con_volumen_largo_bajo(self):
+        ctx = dict(self.BASE, rafaga_larga=6)
+        self.assertIsNone(analisis.aviso_vigilancia(ctx, "fp_actividad_legitima"))
+
+    def test_no_avisa_para_otras_clases(self):
+        # solo el desenlace 'legítimo' (origen de confianza sin acción) tiene este punto ciego
+        self.assertIsNone(analisis.aviso_vigilancia(self.BASE, "vp_intento_acceso"))
+
+    def test_sin_umbral_largo_no_avisa(self):
+        # fail-safe: sin umbral configurado en el perfil, la señal no actúa (como la ráfaga)
+        ctx = dict(self.BASE, umbral_largo=None)
+        self.assertIsNone(analisis.aviso_vigilancia(ctx, "fp_actividad_legitima"))
+
+
 class TestJustificar(unittest.TestCase):
     def setUp(self):
         self.alerta = cargar_json("alerta_vp.json")

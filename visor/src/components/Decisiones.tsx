@@ -292,6 +292,9 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
               rec: {d.recomendacion.respuesta === "endurecer_servicio" ? "endurecer servicio" : d.recomendacion.respuesta}
             </Pildora></>
           )}
+          {d.aviso && (
+            <> <Pildora tono="bg-slate-500/15 text-slate-600 dark:text-slate-300" title={d.aviso}>vigilar</Pildora></>
+          )}
         </TableCell>
         <TableCell>
           {d.requiere_humano

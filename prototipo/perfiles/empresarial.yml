@@ -28,7 +28,7 @@ origenes_legitimos: ["192.168.1.1", "172.20.20.4"]
 # Ráfaga: a partir de cuántas alertas del mismo origen en un minuto se considera ataque aunque el
 # origen esté declarado (suplantación o equipo comprometido). Umbral tomado del clasificador
 # entrenado (corte en 8,5, estable); sin esta clave, la regla no actúa.
-rafaga: { umbral: 9, ventana_s: 60 }
+rafaga: { umbral: 9, ventana_s: 60, umbral_largo: 15 }   # umbral_largo: señal de vigilancia 'low-and-slow' (asesora, ventana fija de 600 s)
 continuidad:
   impacto_ninguno:          automatica
   impacto_localizado:       automatica_si_confianza

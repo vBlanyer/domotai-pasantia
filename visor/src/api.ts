@@ -34,6 +34,7 @@ export const DecisionSchema = z.object({
   // gravedad (1..4), propuesta vs final y cómo la trató el filtro, y el desenlace humano
   prioridad: z.number().nullable().optional(), accion_propuesta: z.string().nullable().optional(),
   recomendacion: RecomendacionSchema.nullable().optional(),
+  aviso: z.string().nullable().optional(),               // señal de vigilancia 'low-and-slow' (asesora)
   resultado_filtro: z.string().nullable().optional(), veredicto_humano: z.string().nullable().optional(),
   veredicto_por: z.string().nullable().optional(),       // no repudio: quién aprobó
   clase_reclasificada: z.string().nullable().optional(),
