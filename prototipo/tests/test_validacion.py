@@ -178,3 +178,12 @@ class TestRecomendacion(unittest.TestCase):
 
     def test_mostrar_sin_recomendacion_no_pone_la_linea(self):
         self.assertNotIn("Recomendado:", validacion.mostrar(DECISION, ALERTA))
+
+    def test_aislar_host_se_rotula_como_aislar_no_como_observar(self):
+        # M2: la respuesta 'aislar_host' (FIM) se lee "aislar el host afectado"; antes era 'observar',
+        # que renderizaba "observar/vigilar" y contradecía la acción de cuarentena de la tarjeta.
+        d = {**DECISION, "recomendacion": {"respuesta": "aislar_host", "accion_sugerida": "AISLAR_NODO",
+                                           "ruta": None, "servicio": None, "nota": "fichero crítico modificado"}}
+        txt = validacion.mostrar(d, ALERTA)
+        self.assertIn("aislar el host", txt)
+        self.assertNotIn("observar", txt)

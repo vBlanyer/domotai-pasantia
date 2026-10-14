@@ -19,6 +19,14 @@ class TestProponer(unittest.TestCase):
         self.assertEqual(acc, "BLOQUEAR_IP")
         self.assertEqual(params["ip"], "192.168.1.10")
 
+    def test_vp_integridad_aisla_el_host_sin_tomar_la_ip_de_la_alerta(self):
+        # FIM: la respuesta no es IP ni cuenta, sino AISLAR el host comprometido (nunca_automatica ->
+        # siempre validación humana). La IP del host NO se toma de la alerta (agent.ip es poco fiable
+        # —en el laboratorio sería el manager, M1—); se resuelve del inventario aguas abajo (orden.py).
+        acc, params = politica.proponer("vp_integridad", alerta())
+        self.assertEqual(acc, "AISLAR_NODO")
+        self.assertEqual(params, {})
+
     def test_vp_abuso_cuenta_propone_bloquear_la_cuenta(self):
         a = alerta(); a["usuario"] = "backdoor"
         acc, params = politica.proponer("vp_abuso_cuenta", a)

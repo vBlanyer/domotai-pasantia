@@ -91,6 +91,25 @@ def ip_de(perfil, nodo):
     la declara (orden.construir cae entonces al mapa heredado del laboratorio)."""
     return actores.ip_de(perfil, nodo)
 
+def ejecutor_aislamiento(perfil, activo):
+    """Nodo que pone en CUARENTENA a `activo` (AISLAR_NODO): su cortafuegos de borde —el primer
+    `firewall_perimetral` siguiendo la cadena `gateway` de la topología—, no el propio host: un host
+    hoja no se aísla con una regla FORWARD sobre sí mismo (solo afecta al tráfico en tránsito). Reusa
+    el mismo mecanismo que BLOQUEAR_IP_FIREWALL (bloqueo de reenvío en el borde). Devuelve (nombre, ip),
+    o (None, None) si el activo no tiene ruta a un cortafuegos (sin cuarentena ejecutable -> fail-closed)."""
+    topo = (perfil or {}).get("topologia") or {}
+    visto = set()
+    actual = (topo.get(activo) or {}).get("gateway")
+    while actual and actual not in visto:
+        visto.add(actual)
+        nodo = topo.get(actual)
+        if not isinstance(nodo, dict):
+            break
+        if nodo.get("rol") == "firewall_perimetral":
+            return actual, ip_de(perfil, actual)
+        actual = nodo.get("gateway")
+    return None, None
+
 def ruta_de(perfil, rol):
     """Rol logico de ruta (p. ej. 'appsec') -> destino real del cliente. Sin binding, el rol mismo.
     El registro de familias es agnostico; el binding a la cola/equipo del cliente vive en el perfil."""
@@ -243,4 +262,15 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
     # alerta de alta confianza no puede disparar un reinicio/aislamiento de una joya de la corona.
     if final.get("accion_final") and catalogo.get(final["accion_final"], {}).get("nunca_automatica"):
         final = {**final, "requiere_humano": True}
+    # Cuarentena real en el borde (6ª familia, FIM): AISLAR_NODO corta el reenvío del host en su
+    # cortafuegos de borde (como BLOQUEAR_IP_FIREWALL), no en el propio host. Si no hay IP del host en
+    # el inventario o no hay cortafuegos al que escalar, no existe cuarentena ejecutable: fail-closed a
+    # veto duro (el humano recibe la alerta, sin una acción que no correría). Va al final: no pisa un
+    # veto previo (p. ej. gestión, que ya anuló `accion_final`).
+    if final.get("accion_final") == "AISLAR_NODO":
+        _ejec, ejec_ip = ejecutor_aislamiento(perfil, activo)
+        if not actores.es_ipv4(ip_de(perfil, activo)) or not ejec_ip:
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede aislar el host: sin IP en el inventario "
+                                "o sin cortafuegos de borde al que escalar la cuarentena"}}
     return {**final, "impacto": det}

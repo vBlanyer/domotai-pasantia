@@ -222,7 +222,7 @@ auditor, y nunca lo deja por debajo del catálogo:
 |---|---|
 | una IP (`BLOQUEAR_IP`, `BLOQUEAR_IP_FIREWALL`, `MATAR_CONEXION`) | **a quién** bloquea (`actores.quien_es`); un dispositivo de red sube a `alcanza_servicio` |
 | un puerto o servicio (`BLOQUEAR_PUERTO`, `CERRAR_SERVICIO`) | qué servicio detiene, si está **declarado** y si está **abierto** según el auditor |
-| un nodo (`AISLAR_NODO`, `REINICIAR_NODO`) | el **radio**: declarados ∪ abiertos (cota superior), y **a quién** afecta: el propio nodo, por su IP (`ip_nodo` o la del perfil). Aislar la gestión es veto duro y aislar un activo propio pide humano, como al bloquear su IP |
+| un nodo (`AISLAR_NODO`, `REINICIAR_NODO`) | el **radio**: declarados ∪ abiertos (cota superior), y **a quién** afecta: el propio nodo, por su IP (`ip_nodo` o la del perfil). Aislar la gestión es veto duro y aislar un activo propio pide humano, como al bloquear su IP. `AISLAR_NODO` (6ª familia, FIM) es una **cuarentena real en el borde**: corta el reenvío del host en su cortafuegos perimetral (`perfil.ejecutor_aislamiento`, como `BLOQUEAR_IP_FIREWALL`), no en el propio host; sin cortafuegos de borde no hay cuarentena ejecutable (fail-closed a veto) |
 
 `actores.quien_es` resuelve, en este orden: `gestion` (la `ip_gestion`) > `dispositivo_red` (cortafuegos de la
 topología) > `activo_interno` (inventario, otro nodo de la topología, `redes_internas` u origen legítimo) >
