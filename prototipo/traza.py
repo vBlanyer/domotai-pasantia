@@ -308,6 +308,8 @@ def _contexto(alerta, contexto):
             "regla_id": alerta.get("regla_id"), "mitre": alerta.get("mitre") or [],
             "origen_ip": alerta.get("origen_ip"), "servicio": alerta.get("servicio"),
             "rafaga_60s": contexto.get("rafaga"), "umbral_rafaga": contexto.get("umbral_rafaga"),
+            # ventana larga: sin ella un auditor no puede re-derivar por qué saltó el aviso de vigilancia
+            "rafaga_600s": contexto.get("rafaga_larga"), "umbral_largo": contexto.get("umbral_largo"),
             "origen_legitimo": contexto.get("origen_legitimo"), "criticidad": contexto.get("criticidad"),
             "postura": None if postura is None else {"expuesto": postura.get("expuesto"),
                                                      "servicios_abiertos": postura.get("servicios_abiertos")}}

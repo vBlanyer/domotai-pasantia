@@ -293,7 +293,7 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
             </Pildora></>
           )}
           {d.aviso && (
-            <> <Pildora tono="bg-amber-500/15 text-amber-700 dark:text-amber-300" title={d.aviso}>vigilar</Pildora></>
+            <> <Pildora tono="bg-slate-500/15 text-slate-600 dark:text-slate-300" title={d.aviso}>vigilar</Pildora></>
           )}
         </TableCell>
         <TableCell>
