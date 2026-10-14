@@ -2,7 +2,7 @@
 # Campaña REAL de ATAQUE LENTO (experimento A): una fuerza bruta repartida en minutos, desde la IP
 # declarada del administrador, para probar el punto ciego que el spike encontró.
 #
-#   sh lab/scripts/campana-lenta.sh <id-campaña>
+#   sh lab/scripts/campana-lenta.sh <id-campaña> [n-intentos=12]
 #
 # Por que existe: el unico rasgo que voltea un origen legitimo a amenaza es la rafaga de 60 s
 # (6a regla, umbral 9). Un atacante que entra desde la maquina del admin PERO DESPACIO ---un intento
@@ -19,7 +19,8 @@
 # La ventana de reenvio es generosa (90 s) porque el sello de Wazuh es de LLEGADA (un datagrama/seg).
 # Correr DOS veces, una por particion (ver lab/dataset/particion.yml): -entrenamiento y -evaluacion.
 set -e
-ID="${1:?uso: sh lab/scripts/campana-lenta.sh <id-campaña>}"
+ID="${1:?uso: sh lab/scripts/campana-lenta.sh <id-campaña> [n-intentos=12]}"
+N="${2:-12}"   # nº de intentos; variarlo genera distinto n_origen_600s (prueba de generalización)
 HERE=$(dirname "$0")
 DEST="$HERE/../campañas/$ID"
 WZ=clab-red-cliente-wazuh
@@ -41,13 +42,13 @@ echo "== Dejando el objetivo sin bloqueos previos del borde =="
 docker exec $OBJETIVO sh -c "iptables -D INPUT -s $BORDE_IP -j DROP 2>/dev/null" || true
 docker exec $BORDE sh -c 'command -v sshpass >/dev/null 2>&1 || apk add --no-cache openssh-client sshpass >/dev/null 2>&1' || true
 
-echo "== L1 (borde, root@, fuerza bruta LENTA: 1 intento cada 40 s x 12) =="
+echo "== L1 (borde, root@, fuerza bruta LENTA: 1 intento cada 40 s x $N) =="
 T1=$(ahora)
 i=1
-while [ "$i" -le 12 ]; do
+while [ "$i" -le "$N" ]; do
   intento $BORDE root "lento_$i"
-  echo "   intento $i/12 a las $(ahora)"
-  [ "$i" -lt 12 ] && sleep 40
+  echo "   intento $i/$N a las $(ahora)"
+  [ "$i" -lt "$N" ] && sleep 40
   i=$((i + 1))
 done
 echo "   esperando al reenvio..."; sleep 120
