@@ -193,3 +193,9 @@ class TestRecomendacion(unittest.TestCase):
                                            "ruta": None, "servicio": None, "nota": "flujo volumétrico"}}
         txt = validacion.mostrar(d, ALERTA)
         self.assertIn("acotar la banda", txt)
+
+    def test_cortar_sesion_se_rotula_como_cortar_la_conexion(self):   # 8ª familia (acceso consumado)
+        d = {**DECISION, "recomendacion": {"respuesta": "cortar_sesion", "accion_sugerida": "MATAR_CONEXION",
+                                           "ruta": None, "servicio": None, "nota": "login tras fuerza bruta"}}
+        txt = validacion.mostrar(d, ALERTA)
+        self.assertIn("cortar la conexión", txt)

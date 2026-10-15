@@ -34,6 +34,12 @@ class TestProponer(unittest.TestCase):
         self.assertEqual(acc, "LIMITAR_BANDA")
         self.assertEqual(params, {})
 
+    def test_vp_acceso_consumado_propone_matar_la_conexion_del_origen(self):
+        # 8ª familia: el atacante ya entró -> cortar su conexión VIVA (MATAR_CONEXION) por su IP de origen.
+        acc, params = politica.proponer("vp_acceso_consumado", alerta())
+        self.assertEqual(acc, "MATAR_CONEXION")
+        self.assertEqual(params["ip"], "192.168.1.10")
+
     def test_vp_abuso_cuenta_propone_bloquear_la_cuenta(self):
         a = alerta(); a["usuario"] = "backdoor"
         acc, params = politica.proponer("vp_abuso_cuenta", a)

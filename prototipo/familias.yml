@@ -16,3 +16,7 @@ integridad_fichero:   { mitre: [T1565, T1070], nivel: actuar, clase: vp_integrid
 # que bloquear, asi que la respuesta es ACOTAR la banda del enlace (LIMITAR_BANDA): contencion GRADUAL,
 # degradar para mantener el servicio vivo en vez de tirarlo. Reversible y menos drastica que aislar.
 denegacion_servicio:  { mitre: [T1498, T1499], nivel: actuar, clase: vp_denegacion_servicio }
+# Acceso consumado: el atacante YA entro (login exitoso desde una IP que venia haciendo fuerza bruta,
+# regla compuesta local de Wazuh). La respuesta no bloquea el trafico futuro sino que CORTA la conexion
+# viva del atacante (MATAR_CONEXION, sobre su IP de origen). Reutiliza clase+accion ya existentes.
+acceso_consumado:     { mitre: [T1078, T1021], nivel: actuar, clase: vp_acceso_consumado }

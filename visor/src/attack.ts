@@ -1,7 +1,7 @@
 // Referencia MITRE ATT&CK: dato ESTÁTICO (no de runtime). La matriz es una vista de COBERTURA POR
 // FAMILIA: la API agrega `metricas.mitre = [{tecnica, n}]` expandiendo cada decisión a TODAS las
 // técnicas que declara su familia (`prototipo/familias.yml`), no la subtécnica concreta que puso
-// Wazuh. Por eso aquí vive EXACTAMENTE el conjunto de técnicas de las 7 familias (ni más —no las ~200
+// Wazuh. Por eso aquí vive EXACTAMENTE el conjunto de técnicas de las 8 familias (ni más —no las ~200
 // de enterprise ni subtécnicas aspiracionales— ni menos): así un ataque por familia enciende su
 // columna entera y la matriz refleja la cobertura real del MDR. DEBE mantenerse en sync con los
 // campos `mitre` de familias.yml. Cada técnica se coloca en su táctica ATT&CK.
@@ -22,7 +22,7 @@ export const TACTICAS: Tactica[] = [
   { id: "impact", nombre: "Impacto" },
 ]
 
-// Las 14 técnicas de las 7 familias (familias.yml). Multitáctica -> táctica primaria según el uso.
+// Las 15 técnicas de las 8 familias (familias.yml). Multitáctica -> táctica primaria según el uso.
 export const TECNICAS: Record<string, { nombre: string; tactica: string }> = {
   // reconocimiento
   T1595: { nombre: "Escaneo activo", tactica: "reconnaissance" },
@@ -34,6 +34,8 @@ export const TECNICAS: Record<string, { nombre: string; tactica: string }> = {
   T1190: { nombre: "Explotación de aplicación pública", tactica: "initial-access" },
   T1203: { nombre: "Explotación para ejecución en cliente", tactica: "execution" },
   T1210: { nombre: "Explotación de servicios remotos", tactica: "lateral-movement" },
+  // acceso_consumado (intrusión exitosa / sesión activa del atacante): T1078 (arriba) + T1021.
+  T1021: { nombre: "Servicios remotos (sesión)", tactica: "lateral-movement" },
   // abuso_de_cuenta (escalada / manipulación de cuentas; T1548/T1098 multitáctica, táctica primaria)
   T1548: { nombre: "Abuso de mecanismo de elevación (sudo)", tactica: "privilege-escalation" },
   T1136: { nombre: "Crear cuenta", tactica: "persistence" },

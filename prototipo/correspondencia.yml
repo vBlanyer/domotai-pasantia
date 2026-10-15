@@ -8,6 +8,7 @@ por_familia:
   explotacion_conocida: { respuesta: enrutar, ruta: appsec }
   integridad_fichero:   { respuesta: aislar_host, accion_sugerida: AISLAR_NODO, nota: "cambio en fichero critico: aislar el host afectado (cuarentena en el cortafuegos de borde) e investigar el cambio" }
   denegacion_servicio:  { respuesta: limitar_banda, accion_sugerida: LIMITAR_BANDA, nota: "flujo volumetrico: acotar la banda del enlace del host (contencion gradual) en vez de bloquear una IP unica" }
+  acceso_consumado:     { respuesta: cortar_sesion, accion_sugerida: MATAR_CONEXION, nota: "el atacante ya entro (login tras fuerza bruta): cortar su conexion viva y revisar que hizo en la sesion" }
 por_servicio:
   rdp:    { respuesta: endurecer_servicio, nota: "RDP expuesto: alto riesgo, cerrar o publicar tras VPN" }
   smb:    { respuesta: endurecer_servicio, nota: "SMB no deberia estar expuesto en el borde" }

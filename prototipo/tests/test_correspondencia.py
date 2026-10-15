@@ -52,6 +52,12 @@ class TestRecomendar(unittest.TestCase):
         self.assertEqual(r["respuesta"], "limitar_banda")
         self.assertEqual(r["accion_sugerida"], "LIMITAR_BANDA")
 
+    def test_acceso_consumado_recomienda_cortar_la_sesion(self):
+        # 8ª familia: el asesor recomienda cortar la conexión viva (coherente con MATAR_CONEXION).
+        r = correspondencia.recomendar("acceso_consumado", None, "vp_acceso_consumado", REG)
+        self.assertEqual(r["respuesta"], "cortar_sesion")
+        self.assertEqual(r["accion_sugerida"], "MATAR_CONEXION")
+
     def test_registro_cachea(self):
         self.assertIs(correspondencia.registro(), correspondencia.registro())
 

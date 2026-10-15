@@ -49,6 +49,11 @@ def familia_de(rule):
     # mas especifico que un fallo de autenticacion, asi que se comprueba primero.
     if g & {"sudo", "adduser", "account_changed"}:
         return "abuso_de_cuenta"
+    # Acceso CONSUMADO: login exitoso desde una IP que venia haciendo fuerza bruta (regla compuesta
+    # local, grupo 'intrusion'). Se comprueba ANTES del fallo de autenticacion: ya no es un intento,
+    # el atacante entro -> cortar su conexion viva. Un login exitoso LEGITIMO no trae 'intrusion'.
+    if "intrusion" in g:
+        return "acceso_consumado"
     if g & {"authentication_failed", "authentication_failures", "invalid_login"}:
         return "acceso_credenciales"
     if "recon" in g or rid == "5706":
