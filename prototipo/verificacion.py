@@ -6,6 +6,11 @@ def confirmar(orden, catalogo, ejecutor):
         return {"verificado": False, "evidencia": "nodo_ip rechazado: no es una IP valida"}
     if not _params_seguros(orden.get("params", {})):
         return {"verificado": False, "evidencia": "params rechazados: caracteres no permitidos"}
-    cmd = catalogo[orden["accion_id"]]["verificacion"].format(**orden["params"])
+    acc = catalogo[orden["accion_id"]]
+    cmd = acc["verificacion"].format(**orden["params"])
     rc, salida = ejecutor(orden["nodo_ip"], cmd)
-    return {"verificado": rc == 0, "evidencia": salida}
+    # Transitoria (MATAR_CONEXION): la verificación busca la conexión VIVA; rc0 = sigue viva = NO
+    # cortada. Se invierte (verificado cuando el grep NO la encuentra). Persistente: rc0 = aplicada.
+    transitoria = acc.get("reversion") == "transitoria"
+    verificado = (rc != 0) if transitoria else (rc == 0)
+    return {"verificado": verificado, "evidencia": salida}

@@ -86,6 +86,15 @@ class TestTolerancia(unittest.TestCase):
         self.assertEqual(a["familia"], "acceso_consumado")
         self.assertEqual(a["origen_ip"], "198.51.100.10")   # MATAR_CONEXION necesita la IP del atacante
 
+    def test_login_exitoso_legitimo_no_es_acceso_consumado(self):
+        # Invariante de orden: un login EXITOSO normal (authentication_success, SIN el contexto de
+        # fuerza bruta -> sin grupo 'intrusion') NO cae en acceso_consumado (ni en credenciales): es 'otra'.
+        cruda = {"id": "L1", "timestamp": "t",
+                 "rule": {"id": "5715", "groups": ["syslog", "sshd", "authentication_success"], "level": 3},
+                 "agent": {"id": "000"}, "data": {"srcip": "10.100.0.10"},
+                 "full_log": "Accepted password for admin from 10.100.0.10"}
+        self.assertEqual(adaptador_wazuh.familia_de(cruda["rule"]), "otra")
+
     def test_flood_es_denegacion_servicio(self):
         # 7ª familia (DoS/flood): una regla de frecuencia de Wazuh (grupo 'flood'/'dos') -> familia
         # denegacion_servicio. Se comprueba ANTES del cajón exploit/attack (un flood suele traer 'attack').

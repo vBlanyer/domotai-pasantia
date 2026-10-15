@@ -51,7 +51,14 @@ describe("MatrizAttack", () => {
     expect(document.querySelector('[data-tecnica="T1098"]')).toHaveAttribute("data-activa", "true")
   })
 
-  it("con cobertura de las 7 familias, TODAS las celdas de la matriz quedan activas (se llena entera)", () => {
+  it("cubre acceso consumado (T1078/T1021) en Movimiento lateral / Acceso inicial, no en 'Otras'", () => {
+    render(<MatrizAttack tecnicas={[{ tecnica: "T1078", n: 2 }, { tecnica: "T1021", n: 2 }]} />)
+    expect(screen.getByText("Movimiento lateral")).toBeInTheDocument()
+    expect(screen.queryByText("Otras")).not.toBeInTheDocument()
+    expect(document.querySelector('[data-tecnica="T1021"]')).toHaveAttribute("data-activa", "true")
+  })
+
+  it("con cobertura de las 8 familias, TODAS las celdas de la matriz quedan activas (se llena entera)", () => {
     // Cobertura por familia: un ataque por familia enciende todas las técnicas de familias.yml.
     const todas = Object.keys(TECNICAS).map((t) => ({ tecnica: t, n: 1 }))
     render(<MatrizAttack tecnicas={todas} />)

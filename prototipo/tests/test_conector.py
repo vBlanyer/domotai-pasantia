@@ -138,6 +138,25 @@ class TestConector(unittest.TestCase):
         self.assertIsNotNone(r["comando_ejecutado"])   # SÍ se ejecutó, no se saltó por "idempotencia"
         self.assertFalse(r["idempotente"])
         self.assertIn("ss -K", " ".join(ej.llamadas))
+        self.assertFalse(r["exito"])   # la conexión SIGUE viva tras el corte -> NO es éxito (transitoria)
+
+    def test_matar_conexion_corte_efectivo_es_exito(self):
+        # Transitoria: tras `ss -K`, si la verificación `grep ip` da rc!=0 (la conexión YA NO está),
+        # el corte funcionó -> exito True. (Antes el post-check usaba rc0=aplicada, al revés, y reportaba
+        # fracaso en un corte exitoso / éxito en uno fallido.)
+        orden = {"decision_id": "d1", "accion_id": "MATAR_CONEXION", "nodo_objetivo": "objetivo-vuln",
+                 "nodo_ip": "192.168.1.30", "params": {"ip": "192.168.1.10"}, "impacto": "localizado"}
+        class EjecutorCorta:
+            def __init__(self): self.llamadas = []
+            def __call__(self, nodo_ip, comando):
+                self.llamadas.append(comando)
+                if "grep" in comando:
+                    return (1, "")   # la conexión YA NO está (el corte funcionó)
+                return (0, "")       # ss -K
+        ej = EjecutorCorta()
+        r = conector.ejecutar_orden(orden, CAT, ej, "2026-08-31T00:00:00Z")
+        self.assertTrue(r["exito"])
+        self.assertIn("ss -K", " ".join(ej.llamadas))
 
 
 class TestEjecutorClave(unittest.TestCase):

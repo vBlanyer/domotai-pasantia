@@ -72,7 +72,13 @@ def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
     cmd = render_comando(catalogo, orden["accion_id"], orden["params"])
     rc, out = ejecutor(orden["nodo_ip"], cmd)
     rc_v2, out_v2 = ejecutor(orden["nodo_ip"], cmd_verif)
-    return _resultado(orden, cmd, rc, out, rc == 0 and rc_v2 == 0, False, timestamp)
+    # El sentido de la verificación depende del tipo de acción. Persistente (regla de iptables): rc0 =
+    # el estado DESEADO está presente = aplicada. Transitoria (MATAR_CONEXION): la verificación busca el
+    # estado INDESEADO (la conexión viva); rc0 = sigue viva = NO cortada, así que se INVIERTE: el corte
+    # fue efectivo cuando el grep NO la encuentra (rc != 0). Sin esta inversión, un corte exitoso se
+    # reportaba como fracaso y —peor— uno fallido (la sesión sigue) como éxito.
+    verif_ok = (rc_v2 != 0) if transitoria else (rc_v2 == 0)
+    return _resultado(orden, cmd, rc, out, rc == 0 and verif_ok, False, timestamp)
 
 def _main(argv):  # lee una orden de stdin y la ejecuta (frontera de proceso; futuro conector en Go)
     import os

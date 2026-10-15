@@ -140,14 +140,17 @@ def deshacer_denegacion_servicio(destino="web-banking", ejecutar=subprocess.run)
 # login exitoso LEGÍTIMO no trae el contexto de fuerza bruta, así que no se marca.
 _SSHD_LOG = "/var/log/banco/sshd.log"
 
-def _linea_sshd_fallo(src_ip):
-    return f"sshd[2100]: Failed password for invalid user admin from {src_ip} port 51000 ssh2"
+def _linea_sshd_fallo(src_ip, usuario="cliente"):
+    # Fallo sobre una cuenta VÁLIDA (la misma que luego entra), no "invalid user": así Wazuh acumula la
+    # fuerza bruta por la vía 5760->5763 (usuario válido), que es la que la regla compuesta 100600 espera.
+    return f"sshd[2100]: Failed password for {usuario} from {src_ip} port 51000 ssh2"
 
 def _linea_sshd_exito(src_ip, usuario="cliente"):
     return f"sshd[2101]: Accepted password for {usuario} from {src_ip} port 51000 ssh2"
 
 def ataque_acceso_consumado(destino="web-banking", src_ip=IP_EXTERNA, ejecutar=subprocess.run):
-    fallos = "".join(f"echo '{_linea_sshd_fallo(src_ip)}' >> {_SSHD_LOG}; " for _ in range(6))
+    # 8 fallos (por encima del umbral de frecuencia típico de la fuerza bruta) seguidos de un éxito.
+    fallos = "".join(f"echo '{_linea_sshd_fallo(src_ip)}' >> {_SSHD_LOG}; " for _ in range(8))
     cmd = fallos + f"echo '{_linea_sshd_exito(src_ip)}' >> {_SSHD_LOG}"
     return _exec(destino, cmd, ejecutar)
 
