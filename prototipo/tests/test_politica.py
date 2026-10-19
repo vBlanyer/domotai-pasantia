@@ -46,6 +46,22 @@ class TestProponer(unittest.TestCase):
         self.assertEqual(acc, "FORZAR_CAMBIO_PASS")
         self.assertEqual(params, {"usuario": "backdoor"})     # la cuenta, no la IP
 
+    def test_vp_exfiltracion_bloquea_el_destino_no_el_origen(self):
+        # 9ª familia (exfiltración/C2): la respuesta estrena una dirección nueva -> bloquear el DESTINO
+        # malicioso (egreso) en el borde. La IP del destino sale de la alerta (dstip, fiable: es el
+        # destino de la conexión), NO el origen.
+        a = alerta(); a["destino_ip"] = "203.0.113.66"
+        acc, params = politica.proponer("vp_exfiltracion", a)
+        self.assertEqual(acc, "BLOQUEAR_DESTINO")
+        self.assertEqual(params, {"ip": "203.0.113.66"})
+
+    def test_vp_malware_aisla_el_host_reusando_aislar_nodo(self):
+        # 10ª familia (malware): la respuesta correcta es AISLAR el host (igual que integridad_fichero);
+        # reusa AISLAR_NODO sin tomar la IP de la alerta (se resuelve del inventario en orden.py).
+        acc, params = politica.proponer("vp_malware", alerta())
+        self.assertEqual(acc, "AISLAR_NODO")
+        self.assertEqual(params, {})
+
     def test_no_soportada_no_propone_accion(self):
         acc, params = politica.proponer("no_soportada", alerta())
         self.assertIsNone(acc)

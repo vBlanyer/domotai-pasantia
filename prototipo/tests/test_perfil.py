@@ -438,6 +438,34 @@ class TestConcienciaDeActores(unittest.TestCase):
         r = perfil.filtrar(p, "LIMITAR_BANDA", {}, CAT, "mdr", None, 1.0)
         self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
 
+    def test_bloquear_destino_con_firewall_y_destino_valido_se_retiene_para_humano(self):   # 9ª familia (exfil)
+        # Bloquear el egreso al destino malicioso es alcanza_servicio (corta ese destino para toda la
+        # red interna) -> humano por defecto. Con cortafuegos de borde y destino válido hay acción
+        # ejecutable: retenida (accion_final BLOQUEAR_DESTINO), no vetada en duro.
+        p = {"activos": {"web": {"ip": "10.0.0.5"}, "borde": {"ip": "10.0.0.1"}},
+             "topologia": {"web": {"rol": "host_victima", "ip": "10.0.0.5", "gateway": "borde"},
+                           "borde": {"rol": "firewall_perimetral", "ip": "10.0.0.1"}},
+             "continuidad": {"impacto_alcanza_servicio": "humano_siempre"}}
+        r = perfil.filtrar(p, "BLOQUEAR_DESTINO", {"ip": "203.0.113.66"}, CAT, "web", None, 1.0)
+        self.assertEqual(r["accion_final"], "BLOQUEAR_DESTINO")
+        self.assertTrue(r["requiere_humano"])
+
+    def test_bloquear_destino_sin_destino_valido_es_veto_duro(self):
+        # Fail-closed: sin IP de destino (o IPv6) no hay egreso que cortar con el catálogo -> veto duro.
+        p = {"activos": {"web": {"ip": "10.0.0.5"}, "borde": {"ip": "10.0.0.1"}},
+             "topologia": {"web": {"rol": "host_victima", "ip": "10.0.0.5", "gateway": "borde"},
+                           "borde": {"rol": "firewall_perimetral", "ip": "10.0.0.1"}}}
+        r = perfil.filtrar(p, "BLOQUEAR_DESTINO", {"ip": None}, CAT, "web", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+        self.assertIn("destino", r["impacto"]["motivo"])
+
+    def test_bloquear_destino_sin_cortafuegos_de_borde_es_veto_duro(self):
+        # Fail-closed: un host sin ruta a un firewall_perimetral no puede ejecutar el bloqueo de egreso.
+        p = {"activos": {"web": {"ip": "10.0.0.5"}}}   # sin topología -> sin cortafuegos
+        r = perfil.filtrar(p, "BLOQUEAR_DESTINO", {"ip": "203.0.113.66"}, CAT, "web", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+        self.assertIn("cortafuegos", r["impacto"]["motivo"])
+
     def test_una_alerta_sin_servicio_no_se_confunde_con_cortar_la_gestion(self):
         # corta_gestion_si ausente (None) no puede casar con un servicio ausente (None): antes
         # vetaba en duro cualquier acción de una alerta sin servicio.

@@ -77,6 +77,47 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["clase"], "vp_acceso_consumado")
         self.assertIsNone(r["accion_final"])
 
+    def test_exfiltracion_bloquea_el_destino_en_el_borde_con_humano(self):
+        # 9ª familia (exfiltración/C2): vp_exfiltracion -> BLOQUEAR_DESTINO (corta el egreso al destino
+        # malicioso en el cortafuegos de borde del host que baliza). alcanza_servicio -> retenida para
+        # humano. El destino sale de la alerta (dstip); con topología hay acción ejecutable.
+        a = {**j("alerta_vp.json"), "familia": "exfiltracion", "destino_ip": "203.0.113.66"}  # activo = objetivo-vuln
+        p = {**y("perfil.yml"),
+             "activos": {"objetivo-vuln": {"ip": "192.168.1.30"}, "borde": {"ip": "192.168.1.1"}},
+             "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
+                           "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
+        r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_exfiltracion")
+        self.assertEqual(r["accion_propuesta"], "BLOQUEAR_DESTINO")
+        self.assertEqual(r["accion_final"], "BLOQUEAR_DESTINO")   # retenida: hay egreso que cortar
+        self.assertTrue(r["requiere_humano"])
+
+    def test_exfiltracion_sin_destino_se_veta(self):
+        # Sin destino (dstip ausente) no hay egreso que cortar -> veto fail-closed, sin acción.
+        a = {**j("alerta_vp.json"), "familia": "exfiltracion"}   # sin destino_ip
+        p = {**y("perfil.yml"),
+             "activos": {"objetivo-vuln": {"ip": "192.168.1.30"}, "borde": {"ip": "192.168.1.1"}},
+             "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
+                           "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
+        r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_exfiltracion")
+        self.assertIsNone(r["accion_final"])
+
+    def test_malware_aisla_el_host_siempre_con_humano(self):
+        # 10ª familia (malware/rootkit): vp_malware -> AISLAR_NODO (reusa la cuarentena en el borde de
+        # FIM). nunca_automatica -> SIEMPRE humano. Cierra un hueco: un hit de VirusTotal ya no cae en
+        # 'plataforma' (ruido) ni en no_soportada; se reconoce y se contiene.
+        a = {**j("alerta_vp.json"), "familia": "malware"}   # activo = objetivo-vuln
+        p = {**y("perfil.yml"),
+             "activos": {"objetivo-vuln": {"ip": "192.168.1.30"}, "borde": {"ip": "192.168.1.1"}},
+             "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
+                           "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
+        r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "vp_malware")
+        self.assertEqual(r["accion_propuesta"], "AISLAR_NODO")
+        self.assertEqual(r["accion_final"], "AISLAR_NODO")   # retenida: hay cuarentena ejecutable
+        self.assertTrue(r["requiere_humano"])                # nunca_automatica -> humano incondicional
+
     def test_no_soportada_grave_se_escala_a_revision_humana(self):
         # Un no_soportada de SEVERIDAD ALTA (nivel Wazuh >= umbral del perfil) no debe quedar solo en el
         # log: se marca para REVISIÓN humana (requiere_humano, resultado 'revisar'), SIN acción (no hay

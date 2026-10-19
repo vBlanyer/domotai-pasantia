@@ -48,6 +48,22 @@ def construir(decision, alerta, perfil=None):
             "params": {"if": interfaz, "rate": rate},
             "impacto": decision.get("impacto"), "justificacion": decision.get("justificacion"),
         }
+    if accion == "BLOQUEAR_DESTINO":
+        # Exfiltracion/C2 (9ª familia): corta el EGRESO hacia el destino malicioso en el cortafuegos
+        # de borde del host que baliza (como BLOQUEAR_IP_FIREWALL, pero por destino -d). El destino sale
+        # de la ALERTA (dstip, fiable); el ejecutor del inventario (igual que AISLAR_NODO). Sin destino o
+        # sin cortafuegos no hay egreso que cortar -> sin orden (el filtro ya lo veta; cinturon aqui).
+        destino = alerta.get("destino_ip")
+        _ejec, ejec_ip = perfilm.ejecutor_aislamiento(perfil, activo) if perfil else (None, None)
+        if not destino or not ejec_ip:
+            return None
+        return {
+            "decision_id": decision.get("id_decision"), "accion_id": accion,
+            "nodo_objetivo": activo,       # el host interno que baliza (lo que lee el operador)
+            "nodo_ip": ejec_ip,            # donde se ejecuta: el cortafuegos de borde
+            "params": {"ip": destino},     # a quien se corta el egreso: el destino malicioso
+            "impacto": decision.get("impacto"), "justificacion": decision.get("justificacion"),
+        }
     if accion in _ACCIONES_SOBRE_ORIGEN:
         params = {"ip": alerta.get("origen_ip")}
     elif accion in _ACCIONES_SOBRE_CUENTA:

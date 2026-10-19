@@ -7,9 +7,18 @@ class TestCatalogo(unittest.TestCase):
     def setUp(self):
         self.cat = catalogo.cargar_catalogo(RAIZ)
 
-    def test_carga_las_15_acciones(self):
-        # 14 originales + BLOQUEAR_IP_FIREWALL (accion perimetral del agente de mitigacion)
-        self.assertEqual(len(self.cat), 15)
+    def test_carga_las_16_acciones(self):
+        # 15 previas + BLOQUEAR_DESTINO (9ª familia, exfiltración/C2: bloquea el egreso al destino)
+        self.assertEqual(len(self.cat), 16)
+
+    def test_bloquear_destino_bloquea_el_egreso_en_el_borde(self):
+        # Exfiltración/C2: espejo de BLOQUEAR_IP_FIREWALL pero por DESTINO (-d), ejecutado en el
+        # cortafuegos de borde. alcanza_servicio -> humano por defecto; reversible (regla FORWARD).
+        d = self.cat["BLOQUEAR_DESTINO"]
+        self.assertEqual(catalogo.impacto_de(self.cat, "BLOQUEAR_DESTINO"), "alcanza_servicio")
+        self.assertIn("-d {ip}", d["comando"])          # por destino, no por origen (-s)
+        self.assertIn("FORWARD", d["comando"])           # en el reenvío del borde
+        self.assertIn("reversion_cmd", d)                # reversible
 
     def test_impacto_de_bloquear_ip_firewall_es_alcanza_servicio(self):
         # el bloqueo perimetral tiene mayor radio de daño que el local (localizado)

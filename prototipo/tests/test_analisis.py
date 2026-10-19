@@ -124,6 +124,26 @@ class TestClasificar(unittest.TestCase):
     def test_vp_acceso_consumado_esta_en_el_catalogo_de_clases(self):
         self.assertIn("vp_acceso_consumado", analisis.CLASES[4:])
 
+    def test_exfiltracion_usa_la_clase_del_registro(self):
+        # 9ª familia (exfiltración/C2): la conexión al destino malicioso ES la amenaza, no depende de
+        # la postura del activo de origen (es tráfico SALIENTE, no un servicio expuesto).
+        a = dict(self.alerta); a["familia"] = "exfiltracion"
+        r = analisis.clasificar(a, {"postura": {"expuesto": False}, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "vp_exfiltracion")
+        self.assertEqual(r["confianza"], 1.0)
+        self.assertEqual(r["prioridad"], 4)       # datos saliendo: prioridad alta
+
+    def test_malware_usa_la_clase_del_registro(self):
+        # 10ª familia (malware/rootkit): el binario malicioso detectado ES la amenaza.
+        a = dict(self.alerta); a["familia"] = "malware"
+        r = analisis.clasificar(a, {"postura": {"expuesto": False}, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "vp_malware")
+        self.assertEqual(r["confianza"], 1.0)
+
+    def test_clases_nuevas_estan_en_el_catalogo_de_clases(self):
+        self.assertIn("vp_exfiltracion", analisis.CLASES[4:])   # al final, no desplaza la numeración
+        self.assertIn("vp_malware", analisis.CLASES[4:])
+
     def test_abuso_de_cuenta_desde_origen_legitimo_sigue_siendo_fp(self):
         # El origen legítimo precede a la clase declarada: un admin declarado no se trata como amenaza.
         a = dict(self.alerta); a["familia"] = "abuso_de_cuenta"

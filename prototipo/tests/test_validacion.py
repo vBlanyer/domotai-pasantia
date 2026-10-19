@@ -155,8 +155,9 @@ class TestValidacion(unittest.TestCase):
             self.assertIn(c, menu)
 
     def test_reclasificar_entrada_invalida_repregunta(self):
-        # 3) reclasificar; en el submenú, 9 (fuera de rango) y 'dos' no se cuelan -> repregunta; luego 2.
-        v = validacion.pedir(DECISION, ALERTA, leer=_Leer("3", "9", "dos", "2"), escribir=lambda _: None)
+        # 3) reclasificar; en el submenú, 99 (fuera de rango, robusto a que crezca el menú) y 'dos' no
+        # se cuelan -> repregunta; luego 2.
+        v = validacion.pedir(DECISION, ALERTA, leer=_Leer("3", "99", "dos", "2"), escribir=lambda _: None)
         self.assertEqual(v["veredicto"], "reclasificar")
         self.assertEqual(v["clase_nueva"], "fp_exposicion_inexistente")   # la 2) del submenú
 

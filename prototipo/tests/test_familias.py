@@ -44,6 +44,22 @@ class TestRegistroFamilias(unittest.TestCase):
         self.assertEqual(e["clase"], "vp_acceso_consumado")
         self.assertIn("T1078", e["mitre"])
 
+    def test_exfiltracion_declara_su_clase(self):
+        # 9ª familia (exfiltración/C2): un activo interno conecta a un DESTINO malicioso conocido;
+        # 'actuar' con clase propia. Estrena la dirección BLOQUEAR_DESTINO (bloquear el egreso).
+        e = familias.registro()["exfiltracion"]
+        self.assertEqual(e["nivel"], "actuar")
+        self.assertEqual(e["clase"], "vp_exfiltracion")
+        self.assertIn("T1041", e["mitre"])
+
+    def test_malware_declara_su_clase(self):
+        # 10ª familia (malware/rootkit): Wazuh (rootcheck+VirusTotal) marca un binario malicioso;
+        # 'actuar' con clase propia. Reusa AISLAR_NODO (aislar el host), sin acción nueva.
+        e = familias.registro()["malware"]
+        self.assertEqual(e["nivel"], "actuar")
+        self.assertEqual(e["clase"], "vp_malware")
+        self.assertIn("T1014", e["mitre"])
+
     def test_clase_declarada_debe_ser_texto(self):
         import tempfile, os
         with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False, encoding="utf-8") as f:

@@ -299,4 +299,17 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         if not interfaz_de(perfil, activo):
             return {**_res("veta", None, True),
                     "impacto": {**det, "motivo": "no se puede acotar la banda: el activo no declara interfaz en el inventario"}}
+    # Exfiltración/C2 (9ª familia): BLOQUEAR_DESTINO corta el egreso al destino malicioso en el
+    # cortafuegos de borde del host que baliza (como AISLAR_NODO). Sin una IP de destino IPv4 válida
+    # (params.ip, que pone politica.proponer desde la alerta) no hay egreso que cortar con el catálogo,
+    # y sin cortafuegos de borde al que escalar no hay dónde ejecutarlo -> ambos fail-closed a veto duro.
+    if final.get("accion_final") == "BLOQUEAR_DESTINO":
+        destino = (params or {}).get("ip")
+        _ejec, ejec_ip = ejecutor_aislamiento(perfil, activo)
+        if not actores.es_ipv4(destino):
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede bloquear el egreso: sin IP de destino IPv4 válida"}}
+        if not ejec_ip:
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede bloquear el egreso: sin cortafuegos de borde al que escalar"}}
     return {**final, "impacto": det}

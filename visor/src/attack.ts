@@ -4,7 +4,7 @@
 // Wazuh. Por eso aquí vive EXACTAMENTE el conjunto de técnicas de las 8 familias (ni más —no las ~200
 // de enterprise ni subtécnicas aspiracionales— ni menos): así un ataque por familia enciende su
 // columna entera y la matriz refleja la cobertura real del MDR. DEBE mantenerse en sync con los
-// campos `mitre` de familias.yml. Cada técnica se coloca en su táctica ATT&CK.
+// campos `mitre` de familias.yml (hoy 10 familias). Cada técnica se coloca en su táctica ATT&CK.
 
 export type Tactica = { id: string; nombre: string }
 
@@ -19,10 +19,12 @@ export const TACTICAS: Tactica[] = [
   { id: "credential-access", nombre: "Acceso a credenciales" },
   { id: "discovery", nombre: "Descubrimiento" },
   { id: "lateral-movement", nombre: "Movimiento lateral" },
+  { id: "command-and-control", nombre: "Mando y control" },
+  { id: "exfiltration", nombre: "Exfiltración" },
   { id: "impact", nombre: "Impacto" },
 ]
 
-// Las 15 técnicas de las 8 familias (familias.yml). Multitáctica -> táctica primaria según el uso.
+// Las 19 técnicas de las 10 familias (familias.yml). Multitáctica -> táctica primaria según el uso.
 export const TECNICAS: Record<string, { nombre: string; tactica: string }> = {
   // reconocimiento
   T1595: { nombre: "Escaneo activo", tactica: "reconnaissance" },
@@ -46,6 +48,12 @@ export const TECNICAS: Record<string, { nombre: string; tactica: string }> = {
   // denegacion_servicio (DoS)
   T1498: { nombre: "Denegación de servicio de red", tactica: "impact" },
   T1499: { nombre: "Denegación de servicio de endpoint", tactica: "impact" },
+  // exfiltracion / C2 (T1041 exfiltración sobre el canal de C2; T1071 protocolo de capa de aplicación)
+  T1041: { nombre: "Exfiltración sobre el canal de C2", tactica: "exfiltration" },
+  T1071: { nombre: "Protocolo de capa de aplicación (C2)", tactica: "command-and-control" },
+  // malware / rootkit (T1014 rootkit; T1486 datos cifrados para impacto / ransomware)
+  T1014: { nombre: "Rootkit", tactica: "defense-evasion" },
+  T1486: { nombre: "Datos cifrados para impacto", tactica: "impact" },
 }
 
 // Técnicas de una táctica, ordenadas por id (padre antes que subtécnicas por el orden lexicográfico).
