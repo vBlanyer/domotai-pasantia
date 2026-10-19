@@ -149,9 +149,11 @@ def _linea_sshd_exito(src_ip, usuario="cliente"):
     return f"sshd[2101]: Accepted password for {usuario} from {src_ip} port 51000 ssh2"
 
 def ataque_acceso_consumado(destino="web-banking", src_ip=IP_EXTERNA, ejecutar=subprocess.run):
-    # 8 fallos (por encima del umbral de frecuencia típico de la fuerza bruta) seguidos de un éxito.
-    fallos = "".join(f"echo '{_linea_sshd_fallo(src_ip)}' >> {_SSHD_LOG}; " for _ in range(8))
-    cmd = fallos + f"echo '{_linea_sshd_exito(src_ip)}' >> {_SSHD_LOG}"
+    # 10 fallos ESPACIADOS (para que la frecuencia de fuerza bruta 5763 acumule en su ventana y Wazuh
+    # dispare la regla de fábrica 40112 "fallos seguidos de éxito") y luego un login aceptado desde la
+    # MISMA IP -> 40112 -> regla local 100600 (grupo 'intrusion') -> acceso_consumado -> MATAR_CONEXION.
+    fallos = "".join(f"echo '{_linea_sshd_fallo(src_ip)}' >> {_SSHD_LOG}; sleep 0.4; " for _ in range(10))
+    cmd = fallos + f"sleep 1.5; echo '{_linea_sshd_exito(src_ip)}' >> {_SSHD_LOG}"
     return _exec(destino, cmd, ejecutar)
 
 def deshacer_acceso_consumado(destino="web-banking", src_ip=IP_EXTERNA, ejecutar=subprocess.run):
