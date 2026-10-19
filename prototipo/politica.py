@@ -7,6 +7,8 @@ ACCION_POR_CLASE = {
     "vp_abuso_cuenta": "FORZAR_CAMBIO_PASS",
     "vp_integridad": "AISLAR_NODO",         # FIM: aislar el host comprometido (nunca_automatica -> humano)
     "vp_denegacion_servicio": "LIMITAR_BANDA",  # DoS/flood: acotar banda (contencion gradual), no bloquear
+    "vp_exfiltracion": "BLOQUEAR_DESTINO",  # exfil/C2: bloquear el DESTINO malicioso (egreso) en el borde
+    "vp_malware": "AISLAR_NODO",            # malware/rootkit: aislar el host (reusa la cuarentena de FIM)
     "vp_exposicion_gestion": "CERRAR_SERVICIO",
     "fp_actividad_legitima": None,
     "fp_exposicion_inexistente": None,
@@ -31,6 +33,11 @@ def proponer(clase, alerta):
         # DoS: la interfaz del host y el rate salen del perfil (inventario/politica) al construir la
         # orden, no de la alerta (un flood no trae ni interfaz ni limite).
         params = {}
+    elif accion == "BLOQUEAR_DESTINO":
+        # Exfiltracion/C2: se bloquea el DESTINO malicioso (egreso), no el origen. El destino sale de
+        # la alerta (dstip): es fiable (es el destino de la conexion). El cortafuegos de borde que lo
+        # ejecuta se resuelve del inventario al construir la orden (orden.construir).
+        params = {"ip": alerta.get("destino_ip")}
     else:
         params = {"servicio": alerta.get("servicio")}
     return (accion, params)

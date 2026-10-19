@@ -23,12 +23,13 @@ def _sanear(v, tope=64):
 # narre como precursor y no como explotación (recomendación #2 del informe), sin mover las cifras.
 CLASES = ("vp_intento_acceso", "fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada",
           "vp_abuso_cuenta", "vp_reconocimiento", "vp_integridad", "vp_denegacion_servicio",
-          "vp_acceso_consumado")
+          "vp_acceso_consumado", "vp_exfiltracion", "vp_malware")
 
 CLASES_SIN_AMENAZA = ("fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada")
 
 _PRIORIDAD_BASE = {
     "vp_acceso_consumado": 4, "vp_abuso_cuenta": 4, "vp_integridad": 4, "vp_denegacion_servicio": 4,
+    "vp_exfiltracion": 4, "vp_malware": 4,
     "vp_intento_acceso": 3, "vp_reconocimiento": 3,
     "vp_exposicion_gestion": 2,
     "fp_actividad_legitima": 1, "fp_exposicion_inexistente": 1, "no_soportada": 1,
@@ -92,6 +93,12 @@ def clasificar(alerta, contexto, registro=None):
         clase, confianza = "no_soportada", 1.0
     elif entrada.get("nivel") == "triar_y_enrutar":     # se tria y encamina, no se contiene
         clase, confianza, ruta = "amenaza_enrutada", 1.0, entrada.get("ruta")
+    elif entrada.get("clase") and entrada.get("amenaza_en") == "destino":
+        # La amenaza es el DESTINO, no el origen (exfiltracion/C2): el origen es el host interno que
+        # baliza. Un origen "legitimo" (host de confianza) NO la convierte en FP -> un host de confianza
+        # COMPROMETIDO que baliza a un C2 es justo este caso. Va ANTES del cortocircuito origen_legitimo,
+        # que es correcto solo para amenazas de ORIGEN (FIM/abuso de cuenta: el admin declarado = FP).
+        clase, confianza = entrada["clase"], 1.0
     elif contexto.get("origen_legitimo") and en_rafaga:
         clase, confianza = "vp_intento_acceso", 0.6
     elif contexto.get("origen_legitimo"):

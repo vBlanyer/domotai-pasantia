@@ -166,6 +166,12 @@ def _motivo_base(det, perfil):
         # (contención gradual, mitigación parcial); un flujo volumétrico ENTRANTE no se frena así.
         return (f"acota la banda de egreso del enlace de {det['activo']} (contención gradual; "
                 "mitigación parcial: no frena un flujo entrante)")
+    if accion == "BLOQUEAR_DESTINO":
+        # Exfiltración/C2: se bloquea el DESTINO malicioso (egreso) en el cortafuegos de borde. Corta
+        # ese destino para TODA la red interna que enruta por el borde (de ahí alcanza_servicio), pero
+        # no toca otros destinos; es un destino de la lista de amenazas, no una IP propia.
+        return (f"bloquea el egreso hacia {det.get('destino') or 'el destino'} en el cortafuegos de borde "
+                "(destino malicioso de la lista de amenazas); corta ese destino para la red interna, no otros")
     return f"impacto del catálogo: {det['nivel']}"
 
 
@@ -207,5 +213,9 @@ def determinar(accion_id, params, activo, perfil, catalogo, hallazgos=None):
         cascada = []
     det = {"nivel": nivel, "nivel_catalogo": nivel_catalogo, "servicios_afectados": servicios,
            "actor": actor, "activo": activo, "accion_id": accion_id, "activos_afectados_en_cascada": cascada}
+    if accion_id == "BLOQUEAR_DESTINO":
+        # El destino malicioso que se corta (exfiltración/C2): sale de params.ip (lo pone politica.proponer
+        # desde alerta.destino_ip). No es un actor del inventario (es externo), solo se muestra en el motivo.
+        det["destino"] = params.get("ip")
     det["motivo"] = _motivo(det, perfil)
     return det

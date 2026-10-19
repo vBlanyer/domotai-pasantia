@@ -64,6 +64,18 @@ def familia_de(rule):
     # exploit/attack porque un flood suele traer tambien el grupo 'attack'.
     if g & {"dos", "flood"}:
         return "denegacion_servicio"
+    # Exfiltracion / C2 (9ª familia): un activo interno conecta a un DESTINO malicioso conocido (match
+    # con la lista CDB/threat-intel del SIEM). Se comprueba ANTES de exploit/attack porque un IDS suele
+    # etiquetar el C2 tambien como 'attack'. Deteccion en alcance = match de lista, NO C2 conductual.
+    if g & {"c2", "command_and_control", "exfiltration", "threat_intel"}:
+        return "exfiltracion"
+    # Malware / rootkit (10ª familia): un VEREDICTO explicito de binario malicioso (VirusTotal, o un
+    # trojano de rootcheck). Se comprueba ANTES de exploit/attack (un veredicto de malware suele traer
+    # tambien 'attack'; mas especifico primero, simetrico con exfil) y ANTES del cajon 'plataforma'
+    # (un hit trae 'ossec'/'rootcheck': un malware CONFIRMADO no es ruido de plataforma). Un rootcheck/SCA
+    # SIN veredicto de malware (solo politica/CIS) sigue cayendo en 'plataforma'.
+    if g & {"virustotal", "malware", "trojan"}:
+        return "malware"
     if g & {"exploit", "attack"}:
         return "explotacion_conocida"
     # Integridad de ficheros (FIM): un fichero critico cambio. Se comprueba ANTES del cajon 'plataforma'
@@ -104,7 +116,12 @@ def normalizar_alerta(cruda, campaña):
         "activo": _texto(resolver_activo(cruda)),
         "servicio": _texto(servicio_de(cruda)) or "desconocido",
         "familia": familia_de(rule),
-        "origen_ip": _ip_origen(data.get("srcip")),
+        "origen_ip": _ip_norm(data.get("srcip")),
+        # Destino de la conexion (familia exfiltracion/C2, BLOQUEAR_DESTINO): el DESTINO malicioso que
+        # se bloquea en el borde. SI sale de la alerta (dstip), al reves que la IP del host a aislar:
+        # dstip es fiable (es el extremo remoto de la conexion que dispara la regla), no agent.ip.
+        # Ausente en el resto de familias (None, aditivo: no estorba).
+        "destino_ip": _ip_norm(data.get("dstip")),
         # La IP del HOST a aislar (familia integridad_fichero, AISLAR_NODO) NO se toma de la alerta:
         # agent.ip es poco fiable (en Containerlab todo entra como agent 000 -> seria la del manager,
         # no la del host vigilado; incoherente con `activo`, que sale de predecoder.hostname, RF-16).
@@ -119,18 +136,18 @@ def normalizar_alerta(cruda, campaña):
         "regla_id": _texto(rule.get("id")),           # clave de Counter en la agrupación -> hashable
     }
 
-def _ip_origen(srcip):
-    """srcip tal cual (str), salvo una IPv4 mapeada en IPv6 (`::ffff:a.b.c.d`), que se deja en IPv4: es
-    la forma que entiende el catalogo (iptables) y la que se compara con el perfil. Un srcip no-str
-    (objeto/lista de una alerta hostil) -> None: no es una IP y aguas abajo se usa como clave."""
-    if not isinstance(srcip, str):
+def _ip_norm(ip):
+    """IP (origen o destino) tal cual (str), salvo una IPv4 mapeada en IPv6 (`::ffff:a.b.c.d`), que se
+    deja en IPv4: es la forma que entiende el catalogo (iptables) y la que se compara con el perfil. Un
+    valor no-str (objeto/lista de una alerta hostil) -> None: no es una IP y aguas abajo se usa como clave."""
+    if not isinstance(ip, str):
         return None
-    if srcip.lower().startswith("::ffff:"):
+    if ip.lower().startswith("::ffff:"):
         try:
-            return str(ipaddress.ip_address(srcip).ipv4_mapped or srcip)
+            return str(ipaddress.ip_address(ip).ipv4_mapped or ip)
         except ValueError:
-            return srcip
-    return srcip
+            return ip
+    return ip
 
 def adaptador(campaña=""):
     """Fábrica de adaptador para el núcleo de ingesta: devuelve un `cruda -> dict` con la campaña fijada."""

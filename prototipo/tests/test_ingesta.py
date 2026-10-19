@@ -8,7 +8,7 @@ def j(n):
         return json.loads(f.read().strip())
 
 CAMPOS = {"id_alerta", "timestamp", "campaña", "fuente", "activo", "servicio",
-          "familia", "origen_ip", "mitre", "evento_crudo", "nivel_wazuh", "regla_id", "usuario"}
+          "familia", "origen_ip", "destino_ip", "mitre", "evento_crudo", "nivel_wazuh", "regla_id", "usuario"}
 
 
 class TestNormalizarWazuh(unittest.TestCase):
@@ -103,6 +103,56 @@ class TestTolerancia(unittest.TestCase):
                  "agent": {"id": "000"}, "data": {"srcip": "203.0.113.9"}, "full_log": "Multiple connections from same source"}
         a = adaptador_wazuh.normalizar_alerta(cruda, "c")
         self.assertEqual(a["familia"], "denegacion_servicio")
+
+    def test_exfiltracion_c2_es_exfiltracion_y_extrae_el_destino(self):
+        # 9ª familia: un match de la lista de amenazas (grupo 'c2'/'exfiltration') -> familia
+        # exfiltracion. El DESTINO a bloquear (dstip) sale de la alerta: es fiable (es el destino de
+        # la conexión, no agent.ip). Se comprueba ANTES del cajón exploit/attack.
+        cruda = {"id": "e1", "timestamp": "t",
+                 "rule": {"id": "100700", "groups": ["ids", "attack", "c2"], "level": 12, "mitre": {"id": ["T1071", "T1041"]}},
+                 "predecoder": {"hostname": "web-banking"},
+                 "data": {"srcip": "10.10.0.10", "dstip": "203.0.113.66"},
+                 "full_log": "Outbound connection to known C2 203.0.113.66"}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        self.assertEqual(a["familia"], "exfiltracion")
+        self.assertEqual(a["destino_ip"], "203.0.113.66")   # BLOQUEAR_DESTINO necesita el destino
+        self.assertEqual(a["origen_ip"], "10.10.0.10")      # el host interno que baliza
+
+    def test_destino_ip_ausente_es_none_y_no_estorba(self):
+        # La inmensa mayoría de alertas no traen dstip: destino_ip queda None (aditivo, no estorba).
+        a = adaptador_wazuh.normalizar_alerta(j("alerta_cruda_wazuh.json"), "c")
+        self.assertIsNone(a["destino_ip"])
+
+    def test_destino_ipv4_mapeada_en_ipv6_se_normaliza(self):
+        cruda = {"id": "e2", "rule": {"id": "100700", "groups": ["c2"]},
+                 "predecoder": {"hostname": "web"}, "data": {"srcip": "10.10.0.10", "dstip": "::ffff:203.0.113.66"}}
+        self.assertEqual(adaptador_wazuh.normalizar_alerta(cruda, "c")["destino_ip"], "203.0.113.66")
+
+    def test_malware_virustotal_es_malware(self):
+        # 10ª familia: un veredicto de VirusTotal / rootcheck de trojano (grupo 'virustotal'/'malware')
+        # -> familia malware. Se comprueba ANTES del cajón 'plataforma' (un hit de rootcheck trae
+        # 'ossec'/'rootcheck' además): un malware confirmado NO debe tratarse como ruido de plataforma.
+        cruda = {"id": "m1", "timestamp": "t",
+                 "rule": {"id": "87105", "groups": ["virustotal", "malware"], "level": 12, "mitre": {"id": ["T1486"]}},
+                 "predecoder": {"hostname": "core-db"},
+                 "data": {}, "full_log": "VirusTotal: /tmp/x.bin positives 54/70"}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        self.assertEqual(a["familia"], "malware")
+
+    def test_malware_con_grupo_attack_sigue_siendo_malware(self):
+        # Revisión Opus (BAJO): un veredicto de malware que ADEMÁS trae 'attack' no debe degradarse a
+        # explotacion_conocida (enrutada). La rama malware va ANTES de exploit/attack (más específico
+        # primero), simétrica con exfil.
+        cruda = {"id": "m2", "rule": {"id": "87105", "groups": ["attack", "virustotal", "malware"], "level": 12},
+                 "predecoder": {"hostname": "core-db"}, "data": {}}
+        self.assertEqual(adaptador_wazuh.familia_de(cruda["rule"]), "malware")
+
+    def test_rootcheck_benigno_sigue_siendo_plataforma(self):
+        # Regresión: un rootcheck/SCA SIN veredicto de malware (solo 'rootcheck'/'ossec') sigue siendo
+        # 'plataforma' (ruido). La familia malware solo captura el veredicto explícito (virustotal/malware/trojan).
+        cruda = {"id": "p1", "rule": {"id": "510", "groups": ["ossec", "rootcheck"], "level": 7},
+                 "predecoder": {"hostname": "core-db"}, "data": {}}
+        self.assertEqual(adaptador_wazuh.familia_de(cruda["rule"]), "plataforma")
 
     def test_abuso_de_sudo_bloquea_al_invocador_no_al_objetivo_root(self):
         # En un evento de sudo, dstuser es el OBJETIVO de la escalada (root) y srcuser QUIEN abusa. La

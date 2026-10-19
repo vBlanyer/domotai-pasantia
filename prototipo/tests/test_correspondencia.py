@@ -58,6 +58,19 @@ class TestRecomendar(unittest.TestCase):
         self.assertEqual(r["respuesta"], "cortar_sesion")
         self.assertEqual(r["accion_sugerida"], "MATAR_CONEXION")
 
+    def test_exfiltracion_recomienda_bloquear_el_destino(self):
+        # 9ª familia (exfiltración/C2): el asesor recomienda bloquear el destino malicioso (egreso),
+        # coherente con la acción BLOQUEAR_DESTINO.
+        r = correspondencia.recomendar("exfiltracion", None, "vp_exfiltracion", REG)
+        self.assertEqual(r["respuesta"], "bloquear_destino")
+        self.assertEqual(r["accion_sugerida"], "BLOQUEAR_DESTINO")
+
+    def test_malware_recomienda_aislar_el_host(self):
+        # 10ª familia (malware): el asesor recomienda aislar el host (coherente con AISLAR_NODO).
+        r = correspondencia.recomendar("malware", None, "vp_malware", REG)
+        self.assertEqual(r["respuesta"], "aislar_host")
+        self.assertEqual(r["accion_sugerida"], "AISLAR_NODO")
+
     def test_registro_cachea(self):
         self.assertIs(correspondencia.registro(), correspondencia.registro())
 

@@ -20,3 +20,13 @@ denegacion_servicio:  { mitre: [T1498, T1499], nivel: actuar, clase: vp_denegaci
 # regla compuesta local de Wazuh). La respuesta no bloquea el trafico futuro sino que CORTA la conexion
 # viva del atacante (MATAR_CONEXION, sobre su IP de origen). Reutiliza clase+accion ya existentes.
 acceso_consumado:     { mitre: [T1078, T1021], nivel: actuar, clase: vp_acceso_consumado }
+# Exfiltracion / C2: un activo interno conecta a un DESTINO malicioso conocido (lista de amenazas del
+# SIEM). La respuesta estrena una DIRECCION nueva: bloquear el DESTINO (egreso) en el borde, no el
+# origen (BLOQUEAR_DESTINO). Deteccion en alcance = match con lista CDB/threat-intel, NO C2 conductual.
+# `amenaza_en: destino` (opcional, por defecto 'origen'): la amenaza es el DESTINO, asi que un origen
+# "legitimo" (el host interno que baliza) NO la descarta como FP (un host de confianza comprometido).
+exfiltracion:         { mitre: [T1041, T1071], nivel: actuar, clase: vp_exfiltracion, amenaza_en: destino }
+# Malware / rootkit: Wazuh (rootcheck + VirusTotal) marca un binario/fichero malicioso en un activo. La
+# respuesta correcta es AISLAR el host (igual que integridad_fichero); aqui aporta el RECONOCIMIENTO
+# explicito (en vez de no_soportada). Requiere agente Wazuh en produccion; en el banco es sintetico.
+malware:              { mitre: [T1014, T1486], nivel: actuar, clase: vp_malware }

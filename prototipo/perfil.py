@@ -299,4 +299,35 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         if not interfaz_de(perfil, activo):
             return {**_res("veta", None, True),
                     "impacto": {**det, "motivo": "no se puede acotar la banda: el activo no declara interfaz en el inventario"}}
+    # Exfiltración/C2 (9ª familia): BLOQUEAR_DESTINO corta el egreso al destino malicioso en el
+    # cortafuegos de borde del host que baliza (como AISLAR_NODO). Sin una IP de destino IPv4 válida
+    # (params.ip, que pone politica.proponer desde la alerta) no hay egreso que cortar con el catálogo,
+    # y sin cortafuegos de borde al que escalar no hay dónde ejecutarlo -> ambos fail-closed a veto duro.
+    if final.get("accion_final") == "BLOQUEAR_DESTINO":
+        destino = (params or {}).get("ip")
+        _ejec, ejec_ip = ejecutor_aislamiento(perfil, activo)
+        if not actores.es_ipv4(destino):
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede bloquear el egreso: sin IP de destino IPv4 válida"}}
+        # RF-19 + anti self-DoS: el destino de un C2 real es EXTERNO (no inventariado). Como BLOQUEAR_DESTINO
+        # no pasa por la conciencia de actores (actúa sobre el destino, no el origen), aquí se comprueba
+        # explícitamente: si el destino coincide con una IP PROPIA —el canal de gestión, un activo interno
+        # o un dispositivo de red—, bloquear el egreso hacia ella cortaría tráfico legítimo/el plano SOC.
+        # Eso nunca es un C2 legítimo (señal de alerta forjada o FP de la lista de amenazas): veto duro.
+        quien = actores.quien_es(destino, perfil)
+        if quien and quien.get("tipo") != "desconocido":
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se bloquea el egreso hacia una IP propia "
+                                f"({impactom._TIPO_LEGIBLE.get(quien['tipo'], quien['tipo'])}): "
+                                "un destino de C2 es externo; coincidir con un activo propio es forja o FP"}}
+        if not ejec_ip:
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede bloquear el egreso: sin cortafuegos de borde al que escalar"}}
+        # Destino externo bloqueable que además es un tercero de confianza (socio crítico declarado):
+        # cortar el egreso hacia él tiraría un servicio de negocio. Ya se retiene para humano
+        # (nunca_automatica), pero el analista debe verlo EXPLÍCITO, igual que al bloquear un tercero por
+        # ORIGEN: una alerta forjada/FP que marque al socio como C2 no debe cortarlo sin ojo humano.
+        if actores.es_tercero_confiable(destino, perfil):
+            det = {**det, "motivo": (f"{det.get('motivo') or ''} · destino en terceros_confiables: "
+                   "cortar el egreso tiraría un servicio de negocio, revisar con cuidado").strip()}
     return {**final, "impacto": det}

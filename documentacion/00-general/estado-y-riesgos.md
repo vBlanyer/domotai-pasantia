@@ -332,14 +332,14 @@ olvido, cada punto es una decisión). El detalle de cada uno vive donde se indic
 
 - **Filtrado VP/FP dentro del nivel `triar_y_enrutar`.** El nivel enrutado clasifica y encamina sin adjudicar
   VP/FP; un WAF ruidoso se encamina igual. Detalle en el spec de familias (`archivo/proceso-desarrollo/superpowers/specs/2026-09-16-taxonomia-familias-extensible-design.md`, §7).
-- **Ampliar el repertorio de familias (que ninguna alerta se pierda).** Hoy contención automática solo para
-  cuatro familias se contienen (`acceso_credenciales`, `reconocimiento`, `servicio_expuesto` y `abuso_de_cuenta`, esta última siempre con validación humana) y una se enruta (`explotacion_conocida`)
-  (`explotacion_conocida`); el resto cae en `no_soportada`. Para que una alerta de malware/C2/DoS **que el SIEM
-  levante** se **enrute** al equipo en vez de caer en `no_soportada`, hay que añadirla a `familias.yml`
-  (`nivel: triar_y_enrutar` + `ruta`) **y extender el adaptador** (`adaptador_wazuh.familia_de`, hoy solo etiqueta
-  seis familias) **más el binding `rutas:` del perfil**. El cuello de botella es el adaptador, no el registro.
-  Esto **no es detección primaria** (malware/DoS/lateral siguen fuera de alcance: el MDR refina, no detecta);
-  es dar respuesta —enrutar— a lo que el SIEM sí alerta. Diseño de la taxonomía extensible:
+- **Ampliar el repertorio de familias (que ninguna alerta se pierda).** El motor soporta hoy **10 familias**
+  (ver §8): nueve que *actúan* (contienen con el catálogo) y una que se *enruta* (`explotacion_conocida`); lo
+  que queda fuera del registro cae en `no_soportada`. Para que una alerta nueva **que el SIEM levante** se trate
+  en vez de caer en `no_soportada`, se añade a `familias.yml` (`nivel: actuar` + `clase`, o `triar_y_enrutar` +
+  `ruta`) **y se extiende el adaptador** (`adaptador_wazuh.familia_de`) **más, si se enruta, el binding `rutas:`
+  del perfil**. El cuello de botella es el adaptador, no el registro. Esto **no es detección primaria** (el
+  movimiento lateral este-oeste y la detección conductual siguen fuera de alcance: el MDR refina, no detecta);
+  es dar respuesta a lo que el SIEM sí alerta. Diseño de la taxonomía extensible:
   `archivo/proceso-desarrollo/superpowers/specs/2026-09-16-taxonomia-familias-extensible-design.md`.
 - **Entrega real de la ruta.** La traza registra la ruta (`ruta`), pero ningún conector la **entrega** a la
   cola/equipo del cliente (correo/ticket). Es la misma capa de producción que el conector SSH. El punto de
@@ -418,13 +418,15 @@ en [`lab/banco/verificaciones.md`](../../lab/banco/verificaciones.md):
 
 ## 8. Alcance de cobertura: qué ataques resiste el MDR y cuáles no (frontera de diseño)
 
-*Añadido 19/10/2026 como decisión de alcance (resuelta), no como trabajo futuro.*
+*Añadido 19/10/2026 como decisión de alcance (resuelta), no como trabajo futuro. Ampliado el mismo día
+(rama `feat/cobertura-maxima`): se cerraron las cestas 1 y 2 añadiendo dos familias más (exfiltración/C2
+y malware). Queda solo la cesta 3, genuinamente de otro producto (EDR/NDR).*
 
 El MDR es la **capa de triaje de una defensa en profundidad**, no la única defensa. Su techo lo marcan
 **lo que el SIEM detecta** (no genera detección primaria, la refina) y **lo que el catálogo cerrado puede
 contener**. «No resistir X» no significa «quedas indefenso ante X», sino que X es trabajo de otra capa
-(agente Wazuh, EDR/NDR, controles de red o el analista). Hoy el motor soporta **8 familias** (el dataset
-de evaluación solo ejercita 3 + ruido; el resto se validó en el banco).
+(agente Wazuh, EDR/NDR, controles de red o el analista). Hoy el motor soporta **10 familias** (el dataset
+de evaluación solo ejercita 3 + ruido; el resto se validó en el banco, exfil/malware incluidos).
 
 **Qué resiste hoy, y cómo** (familia → acción del catálogo):
 
@@ -437,22 +439,31 @@ de evaluación solo ejercita 3 + ruido; el resto se validó en el banco).
 | Abuso/alta de cuenta, sudo | ✅ | `abuso_de_cuenta` → FORZAR_CAMBIO_PASS |
 | Integridad de ficheros (FIM) | ✅ | `integridad_fichero` → AISLAR_NODO (cuarentena en el borde) |
 | Denegación de servicio (flood) | ✅ | `denegacion_servicio` → LIMITAR_BANDA (contención gradual) |
+| Exfiltración / C2 (destino malicioso conocido) | ✅ | `exfiltracion` → BLOQUEAR_DESTINO (bloquea el egreso al destino en el borde) |
+| Malware / rootkit (veredicto de VirusTotal/rootcheck) | ✅ | `malware` → AISLAR_NODO (cuarentena en el borde) |
 | Explotación de app pública (SQLi/LFI/RCE/log4shell) | ⚠️ | `explotacion_conocida` → se **enruta** a appsec, **no se contiene** aquí |
 
-**Qué NO resiste, en tres cestas distintas (cada una se cierra de forma distinta):**
+**Qué NO resiste. Las cestas 1 y 2 se CERRARON el 19/10 (rama `feat/cobertura-maxima`); queda la 3:**
 
-1. **Alcanzable con «más Wazuh» (agente completo), no es otro producto.** Malware/rootkit (rootcheck +
-   VirusTotal), FIM real, monitorización de procesos, SCA. El banco solo ejercita el *slice* de syslog
-   (sin agente), por eso esas detecciones no están en el laboratorio; en producción, el Wazuh del cliente
-   con agente las produce y el registro de familias se extiende para triarlas. **No se salta Wazuh: es
-   usarlo más a fondo.** Se descartó añadir una familia `malware` con `MATAR_PROCESO` por ser redundante
-   (su respuesta natural, aislar el host, ya existe en `integridad_fichero`) y por salirse hacia respuesta
-   de endpoint (el catálogo es red/servicio/cuenta/nodo por diseño).
-2. **Nuevo patrón de respuesta dentro del alcance (no implementado):** exfiltración / C2 → requeriría
-   **bloquear el destino** (dirección de respuesta que el catálogo no tiene hoy) y detección por
-   inteligencia de amenazas que el banco no tiene.
+1. **[CERRADA] Alcanzable con «más Wazuh» (agente completo) → familia `malware`.** Un veredicto EXPLÍCITO
+   de binario malicioso (VirusTotal, trojano de rootcheck) ahora se reconoce como familia `malware` y se
+   responde con **AISLAR_NODO** (cuarentena en el borde, humano incondicional), reutilizando el patrón de
+   `integridad_fichero`. Cierra un hueco real: antes un hit de VirusTotal caía en `plataforma` (ruido) o
+   `no_soportada`, sin contención. **No es otro producto ni se salta Wazuh:** en producción lo detecta el
+   agente Wazuh del cliente (rootcheck+VirusTotal); el banco lo ejercita sintético (alimenta por syslog).
+   Se mantiene descartado un `MATAR_PROCESO` (eso sí rozaría respuesta de endpoint/EDR): la respuesta
+   correcta y suficiente es aislar el host, que ya existe. *(FIM real, monitorización de procesos y SCA
+   siguen necesitando el agente completo; son detección, no respuesta nueva.)*
+2. **[CERRADA] Nuevo patrón de respuesta → familia `exfiltracion`.** Exfiltración / C2 a un **destino
+   malicioso conocido** (coincidencia con lista CDB/threat-intel del SIEM) ahora se responde con
+   **BLOQUEAR_DESTINO**: una dirección de respuesta NUEVA = bloquear el egreso hacia el destino en el
+   cortafuegos de borde (espejo de BLOQUEAR_IP_FIREWALL por destino `-d`), retenida para humano. La
+   detección en alcance es el **match de lista** (no C2 conductual cifrado, que es la cesta 3); el banco lo
+   ejercita sintético (regla local 100700 + decoder que extrae srcip/dstip). Validado en vivo end-to-end.
 3. **Genuinamente fuera de Wazuh → otro producto (EDR/NDR):** fileless / en memoria por comportamiento,
-   C2 cifrado por comportamiento, forense de memoria, movimiento lateral este-oeste. Ver el detalle en
+   C2 cifrado **por comportamiento** (sin match de lista), forense de memoria, movimiento lateral
+   este-oeste. Ésta no se cierra con «más Wazuh»: es detección conductual de endpoint/red que el SIEM no
+   da. Ver el detalle en
    [caso-de-uso-acotado.md §11](../01-fase1-analisis-del-modulo/caso-de-uso-acotado.md#11-límites-conocidos-de-este-perímetro).
 
 **Qué pasa cuando llega un ataque que no cubrimos — FALLA SEGURO.** El motor nunca se cae (barrera de

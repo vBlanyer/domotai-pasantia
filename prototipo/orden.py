@@ -1,5 +1,6 @@
 """Construye la orden de acción (mensaje) que el conector consume. Frontera motor↔conector."""
 from prototipo import perfil as perfilm
+from prototipo import actores
 
 # Respaldo heredado: mapa activo->IP del plano de datos del laboratorio, para perfiles que no
 # declaran la IP del activo. La IP se resuelve primero del perfil (`perfil.ip_de`: inventario y
@@ -46,6 +47,24 @@ def construir(decision, alerta, perfil=None):
             "nodo_objetivo": activo,          # el host cuyo enlace se acota (corre en él mismo)
             "nodo_ip": (perfilm.ip_de(perfil, activo) if perfil else None) or IP_DE_NODO.get(activo),
             "params": {"if": interfaz, "rate": rate},
+            "impacto": decision.get("impacto"), "justificacion": decision.get("justificacion"),
+        }
+    if accion == "BLOQUEAR_DESTINO":
+        # Exfiltracion/C2 (9ª familia): corta el EGRESO hacia el destino malicioso en el cortafuegos
+        # de borde del host que baliza (como BLOQUEAR_IP_FIREWALL, pero por destino -d). El destino sale
+        # de la ALERTA (dstip, fiable); el ejecutor del inventario (igual que AISLAR_NODO). Sin destino o
+        # sin cortafuegos no hay egreso que cortar -> sin orden (el filtro ya lo veta; cinturon aqui).
+        destino = alerta.get("destino_ip")
+        _ejec, ejec_ip = perfilm.ejecutor_aislamiento(perfil, activo) if perfil else (None, None)
+        # El filtro ya veta un destino no-IPv4; cinturon independiente: no construir `iptables -d`
+        # con un destino vacio o no-IPv4 (p. ej. IPv6, que el catalogo no sabe bloquear).
+        if not actores.es_ipv4(destino) or not ejec_ip:
+            return None
+        return {
+            "decision_id": decision.get("id_decision"), "accion_id": accion,
+            "nodo_objetivo": activo,       # el host interno que baliza (lo que lee el operador)
+            "nodo_ip": ejec_ip,            # donde se ejecuta: el cortafuegos de borde
+            "params": {"ip": destino},     # a quien se corta el egreso: el destino malicioso
             "impacto": decision.get("impacto"), "justificacion": decision.get("justificacion"),
         }
     if accion in _ACCIONES_SOBRE_ORIGEN:

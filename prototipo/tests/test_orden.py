@@ -87,3 +87,33 @@ class TestLimitarBanda(unittest.TestCase):
         # Fail-closed: sin interfaz no se puede acotar la banda (el filtro ya lo veta; cinturón aquí).
         d = {"id_decision": "d9", "activo": "web", "accion_final": "LIMITAR_BANDA"}
         self.assertIsNone(orden.construir(d, {}, {"activos": {"web": {"ip": "10.0.0.5"}}}))
+
+
+class TestBloquearDestino(unittest.TestCase):
+    """9ª familia (exfiltración/C2): BLOQUEAR_DESTINO corta el EGRESO hacia el destino malicioso en el
+    cortafuegos de borde del host que baliza (como BLOQUEAR_IP_FIREWALL, pero por destino -d). El
+    destino sale de la ALERTA (dstip, fiable), el ejecutor del inventario (igual que AISLAR_NODO)."""
+
+    def test_se_ejecuta_en_el_cortafuegos_y_apunta_al_destino_de_la_alerta(self):
+        d = {"id_decision": "d9", "activo": "objetivo-vuln", "accion_final": "BLOQUEAR_DESTINO"}
+        o = orden.construir(d, {"familia": "exfiltracion", "destino_ip": "203.0.113.66"}, PERFIL_TOPO)
+        self.assertEqual(o["accion_id"], "BLOQUEAR_DESTINO")
+        self.assertEqual(o["nodo_objetivo"], "objetivo-vuln")      # el host que baliza (lo que ve el operador)
+        self.assertEqual(o["nodo_ip"], "192.168.1.1")              # dónde se ejecuta: el cortafuegos de borde
+        self.assertEqual(o["params"], {"ip": "203.0.113.66"})      # a quién se corta el egreso: el destino
+
+    def test_sin_destino_en_la_alerta_no_hay_orden(self):
+        # Fail-closed: sin destino no hay egreso que cortar -> sin orden (el filtro ya lo veta).
+        d = {"id_decision": "d9", "activo": "objetivo-vuln", "accion_final": "BLOQUEAR_DESTINO"}
+        self.assertIsNone(orden.construir(d, {"familia": "exfiltracion"}, PERFIL_TOPO))
+
+    def test_sin_cortafuegos_de_borde_no_hay_orden(self):
+        d = {"id_decision": "d9", "activo": "puesto", "accion_final": "BLOQUEAR_DESTINO"}
+        self.assertIsNone(orden.construir(d, {"destino_ip": "203.0.113.66"},
+                                          {"activos": {"puesto": {"ip": "10.0.0.5"}}}))
+
+    def test_destino_no_ipv4_no_hay_orden(self):
+        # Cinturón (revisión Opus, BAJO): el filtro ya veta un destino no-IPv4, pero el constructor
+        # independiente también lo rechaza (no construye `iptables ... -d ::1` con un destino IPv6).
+        d = {"id_decision": "d9", "activo": "objetivo-vuln", "accion_final": "BLOQUEAR_DESTINO"}
+        self.assertIsNone(orden.construir(d, {"familia": "exfiltracion", "destino_ip": "::1"}, PERFIL_TOPO))

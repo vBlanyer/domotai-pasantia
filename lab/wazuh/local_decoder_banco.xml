@@ -10,3 +10,13 @@
   <regex offset="after_prematch">^(\S+) port</regex>
   <order>srcip</order>
 </decoder>
+
+<!-- Exfiltracion/C2 (9ª familia): "ossec-ids[1400]: egress to known C2: src=10.10.0.10 dst=203.0.113.66
+     (...)". Saca srcip (el host interno que baliza) y dstip (el destino malicioso que se bloquea con
+     BLOQUEAR_DESTINO). El motor toma el destino de data.dstip (fiable: es el extremo remoto). -->
+<decoder name="banco-ids-c2">
+  <program_name>^ossec-ids</program_name>
+  <prematch>known C2: </prematch>
+  <regex offset="after_prematch">^src=(\S+) dst=(\S+)</regex>
+  <order>srcip, dstip</order>
+</decoder>
