@@ -132,7 +132,26 @@ export function ventanaDe(regs: Decision[]): { mostrados: number; total: number;
 // Qué registros de la traza son decisiones: no los resúmenes de supresión («el ataque sigue, ya
 // decidido»), el eco del login del propio MDR al contener («actividad propia»), la reversión de
 // una contención ni el fallo al procesar un incidente.
-const NO_DECISIONES = new Set(["actividad_suprimida", "actividad_propia", "reversion", "error"])
+const NO_DECISIONES = new Set(["actividad_suprimida", "actividad_propia", "reversion", "error", "actualizacion_caso"])
 export function esDecision(d: Decision): boolean {
   return !NO_DECISIONES.has(d.tipo ?? "")
+}
+
+// Ciclo de vida del caso: pliega los registros `actualizacion_caso` de la traza en el estado actual
+// por id_decision (espejo de prototipo/casos.estado_de_casos). Una decisión sin ninguna actualización
+// no aparece aquí (su estado implícito es 'nuevo').
+export type CasoNota = { texto: string; operador?: string | null; decidido_en?: string | null }
+export type CasoEstado = { estado: string; asignado: string | null; notas: CasoNota[]; actualizado_en?: string | null }
+
+export function estadoDeCasos(regs: Decision[]): Record<string, CasoEstado> {
+  const casos: Record<string, CasoEstado> = {}
+  for (const r of regs) {
+    if (r.tipo !== "actualizacion_caso" || !r.id_decision) continue
+    const c = casos[r.id_decision] ?? (casos[r.id_decision] = { estado: "nuevo", asignado: null, notas: [] })
+    if (r.estado) c.estado = r.estado
+    if (r.asignado) c.asignado = r.asignado
+    if (r.nota) c.notas.push({ texto: r.nota, operador: r.operador, decidido_en: r.decidido_en })
+    c.actualizado_en = r.decidido_en
+  }
+  return casos
 }

@@ -46,6 +46,10 @@ export const DecisionSchema = z.object({
   nodo: z.string().nullable().optional(), error: z.string().nullable().optional(),
   // relaciones evento-equipo en la red y dispositivo de contención
   relaciones: z.record(z.string(), z.array(z.string())).nullable().optional(), contencion: z.string().nullable().optional(), dispositivo: z.string().nullable().optional(),
+  // ciclo de vida del caso (registro `actualizacion_caso`): estado/asignado/nota + quién y cuándo
+  estado: z.string().nullable().optional(), asignado: z.string().nullable().optional(),
+  nota: z.string().nullable().optional(), operador: z.string().nullable().optional(),
+  decidido_en: z.string().nullable().optional(),
 })
 // Detalle completo de una decisión (/api/traza/<id>): el texto de la justificación y los pasajes
 // del RAG. Laxo a propósito (`passthrough`): la traza lleva muchos más campos que no renderizamos.
@@ -236,6 +240,24 @@ export async function aprobar(id: string, respuesta: string, paso?: number | nul
       body: JSON.stringify({ id, respuesta, ...(paso != null ? { paso } : {}), ...(operador ? { operador } : {}) }),
     })
     return r.ok            // 200 -> true; 409 (pendiente caduca) -> false, no lanza
+  } catch {
+    return false
+  }
+}
+
+// Ciclo de vida del caso: anota estado/asignado/nota de una decisión. El daemon lo añade a la traza
+// como registro `actualizacion_caso` encadenado (no muta la decisión). El operador sale del token
+// (no repudio); si no hay token, se manda el nombre del operador local. true si se anotó.
+export async function actualizarCaso(
+  id: string, campos: { estado?: string; asignado?: string; nota?: string },
+): Promise<boolean> {
+  try {
+    const operador = operadorActual()
+    const r = await fetch(BASE + "/api/caso", {
+      method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ id, ...campos, ...(operador ? { operador } : {}) }),
+    })
+    return r.ok            // 200 -> true; 400 (actualización vacía/estado inválido) o 409 -> false
   } catch {
     return false
   }

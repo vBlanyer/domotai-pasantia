@@ -34,6 +34,7 @@ class EstadoTablero:
         self._cola = {}                    # cola de decisiones humanas (modo web no bloqueante)
         self._orden = itertools.count(1)   # orden de llegada, para desempatar por severidad
         self._resolutor = None             # fn(pid, respuesta, paso=None)->bool, la registra el daemon (ejecuta+traza)
+        self._actualizador = None          # fn(id_decision, estado/asignado/nota, operador)->bool: añade un `actualizacion_caso` a la cadena
         self._pausada = False              # kill switch (#8): con True, toda auto-ejecución pasa a esperar humano
 
     def pausar(self, valor):
@@ -125,6 +126,19 @@ class EstadoTablero:
         `paso` es el del menú que vio el analista (None = no se comprueba). `operador` queda en la
         traza (no repudio: quién aprobó)."""
         return bool(self._resolutor and self._resolutor(pid, respuesta, paso=paso, operador=operador))
+
+    def fijar_actualizador(self, fn):
+        """El daemon registra aquí cómo anotar un caso: añadir un `actualizacion_caso` a la cadena."""
+        self._actualizador = fn
+
+    def actualizar_caso(self, id_decision, estado=None, asignado=None, nota=None, operador=None):
+        """Cambio de ciclo de vida del caso (estado/asignado/nota) de una decisión: lo añade a la
+        traza como registro encadenado (ciclo de caso, NO muta la decisión). Propaga ValueError
+        (estado inválido / actualización vacía) para que el handler responda 400. `operador` = no
+        repudio (del token). Devuelve True si se anotó; False si no hay actualizador (ruta bloqueante)."""
+        if not self._actualizador:
+            return False
+        return bool(self._actualizador(id_decision, estado=estado, asignado=asignado, nota=nota, operador=operador))
 
     def anotar_linea(self, linea):
         with self._lock:
@@ -273,7 +287,7 @@ def _resumen_traza(reg, ips=None, externos=()):
 
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
 # fallos al procesar un incidente y reversiones de una contención ya decidida.
-_NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion")
+_NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion", "actualizacion_caso")
 
 
 _ESTADO_PLAN = {"mitigado": "contenida", "fallido": "fallida", "cancelado_por_humano": "cancelada",
@@ -781,7 +795,7 @@ class _Manejador(BaseHTTPRequestHandler):
         try:
             s = self.server
             ruta = self.path.split("?", 1)[0]
-            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo"):
+            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/caso"):
                 return self._responder({"error": "no encontrado"}, 404)
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -804,6 +818,14 @@ class _Manejador(BaseHTTPRequestHandler):
                 res = revertir.revertir_todas(s.ruta_traza, s.catalogo, ejecutor,
                                               motivo="des-bloqueo en masa (kill switch)", operador=operador)
                 return self._responder(res)
+            if ruta == "/api/caso":   # ciclo de vida del caso: añade un `actualizacion_caso` a la cadena
+                try:
+                    ok = s.estado.actualizar_caso(cuerpo.get("id"), estado=cuerpo.get("estado"),
+                                                  asignado=cuerpo.get("asignado"), nota=cuerpo.get("nota"),
+                                                  operador=operador)
+                except ValueError as e:
+                    return self._responder({"error": str(e)}, 400)   # estado inválido o actualización vacía
+                return self._responder({"ok": True}) if ok else self._responder({"error": "no disponible en este modo"}, 409)
             pid, resp = str(cuerpo.get("id")), str(cuerpo.get("respuesta", ""))
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.
             # `paso` es opcional: solo lo usa la cola (la ruta bloqueante no tiene menús con paso).

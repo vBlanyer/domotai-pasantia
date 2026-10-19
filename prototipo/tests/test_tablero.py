@@ -133,6 +133,20 @@ class TestEstadoYLector(unittest.TestCase):
         self.assertTrue(e.resolver_decision("1", "2"))            # sin paso ni operador -> None (rutas viejas)
         self.assertEqual(vistos, [("1", "2", 3, "ana"), ("1", "2", None, None)])
 
+    def test_actualizar_caso_pasa_al_actualizador_y_propaga_el_operador(self):
+        # Ciclo de caso: el estado/nota/asignado se delegan al actualizador del daemon (añade a la
+        # cadena); el operador (del token) viaja para el no repudio.
+        e = tablero.EstadoTablero()
+        vistos = []
+        e.fijar_actualizador(lambda idd, **kw: vistos.append((idd, kw)) or True)
+        self.assertTrue(e.actualizar_caso("d1", estado="resuelto", nota="ok", operador="ana"))
+        self.assertEqual(vistos[0][0], "d1")
+        self.assertEqual(vistos[0][1], {"estado": "resuelto", "asignado": None, "nota": "ok", "operador": "ana"})
+
+    def test_actualizar_caso_sin_actualizador_es_falso(self):
+        # Ruta bloqueante (sin daemon web): no hay dónde anotar -> False, sin reventar.
+        self.assertFalse(tablero.EstadoTablero().actualizar_caso("d1", estado="resuelto"))
+
     def test_escribir_web_imprime_y_acumula(self):
         estado = tablero.EstadoTablero()
         vistas = []
