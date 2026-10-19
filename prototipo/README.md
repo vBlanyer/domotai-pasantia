@@ -117,7 +117,8 @@ Cada línea de la salida (`.jsonl`) es una decisión de triaje:
 }
 ```
 
-`resultado_filtro` es siempre uno de `permite` | `degrada` | `veta` | `sin_accion`.
+`resultado_filtro` es siempre uno de `permite` | `degrada` | `veta` | `sin_accion` | `revisar`
+(`revisar` = un `no_soportada` de severidad alta escalado a revisión humana, sin acción; opt-in del perfil).
 El analista no ve ese valor en crudo, sino lo que significa (`validacion.filtro_legible`). `veta` tiene
 dos lecturas: con acción final es **retenida — espera tu aprobación** (se ejecuta si apruebas); sin ella es
 **vetada — no se puede ejecutar** (veto duro por gestión, reversión o catálogo). `permite` se muestra como

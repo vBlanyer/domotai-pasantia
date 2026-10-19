@@ -28,7 +28,10 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
     if clas["clase"] == "no_soportada":
         umbral_rev = (perfil_dict.get("continuidad") or {}).get("revisar_no_soportada_nivel")
         nivel = alerta.get("nivel_wazuh")
-        if umbral_rev is not None and isinstance(nivel, int) and not isinstance(nivel, bool) and nivel >= umbral_rev:
+        _es_entero = lambda x: isinstance(x, int) and not isinstance(x, bool)
+        # Fail-safe: un umbral mal escrito en el YAML (texto/lista) NO debe reventar el triaje con un
+        # TypeError en `nivel >= umbral`; se trata como apagado. `perfil.validar` además lo avisa al arrancar.
+        if _es_entero(umbral_rev) and _es_entero(nivel) and nivel >= umbral_rev:
             filtro = {**filtro, "resultado": "revisar", "requiere_humano": True}
     ruta = perfilm.ruta_de(perfil_dict, clas.get("ruta"))
     # Recomendacion de respuesta dirigida (asesora, NO cambia accion/filtro): la calcula el registro

@@ -96,6 +96,16 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["clase"], "no_soportada")
         self.assertFalse(r["requiere_humano"])             # nivel bajo < umbral -> no se escala
 
+    def test_umbral_revisar_mal_escrito_no_rompe_el_triaje(self):
+        # Robustez (revisión): un umbral no numérico en el YAML (p.ej. "10" string) NO debe lanzar
+        # TypeError en `nivel >= umbral`; se trata como apagado (fail-safe), no se escala.
+        a = {**j("alerta_vp.json"), "familia": "plataforma", "nivel_wazuh": 12}
+        for malo in ("10", [10], True, {}):
+            p = {**y("perfil.yml"), "continuidad": {"revisar_no_soportada_nivel": malo}}
+            r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+            self.assertEqual(r["clase"], "no_soportada")
+            self.assertFalse(r["requiere_humano"], malo)   # umbral inválido -> no escala, sin crash
+
     def test_sin_el_opt_in_del_perfil_el_no_soportada_no_se_escala(self):
         # Sin la clave en el perfil el feature está APAGADO (comportamiento de siempre) -> el canónico,
         # medido sobre un perfil sin esta clave, no se mueve.

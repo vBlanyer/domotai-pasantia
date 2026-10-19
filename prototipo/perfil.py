@@ -81,6 +81,9 @@ def validar(perfil):
     r = (perfil.get("rafaga") or {}).get("umbral")
     if r is not None and not (isinstance(r, int) and r > 0):
         avisos.append(f"rafaga.umbral debe ser un entero positivo: {r!r}")
+    nr = (perfil.get("continuidad") or {}).get("revisar_no_soportada_nivel")
+    if nr is not None and not (isinstance(nr, int) and not isinstance(nr, bool) and nr > 0):
+        avisos.append(f"continuidad.revisar_no_soportada_nivel debe ser un entero positivo: {nr!r}")
     return avisos
 
 def criticidad_de(perfil, activo):
