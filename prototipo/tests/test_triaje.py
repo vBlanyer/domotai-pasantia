@@ -77,6 +77,43 @@ class TestProcesar(unittest.TestCase):
         self.assertEqual(r["clase"], "vp_acceso_consumado")
         self.assertIsNone(r["accion_final"])
 
+    def test_no_soportada_grave_se_escala_a_revision_humana(self):
+        # Un no_soportada de SEVERIDAD ALTA (nivel Wazuh >= umbral del perfil) no debe quedar solo en el
+        # log: se marca para REVISIÓN humana (requiere_humano, resultado 'revisar'), SIN acción (no hay
+        # nada que contener). El ruido de plataforma (nivel bajo) sigue sin molestar. Opt-in del perfil.
+        a = {**j("alerta_vp.json"), "familia": "plataforma", "nivel_wazuh": 12}   # fuera de las 8 -> no_soportada
+        p = {**y("perfil.yml"), "continuidad": {"revisar_no_soportada_nivel": 10}}
+        r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "no_soportada")
+        self.assertTrue(r["requiere_humano"])              # se escala a revisión
+        self.assertEqual(r["resultado_filtro"], "revisar")
+        self.assertIsNone(r["accion_final"])               # sin acción: no hay nada que contener
+
+    def test_no_soportada_ruidoso_sigue_sin_molestar(self):
+        a = {**j("alerta_vp.json"), "familia": "plataforma", "nivel_wazuh": 3}   # ruido de plataforma
+        p = {**y("perfil.yml"), "continuidad": {"revisar_no_soportada_nivel": 10}}
+        r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "no_soportada")
+        self.assertFalse(r["requiere_humano"])             # nivel bajo < umbral -> no se escala
+
+    def test_umbral_revisar_mal_escrito_no_rompe_el_triaje(self):
+        # Robustez (revisión): un umbral no numérico en el YAML (p.ej. "10" string) NO debe lanzar
+        # TypeError en `nivel >= umbral`; se trata como apagado (fail-safe), no se escala.
+        a = {**j("alerta_vp.json"), "familia": "plataforma", "nivel_wazuh": 12}
+        for malo in ("10", [10], True, {}):
+            p = {**y("perfil.yml"), "continuidad": {"revisar_no_soportada_nivel": malo}}
+            r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
+            self.assertEqual(r["clase"], "no_soportada")
+            self.assertFalse(r["requiere_humano"], malo)   # umbral inválido -> no escala, sin crash
+
+    def test_sin_el_opt_in_del_perfil_el_no_soportada_no_se_escala(self):
+        # Sin la clave en el perfil el feature está APAGADO (comportamiento de siempre) -> el canónico,
+        # medido sobre un perfil sin esta clave, no se mueve.
+        a = {**j("alerta_vp.json"), "familia": "plataforma", "nivel_wazuh": 12}
+        r = triaje.procesar(a, j("hallazgos.json"), y("perfil.yml"), "prueba", CAT, id_decision="d1", timestamp="t")
+        self.assertEqual(r["clase"], "no_soportada")
+        self.assertFalse(r["requiere_humano"])             # opt-in ausente -> apagado
+
     def test_aviso_vigilancia_en_el_punto_ciego(self):
         # low-and-slow desde un origen de confianza: el motor dice legítimo, pero el volumen de la
         # ventana larga dispara el aviso ASESOR (no cambia el veredicto ni ejecuta nada).

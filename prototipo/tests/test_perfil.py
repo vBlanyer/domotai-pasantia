@@ -488,11 +488,12 @@ class TestValidar(unittest.TestCase):
         p = {"activos": {"web": {"ip": "nope", "depende_de": ["fantasma"]}},
              "origenes_legitimos": ["10.0.0.1", "no-ip"],
              "terceros_confiables": ["1.2.3.0/24", "mal/33"],
-             "continuidad": {"umbral_confianza": 5},
+             "continuidad": {"umbral_confianza": 5, "revisar_no_soportada_nivel": "10"},
              "rafaga": {"umbral": -2}}
         avisos = perfil.validar(p)
         texto = " | ".join(avisos)
         self.assertIn("ip_gestion", texto)           # falta el plano de gestión (RF-19)
+        self.assertIn("revisar_no_soportada_nivel", texto)   # umbral no entero -> aviso al arrancar
         self.assertIn("nope", texto)                 # IP de activo no parseable
         self.assertIn("fantasma", texto)             # depende_de a un activo inexistente
         self.assertIn("no-ip", texto)                # origen legítimo no parseable

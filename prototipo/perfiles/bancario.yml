@@ -48,6 +48,10 @@ continuidad:
   # El control recomendado es poblar `terceros_confiables` con los socios criticos (abajo).
   # contener_externos_desconocidos: humano_siempre
   umbral_confianza:           0.9                   # barra alta para cualquier automatismo (RF-07)
+  # Un no_soportada de SEVERIDAD alta (nivel Wazuh >= este valor) no se queda en el log: se escala a
+  # REVISION humana (sin accion). Un desconocido grave merece ojo humano; el ruido de plataforma
+  # (SCA/CIS/rootcheck, nivel bajo) no molesta. Opt-in: ausente = apagado (no mueve el canonico).
+  revisar_no_soportada_nivel: 10
   actores:                                          # C1: bloquear lo propio exige humano
     activo_interno:           humano_siempre
     dispositivo_red:          humano_siempre

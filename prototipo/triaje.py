@@ -20,6 +20,19 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
     impacto = catalogo[accion]["impacto"] if accion else "ninguno"
     filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),
                              alerta.get("servicio"), clas["confianza"], hallazgos=hallazgos)
+    # Escalada de un no_soportada GRAVE (opt-in del perfil, RF-13): un desconocido de SEVERIDAD alta no
+    # debe quedar solo en el log. Si el perfil fija `continuidad.revisar_no_soportada_nivel` y el nivel
+    # Wazuh lo alcanza, se marca para REVISIÓN humana (resultado 'revisar'), SIN acción (no hay nada que
+    # contener, no se adivina una). Ausente la clave -> apagado (comportamiento de siempre), así el
+    # canónico —medido sin ella— no se mueve. El ruido de plataforma (nivel bajo) sigue sin molestar.
+    if clas["clase"] == "no_soportada":
+        umbral_rev = (perfil_dict.get("continuidad") or {}).get("revisar_no_soportada_nivel")
+        nivel = alerta.get("nivel_wazuh")
+        _es_entero = lambda x: isinstance(x, int) and not isinstance(x, bool)
+        # Fail-safe: un umbral mal escrito en el YAML (texto/lista) NO debe reventar el triaje con un
+        # TypeError en `nivel >= umbral`; se trata como apagado. `perfil.validar` además lo avisa al arrancar.
+        if _es_entero(umbral_rev) and _es_entero(nivel) and nivel >= umbral_rev:
+            filtro = {**filtro, "resultado": "revisar", "requiere_humano": True}
     ruta = perfilm.ruta_de(perfil_dict, clas.get("ruta"))
     # Recomendacion de respuesta dirigida (asesora, NO cambia accion/filtro): la calcula el registro
     # de correspondencia a partir de la familia y el servicio atacado. El default cachea (registro()).
