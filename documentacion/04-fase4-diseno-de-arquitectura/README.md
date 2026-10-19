@@ -54,7 +54,7 @@ comparar contra él es lo único que responde a la pregunta del proyecto.
 
 **Material de referencia:** [EDR, XDR, MDR y telemetría](edr-xdr-mdr-telemetria.md) — encaje de las
 tres siglas y por qué el componente central es un motor de triaje y no un EDR. El material superado
-por el cambio de contexto está en [documentacion/archivo/](../archivo/).
+por el cambio de contexto está en [documentacion/material-superado/](../material-superado/).
 
 ---
 

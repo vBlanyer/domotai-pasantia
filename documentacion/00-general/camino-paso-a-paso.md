@@ -178,8 +178,8 @@ Arquitectura, decisiones y alternativas descartadas, resultados, limitaciones y 
 | Tarea | Por qué | Incongruencia |
 |-------|---------|---------------|
 | Reunión con la empresa: las siete preguntas de [estado y riesgos §5](./estado-y-riesgos.md) | Ya no bloquean, pero mejoran el resultado. La 7 (hardware) puede cambiar el Perfil | I-4 |
-| ~~Retirar o archivar `planDeTrabajo.md`~~ **HECHO** — movido a `documentacion/archivo/` | — | I-9 |
-| ~~Reescribir o podar `herramientas-auxiliares.md` y `symons.md`~~ **HECHO** — movidos a `documentacion/archivo/` | — | I-8 |
+| ~~Retirar o archivar `planDeTrabajo.md`~~ **HECHO** — movido a `documentacion/material-superado/` | — | I-9 |
+| ~~Reescribir o podar `herramientas-auxiliares.md` y `symons.md`~~ **HECHO** — movidos a `documentacion/material-superado/` | — | I-8 |
 | Plantear a coordinación el encuadre del sandbox | El motor de triaje ejecuta acciones; está encuadrado como validación, pero conviene que lo sepan | I-7 |
 
 ---

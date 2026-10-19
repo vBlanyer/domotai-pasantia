@@ -173,13 +173,13 @@ El sandbox se encuadró como «entorno controlado de validación» para no tocar
 
 ### I-8 · Material de referencia con premisa superada — MENOR
 
-[symons.md](../archivo/symons.md) y [herramientas-auxiliares.md](../archivo/herramientas-auxiliares.md) llevan una nota de condicionalidad, pero su contenido interno —el stack Atomic Red Team → Sysmon → Sigma— sigue contradiciendo el diseño actual. Está señalado, no reescrito.
+[symons.md](../material-superado/symons.md) y [herramientas-auxiliares.md](../material-superado/herramientas-auxiliares.md) llevan una nota de condicionalidad, pero su contenido interno —el stack Atomic Red Team → Sysmon → Sigma— sigue contradiciendo el diseño actual. Está señalado, no reescrito.
 
 ---
 
 ### I-9 · Dos planes de trabajo conviviendo — MENOR
 
-[planDeTrabajo.md](../archivo/planDeTrabajo.md) (6 objetivos, objetivo 4 con la frase cortada) sigue junto a [planDeTrabajoActualizado.md](./planDeTrabajoActualizado.md) (7 objetivos). Riesgo de que alguien lea el equivocado.
+[planDeTrabajo.md](../material-superado/planDeTrabajo.md) (6 objetivos, objetivo 4 con la frase cortada) sigue junto a [planDeTrabajoActualizado.md](./planDeTrabajoActualizado.md) (7 objetivos). Riesgo de que alguien lea el equivocado.
 
 ---
 
@@ -256,7 +256,7 @@ grueso del trabajo.
 
 Dos consecuencias que conviene dejar escritas, porque un lector externo llegará a ellas solo:
 
-- El archivo [`documentacion/archivo/planDeTrabajo.md`](../archivo/planDeTrabajo.md) —movido a
+- El archivo [`documentacion/material-superado/planDeTrabajo.md`](../material-superado/planDeTrabajo.md) —movido a
   `archivo/` por la incongruencia **I-9** como si fuera un borrador superado— es en realidad **el
   plan oficial**: mismos seis objetivos, misma frase cortada en el objetivo 4. Lo que I-9 trató como
   «el plan viejo» es el documento vigente ante la Universidad.
@@ -318,7 +318,7 @@ Consolidadas. **Ninguna bloquea ya el avance** tras adoptar Wazuh como fuente de
 | I-5 | Estado del arte desalineado | Estructural | Nosotros | **Resuelta** — revisión de requisitos contra el contexto del cliente |
 | I-6 | Perfil A vs flujo | De diseño | Nosotros | **Resuelta** — justificación en línea (forma) y, con el 8B residente + RAG en la máquina objetivo, 18/18 ancladas y 0 contradicciones (calidad). Sin GPU, el 1B sigue siendo poco fiable; revisión manual independiente pendiente |
 | I-7 | Tensión de alcance | De diseño | Coordinación | Gestionada |
-| I-8 | Material con premisa superada | Menor | Nosotros | **Resuelta** — movido a documentacion/archivo/ |
+| I-8 | Material con premisa superada | Menor | Nosotros | **Resuelta** — movido a documentacion/material-superado/ |
 | I-9 | Dos planes conviviendo | Menor | Nosotros | **Resuelta con matiz** — el plan movido a `archivo/` resultó ser el oficial firmado; ver I-13 |
 | I-13 | El plan oficial omite el objetivo de implementar | Estructural | Nosotros | **Resuelta** — es un error de tipeo del documento oficial; el cronograma sí incluye desarrollar el prototipo. Vale la lista de 7 objetivos |
 | I-10 | El componente central se llamaba «EDR» siendo el motor de triaje de un XDR | De diseño | Nosotros | **Resuelta** — renombrado a «motor de triaje» |

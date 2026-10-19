@@ -90,15 +90,21 @@ competencia en vez de inventar una respuesta.
 
 ## Cómo está organizado el repositorio
 
+El mapa completo, carpeta a carpeta, está en **[`STRUCTURE.md`](STRUCTURE.md)**. En resumen:
+
+- **[`prototipo/`](prototipo/)** — el motor de triaje, el daemon y la API (Fase 5). *Producto.*
+- **[`visor/`](visor/)** — la consola web (React/TS) que sirve el daemon. *Producto.*
+- **[`deploy/`](deploy/)** — artefactos de despliegue (systemd, wrapper, `/healthz`, retención). *Producto.*
+- **[`evaluacion/`](evaluacion/resultados/README.md)** — el marco de medición y los resultados (Fase 6).
+- **[`lab/`](lab/)** — el laboratorio ejecutable, el banco y el dataset (Fase 3).
 - **[`documentacion/`](documentacion/README.md)** — el diseño completo en 7 fases; empieza por su índice. La
   **integración en producción**, la **hoja de ruta de cierre** y los **requisitos del cliente/gobernanza** están
   en [`documentacion/04-fase4-diseno-de-arquitectura/`](documentacion/04-fase4-diseno-de-arquitectura/).
-- **[`prototipo/`](prototipo/)** — el motor de triaje (Fase 5).
-- **[`lab/`](lab/)** — el laboratorio ejecutable y el dataset (Fase 3).
-- **[`evaluacion/`](evaluacion/resultados/README.md)** — el marco de medición y los resultados (Fase 6).
-- **[`deploy/`](deploy/)** — artefactos de despliegue (systemd, wrapper, `/healthz`, retención).
+- **[`docs/pruebas/`](docs/pruebas/)** — guías de prueba y evidencia por escenario.
 - **[`RUNBOOK.md`](RUNBOOK.md)** — cómo operar el sistema completo paso a paso.
-- **[`archivo/`](archivo/)** — material de proceso archivado (no es diseño vigente).
+- **[`archivo/`](archivo/)** — archivo del **proceso de desarrollo** (planes/specs); no es diseño vigente.
+  El **material de referencia superado** del propio diseño vive aparte, en
+  [`documentacion/material-superado/`](documentacion/material-superado/).
 
 ## Estado y resultado medido
 
