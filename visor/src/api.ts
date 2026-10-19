@@ -142,6 +142,8 @@ export const PendienteSchema = z.object({
   accion_final: z.string().nullable().optional(),
   // estado activo y origen de la amenaza
   activo: z.string().nullable().optional(), origen_ip: z.string().nullable().optional(),
+  // hora de encolado (ISO, del servidor): el SLA del analista en el visor («lleva esperando X»)
+  encolado_en: z.string().nullable().optional(),
 })
 export const VerificacionSchema = z.object({
   ok: z.boolean(), roto_en: z.number().nullable().optional(), motivo: z.string().optional(),

@@ -1,6 +1,7 @@
-import { useRef, useState } from "react"
-import { TriangleAlert } from "lucide-react"
+import { useRef, useState, useEffect } from "react"
+import { TriangleAlert, Clock } from "lucide-react"
 import { useSondeo, getPendientes, aprobar, parsearPendiente, operadorActual, fijarOperador, type Pendiente, type Opcion } from "@/api"
+import { edadTexto, envejecido, msDesde } from "@/alertas"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -28,6 +29,8 @@ const CLASE_LEGIBLE: Record<string, string> = {
   vp_denegacion_servicio: "Denegación de servicio",
   vp_abuso_cuenta: "Abuso de cuenta",
   vp_acceso_consumado: "Acceso consumado",
+  vp_exfiltracion: "Exfiltración / C2",
+  vp_malware: "Malware",
   fp_actividad_legitima: "Falso positivo (legítimo)",
   fp_exposicion_inexistente: "Falso positivo (exposición)",
   no_soportada: "No soportada",
@@ -53,9 +56,22 @@ function LineaInfo({ t }: { t: string }) {
   )
 }
 
-function Tarjeta({ p }: { p: Pendiente }) {
+// Reloj que avanza cada segundo, para que el «lleva esperando X» de la cola sea en vivo (el sondeo
+// no re-renderiza si los datos no cambian). La edad sale de `encolado_en` del servidor (SLA exacto,
+// sobrevive a recargas), no de una marca del cliente.
+function useAhora(ms = 1000): number {
+  const [ahora, setAhora] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setAhora(Date.now()), ms)
+    return () => clearInterval(t)
+  }, [ms])
+  return ahora
+}
+
+function Tarjeta({ p, edadMs = 0 }: { p: Pendiente; edadMs?: number }) {
   const v = parsearPendiente(p)
   const escalada = p.tipo === "escalada"
+  const viejo = envejecido(edadMs)
   // Vetada sin sustituta (accion_final null; ausente = daemon antiguo): aprobar no ejecuta nada, así
   // que ni se confirma una cascada que no ocurrirá ni se anuncia una contención.
   const sinAccion = !escalada && p.accion_final === null
@@ -100,14 +116,18 @@ function Tarjeta({ p }: { p: Pendiente }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-amber-500/40 bg-amber-500/[0.04]">
-      <div className="flex items-center gap-2 border-b border-amber-500/20 px-4 py-2.5">
+    <div className={`overflow-hidden rounded-lg border ${viejo ? "border-rose-500/50 bg-rose-500/[0.05]" : "border-amber-500/40 bg-amber-500/[0.04]"}`}>
+      <div className={`flex flex-wrap items-center gap-2 border-b px-4 py-2.5 ${viejo ? "border-rose-500/25" : "border-amber-500/20"}`}>
         <Punto estado="pendiente" />
         <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Espera tu decisión</span>
         {!!p.severidad && <Prioridad n={p.severidad} />}
         {v.incidente && <span className="ml-1 truncate text-xs text-muted-foreground">· {v.incidente}</span>}
+        <span className={`ml-auto flex shrink-0 items-center gap-1 text-xs ${viejo ? "font-medium text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}
+          title="Tiempo que lleva esperando tu decisión en esta sesión">
+          <Clock className="size-3" /> pendiente {edadTexto(edadMs)}
+        </span>
         {!!p.suprimidas && p.suprimidas > 0 && (
-          <span className="ml-auto shrink-0 rounded bg-rose-500/15 px-1.5 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+          <span className="shrink-0 rounded bg-rose-500/15 px-1.5 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400">
             sigue atacando · +{p.suprimidas}
           </span>
         )}
@@ -183,11 +203,12 @@ function BarraOperador() {
 
 export function Aprobaciones() {
   const p = useSondeo(getPendientes)
+  const ahora = useAhora()   // hook incondicional (antes de cualquier return); 1 Hz para el SLA en vivo
   const cuerpo = !p ? <Cargando />
     : "error" in p ? <SinConexion />
     : p.length === 0 ? <Vacio>Nada que aprobar ahora mismo. Cuando una decisión necesite un humano, aparecerá aquí.</Vacio>
     // la clave incluye el paso: un menú nuevo (submenú de clases) monta la tarjeta con estado limpio
-    : <div className="space-y-4">{p.map((x) => <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} />)}</div>
+    : <div className="space-y-4">{p.map((x) => <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} edadMs={msDesde(x.encolado_en, ahora)} />)}</div>
   return (
     <div className="space-y-4">
       <BarraOperador />

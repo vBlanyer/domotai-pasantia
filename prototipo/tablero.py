@@ -12,6 +12,7 @@ import os
 import subprocess
 import threading
 import urllib.parse
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from prototipo import actores, familias, red, traza
@@ -61,8 +62,11 @@ class EstadoTablero:
                         return p["id"]
             pid = str(next(self._seq))
             # `paso` identifica el menú que se está mostrando; avanza al cambiar de menú (reclasificar)
-            # para que una respuesta dada al menú anterior no se aplique al nuevo.
-            self._cola[pid] = {**entrada, "id": pid, "orden": next(self._orden), "suprimidas": 0, "paso": 0}
+            # para que una respuesta dada al menú anterior no se aplique al nuevo. `encolado_en` es la
+            # hora de PARED al encolar (no la de la alerta, influenciable): el SLA del analista en el
+            # visor («lleva esperando X»). Vive solo en esta cola en memoria, no en la traza auditada.
+            self._cola[pid] = {**entrada, "id": pid, "orden": next(self._orden), "suprimidas": 0, "paso": 0,
+                               "encolado_en": datetime.now(timezone.utc).isoformat()}
             return pid
 
     def sumar_repeticion(self, claves, n=1):

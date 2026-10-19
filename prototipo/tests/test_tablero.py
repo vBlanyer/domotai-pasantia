@@ -112,6 +112,19 @@ class TestEstadoYLector(unittest.TestCase):
         e.encolar_decision({"clave": None, "severidad": 1, "activo": "x"})
         self.assertEqual(e.decisiones_pendientes()[0]["paso"], 0)
 
+    def test_encolar_sella_la_hora_y_se_serializa_al_visor(self):
+        # SLA del analista: `encolado_en` (hora de pared ISO) se sella al encolar y llega a la web
+        # (no está en _INTERNO_PENDIENTE). Es la base del «lleva esperando X»; vive en la cola en
+        # memoria, no en la traza. Se valida que es ISO parseable, no un valor exacto.
+        from datetime import datetime
+        e = tablero.EstadoTablero()
+        e.encolar_decision({"clave": None, "severidad": 1, "activo": "x", "alerta": {"activo": "x", "origen_ip": "1.2.3.4"}})
+        p = e.decisiones_pendientes()[0]
+        datetime.fromisoformat(p["encolado_en"])                 # no lanza -> ISO válido
+        vista = tablero._vista_pendiente(p)
+        self.assertIn("encolado_en", vista)                      # se serializa al visor
+        self.assertNotIn("alerta", vista)                        # el contexto interno no
+
     def test_resolver_decision_pasa_el_paso_al_resolutor(self):
         e = tablero.EstadoTablero()
         vistos = []
