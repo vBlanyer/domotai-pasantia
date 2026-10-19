@@ -157,6 +157,25 @@ class TestBucleReact(unittest.TestCase):
         return {"id_alerta": "a1", "origen_ip": "192.168.1.10", "activo": "objetivo-vuln",
                 "servicio": "ssh", "regla_id": "5760", "mitre": ["T1110.001"]}
 
+    def test_el_agente_es_reproducible_con_un_generador_fijo(self):
+        # RNF-03: bucle_react es una función DETERMINISTA de sus entradas (alerta, perfil, catálogo,
+        # ejecutor, generador). Toda la (no)reproducibilidad vive en el MODELO: con un generador fijo
+        # —equivalente a un modelo local a temperatura 0, que `generador_servidor` ya solicita— dos
+        # corridas dan EXACTAMENTE el mismo plan. Lo único no reproducible es el sustituto `claude -p`
+        # (solo pruebas), no el diseño del agente.
+        guion = [
+            'Action: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
+            'Action: {"tool":"ejecutar_comando","args":{"dispositivo":"gateway","accion":"bloquear_ip"}}',
+            'Final: {"resultado":"mitigado","dispositivo_ejecutor":"gateway"}',
+        ]
+        corre = lambda: ag.bucle_react(self._alerta(), "vp_intento_acceso", y_perfil_empresarial(), CAT,
+                                       EjecutorEscalado(), GeneradorGuion(guion), autonomo=True,
+                                       escribir=lambda *_: None)
+        p1, p2 = corre(), corre()
+        self.assertEqual(p1, p2)                              # plan idéntico -> agente determinista
+        self.assertEqual(p1["dispositivo_ejecutor"], "gateway")
+        self.assertFalse(p1["degradado"])                    # lo condujo el generador, no el respaldo
+
     def test_escalado_host_caido_a_firewall(self):
         guion = [
             'Thought: intento el bloqueo local en el host victima.\nAction: {"tool":"ejecutar_comando","args":{"dispositivo":"objetivo-vuln","accion":"bloquear_ip"}}',
