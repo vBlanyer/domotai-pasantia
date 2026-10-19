@@ -19,6 +19,10 @@ class TestCatalogo(unittest.TestCase):
         self.assertIn("-d {ip}", d["comando"])          # por destino, no por origen (-s)
         self.assertIn("FORWARD", d["comando"])           # en el reenvío del borde
         self.assertIn("reversion_cmd", d)                # reversible
+        # Igual que AISLAR_NODO/LIMITAR_BANDA (las otras acciones de borde): nunca_automatica. El destino
+        # es influenciable por el atacante (dstip de una alerta) -> jamás se bloquea el egreso en
+        # automático, ni con un perfil permisivo (revisión Opus, ALTO).
+        self.assertTrue(d.get("nunca_automatica"))
 
     def test_impacto_de_bloquear_ip_firewall_es_alcanza_servicio(self):
         # el bloqueo perimetral tiene mayor radio de daño que el local (localizado)

@@ -93,6 +93,12 @@ def clasificar(alerta, contexto, registro=None):
         clase, confianza = "no_soportada", 1.0
     elif entrada.get("nivel") == "triar_y_enrutar":     # se tria y encamina, no se contiene
         clase, confianza, ruta = "amenaza_enrutada", 1.0, entrada.get("ruta")
+    elif entrada.get("clase") and entrada.get("amenaza_en") == "destino":
+        # La amenaza es el DESTINO, no el origen (exfiltracion/C2): el origen es el host interno que
+        # baliza. Un origen "legitimo" (host de confianza) NO la convierte en FP -> un host de confianza
+        # COMPROMETIDO que baliza a un C2 es justo este caso. Va ANTES del cortocircuito origen_legitimo,
+        # que es correcto solo para amenazas de ORIGEN (FIM/abuso de cuenta: el admin declarado = FP).
+        clase, confianza = entrada["clase"], 1.0
     elif contexto.get("origen_legitimo") and en_rafaga:
         clase, confianza = "vp_intento_acceso", 0.6
     elif contexto.get("origen_legitimo"):

@@ -69,14 +69,15 @@ def familia_de(rule):
     # etiquetar el C2 tambien como 'attack'. Deteccion en alcance = match de lista, NO C2 conductual.
     if g & {"c2", "command_and_control", "exfiltration", "threat_intel"}:
         return "exfiltracion"
-    if g & {"exploit", "attack"}:
-        return "explotacion_conocida"
     # Malware / rootkit (10ª familia): un VEREDICTO explicito de binario malicioso (VirusTotal, o un
-    # trojano de rootcheck). Se comprueba ANTES del cajon 'plataforma' porque un hit trae tambien
-    # 'ossec'/'rootcheck': un malware CONFIRMADO no debe tratarse como ruido de plataforma. Un
-    # rootcheck/SCA SIN veredicto de malware (solo politica/CIS) sigue cayendo en 'plataforma'.
+    # trojano de rootcheck). Se comprueba ANTES de exploit/attack (un veredicto de malware suele traer
+    # tambien 'attack'; mas especifico primero, simetrico con exfil) y ANTES del cajon 'plataforma'
+    # (un hit trae 'ossec'/'rootcheck': un malware CONFIRMADO no es ruido de plataforma). Un rootcheck/SCA
+    # SIN veredicto de malware (solo politica/CIS) sigue cayendo en 'plataforma'.
     if g & {"virustotal", "malware", "trojan"}:
         return "malware"
+    if g & {"exploit", "attack"}:
+        return "explotacion_conocida"
     # Integridad de ficheros (FIM): un fichero critico cambio. Se comprueba ANTES del cajon 'plataforma'
     # porque las alertas de syscheck suelen traer tambien el grupo 'ossec'.
     if "syscheck" in g:

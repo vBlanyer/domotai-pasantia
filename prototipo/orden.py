@@ -1,5 +1,6 @@
 """Construye la orden de acción (mensaje) que el conector consume. Frontera motor↔conector."""
 from prototipo import perfil as perfilm
+from prototipo import actores
 
 # Respaldo heredado: mapa activo->IP del plano de datos del laboratorio, para perfiles que no
 # declaran la IP del activo. La IP se resuelve primero del perfil (`perfil.ip_de`: inventario y
@@ -55,7 +56,9 @@ def construir(decision, alerta, perfil=None):
         # sin cortafuegos no hay egreso que cortar -> sin orden (el filtro ya lo veta; cinturon aqui).
         destino = alerta.get("destino_ip")
         _ejec, ejec_ip = perfilm.ejecutor_aislamiento(perfil, activo) if perfil else (None, None)
-        if not destino or not ejec_ip:
+        # El filtro ya veta un destino no-IPv4; cinturon independiente: no construir `iptables -d`
+        # con un destino vacio o no-IPv4 (p. ej. IPv6, que el catalogo no sabe bloquear).
+        if not actores.es_ipv4(destino) or not ejec_ip:
             return None
         return {
             "decision_id": decision.get("id_decision"), "accion_id": accion,

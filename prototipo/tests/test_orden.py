@@ -111,3 +111,9 @@ class TestBloquearDestino(unittest.TestCase):
         d = {"id_decision": "d9", "activo": "puesto", "accion_final": "BLOQUEAR_DESTINO"}
         self.assertIsNone(orden.construir(d, {"destino_ip": "203.0.113.66"},
                                           {"activos": {"puesto": {"ip": "10.0.0.5"}}}))
+
+    def test_destino_no_ipv4_no_hay_orden(self):
+        # Cinturón (revisión Opus, BAJO): el filtro ya veta un destino no-IPv4, pero el constructor
+        # independiente también lo rechaza (no construye `iptables ... -d ::1` con un destino IPv6).
+        d = {"id_decision": "d9", "activo": "objetivo-vuln", "accion_final": "BLOQUEAR_DESTINO"}
+        self.assertIsNone(orden.construir(d, {"familia": "exfiltracion", "destino_ip": "::1"}, PERFIL_TOPO))

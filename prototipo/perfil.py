@@ -309,6 +309,17 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         if not actores.es_ipv4(destino):
             return {**_res("veta", None, True),
                     "impacto": {**det, "motivo": "no se puede bloquear el egreso: sin IP de destino IPv4 válida"}}
+        # RF-19 + anti self-DoS: el destino de un C2 real es EXTERNO (no inventariado). Como BLOQUEAR_DESTINO
+        # no pasa por la conciencia de actores (actúa sobre el destino, no el origen), aquí se comprueba
+        # explícitamente: si el destino coincide con una IP PROPIA —el canal de gestión, un activo interno
+        # o un dispositivo de red—, bloquear el egreso hacia ella cortaría tráfico legítimo/el plano SOC.
+        # Eso nunca es un C2 legítimo (señal de alerta forjada o FP de la lista de amenazas): veto duro.
+        quien = actores.quien_es(destino, perfil)
+        if quien and quien.get("tipo") != "desconocido":
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se bloquea el egreso hacia una IP propia "
+                                f"({impactom._TIPO_LEGIBLE.get(quien['tipo'], quien['tipo'])}): "
+                                "un destino de C2 es externo; coincidir con un activo propio es forja o FP"}}
         if not ejec_ip:
             return {**_res("veta", None, True),
                     "impacto": {**det, "motivo": "no se puede bloquear el egreso: sin cortafuegos de borde al que escalar"}}

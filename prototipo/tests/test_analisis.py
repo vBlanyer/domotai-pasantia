@@ -144,6 +144,23 @@ class TestClasificar(unittest.TestCase):
         self.assertIn("vp_exfiltracion", analisis.CLASES[4:])   # al final, no desplaza la numeración
         self.assertIn("vp_malware", analisis.CLASES[4:])
 
+    def test_exfiltracion_desde_origen_legitimo_sigue_siendo_amenaza(self):
+        # Revisión Opus (MEDIO): para exfiltración la amenaza es el DESTINO, no el origen. El origen es
+        # el host interno que baliza; que sea un origen "legítimo" (un host de confianza) NO la convierte
+        # en FP -> un host de confianza COMPROMETIDO que baliza a un C2 es justo este caso. La familia lo
+        # declara con amenaza_en=destino; el cortocircuito origen_legitimo (correcto para amenazas de
+        # ORIGEN: FIM/abuso) no aplica aquí.
+        a = dict(self.alerta); a["familia"] = "exfiltracion"
+        r = analisis.clasificar(a, {"origen_legitimo": True, "postura": None, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "vp_exfiltracion")
+
+    def test_fim_desde_origen_legitimo_sigue_siendo_fp_regresion(self):
+        # El fix de exfil NO debe tocar las familias cuya amenaza es el ORIGEN: un cambio FIM por el
+        # admin declarado (mantenimiento) sigue siendo FP (amenaza_en por defecto = origen).
+        a = dict(self.alerta); a["familia"] = "integridad_fichero"
+        r = analisis.clasificar(a, {"origen_legitimo": True, "postura": None, "criticidad": "alta"})
+        self.assertEqual(r["clase"], "fp_actividad_legitima")
+
     def test_abuso_de_cuenta_desde_origen_legitimo_sigue_siendo_fp(self):
         # El origen legítimo precede a la clase declarada: un admin declarado no se trata como amenaza.
         a = dict(self.alerta); a["familia"] = "abuso_de_cuenta"

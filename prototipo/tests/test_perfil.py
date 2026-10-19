@@ -466,6 +466,43 @@ class TestConcienciaDeActores(unittest.TestCase):
         self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
         self.assertIn("cortafuegos", r["impacto"]["motivo"])
 
+    def _perfil_destino(self, extra=None):
+        p = {"activos": {"web": {"ip": "10.0.0.5"}, "borde": {"ip": "10.0.0.1"}},
+             "topologia": {"web": {"rol": "host_victima", "ip": "10.0.0.5", "gateway": "borde"},
+                           "borde": {"rol": "firewall_perimetral", "ip": "10.0.0.1"}},
+             "redes_internas": ["10.0.0.0/8"], "ip_gestion": "10.0.0.9",
+             "continuidad": {"impacto_alcanza_servicio": "humano_siempre"}}
+        if extra:
+            p["continuidad"].update(extra)
+        return p
+
+    def test_bloquear_destino_nunca_se_auto_ejecuta_ni_con_perfil_permisivo(self):   # 9ª familia, ALTO
+        # El destino lo influye el atacante (dstip de la alerta). Aunque el perfil deje automático
+        # alcanza_servicio, BLOQUEAR_DESTINO es nunca_automatica -> humano incondicional.
+        p = self._perfil_destino({"impacto_alcanza_servicio": "automatica"})
+        r = perfil.filtrar(p, "BLOQUEAR_DESTINO", {"ip": "203.0.113.66"}, CAT, "web", None, 1.0)
+        self.assertEqual(r["accion_final"], "BLOQUEAR_DESTINO")
+        self.assertTrue(r["requiere_humano"])
+
+    def test_bloquear_destino_hacia_la_gestion_es_veto_duro(self):   # RF-19, ALTO
+        # Un destino que coincide con el canal de gestión: bloquear el egreso hacia él cortaría el
+        # plano SOC. Señal de alerta forjada/FP de la lista -> veto duro (como LIMITAR_BANDA).
+        r = perfil.filtrar(self._perfil_destino(), "BLOQUEAR_DESTINO", {"ip": "10.0.0.9"}, CAT, "web", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+
+    def test_bloquear_destino_hacia_una_ip_propia_interna_es_veto_duro(self):   # anti self-DoS, ALTO
+        # El destino de un C2 real es EXTERNO (no inventariado). Si el destino es una IP PROPIA (interna),
+        # bloquear el egreso hacia ella sería self-DoS: veto duro (forja/FP, nunca un C2 legítimo).
+        r = perfil.filtrar(self._perfil_destino(), "BLOQUEAR_DESTINO", {"ip": "10.0.0.5"}, CAT, "web", None, 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
+        self.assertIn("propia", r["impacto"]["motivo"])
+
+    def test_bloquear_destino_externo_sigue_retenido_para_humano(self):   # regresión: lo legítimo pasa
+        # Un destino EXTERNO (desconocido, no inventariado) sí es un C2 bloqueable: se retiene para humano.
+        r = perfil.filtrar(self._perfil_destino(), "BLOQUEAR_DESTINO", {"ip": "203.0.113.66"}, CAT, "web", None, 1.0)
+        self.assertEqual(r["accion_final"], "BLOQUEAR_DESTINO")
+        self.assertTrue(r["requiere_humano"])
+
     def test_una_alerta_sin_servicio_no_se_confunde_con_cortar_la_gestion(self):
         # corta_gestion_si ausente (None) no puede casar con un servicio ausente (None): antes
         # vetaba en duro cualquier acción de una alerta sin servicio.

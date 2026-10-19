@@ -51,6 +51,9 @@ class TestRegistroFamilias(unittest.TestCase):
         self.assertEqual(e["nivel"], "actuar")
         self.assertEqual(e["clase"], "vp_exfiltracion")
         self.assertIn("T1041", e["mitre"])
+        # La amenaza es el DESTINO, no el origen: lo declara el registro para que el clasificador no
+        # descarte como FP un origen "legítimo" (el host interno que baliza; revisión Opus, MEDIO).
+        self.assertEqual(e["amenaza_en"], "destino")
 
     def test_malware_declara_su_clase(self):
         # 10ª familia (malware/rootkit): Wazuh (rootcheck+VirusTotal) marca un binario malicioso;

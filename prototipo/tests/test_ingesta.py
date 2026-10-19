@@ -139,6 +139,14 @@ class TestTolerancia(unittest.TestCase):
         a = adaptador_wazuh.normalizar_alerta(cruda, "c")
         self.assertEqual(a["familia"], "malware")
 
+    def test_malware_con_grupo_attack_sigue_siendo_malware(self):
+        # Revisión Opus (BAJO): un veredicto de malware que ADEMÁS trae 'attack' no debe degradarse a
+        # explotacion_conocida (enrutada). La rama malware va ANTES de exploit/attack (más específico
+        # primero), simétrica con exfil.
+        cruda = {"id": "m2", "rule": {"id": "87105", "groups": ["attack", "virustotal", "malware"], "level": 12},
+                 "predecoder": {"hostname": "core-db"}, "data": {}}
+        self.assertEqual(adaptador_wazuh.familia_de(cruda["rule"]), "malware")
+
     def test_rootcheck_benigno_sigue_siendo_plataforma(self):
         # Regresión: un rootcheck/SCA SIN veredicto de malware (solo 'rootcheck'/'ossec') sigue siendo
         # 'plataforma' (ruido). La familia malware solo captura el veredicto explícito (virustotal/malware/trojan).
