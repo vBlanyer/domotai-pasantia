@@ -40,10 +40,42 @@ class TestDemo(unittest.TestCase):
 
     def test_ataques_host_cubren_las_familias_que_se_inyectan_como_evento(self):
         # Familias que se inyectan como evento en el host (no un cliente de red rotable): cuenta, FIM,
-        # DoS y acceso consumado. El lanzador debe cubrir las cuatro.
+        # DoS, acceso consumado, exfiltración/C2 y malware. El lanzador debe cubrir las seis.
         familias = {h["familia"] for h in demo.ATAQUES_HOST}
         self.assertEqual(familias,
-                         {"abuso_de_cuenta", "integridad_fichero", "denegacion_servicio", "acceso_consumado"})
+                         {"abuso_de_cuenta", "integridad_fichero", "denegacion_servicio",
+                          "acceso_consumado", "exfiltracion", "malware"})
+
+    def test_ataque_exfiltracion_inyecta_la_linea_c2_con_origen_y_destino(self):
+        # 9ª familia (C2/exfiltración): inyecta el evento que un IDS/threat-intel levantaría, con src
+        # (el host que baliza) y dst (el destino malicioso que se bloquea). No hace una conexión real
+        # saliente (el banco no enruta a Internet). La regla local 100700 (grupo 'c2') lo levanta.
+        llamadas, ejecutar = self._fake()
+        demo.ataque_exfiltracion(ejecutar=ejecutar)
+        cmd = llamadas[0][-1]
+        self.assertEqual(llamadas[0][2], "clab-banco-web-banking")
+        self.assertIn("ossec-ids", cmd)                               # evento que la regla local 100700 levanta
+        self.assertIn("dst=" + demo.IP_C2, cmd)                       # el destino malicioso (BLOQUEAR_DESTINO)
+        self.assertIn("src=10.10.0.10", cmd)                          # el host interno que baliza (web-banking)
+        self.assertIn(">> /var/log/banco/auth.log", cmd)              # lo recoge el reenviador --auth
+
+    def test_ataque_malware_inyecta_el_veredicto_de_virustotal(self):
+        # 10ª familia (malware): inyecta el veredicto de VirusTotal que el agente levantaría. No ejecuta
+        # malware real (crea un fichero señuelo). La regla local 100800 (grupo 'virustotal') lo levanta.
+        llamadas, ejecutar = self._fake()
+        demo.ataque_malware(ejecutar=ejecutar)
+        cmd = llamadas[0][-1]
+        self.assertEqual(llamadas[0][2], "clab-banco-web-banking")
+        self.assertIn("ossec-vt", cmd)                                # evento que la regla local 100800 levanta
+        self.assertIn("positives", cmd)                               # veredicto de VirusTotal
+        self.assertIn(">> /var/log/banco/auth.log", cmd)
+
+    def test_la_tanda_automatica_incluye_exfil_y_malware(self):
+        llamadas, ejecutar = self._fake()
+        demo.tanda_automatica(ejecutar=ejecutar, dormir=lambda *_: None, escribir=lambda *_: None)
+        txt = " ".join(a[-1] for a in llamadas)
+        self.assertIn("ossec-ids", txt, "la tanda debe lanzar el ataque de exfiltración/C2")
+        self.assertIn("ossec-vt", txt, "la tanda debe lanzar el ataque de malware")
 
     def test_ataque_acceso_consumado_inyecta_fuerza_bruta_y_login_exitoso(self):
         llamadas, ejecutar = self._fake()

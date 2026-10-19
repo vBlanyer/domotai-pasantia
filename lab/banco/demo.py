@@ -3,11 +3,12 @@
     sh lab/banco/banco.sh atacar             (menú interactivo; o: python3 -m lab.banco.demo)
     sh lab/banco/banco.sh atacar auto [N] [gap]   (TANDA AUTOMÁTICA: lanza toda la batería sola)
 
-El menú cubre LAS 7 FAMILIAS (ninguna queda sin ataque): los casos de red del catálogo
+El menú cubre LAS 10 FAMILIAS (ninguna queda sin ataque): los casos de red del catálogo
 (`lab/banco/casos.py`) numerados —fuerza bruta, reconocimiento, telnet, explotación web— y, a
 continuación, los **ataques de host** (`ATAQUES_HOST`) cuya respuesta no es bloquear una IP de
-origen: abuso de cuenta (bloquear la CUENTA), integridad de ficheros/FIM (AISLAR el host) y
-denegación de servicio/DoS (ACOTAR la banda). Reutiliza solo DATOS del catálogo; no toca el prototipo.
+origen: abuso de cuenta (bloquear la CUENTA), integridad de ficheros/FIM (AISLAR el host),
+denegación de servicio/DoS (ACOTAR la banda), acceso consumado (CORTAR la sesión), exfiltración/C2
+(bloquear el DESTINO) y malware (AISLAR el host). Reutiliza solo DATOS del catálogo; no toca el prototipo.
 Respeta los 60 s de silencio de la regla 5763 de Wazuh entre ataques de red, y ofrece deshacer/restaurar.
 
 La opción `t` del menú (o `atacar auto`) corre la **tanda automática**: lanza TODA la batería —los de
@@ -15,10 +16,10 @@ red con IP de origen rotada y luego los tres de host—, uno tras otro y solos (
 supresión, cada uno un incidente distinto). Sirve para ver/probar el camino completo en vivo —la
 plantilla justifica cada decisión— sin elegir uno a uno. No deshace: al terminar, `sh lab/banco/banco.sh restaurar`.
 
-Los ataques de host sin origen de red (cuenta/FIM/DoS) escriben su evento en el auth.log que el
-reenviador (canal auth) ya manda a Wazuh; reglas locales (`lab/wazuh/local_rules_banco.xml`: 5902,
-100400 syscheck, 100500 dos) lo levantan con el grupo que el adaptador mapea a la familia. La
-detección en vivo se valida con el banco levantado, como todo caso vivo.
+Los ataques de host sin origen de red (cuenta/FIM/DoS/exfil/malware) escriben su evento en el auth.log
+que el reenviador (canal auth) ya manda a Wazuh; reglas locales (`lab/wazuh/local_rules_banco.xml`:
+5902, 100400 syscheck, 100500 dos, 100700 c2, 100800 virustotal) lo levantan con el grupo que el
+adaptador mapea a la familia. La detección en vivo se valida con el banco levantado, como todo caso vivo.
 
 Con la tecla `r` se activa la **IP de origen rotativa**: cada ataque sale desde una IP nueva de la
 misma subred del atacante (alias en la interfaz de datos + `ssh -b`), para poder repetir el mismo
@@ -161,6 +162,50 @@ def deshacer_acceso_consumado(destino="web-banking", src_ip=IP_EXTERNA, ejecutar
     return _exec(destino, f"iptables -D INPUT -s {src_ip} -j DROP 2>/dev/null || true", ejecutar)
 
 
+# --- Ataque de EXFILTRACIÓN / C2 (familia exfiltracion) ----------------------------------------
+# Un activo interno conecta a un DESTINO malicioso conocido (lista de amenazas del SIEM). La respuesta
+# estrena una DIRECCIÓN nueva: bloquear el DESTINO (egreso) en el borde (BLOQUEAR_DESTINO), no el
+# origen. El banco no enruta a Internet, así que el ataque no hace una conexión real saliente: inyecta
+# el evento que un IDS/threat-intel levantaría, con src (el host que baliza) y dst (el destino). La
+# regla local 100700 (grupo 'c2') + el decoder banco-ids-c2 (saca srcip/dstip) lo levantan -> el MDR
+# lo triaja exfiltracion -> BLOQUEAR_DESTINO en el cortafuegos de borde, humano. VALIDAR EN VIVO.
+IP_C2 = "203.0.113.66"     # destino malicioso (lista de amenazas), fuera del banco
+
+def _linea_c2(src_ip, dst_ip):
+    return (f"ossec-ids[1400]: egress to known C2: src={src_ip} dst={dst_ip} "
+            "(coincidencia con lista de amenazas)")
+
+def ataque_exfiltracion(destino="web-banking", dst_ip=IP_C2, ejecutar=subprocess.run):
+    src_ip = red.NODOS.get(destino, {}).get("ip", "10.10.0.10")   # el host interno que baliza
+    cmd = f"echo '{_linea_c2(src_ip, dst_ip)}' >> {_AUTH_LOG}"
+    return _exec(destino, cmd, ejecutar)
+
+def deshacer_exfiltracion(destino="web-banking", dst_ip=IP_C2, ejecutar=subprocess.run):
+    # Si el MDR aplicó BLOQUEAR_DESTINO, el bloqueo de egreso vive en el cortafuegos de borde (fw-core).
+    return _exec("fw-core", f"iptables -D FORWARD -d {dst_ip} -j DROP 2>/dev/null || true", ejecutar)
+
+
+# --- Ataque de MALWARE / ROOTKIT (familia malware) ---------------------------------------------
+# Un veredicto EXPLÍCITO de binario malicioso (VirusTotal / rootcheck de trojano). La respuesta reusa
+# AISLAR_NODO (la cuarentena de FIM): no se mata un proceso (eso roza EDR) ni se toca el host, se aísla
+# en el borde. No ejecuta malware real: crea un fichero señuelo (reversible) e inyecta el veredicto que
+# el agente levantaría. La regla local 100800 (grupo 'virustotal') lo levanta -> el MDR lo triaja
+# malware -> AISLAR_NODO, humano incondicional. Cierra el hueco donde un hit de VirusTotal caía en
+# 'plataforma' (ruido) o no_soportada sin contención. VALIDAR EN VIVO.
+_MALWARE_FICHERO = "/tmp/.banco-muestra.bin"
+
+def _linea_malware(fichero):
+    return (f"ossec-vt[1500]: VirusTotal: {fichero} positives=54/70 "
+            "(binario malicioso detectado)")
+
+def ataque_malware(destino="web-banking", fichero=_MALWARE_FICHERO, ejecutar=subprocess.run):
+    cmd = f"touch {fichero} 2>/dev/null; echo '{_linea_malware(fichero)}' >> {_AUTH_LOG}"
+    return _exec(destino, cmd, ejecutar)
+
+def deshacer_malware(destino="web-banking", fichero=_MALWARE_FICHERO, ejecutar=subprocess.run):
+    return _exec(destino, f"rm -f {fichero} 2>/dev/null || true", ejecutar)
+
+
 # Ataques "de host": se inyectan como EVENTO en el host (no un cliente de red que rota IP), así que
 # viven fuera del catálogo de casos de red. El menú los lista tras los de red y la tanda los lanza todos.
 ATAQUES_HOST = [
@@ -176,6 +221,12 @@ ATAQUES_HOST = [
     {"id": "INTRUSION", "familia": "acceso_consumado",
      "titulo": "acceso consumado (login exitoso tras fuerza bruta en web-banking) -> CORTAR la conexion, humano",
      "lanzar": ataque_acceso_consumado, "deshacer": deshacer_acceso_consumado},
+    {"id": "EXFIL", "familia": "exfiltracion",
+     "titulo": "exfiltracion/C2 (web-banking conecta a un destino malicioso) -> BLOQUEAR el DESTINO en el borde, humano",
+     "lanzar": ataque_exfiltracion, "deshacer": deshacer_exfiltracion},
+    {"id": "MALWARE", "familia": "malware",
+     "titulo": "malware (binario malicioso detectado en web-banking, VirusTotal) -> AISLAR el host, humano",
+     "lanzar": ataque_malware, "deshacer": deshacer_malware},
 ]
 
 

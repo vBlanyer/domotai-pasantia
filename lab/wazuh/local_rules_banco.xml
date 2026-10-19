@@ -116,3 +116,39 @@
   </rule>
 </group>
 
+<!-- exfiltracion / C2 (9ª familia): un activo interno conecta a un DESTINO malicioso conocido (match
+     con la lista CDB/threat-intel del SIEM). El banco no enruta a Internet, asi que el ataque
+     (demo.py:ataque_exfiltracion) inyecta el evento que un IDS/threat-intel levantaria con src (el host
+     que baliza) y dst (el destino); el decoder local banco-ids-c2 saca srcip/dstip. program_name
+     'ossec-ids' + grupo 'c2' -> el adaptador (familia_de) lo mapea a exfiltracion -> BLOQUEAR_DESTINO
+     (bloquear el egreso al destino en el cortafuegos de borde), humano. VALIDAR EN VIVO. -->
+<group name="local,ids,">
+  <rule id="100700" level="12">
+    <program_name>ossec-ids</program_name>
+    <group>c2,</group>
+    <description>C2/exfiltracion: conexion a un destino malicioso conocido (lista de amenazas)</description>
+    <mitre>
+      <id>T1071</id>
+      <id>T1041</id>
+    </mitre>
+  </rule>
+</group>
+
+<!-- malware / rootkit (10ª familia): un VEREDICTO explicito de binario malicioso (VirusTotal, o un
+     trojano de rootcheck). El ataque (demo.py:ataque_malware) no ejecuta malware real: crea un fichero
+     senuelo e inyecta el veredicto `ossec-vt[...]` en auth.log. program_name 'ossec-vt' + grupo
+     'virustotal' -> el adaptador lo mapea a malware -> AISLAR_NODO (cuarentena en el borde, reusa FIM),
+     humano incondicional. Un rootcheck/SCA SIN veredicto de malware sigue siendo 'plataforma' (ruido).
+     VALIDAR EN VIVO. -->
+<group name="local,virustotal,">
+  <rule id="100800" level="12">
+    <program_name>ossec-vt</program_name>
+    <group>virustotal,malware,</group>
+    <description>Malware: binario malicioso detectado (VirusTotal/rootcheck)</description>
+    <mitre>
+      <id>T1014</id>
+      <id>T1486</id>
+    </mitre>
+  </rule>
+</group>
+
