@@ -1,0 +1,94 @@
+{
+  "perfil": "empresarial",
+  "n": 300,
+  "puntos": [
+    {
+      "umbral": 0.0,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 0.1,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 0.2,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 0.3,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 0.4,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 0.5,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 0.6,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 0.7,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 0.8,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 0.9,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    },
+    {
+      "umbral": 1.0,
+      "escalado": 0.2966666666666667,
+      "automaticos": 0,
+      "indebidos": 0,
+      "recall": 1.0,
+      "tasa_fp": 0.009389671361502348
+    }
+  ]
+}
