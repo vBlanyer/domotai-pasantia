@@ -503,6 +503,18 @@ class TestConcienciaDeActores(unittest.TestCase):
         self.assertEqual(r["accion_final"], "BLOQUEAR_DESTINO")
         self.assertTrue(r["requiere_humano"])
 
+    def test_bloquear_destino_a_un_tercero_de_confianza_avisa(self):   # continuidad (b)
+        # Un socio externo crítico (pasarela, proveedor) declarado en terceros_confiables, marcado por
+        # error/forja como C2: NO es una IP propia (pasa el veto interno), pero cortar su egreso tiraría
+        # un servicio de negocio. Se conserva la acción (ya es humano por nunca_automatica) y el motivo
+        # lo AVISA explícito, igual que al bloquear un tercero por ORIGEN.
+        p = self._perfil_destino()
+        p["terceros_confiables"] = ["203.0.113.66"]
+        r = perfil.filtrar(p, "BLOQUEAR_DESTINO", {"ip": "203.0.113.66"}, CAT, "web", None, 1.0)
+        self.assertEqual(r["accion_final"], "BLOQUEAR_DESTINO")   # se conserva, no se veta en duro
+        self.assertTrue(r["requiere_humano"])
+        self.assertIn("terceros_confiables", r["impacto"]["motivo"])
+
     def test_una_alerta_sin_servicio_no_se_confunde_con_cortar_la_gestion(self):
         # corta_gestion_si ausente (None) no puede casar con un servicio ausente (None): antes
         # vetaba en duro cualquier acción de una alerta sin servicio.

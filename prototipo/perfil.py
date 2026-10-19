@@ -323,4 +323,11 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         if not ejec_ip:
             return {**_res("veta", None, True),
                     "impacto": {**det, "motivo": "no se puede bloquear el egreso: sin cortafuegos de borde al que escalar"}}
+        # Destino externo bloqueable que además es un tercero de confianza (socio crítico declarado):
+        # cortar el egreso hacia él tiraría un servicio de negocio. Ya se retiene para humano
+        # (nunca_automatica), pero el analista debe verlo EXPLÍCITO, igual que al bloquear un tercero por
+        # ORIGEN: una alerta forjada/FP que marque al socio como C2 no debe cortarlo sin ojo humano.
+        if actores.es_tercero_confiable(destino, perfil):
+            det = {**det, "motivo": (f"{det.get('motivo') or ''} · destino en terceros_confiables: "
+                   "cortar el egreso tiraría un servicio de negocio, revisar con cuidado").strip()}
     return {**final, "impacto": det}
