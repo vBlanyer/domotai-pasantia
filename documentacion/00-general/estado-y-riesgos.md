@@ -390,10 +390,12 @@ en [`lab/banco/verificaciones.md`](../../lab/banco/verificaciones.md):
 
 ### Fuera de alcance por diseño (no se hará, y por qué)
 
-- **Contención lateral / este-oeste y, en general, cualquier capacidad que exija *detección primaria*
-  nueva** (malware/C2, DoS, MITM/ARP). El MDR **no genera la detección primaria** (la alerta desde
-  telemetría cruda: eso es del SIEM); **la refina**: detecta cuáles de esas alertas son amenazas reales
-  (FP 0,310→0,009; exhaustividad 0,920→1,000 frente al nivel de regla de Wazuh). Detalle y defensa en
+- **Movimiento lateral este-oeste y, en general, cualquier capacidad que exija *detección primaria* que
+  el SIEM no da hoy** (C2/exfiltración cifrada, fileless por comportamiento, MITM/ARP). El MDR **no genera
+  la detección primaria** (la alerta desde telemetría cruda: eso es del SIEM); **la refina**: detecta
+  cuáles de esas alertas son amenazas reales (FP 0,310→0,009; exhaustividad 0,920→1,000 frente al nivel de
+  regla de Wazuh). El mapa completo de cobertura (incluido el matiz «más Wazuh» vs «otro producto») está en
+  la §8. *(DoS ya NO está aquí: es una familia soportada, `denegacion_servicio`.)* Detalle y defensa en
   [caso-de-uso-acotado.md §11](../01-fase1-analisis-del-modulo/caso-de-uso-acotado.md#11-límites-conocidos-de-este-perímetro).
 - **Descubrimiento automático del inventario y uso en tiempo real (Nivel 3 de la conciencia de impacto).**
   Descubrir dependencias (NetFlow/IPFIX, service mesh, trazas de aplicación), integrar una CMDB/ITSM, medir
@@ -411,3 +413,58 @@ en [`lab/banco/verificaciones.md`](../../lab/banco/verificaciones.md):
   no se refleja. Sin impacto (el camino productivo usa el registro por defecto; `clasificar` acepta `registro=`).
 - **`lab/dataset/etiquetar.py`** lista `explotacion_conocida` como familia soportada: es correcto (su VP/FP es
   el ground truth), y ya lleva una nota de coherencia con el nivel enrutado del producto.
+
+---
+
+## 8. Alcance de cobertura: qué ataques resiste el MDR y cuáles no (frontera de diseño)
+
+*Añadido 19/10/2026 como decisión de alcance (resuelta), no como trabajo futuro.*
+
+El MDR es la **capa de triaje de una defensa en profundidad**, no la única defensa. Su techo lo marcan
+**lo que el SIEM detecta** (no genera detección primaria, la refina) y **lo que el catálogo cerrado puede
+contener**. «No resistir X» no significa «quedas indefenso ante X», sino que X es trabajo de otra capa
+(agente Wazuh, EDR/NDR, controles de red o el analista). Hoy el motor soporta **8 familias** (el dataset
+de evaluación solo ejercita 3 + ruido; el resto se validó en el banco).
+
+**Qué resiste hoy, y cómo** (familia → acción del catálogo):
+
+| Ataque | ¿Resiste? | Cómo |
+|---|---|---|
+| Reconocimiento / escaneo | ✅ | `reconocimiento` → BLOQUEAR_IP |
+| Fuerza bruta de credenciales | ✅ | `acceso_credenciales` → BLOQUEAR_IP |
+| Servicio sensible expuesto | ✅ | `servicio_expuesto` → BLOQUEAR_IP (asesora endurecer) |
+| Intrusión consumada (login tras fuerza bruta) | ✅ | `acceso_consumado` → MATAR_CONEXION (corta la sesión viva) |
+| Abuso/alta de cuenta, sudo | ✅ | `abuso_de_cuenta` → FORZAR_CAMBIO_PASS |
+| Integridad de ficheros (FIM) | ✅ | `integridad_fichero` → AISLAR_NODO (cuarentena en el borde) |
+| Denegación de servicio (flood) | ✅ | `denegacion_servicio` → LIMITAR_BANDA (contención gradual) |
+| Explotación de app pública (SQLi/LFI/RCE/log4shell) | ⚠️ | `explotacion_conocida` → se **enruta** a appsec, **no se contiene** aquí |
+
+**Qué NO resiste, en tres cestas distintas (cada una se cierra de forma distinta):**
+
+1. **Alcanzable con «más Wazuh» (agente completo), no es otro producto.** Malware/rootkit (rootcheck +
+   VirusTotal), FIM real, monitorización de procesos, SCA. El banco solo ejercita el *slice* de syslog
+   (sin agente), por eso esas detecciones no están en el laboratorio; en producción, el Wazuh del cliente
+   con agente las produce y el registro de familias se extiende para triarlas. **No se salta Wazuh: es
+   usarlo más a fondo.** Se descartó añadir una familia `malware` con `MATAR_PROCESO` por ser redundante
+   (su respuesta natural, aislar el host, ya existe en `integridad_fichero`) y por salirse hacia respuesta
+   de endpoint (el catálogo es red/servicio/cuenta/nodo por diseño).
+2. **Nuevo patrón de respuesta dentro del alcance (no implementado):** exfiltración / C2 → requeriría
+   **bloquear el destino** (dirección de respuesta que el catálogo no tiene hoy) y detección por
+   inteligencia de amenazas que el banco no tiene.
+3. **Genuinamente fuera de Wazuh → otro producto (EDR/NDR):** fileless / en memoria por comportamiento,
+   C2 cifrado por comportamiento, forense de memoria, movimiento lateral este-oeste. Ver el detalle en
+   [caso-de-uso-acotado.md §11](../01-fase1-analisis-del-modulo/caso-de-uso-acotado.md#11-límites-conocidos-de-este-perímetro).
+
+**Qué pasa cuando llega un ataque que no cubrimos — FALLA SEGURO.** El motor nunca se cae (barrera de
+excepciones ante alertas con tipos hostiles) ni auto-contiene lo que no debe (acciones `nunca_automatica`,
+veto si no hay IPv4 válida, política de actores → no convierte un ataque no soportado en un auto-bloqueo
+dañino de un activo legítimo). Hay tres salidas:
+- **Visible y clasificado pero sin contención automática** (`amenaza_enrutada` → se encamina; `no_soportada`
+  → se registra con su justificación). Lo ve el analista.
+- **`no_soportada` de severidad alta → se escala ACTIVAMENTE a revisión humana** (resultado `revisar`,
+  `requiere_humano`, sin acción), para que un desconocido grave no quede sepultado entre el ruido de
+  plataforma (SCA/CIS/rootcheck). Opt-in del perfil (`continuidad.revisar_no_soportada_nivel`; activo en
+  `bancario.yml`, ausente en `empresarial.yml` para no mover las cifras canónicas).
+- **Invisible** (lo de la cesta 3): el SIEM no genera alerta → el MDR ni se entera. No lo empeora, pero
+  tampoco ayuda; lo cubre otra capa. Es el riesgo residual real, y su mitigación es el nivel de detección
+  del SIEM/EDR del cliente, no código del motor.
