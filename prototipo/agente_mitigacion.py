@@ -1,6 +1,30 @@
 """Agente de mitigación (ReAct + Tool Calling acotado). El LLM decide la estrategia y escala de
 dispositivo eligiendo acciones de un catálogo CERRADO; el código renderiza el comando, lo valida,
 pide aprobación humana y lo ejecuta de forma reversible reutilizando conector.ejecutar_orden.
+
+Dos propiedades, RESUELTAS y probadas (no son trabajo futuro):
+
+  * Optimalidad por construcción. El agente no puede tomar una mala opción aunque el modelo se
+    equivoque: el `esquema_accion` (json-schema) restringe la salida al catálogo cerrado y a los
+    dispositivos de la CADENA de contención del activo; una barrera estructural obliga a contener en
+    el equipo atacado ANTES del perímetro (`host_local` en `bucle_react`); `perfil.filtrar` se aplica
+    en CADA salto (veta gestión, degrada); un `final` que declara éxito sin ejecutar nada se ignora; y
+    si el modelo no produce acción válida se DEGRADA a `escalar_determinista` (demostrablemente
+    óptimo). Medido en vivo con un modelo capaz (sonnet): conduce el lazo y elige la mejor opción
+    —contener en el host, o escalar por la cadena host->fw-core->fw-edge— sin degradar. Un modelo
+    pequeño (p.ej. 1B o haiku) es irregular y simplemente cae al respaldo determinista: nunca peor.
+
+  * Reproducibilidad (RNF-03). `bucle_react` es una función DETERMINISTA de sus entradas (alerta,
+    perfil, catálogo, ejecutor, generador): con un generador fijo dos corridas son idénticas
+    (`test_el_agente_es_reproducible_con_un_generador_fijo`). La (no)reproducibilidad vive ENTERA en el
+    backend del modelo: `justificador_llm.generador_servidor` ya pide `temperature=0`, así que un
+    modelo local a temp 0 es reproducible. El ÚNICO camino no reproducible es el sustituto de pruebas
+    `lab/scripts/llm_claude.py` (`claude -p`, que no deja fijar la temperatura) — por eso es solo para
+    pruebas con el banco sintético, no para producción ni para sacar conclusiones del modelo.
+
+Conclusión: el camino de producción por defecto es el determinista (fiable, instantáneo,
+reproducible); el agente es su envoltura segura para un backend con modelo capaz, no una pieza
+pendiente.
 """
 import json, re
 from prototipo import actores, conector, impacto, politica, rag
