@@ -282,7 +282,11 @@ def _resumen_traza(reg, ips=None, externos=()):
             "accion_id": reg.get("accion_id"), "nodo": reg.get("nodo"), "error": reg.get("error"),
             # relación evento-equipo y desenlace de la contención, para la vista Red
             "relaciones": relaciones(reg, ips or {}, externos),
-            "contencion": _conten[0], "dispositivo": _conten[1]}
+            "contencion": _conten[0], "dispositivo": _conten[1],
+            # ciclo de vida del caso (registro `actualizacion_caso`): el visor pliega estos campos
+            # (datos.estadoDeCasos). None en una decisión normal (no estorba).
+            "estado": reg.get("estado"), "asignado": reg.get("asignado"), "nota": reg.get("nota"),
+            "operador": reg.get("operador"), "decidido_en": reg.get("decidido_en")}
 
 
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
@@ -592,7 +596,10 @@ def traza_detalle(ruta, id_decision, indice=None):
         hallado = regs[indice]
     else:
         for r in regs:
-            if r.get("id_decision") == id_decision:
+            # Las actualizaciones de caso comparten el id_decision de la decisión; en el fallback (sin
+            # índice o desfasado) solo interesa la DECISIÓN, no un `actualizacion_caso`/reversión que
+            # no trae justificacion/ejecucion. Se saltan los que no son decisión.
+            if r.get("id_decision") == id_decision and r.get("tipo") in (None, "decision"):
                 hallado = r
     return _hidratar_pasajes(dict(hallado), _corpus_por_id()) if hallado is not None else None
 

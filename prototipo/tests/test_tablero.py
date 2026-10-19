@@ -211,6 +211,34 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(tablero.traza_detalle(ruta, "s1")["accion_final"], "BLOQUEAR_IP")
         self.assertIsNone(tablero.traza_detalle(ruta, "zzz"))
 
+    def test_lista_trazas_arrastra_los_campos_de_caso_y_se_pliegan(self):
+        # Integración (hueco de la revisión Opus): el registro `actualizacion_caso` debe llegar al
+        # visor por /api/trazas con sus campos (si _resumen_traza los descarta, el panel de caso
+        # muestra siempre 'nuevo' vacío). Se comprueba que lista_trazas los conserva Y que
+        # casos.estado_de_casos los pliega al estado correcto.
+        from prototipo import casos
+        ruta = self._traza_tmp([
+            {"id_decision": "s1", "timestamp": "t1", "activo": "web", "clase": "vp_intento_acceso"},
+            casos.construir_actualizacion("s1", estado="en_revision", asignado="ana", ts="t2"),
+            casos.construir_actualizacion("s1", nota="parece C2 real", operador="ana", ts="t3"),
+            casos.construir_actualizacion("s1", estado="resuelto", ts="t4")])
+        lst = tablero.lista_trazas(ruta)
+        caso = casos.estado_de_casos(lst)["s1"]            # el mismo pliegue que hace el visor
+        self.assertEqual(caso["estado"], "resuelto")
+        self.assertEqual(caso["asignado"], "ana")
+        self.assertEqual([n["texto"] for n in caso["notas"]], ["parece C2 real"])
+
+    def test_traza_detalle_fallback_ignora_las_actualizaciones_de_caso(self):
+        # MEDIO de la revisión: sin índice, el fallback debe devolver la DECISIÓN (con su contenido),
+        # no un `actualizacion_caso` que comparte el id_decision y no trae justificacion/ejecucion.
+        from prototipo import casos
+        ruta = self._traza_tmp([
+            {"id_decision": "s1", "timestamp": "t1", "activo": "web", "accion_final": "BLOQUEAR_IP"},
+            casos.construir_actualizacion("s1", estado="resuelto", ts="t2")])
+        d = tablero.traza_detalle(ruta, "s1")              # sin indice -> fallback
+        self.assertEqual(d["accion_final"], "BLOQUEAR_IP")  # la decisión, no la actualización de caso
+        self.assertNotEqual(d.get("tipo"), "actualizacion_caso")
+
     def test_lista_trazas_fichero_ausente_es_vacia(self):
         self.assertEqual(tablero.lista_trazas("/no/existe.jsonl"), [])
 
