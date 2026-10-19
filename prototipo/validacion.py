@@ -21,7 +21,8 @@ def filtro_legible(decision):
     if r == "degrada":
         txt = f"degradada — se sustituye por {final}"
         return txt + "; espera tu aprobación" if decision.get("requiere_humano") else txt
-    return {"permite": "automática", "sin_accion": "sin acción"}.get(r, str(r))
+    return {"permite": "automática", "sin_accion": "sin acción",
+            "revisar": "revisar — alerta no soportada de severidad alta, sin acción automática"}.get(r, str(r))
 
 _RESPUESTA_LEGIBLE = {"contener_origen": "contener el origen (bloquear la IP atacante)",
                       "endurecer_servicio": "endurecer el servicio", "enrutar": "enrutar para revision/parcheo",

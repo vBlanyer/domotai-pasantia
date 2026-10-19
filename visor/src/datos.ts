@@ -102,6 +102,10 @@ export function filtroLegible(d: {
       return v ? `permitida — requirió aprobación · ${DESENLACE_HUMANO[v] ?? v}` : "permitida — espera tu aprobación"
     case "sin_accion":
       return "sin acción"
+    case "revisar":
+      // no_soportada de severidad alta: sin acción automática, pero escalada para que un humano la mire.
+      return v ? `revisar — alerta no soportada de severidad alta · ${DESENLACE_HUMANO[v] ?? v}`
+        : "revisar — alerta no soportada de severidad alta, sin acción automática"
     default:
       return d.resultado_filtro ?? null
   }
