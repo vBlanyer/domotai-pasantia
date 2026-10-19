@@ -165,10 +165,17 @@ decisiones que corresponden a la organización ---la autorización por escrito d
 actuación y la custodia de los secretos--- se dejan identificadas en esa misma hoja de ruta.
 
 Dos extensiones más, también posteriores a la evaluación, ensanchan el alcance sin tocar sus cifras.
-El registro de familias resultó extensible en la práctica: se incorporó una quinta familia
----escalada y manipulación de cuentas (uso de \texttt{sudo}, alta y cambio de cuentas)--- cuya
-respuesta no bloquea una dirección sino la propia cuenta (forzar el cambio de contraseña) y es de
-validación humana incondicional; se ejercitó en vivo sobre el laboratorio. Y la validación humana,
+El registro de familias resultó extensible en la práctica: partiendo de las cuatro familias del
+perímetro evaluado, se incorporaron seis más ---hasta diez--- que el motor atiende con el mismo
+catálogo cerrado de acciones. La quinta ---escalada y manipulación de cuentas (uso de \texttt{sudo},
+alta y cambio de cuentas)--- responde bloqueando la propia cuenta (forzar el cambio de contraseña),
+de validación humana incondicional; las demás estrenan respuestas dirigidas a la forma del ataque:
+aislar en cuarentena el host comprometido sobre el cortafuegos de borde (cambios de integridad de
+ficheros y detección de malware), acotar la banda del enlace ante una inundación (denegación de
+servicio), cortar la sesión viva de un acceso ya consumado, y bloquear en el borde el egreso hacia un
+destino malicioso conocido (exfiltración y mando y control). Todas se ejercitaron en vivo sobre el
+laboratorio y ninguna pertenece al conjunto de datos medido, de modo que ensanchan la cobertura sin
+alterar las cifras de la evaluación. Y la validación humana,
 que el prototipo evaluado hacía por terminal, se llevó además a un \textbf{visor web}: una consola
 de operaciones con el flujo de decisiones, la cola de aprobaciones, una matriz de cobertura MITRE
 ATT\&CK, el grafo del incidente sobre el mapa de la red y un informe exportable, desde la que el
