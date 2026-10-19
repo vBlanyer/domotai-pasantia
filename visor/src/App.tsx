@@ -1,6 +1,7 @@
-import { useState } from "react"
-import { Moon, Sun, Menu } from "lucide-react"
-import { useSondeo, getSalud, getPendientes, getPausa, tokenActual, fijarToken } from "@/api"
+import { useState, useEffect, useRef } from "react"
+import { Moon, Sun, Menu, Bell, BellOff } from "lucide-react"
+import { useSondeo, getSalud, getPendientes, getPausa, tokenActual, fijarToken, type Pendiente } from "@/api"
+import { tituloConPendientes, nuevosPendientes, textoAviso } from "@/alertas"
 import { useTema } from "@/tema"
 import { Dashboard } from "@/components/Dashboard"
 import { Metricas } from "@/components/Metricas"
@@ -15,6 +16,57 @@ import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
 type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas" | "contenciones" | "incidente"
+
+// Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
+// navegador no lo permite, se ignora en silencio.
+function pitido() {
+  try {
+    const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AC) return
+    const ctx = new AC()
+    const o = ctx.createOscillator(), g = ctx.createGain()
+    o.connect(g); g.connect(ctx.destination)
+    o.frequency.value = 880; g.gain.value = 0.04
+    o.start(); o.stop(ctx.currentTime + 0.15)
+    o.onended = () => ctx.close()
+  } catch { /* sin audio: no pasa nada */ }
+}
+
+function leerAvisos(): boolean {
+  try { return localStorage.getItem("mdr.avisos") === "1" } catch { return false }
+}
+
+// Alterna el aviso al analista; al activarlo pide permiso de notificación del navegador (gesto del
+// usuario). Todo local: la notificación la emite el SO del analista, no sale nada a ningún servidor.
+async function alternarAvisos(actual: boolean, set: (b: boolean) => void) {
+  const nuevo = !actual
+  if (nuevo && typeof Notification !== "undefined" && Notification.permission === "default") {
+    try { await Notification.requestPermission() } catch { /* ignore */ }
+  }
+  try { localStorage.setItem("mdr.avisos", nuevo ? "1" : "0") } catch { /* ignore */ }
+  set(nuevo)
+}
+
+// Mantiene el título de la pestaña con el nº de pendientes (visible aunque el analista esté en otra
+// pestaña) y, si están habilitados los avisos, notifica + pita SOLO cuando entra una decisión nueva
+// (no al abrir la consola con cola ya existente, ni en cada refresco). RNF-01: todo en el navegador.
+function useAvisoPendientes(pend: Pendiente[], habilitado: boolean) {
+  const vistos = useRef<Set<string>>(new Set())
+  const primera = useRef(true)
+  useEffect(() => {
+    document.title = tituloConPendientes(pend.length)
+    const nuevos = nuevosPendientes(vistos.current, pend)
+    if (!primera.current && habilitado && nuevos.length) {
+      const a = textoAviso(nuevos)
+      if (a && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        try { new Notification(a.titulo, { body: a.cuerpo }) } catch { /* ignore */ }
+        pitido()
+      }
+    }
+    vistos.current = new Set(pend.map((p) => p.id))
+    primera.current = false
+  }, [pend, habilitado])
+}
 
 const NAV: { id: Vista; nombre: string }[] = [
   { id: "panel", nombre: "Panel" },
@@ -40,6 +92,8 @@ export default function App() {
   const pausada = !!(pausa && !("error" in pausa) && pausa.pausada)
   const conectado = salud !== undefined && !("error" in salud)
   const nPend = Array.isArray(pend) ? pend.length : 0
+  const [avisos, setAvisos] = useState(leerAvisos)
+  useAvisoPendientes(Array.isArray(pend) ? pend : [], avisos)
   const titulo = vista === "incidente" ? "Incidente" : NAV.find((n) => n.id === vista)!.nombre
 
   return (
@@ -99,6 +153,19 @@ export default function App() {
               <Punto estado={conectado ? "ok" : "caido"} />
               <span className="hidden text-muted-foreground sm:inline">{conectado ? "datos en vivo" : "sin conexión con el daemon"}</span>
             </span>
+            <button
+              onClick={() => alternarAvisos(avisos, setAvisos)}
+              aria-label={avisos ? "Silenciar avisos de decisiones pendientes" : "Avisarme de decisiones pendientes"}
+              title={avisos ? "Avisos activados (notificación del navegador al llegar una decisión)" : "Activar avisos de decisiones pendientes"}
+              className={`relative grid size-9 place-items-center rounded-md border border-border transition-colors hover:bg-muted hover:text-foreground ${
+                avisos ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+              }`}
+            >
+              {avisos ? <Bell className="size-4" /> : <BellOff className="size-4" />}
+              {avisos && nPend > 0 && (
+                <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-amber-500 text-[10px] font-bold text-white">{nPend}</span>
+              )}
+            </button>
             <button
               onClick={alternar}
               aria-label={oscuro ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}

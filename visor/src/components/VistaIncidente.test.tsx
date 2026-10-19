@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import type { Decision } from "@/api"
+import { Toaster } from "@/components/ui/toast"
 
 const h = vi.hoisted(() => ({ red: null as unknown, det: null as unknown }))
 vi.mock("@/api", async (orig) => ({
@@ -30,7 +31,7 @@ describe("VistaIncidente", () => {
                 accion_final: "BLOQUEAR_IP", prioridad: 4, tecnica_mitre: ["T1110"], cascada: ["api-movil"],
                 hash: "abc123" } as Decision
 
-    render(<VistaIncidente decision={d} onVolver={() => {}} />)
+    render(<Toaster><VistaIncidente decision={d} onVolver={() => {}} /></Toaster>)
     expect(await screen.findByText("fuerza bruta SSH contra core-db")).toBeInTheDocument()  // justificación tras el fetch
     expect(screen.getByText(/dejaría sin servicio a api-movil/)).toBeInTheDocument()          // aviso de cascada
     expect(screen.getByText("T1110")).toBeInTheDocument()                                    // enlace MITRE
@@ -38,7 +39,7 @@ describe("VistaIncidente", () => {
 
   it("mientras carga la red muestra el cargando, no rompe", () => {
     h.red = null
-    render(<VistaIncidente decision={{ id_decision: "s1" } as Decision} onVolver={() => {}} />)
+    render(<Toaster><VistaIncidente decision={{ id_decision: "s1" } as Decision} onVolver={() => {}} /></Toaster>)
     // no lanza; useSondeo devuelve undefined/null -> estado de carga
     expect(document.body).toBeTruthy()
   })

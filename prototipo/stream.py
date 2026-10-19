@@ -7,7 +7,7 @@ testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Waz
 contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.stream -`.
 """
 import collections, io, json, os, select, sys, threading, time
-from prototipo import analisis, ingesta, adaptador_wazuh, agrupacion, lazo, rafaga, traza, validacion
+from prototipo import analisis, ingesta, adaptador_wazuh, agrupacion, casos, lazo, rafaga, traza, validacion
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
 
@@ -551,6 +551,15 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         estado_web.fijar_resolutor(
             _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir,
                                  diferir_escalada=diferir_escalada, al_resolver=al_resolver))
+        # Ciclo de vida del caso: el visor anota estado/asignado/nota como un registro `actualizacion_caso`
+        # ENCADENADO (no muta la decisión; respeta RF-09). Reusa escribir_traza (lock + HMAC + flock), así
+        # que convive con las escrituras del lazo y del resolutor. construir_actualizacion valida (estado
+        # cerrado, actualización no vacía) y propaga ValueError -> el handler responde 400.
+        def actualizar_caso(id_decision, estado=None, asignado=None, nota=None, operador=None):
+            escribir_traza(casos.construir_actualizacion(
+                id_decision, estado=estado, asignado=asignado, nota=nota, operador=operador, ts=_ahora_iso()))
+            return True
+        estado_web.fijar_actualizador(actualizar_caso)
     seq = [0]
     ventana_rafaga = rafaga.Ventana()
     ventana_larga = rafaga.Ventana(ventana_s=rafaga.VENTANA_LARGA_S)   # señal de vigilancia 'low-and-slow'

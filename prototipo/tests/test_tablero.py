@@ -112,6 +112,19 @@ class TestEstadoYLector(unittest.TestCase):
         e.encolar_decision({"clave": None, "severidad": 1, "activo": "x"})
         self.assertEqual(e.decisiones_pendientes()[0]["paso"], 0)
 
+    def test_encolar_sella_la_hora_y_se_serializa_al_visor(self):
+        # SLA del analista: `encolado_en` (hora de pared ISO) se sella al encolar y llega a la web
+        # (no está en _INTERNO_PENDIENTE). Es la base del «lleva esperando X»; vive en la cola en
+        # memoria, no en la traza. Se valida que es ISO parseable, no un valor exacto.
+        from datetime import datetime
+        e = tablero.EstadoTablero()
+        e.encolar_decision({"clave": None, "severidad": 1, "activo": "x", "alerta": {"activo": "x", "origen_ip": "1.2.3.4"}})
+        p = e.decisiones_pendientes()[0]
+        datetime.fromisoformat(p["encolado_en"])                 # no lanza -> ISO válido
+        vista = tablero._vista_pendiente(p)
+        self.assertIn("encolado_en", vista)                      # se serializa al visor
+        self.assertNotIn("alerta", vista)                        # el contexto interno no
+
     def test_resolver_decision_pasa_el_paso_al_resolutor(self):
         e = tablero.EstadoTablero()
         vistos = []
@@ -119,6 +132,20 @@ class TestEstadoYLector(unittest.TestCase):
         self.assertTrue(e.resolver_decision("1", "2", paso=3, operador="ana"))
         self.assertTrue(e.resolver_decision("1", "2"))            # sin paso ni operador -> None (rutas viejas)
         self.assertEqual(vistos, [("1", "2", 3, "ana"), ("1", "2", None, None)])
+
+    def test_actualizar_caso_pasa_al_actualizador_y_propaga_el_operador(self):
+        # Ciclo de caso: el estado/nota/asignado se delegan al actualizador del daemon (añade a la
+        # cadena); el operador (del token) viaja para el no repudio.
+        e = tablero.EstadoTablero()
+        vistos = []
+        e.fijar_actualizador(lambda idd, **kw: vistos.append((idd, kw)) or True)
+        self.assertTrue(e.actualizar_caso("d1", estado="resuelto", nota="ok", operador="ana"))
+        self.assertEqual(vistos[0][0], "d1")
+        self.assertEqual(vistos[0][1], {"estado": "resuelto", "asignado": None, "nota": "ok", "operador": "ana"})
+
+    def test_actualizar_caso_sin_actualizador_es_falso(self):
+        # Ruta bloqueante (sin daemon web): no hay dónde anotar -> False, sin reventar.
+        self.assertFalse(tablero.EstadoTablero().actualizar_caso("d1", estado="resuelto"))
 
     def test_escribir_web_imprime_y_acumula(self):
         estado = tablero.EstadoTablero()
@@ -183,6 +210,34 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(tablero.lista_trazas(ruta, n=1)[0]["id_decision"], "s2")
         self.assertEqual(tablero.traza_detalle(ruta, "s1")["accion_final"], "BLOQUEAR_IP")
         self.assertIsNone(tablero.traza_detalle(ruta, "zzz"))
+
+    def test_lista_trazas_arrastra_los_campos_de_caso_y_se_pliegan(self):
+        # Integración (hueco de la revisión Opus): el registro `actualizacion_caso` debe llegar al
+        # visor por /api/trazas con sus campos (si _resumen_traza los descarta, el panel de caso
+        # muestra siempre 'nuevo' vacío). Se comprueba que lista_trazas los conserva Y que
+        # casos.estado_de_casos los pliega al estado correcto.
+        from prototipo import casos
+        ruta = self._traza_tmp([
+            {"id_decision": "s1", "timestamp": "t1", "activo": "web", "clase": "vp_intento_acceso"},
+            casos.construir_actualizacion("s1", estado="en_revision", asignado="ana", ts="t2"),
+            casos.construir_actualizacion("s1", nota="parece C2 real", operador="ana", ts="t3"),
+            casos.construir_actualizacion("s1", estado="resuelto", ts="t4")])
+        lst = tablero.lista_trazas(ruta)
+        caso = casos.estado_de_casos(lst)["s1"]            # el mismo pliegue que hace el visor
+        self.assertEqual(caso["estado"], "resuelto")
+        self.assertEqual(caso["asignado"], "ana")
+        self.assertEqual([n["texto"] for n in caso["notas"]], ["parece C2 real"])
+
+    def test_traza_detalle_fallback_ignora_las_actualizaciones_de_caso(self):
+        # MEDIO de la revisión: sin índice, el fallback debe devolver la DECISIÓN (con su contenido),
+        # no un `actualizacion_caso` que comparte el id_decision y no trae justificacion/ejecucion.
+        from prototipo import casos
+        ruta = self._traza_tmp([
+            {"id_decision": "s1", "timestamp": "t1", "activo": "web", "accion_final": "BLOQUEAR_IP"},
+            casos.construir_actualizacion("s1", estado="resuelto", ts="t2")])
+        d = tablero.traza_detalle(ruta, "s1")              # sin indice -> fallback
+        self.assertEqual(d["accion_final"], "BLOQUEAR_IP")  # la decisión, no la actualización de caso
+        self.assertNotEqual(d.get("tipo"), "actualizacion_caso")
 
     def test_lista_trazas_fichero_ausente_es_vacia(self):
         self.assertEqual(tablero.lista_trazas("/no/existe.jsonl"), [])

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -9,9 +9,28 @@ const D: Decision[] = [
 ]
 
 describe("esDecision", () => {
-  it("no cuenta como decisión las reversiones, los errores ni la actividad suprimida o propia", () => {
-    const tipos = ["decision", null, "reversion", "error", "actividad_suprimida", "actividad_propia"]
-    expect(tipos.map((tipo) => esDecision({ tipo } as Decision))).toEqual([true, true, false, false, false, false])
+  it("no cuenta como decisión las reversiones, errores, actividad suprimida/propia ni las actualizaciones de caso", () => {
+    const tipos = ["decision", null, "reversion", "error", "actividad_suprimida", "actividad_propia", "actualizacion_caso"]
+    expect(tipos.map((tipo) => esDecision({ tipo } as Decision))).toEqual([true, true, false, false, false, false, false])
+  })
+})
+
+describe("estadoDeCasos", () => {
+  it("pliega la última actualización por decisión y acumula las notas", () => {
+    const regs = [
+      { tipo: "decision", id_decision: "d1" },
+      { tipo: "actualizacion_caso", id_decision: "d1", estado: "en_revision", asignado: "ana", decidido_en: "t1" },
+      { tipo: "actualizacion_caso", id_decision: "d1", nota: "parece C2 real", operador: "ana", decidido_en: "t2" },
+      { tipo: "actualizacion_caso", id_decision: "d1", estado: "resuelto", decidido_en: "t3" },
+    ] as Decision[]
+    const c = estadoDeCasos(regs)["d1"]
+    expect(c.estado).toBe("resuelto")               // el último estado gana
+    expect(c.asignado).toBe("ana")                  // se conserva el último asignado
+    expect(c.notas.map((n) => n.texto)).toEqual(["parece C2 real"])
+    expect(c.actualizado_en).toBe("t3")
+  })
+  it("una decisión sin actualizaciones no aparece (estado implícito 'nuevo')", () => {
+    expect(estadoDeCasos([{ tipo: "decision", id_decision: "d1" }] as Decision[])).toEqual({})
   })
 })
 

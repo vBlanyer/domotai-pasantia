@@ -12,6 +12,7 @@ import os
 import subprocess
 import threading
 import urllib.parse
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from prototipo import actores, familias, red, traza
@@ -33,6 +34,7 @@ class EstadoTablero:
         self._cola = {}                    # cola de decisiones humanas (modo web no bloqueante)
         self._orden = itertools.count(1)   # orden de llegada, para desempatar por severidad
         self._resolutor = None             # fn(pid, respuesta, paso=None)->bool, la registra el daemon (ejecuta+traza)
+        self._actualizador = None          # fn(id_decision, estado/asignado/nota, operador)->bool: añade un `actualizacion_caso` a la cadena
         self._pausada = False              # kill switch (#8): con True, toda auto-ejecución pasa a esperar humano
 
     def pausar(self, valor):
@@ -61,8 +63,11 @@ class EstadoTablero:
                         return p["id"]
             pid = str(next(self._seq))
             # `paso` identifica el menú que se está mostrando; avanza al cambiar de menú (reclasificar)
-            # para que una respuesta dada al menú anterior no se aplique al nuevo.
-            self._cola[pid] = {**entrada, "id": pid, "orden": next(self._orden), "suprimidas": 0, "paso": 0}
+            # para que una respuesta dada al menú anterior no se aplique al nuevo. `encolado_en` es la
+            # hora de PARED al encolar (no la de la alerta, influenciable): el SLA del analista en el
+            # visor («lleva esperando X»). Vive solo en esta cola en memoria, no en la traza auditada.
+            self._cola[pid] = {**entrada, "id": pid, "orden": next(self._orden), "suprimidas": 0, "paso": 0,
+                               "encolado_en": datetime.now(timezone.utc).isoformat()}
             return pid
 
     def sumar_repeticion(self, claves, n=1):
@@ -121,6 +126,19 @@ class EstadoTablero:
         `paso` es el del menú que vio el analista (None = no se comprueba). `operador` queda en la
         traza (no repudio: quién aprobó)."""
         return bool(self._resolutor and self._resolutor(pid, respuesta, paso=paso, operador=operador))
+
+    def fijar_actualizador(self, fn):
+        """El daemon registra aquí cómo anotar un caso: añadir un `actualizacion_caso` a la cadena."""
+        self._actualizador = fn
+
+    def actualizar_caso(self, id_decision, estado=None, asignado=None, nota=None, operador=None):
+        """Cambio de ciclo de vida del caso (estado/asignado/nota) de una decisión: lo añade a la
+        traza como registro encadenado (ciclo de caso, NO muta la decisión). Propaga ValueError
+        (estado inválido / actualización vacía) para que el handler responda 400. `operador` = no
+        repudio (del token). Devuelve True si se anotó; False si no hay actualizador (ruta bloqueante)."""
+        if not self._actualizador:
+            return False
+        return bool(self._actualizador(id_decision, estado=estado, asignado=asignado, nota=nota, operador=operador))
 
     def anotar_linea(self, linea):
         with self._lock:
@@ -264,12 +282,16 @@ def _resumen_traza(reg, ips=None, externos=()):
             "accion_id": reg.get("accion_id"), "nodo": reg.get("nodo"), "error": reg.get("error"),
             # relación evento-equipo y desenlace de la contención, para la vista Red
             "relaciones": relaciones(reg, ips or {}, externos),
-            "contencion": _conten[0], "dispositivo": _conten[1]}
+            "contencion": _conten[0], "dispositivo": _conten[1],
+            # ciclo de vida del caso (registro `actualizacion_caso`): el visor pliega estos campos
+            # (datos.estadoDeCasos). None en una decisión normal (no estorba).
+            "estado": reg.get("estado"), "asignado": reg.get("asignado"), "nota": reg.get("nota"),
+            "operador": reg.get("operador"), "decidido_en": reg.get("decidido_en")}
 
 
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
 # fallos al procesar un incidente y reversiones de una contención ya decidida.
-_NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion")
+_NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion", "actualizacion_caso")
 
 
 _ESTADO_PLAN = {"mitigado": "contenida", "fallido": "fallida", "cancelado_por_humano": "cancelada",
@@ -574,7 +596,10 @@ def traza_detalle(ruta, id_decision, indice=None):
         hallado = regs[indice]
     else:
         for r in regs:
-            if r.get("id_decision") == id_decision:
+            # Las actualizaciones de caso comparten el id_decision de la decisión; en el fallback (sin
+            # índice o desfasado) solo interesa la DECISIÓN, no un `actualizacion_caso`/reversión que
+            # no trae justificacion/ejecucion. Se saltan los que no son decisión.
+            if r.get("id_decision") == id_decision and r.get("tipo") in (None, "decision"):
                 hallado = r
     return _hidratar_pasajes(dict(hallado), _corpus_por_id()) if hallado is not None else None
 
@@ -777,7 +802,7 @@ class _Manejador(BaseHTTPRequestHandler):
         try:
             s = self.server
             ruta = self.path.split("?", 1)[0]
-            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo"):
+            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/caso"):
                 return self._responder({"error": "no encontrado"}, 404)
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -800,6 +825,14 @@ class _Manejador(BaseHTTPRequestHandler):
                 res = revertir.revertir_todas(s.ruta_traza, s.catalogo, ejecutor,
                                               motivo="des-bloqueo en masa (kill switch)", operador=operador)
                 return self._responder(res)
+            if ruta == "/api/caso":   # ciclo de vida del caso: añade un `actualizacion_caso` a la cadena
+                try:
+                    ok = s.estado.actualizar_caso(cuerpo.get("id"), estado=cuerpo.get("estado"),
+                                                  asignado=cuerpo.get("asignado"), nota=cuerpo.get("nota"),
+                                                  operador=operador)
+                except ValueError as e:
+                    return self._responder({"error": str(e)}, 400)   # estado inválido o actualización vacía
+                return self._responder({"ok": True}) if ok else self._responder({"error": "no disponible en este modo"}, 409)
             pid, resp = str(cuerpo.get("id")), str(cuerpo.get("respuesta", ""))
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.
             # `paso` es opcional: solo lo usa la cola (la ruta bloqueante no tiene menús con paso).
