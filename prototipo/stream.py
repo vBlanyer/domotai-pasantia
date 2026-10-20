@@ -805,7 +805,7 @@ def parsear_args(argv):
     pos, con_llm, ventana, salida, sin_lab, agente = [], False, 5, "run/trazas-stream.jsonl", False, False
     web, web_puerto, sin_supresion = False, 8787, False
     una_vez = False
-    escuchar, permitir, tls_cert, tls_clave = None, None, None, None   # permitir None = flag ausente (abierto)
+    escuchar, permitir, tls_cert, tls_clave, tls_ca = None, None, None, None, None   # permitir None = flag ausente
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -824,6 +824,7 @@ def parsear_args(argv):
         elif a == "--permitir": i += 1; permitir = [x for x in argv[i].split(",") if x]
         elif a == "--tls-cert": i += 1; tls_cert = argv[i]
         elif a == "--tls-clave": i += 1; tls_clave = argv[i]
+        elif a == "--tls-ca": i += 1; tls_ca = argv[i]
         else: pos.append(a)
         i += 1
     return {"ruta": pos[0] if pos else "-",
@@ -832,7 +833,25 @@ def parsear_args(argv):
             "con_llm": con_llm, "ventana": ventana, "salida": salida, "sin_lab": sin_lab,
             "agente": agente, "web": web, "web_puerto": web_puerto, "sin_supresion": sin_supresion,
             "una_vez": una_vez,
-            "escuchar": escuchar, "permitir": permitir, "tls_cert": tls_cert, "tls_clave": tls_clave}
+            "escuchar": escuchar, "permitir": permitir, "tls_cert": tls_cert, "tls_clave": tls_clave,
+            "tls_ca": tls_ca}
+
+_LOOPBACK = ("127.0.0.1", "localhost", "::1")
+
+def validar_escucha(escuchar, permitir):
+    """Valida --escuchar/--permitir al arrancar y devuelve (host, puerto). Fail-closed (M2): escuchar
+    fuera de loopback EXIGE lista blanca — un receptor abierto en la red convierte el triaje en un
+    arma de DoS por alertas falsas, y un aviso por consola no basta como única barrera."""
+    host, _, puerto = escuchar.rpartition(":")
+    if not puerto.isdigit():
+        raise SystemExit(f"--escuchar: se esperaba host:puerto, no {escuchar!r}")
+    if permitir is not None and not permitir:
+        raise SystemExit("--permitir vacío: indica las IPs del SIEM")
+    host = host or "0.0.0.0"
+    if permitir is None and host not in _LOOPBACK:
+        raise SystemExit(f"--escuchar {escuchar}: escuchar fuera de loopback exige --permitir "
+                         "(la lista blanca con las IPs del SIEM)")
+    return host, int(puerto)
 
 def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hallazgos=None):
     """Modo --agente: devuelve un `mitigar_fn(decision, alerta, leer, escribir=..., ejecutor=...) -> plan` que delega en el agente
@@ -1000,17 +1019,14 @@ def main(argv):
     mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor, hallazgos=hallazgos)
     if cfg["escuchar"]:                                  # #1: recibir alertas por red del SIEM
         from prototipo import receptor
-        host, _, puerto = cfg["escuchar"].rpartition(":")
-        if not puerto.isdigit():
-            raise SystemExit(f"--escuchar: se esperaba host:puerto, no {cfg['escuchar']!r}")
-        if cfg["permitir"] is not None and not cfg["permitir"]:
-            raise SystemExit("--permitir vacío: indica las IPs del SIEM o quita el flag (abierto)")
-        ctx = receptor.contexto_tls(cfg["tls_cert"], cfg["tls_clave"]) if cfg["tls_cert"] else None
-        fuente = receptor.escuchar(host or "0.0.0.0", int(puerto),
-                                   permitir=cfg["permitir"], contexto_tls=ctx)   # None=abierto; [ips]=lista
-        print(f"[red] escuchando alertas en {host or '0.0.0.0'}:{puerto}"
-              + (" · TLS" if ctx else "")
-              + (f" · permitidas {','.join(cfg['permitir'])}" if cfg["permitir"] else " · SIN lista blanca (abierto)"))
+        host, puerto = validar_escucha(cfg["escuchar"], cfg["permitir"])
+        ctx = (receptor.contexto_tls(cfg["tls_cert"], cfg["tls_clave"], ca=cfg["tls_ca"])
+               if cfg["tls_cert"] else None)
+        fuente = receptor.escuchar(host, puerto, permitir=cfg["permitir"], contexto_tls=ctx)
+        print(f"[red] escuchando alertas en {host}:{puerto}"
+              + (((" · mTLS (exige cert de cliente)" if cfg["tls_ca"] else " · TLS")) if ctx else "")
+              + (f" · permitidas {','.join(cfg['permitir'])}" if cfg["permitir"]
+                 else " · sin lista blanca (solo loopback)"))
     else:
         fuente = (leer_lineas_stdin() if cfg["ruta"] == "-"
                   else leer_lineas_fichero(cfg["ruta"], una_vez=cfg["una_vez"]))

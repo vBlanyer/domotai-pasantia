@@ -1085,5 +1085,47 @@ class TestResumenRecomendacion(unittest.TestCase):
         self.assertIsNone(tablero._resumen_traza({"id_decision": "d1"})["recomendacion"])
 
 
+class TestColaAcotada(unittest.TestCase):
+    """M3 de la auditoría 20/10: la cola de pendientes tiene tope — un atacante que fabrique claves
+    infinitas (un srcip distinto por alerta) no agota la memoria del daemon. Al llenarse se desaloja
+    la tarjeta MENOS severa y más vieja (la que el analista vería la última), nunca una en curso."""
+
+    def _entrada(self, n, severidad):
+        return {"clave": (f"ip{n}", "fam"), "severidad": severidad}
+
+    def test_al_tope_desaloja_la_menos_severa_mas_vieja_y_lo_cuenta(self):
+        import contextlib, io
+        estado = tablero.EstadoTablero(max_pendientes=3)
+        for n, sev in ((1, 5), (2, 2), (3, 7)):
+            estado.encolar_decision(self._entrada(n, sev))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            estado.encolar_decision(self._entrada(4, 4))   # llena: cae la de severidad 2
+        pend = estado.decisiones_pendientes()
+        self.assertEqual(len(pend), 3)
+        self.assertEqual({p["clave"] for p in pend}, {("ip1", "fam"), ("ip3", "fam"), ("ip4", "fam")})
+        self.assertEqual(estado.descartadas_tope, 1)
+        self.assertIn("tope", err.getvalue())              # el desalojo deja rastro, no es silencioso
+
+    def test_a_igual_severidad_cae_la_mas_vieja(self):
+        import contextlib, io
+        estado = tablero.EstadoTablero(max_pendientes=2)
+        a = estado.encolar_decision(self._entrada(1, 3))
+        estado.encolar_decision(self._entrada(2, 3))
+        with contextlib.redirect_stderr(io.StringIO()):
+            estado.encolar_decision(self._entrada(3, 3))
+        self.assertIsNone(estado.ver_decision(a))          # la primera en llegar fue la desalojada
+
+    def test_una_decision_en_curso_no_se_desaloja(self):
+        import contextlib, io
+        estado = tablero.EstadoTablero(max_pendientes=1)
+        a = estado.encolar_decision(self._entrada(1, 1))
+        estado.tomar_decision(a)                           # el analista ya respondió: ejecutándose
+        with contextlib.redirect_stderr(io.StringIO()):
+            b = estado.encolar_decision(self._entrada(2, 9))
+        self.assertIsNotNone(estado.ver_decision(a))       # la en curso sobrevive (el tope se excede)
+        self.assertIsNotNone(estado.ver_decision(b))
+
+
 if __name__ == "__main__":
     unittest.main()

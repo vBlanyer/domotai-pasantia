@@ -1418,5 +1418,30 @@ class TestParsearFrontera(unittest.TestCase):
         self.assertIsNone(stream._parsear("[" * 60000 + "]" * 60000))
 
 
+class TestValidarEscucha(unittest.TestCase):
+    """M2 de la auditoría 20/10: escuchar fuera de loopback sin lista blanca era la postura por
+    defecto (solo un aviso por consola). Ahora es un error de arranque: fail-closed."""
+
+    def test_loopback_sin_lista_se_permite(self):
+        self.assertEqual(stream.validar_escucha("127.0.0.1:5514", None), ("127.0.0.1", 5514))
+
+    def test_puerto_solo_liga_a_todas_y_exige_lista(self):
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha(":5514", None)          # host vacío = 0.0.0.0
+
+    def test_no_loopback_sin_lista_aborta(self):
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha("0.0.0.0:5514", None)
+
+    def test_no_loopback_con_lista_se_permite(self):
+        self.assertEqual(stream.validar_escucha("10.0.0.5:5514", ["10.0.0.9"]), ("10.0.0.5", 5514))
+
+    def test_formato_y_lista_vacia_abortan(self):
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha("sin-puerto", None)
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha("127.0.0.1:5514", [])   # lista dada pero vacía: fail-closed
+
+
 if __name__ == "__main__":
     unittest.main()

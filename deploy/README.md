@@ -31,14 +31,20 @@ daemon puede escuchar directamente, sin el *pipe* del wrapper:
 
 ```sh
 python3 -m prototipo.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web --salida "$TRIAJE_SALIDA" \
-  --escuchar 0.0.0.0:6514 --permitir 10.0.0.5,10.0.0.6 [--tls-cert cert.pem --tls-clave clave.pem]
+  --escuchar 0.0.0.0:6514 --permitir 10.0.0.5,10.0.0.6 \
+  [--tls-cert cert.pem --tls-clave clave.pem [--tls-ca ca.pem]]
 ```
 
 `--permitir` es la **lista blanca** de IPs del SIEM (solo esas conexiones se aceptan; un `--permitir` vacío
-aborta el arranque en vez de abrir). El emisor envía un JSON de alerta por línea (el formato de `alerts.json`).
-El enmarcado syslog / formato CEF es trabajo futuro. **Ojo:** si pones un proxy TLS delante, el receptor ve la
-IP del proxy, no la del SIEM, así que la lista blanca deja de distinguir al SIEM — en ese caso restringe en el
-proxy (o usa `--tls-cert/--tls-clave` para TLS directo y que la IP de origen sea la real).
+aborta el arranque en vez de abrir) y es **obligatoria al escuchar fuera de loopback**: sin ella el arranque
+aborta (solo `127.0.0.1` puede escuchar abierto). Con `--tls-ca` el receptor exige **certificado de cliente**
+firmado por esa CA (mTLS): autentica al emisor, no solo cifra — la lista blanca deja de ser la única barrera.
+El emisor envía un JSON de alerta por línea (el formato de `alerts.json`). El enmarcado syslog / formato CEF
+es trabajo futuro. El receptor además acota las conexiones (64 en total, 8 por IP) y **cierra la conexión
+ociosa** (15 min sin datos): el reenviador simplemente reconecta (su unidad lo hace sola); los rechazos y
+cierres se avisan por stderr con freno (uno por minuto y motivo). **Ojo:** si pones un proxy TLS delante, el
+receptor ve la IP del proxy, no la del SIEM, así que la lista blanca deja de distinguir al SIEM — en ese caso
+restringe en el proxy (o usa `--tls-cert/--tls-clave` para TLS directo y que la IP de origen sea la real).
 
 ## Healthcheck
 
