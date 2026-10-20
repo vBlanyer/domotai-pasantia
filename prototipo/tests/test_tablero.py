@@ -1126,6 +1126,27 @@ class TestColaAcotada(unittest.TestCase):
         self.assertIsNotNone(estado.ver_decision(a))       # la en curso sobrevive (el tope se excede)
         self.assertIsNotNone(estado.ver_decision(b))
 
+    def test_el_desalojo_se_traza_via_descartador(self):
+        # RF-09: una tarjeta que el analista nunca verá no puede desaparecer del rastro auditado.
+        import contextlib, io
+        estado = tablero.EstadoTablero(max_pendientes=1)
+        trazadas = []
+        estado.fijar_descartador(trazadas.append)
+        estado.encolar_decision(self._entrada(1, 2))
+        with contextlib.redirect_stderr(io.StringIO()):
+            estado.encolar_decision(self._entrada(2, 5))
+        self.assertEqual(len(trazadas), 1)
+        self.assertEqual(trazadas[0]["clave"], ("ip1", "fam"))
+
+    def test_un_descartador_que_falla_no_rompe_el_encolado(self):
+        import contextlib, io
+        estado = tablero.EstadoTablero(max_pendientes=1)
+        estado.fijar_descartador(lambda e: (_ for _ in ()).throw(OSError("disco lleno")))
+        estado.encolar_decision(self._entrada(1, 2))
+        with contextlib.redirect_stderr(io.StringIO()):
+            b = estado.encolar_decision(self._entrada(2, 5))
+        self.assertIsNotNone(estado.ver_decision(b))       # la nueva entró pese al fallo al trazar
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -46,6 +46,7 @@ class EstadoTablero:
         self._orden = itertools.count(1)   # orden de llegada, para desempatar por severidad
         self._resolutor = None             # fn(pid, respuesta, paso=None)->bool, la registra el daemon (ejecuta+traza)
         self._actualizador = None          # fn(id_decision, estado/asignado/nota, operador)->bool: añade un `actualizacion_caso` a la cadena
+        self._descartador = None           # fn(entrada): traza el desalojo por tope (RF-09, nada en silencio)
         self._pausada = False              # kill switch (#8): con True, toda auto-ejecución pasa a esperar humano
 
     def pausar(self, valor):
@@ -59,10 +60,16 @@ class EstadoTablero:
         with self._lock:
             return self._pausada
 
+    def fijar_descartador(self, fn):
+        """El daemon registra cómo trazar un desalojo por tope (RF-09): una tarjeta que el analista
+        nunca verá no puede desaparecer del rastro auditado."""
+        self._descartador = fn
+
     def encolar_decision(self, entrada):
         """Encola una decisión que espera al humano (modo web no bloqueante). `entrada` lleva la
         `clave` (IP, familia) para deduplicar, `severidad` para ordenar, y el contexto para resolver.
         Si ya hay una en cola con la misma clave, incrementa su contador en vez de duplicar."""
+        desalojada, avisar = None, False
         with self._lock:
             clave = entrada.get("clave")
             if clave is not None:
@@ -75,15 +82,16 @@ class EstadoTablero:
             if len(self._cola) >= self._max_pendientes:
                 vivas = [p for p in self._cola.values() if not p.get("en_curso")]
                 if vivas:                  # nunca se desaloja una en curso (su resolución ya se ejecuta)
-                    v = min(vivas, key=lambda p: (p.get("severidad") or 0, p.get("orden", 0)))
-                    del self._cola[v["id"]]
+                    # La severidad viene de la alerta (influenciable por quien controla sus logs):
+                    # bajo un flood dirigido el desalojo puede tocar tarjetas legítimas — residual
+                    # inevitable de toda cola acotada; la mitigación es que CADA desalojo se traza.
+                    desalojada = min(vivas, key=lambda p: (p.get("severidad") or 0, p.get("orden", 0)))
+                    del self._cola[desalojada["id"]]
                     self.descartadas_tope += 1
                     ahora = time.monotonic()
                     if self._ultimo_aviso_tope is None or ahora - self._ultimo_aviso_tope >= 60.0:
                         self._ultimo_aviso_tope = ahora
-                        print(f"[aviso] cola de pendientes al tope ({self._max_pendientes}): desalojada "
-                              f"la menos severa más vieja ({self.descartadas_tope} desalojadas en total)",
-                              file=sys.stderr)
+                        avisar = True
             pid = str(next(self._seq))
             # `paso` identifica el menú que se está mostrando; avanza al cambiar de menú (reclasificar)
             # para que una respuesta dada al menú anterior no se aplique al nuevo. `encolado_en` es la
@@ -91,7 +99,20 @@ class EstadoTablero:
             # visor («lleva esperando X»). Vive solo en esta cola en memoria, no en la traza auditada.
             self._cola[pid] = {**entrada, "id": pid, "orden": next(self._orden), "suprimidas": 0, "paso": 0,
                                "encolado_en": datetime.now(timezone.utc).isoformat()}
-            return pid
+        # El aviso y la traza del desalojo van FUERA del lock: un stderr atascado (journald con
+        # backpressure) o la E/S de la cadena no pueden congelar la cola entera.
+        if desalojada is not None:
+            if avisar:
+                print(f"[aviso] cola de pendientes al tope ({self._max_pendientes}): desalojada la "
+                      f"menos severa más vieja ({self.descartadas_tope} desalojadas en total)",
+                      file=sys.stderr)
+            if self._descartador is not None:
+                try:
+                    self._descartador(desalojada)
+                except Exception as e:     # trazar el desalojo no puede romper el encolado
+                    print(f"[aviso] no se pudo trazar el desalojo por tope: {type(e).__name__}: {e}",
+                          file=sys.stderr)
+        return pid
 
     def sumar_repeticion(self, claves, n=1):
         """Si hay en cola una decisión con alguna de `claves`, suma `n` repeticiones a su contador y

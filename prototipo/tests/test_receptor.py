@@ -98,14 +98,40 @@ class TestAgotamientoDeSlots(unittest.TestCase):
     def test_una_ip_no_monopoliza_los_slots(self):
         gen, puerto = self._gen(permitir={"127.0.0.1"}, max_por_ip=1, inactividad_s=30)
         primero = socket.create_connection(("127.0.0.1", puerto), timeout=2)  # ocupa el cupo de la IP
-        for _ in range(4):
-            next(gen)                                     # deja que el aceptador lo registre
+        primero.sendall(b'{"p":0}\n')
+        self.assertEqual(_recoge(gen, 1), ['{"p":0}'])    # su línea llegó => el aceptador ya lo contó
         _cliente_envia(puerto, b'{"x":1}\n')              # 2ª conexión de la misma IP: rechazada
         vistos = [next(gen) for _ in range(8)]
         self.assertNotIn('{"x":1}', vistos)
         primero.close()                                   # al cerrar, el cupo se libera
         _cliente_envia(puerto, b'{"ok":2}\n')
         self.assertEqual(_recoge(gen, 1), ['{"ok":2}'])
+
+    def test_abierto_fuera_de_loopback_se_niega_tambien_aqui(self):
+        # Defensa en profundidad de M2: el fail-closed no vive solo en la CLI (stream.validar_escucha);
+        # el propio mecanismo se niega a escuchar abierto fuera de loopback.
+        gen = receptor.escuchar("0.0.0.0", 0)             # sin permitir
+        self.addCleanup(gen.close)
+        with self.assertRaises(ValueError):
+            next(gen)
+
+    def test_fallo_al_lanzar_el_hilo_no_filtra_el_slot(self):
+        from unittest import mock
+        gen, puerto = self._gen(permitir={"127.0.0.1"}, max_conexiones=1, inactividad_s=30)
+        next(gen)                                         # arranca el aceptador (hilo ya creado)
+        reventar = mock.Mock(side_effect=RuntimeError("can't start new thread"))
+        with mock.patch.object(receptor.threading, "Thread",
+                               return_value=mock.Mock(start=reventar)):
+            # conexión en línea (sin hilo auxiliar: Thread está parcheado globalmente)
+            c = socket.create_connection(("127.0.0.1", puerto), timeout=2)
+            c.sendall(b'{"x":1}\n')                       # su hilo no arranca: el slot debe liberarse
+            for _ in range(20):
+                next(gen)
+                if reventar.called:
+                    break
+            c.close()
+        _cliente_envia(puerto, b'{"ok":3}\n')             # con el único slot libre, esta sí entra
+        self.assertEqual(_recoge(gen, 1), ['{"ok":3}'])
 
     def test_el_rechazo_deja_rastro(self):
         avisos = []

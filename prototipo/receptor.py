@@ -128,6 +128,10 @@ def escuchar(host, puerto, permitir=None, intervalo=0.5, contexto_tls=None, max_
     total y por IP de origen); `inactividad_s` cierra la conexión que no envía nada (una ociosa no
     retiene su slot). Los rechazos y cierres se avisan con freno vía `avisar` (por defecto, stderr).
     Cierra todo al agotar el generador (.close())."""
+    # Defensa en profundidad de M2 (además de stream.validar_escucha): el propio mecanismo se niega
+    # a escuchar ABIERTO fuera de loopback — quien llame a este módulo directamente hereda el guard.
+    if permitir is None and host not in ("127.0.0.1", "localhost"):
+        raise ValueError(f"escuchar abierto en {host!r} (no-loopback) exige una lista blanca (permitir)")
     permitidas = set(permitir) if permitir is not None else None   # [] -> set() -> rechaza a todos
     cola = queue.Queue(maxsize=cola_max)
     parar = _parar or threading.Event()
@@ -169,9 +173,17 @@ def escuchar(host, puerto, permitir=None, intervalo=0.5, contexto_tls=None, max_
                         del conteo_ip[ip]
                 sem.release()
 
-            threading.Thread(target=_atender_cliente, daemon=True,
-                             args=(cli, contexto_tls, cola, parar, max_linea, _liberar, intervalo,
-                                   inactividad_s, aviso, ip)).start()
+            try:
+                threading.Thread(target=_atender_cliente, daemon=True,
+                                 args=(cli, contexto_tls, cola, parar, max_linea, _liberar, intervalo,
+                                       inactividad_s, aviso, ip)).start()
+            except RuntimeError as e:                   # sin hilos: ni el slot ni el socket se filtran
+                aviso("sin-hilos", f"no se pudo atender a {ip}: {e}")
+                try:
+                    cli.close()
+                except OSError:
+                    pass
+                _liberar()
 
     threading.Thread(target=_aceptador, daemon=True).start()
     try:

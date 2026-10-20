@@ -255,6 +255,19 @@ def _registro_error(inc, id_decision, error):
             "alertas": inc.get("conteo"), "error": f"{type(error).__name__}: {error}"}
 
 
+def _registro_descarte(entrada):
+    """Registro encadenado del desalojo por tope de la cola de pendientes (M3): una tarjeta que el
+    analista nunca verá no puede desaparecer del rastro auditado (RF-09). Tipo `error` a propósito:
+    es un suceso operativo, no una decisión, y el visor ya trata ese tipo (NO_DECISIONES)."""
+    d, a = entrada.get("decision") or {}, entrada.get("alerta") or {}
+    base = d.get("id_decision") or entrada.get("id") or "?"
+    return {"id_decision": f"{base}~tope", "tipo": "error", "timestamp": a.get("timestamp"),
+            "activo": a.get("activo"), "origen_ip": a.get("origen_ip"), "familia": a.get("familia"),
+            "alertas": 1 + (entrada.get("suprimidas") or 0),
+            "error": "desalojada de la cola de pendientes al llegar al tope: quedó SIN veredicto "
+                     f"humano (proponía {d.get('accion_final') or 'ninguna acción'})"}
+
+
 def _linea_supresion(reg):
     c = reg["clave"]
     return (f"↩ {c['origen_ip']} → {c.get('activo')} · {c['familia']} — ya decidido "
@@ -554,6 +567,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 id_decision, estado=estado, asignado=asignado, nota=nota, operador=operador, ts=_ahora_iso()))
             return True
         estado_web.fijar_actualizador(actualizar_caso)
+        # El desalojo por el tope de la cola (M3) también se encadena: nada desaparece en silencio.
+        estado_web.fijar_descartador(lambda entrada: escribir_traza(_registro_descarte(entrada)))
     seq = [0]
     ventana_rafaga = rafaga.Ventana()
     ventana_larga = rafaga.Ventana(ventana_s=rafaga.VENTANA_LARGA_S)   # señal de vigilancia 'low-and-slow'
@@ -836,21 +851,26 @@ def parsear_args(argv):
             "escuchar": escuchar, "permitir": permitir, "tls_cert": tls_cert, "tls_clave": tls_clave,
             "tls_ca": tls_ca}
 
-_LOOPBACK = ("127.0.0.1", "localhost", "::1")
+_LOOPBACK = ("127.0.0.1", "localhost")
 
-def validar_escucha(escuchar, permitir):
-    """Valida --escuchar/--permitir al arrancar y devuelve (host, puerto). Fail-closed (M2): escuchar
-    fuera de loopback EXIGE lista blanca — un receptor abierto en la red convierte el triaje en un
-    arma de DoS por alertas falsas, y un aviso por consola no basta como única barrera."""
+def validar_escucha(escuchar, permitir, tls_cert=None, tls_ca=None):
+    """Valida --escuchar/--permitir/--tls-* al arrancar y devuelve (host, puerto). Fail-closed (M2):
+    escuchar fuera de loopback EXIGE lista blanca — un receptor abierto en la red convierte el triaje
+    en un arma de DoS por alertas falsas, y un aviso por consola no basta como única barrera."""
     host, _, puerto = escuchar.rpartition(":")
     if not puerto.isdigit():
         raise SystemExit(f"--escuchar: se esperaba host:puerto, no {escuchar!r}")
+    host = host or "0.0.0.0"
+    if ":" in host:
+        raise SystemExit(f"--escuchar {escuchar}: el receptor es IPv4 (usa una dirección IPv4)")
     if permitir is not None and not permitir:
         raise SystemExit("--permitir vacío: indica las IPs del SIEM")
-    host = host or "0.0.0.0"
     if permitir is None and host not in _LOOPBACK:
         raise SystemExit(f"--escuchar {escuchar}: escuchar fuera de loopback exige --permitir "
                          "(la lista blanca con las IPs del SIEM)")
+    if tls_ca and not tls_cert:
+        raise SystemExit("--tls-ca sin --tls-cert: el mTLS exige el certificado del servidor "
+                         "(un --tls-ca colgante no puede ignorarse en silencio)")
     return host, int(puerto)
 
 def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hallazgos=None):
@@ -1019,7 +1039,8 @@ def main(argv):
     mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor, hallazgos=hallazgos)
     if cfg["escuchar"]:                                  # #1: recibir alertas por red del SIEM
         from prototipo import receptor
-        host, puerto = validar_escucha(cfg["escuchar"], cfg["permitir"])
+        host, puerto = validar_escucha(cfg["escuchar"], cfg["permitir"],
+                                       tls_cert=cfg["tls_cert"], tls_ca=cfg["tls_ca"])
         ctx = (receptor.contexto_tls(cfg["tls_cert"], cfg["tls_clave"], ca=cfg["tls_ca"])
                if cfg["tls_cert"] else None)
         fuente = receptor.escuchar(host, puerto, permitir=cfg["permitir"], contexto_tls=ctx)
