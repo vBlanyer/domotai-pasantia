@@ -35,6 +35,21 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
 - Hallazgos de revisión adversarial (Opus) por familia: verificación invertida de acciones
   transitorias; `AISLAR_NODO` que no se ejecutaba; veto de gestión/anti-self-DoS en
   `BLOQUEAR_DESTINO`; `/api/trazas` ahora arrastra los campos del ciclo de caso.
+- **Dos caídas del daemon** (auditoría 20/10): una línea de JSON con anidamiento hostil (bajo el
+  tope de 1 MiB) lanzaba `RecursionError` fuera del `except`, y un lote con timestamps de zona
+  mixta (aware+naive) rompía la agrupación fuera de la barrera. El parseo tolerante de línea JSONL
+  vive ahora en un solo sitio (`ingesta.parsear_linea`, usado por todas las fronteras) y la
+  agrupación normaliza la zona con el mismo patrón que la ráfaga (`rafaga._instante`).
+
+### Seguridad / Robustez
+- **Receptor de red**: cierre de la conexión ociosa (15 min sin datos: una conexión muda ya no
+  retiene su slot), tope de conexiones **por IP** (8: un emisor comprometido no monopoliza los 64
+  slots), rechazos y cierres **con rastro** en el log (frenado: uno por minuto y motivo),
+  `--permitir` **obligatorio al escuchar fuera de loopback** (fail-closed) y **mTLS opcional**
+  (`--tls-ca`: exige certificado de cliente — autentica al emisor, no solo cifra).
+- **Cola de pendientes acotada** (tope 500): un atacante que fabrique claves infinitas (un `srcip`
+  distinto por alerta) ya no agota la memoria; al tope se desaloja la tarjeta menos severa y más
+  vieja (nunca una en curso), contado y con aviso.
 
 ## [1.1] — 2026-10-14 · Endurecimiento, robustez y congruencia
 

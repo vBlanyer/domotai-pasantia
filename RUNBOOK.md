@@ -184,7 +184,7 @@ python3 -m prototipo.stream <fuente> <perfil> <hallazgos> [flags]
 | `--sin-supresion` | Desactiva la supresión de repetidos (audita cada alerta). |
 | `--sin-lab` | No usa el laboratorio (ejecutor simulado); para probar el motor sin Docker. |
 | `--una-vez` | Procesa un fichero FINITO hasta el final y sale (para pruebas/demos/reproceso puntual), en vez de seguirlo como `tail -f`. |
-| `--escuchar host:puerto` · `--permitir IP,…` · `--tls-cert/-clave` | Recepción de alertas por red (SIEM remoto) con lista blanca y TLS opcional. Ver [deploy/README.md](deploy/README.md). |
+| `--escuchar host:puerto` · `--permitir IP,…` · `--tls-cert/-clave` · `--tls-ca` | Recepción de alertas por red (SIEM remoto) con lista blanca (obligatoria fuera de loopback) y TLS opcional; con `--tls-ca`, mTLS (exige cert de cliente). Ver [deploy/README.md](deploy/README.md). |
 
 ### Probar `--con-llm` y `--agente` con Claude Code (solo pruebas)
 

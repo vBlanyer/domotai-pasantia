@@ -1418,5 +1418,57 @@ class TestParsearFrontera(unittest.TestCase):
         self.assertIsNone(stream._parsear("[" * 60000 + "]" * 60000))
 
 
+class TestValidarEscucha(unittest.TestCase):
+    """M2 de la auditoría 20/10: escuchar fuera de loopback sin lista blanca era la postura por
+    defecto (solo un aviso por consola). Ahora es un error de arranque: fail-closed."""
+
+    def test_loopback_sin_lista_se_permite(self):
+        self.assertEqual(stream.validar_escucha("127.0.0.1:5514", None), ("127.0.0.1", 5514))
+
+    def test_puerto_solo_liga_a_todas_y_exige_lista(self):
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha(":5514", None)          # host vacío = 0.0.0.0
+
+    def test_no_loopback_sin_lista_aborta(self):
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha("0.0.0.0:5514", None)
+
+    def test_no_loopback_con_lista_se_permite(self):
+        self.assertEqual(stream.validar_escucha("10.0.0.5:5514", ["10.0.0.9"]), ("10.0.0.5", 5514))
+
+    def test_formato_y_lista_vacia_abortan(self):
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha("sin-puerto", None)
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha("127.0.0.1:5514", [])   # lista dada pero vacía: fail-closed
+
+    def test_ipv6_se_rechaza_limpiamente(self):
+        # El receptor es IPv4 (AF_INET): '::1' pasaba por loopback y luego moría con un gaierror
+        # crudo al ligar. Mejor un error de arranque claro.
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha("::1:5514", ["10.0.0.9"])
+
+    def test_registro_descarte_tiene_forma_de_error(self):
+        # El desalojo por tope de la cola (M3) se traza con tipo "error": forma que el visor ya
+        # tolera (está en NO_DECISIONES) y texto honesto de lo que se perdió.
+        entrada = {"id": "7", "suprimidas": 2,
+                   "decision": {"id_decision": "d9", "accion_final": "BLOQUEAR_IP"},
+                   "alerta": {"timestamp": "t", "activo": "srv", "origen_ip": "1.2.3.4", "familia": "f"}}
+        reg = stream._registro_descarte(entrada)
+        self.assertEqual(reg["tipo"], "error")
+        self.assertEqual(reg["id_decision"], "d9~tope")
+        self.assertEqual(reg["alertas"], 3)                # la tarjeta + sus 2 suprimidas
+        self.assertIn("tope", reg["error"])
+
+    def test_tls_ca_sin_tls_cert_aborta(self):
+        # Un --tls-ca colgante NO puede ignorarse en silencio: el operador creería tener mTLS
+        # y el receptor correría en claro.
+        with self.assertRaises(SystemExit):
+            stream.validar_escucha("127.0.0.1:5514", None, tls_cert=None, tls_ca="ca.pem")
+        self.assertEqual(stream.validar_escucha("127.0.0.1:5514", None,
+                                                tls_cert="c.pem", tls_ca="ca.pem"),
+                         ("127.0.0.1", 5514))
+
+
 if __name__ == "__main__":
     unittest.main()
