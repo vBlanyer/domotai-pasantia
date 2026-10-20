@@ -58,6 +58,11 @@ En otra terminal, **lanza ataques** por menú: `sh lab/banco/banco.sh atacar`. A
 > [`lab/scripts/llm_claude.py`](lab/scripts/llm_claude.py)) y **no hacen falta** para validar el resultado
 > central: la decisión y la evaluación son 100 % deterministas. Sin él, la justificación es por plantilla,
 > instantánea.
+>
+> El **modo agente de mitigación** (`--agente`, ReAct) es otra opción (experimental): en vez de aplicar la
+> política directa, un agente decide la estrategia de contención —primero en el host atacado, y escala al
+> cortafuegos solo si falla—, siempre bajo el filtro del perfil (auto lo permitido, pregunta lo retenido).
+> El camino por defecto, sin `--agente`, es la política determinista. Detalle y flags en el **[`RUNBOOK.md`](RUNBOOK.md)**.
 
 ---
 
