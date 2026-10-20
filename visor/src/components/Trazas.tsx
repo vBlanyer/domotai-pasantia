@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useSondeo, getTrazas, getVerificacion, type Decision } from "@/api"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Cargando, SinConexion, Vacio, Punto, BarraFiltros } from "./bits"
+import { Cargando, SinConexion, Vacio, Punto, BarraFiltros, DatosCongelados } from "./bits"
 import { filtrarDecisiones, clasesDe, claveDe, ventanaDe, type Filtro } from "@/datos"
 
 type Estado = { texto: string; ok: boolean; roto?: number | null } | null
@@ -28,8 +28,10 @@ export function Trazas() {
       : { texto: `cadena rota en el registro #${(r.roto_en ?? 0) + 1}: ${r.motivo}`, ok: false, roto: r.roto_en })
   }
   if (!t) return <Cargando />
-  if ("error" in t) return <SinConexion />
-  const regs: Decision[] = t
+  // C2: con la conexión perdida pero datos previos, la cadena se muestra congelada con aviso.
+  const fallo = "error" in t ? t : null
+  if (fallo && !fallo.datos) return <SinConexion causa={fallo.causa} />
+  const regs: Decision[] = fallo ? fallo.datos! : t as Decision[]
   // Se filtra preservando el índice real de la cadena (para el # y el resaltado de "roto"):
   // filtrarDecisiones conserva las referencias, así que basta un Set por identidad.
   const enFiltro = new Set(filtrarDecisiones(regs, filtro))
@@ -40,6 +42,7 @@ export function Trazas() {
 
   return (
     <div className="space-y-3">
+      {fallo && <DatosCongelados fallo={fallo} />}
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

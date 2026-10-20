@@ -36,6 +36,7 @@ Los **estáticos** (el visor) no exigen token, para que la SPA cargue y pida el 
 | `GET /api/pendientes` | — | La **cola de aprobación** (array), ordenada por severidad. Cada ítem: `{id, tipo, prompt, lineas, severidad, suprimidas, paso, accion_final, activo, origen_ip, encolado_en}`. |
 | `GET /api/trazas` | `limite` (opc.) | La cola de la traza encadenada (últimos N registros, decisiones + reversiones + actualizaciones de caso…). |
 | `GET /api/traza/<id>` | `indice` (opc.) | El **detalle completo** de una decisión (justificación, ejecución, verificación, escalada, pasajes del RAG, impacto determinado). `404` si no existe. |
+| `GET /api/caso/<id>` | — | El **ciclo de caso** de una decisión, plegado sobre el fichero completo: `{estado, asignado, notas[], actualizado_en?}`. Sin actualizaciones: `{estado:"nuevo", asignado:null, notas:[]}` (el caso no «rejuvenece» al salir de la ventana de `/api/trazas`). |
 | `GET /api/verificar` | — | Integridad de la cadena de hashes: `{ok, roto_en?, motivo?}`. |
 | `GET /api/contenciones` | — | Las contenciones **activas** ahora mismo (array). |
 | `GET /api/pausa` | — | Estado del *kill switch*: `{pausada: bool}`. |

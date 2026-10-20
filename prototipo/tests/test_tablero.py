@@ -1085,6 +1085,54 @@ class TestResumenRecomendacion(unittest.TestCase):
         self.assertIsNone(tablero._resumen_traza({"id_decision": "d1"})["recomendacion"])
 
 
+class TestCasoAPI(unittest.TestCase):
+    """A4 del visor: GET /api/caso/<id> pliega el ciclo de caso sobre el fichero COMPLETO de la traza
+    (como /api/metricas), para que el caso no «rejuvenezca» cuando sus actualizaciones salen de la
+    ventana de los últimos registros que sirve /api/trazas."""
+
+    def _servir(self, registros):
+        d = tempfile.mkdtemp()
+        ruta = os.path.join(d, "trazas.jsonl")
+        with open(ruta, "w", encoding="utf-8") as f:
+            for r in registros:
+                f.write(json.dumps(r) + "\n")
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), ruta, puerto=0, estaticos=tempfile.mkdtemp())
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv.server_address[1]
+
+    def _get(self, puerto, ruta, cabeceras=None):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", ruta, headers=cabeceras or {})
+        r = c.getresponse(); cuerpo = r.read(); cab = dict(r.getheaders()); c.close()
+        return r.status, json.loads(cuerpo), cab
+
+    def test_pliega_el_caso_completo(self):
+        puerto = self._servir([
+            {"tipo": "actualizacion_caso", "id_decision": "s1", "estado": "en_revision",
+             "operador": "ana", "decidido_en": "t1"},
+            {"tipo": "actualizacion_caso", "id_decision": "s1", "nota": "visto con red",
+             "operador": "ana", "decidido_en": "t2"},
+        ])
+        estado, cuerpo, _ = self._get(puerto, "/api/caso/s1")
+        self.assertEqual(estado, 200)
+        self.assertEqual(cuerpo["estado"], "en_revision")
+        self.assertEqual(cuerpo["notas"][0]["texto"], "visto con red")
+
+    def test_sin_actualizaciones_el_caso_es_nuevo(self):
+        puerto = self._servir([])
+        estado, cuerpo, _ = self._get(puerto, "/api/caso/zz")
+        self.assertEqual(estado, 200)
+        self.assertEqual(cuerpo, {"estado": "nuevo", "asignado": None, "notas": []})
+
+    def test_cors_expone_la_cabecera_date(self):
+        # A3 del visor: el SLA se ancla a la cabecera `Date`; en dev (origen :5173) el navegador solo
+        # la deja leer si va en Access-Control-Expose-Headers.
+        puerto = self._servir([])
+        _, _, cab = self._get(puerto, "/api/pausa", {"Origin": "http://localhost:5173"})
+        self.assertIn("date", cab.get("Access-Control-Expose-Headers", "").lower())
+
+
 class TestColaAcotada(unittest.TestCase):
     """M3 de la auditoría 20/10: la cola de pendientes tiene tope — un atacante que fabrique claves
     infinitas (un srcip distinto por alerta) no agota la memoria del daemon. Al llenarse se desaloja

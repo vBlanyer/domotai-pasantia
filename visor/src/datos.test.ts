@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -185,5 +185,48 @@ describe("ventanaDe", () => {
     expect(ventanaDe([{ indice: 0 }, { indice: 1 }] as Decision[])).toBeNull()
     expect(ventanaDe([])).toBeNull()
     expect(ventanaDe([{ id_decision: "s1" }] as Decision[])).toBeNull()
+  })
+})
+
+// A1 de la auditoría: las etiquetas de clase vivían TRIPLICADAS (Dashboard/Metricas/Aprobaciones) y
+// dos copias no conocían las familias 9ª/10ª. Una sola fuente, completa.
+describe("etiquetaClase", () => {
+  it("cubre las clases de las 10 familias, incluidas exfiltración y malware", () => {
+    for (const c of ["vp_intento_acceso", "vp_reconocimiento", "vp_integridad", "vp_denegacion_servicio",
+                     "vp_abuso_cuenta", "vp_acceso_consumado", "vp_exfiltracion", "vp_malware",
+                     "fp_actividad_legitima", "fp_exposicion_inexistente", "no_soportada", "amenaza_enrutada"]) {
+      expect(etiquetaClase(c), c).not.toBe(c)            // ninguna se muestra como id crudo
+    }
+    expect(etiquetaClase("vp_exfiltracion")).toMatch(/exfiltraci/i)
+    expect(etiquetaClase("vp_malware")).toMatch(/malware/i)
+  })
+  it("una clase desconocida cae al id (no se inventa nada)", () => {
+    expect(etiquetaClase("vp_del_futuro")).toBe("vp_del_futuro")
+  })
+})
+
+// A10: el color de la dona era por POSICIÓN alfabética — una clase nueva en vivo desplazaba el color
+// de todas las demás a mitad de sesión. Color por identidad de la clase, estable.
+describe("colorClase", () => {
+  const PALETA = ["#111", "#222", "#333", "#444", "#555", "#666", "#777", "#888"]
+  it("la misma clase recibe el mismo color estén las que estén", () => {
+    expect(colorClase("vp_malware", PALETA)).toBe(colorClase("vp_malware", PALETA))
+    expect(colorClase("vp_intento_acceso", PALETA)).not.toBe(colorClase("vp_reconocimiento", PALETA))
+  })
+  it("una clase desconocida también recibe un color estable de la paleta", () => {
+    const c = colorClase("clase_rara", PALETA)
+    expect(PALETA).toContain(c)
+    expect(colorClase("clase_rara", PALETA)).toBe(c)
+  })
+})
+
+// Revisión: con 13 clases canónicas y una paleta de 8, las dos clases más frecuentes del canon
+// (intento de acceso y FP legítimo) compartían color. La paleta cubre el canon completo.
+describe("colorClase sin colisiones en el canon", () => {
+  it("las 13 clases canónicas reciben colores DISTINTOS con la paleta real", async () => {
+    const { CATEGORICO_LIGHT } = await import("./theme")
+    const clases = Object.keys(ETIQUETA_CLASE)
+    const colores = clases.map((c) => colorClase(c, CATEGORICO_LIGHT))
+    expect(new Set(colores).size).toBe(clases.length)
   })
 })

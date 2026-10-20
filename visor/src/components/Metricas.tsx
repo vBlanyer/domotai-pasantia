@@ -1,26 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { Printer } from "lucide-react"
-import { getMetricas, type Metricas as Datos } from "@/api"
+import { getMetricas, type Metricas as Datos, type Fallo } from "@/api"
 import { Donut, Tendencia, Barras, type Segmento } from "./charts"
 import { MatrizAttack } from "./MatrizAttack"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK, ESTADO } from "@/theme"
 import { useTema } from "@/tema"
 import { Cargando, SinConexion, Vacio } from "./bits"
+import { etiquetaClase, colorClase } from "@/datos"
 import { rangoDe, etiquetaPeriodo, type Preset } from "@/informe"
 
-const ETIQUETA_CLASE: Record<string, string> = {
-  vp_intento_acceso: "Intento de acceso",
-  vp_reconocimiento: "Reconocimiento",
-  vp_integridad: "Integridad de fichero",
-  vp_denegacion_servicio: "Denegación de servicio",
-  vp_acceso_consumado: "Acceso consumado",
-  vp_abuso_cuenta: "Abuso de cuenta",
-  fp_actividad_legitima: "Falso positivo (legítimo)",
-  fp_exposicion_inexistente: "Falso positivo (exposición)",
-  no_soportada: "No soportada",
-  amenaza_enrutada: "Enrutada a un equipo",
-  otra: "Otra",
-}
 const VEREDICTO = {
   aprobar: { nombre: "Aprobadas", fill: ESTADO.good },
   rechazar: { nombre: "Rechazadas", fill: ESTADO.critical },
@@ -56,7 +44,7 @@ export function Metricas() {
   const oscuro = useTema().oscuro
   const [sel, setSel] = useState<Seleccion>("vivo")
   const [rango, setRango] = useState(() => rangoDe("mes", new Date()))
-  const [m, setM] = useState<Datos | { error: string } | undefined>()
+  const [m, setM] = useState<Datos | Fallo | undefined>()
 
   useEffect(() => {
     let vivo = true
@@ -114,7 +102,7 @@ export function Metricas() {
         </button>
       </div>
 
-      {!m ? <Cargando /> : "error" in m ? <SinConexion /> : (
+      {!m ? <Cargando /> : "error" in m ? <SinConexion causa={m.causa} /> : (
         <article className="space-y-5">
           <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-foreground pb-4">
             <div>
@@ -149,8 +137,8 @@ export function Metricas() {
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 print:grid-cols-2">
                 <Tarjeta titulo="Decisiones por clase">
                   <Donut unidad="decisiones" total={m.total}
-                    data={Object.keys(m.por_clase).sort().map((c, i): Segmento =>
-                      ({ name: ETIQUETA_CLASE[c] ?? c, value: m.por_clase[c], fill: CAT[i % CAT.length] }))} />
+                    data={Object.keys(m.por_clase).sort().map((c): Segmento =>
+                      ({ name: etiquetaClase(c), value: m.por_clase[c], fill: colorClase(c, CAT) }))} />
                 </Tarjeta>
                 <Tarjeta titulo="Veredictos humanos">
                   {m.total - m.auto > 0

@@ -43,3 +43,27 @@ describe("Panel", () => {
     expect(screen.getByText("Sin decisiones pendientes").closest("li")).toHaveTextContent("✗")
   })
 })
+
+describe("KPI de aprobaciones", () => {
+  beforeEach(() => h.fuentes.clear())
+  it("con pendientes, el KPI lleva a la vista de Aprobaciones (C6)", async () => {
+    const { fireEvent } = await import("@testing-library/react")
+    h.fuentes.set(getMetricas, METRICAS)
+    h.fuentes.set(getPendientes, [{ id: "1", tipo: "menu", prompt: "x", lineas: [] }])
+    const ir = vi.fn()
+    render(<Dashboard conectado onVerAprobaciones={ir} />)
+    fireEvent.click(screen.getByText("esperando aprobación").closest("button")!)
+    expect(ir).toHaveBeenCalled()
+  })
+})
+
+describe("datos congelados en el panel (C2)", () => {
+  beforeEach(() => h.fuentes.clear())
+  it("un fallo CON datos previos conserva los KPIs y avisa, no vacía el panel", () => {
+    h.fuentes.set(getMetricas, { error: "x", causa: "red", datos: METRICAS, desde: Date.now() })
+    h.fuentes.set(getPendientes, [])
+    render(<Dashboard conectado={false} />)
+    expect(screen.getByText("812")).toBeInTheDocument()     // los últimos totales siguen a la vista
+    expect(screen.getByText(/Sin conexión/)).toBeInTheDocument()
+  })
+})

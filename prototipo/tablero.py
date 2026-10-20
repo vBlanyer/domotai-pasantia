@@ -17,7 +17,7 @@ import urllib.parse
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from prototipo import actores, familias, red, traza
+from prototipo import actores, casos, familias, red, traza
 
 _MARCA_INCIDENTE = "⚠"   # el resumen de incidente de stream empieza por esta marca
 # Cota del listado /api/trazas: el visor lo sondea cada 2 s, y sin ella cada tick releería y
@@ -747,6 +747,9 @@ class _Manejador(BaseHTTPRequestHandler):
             self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            # El visor ancla el SLA a la hora del daemon (cabecera Date): en dev (origen :5173) el
+            # navegador solo deja leerla si se expone explícitamente.
+            self.send_header("Access-Control-Expose-Headers", "Date")
 
     def do_OPTIONS(self):
         if not self._host_ok():
@@ -818,6 +821,12 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta.startswith("/api/traza/"):
                 d = traza_detalle(s.ruta_traza, ruta[len("/api/traza/"):], indice=_entero(self.path, "indice"))
                 return self._responder(d) if d is not None else self._responder({"error": "no encontrada"}, 404)
+            if ruta.startswith("/api/caso/"):
+                # Ciclo de caso plegado sobre el fichero COMPLETO (como /api/metricas): el caso no
+                # «rejuvenece» cuando sus actualizaciones salen de la ventana de /api/trazas.
+                idd = urllib.parse.unquote(ruta[len("/api/caso/"):])
+                c = casos.estado_de_casos(_registros_cacheados(s.ruta_traza)).get(idd)
+                return self._responder(c or {"estado": "nuevo", "asignado": None, "notas": []})
             if ruta == "/api/verificar":
                 return self._responder(verificar_traza(s.ruta_traza))
             if ruta == "/api/contenciones":

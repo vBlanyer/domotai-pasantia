@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { Moon, Sun, Menu, Bell, BellOff } from "lucide-react"
-import { useSondeo, getSalud, getPendientes, getPausa, tokenActual, fijarToken, type Pendiente } from "@/api"
+import { useSondeo, getSalud, getPendientes, getPausa, tokenActual, fijarToken, listaConocida, type Pendiente } from "@/api"
 import { tituloConPendientes, nuevosPendientes, textoAviso } from "@/alertas"
 import { useTema } from "@/tema"
 import { Dashboard } from "@/components/Dashboard"
@@ -50,10 +50,13 @@ async function alternarAvisos(actual: boolean, set: (b: boolean) => void) {
 // Mantiene el título de la pestaña con el nº de pendientes (visible aunque el analista esté en otra
 // pestaña) y, si están habilitados los avisos, notifica + pita SOLO cuando entra una decisión nueva
 // (no al abrir la consola con cola ya existente, ni en cada refresco). RNF-01: todo en el navegador.
-function useAvisoPendientes(pend: Pendiente[], habilitado: boolean) {
+function useAvisoPendientes(pend: Pendiente[] | null, habilitado: boolean) {
   const vistos = useRef<Set<string>>(new Set())
   const primera = useRef(true)
   useEffect(() => {
+    // null = el sondeo falló SIN datos previos: no se toca ni el título ni lo visto — si se vaciara
+    // `vistos`, un parpadeo de red re-notificaría (y re-pitaría) todo lo que el analista ya vio.
+    if (pend === null) return
     document.title = tituloConPendientes(pend.length)
     const nuevos = nuevosPendientes(vistos.current, pend)
     if (!primera.current && habilitado && nuevos.length) {
@@ -91,9 +94,10 @@ export default function App() {
   const pausa = useSondeo(getPausa)
   const pausada = !!(pausa && !("error" in pausa) && pausa.pausada)
   const conectado = salud !== undefined && !("error" in salud)
-  const nPend = Array.isArray(pend) ? pend.length : 0
+  const pendConocidos = listaConocida(pend)   // en un fallo, los últimos buenos (no re-notificar todo)
+  const nPend = pendConocidos?.length ?? 0
   const [avisos, setAvisos] = useState(leerAvisos)
-  useAvisoPendientes(Array.isArray(pend) ? pend : [], avisos)
+  useAvisoPendientes(pendConocidos, avisos)
   const titulo = vista === "incidente" ? "Incidente" : NAV.find((n) => n.id === vista)!.nombre
 
   return (
@@ -185,7 +189,7 @@ export default function App() {
               )}
             </div>
           )}
-          {vista === "panel" && <Dashboard conectado={conectado} />}
+          {vista === "panel" && <Dashboard conectado={conectado} onVerAprobaciones={() => setVista("aprobaciones")} />}
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}
           {vista === "red" && <Red onVerDecisiones={(n) => { setEquipo(n); setVista("decisiones") }} />}

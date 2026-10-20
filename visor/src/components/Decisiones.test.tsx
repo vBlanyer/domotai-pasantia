@@ -208,3 +208,22 @@ describe("Detalle de un registro con id repetido", () => {
     expect(quitar).toHaveBeenCalled()
   })
 })
+
+// C3 de la auditoría: el detalle solo se abría con ratón. Un botón real dentro de la primera celda
+// da teclado y foco SIN romper la semántica de tabla para lectores de pantalla.
+describe("FilaDecision accesible por teclado", () => {
+  const D: Decision = { id_decision: "s1", clase: "vp_intento_acceso", activo: "srv", prioridad: 2 }
+
+  it("hay un botón de detalle enfocable en la fila y activa el toggle una sola vez", () => {
+    const onToggle = vi.fn()
+    render(<table><tbody><FilaDecision d={D} abierto={false} onToggle={onToggle} /></tbody></table>)
+    const boton = screen.getByRole("button", { name: /ver detalle de srv/i })
+    fireEvent.click(boton)                              // un <button> nativo ya responde a Enter/Espacio
+    expect(onToggle).toHaveBeenCalledTimes(1)           // stopPropagation: la fila no lo duplica
+  })
+
+  it("declara si está expandida (aria-expanded)", () => {
+    render(<table><tbody><FilaDecision d={D} abierto onToggle={() => {}} /></tbody></table>)
+    expect(screen.getByRole("button", { name: /ver detalle de srv/i })).toHaveAttribute("aria-expanded", "true")
+  })
+})
