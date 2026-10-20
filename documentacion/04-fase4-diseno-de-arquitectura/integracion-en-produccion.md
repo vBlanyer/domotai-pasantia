@@ -100,6 +100,10 @@ superior (ver ejemplos reales en `bancario.yml`, `empresarial.yml`, `residencial
 | `rutas` | Enlaza un rol lógico con el destino real del cliente (p. ej. una cola de appsec). |
 | `red` | **Solo presentación** de la vista «Red» del visor; la contención no la usa (usa `topologia`). |
 
+> Los nodos de `activos:` y `topologia:` admiten además, de forma **opcional**, `plano` (plano de ejecución;
+> por defecto `ssh`), `api` y `credencial` (referencia a vault) para actuar sobre equipos que no son SSH — ver
+> §2.6.
+
 Ejemplo (un activo del perfil bancario):
 
 ```yaml
@@ -243,6 +247,94 @@ tail -n0 -F /ruta/al/alerts.json \
   ingesta) para un monitor local. Plantillas de unidad, wrapper del *pipe* y `EnvironmentFile` en **`deploy/`**
   (ver `deploy/README.md`).
 
+### 2.6 Dispositivos sin SSH: planos y *drivers*
+
+Hoy el conector actúa por un único plano —SSH— tras el contrato `ejecutor(nodo_ip, comando) → (rc, salida)`,
+con `comando` renderizado como cadena de shell del catálogo. Esa suposición de shell vive en **solo tres
+funciones** (`conector.ejecutar_orden`, `verificacion.confirmar`, `revertir.revertir`); todo lo de arriba
+(`lazo`, `stream`, el agente, el visor) trata el ejecutor como **opaco**. El motor, además, no conoce el plano:
+emite una **orden abstracta** (`accion_id` + `params`). Esa separación es la que permite ampliar a equipos que
+no son SSH **sin tocar el motor ni las métricas**.
+
+**El patrón: un *driver* por plano de ejecución.** Un registro indexado por el `plano` del nodo que
+**ejecuta** la acción (que suele ser el cortafuegos de borde —vía `ejecutor_aislamiento`—, no el activo
+atacado) resuelve un *driver* con tres operaciones: `aplicar` / `verificar` / `revertir`. El plano SSH actual
+pasa a ser `DriverSSH`, la lógica de hoy **verbatim** (verificar → actuar → reverificar, la inversión de las
+acciones `transitoria`, la forma del resultado), de modo que el camino probado queda **byte-por-byte igual**.
+
+**Declaración en el perfil.** Un campo opcional `plano` por nodo —en `activos:` para las acciones que corren
+en el host (p. ej. `LIMITAR_BANDA`) y en `topologia:` para las que ejecuta el cortafuegos (`BLOQUEAR_DESTINO`,
+`AISLAR_NODO`, `BLOQUEAR_IP_FIREWALL`)—, con `plano: ssh` por defecto (los perfiles actuales no cambian). Junto
+a él, `api:` y una `credencial:` que es una **referencia a un vault, nunca un secreto en línea**:
+
+```yaml
+topologia:
+  fw-edge: { rol: firewall_perimetral, ip: 10.0.0.254,
+             plano: rest, api: { base_url: "https://10.0.0.254/restconf" }, credencial: fw-edge-token }
+```
+
+**Dos formas de realizar un plano.** (a) **CLI por otro transporte** (p. ej. `docker exec`, telnet, un
+*console-server*): reutiliza las mismas plantillas del catálogo, solo cambia cómo llega el comando. (b) **API
+estructurada** (REST de fabricante, NETCONF/RESTCONF, SNMP, un controlador SDN o gestor de firewall): el
+*driver* lleva su **propio mapeo** `accion_id` → llamada; el catálogo sigue siendo la **lista canónica** de
+acciones con sus metadatos (impacto, reversión, `nunca_automatica`).
+
+**Autorización por plano.** En SSH, la frontera de privilegio es el sudoers derivado del catálogo cerrado; en
+una API, un **token con alcance** solo a esas operaciones, sacado del vault. Misma disciplina de mínimo
+privilegio.
+
+**Frontera honesta.** La verificación sigue siendo estricta: lo que no se aplica o no se confirma se reporta
+como **no contenido** (jamás un éxito falso) y, para las acciones sobre el origen, escala por la cadena. Un
+equipo **sin plano programable** (un *appliance* propietario sin API, un legado, OT/ICS donde no se debe
+actuar en automático) se cubre con un `DriverManual`: no actúa, emite un elemento de trabajo y devuelve
+`requiere_humano`. Es el complemento del catálogo cerrado: el sistema dice la verdad en el borde de lo que
+puede tocar.
+
+**Qué equipos cubre cada plano.**
+
+| Plano / *driver* | Equipos | Qué respuestas realiza | Estado |
+|---|---|---|---|
+| `ssh` (hoy) | Hosts/servidores y firewalls **Linux** (iptables/`tc`) con cuenta por clave + sudo del catálogo | **Todas** las del catálogo | **Implementado y probado** |
+| CLI por otro transporte (`DriverDockerExec`, telnet, consola) | Equipos con shell sin SSH; contenedores; acceso por consola | Reutiliza las plantillas del catálogo | Futuro; **`docker exec` del banco = referencia ejercitable** |
+| Firewall/NGFW por REST (`DriverRestFirewall`) | Palo Alto (PAN-OS), Fortinet (FortiOS), Cisco ASA/Firepower, Check Point, pfSense/OPNsense | `BLOQUEAR_DESTINO`/`BLOQUEAR_IP`/`BLOQUEAR_PUERTO`, `AISLAR_NODO` por regla | Futuro |
+| Switch/router por NETCONF/RESTCONF (`DriverNetconf`) | Cisco IOS-XE/NX-OS, Juniper Junos, Arista EOS | ACL, *shutdown* de puerto, VLAN de cuarentena | Futuro |
+| Equipo de red por SNMPv3-write (`DriverSnmp`) | Switches administrables | Apagar puerto (`ifAdminStatus`); último recurso | Futuro |
+| Controlador / gestor central (`DriverControlador`) | Panorama, FortiManager, Cisco FMC; controladores SDN; NAC (p. ej. Cisco ISE) | Regla central o cambio de segmento/cuarentena del *endpoint* | Futuro |
+| CPE por TR-069/ACS (`DriverTR069`) | Routers/ONT/CPE de abonado | Bloqueo/aislamiento en el borde de abonado | Futuro (ya citado en §1 y §4) |
+| Borde en la nube (`DriverCloud`, opcional) | Security Groups / NACL (AWS/Azure/GCP) por API | `BLOQUEAR_DESTINO`/`BLOQUEAR_IP` si el *choke point* es virtual | Futuro |
+| Sin plano programable (`DriverManual`) | *Appliances* propietarios sin API, legados, OT/ICS | **No actúa**: ticket + `requiere_humano` | Patrón de diseño |
+
+> **Honesto:** solo el plano SSH está implementado. El resto es el patrón que estos *seams* habilitan; cada
+> *driver* es trabajo de *rollout* por tipo de equipo y queda «en código, sin ejercitar» hasta probarse contra
+> un dispositivo real —salvo `DriverDockerExec`, que el banco ya puede ejercitar end-to-end—. No todo equipo
+> realiza toda respuesta: el mapeo acción × plano es parte del alta.
+
+**Cómo se cierra el hueco — y qué toca al prototipo frente al *rollout*.** Cuando el punto de contención de
+un cliente **no** es un Linux-con-`iptables` (un *appliance* NGFW, un switch gestionado), ese hueco **no es una
+vulnerabilidad explotable**: el sistema **falla seguro** —reporta *no contenido* y escala al humano, nunca
+finge contención—. Se cierra de cuatro formas, de la más pragmática a la más específica:
+
+- **(A) Delegar en el control central del cliente** (gestor de firewalls / NAC / SOAR —Panorama, FortiManager,
+  FMC/ISE, XSOAR…—): una sola integración, **dentro de su infraestructura** (RNF-01), cubre toda la flota.
+- **(B) Interponer / poseer un punto de contención Linux** en la ruta (un nodo de aplicación en línea, o el
+  propio nodo del MDR como *gateway* del segmento): el conector `iptables`-por-SSH funciona **sin código nuevo**.
+- **(C) Construir el *driver* del *appliance*** (NETCONF/RESTCONF estándar primero, REST de fabricante después):
+  por cliente, cuando su equipo de borde lo exige.
+- **(D) Suelo honesto**: *fail-safe* + *runbook* humano con SLA, siempre por debajo.
+
+```
+¿Control central (gestor/NAC/SOAR)?            → A (una integración)
+   └ no → ¿Interponer/poseer un choke point Linux? → B (cero código)
+        └ no → driver del appliance                → C
+siempre, por debajo                             → D (fail-safe + humano)
+```
+
+**En este proyecto** (cliente agnóstico, modelado; sin equipo real; fase de cierre) el hueco **ya está cubierto
+por diseño**: la topología de referencia contiene en un **cortafuegos Linux** que el MDR actúa
+(`fw-core`/`fw-edge`), que es exactamente la opción **B** —validada en vivo de punta a punta—, con **D** siempre
+por debajo. **A y C son trabajo de *rollout*** del cliente real (se eligen en el alta si su borde es un
+*appliance*), y por eso quedan **documentadas aquí, no codificadas**.
+
 ---
 
 ## 3. Alta de un cliente nuevo — checklist
@@ -296,7 +388,9 @@ tail -n0 -F /ruta/al/alerts.json \
   SIEM.
 - **Multi-tenant**: hoy un perfil por proceso.
 - **Canal de respuesta real**: sustituir el `docker exec` del laboratorio por SSH directo (o TR-069/ACS para
-  CPE), y **validar `ejecutor_ssh_clave` contra dispositivos reales**.
+  CPE), y **validar `ejecutor_ssh_clave` contra dispositivos reales**. Para equipos que **no** son SSH, el
+  patrón de *drivers* por plano de ejecución (registro + `DriverSSH`/`DriverRestFirewall`/… ) está descrito en
+  **§2.6**; formaliza tanto el relevo del `docker exec` como el canal TR-069/ACS.
 - **TTL de bloqueos** (caducado automático de las contenciones).
 
 ---
@@ -309,6 +403,7 @@ tail -n0 -F /ruta/al/alerts.json \
 | Configuración por perfil (los *seams*) | **Lista**: perfil, catálogo, sudoers generado, adaptador agnóstico. |
 | Endurecimiento del propio MDR | **Hecho** (CORS/CSRF/Host, HMAC, sudoers, fail-closed, nunca-automáticas). |
 | Conector de producción (`ejecutor_ssh_clave`) | **Diseñado, en código; sin ejercitar contra equipos reales.** |
+| Contención en puntos no-SSH (*appliance* de borde) | **Cubierto por diseño en el prototipo** (choke point Linux = opción B) **+ *fail-safe***; los *drivers* por *appliance* (opciones A/C) son *rollout*, documentados en §2.6. |
 | Segunda fuente de SIEM (CEF) | **Analizada, no implementada.** |
 | SSO / TLS / multi-tenant / TTL de bloqueos | **Trabajo futuro** (el login básico por token ya existe; el SSO corporativo lo pone la empresa). |
 
