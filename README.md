@@ -90,8 +90,9 @@ extensible** ([`prototipo/familias.yml`](prototipo/familias.yml), hoy **10 famil
 con tres niveles de respuesta — **actuar** (contener con el catálogo cerrado), **triar y encaminar** (clasificar
 y derivar con contexto MITRE, sin contener) y **no soportada** (a juicio humano, severidad intacta). Añadir una
 familia es una línea; la cobertura real por cliente es *lo que su SIEM detecta ∩ lo que el registro cubre*
-(medible con `python3 -m prototipo.validar_reglas`). Así el sistema **dice la verdad** en el borde de su
-competencia en vez de inventar una respuesta.
+(medible con `python3 -m prototipo.validar_reglas <muestra-alerts.json>` sobre una exportación del
+`alerts.json` del cliente — p. ej. `python3 -m prototipo.validar_reglas "lab/campañas/2026-08-31-evaluacion/alerts.json"`).
+Así el sistema **dice la verdad** en el borde de su competencia en vez de inventar una respuesta.
 
 ## Cómo está organizado el repositorio
 
