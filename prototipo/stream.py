@@ -15,13 +15,7 @@ _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
 
 def _parsear(linea):
     """Linea cruda JSON -> alerta normalizada, o None si vacia/corrupta (RNF-07: no inventar)."""
-    linea = (linea or "").strip()
-    if not linea:
-        return None
-    try:
-        cruda = json.loads(linea)
-    except (json.JSONDecodeError, RecursionError):   # RecursionError: anidamiento hostil bajo el tope de 1 MiB
-        return None
+    cruda = ingesta.parsear_linea(linea)
     if not isinstance(cruda, dict):          # JSON válido pero no es una alerta: [1,2], null, "x"
         return None
     try:

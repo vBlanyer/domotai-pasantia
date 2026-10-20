@@ -20,18 +20,26 @@ def campos_ausentes(reg):
     """Nombres de los campos críticos ausentes (None o vacíos). No muta el registro ni infiere nada."""
     return [c for c in CRITICOS if not reg.get(c)]
 
+def parsear_linea(linea):
+    """Línea JSONL -> objeto, o None si está vacía o no parsea. La política de tolerancia vive aquí
+    para TODAS las fronteras de entrada: además del JSON corrupto, un anidamiento hostil ('['*60000,
+    bajo el tope de 1 MiB) lanza RecursionError y debe descartarse igual, no tumbar el proceso."""
+    linea = (linea or "").strip()
+    if not linea:
+        return None
+    try:
+        return json.loads(linea)
+    except (json.JSONDecodeError, RecursionError):
+        return None
+
 def ingerir_fichero(ruta, adaptador):
     """Lee un fichero JSONL de alertas crudas y devuelve la lista normalizada. Salta líneas vacías o
     corruptas sin romper el fichero (formato JSONL)."""
     regs = []
     with open(ruta, encoding="utf-8") as f:
         for linea in f:
-            linea = linea.strip()
-            if not linea:
-                continue
-            try:
-                cruda = json.loads(linea)
-            except json.JSONDecodeError:
+            cruda = parsear_linea(linea)
+            if cruda is None:
                 continue
             reg = normalizar(cruda, adaptador)
             if reg is not None:            # el adaptador descarta la telemetria propia

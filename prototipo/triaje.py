@@ -1,6 +1,6 @@
 """Orquesta el lazo de decisión: ingesta -> análisis -> política -> perfil -> traza."""
 import json, os, sys, yaml
-from prototipo import analisis, politica, perfil as perfilm, traza, catalogo as catm, correspondencia
+from prototipo import analisis, ingesta, politica, perfil as perfilm, traza, catalogo as catm, correspondencia
 
 def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decision, timestamp,
              justificar_fn=analisis.justificar, registro_correspondencia=None):
@@ -63,9 +63,8 @@ def main(argv):
             linea = linea.strip()
             if not linea:
                 continue
-            try:
-                alerta = json.loads(linea)
-            except json.JSONDecodeError:
+            alerta = ingesta.parsear_linea(linea)
+            if alerta is None:
                 continue
             ts = alerta.get("timestamp", "")
             r = procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo,

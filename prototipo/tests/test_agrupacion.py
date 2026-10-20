@@ -89,6 +89,42 @@ class TestZonasMixtas(unittest.TestCase):
         self.assertEqual(len(incs), 1)
         self.assertEqual(incs[0]["primera_ts"], "2026-10-20T10:00:00+00:00")
 
+    def test_representante_desempata_en_utc_aunque_la_hora_local_tenga_dst(self):
+        # Con empate de nivel, el desempate compara los datetimes UTC, no epochs locales:
+        # .timestamp() sobre naive-UTC caía en la hora inexistente del salto DST y elegía el viejo.
+        import time
+        tz_previa = os.environ.get("TZ")
+        os.environ["TZ"] = "America/New_York"; time.tzset()     # salto DST: 2026-03-08 02:00 local
+        try:
+            viejo = dict(self._a("2026-03-08T02:30:00+00:00"), id_alerta="viejo")
+            nuevo = dict(self._a("2026-03-08T03:00:00+00:00"), id_alerta="nuevo")
+            self.assertEqual(agrupacion.representante([viejo, nuevo])["id_alerta"], "nuevo")
+        finally:
+            if tz_previa is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = tz_previa
+            time.tzset()
+
+    def test_main_salta_la_linea_anidada_hostil(self):
+        import tempfile
+        entrada, salida = tempfile.mktemp(suffix=".jsonl"), tempfile.mktemp(suffix=".jsonl")
+        with open(entrada, "w", encoding="utf-8") as f:
+            f.write("[" * 60000 + "]" * 60000 + "\n")
+            f.write(json.dumps(self._a("2026-10-20T10:00:00+00:00")) + "\n")
+        try:
+            import contextlib, io
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = agrupacion.main(["agrupacion", entrada, salida])
+            with open(salida, encoding="utf-8") as f:
+                incidentes = [l for l in f if l.strip()]
+        finally:
+            for r in (entrada, salida):
+                if os.path.exists(r):
+                    os.unlink(r)
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(incidentes), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

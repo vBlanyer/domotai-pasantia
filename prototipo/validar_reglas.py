@@ -14,7 +14,7 @@ import collections
 import json
 import sys
 
-from prototipo import adaptador_wazuh, familias
+from prototipo import adaptador_wazuh, familias, ingesta
 
 
 def cobertura(crudas, campaña="validacion"):
@@ -70,10 +70,8 @@ def _main(argv):
             linea = linea.strip()
             if not linea:
                 continue
-            try:
-                crudas.append(json.loads(linea))
-            except (ValueError, RecursionError):       # no-JSON o anidamiento hostil: cuenta como malformada
-                crudas.append(linea)
+            obj = ingesta.parsear_linea(linea)
+            crudas.append(obj if obj is not None else linea)   # no parsea: entra y cuenta como malformada
     r = cobertura(crudas)
     print(f"{r['total']} alertas · {r['cubiertas']} con familia y playbook · "
           f"{len(r['sin_cobertura'])} sin cobertura · {r['propias']} propias · {r['malformadas']} malformadas")

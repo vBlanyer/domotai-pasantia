@@ -7,30 +7,26 @@ reduce los ítems que el analista debe revisar. Puro y tolerante (RNF-07): una a
 """
 import json, sys
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import datetime
+from prototipo import rafaga
 
 def clave_incidente(alerta):
     return (alerta.get("origen_ip"), alerta.get("activo"), alerta.get("servicio"), alerta.get("familia"))
 
 def _ts(alerta):
-    """Timestamp como datetime NAIVE en UTC (#7, como rafaga._instante): con zona se convierte,
-    sin zona se asume UTC — en un lote con fuentes mixtas aware y naive no son comparables."""
-    v = alerta.get("timestamp")
-    if not v:
+    """Timestamp como datetime NAIVE en UTC (#7): delega en rafaga._instante para que las dos
+    ventanas (ráfaga y agrupación) lean el tiempo igual — en un lote con fuentes mixtas, aware y
+    naive no son comparables. Tolera un timestamp que no sea texto (RNF-07)."""
+    if not isinstance(alerta.get("timestamp"), str):
         return None
-    try:
-        t = datetime.fromisoformat(v)
-    except (ValueError, TypeError):
-        return None
-    if t.tzinfo is not None:
-        t = t.astimezone(timezone.utc).replace(tzinfo=None)
-    return t
+    return rafaga._instante(alerta)
 
 def representante(alertas):
-    """La alerta más informativa del incidente: mayor nivel_wazuh; empate → la más reciente."""
+    """La alerta más informativa del incidente: mayor nivel_wazuh; empate → la más reciente.
+    El desempate compara los datetimes UTC directamente: .timestamp() interpretaría el naive-UTC
+    como hora local y se invierte en la hora inexistente del salto DST."""
     def clave(a):
-        t = _ts(a)
-        return (a.get("nivel_wazuh") or 0, t.timestamp() if t else float("-inf"))
+        return (a.get("nivel_wazuh") or 0, _ts(a) or datetime.min)
     return max(alertas, key=clave)
 
 def _incidente(clave, alertas):
@@ -78,8 +74,8 @@ def main(argv):
                 continue
             try:
                 alertas.append(json.loads(linea))
-            except json.JSONDecodeError:
-                continue
+            except (json.JSONDecodeError, RecursionError):   # como ingesta.parsear_linea; literal
+                continue                                      # para no acoplar el módulo al adaptador
     incidentes = agrupar(alertas, ventana)
     with open(salida, "w", encoding="utf-8") as f:
         for inc in incidentes:
