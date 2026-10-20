@@ -105,6 +105,14 @@ configuración queda en producción?». Cada comando y cada salida esperada que 
 11/09/2026 sobre el laboratorio en un ensayo completo del modo tiempo real (servidores residentes,
 mínimo privilegio, ataque real, traza encadenada, reversión desde la traza).
 
+## El manual del analista
+
+Y, para el otro público —el **analista de seguridad** que usa la consola web ya en marcha—, el
+**[`manual-del-analista.md`](manual-del-analista.md)**: las vistas de la consola, el flujo de trabajo
+(leer una decisión pendiente, aprobar / rechazar / reclasificar, seguir el incidente y llevar su
+caso), el *kill switch* y los límites honestos del sistema. Complementa la guía de operación (que es
+de administrador), no la repite.
+
 ---
 
 ## Estado

@@ -14,6 +14,7 @@ Mapa de un vistazo de qué es cada carpeta. El diseño completo está en
 ├── docs/               Guías de prueba y evidencia (docs/pruebas/)
 ├── archivo/            Archivo del PROCESO de desarrollo (planes/specs); no es diseño vigente
 ├── README.md           Qué es el proyecto y qué hay construido
+├── CHANGELOG.md        Qué cambió en cada versión (v1.0, v1.1 y posteriores)
 ├── RUNBOOK.md          Cómo arrancar y operar todo, paso a paso
 ├── EVALUAR-LLM-EN-GPU.md  Cómo medir un modelo de justificación en una máquina con GPU
 └── reiniciar.sh        Reinicia el daemon en vivo sobre el banco levantado
