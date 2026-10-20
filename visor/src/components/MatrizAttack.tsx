@@ -56,12 +56,14 @@ export function MatrizAttack({ tecnicas }: { tecnicas: Tecnica[] }) {
         </span>
         <span>más</span>
       </div>
-      <div className="overflow-x-auto">
-        <div className="flex gap-3">
+      {/* C5: en pantalla desplaza en horizontal; al IMPRIMIR (informe PDF) las columnas envuelven
+          para que la matriz salga completa en el A4, no recortada por el overflow. */}
+      <div className="overflow-x-auto print:overflow-visible">
+        <div className="flex gap-3 print:flex-wrap">
           {columnas.map((col) => {
             const total = col.ids.reduce((s, id) => s + (conteo[id] ?? 0), 0)
             return (
-              <div key={col.nombre} className="min-w-[8.5rem] flex-1">
+              <div key={col.nombre} className="min-w-[8.5rem] flex-1 break-inside-avoid print:min-w-[6rem]">
                 <div className="mb-2 border-b border-border pb-1.5">
                   <div className="text-xs font-medium">{col.nombre}</div>
                   <div className="text-[10px] tabular-nums text-muted-foreground">{total} det.</div>

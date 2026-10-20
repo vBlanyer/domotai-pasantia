@@ -43,3 +43,16 @@ describe("Panel", () => {
     expect(screen.getByText("Sin decisiones pendientes").closest("li")).toHaveTextContent("✗")
   })
 })
+
+describe("KPI de aprobaciones", () => {
+  beforeEach(() => h.fuentes.clear())
+  it("con pendientes, el KPI lleva a la vista de Aprobaciones (C6)", async () => {
+    const { fireEvent } = await import("@testing-library/react")
+    h.fuentes.set(getMetricas, METRICAS)
+    h.fuentes.set(getPendientes, [{ id: "1", tipo: "menu", prompt: "x", lineas: [] }])
+    const ir = vi.fn()
+    render(<Dashboard conectado onVerAprobaciones={ir} />)
+    fireEvent.click(screen.getByText("esperando aprobación").closest("button")!)
+    expect(ir).toHaveBeenCalled()
+  })
+})

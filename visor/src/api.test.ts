@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema } from "./api"
+import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getTrazasCaso, getPendientes, ahoraServidor, recordando } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -152,7 +152,7 @@ describe("aprobar", () => {
   it("envía el paso del menú que vio el analista", async () => {
     const f = vi.fn().mockResolvedValue({ ok: true })
     vi.stubGlobal("fetch", f)
-    expect(await aprobar("7", "1", 2)).toBe(true)
+    expect(await aprobar("7", "1", 2)).toBe("ok")
     expect(cuerpoDe(f)).toEqual({ id: "7", respuesta: "1", paso: 2 })
   })
 
@@ -163,11 +163,13 @@ describe("aprobar", () => {
     expect(cuerpoDe(f)).toEqual({ id: "7", respuesta: "s" })
   })
 
-  it("409 o error de red -> false", async () => {
+  it("409 o error de red -> fallo; 401 -> auth (el analista ve que es el token)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409 }))
-    expect(await aprobar("7", "1", 0)).toBe(false)
+    expect(await aprobar("7", "1", 0)).toBe("fallo")
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("red")))
-    expect(await aprobar("7", "1", 0)).toBe(false)
+    expect(await aprobar("7", "1", 0)).toBe("fallo")
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 }))
+    expect(await aprobar("7", "1", 0)).toBe("auth")
   })
 })
 
@@ -186,6 +188,74 @@ describe("getTrazaDetalle", () => {
     expect(f.mock.calls[0][0]).toMatch(/\/api\/traza\/s1\?indice=4$/)
     await getTrazaDetalle("s1")
     expect(f.mock.calls[1][0]).toMatch(/\/api\/traza\/s1$/)
+  })
+})
+
+// A2 de la auditoría: un token rechazado, el daemon caído y una respuesta que no valida son fallos
+// DISTINTOS — el visor los separa para no decir «daemon caído» cuando el problema es el token.
+describe("clasificación de fallos", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it("401 -> causa auth", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 }))
+    const r = await getSalud()
+    expect(r).toMatchObject({ causa: "auth" })
+  })
+  it("fetch que revienta -> causa red", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")))
+    expect(await getSalud()).toMatchObject({ causa: "red" })
+  })
+  it("respuesta que no valida -> causa datos (no «daemon caído»)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ otra_cosa: 1 }) }))
+    expect(await getSalud()).toMatchObject({ causa: "datos" })
+  })
+})
+
+describe("listas tolerantes", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it("un registro malformado se descarta sin tirar la lista entera", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ id_decision: "a" }, { tecnica_mitre: 5 }, { id_decision: "b" }],
+    }))
+    const r = await getTrazas()
+    expect(Array.isArray(r)).toBe(true)
+    expect((r as { id_decision?: string }[]).map((d) => d.id_decision)).toEqual(["a", "b"])
+  })
+  it("si NINGÚN registro valida, es un fallo de datos", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [{ tecnica_mitre: 5 }] }))
+    expect(await getTrazas()).toMatchObject({ causa: "datos" })
+  })
+})
+
+describe("getTrazas con ventana amplia (ciclo de caso)", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it("pasa ?limite para que el caso no «rejuvenezca» al salir de los últimos 500", async () => {
+    const f = vi.fn().mockResolvedValue({ ok: true, json: async () => [] })
+    vi.stubGlobal("fetch", f)
+    await getTrazasCaso()
+    expect(f.mock.calls[0][0]).toMatch(/\/api\/trazas\?limite=\d+$/)
+  })
+})
+
+describe("reloj del servidor (SLA sin drift)", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it("ancla «ahora» a la cabecera Date del daemon, no al reloj del navegador", async () => {
+    const servidor = Date.now() + 90_000                 // navegador 90 s atrasado respecto al daemon
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true, json: async () => [],
+      headers: { get: (k: string) => (k.toLowerCase() === "date" ? new Date(servidor).toUTCString() : null) },
+    }))
+    await getPendientes()
+    expect(Math.abs(ahoraServidor() - servidor)).toBeLessThan(2000)
+  })
+})
+
+describe("recordando (el fallo conserva los últimos datos buenos)", () => {
+  it("adjunta datos y desde al fallo; los datos buenos pasan tal cual", () => {
+    expect(recordando({ error: "x", causa: "red" }, { v: [1], en: 123 }))
+      .toEqual({ error: "x", causa: "red", datos: [1], desde: 123 })
+    expect(recordando({ error: "x" }, undefined)).toEqual({ error: "x" })
+    expect(recordando([2], { v: [1], en: 123 })).toEqual([2])
   })
 })
 

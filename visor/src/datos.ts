@@ -1,5 +1,39 @@
 import type { Decision, Detalle } from "@/api"
 
+// Etiquetas legibles de las clases del motor — ÚNICA fuente (A1: vivían triplicadas en Dashboard,
+// Métricas y Aprobaciones, y dos copias no conocían exfiltración/malware). El orden es canónico y
+// fijo: también ancla el color de cada clase en las donas (colorClase).
+export const ETIQUETA_CLASE: Record<string, string> = {
+  vp_intento_acceso: "Intento de acceso",
+  vp_reconocimiento: "Reconocimiento",
+  vp_integridad: "Integridad de fichero",
+  vp_denegacion_servicio: "Denegación de servicio",
+  vp_abuso_cuenta: "Abuso de cuenta",
+  vp_acceso_consumado: "Acceso consumado",
+  vp_exfiltracion: "Exfiltración / C2",
+  vp_malware: "Malware",
+  fp_actividad_legitima: "Falso positivo (legítimo)",
+  fp_exposicion_inexistente: "Falso positivo (exposición)",
+  no_soportada: "No soportada",
+  amenaza_enrutada: "Enrutada a un equipo",
+  otra: "Otra",
+}
+const CLASES_CANONICAS = Object.keys(ETIQUETA_CLASE)
+
+export function etiquetaClase(clase: string): string {
+  return ETIQUETA_CLASE[clase] ?? clase
+}
+
+// Color por IDENTIDAD de la clase, no por posición (A10): una clase nueva en vivo no desplaza el
+// color de las demás a mitad de sesión. Una clase fuera del canon recibe un color estable por hash.
+export function colorClase(clase: string, paleta: string[]): string {
+  const i = CLASES_CANONICAS.indexOf(clase)
+  if (i >= 0) return paleta[i % paleta.length]
+  let h = 0
+  for (const ch of clase) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return paleta[h % paleta.length]
+}
+
 // Filtro de la lista de decisiones/trazas: texto libre (activo, IP, id, clase, acción) + clase exacta.
 export type Filtro = { texto: string; clase: string; equipo?: string | null }
 

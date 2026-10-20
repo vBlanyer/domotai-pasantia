@@ -185,7 +185,7 @@ export default function App() {
               )}
             </div>
           )}
-          {vista === "panel" && <Dashboard conectado={conectado} />}
+          {vista === "panel" && <Dashboard conectado={conectado} onVerAprobaciones={() => setVista("aprobaciones")} />}
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}
           {vista === "red" && <Red onVerDecisiones={(n) => { setEquipo(n); setVista("decisiones") }} />}

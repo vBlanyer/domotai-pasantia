@@ -178,20 +178,62 @@ export type Metricas = z.infer<typeof MetricasSchema>
 export type Red = z.infer<typeof RedSchema>
 export type NodoRed = z.infer<typeof NodoRedSchema>
 
-async function pedir<T>(ruta: string, esquema: z.ZodType<T>): Promise<T | { error: string }> {
+// A2 de la auditoría 20/10: «daemon caído», «token rechazado» y «respuesta que no valida» son fallos
+// DISTINTOS. `causa` los separa para que SinConexion no mande a arrancar un daemon que está vivo.
+export type Causa = "auth" | "red" | "http" | "datos"
+export type Fallo = { error: string; causa?: Causa }
+// Al fallar el sondeo se conservan los últimos datos buenos (y cuándo llegaron): la vista no se vacía.
+export type FalloCon<T> = Fallo & { datos?: T; desde?: number }
+
+// Desfase reloj-servidor − reloj-navegador, de la cabecera `Date` de cada respuesta: el SLA de la cola
+// («pendiente hace X») compara contra la hora del DAEMON, no la del navegador (A3: drift en WSL2/VMs).
+let desfaseServidorMs = 0
+export function ahoraServidor(): number {
+  return Date.now() + desfaseServidorMs
+}
+
+async function pedirCrudo(ruta: string): Promise<{ json: unknown } | Fallo> {
   try {
     const r = await fetch(BASE + ruta, { headers: cabeceras() })
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)   // 404 del detalle / 401 sin token -> rama de error
-    return esquema.parse(await r.json())
+    const fecha = r.headers?.get?.("date")
+    if (fecha) {
+      const t = Date.parse(fecha)
+      if (!Number.isNaN(t)) desfaseServidorMs = t - Date.now()
+    }
+    if (r.status === 401 || r.status === 403) return { error: `HTTP ${r.status}`, causa: "auth" }
+    if (!r.ok) return { error: `HTTP ${r.status}`, causa: "http" }   // 404 del detalle, 500…
+    return { json: await r.json() }
   } catch (e) {
-    return { error: String(e) }
+    return { error: String(e), causa: "red" }
   }
 }
 
+async function pedir<T>(ruta: string, esquema: z.ZodType<T>): Promise<T | Fallo> {
+  const r = await pedirCrudo(ruta)
+  if ("error" in r) return r
+  const p = esquema.safeParse(r.json)
+  return p.success ? p.data : { error: p.error.issues[0]?.message ?? "respuesta inválida", causa: "datos" }
+}
+
+// Lista tolerante: UN registro malformado se descarta (un daemon más nuevo, un registro raro en la
+// traza), no tira la vista entera. Solo si ninguno valida es un fallo de datos de verdad.
+async function pedirLista<T>(ruta: string, elemento: z.ZodType<T>): Promise<T[] | Fallo> {
+  const r = await pedirCrudo(ruta)
+  if ("error" in r) return r
+  if (!Array.isArray(r.json)) return { error: "se esperaba una lista", causa: "datos" }
+  const buenos = r.json.map((x) => elemento.safeParse(x)).filter((p) => p.success).map((p) => p.data)
+  if (r.json.length > 0 && buenos.length === 0) return { error: "ningún registro valida", causa: "datos" }
+  return buenos
+}
+
 export const getSalud = () => pedir("/api/salud", SaludSchema)
-export const getDecisiones = () => pedir("/api/decisiones", z.array(DecisionSchema))
-export const getPendientes = () => pedir("/api/pendientes", z.array(PendienteSchema))
-export const getTrazas = () => pedir("/api/trazas", z.array(DecisionSchema))
+export const getDecisiones = () => pedirLista("/api/decisiones", DecisionSchema)
+export const getPendientes = () => pedirLista("/api/pendientes", PendienteSchema)
+export const getTrazas = (limite?: number) =>
+  pedirLista(`/api/trazas${limite ? `?limite=${limite}` : ""}`, DecisionSchema)
+// Ventana amplia para el ciclo de caso (A4): sus `actualizacion_caso` no deben «rejuvenecer» al salir
+// de los últimos 500. Referencia estable (los tests y useSondeo identifican la fuente por función).
+export const getTrazasCaso = () => getTrazas(2000)
 // Con `indice` el backend devuelve ESE registro aunque su id se repita en la traza (relanzamientos).
 export const getTrazaDetalle = (id: string, indice?: number | null) =>
   pedir(`/api/traza/${encodeURIComponent(id)}${indice != null ? `?indice=${indice}` : ""}`, DetalleSchema)
@@ -231,7 +273,8 @@ function cabeceras(base: Record<string, string> = {}): Record<string, string> {
   return t ? { ...base, Authorization: `Bearer ${t}` } : base
 }
 
-export async function aprobar(id: string, respuesta: string, paso?: number | null): Promise<boolean> {
+// "ok" | "auth" (token rechazado: el aviso puede decirlo) | "fallo" (409 pendiente caduca, o red).
+export async function aprobar(id: string, respuesta: string, paso?: number | null): Promise<"ok" | "auth" | "fallo"> {
   try {
     const operador = operadorActual()
     const r = await fetch(BASE + "/api/aprobar", {
@@ -239,9 +282,9 @@ export async function aprobar(id: string, respuesta: string, paso?: number | nul
       // sin paso (escaladas de la ruta bloqueante) no se manda y el backend no lo comprueba
       body: JSON.stringify({ id, respuesta, ...(paso != null ? { paso } : {}), ...(operador ? { operador } : {}) }),
     })
-    return r.ok            // 200 -> true; 409 (pendiente caduca) -> false, no lanza
+    return r.ok ? "ok" : r.status === 401 || r.status === 403 ? "auth" : "fallo"
   } catch {
-    return false
+    return "fallo"
   }
 }
 
@@ -330,17 +373,32 @@ export function parsearPendiente(p: Pendiente): PendienteVista {
   return { incidente, info, consecuencia, titulo, opciones, cascada }
 }
 
-export function useSondeo<T>(fn: () => Promise<T>, ms = 2000): T | undefined {
-  const [v, setV] = useState<T>()
+// Un fallo que llega cuando YA hubo datos buenos se devuelve con esos datos adjuntos (C2): la vista
+// puede seguir mostrando la última tabla con un aviso, en vez de vaciarse al primer parpadeo de red.
+export function recordando<T>(r: T | Fallo, previo: { v: T; en: number } | undefined): T | FalloCon<T> {
+  if (typeof r === "object" && r !== null && "error" in r && previo !== undefined) {
+    return { ...(r as Fallo), datos: previo.v, desde: previo.en }
+  }
+  return r
+}
+
+export function useSondeo<T>(fn: () => Promise<T | Fallo>, ms = 2000): T | FalloCon<T> | undefined {
+  const [v, setV] = useState<T | FalloCon<T>>()
   useEffect(() => {
     let vivo = true
+    let seq = 0
+    const bueno: { actual?: { v: T; en: number } } = {}
     const tick = async () => {
+      const mio = ++seq
       const r = await fn()
-      if (!vivo) return
+      // `mio !== seq`: llegó ya una respuesta más nueva — esta, lenta, no la pisa (A6).
+      if (!vivo || mio !== seq) return
+      if (!(typeof r === "object" && r !== null && "error" in r)) bueno.actual = { v: r as T, en: Date.now() }
+      const valor = recordando(r, bueno.actual)
       // Solo re-renderiza si los datos cambiaron: devolver la misma referencia hace que React
       // descarte el render. Sin esto, cada sondeo (2 s) re-renderiza toda la app y los gráficos
       // Recharts, y esas ráfagas se "comen" los clics del usuario.
-      setV((prev) => (JSON.stringify(prev) === JSON.stringify(r) ? prev : r))
+      setV((prev) => (JSON.stringify(prev) === JSON.stringify(valor) ? prev : valor))
     }
     tick()
     const id = setInterval(tick, ms)

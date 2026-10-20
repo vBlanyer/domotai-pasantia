@@ -27,7 +27,7 @@ describe("Aprobaciones", () => {
   beforeEach(() => { h.aprobar.mockReset(); h.pendientes = [tarjeta()] })
 
   it("Aprobar envía el paso del menú que se está viendo", () => {
-    h.aprobar.mockResolvedValue(true)
+    h.aprobar.mockResolvedValue("ok")
     render(vista())
     fireEvent.click(boton("Aprobar"))
     expect(h.aprobar).toHaveBeenCalledWith("7", "1", 0)
@@ -43,7 +43,7 @@ describe("Aprobaciones", () => {
   })
 
   it("si se aplica, lo confirma y la tarjeta sigue bloqueada hasta salir de la cola", async () => {
-    h.aprobar.mockResolvedValue(true)
+    h.aprobar.mockResolvedValue("ok")
     render(vista())
     fireEvent.click(boton("Rechazar"))
     expect(await screen.findByText("Rechazada: se retiene sin ejecutar")).toBeInTheDocument()
@@ -51,7 +51,7 @@ describe("Aprobaciones", () => {
   })
 
   it("si el backend la rechaza (409), avisa y reactiva la tarjeta", async () => {
-    h.aprobar.mockResolvedValue(false)
+    h.aprobar.mockResolvedValue("fallo")
     render(vista())
     fireEvent.click(boton("Aprobar"))
     expect(await screen.findByText("No se aplicó el veredicto")).toBeInTheDocument()
@@ -59,7 +59,7 @@ describe("Aprobaciones", () => {
   })
 
   it("Reclasificar deja la tarjeta esperando el menú de clases, sin aviso de éxito", async () => {
-    h.aprobar.mockResolvedValue(true)
+    h.aprobar.mockResolvedValue("ok")
     render(vista())
     fireEvent.click(boton("Reclasificar"))
     expect(h.aprobar).toHaveBeenCalledWith("7", "3", 0)
@@ -69,7 +69,7 @@ describe("Aprobaciones", () => {
   })
 
   it("al llegar el menú de clases (paso nuevo) se reactiva y envía ese paso", async () => {
-    h.aprobar.mockResolvedValue(true)
+    h.aprobar.mockResolvedValue("ok")
     const { rerender } = render(vista())
     fireEvent.click(boton("Reclasificar"))
     await screen.findByText(/Cargando las clases/)
@@ -96,7 +96,7 @@ describe("Aprobaciones", () => {
     })
 
     it("confirmar envía el veredicto", () => {
-      h.aprobar.mockResolvedValue(true)
+      h.aprobar.mockResolvedValue("ok")
       render(vista())
       fireEvent.click(boton("Aprobar"))
       fireEvent.click(boton("Aprobar igualmente"))
@@ -112,7 +112,7 @@ describe("Aprobaciones", () => {
     })
 
     it("Rechazar no pide confirmación (no ejecuta nada)", () => {
-      h.aprobar.mockResolvedValue(true)
+      h.aprobar.mockResolvedValue("ok")
       render(vista())
       fireEvent.click(boton("Rechazar"))
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
@@ -130,7 +130,7 @@ describe("Aprobaciones", () => {
     beforeEach(() => { h.pendientes = [tarjeta({ accion_final: null, lineas: [INCID, CONSEC, MENU] })] })
 
     it("Aprobar no pide confirmación de cascada ni promete ejecutar nada", async () => {
-      h.aprobar.mockResolvedValue(true)
+      h.aprobar.mockResolvedValue("ok")
       render(vista())
       fireEvent.click(boton("Aprobar"))
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
@@ -141,7 +141,7 @@ describe("Aprobaciones", () => {
   })
 
   it("una escalada (ruta bloqueante) aprueba sin paso", () => {
-    h.aprobar.mockResolvedValue(true)
+    h.aprobar.mockResolvedValue("ok")
     h.pendientes = [tarjeta({ tipo: "escalada", prompt: "¿aprobar? [s/N] ", lineas: [], paso: undefined })]
     render(vista())
     fireEvent.click(boton("Aprobar"))

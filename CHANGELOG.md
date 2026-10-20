@@ -51,6 +51,21 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   distinto por alerta) ya no agota la memoria; al tope se desaloja la tarjeta menos severa y más
   vieja (nunca una en curso), contado y con aviso.
 
+### Visor (auditoría 20/10)
+- **Fallos distinguidos**: «daemon caído», «token rechazado (401)» y «respuesta que no valida» ya no
+  se confunden — cada uno con su mensaje; al perder la conexión, las vistas conservan los últimos
+  datos recibidos (congelados, con aviso) en vez de vaciarse; un registro malformado se descarta sin
+  tirar la lista entera.
+- **SLA sin drift**: «pendiente hace X» se calcula contra la hora del daemon (cabecera `Date`), no
+  contra el reloj del navegador.
+- **Etiquetas de clase unificadas** en una sola fuente (`datos.etiquetaClase`): las donas ya muestran
+  «Exfiltración / C2» y «Malware» (antes el id crudo); color **por identidad de la clase**, estable.
+- El **ciclo de caso** consulta una ventana amplia de la traza (no «rejuvenece» a los 500 registros);
+  la verificación de cadena del panel pasa de cada 2 s a cada 30 s.
+- Operable con **teclado**: la fila de Decisiones/Trazas se enfoca y expande con Enter/Espacio;
+  aviso de «últimas N de M decisiones»; KPI «esperando aprobación» clicable; matriz ATT&CK completa
+  al imprimir el informe; tooltip de los gráficos con el tema oscuro.
+
 ## [1.1] — 2026-10-14 · Endurecimiento, robustez y congruencia
 
 Sobre v1.0, **sin mover las cifras canónicas** (V1.1 no re-basa v1.0).

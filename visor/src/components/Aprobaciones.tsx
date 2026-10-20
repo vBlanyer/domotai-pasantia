@@ -1,11 +1,12 @@
 import { useRef, useState, useEffect } from "react"
 import { TriangleAlert, Clock } from "lucide-react"
-import { useSondeo, getPendientes, aprobar, parsearPendiente, operadorActual, fijarOperador, type Pendiente, type Opcion } from "@/api"
+import { useSondeo, getPendientes, aprobar, parsearPendiente, operadorActual, fijarOperador, ahoraServidor, type Pendiente, type Opcion } from "@/api"
 import { edadTexto, envejecido, msDesde } from "@/alertas"
+import { etiquetaClase } from "@/datos"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog } from "@/components/ui/alert-dialog"
-import { Cargando, SinConexion, Vacio, Punto, Prioridad } from "./bits"
+import { Cargando, SinConexion, Vacio, Punto, Prioridad, DatosCongelados } from "./bits"
 
 // Lo que el aviso confirma tras un veredicto aplicado (mismo vocabulario que el menú del daemon).
 const HECHO: Record<string, string> = {
@@ -22,28 +23,15 @@ const MENSAJE: Record<Exclude<Estado, "listo">, string> = {
   hecho: "Aplicado. Sale de la cola en el próximo refresco.",
 }
 
-const CLASE_LEGIBLE: Record<string, string> = {
-  vp_intento_acceso: "Intento de acceso",
-  vp_reconocimiento: "Reconocimiento",
-  vp_integridad: "Integridad de fichero",
-  vp_denegacion_servicio: "Denegación de servicio",
-  vp_abuso_cuenta: "Abuso de cuenta",
-  vp_acceso_consumado: "Acceso consumado",
-  vp_exfiltracion: "Exfiltración / C2",
-  vp_malware: "Malware",
-  fp_actividad_legitima: "Falso positivo (legítimo)",
-  fp_exposicion_inexistente: "Falso positivo (exposición)",
-  no_soportada: "No soportada",
-  amenaza_enrutada: "Enrutada a un equipo",
-}
-
 // Botón a partir de una opción del menú: veredicto (aprobar/rechazar/reclasificar) o una clase.
 function boton(op: Opcion): { etiqueta: string; variante: "default" | "destructive" | "outline" } {
   const base = op.etiqueta.split("—")[0].trim().toLowerCase()
   if (base === "aprobar") return { etiqueta: "Aprobar", variante: "default" }
   if (base === "rechazar") return { etiqueta: "Rechazar", variante: "destructive" }
   if (base === "reclasificar") return { etiqueta: "Reclasificar", variante: "outline" }
-  return { etiqueta: CLASE_LEGIBLE[base] ?? op.etiqueta, variante: "outline" }   // submenú de clases
+  // submenú de clases: etiqueta legible de la fuente única (@/datos); desconocida -> la del menú
+  const legible = etiquetaClase(base)
+  return { etiqueta: legible !== base ? legible : op.etiqueta, variante: "outline" }
 }
 
 function LineaInfo({ t }: { t: string }) {
@@ -57,12 +45,13 @@ function LineaInfo({ t }: { t: string }) {
 }
 
 // Reloj que avanza cada segundo, para que el «lleva esperando X» de la cola sea en vivo (el sondeo
-// no re-renderiza si los datos no cambian). La edad sale de `encolado_en` del servidor (SLA exacto,
-// sobrevive a recargas), no de una marca del cliente.
+// no re-renderiza si los datos no cambian). La edad sale de `encolado_en` del servidor y se compara
+// contra la hora del DAEMON (ahoraServidor, anclada a la cabecera Date): el drift del reloj del
+// navegador (A3, habitual en WSL2/VMs) ya no infla ni congela el SLA.
 function useAhora(ms = 1000): number {
-  const [ahora, setAhora] = useState(() => Date.now())
+  const [ahora, setAhora] = useState(() => ahoraServidor())
   useEffect(() => {
-    const t = setInterval(() => setAhora(Date.now()), ms)
+    const t = setInterval(() => setAhora(ahoraServidor()), ms)
     return () => clearInterval(t)
   }, [ms])
   return ahora
@@ -87,12 +76,14 @@ function Tarjeta({ p, edadMs = 0 }: { p: Pendiente; edadMs?: number }) {
     if (enVuelo.current) return
     enVuelo.current = true
     setEstado("enviando")
-    const ok = await aprobar(p.id, respuesta, p.paso)
-    if (!ok) {
+    const r = await aprobar(p.id, respuesta, p.paso)
+    if (r !== "ok") {
       enVuelo.current = false
       setEstado("listo")
       toast({ type: "error", title: "No se aplicó el veredicto",
-        description: "Ya no estaba vigente (la resolvió otro operador o cambió el menú) o se perdió la conexión con el daemon." })
+        description: r === "auth"
+          ? "El daemon rechazó el token de la consola (401): revísalo arriba a la derecha."
+          : "Ya no estaba vigente (la resolvió otro operador o cambió el menú) o se perdió la conexión con el daemon." })
       return
     }
     if (!escalada && !clasificando && etiqueta === "Reclasificar") {
@@ -204,14 +195,19 @@ function BarraOperador() {
 export function Aprobaciones() {
   const p = useSondeo(getPendientes)
   const ahora = useAhora()   // hook incondicional (antes de cualquier return); 1 Hz para el SLA en vivo
+  // Con la conexión perdida pero datos previos, la cola se sigue mostrando (congelada) con aviso:
+  // vaciarla en un parpadeo de red haría «desaparecer» decisiones que siguen esperando (C2).
+  const lista = !p ? null : "error" in p ? (p.datos ?? null) : p
+  const fallo = p && "error" in p ? p : null
   const cuerpo = !p ? <Cargando />
-    : "error" in p ? <SinConexion />
-    : p.length === 0 ? <Vacio>Nada que aprobar ahora mismo. Cuando una decisión necesite un humano, aparecerá aquí.</Vacio>
+    : lista === null ? <SinConexion causa={fallo?.causa} />
+    : lista.length === 0 ? <Vacio>Nada que aprobar ahora mismo. Cuando una decisión necesite un humano, aparecerá aquí.</Vacio>
     // la clave incluye el paso: un menú nuevo (submenú de clases) monta la tarjeta con estado limpio
-    : <div className="space-y-4">{p.map((x) => <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} edadMs={msDesde(x.encolado_en, ahora)} />)}</div>
+    : <div className="space-y-4">{lista.map((x) => <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} edadMs={msDesde(x.encolado_en, ahora)} />)}</div>
   return (
     <div className="space-y-4">
       <BarraOperador />
+      {fallo && lista !== null && <DatosCongelados fallo={fallo} />}
       {cuerpo}
     </div>
   )

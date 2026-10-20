@@ -46,11 +46,32 @@ export function Vacio({ children }: { children: ReactNode }) {
   )
 }
 
-export function SinConexion() {
+// A2: el mensaje nombra la causa real — mandar a arrancar el daemon cuando el problema es el token
+// (401) o una respuesta que no valida desorienta al analista en el peor momento.
+export function SinConexion({ causa }: { causa?: "auth" | "red" | "http" | "datos" }) {
+  const cuerpo = causa === "auth"
+    ? <>El daemon rechazó las credenciales (401): revisa el <b>token</b> de la consola (arriba a la derecha).</>
+    : causa === "datos"
+    ? <>El daemon respondió, pero con datos que este visor no entiende: ¿versiones distintas de visor y daemon?</>
+    : <>Sin conexión con el daemon. Arráncalo con <code className="rounded bg-foreground/10 px-1 font-mono text-xs">--web</code> y
+      esta vista se reconecta sola.</>
   return (
     <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-6 text-sm text-rose-700 dark:text-rose-300">
-      Sin conexión con el daemon. Arráncalo con <code className="rounded bg-foreground/10 px-1 font-mono text-xs">--web</code> y
-      esta vista se reconecta sola.
+      {cuerpo}
+    </div>
+  )
+}
+
+// C2: al perder la conexión, la vista conserva la última tabla recibida bajo este aviso en vez de
+// vaciarse al primer parpadeo de red. `desde` = cuándo llegaron esos datos (hora local del navegador).
+export function DatosCongelados({ fallo }: { fallo: { error?: string; causa?: "auth" | "red" | "http" | "datos"; desde?: number } }) {
+  const hora = fallo.desde ? new Date(fallo.desde).toLocaleTimeString() : null
+  const motivo = fallo.causa === "auth" ? "el daemon rechazó el token (401)"
+    : fallo.causa === "datos" ? "la última respuesta no validó"
+    : "se perdió la conexión con el daemon"
+  return (
+    <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+      ⚠ {motivo} — mostrando los últimos datos recibidos{hora ? ` (${hora})` : ""}.
     </div>
   )
 }

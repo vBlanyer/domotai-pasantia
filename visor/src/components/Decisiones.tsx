@@ -2,8 +2,8 @@ import { useEffect, useState, type ReactNode } from "react"
 import { ChevronDown, ChevronRight, Shield, ShieldCheck, ShieldX, TriangleAlert } from "lucide-react"
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros, Prioridad } from "./bits"
-import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
+import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros, Prioridad, DatosCongelados } from "./bits"
+import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, ventanaDe, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
 
 const COLS = 8
 
@@ -254,7 +254,13 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
     )
   return (
     <>
-      <TableRow className="cursor-pointer" onClick={onToggle}>
+      {/* C3: la fila expandible también se opera con teclado (Enter/Espacio), no solo con ratón. */}
+      <TableRow className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+        onClick={onToggle} tabIndex={0} role="button" aria-expanded={abierto}
+        aria-label={`${d.activo ?? d.id_decision ?? "decisión"}: ver detalle`}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle() }
+        }}>
         <TableCell className="w-6 text-muted-foreground">
           {abierto ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         </TableCell>
@@ -328,17 +334,29 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
 export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
   equipo?: string | null; onQuitarEquipo?: () => void; onVerIncidente?: (d: Decision) => void
 } = {}) {
-  const d = useSondeo(getDecisiones)
+  const r = useSondeo(getDecisiones)
   const [abierto, setAbierto] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>({ texto: "", clase: "" })
-  if (!d) return <Cargando />
-  if ("error" in d) return <SinConexion />
+  if (!r) return <Cargando />
+  // C2: con la conexión perdida pero datos previos, se conserva la tabla congelada con aviso.
+  const fallo = "error" in r ? r : null
+  const d = "error" in r ? r.datos : r
+  if (!d) return <SinConexion causa={fallo?.causa} />
   if (d.length === 0) return <Vacio>Aún no hay decisiones. Lanza un ataque para verlas aquí.</Vacio>
   const filtradas = filtrarDecisiones(d, { ...filtro, equipo })
+  const ventana = ventanaDe(d)
   return (
     <div className="space-y-3">
+      {fallo && <DatosCongelados fallo={fallo} />}
       <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(d)} cuenta={filtradas.length}
         equipo={equipo} onQuitarEquipo={onQuitarEquipo} />
+      {ventana && (
+        // A7: el listado son los ÚLTIMOS registros, no el histórico — que el contador no lo sugiera.
+        <p className="text-xs text-muted-foreground">
+          mostrando las últimas {ventana.mostrados} de {ventana.total} decisiones; el histórico completo
+          está en «Métricas e informe» y en «Trazas».
+        </p>
+      )}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { useSondeo, getSalud, getMetricas, getPendientes, getVerificacion } from "@/api"
 import { SinConexion } from "./bits"
+import { etiquetaClase, colorClase } from "@/datos"
 import { Donut, Gauge, Tendencia, type Segmento } from "./charts"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK, ESTADO } from "@/theme"
 import { useTema } from "@/tema"
@@ -14,13 +15,17 @@ function Tarjeta({ titulo, children, className = "" }: { titulo: string; childre
   )
 }
 
-function Kpi({ valor, etiqueta, tono }: { valor: string; etiqueta: string; tono?: string }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-border bg-card px-5 py-4 shadow-sm">
+function Kpi({ valor, etiqueta, tono, onClick }: { valor: string; etiqueta: string; tono?: string; onClick?: () => void }) {
+  const cuerpo = (
+    <>
       <div className={`font-heading text-4xl font-semibold tabular-nums ${tono ?? ""}`}>{valor}</div>
       <div className="mt-1 text-sm text-muted-foreground">{etiqueta}</div>
-    </div>
+    </>
   )
+  const caja = "min-w-0 rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
+  // C6: el KPI que señala trabajo pendiente lleva directamente a la vista donde se resuelve.
+  if (onClick) return <button onClick={onClick} className={`${caja} text-left transition-colors hover:bg-muted/50`}>{cuerpo}</button>
+  return <div className={caja}>{cuerpo}</div>
 }
 
 function Check({ ok, children }: { ok: boolean; children: ReactNode }) {
@@ -34,25 +39,13 @@ function Check({ ok, children }: { ok: boolean; children: ReactNode }) {
   )
 }
 
-const ETIQUETA_CLASE: Record<string, string> = {
-  vp_intento_acceso: "Intento de acceso",
-  vp_reconocimiento: "Reconocimiento",
-  vp_integridad: "Integridad de fichero",
-  vp_denegacion_servicio: "Denegación de servicio",
-  vp_abuso_cuenta: "Abuso de cuenta",
-  vp_acceso_consumado: "Acceso consumado",
-  fp_actividad_legitima: "Falso positivo (legítimo)",
-  fp_exposicion_inexistente: "Falso positivo (exposición)",
-  no_soportada: "No soportada",
-  amenaza_enrutada: "Enrutada a un equipo",
-}
-
-export function Dashboard({ conectado }: { conectado: boolean }) {
+export function Dashboard({ conectado, onVerAprobaciones }: { conectado: boolean; onVerAprobaciones?: () => void }) {
   const CAT = useTema().oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
   const salud = useSondeo(getSalud)
   const metricas = useSondeo(getMetricas)
   const pend = useSondeo(getPendientes)
-  const verif = useSondeo(getVerificacion)
+  // A5: verificar la cadena recorre TODO el fichero en el servidor — cada 30 s basta (no cada 2 s).
+  const verif = useSondeo(getVerificacion, 30000)
 
   const conSalud = salud && "servicios" in salud
   const total = conSalud ? salud.total : 0
@@ -63,14 +56,15 @@ export function Dashboard({ conectado }: { conectado: boolean }) {
   // Totales del periodo: /api/metricas agrega la traza completa (el listado de trazas va acotado a
   // los últimos registros). Sin datos se pinta «—», nunca un 0 que se lea como «todo tranquilo».
   const m = metricas && !("error" in metricas) ? metricas : null
-  const sinConexion = !!metricas && "error" in metricas
+  const fallo = metricas && "error" in metricas ? metricas : null
   const nPend = Array.isArray(pend) ? pend.length : null
-  const sinDatos = sinConexion ? "sin datos: no hay conexión con el daemon" : null
+  const sinDatos = fallo ? "sin datos: no hay conexión con el daemon" : null
 
-  // Donut por clase: color estable por clase (orden alfabético), nunca por rango.
+  // Donut por clase: color por IDENTIDAD de la clase (colorClase), no por posición — una clase nueva
+  // en vivo no desplaza el color de las demás (A10).
   const clases = m ? Object.keys(m.por_clase).sort() : []
-  const porClase: Segmento[] = clases.map((c, i) => ({
-    name: ETIQUETA_CLASE[c] ?? c, value: m?.por_clase[c] ?? 0, fill: CAT[i % CAT.length],
+  const porClase: Segmento[] = clases.map((c) => ({
+    name: etiquetaClase(c), value: m?.por_clase[c] ?? 0, fill: colorClase(c, CAT),
   }))
 
   const saludSeg: Segmento[] = [
@@ -85,12 +79,13 @@ export function Dashboard({ conectado }: { conectado: boolean }) {
 
   return (
     <div className="space-y-6">
-      {sinConexion && <SinConexion />}
+      {fallo && <SinConexion causa={fallo.causa} />}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi valor={conSalud ? `${sanos}/${total}` : "—"} etiqueta="servicios operativos"
           tono={caidos ? "text-[color:#d03b3b]" : ""} />
         <Kpi valor={m ? String(m.total) : "—"} etiqueta="decisiones tomadas" />
-        <Kpi valor={nPend != null ? String(nPend) : "—"} etiqueta="esperando aprobación" tono={nPend ? "text-[color:#eda100]" : ""} />
+        <Kpi valor={nPend != null ? String(nPend) : "—"} etiqueta="esperando aprobación" tono={nPend ? "text-[color:#eda100]" : ""}
+          onClick={onVerAprobaciones} />
         <Kpi valor={m ? String(m.suprimidas) : "—"} etiqueta="alertas suprimidas" />
       </div>
 

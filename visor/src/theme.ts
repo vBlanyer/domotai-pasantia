@@ -10,3 +10,17 @@ export function ejes(oscuro: boolean) {
     ? { grid: "#2c2c2a", texto: "#c3c2b7", relleno: "#2c2c2a", serie: "#3987e5" }
     : { grid: "#ececea", texto: "#52514e", relleno: "#e9e9e6", serie: "#2a78d6" }
 }
+
+// Estilos del tooltip de Recharts por modo (C7): el popup por defecto es blanco con texto oscuro y
+// en la consola oscura quedaba ilegible en cada hover de cada gráfico.
+export function tooltipEstilos(oscuro: boolean) {
+  const e = ejes(oscuro)
+  return {
+    contentStyle: {
+      backgroundColor: oscuro ? "#1b1b1a" : "#ffffff",
+      border: `1px solid ${e.grid}`, borderRadius: 6, fontSize: 12,
+    },
+    labelStyle: { color: e.texto },
+    itemStyle: { color: e.texto },
+  }
+}

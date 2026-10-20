@@ -208,3 +208,25 @@ describe("Detalle de un registro con id repetido", () => {
     expect(quitar).toHaveBeenCalled()
   })
 })
+
+// C3 de la auditoría: la fila expandible solo respondía al ratón — sin teclado no se llegaba al
+// detalle ni al grafo del incidente.
+describe("FilaDecision accesible por teclado", () => {
+  const D: Decision = { id_decision: "s1", clase: "vp_intento_acceso", activo: "srv", prioridad: 2 }
+
+  it("la fila es enfocable y Enter/Espacio la expanden", () => {
+    const onToggle = vi.fn()
+    render(<table><tbody><FilaDecision d={D} abierto={false} onToggle={onToggle} /></tbody></table>)
+    const filaBtn = screen.getByRole("button", { name: /srv/i })
+    expect(filaBtn).toHaveAttribute("tabindex", "0")
+    fireEvent.keyDown(filaBtn, { key: "Enter" })
+    expect(onToggle).toHaveBeenCalledTimes(1)
+    fireEvent.keyDown(filaBtn, { key: " " })
+    expect(onToggle).toHaveBeenCalledTimes(2)
+  })
+
+  it("declara si está expandida (aria-expanded)", () => {
+    render(<table><tbody><FilaDecision d={D} abierto onToggle={() => {}} /></tbody></table>)
+    expect(screen.getByRole("button", { name: /srv/i })).toHaveAttribute("aria-expanded", "true")
+  })
+})

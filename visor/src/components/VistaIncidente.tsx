@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { ArrowLeft } from "lucide-react"
-import { useSondeo, getRed, getTrazas, getTrazaDetalle, actualizarCaso, type Decision, type Detalle } from "@/api"
+import { useSondeo, getRed, getTrazasCaso, getTrazaDetalle, actualizarCaso, type Decision, type Detalle } from "@/api"
 import { MapaRed, ESTADO_VISUAL } from "@/components/MapaRed"
 import { Cargando, SinConexion, ClaseBadge, Prioridad } from "@/components/bits"
 import { Button } from "@/components/ui/button"
@@ -29,9 +29,12 @@ const ESTADO_CASO: Record<string, { texto: string; clase: string }> = {
 // añade a la traza como registro `actualizacion_caso` encadenado (no muta la decisión); el estado
 // actual se pliega de ellos (estadoDeCasos). El `operador` lo sella el backend (del token, no repudio).
 function PanelCaso({ idDecision }: { idDecision: string }) {
-  const trazas = useSondeo(getTrazas)
-  const caso: CasoEstado | undefined =
-    (Array.isArray(trazas) ? estadoDeCasos(trazas) : {})[idDecision]
+  // Ventana amplia y sondeo lento (A4): el pliegue del caso necesita TODAS sus actualizaciones,
+  // no los últimos 500 registros — si salieran de la ventana el caso «rejuvenecería» a Nuevo.
+  const trazas = useSondeo(getTrazasCaso, 10000)
+  const regs = Array.isArray(trazas) ? trazas
+    : trazas && "error" in trazas ? trazas.datos : undefined   // conexión perdida: últimos datos buenos
+  const caso: CasoEstado | undefined = (regs ? estadoDeCasos(regs) : {})[idDecision]
   const estadoActual = caso?.estado ?? "nuevo"
   const [estado, setEstado] = useState("")
   const [asignado, setAsignado] = useState("")
@@ -111,7 +114,7 @@ export function VistaIncidente({ decision, onVolver }: { decision: Decision; onV
   }, [decision.id_decision, decision.indice])
 
   if (!red) return <Cargando />
-  if ("error" in red) return <SinConexion />
+  if ("error" in red) return <SinConexion causa={red.causa} />
 
   const redInc = estadosDelIncidente(decision, det, red)
   const cascada = [...new Set([
