@@ -60,8 +60,9 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   contra el reloj del navegador.
 - **Etiquetas de clase unificadas** en una sola fuente (`datos.etiquetaClase`): las donas ya muestran
   «Exfiltración / C2» y «Malware» (antes el id crudo); color **por identidad de la clase**, estable.
-- El **ciclo de caso** consulta una ventana amplia de la traza (no «rejuvenece» a los 500 registros);
-  la verificación de cadena del panel pasa de cada 2 s a cada 30 s.
+- El **ciclo de caso** se pliega en el servidor (`GET /api/caso/<id>`, sobre el fichero completo):
+  no «rejuvenece» al salir de la ventana de trazas, el panel no descarga la traza entera y refleja
+  el cambio al instante tras guardar; la verificación de cadena pasa de cada 2 s a cada 30 s.
 - Operable con **teclado**: la fila de Decisiones/Trazas se enfoca y expande con Enter/Espacio;
   aviso de «últimas N de M decisiones»; KPI «esperando aprobación» clicable; matriz ATT&CK completa
   al imprimir el informe; tooltip de los gráficos con el tema oscuro.

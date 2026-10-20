@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getTrazasCaso, getPendientes, ahoraServidor, recordando } from "./api"
+import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getCaso, getPendientes, ahoraServidor, recordando, listaConocida } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -227,13 +227,26 @@ describe("listas tolerantes", () => {
   })
 })
 
-describe("getTrazas con ventana amplia (ciclo de caso)", () => {
+describe("getCaso (ciclo de caso plegado en el servidor)", () => {
   afterEach(() => vi.unstubAllGlobals())
-  it("pasa ?limite para que el caso no «rejuvenezca» al salir de los últimos 500", async () => {
-    const f = vi.fn().mockResolvedValue({ ok: true, json: async () => [] })
+  it("pide /api/caso/<id>: el pliegue va sobre el fichero completo, el caso no «rejuvenece»", async () => {
+    const f = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ estado: "en_revision", asignado: "ana", notas: [{ texto: "visto" }] }),
+    })
     vi.stubGlobal("fetch", f)
-    await getTrazasCaso()
-    expect(f.mock.calls[0][0]).toMatch(/\/api\/trazas\?limite=\d+$/)
+    const r = await getCaso("s1")
+    expect(f.mock.calls[0][0]).toMatch(/\/api\/caso\/s1$/)
+    expect(r).toMatchObject({ estado: "en_revision", asignado: "ana" })
+  })
+})
+
+describe("listaConocida", () => {
+  it("devuelve la lista buena, los datos congelados de un fallo, o null", () => {
+    expect(listaConocida([1, 2])).toEqual([1, 2])
+    expect(listaConocida({ error: "x", datos: [3] })).toEqual([3])
+    expect(listaConocida({ error: "x" })).toBeNull()
+    expect(listaConocida(undefined)).toBeNull()
   })
 })
 
@@ -247,6 +260,19 @@ describe("reloj del servidor (SLA sin drift)", () => {
     }))
     await getPendientes()
     expect(Math.abs(ahoraServidor() - servidor)).toBeLessThan(2000)
+  })
+  it("un jitter pequeño (latencia de una respuesta) no mueve el ancla a cada sondeo", async () => {
+    const base = Date.now() + 60_000
+    const conFecha = (t: number) => ({
+      ok: true, json: async () => [],
+      headers: { get: (k: string) => (k.toLowerCase() === "date" ? new Date(t).toUTCString() : null) },
+    })
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(conFecha(base)))
+    await getPendientes()
+    const antes = ahoraServidor() - Date.now()
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(conFecha(base + 800)))   // +0,8 s de latencia
+    await getPendientes()
+    expect(ahoraServidor() - Date.now()).toBe(antes)       // < 2 s de diferencia: se conserva el ancla
   })
 })
 

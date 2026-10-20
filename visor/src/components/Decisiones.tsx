@@ -254,15 +254,16 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
     )
   return (
     <>
-      {/* C3: la fila expandible también se opera con teclado (Enter/Espacio), no solo con ratón. */}
-      <TableRow className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-        onClick={onToggle} tabIndex={0} role="button" aria-expanded={abierto}
-        aria-label={`${d.activo ?? d.id_decision ?? "decisión"}: ver detalle`}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle() }
-        }}>
+      <TableRow className="cursor-pointer" onClick={onToggle}>
         <TableCell className="w-6 text-muted-foreground">
-          {abierto ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+          {/* C3: botón real DENTRO de la celda — teclado sin romper la semántica de tabla para
+              lectores de pantalla (un role="button" en el <tr> ocultaría las demás columnas). */}
+          <button aria-expanded={abierto}
+            aria-label={`ver detalle de ${d.activo ?? d.id_decision ?? "la decisión"}`}
+            onClick={(e) => { e.stopPropagation(); onToggle() }}
+            className="grid place-items-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+            {abierto ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+          </button>
         </TableCell>
         <TableCell><Prioridad n={d.prioridad} /></TableCell>
         <TableCell><Dato>{d.timestamp}</Dato></TableCell>

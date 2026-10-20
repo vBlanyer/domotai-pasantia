@@ -55,10 +55,13 @@ export function Dashboard({ conectado, onVerAprobaciones }: { conectado: boolean
 
   // Totales del periodo: /api/metricas agrega la traza completa (el listado de trazas va acotado a
   // los últimos registros). Sin datos se pinta «—», nunca un 0 que se lea como «todo tranquilo».
-  const m = metricas && !("error" in metricas) ? metricas : null
   const fallo = metricas && "error" in metricas ? metricas : null
+  // C2: un fallo CON datos previos conserva los KPIs/gráficos congelados bajo el aviso de arriba.
+  const m = metricas && !("error" in metricas) ? metricas : fallo?.datos ?? null
   const nPend = Array.isArray(pend) ? pend.length : null
-  const sinDatos = fallo ? "sin datos: no hay conexión con el daemon" : null
+  const sinDatos = !fallo ? null
+    : fallo.causa === "auth" ? "sin datos: el daemon rechazó el token de la consola"
+    : "sin datos: no hay conexión con el daemon"
 
   // Donut por clase: color por IDENTIDAD de la clase (colorClase), no por posición — una clase nueva
   // en vivo no desplaza el color de las demás (A10).

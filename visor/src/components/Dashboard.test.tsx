@@ -56,3 +56,14 @@ describe("KPI de aprobaciones", () => {
     expect(ir).toHaveBeenCalled()
   })
 })
+
+describe("datos congelados en el panel (C2)", () => {
+  beforeEach(() => h.fuentes.clear())
+  it("un fallo CON datos previos conserva los KPIs y avisa, no vacía el panel", () => {
+    h.fuentes.set(getMetricas, { error: "x", causa: "red", datos: METRICAS, desde: Date.now() })
+    h.fuentes.set(getPendientes, [])
+    render(<Dashboard conectado={false} />)
+    expect(screen.getByText("812")).toBeInTheDocument()     // los últimos totales siguen a la vista
+    expect(screen.getByText(/Sin conexión/)).toBeInTheDocument()
+  })
+})

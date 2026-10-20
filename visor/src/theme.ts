@@ -1,7 +1,10 @@
 // Paletas de referencia validadas (dataviz): categórica en orden fijo, pasos propios por modo
-// (el oscuro NO es un flip del claro), más estados. No ciclar hues.
-export const CATEGORICO_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
-export const CATEGORICO_DARK  = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]
+// (el oscuro NO es un flip del claro), más estados. No ciclar hues. 13 valores = las 13 clases
+// canónicas del motor (colorClase asigna por identidad): sin colisiones dentro del canon.
+export const CATEGORICO_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300",
+                                 "#4a3aa7", "#e34948", "#0e7f86", "#8a6d3b", "#6e6e6e", "#b0399f", "#7c8a00"]
+export const CATEGORICO_DARK  = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300",
+                                 "#9085e9", "#e66767", "#1c99a2", "#a3854e", "#8f8f8f", "#c955b8", "#93a31a"]
 export const ESTADO = { good: "#0ca30c", warning: "#fab219", serious: "#ec835a", critical: "#d03b3b" }
 
 // Colores de ejes/rejilla/relleno de fondo por modo (contra la superficie de cada tema).

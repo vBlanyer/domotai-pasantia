@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { ArrowLeft } from "lucide-react"
-import { useSondeo, getRed, getTrazasCaso, getTrazaDetalle, actualizarCaso, type Decision, type Detalle } from "@/api"
+import { useSondeo, getRed, getCaso, getTrazaDetalle, actualizarCaso, type Decision, type Detalle, type Caso } from "@/api"
 import { MapaRed, ESTADO_VISUAL } from "@/components/MapaRed"
 import { Cargando, SinConexion, ClaseBadge, Prioridad } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { estadosDelIncidente } from "@/incidente"
-import { estadoDeCasos, type CasoEstado } from "@/datos"
 
 const LEYENDA = ["origen", "atacado", "contenido", "en_cascada", "sin_actividad"] as const
 
@@ -29,12 +28,20 @@ const ESTADO_CASO: Record<string, { texto: string; clase: string }> = {
 // añade a la traza como registro `actualizacion_caso` encadenado (no muta la decisión); el estado
 // actual se pliega de ellos (estadoDeCasos). El `operador` lo sella el backend (del token, no repudio).
 function PanelCaso({ idDecision }: { idDecision: string }) {
-  // Ventana amplia y sondeo lento (A4): el pliegue del caso necesita TODAS sus actualizaciones,
-  // no los últimos 500 registros — si salieran de la ventana el caso «rejuvenecería» a Nuevo.
-  const trazas = useSondeo(getTrazasCaso, 10000)
-  const regs = Array.isArray(trazas) ? trazas
-    : trazas && "error" in trazas ? trazas.datos : undefined   // conexión perdida: últimos datos buenos
-  const caso: CasoEstado | undefined = (regs ? estadoDeCasos(regs) : {})[idDecision]
+  // El caso llega YA plegado del servidor (GET /api/caso/<id>, sobre el fichero completo): no
+  // «rejuvenece» al salir de la ventana de /api/trazas ni descarga la traza entera (A4). Se recarga
+  // al guardar, para que el analista vea su cambio al instante, y cada 10 s por si otro lo cambia.
+  const [caso, setCaso] = useState<Caso | null>(null)
+  const recargar = useCallback(async () => {
+    const r = await getCaso(idDecision)
+    if (!("error" in r)) setCaso(r)
+  }, [idDecision])
+  useEffect(() => {
+    setCaso(null)
+    recargar()
+    const t = setInterval(recargar, 10000)
+    return () => clearInterval(t)
+  }, [recargar])
   const estadoActual = caso?.estado ?? "nuevo"
   const [estado, setEstado] = useState("")
   const [asignado, setAsignado] = useState("")
@@ -52,7 +59,11 @@ function PanelCaso({ idDecision }: { idDecision: string }) {
       ...(nota.trim() ? { nota: nota.trim() } : {}),
     })
     setGuardando(false)
-    if (ok) { setEstado(""); setAsignado(""); setNota(""); toast({ type: "success", title: "Caso actualizado", description: "Queda anotado en la traza." }) }
+    if (ok) {
+      setEstado(""); setAsignado(""); setNota("")
+      recargar()   // el panel refleja el cambio al instante (sin esperar al sondeo: parecería fallido)
+      toast({ type: "success", title: "Caso actualizado", description: "Queda anotado en la traza." })
+    }
     else toast({ type: "error", title: "No se pudo actualizar el caso", description: "Revisa la conexión o el token de la consola." })
   }
 

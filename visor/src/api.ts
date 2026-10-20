@@ -198,7 +198,11 @@ async function pedirCrudo(ruta: string): Promise<{ json: unknown } | Fallo> {
     const fecha = r.headers?.get?.("date")
     if (fecha) {
       const t = Date.parse(fecha)
-      if (!Number.isNaN(t)) desfaseServidorMs = t - Date.now()
+      // Solo se mueve el ancla si el desfase medido cambió de verdad (> 2 s): la cabecera tiene
+      // resolución de 1 s y la latencia de cada respuesta metería jitter en el «hace X» de la cola.
+      if (!Number.isNaN(t) && Math.abs(t - Date.now() - desfaseServidorMs) > 2000) {
+        desfaseServidorMs = t - Date.now()
+      }
     }
     if (r.status === 401 || r.status === 403) return { error: `HTTP ${r.status}`, causa: "auth" }
     if (!r.ok) return { error: `HTTP ${r.status}`, causa: "http" }   // 404 del detalle, 500…
@@ -223,6 +227,11 @@ async function pedirLista<T>(ruta: string, elemento: z.ZodType<T>): Promise<T[] 
   if (!Array.isArray(r.json)) return { error: "se esperaba una lista", causa: "datos" }
   const buenos = r.json.map((x) => elemento.safeParse(x)).filter((p) => p.success).map((p) => p.data)
   if (r.json.length > 0 && buenos.length === 0) return { error: "ningún registro valida", causa: "datos" }
+  if (buenos.length < r.json.length) {
+    // Residual asumido: el descarte es silencioso para el analista (la alternativa — tirar la lista
+    // entera — es peor); al menos queda rastro en la consola del navegador para diagnosticar.
+    console.warn(`[visor] ${r.json.length - buenos.length} registro(s) de ${ruta} no validan y se descartan`)
+  }
   return buenos
 }
 
@@ -231,9 +240,27 @@ export const getDecisiones = () => pedirLista("/api/decisiones", DecisionSchema)
 export const getPendientes = () => pedirLista("/api/pendientes", PendienteSchema)
 export const getTrazas = (limite?: number) =>
   pedirLista(`/api/trazas${limite ? `?limite=${limite}` : ""}`, DecisionSchema)
-// Ventana amplia para el ciclo de caso (A4): sus `actualizacion_caso` no deben «rejuvenecer» al salir
-// de los últimos 500. Referencia estable (los tests y useSondeo identifican la fuente por función).
-export const getTrazasCaso = () => getTrazas(2000)
+
+// Ciclo de caso plegado en el SERVIDOR sobre el fichero completo (A4): el caso no «rejuvenece»
+// cuando sus actualizaciones salen de la ventana de /api/trazas, y el panel no descarga la traza.
+export const CasoSchema = z.object({
+  estado: z.string(), asignado: z.string().nullable().optional(),
+  notas: z.array(z.object({
+    texto: z.string(), operador: z.string().nullable().optional(),
+    decidido_en: z.string().nullable().optional(),
+  })),
+  actualizado_en: z.string().nullable().optional(),
+}).passthrough()
+export type Caso = z.infer<typeof CasoSchema>
+export const getCaso = (id: string) => pedir(`/api/caso/${encodeURIComponent(id)}`, CasoSchema)
+
+// La lista utilizable de un resultado del sondeo: la buena, la congelada de un fallo, o null.
+// (El aviso de pendientes la usa para NO olvidar lo visto ni re-notificar tras un parpadeo de red.)
+export function listaConocida<T>(r: T[] | FalloCon<T[]> | undefined): T[] | null {
+  if (Array.isArray(r)) return r
+  if (r && "error" in r && r.datos) return r.datos
+  return null
+}
 // Con `indice` el backend devuelve ESE registro aunque su id se repita en la traza (relanzamientos).
 export const getTrazaDetalle = (id: string, indice?: number | null) =>
   pedir(`/api/traza/${encodeURIComponent(id)}${indice != null ? `?indice=${indice}` : ""}`, DetalleSchema)

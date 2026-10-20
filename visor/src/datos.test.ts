@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -217,5 +217,16 @@ describe("colorClase", () => {
     const c = colorClase("clase_rara", PALETA)
     expect(PALETA).toContain(c)
     expect(colorClase("clase_rara", PALETA)).toBe(c)
+  })
+})
+
+// Revisión: con 13 clases canónicas y una paleta de 8, las dos clases más frecuentes del canon
+// (intento de acceso y FP legítimo) compartían color. La paleta cubre el canon completo.
+describe("colorClase sin colisiones en el canon", () => {
+  it("las 13 clases canónicas reciben colores DISTINTOS con la paleta real", async () => {
+    const { CATEGORICO_LIGHT } = await import("./theme")
+    const clases = Object.keys(ETIQUETA_CLASE)
+    const colores = clases.map((c) => colorClase(c, CATEGORICO_LIGHT))
+    expect(new Set(colores).size).toBe(clases.length)
   })
 })
