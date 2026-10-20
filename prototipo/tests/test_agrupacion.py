@@ -1,4 +1,5 @@
 import os, json, unittest
+from datetime import datetime
 from prototipo import agrupacion
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -59,6 +60,34 @@ class TestAgrupar(unittest.TestCase):
         # .10: {1,2,3} y {4} = 2 incidentes; .1: {5,6} = 1 -> 3 incidentes en total
         incs = agrupacion.agrupar(ALERTAS, ventana_seg=300)
         self.assertEqual(len(incs), 3)
+
+
+class TestZonasMixtas(unittest.TestCase):
+    """#7 aplicado a la agrupación: timestamps con zona y sin ella conviven en un mismo lote
+    (receptor de red con SIEMs heterogéneos) sin tumbar el daemon y comparando en UTC."""
+
+    def _a(self, ts):
+        return {"origen_ip": "192.168.1.10", "activo": "srv", "servicio": "ssh",
+                "familia": "acceso_credenciales", "timestamp": ts, "nivel_wazuh": 5}
+
+    def test_ts_normaliza_la_zona_a_utc_naive(self):
+        t = agrupacion._ts({"timestamp": "2026-10-20T12:00:00+02:00"})
+        self.assertIsNone(t.tzinfo)
+        self.assertEqual(t, datetime(2026, 10, 20, 10, 0, 0))
+
+    def test_agrupa_aware_y_naive_sin_romper(self):
+        incs = agrupacion.agrupar([self._a("2026-10-20T10:00:00+00:00"),
+                                   self._a("2026-10-20T10:00:01")])
+        self.assertEqual(len(incs), 1)
+        self.assertEqual(incs[0]["conteo"], 2)
+
+    def test_la_ventana_compara_en_utc_no_en_hora_de_pared(self):
+        # 12:00+02:00 son las 10:00Z: a 10 s de la naive (UTC asumido) -> mismo incidente,
+        # y primera_ts sale en UTC con zona explícita.
+        incs = agrupacion.agrupar([self._a("2026-10-20T12:00:00+02:00"),
+                                   self._a("2026-10-20T10:00:10")])
+        self.assertEqual(len(incs), 1)
+        self.assertEqual(incs[0]["primera_ts"], "2026-10-20T10:00:00+00:00")
 
 
 if __name__ == "__main__":

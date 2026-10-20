@@ -7,19 +7,24 @@ reduce los ítems que el analista debe revisar. Puro y tolerante (RNF-07): una a
 """
 import json, sys
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 def clave_incidente(alerta):
     return (alerta.get("origen_ip"), alerta.get("activo"), alerta.get("servicio"), alerta.get("familia"))
 
 def _ts(alerta):
+    """Timestamp como datetime NAIVE en UTC (#7, como rafaga._instante): con zona se convierte,
+    sin zona se asume UTC — en un lote con fuentes mixtas aware y naive no son comparables."""
     v = alerta.get("timestamp")
     if not v:
         return None
     try:
-        return datetime.fromisoformat(v)
+        t = datetime.fromisoformat(v)
     except (ValueError, TypeError):
         return None
+    if t.tzinfo is not None:
+        t = t.astimezone(timezone.utc).replace(tzinfo=None)
+    return t
 
 def representante(alertas):
     """La alerta más informativa del incidente: mayor nivel_wazuh; empate → la más reciente."""
@@ -34,8 +39,8 @@ def _incidente(clave, alertas):
         "clave": {"origen_ip": clave[0], "activo": clave[1], "servicio": clave[2], "familia": clave[3]},
         "conteo": len(alertas),
         "representante": representante(alertas),
-        "primera_ts": min(ts).isoformat() if ts else None,
-        "ultima_ts": max(ts).isoformat() if ts else None,
+        "primera_ts": min(ts).isoformat() + "+00:00" if ts else None,   # _ts normaliza a UTC naive
+        "ultima_ts": max(ts).isoformat() + "+00:00" if ts else None,
         "reglas": dict(Counter(a.get("regla_id") for a in alertas)),
         "ids": [a.get("id_alerta") for a in alertas],
     }

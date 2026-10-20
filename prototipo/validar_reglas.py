@@ -72,8 +72,8 @@ def _main(argv):
                 continue
             try:
                 crudas.append(json.loads(linea))
-            except ValueError:
-                crudas.append(linea)                   # no-JSON: entra y se cuenta como malformada
+            except (ValueError, RecursionError):       # no-JSON o anidamiento hostil: cuenta como malformada
+                crudas.append(linea)
     r = cobertura(crudas)
     print(f"{r['total']} alertas · {r['cubiertas']} con familia y playbook · "
           f"{len(r['sin_cobertura'])} sin cobertura · {r['propias']} propias · {r['malformadas']} malformadas")

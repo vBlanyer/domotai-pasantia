@@ -1411,5 +1411,12 @@ class TestRobustezV11(unittest.TestCase):
                                                           dormir=lambda s: None)), [])
 
 
+class TestParsearFrontera(unittest.TestCase):
+    def test_json_anidado_profundo_se_descarta_sin_tumbar_el_daemon(self):
+        # Una línea hostil bajo el tope de 1 MiB ('['*60000) hace que json.loads lance
+        # RecursionError, no JSONDecodeError: debe descartarse como cualquier línea corrupta.
+        self.assertIsNone(stream._parsear("[" * 60000 + "]" * 60000))
+
+
 if __name__ == "__main__":
     unittest.main()

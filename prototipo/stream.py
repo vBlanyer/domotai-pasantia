@@ -20,7 +20,7 @@ def _parsear(linea):
         return None
     try:
         cruda = json.loads(linea)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, RecursionError):   # RecursionError: anidamiento hostil bajo el tope de 1 MiB
         return None
     if not isinstance(cruda, dict):          # JSON válido pero no es una alerta: [1,2], null, "x"
         return None
