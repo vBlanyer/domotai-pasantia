@@ -20,8 +20,8 @@ recomendado para una primera prueba. El **completo** levanta la demo en vivo.
 
 ```bash
 # a. Las suites del núcleo deben dar OK (≈20 s en total)
-python3 -m unittest discover -s prototipo/tests      # 911 tests
-python3 -m unittest discover -s evaluacion/tests      # 59 tests
+python3 -m unittest discover -s prototipo/tests      # 925 tests
+python3 -m unittest discover -s evaluacion/tests      # 63 tests
 
 # b. Reproduce la evaluación frente al baseline de Wazuh (determinista, sin modelo)
 python3 -m evaluacion.campana --sin-llm
@@ -65,14 +65,14 @@ En otra terminal, **lanza ataques** por menú: `sh lab/banco/banco.sh atacar`. A
 
 | Componente | Dónde | Estado |
 |------------|-------|--------|
-| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, **911 tests** |
+| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, **925 tests** |
 | **Justificador con LLM real + RAG** (LLM local —1B por defecto; Llama-3.1-8B en GPU como objetivo—; recuperación aumentada local con embedder bge-m3 sobre corpus de MITRE/D3FEND/reglas/descartes, dependiente de la clase decidida) | [`prototipo/justificador_llm.py`](prototipo/justificador_llm.py), [`prototipo/rag.py`](prototipo/rag.py) | Funcional (requiere GPU; sustituto [`lab/scripts/llm_claude.py`](lab/scripts/llm_claude.py)) |
 | **Daemon en tiempo real** (agrupa en incidentes; valida con el analista; `--sin-llm`/`--con-llm`/`--agente`; healthcheck `/healthz`) | [`prototipo/stream.py`](prototipo/stream.py) | Funcional |
-| **Consola web** (8 vistas: panel, métricas e informe exportable, estado de servicios, **Red** —mapa del cliente—, decisiones, aprobaciones, **Contenciones activas** + *kill switch*, trazas) | [`prototipo/tablero.py`](prototipo/tablero.py), [`visor/`](visor/) | Funcional, **148 tests** (React/TS) |
+| **Consola web** (8 vistas: panel, métricas e informe exportable, estado de servicios, **Red** —mapa del cliente—, decisiones, aprobaciones, **Contenciones activas** + *kill switch*, trazas) | [`prototipo/tablero.py`](prototipo/tablero.py), [`visor/`](visor/) | Funcional, **164 tests** (React/TS) |
 | **Agente de mitigación** (ReAct: contiene en el host, escala al cortafuegos solo si falla; respeta el filtro del perfil) | [`prototipo/agente_mitigacion.py`](prototipo/agente_mitigacion.py) | Funcional, salida restringida por esquema; experimental |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap, objetivos; lanzador de ataques a medida) | [`lab/`](lab/) | Ejecutable, **137 tests** |
 | **Dataset etiquetado** (600 alertas VP/FP/PROPIA/no_soportada; particionado 80/20) | [`lab/dataset/`](lab/dataset/) | Cerrado, **39 tests** |
-| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, **59 tests**; campaña ejecutada |
+| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, **63 tests**; campaña ejecutada |
 | **Endurecimiento a producción** (persistencia al reiniciar, supervisión systemd + `/healthz`, retención de traza, *kill switch*, receptor de alertas por red con lista blanca, validador del *ruleset* del cliente) | [`deploy/`](deploy/), [`prototipo/`](prototipo/) | Hecho; ver [guía de integración](documentacion/04-fase4-diseno-de-arquitectura/integracion-en-produccion.md) |
 
 **La idea intelectualmente central:** la decisión clasificación→acción **no la toma el modelo**. La toma una
