@@ -113,6 +113,12 @@ Y, para el otro público —el **analista de seguridad** que usa la consola web 
 caso), el *kill switch* y los límites honestos del sistema. Complementa la guía de operación (que es
 de administrador), no la repite.
 
+## La referencia de API
+
+Para integrar o depurar, la **[`referencia-api.md`](referencia-api.md)** documenta la API HTTP del
+daemon (`/api/*` + `/healthz`): endpoints de lectura y de acción, el modelo de seguridad (Host,
+token, anti-CSRF), formas de respuesta, códigos de estado y ejemplos `curl`.
+
 ---
 
 ## Estado
