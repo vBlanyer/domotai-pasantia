@@ -177,9 +177,13 @@ destino malicioso conocido (exfiltración y mando y control). Todas se ejercitar
 laboratorio y ninguna pertenece al conjunto de datos medido, de modo que ensanchan la cobertura sin
 alterar las cifras de la evaluación. Y la validación humana,
 que el prototipo evaluado hacía por terminal, se llevó además a un \textbf{visor web}: una consola
-de operaciones con el flujo de decisiones, la cola de aprobaciones, una matriz de cobertura MITRE
-ATT\&CK, el grafo del incidente sobre el mapa de la red y un informe exportable, desde la que el
-analista aprueba, pausa la automatización o revierte una contención sin salir del navegador.
+de operaciones con el flujo de decisiones, la cola de aprobaciones ---con aviso al analista
+(notificación y señal sonora al entrar una decisión) y el tiempo de espera de cada una a la vista,
+como un acuerdo de nivel de servicio---, el \textbf{ciclo de vida del caso} (estado, responsable y
+notas del analista, anotados como registros encadenados en la misma traza auditable), una matriz de
+cobertura MITRE ATT\&CK, el grafo del incidente sobre el mapa de la red y un informe exportable,
+desde la que el analista aprueba, pausa la automatización o revierte una contención sin salir del
+navegador.
 
 El propio sistema se sometió además a una auditoría de seguridad ---un \emph{pentest} del MDR
 tratándolo como si estuviera en producción--- que enumeró diecinueve puntos y motivó una tanda de

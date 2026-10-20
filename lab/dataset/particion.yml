@@ -1,6 +1,7 @@
 # Reparto A PRIORI de campañas. Se fija ANTES de entrenar y NO se toca al ver
 # resultados: elegir la partición mirando los números contamina la evaluación.
-# ~80/20 medido en alertas, no en número de campañas. Estratificado: cada familia
+# Con las campañas de septiembre quedó 300/300 medido en alertas (el ~80/20
+# original era de las dos primeras campañas). Estratificado: cada familia
 # y ambas etiquetas VP y FP presentes en los dos lados; evaluación DEBE tener FP.
 # Las campanas de reconocimiento y de telnet (11/09) se reparten una a cada lado, fijado antes de medir.
 entrenamiento:

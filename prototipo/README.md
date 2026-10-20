@@ -1,8 +1,10 @@
-# `prototipo/` — el núcleo de decisión (Fase 5A)
+# `prototipo/` — el motor de triaje completo
 
-Este paquete implementa el **subproyecto 5A**: el lazo de decisión completo del motor de triaje,
-**hasta antes de ejecutar** ninguna acción sobre un nodo. Es offline, sin SSH, sin dependencias
-pesadas (solo `pyyaml`), y corre sobre ficheros ya congelados de la Fase 3.
+Este paquete nació como el **subproyecto 5A** (el lazo de decisión offline) y hoy contiene el
+sistema completo: el núcleo de decisión, el **daemon en tiempo real** (`stream.py`, con receptor de
+red opcional), el **conector SSH** con catálogo cerrado y verificación (`conector.py`), la **API del
+tablero** que sirve al visor (`tablero.py`) y el justificador LLM+RAG. El núcleo de decisión sigue
+siendo puro y testeable sin red ni SSH; las dependencias se mantienen mínimas (solo `pyyaml`).
 
 La Fase 5 completa se divide en tres subproyectos:
 
@@ -651,7 +653,8 @@ Recomendación del tutor: que el RAG *"tenga un agente / no sea determinista"*. 
 - **Corpus v2 (ATT&CK + D3FEND):** el corpus (32 fichas) se **compila** de dos fuentes con
   `prototipo/extraer_attack.py`: las técnicas **ATT&CK** se **destilan del bundle STIX oficial**
   (`corpus/fuentes/enterprise-attack.json`, ~54 MB, gitignored) — solo las del perímetro soportado
-  (allowlist `TECNICAS_PERIMETRO`, 15 técnicas de las 4 familias), con la descripción oficial limpia; y las
+  (allowlist `TECNICAS_PERIMETRO`, 15 técnicas de las 4 familias originales del corpus — las familias
+  posteriores no ampliaron el corpus, que es un valor canónico), con la descripción oficial limpia; y las
   fichas hechas a mano (reglas Wazuh, vulns del lab, contramedidas **D3FEND** y **mapeos**) viven en
   `corpus/curado.jsonl`. El **mapeo** encadena *técnica ofensiva → contramedida D3FEND → acción del
   catálogo* (p. ej. `T1110.001 → D3-ITF/D3-NTF → BLOQUEAR_IP`). D3FEND (`D3-NTF`, `D3-ITF`, `D3-AL`,
