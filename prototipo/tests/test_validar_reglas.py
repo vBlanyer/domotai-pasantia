@@ -1,4 +1,4 @@
-import unittest
+import contextlib, io, os, tempfile, unittest
 
 from prototipo import validar_reglas
 
@@ -57,6 +57,23 @@ class TestCobertura(unittest.TestCase):
         self.assertEqual(r["por_familia"]["explotacion_conocida"], 1)
         self.assertEqual(r["nivel"]["explotacion_conocida"], "triar_y_enrutar")
         self.assertEqual(r["nivel"]["acceso_credenciales"], "actuar")
+
+
+class TestMainFrontera(unittest.TestCase):
+    def test_linea_json_anidada_cuenta_como_malformada(self):
+        # json.loads lanza RecursionError (no ValueError) con anidamiento profundo: la línea
+        # debe contarse como malformada, no abortar la CLI sobre un export hostil.
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            f.write("[" * 60000 + "]" * 60000 + "\n")
+            ruta = f.name
+        try:
+            salida = io.StringIO()
+            with contextlib.redirect_stdout(salida):
+                rc = validar_reglas._main([ruta])
+            self.assertEqual(rc, 0)
+            self.assertIn("1 malformadas", salida.getvalue())
+        finally:
+            os.unlink(ruta)
 
 
 if __name__ == "__main__":

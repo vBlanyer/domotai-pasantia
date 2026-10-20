@@ -1,6 +1,6 @@
 """Orquestador del lazo en vivo: decisión (5A) -> validación -> orden -> conector -> verificación -> traza."""
 import json, os, sys, yaml
-from prototipo import traza, triaje, orden as ordenm, conector, validacion, verificacion, perfil as perfilm, catalogo as catm, analisis
+from prototipo import traza, triaje, orden as ordenm, conector, validacion, verificacion, perfil as perfilm, catalogo as catm, analisis, ingesta
 
 def decidir_incidente(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
                       justificar_fn=analisis.justificar):
@@ -210,9 +210,8 @@ def main(argv):
             linea = linea.strip()
             if not linea:
                 continue
-            try:
-                alerta = json.loads(linea)
-            except json.JSONDecodeError:
+            alerta = ingesta.parsear_linea(linea)
+            if alerta is None:
                 continue
             r = procesar_lazo(alerta, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                               f"d{i}", alerta.get("timestamp", ""))

@@ -248,3 +248,26 @@ class TestTelemetriaPropia(unittest.TestCase):
             os.unlink(ruta)
         self.assertEqual([r["id_alerta"] for r in regs], ["2"])
 
+
+class TestFronteraLineas(unittest.TestCase):
+    """La política de parseo tolerante de una línea JSONL vive en un solo sitio (parsear_linea):
+    una línea hostil (anidamiento profundo -> RecursionError) se descarta como cualquier corrupta."""
+
+    def test_parsear_linea_tolera_corruptas_y_hostiles(self):
+        self.assertEqual(ingesta.parsear_linea('{"a": 1}'), {"a": 1})
+        self.assertIsNone(ingesta.parsear_linea(""))
+        self.assertIsNone(ingesta.parsear_linea(None))
+        self.assertIsNone(ingesta.parsear_linea("no es json"))
+        self.assertIsNone(ingesta.parsear_linea("[" * 60000 + "]" * 60000))
+
+    def test_ingerir_fichero_salta_la_linea_anidada_hostil(self):
+        import tempfile
+        ruta = tempfile.mktemp(suffix=".json")
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write("[" * 60000 + "]" * 60000 + "\n")
+        try:
+            regs = ingesta.ingerir_fichero(ruta, adaptador_wazuh.adaptador("c"))
+        finally:
+            os.unlink(ruta)
+        self.assertEqual(regs, [])
+
