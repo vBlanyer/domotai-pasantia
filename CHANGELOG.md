@@ -67,6 +67,15 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   aviso de «últimas N de M decisiones»; KPI «esperando aprobación» clicable; matriz ATT&CK completa
   al imprimir el informe; tooltip de los gráficos con el tema oscuro.
 
+### Documentación (barrido de la auditoría 20/10)
+- Desfases corregidos en los docs vivos: RUNBOOK §3C ya describe las **10 familias / 13 ataques** del
+  lanzador y §7 recoge la lección de Wazuh (el guard no recarga reglas nuevas en un manager vivo; la
+  IP cambia tras `up`); `estado-y-riesgos` y la guía de operación al día (957/63 tests, 10 familias y
+  8 patrones); enlace `material-superado/` reparado; «80/20» → **300/300 por campaña** (README y
+  `particion.yml`); cabecera de `prototipo/README` actualizada (ya no es solo el 5A offline).
+- Informe de tesis: conteos de pruebas al día en metodología y la **consola MDR** (aviso al analista,
+  tiempo de espera y ciclo de vida del caso) incorporada a conclusiones; PDF recompilado.
+
 ## [1.1] — 2026-10-14 · Endurecimiento, robustez y congruencia
 
 Sobre v1.0, **sin mover las cifras canónicas** (V1.1 no re-basa v1.0).

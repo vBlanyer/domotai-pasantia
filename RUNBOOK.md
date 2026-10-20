@@ -120,9 +120,9 @@ sh lab/banco/banco.sh atacar
 ```
 
 Lista los casos vivos; eliges por número, lo lanza (respeta los 60 s de silencio de la regla 5763 de Wazuh
-entre ataques) y ofrece deshacer/restaurar. Cubre las **cinco familias** que el motor tría (acceso a
-credenciales, reconocimiento, servicio expuesto, explotación conocida y abuso de cuenta), cada una con
-su conducta de respuesta:
+entre ataques) y ofrece deshacer/restaurar. Cubre las **diez familias** que el motor tría (13 ataques:
+los de red de siempre más los **ataques de host**, cuya respuesta no es bloquear una IP de origen), cada
+una con su conducta de respuesta:
 
 **Ataque a medida (tecla `a`):** además de los casos guionizados, eliges tú el **equipo objetivo** (los 10
 nodos del banco), el **servicio/tipo de ataque** (fuerza bruta SSH, reconocimiento, telnet o explotación web
@@ -136,6 +136,12 @@ llegó a bloquear (lo rechazaste, o fue amenaza enrutada), el deshacer no encuen
 - **EXPLOIT** — explotación conocida (SQLi web): `amenaza_enrutada`, **enruta** a un equipo (no contiene).
 - **TELNET** — servicio expuesto (telnet señuelo en atm): VP, contiene. (En web-banking, donde telnet NO
   está expuesto, el motor lo descartaría como falso positivo — el auditor distingue por activo.)
+- **CUENTA** — abuso de cuenta (alta de `backdoor`): bloquear la **cuenta** (`FORZAR_CAMBIO_PASS`), humano.
+- **FIM** — integridad de ficheros (syscheck): **aislar** el host en cuarentena en el borde, humano.
+- **DOS** — denegación de servicio (flood): **acotar la banda** (`LIMITAR_BANDA`) en la víctima, humano.
+- **INTRUSION** — acceso consumado (login tras fuerza bruta): **cortar la sesión viva** (`MATAR_CONEXION`).
+- **EXFIL** — exfiltración/C2 (conexión a destino malicioso): **bloquear el destino** en el borde, humano.
+- **MALWARE** — malware/rootkit (veredicto tipo VirusTotal): **aislar** el host, humano.
 
 **IP de origen rotativa (tecla `r`):** por defecto cada caso ataca desde su IP fija (p. ej. D1 desde
 `198.51.100.10`), así que al repetirlo choca con el bloqueo automático y con la supresión del MDR y "no pasa
@@ -255,6 +261,8 @@ unset TRIAJE_NODO_GESTION AUDITOR_PUERTOS
 | El visor muestra «sin conexión con el daemon» | El daemon no corre con `--web`, o el puerto no coincide | Lanza el daemon con `--web`; en `npm run dev`, el daemon debe estar en `:8787` |
 | `Address already in use` al lanzar `--web` | Ya hay un daemon en ese puerto | Cierra el anterior, o usa `--web <otro-puerto>` |
 | «La red pequeña está levantada» al hacer `up banco` | Las dos redes no conviven | `sh lab/lab.sh down` y reintenta |
+| Una regla local NUEVA de Wazuh (100xxx) no dispara | El guard de `wazuh-run.sh` (`grep id="100200"`) ve las reglas viejas ya montadas y **no recarga** en un Wazuh vivo | `docker rm` del contenedor de Wazuh + `wazuh-run.sh up` (o edita `local_rules.xml` en caliente dentro del contenedor y reinicia el manager) |
+| Tras relevantar Wazuh no llega ninguna alerta | El contenedor nuevo (`clab-red-cliente-wazuh`) salió con **otra IP** y los reenviadores siguen apuntando a la vieja | Re-apunta los reenviadores a `W:514` (la IP actual del contenedor) |
 | `Trazas` en el visor dice «cadena rota» | El fichero de traza por defecto arrastra registros viejos (previos al encadenado) | Arranca el daemon con `--salida run/trazas-banco-$(date +%F).jsonl` (cadena limpia) |
 
 ---
