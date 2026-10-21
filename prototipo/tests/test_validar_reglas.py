@@ -76,9 +76,6 @@ class TestMainFrontera(unittest.TestCase):
             os.unlink(ruta)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TestSalidaSinEscapes(unittest.TestCase):
     def test_un_grupo_hostil_no_inyecta_escapes_en_la_terminal(self):
@@ -96,3 +93,7 @@ class TestSalidaSinEscapes(unittest.TestCase):
             self.assertNotIn("\x1b", salida.getvalue())
         finally:
             os.unlink(ruta)
+
+
+if __name__ == "__main__":
+    unittest.main()

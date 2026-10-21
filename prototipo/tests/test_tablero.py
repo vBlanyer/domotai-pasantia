@@ -806,11 +806,33 @@ class TestOrigenPorPuerto(unittest.TestCase):
         _, cab = self._get(puerto, "http://localhost:4444")
         self.assertNotIn("Access-Control-Allow-Origin", cab)
 
-    def test_el_propio_puerto_y_el_dev_si(self):
+    def test_el_propio_puerto_si(self):
         puerto = self._srv()
-        for origen in (f"http://localhost:{puerto}", "http://127.0.0.1:5173"):
-            _, cab = self._get(puerto, origen)
-            self.assertEqual(cab.get("Access-Control-Allow-Origin"), origen, origen)
+        origen = f"http://localhost:{puerto}"
+        _, cab = self._get(puerto, origen)
+        self.assertEqual(cab.get("Access-Control-Allow-Origin"), origen)
+
+    def test_el_puerto_dev_es_opt_in(self):
+        # Revisión de B1: con :5173 SIEMPRE permitido, cualquier proceso local podía ligar ese
+        # puerto en producción (sin Vite corriendo) y heredar el CORS. Opt-in por TRIAJE_CORS_DEV.
+        from unittest import mock
+        puerto = self._srv()
+        with mock.patch.dict(os.environ):
+            os.environ.pop("TRIAJE_CORS_DEV", None)
+            _, cab = self._get(puerto, "http://127.0.0.1:5173")
+            self.assertNotIn("Access-Control-Allow-Origin", cab)
+            os.environ["TRIAJE_CORS_DEV"] = "5173"
+            _, cab = self._get(puerto, "http://127.0.0.1:5173")
+            self.assertEqual(cab.get("Access-Control-Allow-Origin"), "http://127.0.0.1:5173")
+
+    def test_un_origin_malformado_no_tumba_el_handler(self):
+        # Revisión: urlsplit valida el puerto PEREZOSAMENTE — u.port lanza ValueError con
+        # «http://localhost:evil» y el guard endurecido moría con traceback en vez de negar.
+        puerto = self._srv()
+        for origen in ("http://localhost:evil", "http://localhost:99999999"):
+            estado, cab = self._get(puerto, origen)
+            self.assertEqual(estado, 200, origen)
+            self.assertNotIn("Access-Control-Allow-Origin", cab)
 
 
 class Test500SinDetalle(unittest.TestCase):
@@ -1230,10 +1252,11 @@ class TestCasoAPI(unittest.TestCase):
         self.assertEqual(cuerpo, {"estado": "nuevo", "asignado": None, "notas": []})
 
     def test_cors_expone_la_cabecera_date(self):
-        # A3 del visor: el SLA se ancla a la cabecera `Date`; en dev (origen :5173) el navegador solo
-        # la deja leer si va en Access-Control-Expose-Headers.
+        # A3 del visor: el SLA se ancla a la cabecera `Date`; el navegador solo la deja leer en
+        # cross-origin si va en Access-Control-Expose-Headers (p. ej. el visor dev con
+        # TRIAJE_CORS_DEV; aquí se comprueba con un origen permitido: el del propio tablero).
         puerto = self._servir([])
-        _, _, cab = self._get(puerto, "/api/pausa", {"Origin": "http://localhost:5173"})
+        _, _, cab = self._get(puerto, "/api/pausa", {"Origin": f"http://localhost:{puerto}"})
         self.assertIn("date", cab.get("Access-Control-Expose-Headers", "").lower())
 
 

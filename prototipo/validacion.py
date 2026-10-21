@@ -15,8 +15,12 @@ from prototipo.analisis import CLASES
 def texto_terminal(t):
     """Texto que viene de la alerta o de un export del cliente, seguro para la TERMINAL del
     analista: los caracteres de control se sustituyen por «·» visible — una secuencia ANSI metida
-    en el log por el atacante podría alterar u ocultar lo que el operador ve (B3)."""
-    return "".join(c if (c >= " " and c != "\x7f") or c == "\t" else "·" for c in str(t))
+    en el log por el atacante podría alterar u ocultar lo que el operador ve (B3). Por CATEGORÍA
+    Unicode, no por rango: también los C1 de 8 bits (\\x9b = CSI en terminales que los honran) y
+    los de formato (overrides bidi U+202E, que invierten visualmente una IP o una ruta)."""
+    import unicodedata
+    return "".join(c if c == "\t" or unicodedata.category(c) not in ("Cc", "Cf") else "·"
+                   for c in str(t))
 
 def filtro_legible(decision):
     """Qué significa para el analista el `resultado_filtro` (el valor de la traza no cambia). `veta`

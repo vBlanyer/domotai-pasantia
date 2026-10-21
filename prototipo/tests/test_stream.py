@@ -1360,9 +1360,6 @@ class TestAgenteEnModoWeb(unittest.TestCase):
         estado.resolver(estado.pendientes()[0]["id"], "s")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TestRobustezV11(unittest.TestCase):
     def test_lanzar_acotado_aplica_backpressure(self):
@@ -1470,8 +1467,6 @@ class TestValidarEscucha(unittest.TestCase):
                          ("127.0.0.1", 5514))
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TestTerminalSinEscapes(unittest.TestCase):
@@ -1508,3 +1503,18 @@ class TestActividadCompartida(unittest.TestCase):
                         justificar_fn=None, ventana_agrupacion=0, salida_traza=io.StringIO(),
                         escribir=lambda *a, **k: None, leer=lambda *_: "1", actividad=act)
         self.assertTrue(act._ultima)   # la ejecución quedó registrada en la instancia compartida
+
+
+class TestLineasDeTerminalSaneadas(unittest.TestCase):
+    def test_la_linea_de_error_y_la_de_actividad_propia_sin_escapes(self):
+        # Revisión de B3: estas dos líneas también interpolan campos del log del atacante.
+        reg_e = {"id_decision": "e1", "origen_ip": "1.1.1.1\x1b[2J", "activo": "a\x07",
+                 "error": "TypeError: \x1b]0;x\x07"}
+        reg_p = {"id_decision": "p1", "activo": "srv\x1b[2J", "alertas": 2}
+        for linea in (stream._linea_error(reg_e), stream._linea_propia(reg_p)):
+            self.assertNotIn("\x1b", linea)
+            self.assertNotIn("\x07", linea)
+
+
+if __name__ == "__main__":
+    unittest.main()

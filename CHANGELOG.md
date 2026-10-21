@@ -76,7 +76,9 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   ahora se anotan como **actividad del MDR** (la `ActividadMDR` se comparte con el lazo): su eco
   ya no se triaja como alerta fantasma.
 - **CORS/Origin por puerto exacto**: una página local en otro puerto (otro dashboard, un dev-server
-  con XSS) ya no puede leer ni forzar la API; el visor en dev (`:5173`) sigue permitido.
+  con XSS) ya no puede leer ni forzar la API; el visor en dev es **opt-in** (`TRIAJE_CORS_DEV=5173`,
+  ver RUNBOOK) — con el puerto dev siempre abierto, cualquier proceso local podía ligarlo en
+  producción y heredar el CORS.
 - Terminal del analista **sin secuencias de control** (los campos del log del atacante y del export
   del cliente se imprimen saneados); el banner avisa si falta `TRIAJE_TRAZA_CLAVE` (cadena sin
   firma); los 500 ya no filtran el detalle de la excepción al cliente; la traza batch de

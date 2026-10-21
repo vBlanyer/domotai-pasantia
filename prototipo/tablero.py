@@ -666,22 +666,25 @@ _DIR_ESTATICOS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "visor
 # con un nombre de dominio del atacante. En ambos casos se rechaza. (El puerto no se compara: el
 # hostname basta para distinguir al propio tablero del navegador de evil.com.)
 _HOSTS_OK = frozenset({"127.0.0.1", "localhost", "::1"})
-_PUERTO_DEV = 5173                      # el visor en desarrollo (Vite)
 _revertir_todo_lock = threading.Lock()  # un solo des-bloqueo en masa a la vez (B2)
 
 
 def _origen_permitido(origen, puerto_srv):
-    """El Origin exacto que puede leer la API: el propio tablero (host loopback Y su puerto) o el
-    visor en dev (:5173). Comparar solo el host (B1) dejaba a cualquier página en localhost:<otro>
-    —otro dashboard, un dev-server con XSS— leer y forzar toda la API."""
+    """El Origin exacto que puede leer la API: el propio tablero (host loopback Y su puerto) y, solo
+    como OPT-IN (`TRIAJE_CORS_DEV=5173`), el visor en desarrollo — con el puerto dev siempre abierto,
+    cualquier proceso local podía ligarlo en producción y heredar el CORS. Comparar solo el host (B1)
+    dejaba a cualquier página en localhost:<otro> leer y forzar toda la API."""
     try:
         u = urllib.parse.urlsplit(origen)
+        if u.scheme not in ("http", "https") or u.hostname not in _HOSTS_OK:
+            return False
+        # dentro del try: urlsplit valida PEREZOSAMENTE y u.port lanza ValueError con un puerto
+        # malformado («:evil», fuera de rango) — el guard niega, no revienta el handler.
+        puerto = u.port if u.port is not None else (80 if u.scheme == "http" else 443)
     except ValueError:
         return False
-    if u.scheme not in ("http", "https") or u.hostname not in _HOSTS_OK:
-        return False
-    puerto = u.port if u.port is not None else (80 if u.scheme == "http" else 443)
-    return puerto in (puerto_srv, _PUERTO_DEV)
+    dev = os.environ.get("TRIAJE_CORS_DEV", "")
+    return puerto == puerto_srv or (dev.isdigit() and puerto == int(dev))
 _MAX_CUERPO = 64 * 1024   # tope del cuerpo de un POST (anti-DoS por memoria): los legítimos son < 1 KiB
 
 
@@ -737,7 +740,8 @@ def resolver_operador(operadores, cabecera_authorization, cuerpo):
     if isinstance(operadores, dict) and operadores:
         return operador_de(operadores, cabecera_authorization)
     del_cuerpo = cuerpo.get("operador") if isinstance(cuerpo, dict) else None
-    return str(del_cuerpo)[:64] if del_cuerpo else None
+    # Una sola regla de saneo/tope para el nombre del operador en toda la cadena (la de casos).
+    return (casos._limpiar(str(del_cuerpo), casos._TOPE_CAMPO) or None) if del_cuerpo else None
 
 
 class _Manejador(BaseHTTPRequestHandler):

@@ -204,11 +204,13 @@ def main(argv):
     catalogo = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "catalogo.yml"))
     ejecutor = _EjecutorAuto() if auto else conector.ejecutor_por_defecto()
     n = 0
-    # 0600 al crear (#5-low-b): la traza batch tiene la misma necesidad de integridad que la del
-    # daemon (traza.abrir_append); O_TRUNC no cambia los permisos de un fichero que ya exista.
-    abrir_traza = os.fdopen(os.open(salida, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600),
-                            "w", encoding="utf-8")
-    with open(alertas_path, encoding="utf-8") as fin, abrir_traza as fout:
+    # 0600 (#5-low-b): la traza batch tiene la misma necesidad de integridad que la del daemon.
+    # La ENTRADA se abre primero (una ruta mal escrita no debe truncar una traza existente) y
+    # fchmod cubre el fichero previo: O_TRUNC reusa el inodo sin cambiarle los permisos.
+    with open(alertas_path, encoding="utf-8") as fin, \
+         os.fdopen(os.open(salida, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600),
+                   "w", encoding="utf-8") as fout:
+        os.fchmod(fout.fileno(), 0o600)
         cadena = traza.Cadena(fout, nombre=os.path.basename(salida))   # fichero nuevo: empieza en GENESIS
         for i, linea in enumerate(fin):
             linea = linea.strip()
