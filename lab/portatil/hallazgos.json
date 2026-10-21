@@ -1,0 +1,9 @@
+{
+  "version_herramienta": "demo-portatil (postura mínima declarada a mano)",
+  "timestamp": "2026-10-21T00:00:00+0000",
+  "nodos": {
+    "objetivo-vuln": [
+      {"puerto": 22, "servicio": "ssh", "estado": "open"}
+    ]
+  }
+}
