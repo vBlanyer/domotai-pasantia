@@ -67,6 +67,21 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   aviso de «últimas N de M decisiones»; KPI «esperando aprobación» clicable; matriz ATT&CK completa
   al imprimir el informe; tooltip de los gráficos con el tema oscuro.
 
+### Seguridad / Robustez (M5 + Bajas de la auditoría 20/10)
+- **No repudio sin resquicio (M5)**: con mapa de operadores, SOLO el token identifica — el usuario
+  del token compartido ya no puede atribuir su veredicto/reversión/nota a cualquier nombre; el
+  campo del cuerpo (sin mapa) y el `id` del caso quedan acotados (64).
+- **Des-bloqueo en masa con gesto y candado**: `POST /api/revertir-todo` exige `confirmar: true`
+  (400 sin él) y rechaza concurrentes (409) — dos a la vez duplicaban los `iptables -D`; sus SSH
+  ahora se anotan como **actividad del MDR** (la `ActividadMDR` se comparte con el lazo): su eco
+  ya no se triaja como alerta fantasma.
+- **CORS/Origin por puerto exacto**: una página local en otro puerto (otro dashboard, un dev-server
+  con XSS) ya no puede leer ni forzar la API; el visor en dev (`:5173`) sigue permitido.
+- Terminal del analista **sin secuencias de control** (los campos del log del atacante y del export
+  del cliente se imprimen saneados); el banner avisa si falta `TRIAJE_TRAZA_CLAVE` (cadena sin
+  firma); los 500 ya no filtran el detalle de la excepción al cliente; la traza batch de
+  `prototipo.lazo` nace 0600.
+
 ### Añadido (portabilidad)
 - **`lab/portatil/`: la demo en Docker plano, sin Containerlab** — compose de dos nodos (gestión +
   objetivo, construidos del Dockerfile del banco) y `demo.sh` con el ciclo completo: alerta real

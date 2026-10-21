@@ -713,7 +713,8 @@ class TestRevertirTodoAPI(unittest.TestCase):
                                      estaticos=tempfile.mkdtemp(), catalogo=self.CAT, ejecutor=self._ej)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
-        estado, cuerpo = self._post(srv.server_address[1], "/api/revertir-todo", {"operador": "ana"})
+        estado, cuerpo = self._post(srv.server_address[1], "/api/revertir-todo",
+                                    {"operador": "ana", "confirmar": True})
         self.assertEqual(estado, 200)
         self.assertEqual(cuerpo["revertidas"], 1)
         self.assertEqual(cuerpo["fallidas"], 0)
@@ -721,6 +722,109 @@ class TestRevertirTodoAPI(unittest.TestCase):
         regs = traza.leer_registros(ruta)
         self.assertTrue(any(r.get("tipo") == "reversion" and r.get("operador") == "ana" for r in regs))
         self.assertTrue(traza.verificar(regs)["valida"])
+
+    def test_sin_confirmar_no_desbloquea_nada(self):
+        # B2 de la auditoría: el des-bloqueo en masa levanta TODOS los bloqueos del atacante — un
+        # solo POST sin gesto explícito no puede dispararlo (y un POST ciego cross-origin tampoco).
+        ruta = self._traza_un_bloqueo()
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), ruta, puerto=0,
+                                     estaticos=tempfile.mkdtemp(), catalogo=self.CAT, ejecutor=self._ej)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        estado, cuerpo = self._post(srv.server_address[1], "/api/revertir-todo", {"operador": "ana"})
+        self.assertEqual(estado, 400)
+        regs = traza.leer_registros(ruta)
+        self.assertFalse(any(r.get("tipo") == "reversion" for r in regs))
+
+    def test_dos_a_la_vez_solo_uno_ejecuta(self):
+        # B2: sin exclusión mutua, dos POST concurrentes calculaban la misma lista de activas y
+        # ejecutaban los `iptables -D` dos veces. El segundo debe recibir 409, no duplicar SSH.
+        from unittest import mock
+        ruta = self._traza_un_bloqueo()
+        lento = threading.Event()
+        def _revertir_lenta(*a, **kw):
+            lento.wait(5)
+            return {"revertidas": 1, "fallidas": 0}
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), ruta, puerto=0,
+                                     estaticos=tempfile.mkdtemp(), catalogo=self.CAT, ejecutor=self._ej)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        puerto = srv.server_address[1]
+        estados = []
+        with mock.patch("prototipo.revertir.revertir_todas", side_effect=_revertir_lenta):
+            hilos = [threading.Thread(target=lambda: estados.append(
+                self._post(puerto, "/api/revertir-todo", {"confirmar": True})[0])) for _ in range(2)]
+            for h in hilos: h.start()
+            for _ in range(50):
+                if 409 in estados: break
+                import time as _t; _t.sleep(0.05)
+            lento.set()
+            for h in hilos: h.join(5)
+        self.assertEqual(sorted(estados), [200, 409])
+
+
+class TestResolucionDeOperador(unittest.TestCase):
+    """M5 de la auditoría 20/10: con mapa de operadores, el campo `operador` del cuerpo NO puede
+    identificar — el usuario del token compartido atribuía su veredicto a cualquier nombre."""
+
+    def test_sin_mapa_cae_al_cuerpo_con_tope(self):
+        self.assertEqual(tablero.resolver_operador(None, None, {"operador": "ana"}), "ana")
+        largo = tablero.resolver_operador(None, None, {"operador": "x" * 100000})
+        self.assertLessEqual(len(largo), 64)
+
+    def test_con_mapa_el_token_identifica(self):
+        ops = {"tok-ana": "ana"}
+        self.assertEqual(tablero.resolver_operador(ops, "Bearer tok-ana", {"operador": "mallory"}), "ana")
+
+    def test_con_mapa_un_token_no_mapeado_no_cae_al_cuerpo(self):
+        ops = {"tok-ana": "ana"}
+        self.assertIsNone(tablero.resolver_operador(ops, "Bearer compartido", {"operador": "mallory"}))
+
+    def test_sin_operador_en_ningun_sitio_es_none(self):
+        self.assertIsNone(tablero.resolver_operador(None, None, {}))
+
+
+class TestOrigenPorPuerto(unittest.TestCase):
+    """B1 de la auditoría: _HOSTS_OK ignoraba el puerto — cualquier página en localhost:<lo que sea>
+    (otro dashboard, un dev-server con XSS) pasaba el CORS y podía LEER y forzar la API."""
+
+    def _srv(self):
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), os.path.join(tempfile.mkdtemp(), "t.jsonl"),
+                                     puerto=0, estaticos=tempfile.mkdtemp())
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv.server_address[1]
+
+    def _get(self, puerto, origen):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", "/api/pendientes", headers={"Origin": origen})
+        r = c.getresponse(); r.read(); cab = dict(r.getheaders()); c.close()
+        return r.status, cab
+
+    def test_otro_puerto_local_no_recibe_cors(self):
+        puerto = self._srv()
+        _, cab = self._get(puerto, "http://localhost:4444")
+        self.assertNotIn("Access-Control-Allow-Origin", cab)
+
+    def test_el_propio_puerto_y_el_dev_si(self):
+        puerto = self._srv()
+        for origen in (f"http://localhost:{puerto}", "http://127.0.0.1:5173"):
+            _, cab = self._get(puerto, origen)
+            self.assertEqual(cab.get("Access-Control-Allow-Origin"), origen, origen)
+
+
+class Test500SinDetalle(unittest.TestCase):
+    def test_un_error_interno_no_filtra_la_excepcion(self):
+        # B5: los handlers devolvían str(e) — detalle interno (rutas, tipos) a cualquier cliente.
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), os.path.join(tempfile.mkdtemp(), "t.jsonl"),
+                                     puerto=0, estaticos=tempfile.mkdtemp())
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        c = http.client.HTTPConnection("127.0.0.1", srv.server_address[1], timeout=3)
+        c.request("POST", "/api/pausa", "[1, 2]", {"Content-Type": "application/json"})
+        r = c.getresponse(); cuerpo = json.loads(r.read()); c.close()
+        self.assertEqual(r.status, 500)
+        self.assertEqual(cuerpo["error"], "error interno")
 
 
 class TestHealthz(unittest.TestCase):

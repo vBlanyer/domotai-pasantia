@@ -11,6 +11,13 @@ filosofía de catálogo cerrado que RF-15).
 """
 from prototipo.analisis import CLASES
 
+
+def texto_terminal(t):
+    """Texto que viene de la alerta o de un export del cliente, seguro para la TERMINAL del
+    analista: los caracteres de control se sustituyen por «·» visible — una secuencia ANSI metida
+    en el log por el atacante podría alterar u ocultar lo que el operador ve (B3)."""
+    return "".join(c if (c >= " " and c != "\x7f") or c == "\t" else "·" for c in str(t))
+
 def filtro_legible(decision):
     """Qué significa para el analista el `resultado_filtro` (el valor de la traza no cambia). `veta`
     tiene dos lecturas según haya acción final: RETENIDA (se ejecuta si el analista aprueba) o VETADA

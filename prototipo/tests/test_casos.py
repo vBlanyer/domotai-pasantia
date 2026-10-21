@@ -66,3 +66,10 @@ class TestEstadoDeCasos(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestIdAcotado(unittest.TestCase):
+    def test_id_decision_hostil_se_acota(self):
+        # M5-relacionado: el id del cuerpo HTTP (hasta 64 KiB) no puede hinchar la cadena con
+        # registros huérfanos gigantes; los id reales (sN/dN) caben de sobra en 64.
+        r = casos.construir_actualizacion("x" * 100000, nota="n", ts="t")
+        self.assertLessEqual(len(r["id_decision"]), 64)

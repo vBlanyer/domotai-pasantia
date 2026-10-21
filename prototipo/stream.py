@@ -27,8 +27,11 @@ def _parsear(linea):
 def _resumen_incidente(inc):
     c = inc["clave"]
     reglas = ", ".join(f"{k}x{v}" for k, v in inc["reglas"].items())
-    return (f"⚠ Incidente: {inc['conteo']} alerta(s) · {c['origen_ip']} -> {c['activo']} "
-            f"({c['servicio']}) · reglas [{reglas}]")
+    # texto_terminal: estos campos vienen del log del atacante (B3: sin él, una secuencia ANSI
+    # podía alterar u ocultar lo que ve el analista en la terminal).
+    v = validacion.texto_terminal
+    return (f"⚠ Incidente: {inc['conteo']} alerta(s) · {v(c['origen_ip'])} -> {v(c['activo'])} "
+            f"({v(c['servicio'])}) · reglas [{v(reglas)}]")
 
 def _linea_decision(d):
     base = (f"  Clase: {d['clase']} · Prioridad: {d['prioridad']} · Confianza: {d['confianza']} · "
@@ -270,7 +273,8 @@ def _registro_descarte(entrada):
 
 def _linea_supresion(reg):
     c = reg["clave"]
-    return (f"↩ {c['origen_ip']} → {c.get('activo')} · {c['familia']} — ya decidido "
+    v = validacion.texto_terminal
+    return (f"↩ {v(c['origen_ip'])} → {v(c.get('activo'))} · {c['familia']} — ya decidido "
             f"({reg.get('desenlace') or reg['veredicto_previo'] or 'auto'}) "
             f"· +{reg['alertas_suprimidas']} suprimida(s) [ref {reg['referencia']}]")
 
@@ -500,7 +504,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
              resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
-             latido=None):
+             latido=None, actividad=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -517,8 +521,10 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     for k, v in _resumen_nuevo().items():
         resumen.setdefault(k, v)
     # Toda ejecución del MDR (lazo, resolutor web, escalada) pasa por aquí: se anota el nodo tocado
-    # para reconocer después el eco de su propio login.
-    actividad = ActividadMDR()          # tiempo de pared propio: no consume el reloj de la ventana
+    # para reconocer después el eco de su propio login. `actividad` puede venir COMPARTIDA del main
+    # (B7): el servidor web usa la misma instancia para que los SSH de /api/revertir-todo también
+    # se reconozcan y no se triajen como alertas fantasma.
+    actividad = actividad or ActividadMDR()   # tiempo de pared propio: no consume el reloj de la ventana
     ejecutor = actividad.envolver(ejecutor)
     # Con `ruta_traza`, la cadena bloquea y relee el fichero en cada escritura: la CLI de revertir
     # puede anotar una reversión en él con el daemon en marcha sin romper la cadena.
@@ -991,6 +997,10 @@ def banner(cfg, ejecutor=None):
     nombre = getattr(ejecutor, "__name__", "")
     lab = "simulado (--sin-lab)" if cfg["sin_lab"] else _NOMBRE_EJECUTOR.get(nombre, "conector SSH")
     ancla = f"anclada en {traza.ANCLA_DESTINO}" if traza.ANCLA_DESTINO else "SIN ancla (TRIAJE_ANCLA no definida)"
+    # B4: sin la clave, la cadena corre SIN firma (quien reescriba el fichero puede recalcularla) —
+    # una producción que olvide la variable no debe arrancar degradada en silencio.
+    if not os.environ.get("TRIAJE_TRAZA_CLAVE"):
+        ancla += " · SIN firma HMAC (TRIAJE_TRAZA_CLAVE no definida)"
     return ("\n" + "=" * 72 +
             "\n  Monitor MDR en tiempo real — ACTIVO"
             f"\n  Perfil: {os.path.basename(cfg['perfil'])} · Justificador: {just} · Ejecutor: {lab}"
@@ -1060,8 +1070,12 @@ def main(argv):
     resumen = _resumen_nuevo()         # lo rellena ejecutar(); sobrevive a Ctrl+C
     servidor, estado_web = None, None
     lector_incidente = None
+    # Compartida entre el lazo y el servidor web (B7): también los SSH que lanza el propio servidor
+    # (/api/revertir-todo) se anotan como actividad del MDR y su eco no se tria como alerta.
+    actividad = ActividadMDR()
     if cfg["web"]:
-        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo, ejecutor)
+        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo,
+                                                               actividad.envolver(ejecutor))
         for linea in lineas_avisos_red(perfil):
             print(linea)
         if not cfg["agente"]:
@@ -1100,7 +1114,7 @@ def main(argv):
                      nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
                      estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
                      lector_incidente=lector_incidente, memoria=memoria,
-                     latido=(servidor.latido if servidor else None))
+                     latido=(servidor.latido if servidor else None), actividad=actividad)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))

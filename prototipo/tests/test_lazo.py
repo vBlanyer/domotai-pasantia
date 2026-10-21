@@ -436,3 +436,16 @@ class TestEscaladaPorDefecto(unittest.TestCase):
         self.assertIn("iptables -D FORWARD -s 192.168.1.10 -j DROP", rev["comando_ejecutado"])
         self.assertTrue(all(ip == "192.168.1.1" for ip, _ in llamadas))   # nunca toca al host caido
 
+
+
+class TestPermisosDeLaTraza(unittest.TestCase):
+    def test_la_traza_batch_nace_sin_permisos_de_grupo_ni_otros(self):
+        # #5-low-b del pentest: la ruta batch abría la traza con 0644; la del daemon ya iba 0600.
+        import contextlib, io, tempfile
+        d = tempfile.mkdtemp()
+        alertas = os.path.join(d, "a.jsonl"); open(alertas, "w").close()
+        salida = os.path.join(d, "t.jsonl")
+        with contextlib.redirect_stdout(io.StringIO()):
+            lazo.main(["lazo", alertas, os.path.join(FX, "perfil.yml"),
+                       os.path.join(FX, "hallazgos.json"), salida, "--auto"])
+        self.assertEqual(os.stat(salida).st_mode & 0o077, 0)

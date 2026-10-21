@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getCaso, getPendientes, ahoraServidor, recordando, listaConocida } from "./api"
+import { revertirTodo, SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getCaso, getPendientes, ahoraServidor, recordando, listaConocida } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -299,5 +299,15 @@ describe("RedSchema", () => {
     const d = DecisionSchema.parse({ id_decision: "s1", relaciones: { "web-banking": ["objetivo"] }, contencion: "contenida", dispositivo: "fw-core" })
     expect(d.relaciones).toEqual({ "web-banking": ["objetivo"] })
     expect(d.dispositivo).toBe("fw-core")
+  })
+})
+
+describe("revertirTodo", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it("manda el gesto explícito (confirmar) que exige el backend", async () => {
+    const f = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ revertidas: 1, fallidas: 0 }) })
+    vi.stubGlobal("fetch", f)
+    await revertirTodo()
+    expect(JSON.parse(f.mock.calls[0][1].body)).toMatchObject({ confirmar: true })
   })
 })
