@@ -38,9 +38,15 @@ El manager de Wazuh ya corre en Docker plano (nunca fue un nodo de Containerlab)
 defaults del laboratorio:
 
 ```sh
-WAZUH_NOMBRE=portatil-wazuh WAZUH_RED=portatil_default WAZUH_PERMITIR=172.18.0.0/16 \
+# La subred de compose la asigna Docker (no se asume): se deriva para la lista blanca del syslog.
+SUBRED=$(docker network inspect portatil_default -f '{{(index .IPAM.Config 0).Subnet}}')
+# WAZUH_PUERTOS="": sin puertos publicados en el host (el syslog viaja por la red de compose),
+# así este manager convive con el del laboratorio si estuviera levantado.
+WAZUH_NOMBRE=portatil-wazuh WAZUH_RED=portatil_default WAZUH_PERMITIR="$SUBRED" WAZUH_PUERTOS="" \
   sh lab/scripts/wazuh-run.sh up
 ```
+
+`demo.sh down` también retira `portatil-wazuh` si quedó levantado.
 
 Con el manager arriba: arranca el reenviador del objetivo (`/opt/banco/reenviador.py`, ya está en
 la imagen) apuntando a la IP del manager, genera unos intentos de login fallidos de prueba contra

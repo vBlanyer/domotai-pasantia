@@ -15,12 +15,17 @@ GEN="$HERE/run/portatil"
 cd "$HERE"
 
 if [ "${1:-}" = "down" ]; then
+  # La variante viva (README) cuelga portatil-wazuh de la red de compose: si sigue ahí,
+  # `compose down` falla con «active endpoints» y no limpia nada. Se quita primero.
+  docker rm -f portatil-wazuh >/dev/null 2>&1 || true
   docker compose -f "$CF" down
   exit 0
 fi
 
 echo "== 1. Nodos (Docker plano) =="
-docker compose -f "$CF" up -d 2>&1 | tail -2
+# --build: con image:+build:, un tag viejo se reusa en silencio y la demo correría binarios
+# antiguos (la lección documentada del banco); reconstruir con caché cuesta segundos.
+docker compose -f "$CF" up -d --build
 # Se sondea el PUERTO, no el proceso: sshd reescribe su título («sshd: /usr/sbin/sshd …») y el
 # pgrep -x de busybox no lo casa. Con tope: si en 60 s no escucha, algo va mal y se dice.
 i=0
@@ -28,13 +33,22 @@ until docker exec portatil-objetivo nc -z 127.0.0.1 22 2>/dev/null; do
   i=$((i + 1)); [ $i -gt 60 ] && { echo "ERROR: sshd no escucha en el objetivo"; exit 1; }
   sleep 1
 done
-IP_OBJ=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' portatil-objetivo)
-IP_GES=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' portatil-gestion)
+IP_OBJ=$(docker inspect -f '{{(index .NetworkSettings.Networks "portatil_default").IPAddress}}' portatil-objetivo)
+IP_GES=$(docker inspect -f '{{(index .NetworkSettings.Networks "portatil_default").IPAddress}}' portatil-gestion)
+for ip in "$IP_OBJ" "$IP_GES"; do
+  # Una IP vacía o pegada (nodo en varias redes) envenenaría el perfil y el keyscan.
+  echo "$ip" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+    || { echo "ERROR: IP ilegible de docker inspect: '$ip'"; exit 1; }
+done
 echo "   objetivo=$IP_OBJ · gestion=$IP_GES"
 
 echo "== 2. Mínimo privilegio del conector (el script oficial, con sus comprobaciones) =="
-TRIAJE_NODO_GESTION=portatil-gestion \
-  sh "$HERE/lab/scripts/aprovisionar-minimo-privilegio.sh" portatil-objetivo "$IP_OBJ" | tail -4
+# Sin pipe a tail: POSIX sh no tiene pipefail y un fallo del aprovisionador quedaría
+# enmascarado — la demo seguiría SIN la garantía de mínimo privilegio.
+SALIDA_APROV=$(TRIAJE_NODO_GESTION=portatil-gestion \
+  sh "$HERE/lab/scripts/aprovisionar-minimo-privilegio.sh" portatil-objetivo "$IP_OBJ" 2>&1) \
+  || { echo "$SALIDA_APROV" | tail -15; echo "ERROR: el aprovisionamiento falló"; exit 1; }
+echo "$SALIDA_APROV" | tail -4
 
 echo "== 3. Perfil (el empresarial, con el activo apuntando al contenedor) y alerta normalizada =="
 mkdir -p "$GEN"
@@ -48,12 +62,15 @@ TRIAJE_NODO_GESTION=portatil-gestion TRIAJE_SSH_MODO=clave \
   python3 -m prototipo.lazo "$GEN/alertas.jsonl" "$GEN/perfil.yml" \
   "$HERE/lab/portatil/hallazgos.json" "$GEN/traza.jsonl"
 
+# El origen de la alerta de muestra (el «atacante»); -wF: literal y de palabra completa,
+# que 192.168.1.10 sin escapar casaría también 192.168.1.100.
+ATACANTE=192.168.1.10
 echo "== 5. La contención, vista desde DENTRO del objetivo =="
-if docker exec portatil-objetivo iptables -L INPUT -n | grep 192.168.1.10; then
+if docker exec portatil-objetivo iptables -L INPUT -n | grep -wF -- "$ATACANTE"; then
   echo "== 6. Reversión (cierra el ciclo) =="
   TRIAJE_NODO_GESTION=portatil-gestion TRIAJE_SSH_MODO=clave \
     python3 -m prototipo.revertir "$GEN/traza.jsonl" d0 --motivo "demo portátil: fin de la prueba"
-  if docker exec portatil-objetivo iptables -L INPUT -n | grep -q 192.168.1.10; then
+  if docker exec portatil-objetivo iptables -L INPUT -n | grep -qwF -- "$ATACANTE"; then
     echo "   ERROR: la regla sigue puesta"; exit 1
   fi
   echo "   objetivo limpio: la regla se quitó y quedó trazado"

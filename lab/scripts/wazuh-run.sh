@@ -16,13 +16,17 @@ IMG=wazuh/wazuh-manager:4.14.7
 NAME="${WAZUH_NOMBRE:-clab-red-cliente-wazuh}"
 NET="${WAZUH_RED:-clab}"
 PERMITIR="${WAZUH_PERMITIR:-172.20.20.0/24}"
+# Puertos publicados en el host: dos managers a la vez (lab + portátil) chocarían aquí. La
+# variante portátil los vacía (WAZUH_PUERTOS="") porque su syslog viaja por la red de compose.
+PUERTOS="${WAZUH_PUERTOS--p 1514:1514 -p 1515:1515 -p 514:514/udp -p 55000:55000}"
 
 case "${1:-up}" in
   up)
     docker rm -f "$NAME" >/dev/null 2>&1 || true
+    # $PUERTOS sin comillas a propósito: son varios argumentos -p (o ninguno, WAZUH_PUERTOS="").
     docker run -d --name "$NAME" --network "$NET" \
       --hostname wazuh \
-      -p 1514:1514 -p 1515:1515 -p 514:514/udp -p 55000:55000 \
+      $PUERTOS \
       "$IMG"
     echo "Wazuh manager arrancando..."
     # Esperar a analysisd y HABILITAR la recepcion de syslog remoto (no viene

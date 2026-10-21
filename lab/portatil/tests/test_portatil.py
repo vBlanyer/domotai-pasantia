@@ -57,6 +57,25 @@ class TestDemo(unittest.TestCase):
         self.assertIn("prototipo.ingesta", d)
         self.assertIn("prototipo.lazo", d)
 
+    def test_reconstruye_la_imagen(self):
+        # Lección ya documentada del banco: con image:+build:, un tag viejo se reusa en silencio
+        # y la demo corre binarios antiguos. `--build` fuerza la reconstrucción (cacheada).
+        self.assertIn("up -d --build", self._demo())
+
+    def test_el_grep_de_la_regla_es_literal_y_de_palabra(self):
+        # 192.168.1.10 sin escapar casa 192.168.1.100/109: -wF o se verifica otra regla.
+        self.assertIn("grep -wF", self._demo())
+
+    def test_down_limpia_tambien_el_wazuh_de_la_variante_viva(self):
+        # Si portatil-wazuh sigue en la red, `compose down` falla y no limpia nada.
+        self.assertIn("portatil-wazuh", self._demo())
+
+    def test_un_fallo_del_aprovisionador_detiene_la_demo(self):
+        # POSIX sh no tiene pipefail: `script | tail` enmascara el fallo del aprovisionador
+        # (la demo seguiría SIN la garantía de mínimo privilegio). Se captura el rc de verdad.
+        self.assertNotIn("aprovisionar-minimo-privilegio.sh\" portatil-objetivo \"$IP_OBJ\" | tail",
+                         self._demo())
+
 
 class TestDatosDeLaDemo(unittest.TestCase):
     def test_alerta_de_muestra_es_un_5760_sobre_objetivo_vuln(self):
@@ -85,6 +104,9 @@ class TestWazuhParametrizable(unittest.TestCase):
         self.assertIn("WAZUH_RED", s)
         self.assertIn("clab-red-cliente-wazuh", s)   # default intacto
         self.assertIn('NET="${WAZUH_RED:-clab}"', s)
+        # Los puertos publicados también: dos managers a la vez (lab + portátil) chocan en el
+        # host; la variante portátil los vacía (WAZUH_PUERTOS="") porque el syslog va por la red.
+        self.assertIn("WAZUH_PUERTOS", s)
 
 
 if __name__ == "__main__":
