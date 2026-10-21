@@ -1,4 +1,4 @@
-import contextlib, io, os, tempfile, unittest
+import contextlib, io, json, os, tempfile, unittest
 
 from prototipo import validar_reglas
 
@@ -72,6 +72,25 @@ class TestMainFrontera(unittest.TestCase):
                 rc = validar_reglas._main([ruta])
             self.assertEqual(rc, 0)
             self.assertIn("1 malformadas", salida.getvalue())
+        finally:
+            os.unlink(ruta)
+
+
+
+class TestSalidaSinEscapes(unittest.TestCase):
+    def test_un_grupo_hostil_no_inyecta_escapes_en_la_terminal(self):
+        # B3 de la auditoría: los grupos del export del cliente se imprimían tal cual — una
+        # secuencia ANSI podía alterar u ocultar lo que ve el operador en su terminal.
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            f.write(json.dumps({"id": "x", "rule": {"id": "99999", "level": 5,
+                                                    "groups": ["x\u001b[2Jy"]},
+                                "predecoder": {"hostname": "h"}}) + "\n")
+            ruta = f.name
+        try:
+            salida = io.StringIO()
+            with contextlib.redirect_stdout(salida):
+                validar_reglas._main([ruta])
+            self.assertNotIn("\x1b", salida.getvalue())
         finally:
             os.unlink(ruta)
 

@@ -350,7 +350,8 @@ export async function revertirTodo(): Promise<{ revertidas: number; fallidas: nu
     const operador = operadorActual()
     const r = await fetch(BASE + "/api/revertir-todo", {
       method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
-      body: JSON.stringify(operador ? { operador } : {}),
+      // confirmar: el backend exige el gesto explícito (B2) — el diálogo de la vista es el gesto.
+      body: JSON.stringify({ confirmar: true, ...(operador ? { operador } : {}) }),
     })
     if (!r.ok) return null
     return await r.json()

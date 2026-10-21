@@ -666,6 +666,25 @@ _DIR_ESTATICOS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "visor
 # con un nombre de dominio del atacante. En ambos casos se rechaza. (El puerto no se compara: el
 # hostname basta para distinguir al propio tablero del navegador de evil.com.)
 _HOSTS_OK = frozenset({"127.0.0.1", "localhost", "::1"})
+_revertir_todo_lock = threading.Lock()  # un solo des-bloqueo en masa a la vez (B2)
+
+
+def _origen_permitido(origen, puerto_srv):
+    """El Origin exacto que puede leer la API: el propio tablero (host loopback Y su puerto) y, solo
+    como OPT-IN (`TRIAJE_CORS_DEV=5173`), el visor en desarrollo — con el puerto dev siempre abierto,
+    cualquier proceso local podía ligarlo en producción y heredar el CORS. Comparar solo el host (B1)
+    dejaba a cualquier página en localhost:<otro> leer y forzar toda la API."""
+    try:
+        u = urllib.parse.urlsplit(origen)
+        if u.scheme not in ("http", "https") or u.hostname not in _HOSTS_OK:
+            return False
+        # dentro del try: urlsplit valida PEREZOSAMENTE y u.port lanza ValueError con un puerto
+        # malformado («:evil», fuera de rango) — el guard niega, no revienta el handler.
+        puerto = u.port if u.port is not None else (80 if u.scheme == "http" else 443)
+    except ValueError:
+        return False
+    dev = os.environ.get("TRIAJE_CORS_DEV", "")
+    return puerto == puerto_srv or (dev.isdigit() and puerto == int(dev))
 _MAX_CUERPO = 64 * 1024   # tope del cuerpo de un POST (anti-DoS por memoria): los legítimos son < 1 KiB
 
 
@@ -713,6 +732,18 @@ def operador_de(operadores, cabecera_authorization):
     return operadores.get(_token_de(cabecera_authorization)) or None
 
 
+def resolver_operador(operadores, cabecera_authorization, cuerpo):
+    """Quién firma la acción (no repudio, #8). CON mapa de operadores, SOLO el token identifica:
+    el campo `operador` del cuerpo es falseable, y aceptarlo dejaba al usuario del token compartido
+    atribuir su veredicto a cualquier nombre (M5). Sin mapa (None o VACÍO: construir_web normaliza
+    la config ausente/ilegible a {}), se cae al cuerpo (compat con la consola abierta), acotado."""
+    if isinstance(operadores, dict) and operadores:
+        return operador_de(operadores, cabecera_authorization)
+    del_cuerpo = cuerpo.get("operador") if isinstance(cuerpo, dict) else None
+    # Una sola regla de saneo/tope para el nombre del operador en toda la cadena (la de casos).
+    return (casos._limpiar(str(del_cuerpo), casos._TOPE_CAMPO) or None) if del_cuerpo else None
+
+
 class _Manejador(BaseHTTPRequestHandler):
     def log_message(self, *a):        # silencioso: el daemon ya imprime lo suyo
         pass
@@ -735,14 +766,14 @@ class _Manejador(BaseHTTPRequestHandler):
         # sitio que no es localhost, es una web de terceros forzando una acción. Sin Origin = cliente
         # no-navegador (curl, la propia herramienta): no es el vector entre-sitios, se permite.
         o = self.headers.get("Origin")
-        return o is None or _host_de(o) in _HOSTS_OK
+        return o is None or _origen_permitido(o, self.server.server_address[1])
 
     def _cors(self):
-        # NO '*': se refleja el Origin solo si es el propio tablero (localhost, cualquier puerto: cubre
-        # el visor en dev :5173 y el build servido en el mismo origen). Así una web de terceros no puede
-        # LEER las respuestas de la API (fuga del estado del SOC).
+        # NO '*': se refleja el Origin solo si es el propio tablero (su host loopback Y su puerto,
+        # más el visor en dev :5173). Así ni una web de terceros ni otra página LOCAL en otro
+        # puerto (B1) puede LEER las respuestas de la API (fuga del estado del SOC).
         o = self.headers.get("Origin")
-        if o and _host_de(o) in _HOSTS_OK:
+        if o and _origen_permitido(o, self.server.server_address[1]):
             self.send_header("Access-Control-Allow-Origin", o)
             self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -841,7 +872,9 @@ class _Manejador(BaseHTTPRequestHandler):
                 return self._responder({"error": "no encontrado"}, 404)
             return self._servir_archivo(ruta)          # el build de React (index.html + assets/)
         except Exception as e:            # nunca tumbar el servidor por un handler
-            return self._responder({"error": str(e)}, 500)
+            # B5: el detalle de la excepción va al stderr del operador, no al cliente HTTP.
+            print(f"[aviso] tablero: error interno en {self.path}: {type(e).__name__}: {e}", file=sys.stderr)
+            return self._responder({"error": "error interno"}, 500)
 
     def do_POST(self):
         # Guardia de seguridad ANTES de resolver nada (el POST ejecuta una contención real): Host del
@@ -866,17 +899,25 @@ class _Manejador(BaseHTTPRequestHandler):
             if not 0 <= n <= _MAX_CUERPO:
                 return self._responder({"error": "Content-Length fuera de rango"}, 413)
             cuerpo = json.loads(self.rfile.read(n) or b"{}")
-            # No repudio (#8): el operador lo da el TOKEN (autoritativo), no un campo que el cliente
-            # pueda falsear; sin mapa de operadores se cae al campo del cuerpo (compat/token compartido).
-            operador = (operador_de(getattr(s, "operadores", None), self.headers.get("Authorization"))
-                        or (str(cuerpo.get("operador")) if cuerpo.get("operador") else None))
+            operador = resolver_operador(getattr(s, "operadores", None),
+                                         self.headers.get("Authorization"), cuerpo)
             if ruta == "/api/pausa":      # kill switch (#8): fija la pausa global de la automatización
                 return self._responder({"pausada": s.estado.pausar(bool(cuerpo.get("pausar")))})
             if ruta == "/api/revertir-todo":   # des-bloqueo en masa (#8)
-                from prototipo import revertir, conector
-                ejecutor = getattr(s, "ejecutor", None) or conector.ejecutor_por_defecto()
-                res = revertir.revertir_todas(s.ruta_traza, s.catalogo, ejecutor,
-                                              motivo="des-bloqueo en masa (kill switch)", operador=operador)
+                # B2: levanta TODOS los bloqueos del atacante — exige el gesto explícito
+                # (`confirmar`) y solo UNO a la vez (dos concurrentes duplicaban los iptables -D).
+                if (cuerpo.get("confirmar") if isinstance(cuerpo, dict) else None) is not True:
+                    return self._responder({"error": "falta confirmar: true"}, 400)
+                if not _revertir_todo_lock.acquire(blocking=False):
+                    return self._responder({"error": "ya hay un des-bloqueo en curso"}, 409)
+                try:
+                    from prototipo import revertir, conector
+                    ejecutor = getattr(s, "ejecutor", None) or conector.ejecutor_por_defecto()
+                    res = revertir.revertir_todas(s.ruta_traza, s.catalogo, ejecutor,
+                                                  motivo="des-bloqueo en masa (kill switch)",
+                                                  operador=operador)
+                finally:
+                    _revertir_todo_lock.release()
                 return self._responder(res)
             if ruta == "/api/caso":   # ciclo de vida del caso: añade un `actualizacion_caso` a la cadena
                 try:
@@ -895,7 +936,10 @@ class _Manejador(BaseHTTPRequestHandler):
                 ok = s.estado.resolver(pid, resp)
             return self._responder({"ok": True}) if ok else self._responder({"error": "pendiente no vigente"}, 409)
         except Exception as e:
-            return self._responder({"error": str(e)}, 500)
+            # B5: el detalle de la excepción (rutas, tipos internos) va al stderr del operador,
+            # nunca al cliente HTTP.
+            print(f"[aviso] tablero: error interno en {self.path}: {type(e).__name__}: {e}", file=sys.stderr)
+            return self._responder({"error": "error interno"}, 500)
 
 
 _INTERNO_PENDIENTE = ("decision", "alerta", "clave", "orden", "desde")   # no se serializan a la web

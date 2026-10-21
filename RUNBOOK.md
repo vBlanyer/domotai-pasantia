@@ -90,6 +90,8 @@ daemon expone además `GET /healthz` con su propia salud (para un monitor).
   ```bash
   cd visor && npm install      # una sola vez
   npm run dev                  # Vite en http://127.0.0.1:5173 (habla con el daemon en :8787 por CORS)
+  # El daemon solo acepta ese origen dev si se le pide: arranca con  TRIAJE_CORS_DEV=5173
+  # (en producción el puerto dev NO está permitido: otro proceso local podría ligarlo y heredar el CORS)
   ```
 - **Reconstruir el visor** tras cambiar su código: `cd visor && npm run build` (genera `visor/dist`, que
   sirve el daemon).

@@ -200,3 +200,15 @@ class TestRecomendacion(unittest.TestCase):
                                            "ruta": None, "servicio": None, "nota": "login tras fuerza bruta"}}
         txt = validacion.mostrar(d, ALERTA)
         self.assertIn("cortar la conexión", txt)
+
+
+class TestTextoTerminal(unittest.TestCase):
+    def test_sustituye_c0_c1_y_bidi(self):
+        # Revisión de B3: los C1 de 8 bits (\x9b = CSI) y los overrides bidi (U+202E) también
+        # manipulan la terminal; el filtro `>= " "` los dejaba pasar.
+        v = validacion.texto_terminal
+        self.assertEqual(v("a\x1b[2Jb"), "a·[2Jb")
+        self.assertEqual(v("a\x9b2Jb"), "a·2Jb")
+        self.assertEqual(v("a‮b"), "a·b")
+        self.assertEqual(v("a\x7fb"), "a·b")
+        self.assertEqual(v("con\ttab y ñ"), "con\ttab y ñ")   # lo legítimo pasa intacto

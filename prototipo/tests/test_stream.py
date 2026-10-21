@@ -1360,9 +1360,6 @@ class TestAgenteEnModoWeb(unittest.TestCase):
         estado.resolver(estado.pendientes()[0]["id"], "s")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TestRobustezV11(unittest.TestCase):
     def test_lanzar_acotado_aplica_backpressure(self):
@@ -1468,6 +1465,55 @@ class TestValidarEscucha(unittest.TestCase):
         self.assertEqual(stream.validar_escucha("127.0.0.1:5514", None,
                                                 tls_cert="c.pem", tls_ca="ca.pem"),
                          ("127.0.0.1", 5514))
+
+
+
+
+class TestTerminalSinEscapes(unittest.TestCase):
+    def test_el_resumen_del_incidente_no_deja_pasar_escapes(self):
+        # B3: origen_ip/activo/servicio vienen del log del atacante; una secuencia ANSI podía
+        # alterar u ocultar lo que ve el analista en la terminal.
+        inc = {"clave": {"origen_ip": "1.2.3.4\x1b[2J", "activo": "srv\x1b]0;x\x07", "servicio": "ssh"},
+               "conteo": 1, "reglas": {"5760": 1}}
+        r = stream._resumen_incidente(inc)
+        self.assertNotIn("\x1b", r)
+        self.assertNotIn("\x07", r)
+
+
+class TestBannerClaveHmac(unittest.TestCase):
+    def test_avisa_si_falta_la_clave_de_la_traza(self):
+        # B4: sin TRIAJE_TRAZA_CLAVE la cadena corre sin firma; el banner avisaba del ancla
+        # pero no de la clave — una producción mal configurada arrancaba degradada en silencio.
+        from unittest import mock
+        cfg = stream.parsear_args([])
+        with mock.patch.dict(os.environ):
+            os.environ.pop("TRIAJE_TRAZA_CLAVE", None)
+            self.assertIn("TRIAJE_TRAZA_CLAVE", stream.banner(cfg))
+            os.environ["TRIAJE_TRAZA_CLAVE"] = "secreto"
+            self.assertNotIn("TRIAJE_TRAZA_CLAVE", stream.banner(cfg))
+
+
+class TestActividadCompartida(unittest.TestCase):
+    def test_ejecutar_usa_la_actividad_que_le_pasan(self):
+        # B7: el servidor web necesita el MISMO envoltorio ActividadMDR que el lazo; sin
+        # compartirlo, los SSH de /api/revertir-todo se triaban como alertas fantasma.
+        act = stream.ActividadMDR()
+        stream.ejecutar([_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
+                        justificar_fn=None, ventana_agrupacion=0, salida_traza=io.StringIO(),
+                        escribir=lambda *a, **k: None, leer=lambda *_: "1", actividad=act)
+        self.assertTrue(act._ultima)   # la ejecución quedó registrada en la instancia compartida
+
+
+class TestLineasDeTerminalSaneadas(unittest.TestCase):
+    def test_la_linea_de_error_y_la_de_actividad_propia_sin_escapes(self):
+        # Revisión de B3: estas dos líneas también interpolan campos del log del atacante.
+        reg_e = {"id_decision": "e1", "origen_ip": "1.1.1.1\x1b[2J", "activo": "a\x07",
+                 "error": "TypeError: \x1b]0;x\x07"}
+        reg_p = {"id_decision": "p1", "activo": "srv\x1b[2J", "alertas": 2}
+        for linea in (stream._linea_error(reg_e), stream._linea_propia(reg_p)):
+            self.assertNotIn("\x1b", linea)
+            self.assertNotIn("\x07", linea)
 
 
 if __name__ == "__main__":

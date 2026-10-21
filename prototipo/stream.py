@@ -27,8 +27,11 @@ def _parsear(linea):
 def _resumen_incidente(inc):
     c = inc["clave"]
     reglas = ", ".join(f"{k}x{v}" for k, v in inc["reglas"].items())
-    return (f"⚠ Incidente: {inc['conteo']} alerta(s) · {c['origen_ip']} -> {c['activo']} "
-            f"({c['servicio']}) · reglas [{reglas}]")
+    # texto_terminal: estos campos vienen del log del atacante (B3: sin él, una secuencia ANSI
+    # podía alterar u ocultar lo que ve el analista en la terminal).
+    v = validacion.texto_terminal
+    return (f"⚠ Incidente: {inc['conteo']} alerta(s) · {v(c['origen_ip'])} -> {v(c['activo'])} "
+            f"({v(c['servicio'])}) · reglas [{v(reglas)}]")
 
 def _linea_decision(d):
     base = (f"  Clase: {d['clase']} · Prioridad: {d['prioridad']} · Confianza: {d['confianza']} · "
@@ -268,9 +271,22 @@ def _registro_descarte(entrada):
                      f"humano (proponía {d.get('accion_final') or 'ninguna acción'})"}
 
 
+def _linea_error(reg):
+    # también estos campos vienen del log del atacante (y el error puede arrastrarlos) — B3
+    v = validacion.texto_terminal
+    return (f"✗ {reg['id_decision']}: no se pudo procesar el incidente de {v(reg['origen_ip'])} "
+            f"-> {v(reg['activo'])}: {v(reg['error'])}")
+
+
+def _linea_propia(reg):
+    return (f"↺ actividad propia del MDR en {validacion.texto_terminal(reg['activo'])} "
+            f"({reg['alertas']} alerta(s)): no es un ataque")
+
+
 def _linea_supresion(reg):
     c = reg["clave"]
-    return (f"↩ {c['origen_ip']} → {c.get('activo')} · {c['familia']} — ya decidido "
+    v = validacion.texto_terminal
+    return (f"↩ {v(c['origen_ip'])} → {v(c.get('activo'))} · {c['familia']} — ya decidido "
             f"({reg.get('desenlace') or reg['veredicto_previo'] or 'auto'}) "
             f"· +{reg['alertas_suprimidas']} suprimida(s) [ref {reg['referencia']}]")
 
@@ -500,7 +516,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
              resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
-             latido=None):
+             latido=None, actividad=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -517,8 +533,10 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     for k, v in _resumen_nuevo().items():
         resumen.setdefault(k, v)
     # Toda ejecución del MDR (lazo, resolutor web, escalada) pasa por aquí: se anota el nodo tocado
-    # para reconocer después el eco de su propio login.
-    actividad = ActividadMDR()          # tiempo de pared propio: no consume el reloj de la ventana
+    # para reconocer después el eco de su propio login. `actividad` puede venir COMPARTIDA del main
+    # (B7): el servidor web usa la misma instancia para que los SSH de /api/revertir-todo también
+    # se reconozcan y no se triajen como alertas fantasma.
+    actividad = actividad or ActividadMDR()   # tiempo de pared propio: no consume el reloj de la ventana
     ejecutor = actividad.envolver(ejecutor)
     # Con `ruta_traza`, la cadena bloquea y relee el fichero en cada escritura: la CLI de revertir
     # puede anotar una reversión en él con el daemon en marcha sin romper la cadena.
@@ -604,8 +622,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 # Barrera: un fallo con un incidente (un ejecutor que lanza, un dato inesperado) no
                 # tumba el daemon ni el visor; queda un registro 'error' encadenado y se sigue.
                 reg = _registro_error(inc, id_decision, e)
-                escribir(f"✗ {reg['id_decision']}: no se pudo procesar el incidente de {reg['origen_ip']} "
-                         f"-> {reg['activo']}: {reg['error']}")
+                escribir(_linea_error(reg))
                 escribir_traza(reg)
                 d = None
             if d is not None:
@@ -626,7 +643,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             if _es_actividad_propia(inc["representante"], perfil, actividad):
                 resumen["propias"] += 1
                 reg = _registro_propio(inc, f"p{resumen['propias']}")
-                escribir(f"↺ actividad propia del MDR en {reg['activo']} ({reg['alertas']} alerta(s)): no es un ataque")
+                escribir(_linea_propia(reg))
                 escribir_traza(reg)
                 continue
             # La rafaga del representante se toma al emitir el incidente, cuando la ventana ya
@@ -991,6 +1008,10 @@ def banner(cfg, ejecutor=None):
     nombre = getattr(ejecutor, "__name__", "")
     lab = "simulado (--sin-lab)" if cfg["sin_lab"] else _NOMBRE_EJECUTOR.get(nombre, "conector SSH")
     ancla = f"anclada en {traza.ANCLA_DESTINO}" if traza.ANCLA_DESTINO else "SIN ancla (TRIAJE_ANCLA no definida)"
+    # B4: sin la clave, la cadena corre SIN firma (quien reescriba el fichero puede recalcularla) —
+    # una producción que olvide la variable no debe arrancar degradada en silencio.
+    if not os.environ.get("TRIAJE_TRAZA_CLAVE"):
+        ancla += " · SIN firma HMAC (TRIAJE_TRAZA_CLAVE no definida)"
     return ("\n" + "=" * 72 +
             "\n  Monitor MDR en tiempo real — ACTIVO"
             f"\n  Perfil: {os.path.basename(cfg['perfil'])} · Justificador: {just} · Ejecutor: {lab}"
@@ -1036,7 +1057,11 @@ def main(argv):
     catalogo = catm.cargar_catalogo(os.path.join(_RAIZ, "prototipo", "catalogo.yml"))
     justificar_fn = construir_justificar_fn(cfg["con_llm"])
     ejecutor = lazo._EjecutorAuto() if cfg["sin_lab"] else conector.ejecutor_por_defecto()
-    mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, ejecutor, hallazgos=hallazgos)
+    # Compartida por TODO lo que ejecuta SSH (lazo, servidor web, agente): su eco de login se
+    # reconoce como actividad propia y no se triaja como alerta fantasma (B7).
+    actividad = ActividadMDR()
+    mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, actividad.envolver(ejecutor),
+                                      hallazgos=hallazgos)
     if cfg["escuchar"]:                                  # #1: recibir alertas por red del SIEM
         from prototipo import receptor
         host, puerto = validar_escucha(cfg["escuchar"], cfg["permitir"],
@@ -1061,7 +1086,8 @@ def main(argv):
     servidor, estado_web = None, None
     lector_incidente = None
     if cfg["web"]:
-        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo, ejecutor)
+        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo,
+                                                               actividad.envolver(ejecutor))
         for linea in lineas_avisos_red(perfil):
             print(linea)
         if not cfg["agente"]:
@@ -1100,7 +1126,7 @@ def main(argv):
                      nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
                      estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
                      lector_incidente=lector_incidente, memoria=memoria,
-                     latido=(servidor.latido if servidor else None))
+                     latido=(servidor.latido if servidor else None), actividad=actividad)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))

@@ -64,5 +64,21 @@ class TestEstadoDeCasos(unittest.TestCase):
         self.assertEqual(casos.estado_de_casos(regs), {})
 
 
+class TestIdAcotado(unittest.TestCase):
+    def test_id_decision_hostil_se_acota(self):
+        # M5-relacionado: el id del cuerpo HTTP (hasta 64 KiB) no puede hinchar la cadena con
+        # registros huérfanos gigantes; los id reales (sN/dN) caben de sobra en 64.
+        r = casos.construir_actualizacion("x" * 100000, nota="n", ts="t")
+        self.assertLessEqual(len(r["id_decision"]), 64)
+
+
+class TestIdExacto(unittest.TestCase):
+    def test_el_tope_no_muta_el_id(self):
+        # Revisión: _limpiar colapsaba espacios internos — el registro quedaba archivado bajo una
+        # clave REESCRITA y GET /api/caso/<id> ya no lo encontraba (huérfano). Acotar sin mutar.
+        r = casos.construir_actualizacion("a  b", nota="n", ts="t")
+        self.assertEqual(r["id_decision"], "a  b")
+
+
 if __name__ == "__main__":
     unittest.main()

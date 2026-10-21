@@ -14,7 +14,7 @@ import collections
 import json
 import sys
 
-from prototipo import adaptador_wazuh, familias, ingesta
+from prototipo import adaptador_wazuh, familias, ingesta, validacion
 
 
 def cobertura(crudas, campaña="validacion"):
@@ -90,7 +90,8 @@ def _main(argv):
             if clave in vistos:
                 continue
             vistos.add(clave)
-            print(f"  regla {s['regla_id']} · grupos {s['grupos']}")
+            # regla_id/grupos vienen del export del cliente: sin control chars en la terminal (B3)
+            print(validacion.texto_terminal(f"  regla {s['regla_id']} · grupos {s['grupos']}"))
     return 0
 
 

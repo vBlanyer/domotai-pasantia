@@ -28,7 +28,10 @@ def construir_actualizacion(id_decision, estado=None, asignado=None, nota=None, 
     if not (estado or nota_l or asig_l):
         raise ValueError("actualización de caso vacía: nada que anotar")
     return {"tipo": "actualizacion_caso",
-            "id_decision": str(id_decision) if id_decision else None,
+            # Acotado SIN mutar (truncado plano): el id viene del cuerpo HTTP (hasta 64 KiB) y los
+            # reales (sN/dN) son cortos. _limpiar colapsaría espacios y el registro quedaría bajo
+            # una clave reescrita que GET /api/caso/<id> ya no encontraría.
+            "id_decision": str(id_decision)[:_TOPE_CAMPO] if id_decision else None,
             "estado": estado, "asignado": asig_l, "nota": nota_l,
             "operador": _limpiar(operador, _TOPE_CAMPO) or None, "decidido_en": ts}
 

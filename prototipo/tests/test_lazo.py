@@ -436,3 +436,49 @@ class TestEscaladaPorDefecto(unittest.TestCase):
         self.assertIn("iptables -D FORWARD -s 192.168.1.10 -j DROP", rev["comando_ejecutado"])
         self.assertTrue(all(ip == "192.168.1.1" for ip, _ in llamadas))   # nunca toca al host caido
 
+
+
+class TestPermisosDeLaTraza(unittest.TestCase):
+    def test_la_traza_batch_nace_sin_permisos_de_grupo_ni_otros(self):
+        # #5-low-b del pentest: la ruta batch abría la traza con 0644; la del daemon ya iba 0600.
+        import contextlib, io, tempfile
+        d = tempfile.mkdtemp()
+        alertas = os.path.join(d, "a.jsonl"); open(alertas, "w").close()
+        salida = os.path.join(d, "t.jsonl")
+        with contextlib.redirect_stdout(io.StringIO()):
+            lazo.main(["lazo", alertas, os.path.join(FX, "perfil.yml"),
+                       os.path.join(FX, "hallazgos.json"), salida, "--auto"])
+        self.assertEqual(os.stat(salida).st_mode & 0o077, 0)
+
+
+class TestFronteraDeFicheros(unittest.TestCase):
+    def test_una_entrada_inexistente_no_trunca_la_traza_previa(self):
+        # Revisión: abrir la salida con O_TRUNC ANTES que la entrada destruía una traza existente
+        # cuando la ruta de alertas estaba mal escrita.
+        import tempfile
+        d = tempfile.mkdtemp()
+        salida = os.path.join(d, "t.jsonl")
+        with open(salida, "w", encoding="utf-8") as f:
+            f.write("{\"previa\": true}\n")
+        with self.assertRaises(FileNotFoundError):
+            lazo.main(["lazo", os.path.join(d, "no-existe.jsonl"), os.path.join(FX, "perfil.yml"),
+                       os.path.join(FX, "hallazgos.json"), salida, "--auto"])
+        with open(salida, encoding="utf-8") as f:
+            self.assertIn("previa", f.read())            # intacta
+
+    def test_rehacer_una_traza_vieja_0644_la_deja_0600(self):
+        # Revisión: O_TRUNC no cambia los permisos de un inodo existente — una traza 0644 de antes
+        # del arreglo seguía legible por el grupo al regenerarla. fchmod cierra el caso común.
+        import contextlib, io, tempfile
+        d = tempfile.mkdtemp()
+        alertas = os.path.join(d, "a.jsonl"); open(alertas, "w").close()
+        salida = os.path.join(d, "t.jsonl")
+        open(salida, "w").close(); os.chmod(salida, 0o644)
+        with contextlib.redirect_stdout(io.StringIO()):
+            lazo.main(["lazo", alertas, os.path.join(FX, "perfil.yml"),
+                       os.path.join(FX, "hallazgos.json"), salida, "--auto"])
+        self.assertEqual(os.stat(salida).st_mode & 0o077, 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

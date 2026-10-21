@@ -51,7 +51,7 @@ Requieren `Origin` localhost (si viene de navegador) y token si está configurad
 | `POST /api/aprobar` | `{id, respuesta, paso?, operador?}` | `{ok:true}` · `409` si la decisión ya no está vigente (la resolvió otro o cambió el menú). `respuesta` = la opción del menú (`"s"`/`""` en escaladas; nº de opción / clase al reclasificar). |
 | `POST /api/caso` | `{id, estado?, asignado?, nota?, operador?}` | `{ok:true}` · `400` si `estado` no es válido o la actualización está vacía · `409` en modo bloqueante. `estado` ∈ `{nuevo, en_revision, resuelto}`. Añade un registro `actualizacion_caso` **encadenado** (no muta la decisión). |
 | `POST /api/pausa` | `{pausar: bool}` | `{pausada: bool}`. *Kill switch*: con `true`, toda contención automática pasa a esperar humano. |
-| `POST /api/revertir-todo` | `{}` | Resultado del **des-bloqueo en masa** (revierte todas las contenciones activas). |
+| `POST /api/revertir-todo` | `{confirmar: true, operador?}` | Resultado del **des-bloqueo en masa** (revierte todas las contenciones activas). Sin `confirmar: true` → `400` (gesto explícito: levanta todos los bloqueos del atacante); si ya hay uno en curso → `409` (exclusión mutua). |
 
 ## Códigos de estado
 
