@@ -10,8 +10,12 @@
 # Uso:   sh lab/scripts/wazuh-run.sh up | down | logs | alerts | mem
 set -e
 IMG=wazuh/wazuh-manager:4.14.7
-NAME=clab-red-cliente-wazuh
-NET=clab
+# Parametrizable para reusarlo FUERA del laboratorio clab (única fuente del arranque del manager:
+# la demo portátil lo llama con WAZUH_NOMBRE=portatil-wazuh WAZUH_RED=portatil_default
+# WAZUH_PERMITIR=172.18.0.0/16). Sin variables, los defaults de siempre: nada cambia para el lab.
+NAME="${WAZUH_NOMBRE:-clab-red-cliente-wazuh}"
+NET="${WAZUH_RED:-clab}"
+PERMITIR="${WAZUH_PERMITIR:-172.20.20.0/24}"
 
 case "${1:-up}" in
   up)
@@ -27,9 +31,9 @@ case "${1:-up}" in
     docker cp "$(dirname "$0")/../wazuh/local_decoder_telnetd.xml" "$NAME":/tmp/local_decoder_telnetd.xml
     docker cp "$(dirname "$0")/../wazuh/local_rules_banco.xml" "$NAME":/tmp/local_rules_banco.xml
     docker cp "$(dirname "$0")/../wazuh/local_decoder_banco.xml" "$NAME":/tmp/local_decoder_banco.xml
-    docker exec "$NAME" sh -c '
+    docker exec -e PERMITIR="$PERMITIR" "$NAME" sh -c '
       grep -q "<connection>syslog" /var/ossec/etc/ossec.conf 2>/dev/null || \
-      sed -i "s|</ossec_config>|  <remote>\n    <connection>syslog</connection>\n    <port>514</port>\n    <protocol>udp</protocol>\n    <allowed-ips>172.20.20.0/24</allowed-ips>\n  </remote>\n</ossec_config>|" /var/ossec/etc/ossec.conf
+      sed -i "s|</ossec_config>|  <remote>\n    <connection>syslog</connection>\n    <port>514</port>\n    <protocol>udp</protocol>\n    <allowed-ips>${PERMITIR}</allowed-ips>\n  </remote>\n</ossec_config>|" /var/ossec/etc/ossec.conf
       # Regla local del ANCLA de la traza (prototipo/traza.py): el servicio envia el hash de cada
       # registro como syslog y el manager lo guarda en alerts.json, fuera del alcance de quien
       # pueda tocar el fichero de la traza. program_name, no match: el pre-decodificador quita el

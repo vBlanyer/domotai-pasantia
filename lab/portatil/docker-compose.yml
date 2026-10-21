@@ -1,0 +1,27 @@
+# Demo portátil del MDR: el ciclo de contención completo en Docker PLANO (sin Containerlab).
+# Los nodos se construyen de la imagen del banco (lab/banco/Dockerfile), así que la demo es
+# reproducible en una máquina limpia con solo Docker: `sh lab/portatil/demo.sh`. Ver README.md.
+#
+# Qué NO cubre: la topología enrutada del banco (fw-core como punto de contención del borde,
+# cascadas, bloqueo de egreso). Eso sigue siendo del laboratorio Containerlab.
+name: portatil
+
+services:
+  # Nodo de gestión del conector: guarda la clave SSH del mínimo privilegio; el conector entra
+  # aquí por `docker exec` (TRIAJE_NODO_GESTION=portatil-gestion) y desde aquí sale el SSH.
+  gestion:
+    image: banco-nodo:1
+    build: ../banco
+    container_name: portatil-gestion
+    command: sleep infinity
+
+  # Host monitorizado sobre el que se contiene (sshd + usuario triaje + sudoers del catálogo).
+  objetivo:
+    image: banco-nodo:1
+    build: ../banco
+    container_name: portatil-objetivo
+    # Sin CAP_NET_ADMIN, iptables falla («you must be root») aunque el sudo funcione:
+    # Containerlab se la concede a sus nodos sin pedirla; Docker plano no (spike 21/10).
+    cap_add:
+      - NET_ADMIN
+    command: sh -c "mkdir -p /var/log/banco && /usr/sbin/sshd -E /var/log/banco/sshd.log && sleep infinity"

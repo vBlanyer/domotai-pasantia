@@ -267,9 +267,21 @@ unset TRIAJE_NODO_GESTION AUDITOR_PUERTOS
 
 ---
 
-## 8. Alternativa: la red pequeña (sin banco)
+## 8. Alternativas: la red pequeña y la demo portátil
 
-El motor también corre sobre la red pequeña del cliente (Metasploitable + Wazuh):
+**Demo portátil (sin Containerlab):** el ciclo completo —decisión, aprobación humana, contención
+SSH real, verificación y reversión— corre en **Docker plano** en cualquier máquina, construyendo la
+imagen sola. Es la prueba de portabilidad (no sustituye al banco: sin topología enrutada):
+
+```bash
+sh lab/portatil/demo.sh          # ciclo completo; responde 1 para aprobar
+sh lab/portatil/demo.sh down     # apagar
+```
+
+Ver [lab/portatil/README.md](lab/portatil/README.md) (incluye la variante viva con Wazuh).
+
+**La red pequeña (sin banco):** el motor también corre sobre la red pequeña del cliente
+(Metasploitable + Wazuh):
 
 ```bash
 sh lab/lab.sh up                                    # topología red-cliente
@@ -284,8 +296,8 @@ No conviven las dos redes a la vez (comparten la red de gestión); `lab.sh` lo p
 ## 9. Probar las suites (antes de fusionar)
 
 ```bash
-# Núcleo Python (motor, evaluación, dataset, banco)
-for d in prototipo/tests evaluacion/tests lab/dataset/tests lab/banco/tests; do \
+# Núcleo Python (motor, evaluación, dataset, banco, demo portátil)
+for d in prototipo/tests evaluacion/tests lab/dataset/tests lab/banco/tests lab/portatil/tests; do \
   PYTHONPATH=. python3 -m unittest discover -s "$d" -t . 2>&1 | tail -1; done
 
 # Visor React

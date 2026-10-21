@@ -67,6 +67,15 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   aviso de «últimas N de M decisiones»; KPI «esperando aprobación» clicable; matriz ATT&CK completa
   al imprimir el informe; tooltip de los gráficos con el tema oscuro.
 
+### Añadido (portabilidad)
+- **`lab/portatil/`: la demo en Docker plano, sin Containerlab** — compose de dos nodos (gestión +
+  objetivo, construidos del Dockerfile del banco) y `demo.sh` con el ciclo completo: alerta real
+  grabada → decisión → aprobación humana → `BLOQUEAR_IP` por SSH con el mínimo privilegio oficial →
+  verificación → reversión. Validado de punta a punta (21/10). Lecciones de plataforma documentadas:
+  el objetivo necesita `CAP_NET_ADMIN`; la dependencia del conector es Docker (no Containerlab);
+  el lazo por lotes consume alertas normalizadas. `wazuh-run.sh` ahora es parametrizable
+  (`WAZUH_NOMBRE`/`WAZUH_RED`/`WAZUH_PERMITIR`, defaults del lab intactos) para la variante viva.
+
 ### Documentación (barrido de la auditoría 20/10)
 - Desfases corregidos en los docs vivos: RUNBOOK §3C ya describe las **10 familias / 13 ataques** del
   lanzador y §7 recoge la lección de Wazuh (el guard no recarga reglas nuevas en un manager vivo; la
