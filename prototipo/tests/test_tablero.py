@@ -718,6 +718,10 @@ class TestRevertirTodoAPI(unittest.TestCase):
         self.assertEqual(estado, 200)
         self.assertEqual(cuerpo["revertidas"], 1)
         self.assertEqual(cuerpo["fallidas"], 0)
+        # y la Consola lo narra (caja negra): el des-bloqueo en masa deja su línea ↶ en el feed
+        _, lineas = srv.estado.consola()
+        self.assertTrue(any(l["linea"].startswith("↶ des-bloqueo en masa: 1 revertida(s)")
+                            for l in lineas), lineas)
         # y queda registrado en la traza, con la cadena íntegra
         regs = traza.leer_registros(ruta)
         self.assertTrue(any(r.get("tipo") == "reversion" and r.get("operador") == "ana" for r in regs))

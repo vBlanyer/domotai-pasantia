@@ -243,6 +243,15 @@ describe("clasificarLinea", () => {
     expect(clasificarLinea("↺ actividad propia del MDR en srv")).toBe("propia")
     expect(clasificarLinea("[aviso] receptor: conexión rechazada")).toBe("aviso")
     expect(clasificarLinea("[red] escuchando alertas en 0.0.0.0:5514")).toBe("aviso")
+    // narración de la caja negra: la ejecución de la respuesta y sus detalles
+    expect(clasificarLinea("▶ s12 BLOQUEAR_IP en objetivo-vuln (…): iptables -A …")).toBe("ejecucion")
+    expect(clasificarLinea("✔ s12 verificada — contenida")).toBe("ejecucion")
+    expect(clasificarLinea("⇪ s12 el activo no respondió → fw-core")).toBe("ejecucion")
+    expect(clasificarLinea("↶ des-bloqueo en masa: 3 revertida(s)")).toBe("ejecucion")
+    // la verificación FALLIDA es narración de la respuesta, no un error de proceso (revisión)
+    expect(clasificarLinea("✗ s12 NO verificada: la contención no se confirmó")).toBe("ejecucion")
+    expect(clasificarLinea("✗ e3: no se pudo procesar el incidente")).toBe("error")
+    expect(clasificarLinea("· s12 política: retenida — bloquea a puesto")).toBe("detalle")
     expect(clasificarLinea("cualquier otra cosa")).toBe("otro")
   })
 })
@@ -255,8 +264,14 @@ describe("filtrarConsola", () => {
     expect(filtrarConsola(lineas, "avisos", "").map((l) => l.n)).toEqual([3])
     expect(filtrarConsola(lineas, "todo", "vp_x").map((l) => l.n)).toEqual([2])
   })
-  it("el grupo decisiones incluye la decisión y la supresión", () => {
-    const ls = [L("  Clase: vp_x", 1), L("↩ repetida", 2), L("⚠ Incidente", 3)]
-    expect(filtrarConsola(ls, "decisiones", "").map((l) => l.n)).toEqual([1, 2])
+  it("el grupo decisiones incluye la decisión, la supresión y el detalle", () => {
+    const ls = [L("  Clase: vp_x", 1), L("↩ repetida", 2), L("⚠ Incidente", 3), L("· s1 política: x", 4)]
+    expect(filtrarConsola(ls, "decisiones", "").map((l) => l.n)).toEqual([1, 2, 4])
+  })
+
+  it("el grupo ejecución aísla la respuesta sobre la red", () => {
+    const ls = [L("▶ s1 BLOQUEAR_IP …", 1), L("✔ s1 verificada", 2), L("⚠ Incidente", 3),
+                L("↶ des-bloqueo en masa", 4)]
+    expect(filtrarConsola(ls, "ejecucion", "").map((l) => l.n)).toEqual([1, 2, 4])
   })
 })

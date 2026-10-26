@@ -36,23 +36,29 @@ export function colorClase(clase: string, paleta: string[]): string {
 
 // Vista «Consola»: clasificación PURA de cada línea del feed del daemon, por los prefijos reales
 // que emiten stream._resumen_incidente / _linea_* (los filtros de la vista agrupan por esto).
-export type TipoLinea = "incidente" | "decision" | "supresion" | "error" | "propia" | "aviso" | "otro"
+export type TipoLinea = "incidente" | "decision" | "supresion" | "error" | "propia" | "aviso" | "ejecucion" | "detalle" | "otro"
 export type LineaConsola = { n: number; t: string; linea: string }
 
 export function clasificarLinea(linea: string): TipoLinea {
   if (linea.startsWith("⚠")) return "incidente"
   if (linea.startsWith("  Clase:") || linea.startsWith("⏸")) return "decision"
   if (linea.startsWith("↩")) return "supresion"
+  // ✗ es ambiguo: la verificación fallida es narración de la RESPUESTA; el resto, error de proceso
+  if (/^✗ \S+ NO verificada/.test(linea)) return "ejecucion"
   if (linea.startsWith("✗")) return "error"
   if (linea.startsWith("↺")) return "propia"
   if (linea.startsWith("[aviso]") || linea.startsWith("[red]")) return "aviso"
+  // narración de la caja negra: ▶ orden ejecutada, ✔/⇪ verificación/escalada, ↶ reversión, · detalle
+  if (/^[▶✔⇪↶]/.test(linea)) return "ejecucion"
+  if (linea.startsWith("· ")) return "detalle"
   return "otro"
 }
 
 // Grupos de los chips de filtro -> tipos que incluyen. «todo» no filtra.
 const GRUPOS_CONSOLA: Record<string, TipoLinea[]> = {
-  decisiones: ["decision", "supresion"],
+  decisiones: ["decision", "supresion", "detalle"],
   incidentes: ["incidente"],
+  ejecucion: ["ejecucion"],
   avisos: ["aviso", "error"],
 }
 
