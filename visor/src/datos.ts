@@ -50,6 +50,11 @@ export function clasificarLinea(linea: string): TipoLinea {
   if (linea.startsWith("[aviso]") || linea.startsWith("[red]")) return "aviso"
   // narración de la caja negra: ▶ orden ejecutada, ✔/⇪ verificación/escalada, ↶ reversión, · detalle
   if (/^[▶✔⇪↶]/.test(linea)) return "ejecucion"
+  // diario del operador: ✓/✋/↻ veredicto humano (↻ no es ↺, la actividad propia), ☰ ciclo de caso,
+  // ⏻ kill switch y [inicio] el contexto del arranque
+  if (/^[✓✋↻]/.test(linea)) return "decision"
+  if (linea.startsWith("☰")) return "detalle"
+  if (linea.startsWith("⏻") || linea.startsWith("[inicio]")) return "aviso"
   if (linea.startsWith("· ")) return "detalle"
   return "otro"
 }

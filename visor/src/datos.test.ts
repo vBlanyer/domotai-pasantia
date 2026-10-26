@@ -254,6 +254,17 @@ describe("clasificarLinea", () => {
     expect(clasificarLinea("· s12 política: retenida — bloquea a puesto")).toBe("detalle")
     expect(clasificarLinea("cualquier otra cosa")).toBe("otro")
   })
+
+  it("reconoce el diario del operador: veredictos, kill switch, caso y arranque", () => {
+    expect(clasificarLinea("✓ s12 aprobada por ana → ejecutando BLOQUEAR_IP")).toBe("decision")
+    expect(clasificarLinea("✋ s12 rechazada por ana — retenida sin ejecutar")).toBe("decision")
+    expect(clasificarLinea("↻ s12 reclasificada por luis: vp_x → fp_y — retenida sin ejecutar")).toBe("decision")
+    // ↻ (veredicto) no es ↺ (actividad propia): son flechas distintas
+    expect(clasificarLinea("↺ actividad propia del MDR en srv")).toBe("propia")
+    expect(clasificarLinea("☰ s1 caso: estado → en_revision · por ana")).toBe("detalle")
+    expect(clasificarLinea("⏻ automatización EN PAUSA — toda contención espera al humano · por ana")).toBe("aviso")
+    expect(clasificarLinea("[inicio] monitor activo · perfil cliente_generico.yml")).toBe("aviso")
+  })
 })
 
 describe("filtrarConsola", () => {

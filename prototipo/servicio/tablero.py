@@ -57,12 +57,18 @@ class EstadoTablero:
         self._descartador = None           # fn(entrada): traza el desalojo por tope (RF-09, nada en silencio)
         self._pausada = False              # kill switch (#8): con True, toda auto-ejecución pasa a esperar humano
 
-    def pausar(self, valor):
+    def pausar(self, valor, operador=None):
         """Activa/desactiva la pausa global de la automatización (#8). Estado de sesión en memoria:
-        un reinicio del daemon la limpia."""
+        un reinicio del daemon la limpia. Narra en la Consola solo el CAMBIO (quién pulsó el kill
+        switch importa en el diario; un reenvío idempotente no hace ruido)."""
         with self._lock:
-            self._pausada = bool(valor)
-        return self._pausada
+            antes, self._pausada = self._pausada, bool(valor)
+            ahora = self._pausada
+        if antes != ahora:   # fuera del lock: anotar_linea lo toma
+            self.anotar_linea(("⏻ automatización EN PAUSA — toda contención espera al humano"
+                               if ahora else "⏻ automatización reanudada")
+                              + (f" · por {operador}" if operador else ""))
+        return ahora
 
     def pausada(self):
         with self._lock:
@@ -925,7 +931,8 @@ class _Manejador(BaseHTTPRequestHandler):
             operador = resolver_operador(getattr(s, "operadores", None),
                                          self.headers.get("Authorization"), cuerpo)
             if ruta == "/api/pausa":      # kill switch (#8): fija la pausa global de la automatización
-                return self._responder({"pausada": s.estado.pausar(bool(cuerpo.get("pausar")))})
+                return self._responder({"pausada": s.estado.pausar(bool(cuerpo.get("pausar")),
+                                                                   operador=operador)})
             if ruta == "/api/revertir-todo":   # des-bloqueo en masa (#8)
                 # B2: levanta TODOS los bloqueos del atacante — exige el gesto explícito
                 # (`confirmar`) y solo UNO a la vez (dos concurrentes duplicaban los iptables -D).
@@ -953,6 +960,15 @@ class _Manejador(BaseHTTPRequestHandler):
                                                   operador=operador)
                 except ValueError as e:
                     return self._responder({"error": str(e)}, 400)   # estado inválido o actualización vacía
+                if ok:   # el ciclo de caso también es diario del operador (anotar_linea sanea B3)
+                    # id/asignado vienen del cuerpo HTTP (hasta 64 KiB): acotados como en la traza.
+                    idd = str(cuerpo.get("id"))[:casos._TOPE_CAMPO] if cuerpo.get("id") else "?"
+                    asig = casos._limpiar(cuerpo.get("asignado"), casos._TOPE_CAMPO)
+                    partes = [f"estado → {cuerpo.get('estado')}" if cuerpo.get("estado") else None,
+                              f"asignado a {asig}" if asig else None,
+                              "nota añadida" if cuerpo.get("nota") else None,
+                              f"por {operador}" if operador else None]
+                    s.estado.anotar_linea(f"☰ {idd} caso: " + " · ".join(p for p in partes if p))
                 return self._responder({"ok": True}) if ok else self._responder({"error": "no disponible en este modo"}, 409)
             pid, resp = str(cuerpo.get("id")), str(cuerpo.get("respuesta", ""))
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.

@@ -57,6 +57,30 @@ def _linea_decision(d):
         base += f"\n  Enrutado a: {d.get('ruta')} (triaje sin contencion automatica)"
     return base
 
+
+def _linea_veredicto(d):
+    """El gesto del humano narrado (quién decidió y qué): aprobar/rechazar/reclasificar la tarjeta,
+    o el veredicto de un salto de escalada (el último gesto manda: la aprobación previa quedó
+    diferida al escalar). Formateador PURO sobre el registro; None en el camino automático.
+    texto_terminal en lo que puede venir del cuerpo HTTP (B3): el nombre del operador."""
+    v = validacion.texto_terminal
+    i = d.get("id_decision", "")
+    quien = f" por {v(str(d['veredicto_por']))}" if d.get("veredicto_por") else ""
+    ve = d.get("veredicto_escalada")
+    if ve:
+        return (f"✓ {i} escalada aprobada{quien}" if ve == "aprobar"
+                else f"✋ {i} escalada rechazada{quien} — el salto no se ejecuta")
+    vh = d.get("veredicto_humano")
+    if vh == "aprobar":
+        acc = d.get("accion_final")
+        return f"✓ {i} aprobada{quien}" + (f" → ejecutando {acc}" if acc else "")
+    if vh == "rechazar":
+        return f"✋ {i} rechazada{quien} — retenida sin ejecutar"
+    if vh == "reclasificar":
+        return (f"↻ {i} reclasificada{quien}: {d.get('clase')} → "
+                f"{v(str(d.get('clase_reclasificada')))} — retenida sin ejecutar")
+    return None
+
 # --------------------------------------------------------------------- bucle --
 
 def _clave_supresion(fuente):
@@ -372,6 +396,9 @@ def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecuto
         for l in _lineas_porque(d):              # el porqué espera CON la tarjeta (caja negra)
             escribir(l)
         return d
+    lv = _linea_veredicto(d)          # camino bloqueante: el veredicto del terminal también se narra
+    if lv:
+        escribir(lv)
     escribir(_linea_decision(d))
     for l in _lineas_porque(d) + _lineas_ejecucion(d):   # señales, política y respuesta narradas
         escribir(l)
@@ -438,6 +465,9 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         # `veredicto_por`: quién aprobó, para el no repudio en la traza.
         r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
              "decidido_en": _ahora_iso(), "veredicto_por": operador or None}
+        lv = _linea_veredicto(r)         # quién decidió y qué, antes del resumen de la decisión
+        if lv:
+            escribir(lv)
         escribir(_linea_decision(r))
         for l in _lineas_ejecucion(r):   # la respuesta narrada (el porqué ya se emitió al encolar)
             escribir(l)
@@ -1060,11 +1090,11 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
                     "ejecutor_ssh_lab": "conector SSH del laboratorio (contrasena por defecto)"}
 
-def banner(cfg, ejecutor=None):
-    fuente = "stdin (canalizado)" if cfg["ruta"] == "-" else cfg["ruta"]
+def _contexto_arranque(cfg, ejecutor=None):
+    """(justificador, ejecutor legible, estado de la traza): lo que el banner dice en la terminal
+    y la Consola del visor repite en el feed — con cuál credencial entra al nodo importa tanto
+    como con qué perfil decide, y se vio un ensayo con la clave anunciando 'lab'."""
     just = "LLM+RAG" if cfg["con_llm"] else "plantilla"
-    # El banner dice QUE ejecutor se usa de verdad: con cual credencial entra al nodo importa
-    # tanto como con que perfil decide, y se vio un ensayo con la clave anunciando 'lab'.
     nombre = getattr(ejecutor, "__name__", "")
     lab = "simulado (--sin-lab)" if cfg["sin_lab"] else _NOMBRE_EJECUTOR.get(nombre, "conector SSH")
     ancla = f"anclada en {traza.ANCLA_DESTINO}" if traza.ANCLA_DESTINO else "SIN ancla (TRIAJE_ANCLA no definida)"
@@ -1072,6 +1102,21 @@ def banner(cfg, ejecutor=None):
     # una producción que olvide la variable no debe arrancar degradada en silencio.
     if not os.environ.get("TRIAJE_TRAZA_CLAVE"):
         ancla += " · SIN firma HMAC (TRIAJE_TRAZA_CLAVE no definida)"
+    return just, lab, ancla
+
+
+def _lineas_inicio(cfg, ejecutor=None):
+    """El contexto del arranque para el feed de la Consola: sin esto, quien abre el visor no sabe
+    con qué perfil se decide, qué ejecutor toca la red ni si la traza queda anclada y firmada."""
+    just, lab, ancla = _contexto_arranque(cfg, ejecutor)
+    return [f"[inicio] monitor activo · perfil {os.path.basename(cfg['perfil'])} · "
+            f"justificador {just} · ejecutor {lab}",
+            f"[inicio] traza {ancla}"]
+
+
+def banner(cfg, ejecutor=None):
+    fuente = "stdin (canalizado)" if cfg["ruta"] == "-" else cfg["ruta"]
+    just, lab, ancla = _contexto_arranque(cfg, ejecutor)
     return ("\n" + "=" * 72 +
             "\n  Monitor MDR en tiempo real — ACTIVO"
             f"\n  Perfil: {os.path.basename(cfg['perfil'])} · Justificador: {just} · Ejecutor: {lab}"
@@ -1160,6 +1205,8 @@ def main(argv):
             lector_incidente = lambda buf: tablero.LectorWeb(estado, lineas=buf)
         threading.Thread(target=servidor.serve_forever, daemon=True).start()
         print(f"[web] tablero en http://127.0.0.1:{servidor.server_address[1]}")
+        for linea in _lineas_inicio(cfg, ejecutor):   # el contexto del banner, también en el feed
+            estado.anotar_linea(linea)
     else:
         escribir_fn, leer_fn = print, _leer_interactivo()   # comportamiento actual (terminal)
     try:

@@ -1570,3 +1570,80 @@ class TestNarracionCajaNegra(unittest.TestCase):
     def test_sin_ejecucion_no_hay_lineas(self):
         d = {"id_decision": "s1", "clase": "fp_actividad_legitima"}
         self.assertEqual(stream._lineas_ejecucion(d), [])
+
+
+class TestNarracionVeredictos(unittest.TestCase):
+    """El diario del operador en la Consola: el veredicto humano narrado (quién y qué decidió),
+    como formateador PURO sobre el registro. En el camino automático no hay línea."""
+
+    REG = {"id_decision": "s12", "clase": "vp_intento_acceso", "accion_final": "BLOQUEAR_IP"}
+
+    def test_aprobar_nombra_al_operador_y_la_accion(self):
+        d = dict(self.REG, veredicto_humano="aprobar", veredicto_por="ana")
+        self.assertEqual(stream._linea_veredicto(d),
+                         "✓ s12 aprobada por ana → ejecutando BLOQUEAR_IP")
+
+    def test_aprobar_sin_operador_ni_accion(self):
+        # Consola abierta (sin token→nombre) y acción vetada: la línea no inventa nada.
+        d = dict(self.REG, veredicto_humano="aprobar", accion_final=None)
+        self.assertEqual(stream._linea_veredicto(d), "✓ s12 aprobada")
+
+    def test_rechazar_dice_que_se_retiene(self):
+        d = dict(self.REG, veredicto_humano="rechazar", veredicto_por="ana")
+        self.assertEqual(stream._linea_veredicto(d),
+                         "✋ s12 rechazada por ana — retenida sin ejecutar")
+
+    def test_reclasificar_muestra_el_cambio_de_clase(self):
+        d = dict(self.REG, veredicto_humano="reclasificar", veredicto_por="luis",
+                 clase_reclasificada="fp_actividad_legitima")
+        self.assertEqual(stream._linea_veredicto(d),
+                         "↻ s12 reclasificada por luis: vp_intento_acceso → fp_actividad_legitima"
+                         " — retenida sin ejecutar")
+
+    def test_el_veredicto_de_escalada_manda_sobre_el_de_la_tarjeta(self):
+        # La tarjeta se aprobó antes (quedó diferida al escalar); el último gesto humano es el del salto.
+        d = dict(self.REG, veredicto_humano="aprobar", veredicto_escalada="rechazar",
+                 veredicto_por="ana")
+        self.assertEqual(stream._linea_veredicto(d),
+                         "✋ s12 escalada rechazada por ana — el salto no se ejecuta")
+        d2 = dict(d, veredicto_escalada="aprobar")
+        self.assertEqual(stream._linea_veredicto(d2), "✓ s12 escalada aprobada por ana")
+
+    def test_automatico_no_narra_veredicto(self):
+        self.assertIsNone(stream._linea_veredicto(self.REG))
+
+    def test_el_operador_viaja_saneado(self):
+        # B3 también aquí: el nombre puede venir del cuerpo (consola abierta) con controles.
+        d = dict(self.REG, veredicto_humano="aprobar", veredicto_por="an\x1b[2Ja")
+        self.assertNotIn("\x1b", stream._linea_veredicto(d))
+
+    def test_el_resolutor_web_narra_el_veredicto(self):
+        # Integración: al resolver desde la web, la línea del veredicto sale ANTES del resumen.
+        salidas, trazas = [], []
+        estado = tablero.EstadoTablero()
+        resolver = stream._construir_resolutor(estado, {}, {"acciones": {}}, lazo._EjecutorAuto(),
+                                               trazas.append, salidas.append)
+        estado.fijar_resolutor(resolver)
+        estado.encolar_decision({"id": "p1", "paso": "menu", "severidad": 1, "clave": ("i", "f"),
+                                 "decision": dict(self.REG, requiere_humano=True, accion_final=None,
+                                                  resultado_filtro="retenida", prioridad=3,
+                                                  confianza="media", accion_propuesta="BLOQUEAR_IP"),
+                                 "alerta": {"timestamp": ""}, "recibido_en": 0.0})
+        p = estado.decisiones_pendientes()[0]
+        self.assertTrue(estado.resolver_decision(p["id"], "2", paso=p["paso"], operador="ana"))
+        self.assertTrue(any(l.startswith("✋ s12 rechazada por ana") for l in salidas), salidas)
+
+
+class TestLineasInicio(unittest.TestCase):
+    def test_el_arranque_deja_su_contexto_en_el_feed(self):
+        # D: el banner solo vive en la terminal; la Consola del visor arranca ciega sin estas líneas.
+        from unittest import mock
+        cfg = stream.parsear_args(["--sin-lab"])
+        with mock.patch.dict(os.environ):
+            os.environ.pop("TRIAJE_TRAZA_CLAVE", None)
+            lineas = stream._lineas_inicio(cfg)
+        self.assertEqual(len(lineas), 2)
+        self.assertTrue(all(l.startswith("[inicio]") for l in lineas), lineas)
+        self.assertIn(os.path.basename(cfg["perfil"]), lineas[0])
+        self.assertIn("simulado (--sin-lab)", lineas[0])
+        self.assertIn("SIN firma HMAC", lineas[1])
