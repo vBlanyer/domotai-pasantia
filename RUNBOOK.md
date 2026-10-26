@@ -75,14 +75,17 @@ La salida de `python3 -m prototipo.servicio.stream …` es la vista principal:
 
 ### B. Web — el visor React (con `--web`)
 
-Consola visual que consume la misma API del daemon (tema claro/oscuro). **Ocho vistas:** Panel (KPIs +
+Consola visual que consume la misma API del daemon (tema claro/oscuro). **Nueve vistas:** Panel (KPIs +
 gráficos), Métricas e informe (tendencia, distribución y matriz ATT&CK; exportable a PDF por periodo),
 Estado de servicios (las apps de negocio en verde/rojo + dependencias), Red (mapa de la red
 del cliente por zonas; al pulsar un equipo, sus eventos), Decisiones (el feed; filas
 expandibles con justificación, MITRE y pasajes del RAG), Aprobaciones (aprobar/rechazar desde el navegador),
 **Contenciones activas** (qué sigue bloqueado, reconstruido de la traza; **pausar la automatización**
-—*kill switch*— y des-bloqueo en masa) y Trazas (registro completo + verificar la cadena de hashes). El
-daemon expone además `GET /healthz` con su propia salud (para un monitor).
+—*kill switch*— y des-bloqueo en masa), Trazas (registro completo + verificar la cadena de hashes) y
+**Consola** (el registro vivo del daemon: incidentes, el porqué de cada decisión, la respuesta paso a
+paso y el diario del operador —veredictos con su nombre, kill switch, ciclo de caso y contexto del
+arranque—, con filtros por tipo y búsqueda). El daemon expone además `GET /healthz` con su propia
+salud (para un monitor).
 
 - **En vivo (lo normal):** con el daemon lanzado con `--web`, abre **`http://127.0.0.1:8787`**. El visor ya
   está construido y lo sirve el propio daemon. `--web 9000` usa otro puerto.

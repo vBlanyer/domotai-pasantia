@@ -118,6 +118,13 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   respuesta paso a paso (`▶` orden con su comando exacto, idempotencia, `✔/✗` verificación honesta,
   `⇪` escalada al cortafuegos, `↶` des-bloqueo en masa), con chip de filtro «Ejecución». Formateadores
   puros sobre el registro estructurado: la traza sigue siendo la verdad.
+- **El diario del operador en la Consola**: los gestos humanos también dejan línea — `✓/✋/↻`
+  veredictos con el nombre de quién decidió (aprobada → qué se ejecuta; rechazada/reclasificada →
+  retenida sin ejecutar; el veredicto de una escalada manda sobre el de la tarjeta), `⏻` kill
+  switch (narra solo el **cambio**, con operador; reenvíos idempotentes sin ruido), `☰` ciclo de
+  caso (estado/asignado/nota, por quién) y `[inicio]` el contexto del arranque en el feed (perfil,
+  justificador, ejecutor y si la traza queda anclada y firmada — lo que el banner solo decía en la
+  terminal). Validado en vivo (arranque + pausa idempotente por HTTP).
 - **Vista «Consola»** (9ª): el registro vivo del daemon dentro del visor — incidentes, decisiones,
   bloqueos con su comando SSH, verificaciones, supresiones, reversiones y avisos, con filtros por
   tipo, búsqueda y auto-scroll que se pausa al subir. Servido incremental por `GET /api/consola?desde=N`

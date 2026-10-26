@@ -1384,3 +1384,59 @@ class TestConsolaAPI(unittest.TestCase):
         self.assertEqual(cuerpo["hasta"], 2)
         self.assertEqual(len(cuerpo["lineas"]), 1)
         self.assertEqual(cuerpo["lineas"][0]["linea"], "  Clase: vp_intento_acceso")
+
+
+class TestDiarioDelOperador(unittest.TestCase):
+    """Los gestos del operador también dejan línea en la Consola: el kill switch (⏻) y el ciclo
+    de caso (☰). Solo se narra el CAMBIO: reenvíos idempotentes no hacen ruido."""
+
+    def _servir(self, estado):
+        srv = tablero.crear_servidor(estado, os.path.join(tempfile.mkdtemp(), "t.jsonl"),
+                                     puerto=0, estaticos=tempfile.mkdtemp())
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv.server_address[1]
+
+    def _post(self, puerto, ruta, obj):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("POST", ruta, body=json.dumps(obj), headers={"Content-Type": "application/json"})
+        r = c.getresponse(); cuerpo = json.loads(r.read()); c.close()
+        return r.status, cuerpo
+
+    def test_el_kill_switch_narra_solo_el_cambio(self):
+        estado = tablero.EstadoTablero()
+        estado.pausar(True, operador="ana")
+        estado.pausar(True, operador="ana")        # reenvío: el estado no cambia, sin línea
+        estado.pausar(False)
+        _, lineas = estado.consola()
+        textos = [l["linea"] for l in lineas]
+        self.assertEqual(len(textos), 2, textos)
+        self.assertTrue(textos[0].startswith("⏻") and "EN PAUSA" in textos[0]
+                        and "por ana" in textos[0], textos)
+        self.assertTrue(textos[1].startswith("⏻") and "reanudada" in textos[1], textos)
+
+    def test_post_pausa_lleva_el_operador_al_feed(self):
+        estado = tablero.EstadoTablero()
+        st, cuerpo = self._post(self._servir(estado), "/api/pausa",
+                                {"pausar": True, "operador": "ana"})
+        self.assertEqual(st, 200)
+        self.assertTrue(cuerpo["pausada"])
+        _, lineas = estado.consola()
+        self.assertIn("por ana", lineas[-1]["linea"])
+
+    def test_actualizar_caso_narra_el_ciclo(self):
+        estado = tablero.EstadoTablero()
+        estado.fijar_actualizador(lambda idd, **kw: True)
+        st, _ = self._post(self._servir(estado), "/api/caso",
+                           {"id": "s1", "estado": "en_revision", "asignado": "luis",
+                            "operador": "ana"})
+        self.assertEqual(st, 200)
+        _, lineas = estado.consola()
+        self.assertEqual(lineas[-1]["linea"],
+                         "☰ s1 caso: estado → en_revision · asignado a luis · por ana")
+
+    def test_el_caso_rechazado_no_deja_linea(self):
+        estado = tablero.EstadoTablero()          # sin actualizador: ruta bloqueante → 409
+        st, _ = self._post(self._servir(estado), "/api/caso", {"id": "s1", "nota": "x"})
+        self.assertEqual(st, 409)
+        self.assertEqual(estado.consola(), (0, []))
