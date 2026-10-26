@@ -53,3 +53,4 @@ prototipo/corpus/fuentes/*.json
 /trazas-*.jsonl
 visor/node_modules
 visor/dist
+.superpowers/

@@ -9,13 +9,14 @@ import { Salud } from "@/components/Salud"
 import { Red } from "@/components/Red"
 import { Decisiones } from "@/components/Decisiones"
 import { Aprobaciones } from "@/components/Aprobaciones"
+import { Consola } from "@/components/Consola"
 import { Trazas } from "@/components/Trazas"
 import { Contenciones } from "@/components/Contenciones"
 import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "trazas" | "contenciones" | "incidente"
+type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "incidente"
 
 // Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
 // navegador no lo permite, se ignora en silencio.
@@ -78,6 +79,7 @@ const NAV: { id: Vista; nombre: string }[] = [
   { id: "red", nombre: "Red" },
   { id: "decisiones", nombre: "Decisiones" },
   { id: "aprobaciones", nombre: "Aprobaciones" },
+  { id: "consola", nombre: "Consola" },
   { id: "contenciones", nombre: "Contenciones activas" },
   { id: "trazas", nombre: "Trazas" },
 ]
@@ -198,6 +200,7 @@ export default function App() {
               onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }} />
           )}
           {vista === "aprobaciones" && <Aprobaciones />}
+          {vista === "consola" && <Consola />}
           {vista === "trazas" && <Trazas />}
           {vista === "contenciones" && <Contenciones />}
           {vista === "incidente" && incidente && (
