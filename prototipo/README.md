@@ -17,6 +17,26 @@ La Fase 5 completa se divide en tres subproyectos:
 Diseño completo: [`archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md`](../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md).
 Regla de negocio (política + perfil): [`documentacion/04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md`](../documentacion/04-fase4-diseno-de-arquitectura/politica-decision-continuidad.md).
 
+## Mapa del paquete (por capas)
+
+Los 37 módulos de la raíz, por la capa a la que pertenecen (la misma taxonomía que el capítulo de
+arquitectura del informe):
+
+| Capa | Módulos |
+|---|---|
+| **Entrada** (fuente → esquema común) | `ingesta` · `adaptador_wazuh` · `receptor` |
+| **Motor de decisión** (puro, sin E/S) | `analisis` · `politica` · `familias` · `correspondencia` · `actores` · `impacto` · `postura` · `rafaga` · `agrupacion` · `arbol` · `perfil` · `servicios` · `inventario` · `triaje` · `orden` |
+| **Acción y verificación** (tocar el mundo) | `catalogo` · `conector` · `verificacion` · `revertir` · `contenciones` |
+| **Explicación** (justifica, no decide) | `justificador_llm` · `rag` · `agente_mitigacion` · `extraer_attack` · `corpus/` |
+| **Servicio** (daemon, web, auditoría) | `stream` · `lazo` · `tablero` · `traza` · `casos` · `validacion` · `red` · `retener_trazas` |
+| **Herramientas de operador** | `validar_reglas` · `banco_carga` |
+| **Datos y config** | `perfiles/` · `catalogo.yml` · `familias.yml` · `correspondencia.yml` |
+
+El paquete es **plano a propósito**: 14 de estos módulos son interfaz pública de operación
+(`python3 -m prototipo.<módulo>`, citados en RUNBOOK/deploy/demos/informe), así que moverlos rompe
+scripts y documentación, no solo imports. La reorganización en subpaquetes por capa queda para una
+v2 posterior a la entrega.
+
 ---
 
 ## 1. El lazo
