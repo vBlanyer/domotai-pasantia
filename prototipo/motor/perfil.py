@@ -2,7 +2,6 @@
 import ipaddress
 import yaml
 from prototipo.motor import actores, impacto as impactom
-from prototipo.accion import catalogo as _cat
 
 UMBRAL_CONFIANZA = 0.7   # default; configurable por perfil en continuidad.umbral_confianza (RF-07). Sin calibrar aún (barrido pendiente)
 DEGRADACION = {"BLOQUEAR_PUERTO": "BLOQUEAR_IP"}   # alcanza_servicio -> localizado
