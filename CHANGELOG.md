@@ -29,6 +29,9 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
 ### Cambiado
 - Limpieza de estructura: `documentacion/archivo/` → `documentacion/material-superado/`; archivo de
   proceso reubicado; `README`/informe al día (10 familias y cifras de tests actuales).
+- Raíz de `prototipo/` más legible: **mapa del paquete por capas** en su README (los 37 módulos,
+  taxonomía del informe; el paquete se queda plano a propósito — 14 módulos son CLIs de operación
+  citados fuera) y retirado el dato huérfano `ilustrativas.jsonl` (demo RNF-14 antigua; nada lo lee).
 - Agente ReAct: optimalidad validada con un modelo capaz y reproducibilidad probada (documentado).
 
 ### Corregido
