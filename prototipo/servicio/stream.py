@@ -285,6 +285,58 @@ def _linea_propia(reg):
             f"({reg['alertas']} alerta(s)): no es un ataque")
 
 
+# --- narración de la caja negra (vista «Consola») -------------------------------------------------
+# Formateadores PUROS sobre el registro estructurado: la traza sigue siendo la verdad; estas líneas
+# son la narración operativa (post-hoc: se emiten al completarse cada fase, en pasado).
+
+def _lineas_porque(d):
+    """El porqué: las señales que produjeron la clase y, si el filtro no permitió en automático,
+    la política aplicada con su motivo (D16 visible)."""
+    idd, lineas = d.get("id_decision"), []
+    ctx = d.get("contexto") or {}
+    if ctx:
+        partes = []
+        if ctx.get("rafaga_60s") is not None:
+            partes.append(f"ráfaga {ctx['rafaga_60s']}/60 s (umbral {ctx.get('umbral_rafaga')})")
+        if (ctx.get("postura") or {}).get("expuesto"):
+            partes.append(f"{ctx.get('servicio')} expuesto (auditor)")
+        partes.append(f"origen legítimo: {'sí' if ctx.get('origen_legitimo') else 'no'}")
+        if ctx.get("criticidad"):
+            partes.append(f"criticidad {ctx['criticidad']}")
+        lineas.append(f"· {idd} señales: " + " · ".join(partes))
+    if d.get("resultado_filtro") not in (None, "permite") or d.get("requiere_humano"):
+        motivo = (d.get("impacto_determinado") or {}).get("motivo")
+        linea = f"· {idd} política: {validacion.filtro_legible(d)}"
+        if motivo:
+            linea += f" — {validacion.texto_terminal(motivo)}"
+        lineas.append(linea)
+    return lineas
+
+
+def _lineas_ejecucion(d):
+    """La respuesta, paso a paso: la orden ejecutada con su comando, la idempotencia, la
+    verificación posterior (honesta: NO verificada se dice) y la escalada si la hubo."""
+    idd, lineas = d.get("id_decision"), []
+    ej, orden = d.get("ejecucion") or {}, d.get("orden") or {}
+    if ej:
+        v = validacion.texto_terminal
+        lineas.append(f"▶ {idd} {orden.get('accion_id')} en {v(orden.get('nodo_objetivo'))} "
+                      f"({orden.get('nodo_ip')}): {v(ej.get('comando_ejecutado'))}")
+        if ej.get("idempotente"):
+            lineas.append(f"· {idd} ya estaba aplicada (idempotente): no se repitió")
+        verif = d.get("verificacion") or {}
+        if verif.get("verificado"):
+            lineas.append(f"✔ {idd} verificada — contenida en {v(orden.get('nodo_objetivo'))}")
+        elif verif:
+            lineas.append(f"✗ {idd} NO verificada: la contención no se confirmó en el activo")
+    esc = d.get("escalada") or {}
+    if esc:
+        efectiva = (esc.get("orden_efectiva") or {}).get("accion_id")
+        lineas.append(f"⇪ {idd} el activo no respondió → {esc.get('dispositivo_ejecutor')}: "
+                      f"{efectiva} ({esc.get('resultado')})")
+    return lineas
+
+
 def _linea_supresion(reg):
     c = reg["clave"]
     v = validacion.texto_terminal
@@ -317,8 +369,12 @@ def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecuto
     d = {**d, **meta, "decidido_en": conector.ahora_iso()}
     if d.get("en_cola"):            # modo web no bloqueante: se resolverá y trazará al aprobar
         escribir(_linea_en_cola(d))
+        for l in _lineas_porque(d):              # el porqué espera CON la tarjeta (caja negra)
+            escribir(l)
         return d
     escribir(_linea_decision(d))
+    for l in _lineas_porque(d) + _lineas_ejecucion(d):   # señales, política y respuesta narradas
+        escribir(l)
     if cadena is not None:
         (escribir_traza or cadena.escribir)(d)   # traza.Cadena: cada registro encadenado al anterior
     return d
@@ -383,6 +439,8 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
         r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
              "decidido_en": _ahora_iso(), "veredicto_por": operador or None}
         escribir(_linea_decision(r))
+        for l in _lineas_ejecucion(r):   # la respuesta narrada (el porqué ya se emitió al encolar)
+            escribir(l)
         escribir_traza(r)
         if al_resolver is not None:
             al_resolver(r, alerta)

@@ -941,6 +941,10 @@ class _Manejador(BaseHTTPRequestHandler):
                                                   operador=operador)
                 finally:
                     _revertir_todo_lock.release()
+                # narración en la Consola (caja negra): el kill switch también deja su línea
+                s.estado.anotar_linea(f"↶ des-bloqueo en masa: {res.get('revertidas', 0)} revertida(s), "
+                                      f"{res.get('fallidas', 0)} fallida(s)"
+                                      + (f" · por {operador}" if operador else ""))
                 return self._responder(res)
             if ruta == "/api/caso":   # ciclo de vida del caso: añade un `actualizacion_caso` a la cadena
                 try:

@@ -1520,3 +1520,53 @@ class TestLineasDeTerminalSaneadas(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNarracionCajaNegra(unittest.TestCase):
+    """La Consola narra la caja negra: el porqué de la política y la ejecución de la respuesta,
+    como formateadores PUROS sobre el registro estructurado (la traza sigue siendo la verdad)."""
+
+    REG = {"id_decision": "s12", "resultado_filtro": "permite", "requiere_humano": False,
+           "accion_propuesta": "BLOQUEAR_IP", "accion_final": "BLOQUEAR_IP",
+           "impacto_determinado": {"motivo": "bloquea a 198.51.100.9 (origen no inventariado)"},
+           "contexto": {"rafaga_60s": 6, "umbral_rafaga": 9, "origen_legitimo": False,
+                        "criticidad": "media", "servicio": "ssh", "postura": {"expuesto": True}},
+           "orden": {"accion_id": "BLOQUEAR_IP", "nodo_objetivo": "objetivo-vuln", "nodo_ip": "192.168.1.30"},
+           "ejecucion": {"exito": True, "idempotente": False,
+                         "comando_ejecutado": "iptables -A INPUT -s 198.51.100.9 -j DROP"},
+           "verificacion": {"verificado": True}}
+
+    def test_porque_narra_senales_y_politica(self):
+        d = dict(self.REG, resultado_filtro="retenida", requiere_humano=True)
+        lineas = stream._lineas_porque(d)
+        self.assertTrue(any(l.startswith("· s12 señales:") and "ráfaga 6/60 s (umbral 9)" in l
+                            and "ssh expuesto" in l for l in lineas), lineas)
+        self.assertTrue(any(l.startswith("· s12 política:") and "origen no inventariado" in l
+                            for l in lineas), lineas)
+
+    def test_la_politica_calla_cuando_permite_en_automatico(self):
+        lineas = stream._lineas_porque(self.REG)
+        self.assertFalse([l for l in lineas if "política:" in l], lineas)   # el resumen ya lo dice
+
+    def test_ejecucion_narra_comando_y_verificacion(self):
+        lineas = stream._lineas_ejecucion(self.REG)
+        self.assertTrue(any(l.startswith("▶ s12 BLOQUEAR_IP en objetivo-vuln (192.168.1.30): "
+                                         "iptables -A INPUT") for l in lineas), lineas)
+        self.assertTrue(any(l.startswith("✔ s12 verificada") for l in lineas), lineas)
+
+    def test_no_verificada_se_dice_sin_adornos(self):
+        d = dict(self.REG, verificacion={"verificado": False})
+        self.assertTrue(any(l.startswith("✗ s12 NO verificada") for l in stream._lineas_ejecucion(d)))
+
+    def test_idempotente_y_escalada_tienen_su_linea(self):
+        d = dict(self.REG, ejecucion=dict(self.REG["ejecucion"], idempotente=True),
+                 escalada={"resultado": "mitigado", "dispositivo_ejecutor": "fw-core",
+                           "orden_efectiva": {"accion_id": "BLOQUEAR_IP_FIREWALL"}})
+        lineas = stream._lineas_ejecucion(d)
+        self.assertTrue(any("ya estaba aplicada" in l for l in lineas), lineas)
+        self.assertTrue(any(l.startswith("⇪ s12") and "fw-core" in l and "BLOQUEAR_IP_FIREWALL" in l
+                            for l in lineas), lineas)
+
+    def test_sin_ejecucion_no_hay_lineas(self):
+        d = {"id_decision": "s1", "clase": "fp_actividad_legitima"}
+        self.assertEqual(stream._lineas_ejecucion(d), [])

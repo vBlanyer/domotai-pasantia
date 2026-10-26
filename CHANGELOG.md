@@ -113,6 +113,11 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   (`WAZUH_NOMBRE`/`WAZUH_RED`/`WAZUH_PERMITIR`, defaults del lab intactos) para la variante viva.
 
 ### Añadido (visor)
+- **La Consola narra la caja negra**: el porqué de cada decisión (señales: ráfaga/umbral, postura
+  del auditor, origen legítimo; y la política con su motivo cuando no permite en automático) y la
+  respuesta paso a paso (`▶` orden con su comando exacto, idempotencia, `✔/✗` verificación honesta,
+  `⇪` escalada al cortafuegos, `↶` des-bloqueo en masa), con chip de filtro «Ejecución». Formateadores
+  puros sobre el registro estructurado: la traza sigue siendo la verdad.
 - **Vista «Consola»** (9ª): el registro vivo del daemon dentro del visor — incidentes, decisiones,
   bloqueos con su comando SSH, verificaciones, supresiones, reversiones y avisos, con filtros por
   tipo, búsqueda y auto-scroll que se pausa al subir. Servido incremental por `GET /api/consola?desde=N`
