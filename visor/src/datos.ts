@@ -34,6 +34,36 @@ export function colorClase(clase: string, paleta: string[]): string {
   return paleta[h % paleta.length]
 }
 
+// Vista «Consola»: clasificación PURA de cada línea del feed del daemon, por los prefijos reales
+// que emiten stream._resumen_incidente / _linea_* (los filtros de la vista agrupan por esto).
+export type TipoLinea = "incidente" | "decision" | "supresion" | "error" | "propia" | "aviso" | "otro"
+export type LineaConsola = { n: number; t: string; linea: string }
+
+export function clasificarLinea(linea: string): TipoLinea {
+  if (linea.startsWith("⚠")) return "incidente"
+  if (linea.startsWith("  Clase:") || linea.startsWith("⏸")) return "decision"
+  if (linea.startsWith("↩")) return "supresion"
+  if (linea.startsWith("✗")) return "error"
+  if (linea.startsWith("↺")) return "propia"
+  if (linea.startsWith("[aviso]") || linea.startsWith("[red]")) return "aviso"
+  return "otro"
+}
+
+// Grupos de los chips de filtro -> tipos que incluyen. «todo» no filtra.
+const GRUPOS_CONSOLA: Record<string, TipoLinea[]> = {
+  decisiones: ["decision", "supresion"],
+  incidentes: ["incidente"],
+  avisos: ["aviso", "error"],
+}
+
+export function filtrarConsola(lineas: LineaConsola[], grupo: string, texto: string): LineaConsola[] {
+  const tipos = GRUPOS_CONSOLA[grupo]
+  const q = texto.trim().toLowerCase()
+  return lineas.filter((l) =>
+    (!tipos || tipos.includes(clasificarLinea(l.linea))) &&
+    (!q || l.linea.toLowerCase().includes(q)))
+}
+
 // Filtro de la lista de decisiones/trazas: texto libre (activo, IP, id, clase, acción) + clase exacta.
 export type Filtro = { texto: string; clase: string; equipo?: string | null }
 

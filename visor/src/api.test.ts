@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { revertirTodo, SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getCaso, getPendientes, ahoraServidor, recordando, listaConocida } from "./api"
+import { getConsola, revertirTodo, SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getCaso, getPendientes, ahoraServidor, recordando, listaConocida } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -309,5 +309,19 @@ describe("revertirTodo", () => {
     vi.stubGlobal("fetch", f)
     await revertirTodo()
     expect(JSON.parse(f.mock.calls[0][1].body)).toMatchObject({ confirmar: true })
+  })
+})
+
+describe("getConsola", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it("pide el feed incremental con ?desde y parsea las líneas", async () => {
+    const f = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ hasta: 7, lineas: [{ n: 7, t: "16:02:11", linea: "⚠ Incidente: x" }] }),
+    })
+    vi.stubGlobal("fetch", f)
+    const r = await getConsola(5)
+    expect(f.mock.calls[0][0]).toMatch(/\/api\/consola\?desde=5$/)
+    expect(r).toMatchObject({ hasta: 7 })
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -228,5 +228,35 @@ describe("colorClase sin colisiones en el canon", () => {
     const clases = Object.keys(ETIQUETA_CLASE)
     const colores = clases.map((c) => colorClase(c, CATEGORICO_LIGHT))
     expect(new Set(colores).size).toBe(clases.length)
+  })
+})
+
+// Vista «Consola»: la clasificación de cada línea del feed (para los filtros) es pura y por
+// prefijo — los prefijos son los que emite el daemon (stream._linea_* / _resumen_incidente).
+describe("clasificarLinea", () => {
+  it("reconoce los prefijos reales del daemon", () => {
+    expect(clasificarLinea("⚠ Incidente: 6 alerta(s) · x")).toBe("incidente")
+    expect(clasificarLinea("  Clase: vp_intento_acceso · Prioridad: 3")).toBe("decision")
+    expect(clasificarLinea("⏸ En cola (espera al analista) · vp_x")).toBe("decision")
+    expect(clasificarLinea("↩ 1.2.3.4 → srv · ya decidido")).toBe("supresion")
+    expect(clasificarLinea("✗ e3: no se pudo procesar")).toBe("error")
+    expect(clasificarLinea("↺ actividad propia del MDR en srv")).toBe("propia")
+    expect(clasificarLinea("[aviso] receptor: conexión rechazada")).toBe("aviso")
+    expect(clasificarLinea("[red] escuchando alertas en 0.0.0.0:5514")).toBe("aviso")
+    expect(clasificarLinea("cualquier otra cosa")).toBe("otro")
+  })
+})
+
+describe("filtrarConsola", () => {
+  const L = (linea: string, n = 1) => ({ n, t: "16:02:11", linea })
+  const lineas = [L("⚠ Incidente: x", 1), L("  Clase: vp_x", 2), L("[aviso] y", 3)]
+  it("filtra por grupo y por texto, y 'todo' no filtra", () => {
+    expect(filtrarConsola(lineas, "todo", "").length).toBe(3)
+    expect(filtrarConsola(lineas, "avisos", "").map((l) => l.n)).toEqual([3])
+    expect(filtrarConsola(lineas, "todo", "vp_x").map((l) => l.n)).toEqual([2])
+  })
+  it("el grupo decisiones incluye la decisión y la supresión", () => {
+    const ls = [L("  Clase: vp_x", 1), L("↩ repetida", 2), L("⚠ Incidente", 3)]
+    expect(filtrarConsola(ls, "decisiones", "").map((l) => l.n)).toEqual([1, 2])
   })
 })

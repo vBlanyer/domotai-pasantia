@@ -30,15 +30,22 @@ LIMITE_TRAZAS = 500
 # ordenando todo en cada sondeo. Al tope se desaloja la MENOS severa y más vieja (la que el analista
 # vería la última), nunca una en curso; el desalojo se cuenta y deja rastro.
 MAX_PENDIENTES = 500
+# Buffer circular de la vista «Consola» del visor: el registro vivo del daemon (lo que narra la
+# terminal), acotado — el visor lo pide incremental (/api/consola?desde=N), nunca el histórico
+# (para eso están Trazas y las métricas).
+CONSOLA_MAX = 1000
 
 
 class EstadoTablero:
     """Estado en memoria del tablero, seguro entre hilos: pendientes de aprobacion y las lineas del
     incidente en curso. El feed de decisiones resueltas NO vive aqui (sale de la traza)."""
-    def __init__(self, max_pendientes=MAX_PENDIENTES):
+    def __init__(self, max_pendientes=MAX_PENDIENTES, consola_max=CONSOLA_MAX):
         self._lock = threading.Lock()
         self._pendientes = {}
         self._lineas = []
+        import collections
+        self._consola = collections.deque(maxlen=consola_max)   # feed vivo para la vista «Consola»
+        self._consola_n = 0                                     # secuencia total (para ?desde=N)
         self._seq = itertools.count(1)
         self._cola = {}                    # cola de decisiones humanas (modo web no bloqueante)
         self._max_pendientes = max_pendientes
@@ -186,10 +193,22 @@ class EstadoTablero:
         return bool(self._actualizador(id_decision, estado=estado, asignado=asignado, nota=nota, operador=operador))
 
     def anotar_linea(self, linea):
+        # texto_terminal también aquí (B3): la línea viaja al navegador y puede llevar campos del
+        # log del atacante. React escapa el HTML, pero los controles no tienen por qué llegar.
+        from prototipo.servicio import validacion
+        sana = validacion.texto_terminal(linea)
         with self._lock:
             if linea.startswith(_MARCA_INCIDENTE):
                 self._lineas = []
             self._lineas.append(linea)
+            self._consola_n += 1
+            self._consola.append({"n": self._consola_n, "t": datetime.now().strftime("%H:%M:%S"),
+                                  "linea": sana})
+
+    def consola(self, desde=0):
+        """Las líneas del feed con secuencia > `desde` (incremental) y la secuencia más alta."""
+        with self._lock:
+            return self._consola_n, [dict(l) for l in self._consola if l["n"] > desde]
 
     def registrar_pendiente(self, tipo, prompt, lineas=None):
         # `lineas`: contexto propio de la tarjeta (un agente por incidente trae el suyo); sin él, el
@@ -853,6 +872,9 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta.startswith("/api/traza/"):
                 d = traza_detalle(s.ruta_traza, ruta[len("/api/traza/"):], indice=_entero(self.path, "indice"))
                 return self._responder(d) if d is not None else self._responder({"error": "no encontrada"}, 404)
+            if ruta == "/api/consola":    # feed vivo del daemon (vista «Consola»), incremental
+                hasta, lineas = s.estado.consola(desde=_entero(self.path, "desde") or 0)
+                return self._responder({"hasta": hasta, "lineas": lineas})
             if ruta.startswith("/api/caso/"):
                 # Ciclo de caso plegado sobre el fichero COMPLETO (como /api/metricas): el caso no
                 # «rejuvenece» cuando sus actualizaciones salen de la ventana de /api/trazas.

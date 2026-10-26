@@ -254,6 +254,14 @@ export const CasoSchema = z.object({
 export type Caso = z.infer<typeof CasoSchema>
 export const getCaso = (id: string) => pedir(`/api/caso/${encodeURIComponent(id)}`, CasoSchema)
 
+// Feed vivo del daemon para la vista «Consola» (incremental: solo líneas con n > desde).
+export const ConsolaSchema = z.object({
+  hasta: z.number(),
+  lineas: z.array(z.object({ n: z.number(), t: z.string(), linea: z.string() })),
+})
+export type Consola = z.infer<typeof ConsolaSchema>
+export const getConsola = (desde = 0) => pedir(`/api/consola?desde=${desde}`, ConsolaSchema)
+
 // La lista utilizable de un resultado del sondeo: la buena, la congelada de un fallo, o null.
 // (El aviso de pendientes la usa para NO olvidar lo visto ni re-notificar tras un parpadeo de red.)
 export function listaConocida<T>(r: T[] | FalloCon<T[]> | undefined): T[] | null {

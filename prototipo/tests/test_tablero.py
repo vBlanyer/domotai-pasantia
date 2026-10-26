@@ -1325,3 +1325,50 @@ class TestColaAcotada(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestConsolaAPI(unittest.TestCase):
+    """Vista «Consola» del visor: el registro vivo del daemon (lo que hoy solo narra la terminal)
+    en un buffer circular ACOTADO, servido incremental por /api/consola?desde=N."""
+
+    def test_anota_con_secuencia_hora_y_saneado(self):
+        estado = tablero.EstadoTablero()
+        estado.anotar_linea("⚠ Incidente: 1 alerta(s)")
+        estado.anotar_linea("linea con escape \x1b[2J hostil")
+        hasta, lineas = estado.consola()
+        self.assertEqual(hasta, 2)
+        self.assertEqual([l["n"] for l in lineas], [1, 2])
+        self.assertTrue(all(l["t"] for l in lineas))             # hora del servidor por línea
+        self.assertNotIn("\x1b", lineas[1]["linea"])             # B3 también en esta superficie
+
+    def test_incremental_por_desde(self):
+        estado = tablero.EstadoTablero()
+        for i in range(5):
+            estado.anotar_linea(f"linea {i}")
+        _, nuevas = estado.consola(desde=3)
+        self.assertEqual([l["linea"] for l in nuevas], ["linea 3", "linea 4"])
+
+    def test_el_buffer_esta_acotado(self):
+        estado = tablero.EstadoTablero(consola_max=50)
+        for i in range(120):
+            estado.anotar_linea(f"l{i}")
+        hasta, lineas = estado.consola()
+        self.assertEqual(hasta, 120)
+        self.assertEqual(len(lineas), 50)
+        self.assertEqual(lineas[0]["linea"], "l70")              # se desalojan las más viejas
+
+    def test_endpoint_sirve_el_feed(self):
+        estado = tablero.EstadoTablero()
+        estado.anotar_linea("⚠ Incidente: x")
+        estado.anotar_linea("  Clase: vp_intento_acceso")
+        srv = tablero.crear_servidor(estado, os.path.join(tempfile.mkdtemp(), "t.jsonl"),
+                                     puerto=0, estaticos=tempfile.mkdtemp())
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        c = http.client.HTTPConnection("127.0.0.1", srv.server_address[1], timeout=3)
+        c.request("GET", "/api/consola?desde=1")
+        r = c.getresponse(); cuerpo = json.loads(r.read()); c.close()
+        self.assertEqual(r.status, 200)
+        self.assertEqual(cuerpo["hasta"], 2)
+        self.assertEqual(len(cuerpo["lineas"]), 1)
+        self.assertEqual(cuerpo["lineas"][0]["linea"], "  Clase: vp_intento_acceso")

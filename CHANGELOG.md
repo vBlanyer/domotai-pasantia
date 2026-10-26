@@ -112,6 +112,13 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   el lazo por lotes consume alertas normalizadas. `wazuh-run.sh` ahora es parametrizable
   (`WAZUH_NOMBRE`/`WAZUH_RED`/`WAZUH_PERMITIR`, defaults del lab intactos) para la variante viva.
 
+### Añadido (visor)
+- **Vista «Consola»** (9ª): el registro vivo del daemon dentro del visor — incidentes, decisiones,
+  bloqueos con su comando SSH, verificaciones, supresiones, reversiones y avisos, con filtros por
+  tipo, búsqueda y auto-scroll que se pausa al subir. Servido incremental por `GET /api/consola?desde=N`
+  desde un buffer circular acotado (1.000 líneas, saneadas de caracteres de control) que alimenta el
+  mismo `escribir` que ya narraba la terminal.
+
 ### Documentación (barrido de la auditoría 20/10)
 - Desfases corregidos en los docs vivos: RUNBOOK §3C ya describe las **10 familias / 13 ataques** del
   lanzador y §7 recoge la lección de Wazuh (el guard no recarga reglas nuevas en un manager vivo; la

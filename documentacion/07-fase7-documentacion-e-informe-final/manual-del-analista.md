@@ -27,6 +27,7 @@ política determinista y la filtra el perfil del cliente (permite / degrada / ve
 | **Red** | Mapa de la red del cliente con la actividad | Ubicar de dónde viene un ataque |
 | **Decisiones** | Historial de decisiones (filtrable) | Buscar/repasar una decisión; abrir su incidente |
 | **Aprobaciones** | **La cola de lo que espera tu decisión** | Tu trabajo principal (§3) |
+| **Consola** | El registro vivo del daemon: incidentes, bloqueos con su comando SSH, verificaciones, reversiones y avisos (filtrable, auto-scroll, últimas 1.000 líneas) | Ver en directo cómo el sistema interactúa con la red; lo mismo que narra su terminal |
 | **Contenciones activas** | Lo que está bloqueado ahora + *kill switch* | Revertir, pausar la automatización |
 | **Trazas** | El registro auditable encadenado | Auditoría, verificar integridad |
 
