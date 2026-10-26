@@ -157,6 +157,32 @@ def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
 def ejecutor_ssh_clave(nodo_ip, comando):
     return _ssh_en_auditor(comando_ssh_clave(nodo_ip, comando))
 
+
+def _args_ssh_directo(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS):
+    """argv del SSH directo desde el HOST del daemon (modo `directo`): mismas opciones endurecidas
+    que comando_ssh_clave, pero como lista (sin `sh -c`: nada que inyectar en un shell local).
+    Aquí `clave` y `known_hosts` son rutas del HOST (TRIAJE_SSH_CLAVE/TRIAJE_SSH_KNOWN_HOSTS)."""
+    return ["ssh", "-n", "-i", clave, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes",
+            "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=yes",
+            "-o", f"UserKnownHostsFile={known_hosts}", "-o", "ConnectTimeout=5",
+            "-o", "HostKeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa",
+            f"{usuario}@{nodo_ip}", f"sudo -S {comando}"]
+
+
+def ejecutor_ssh_directo(nodo_ip, comando):
+    """SSH directo desde el host del daemon, SIN `docker exec` a un nodo de gestión: para desplegar
+    en una VM/bare-metal sin Docker (v2 adelantado; la demo portátil demostró que esta era la única
+    dependencia de plataforma del camino de contención)."""
+    import subprocess
+    try:
+        cp = subprocess.run(_args_ssh_directo(nodo_ip, comando), capture_output=True, text=True,
+                            timeout=PLAZO_SSH_S, env=_env_filtrado())
+    except subprocess.TimeoutExpired:
+        return (124, f"sin respuesta en {PLAZO_SSH_S} s")          # 124: el código de timeout(1)
+    except OSError as e:                                            # ssh ausente o no ejecutable
+        return (127, f"no se pudo lanzar ssh: {e}")
+    return (cp.returncode, cp.stdout + cp.stderr)
+
 def _clave_aprovisionada():
     import subprocess
     try:
@@ -179,6 +205,14 @@ def ejecutor_por_defecto(escribir=print):
     modo = os.environ.get("TRIAJE_SSH_MODO")
     if modo == "password":
         return ejecutor_ssh_lab
+    if modo == "directo":
+        # SSH desde el PROPIO host (sin Docker). Fail-closed: sin la clave en el host no se
+        # degrada a otro modo — se rechaza, igual que el resto de configuraciones a medias.
+        if not os.path.isfile(SSH_CLAVE):
+            escribir(f"[ERROR] TRIAJE_SSH_MODO=directo sin clave en {SSH_CLAVE} (ruta del HOST): "
+                     "no se ejecutara ninguna contencion. Fija TRIAJE_SSH_CLAVE/TRIAJE_SSH_KNOWN_HOSTS.")
+            return _ejecutor_sin_configurar
+        return ejecutor_ssh_directo
     if modo == "clave" or _clave_aprovisionada():
         return ejecutor_ssh_clave
     escribir("[ERROR] conector sin clave de minimo privilegio y sin TRIAJE_SSH_MODO: no se ejecutara "

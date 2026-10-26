@@ -276,3 +276,54 @@ class TestVerificacionExacta(unittest.TestCase):
         self.assertFalse(verificacion.confirmar(ORDEN, CAT, nodo)["verificado"])
         nodo.reglas["INPUT"].append(("DROP", "192.168.1.10"))
         self.assertTrue(verificacion.confirmar(ORDEN, CAT, nodo)["verificado"])
+
+
+class TestEjecutorDirecto(unittest.TestCase):
+    """Modo `directo` (v2 adelantado): SSH desde el HOST del daemon, sin docker exec — para
+    desplegar donde no hay Docker. Mismas opciones endurecidas que el modo clave."""
+
+    def test_los_args_llevan_el_endurecimiento_y_sin_shell(self):
+        args = conector._args_ssh_directo("192.168.1.30", "iptables -L -n")
+        self.assertIsInstance(args, list)                      # argv, nunca una cadena por sh -c
+        self.assertEqual(args[0], "ssh")
+        self.assertIn("-n", args)                              # stdin cerrado: sudo -S falla, no espera
+        self.assertIn("BatchMode=yes", args)
+        self.assertIn("StrictHostKeyChecking=yes", args)
+        self.assertTrue(any(a.startswith("UserKnownHostsFile=") for a in args))
+        self.assertEqual(args[-1], "sudo -S iptables -L -n")
+        self.assertEqual(args[-2], f"{conector.SSH_USUARIO}@192.168.1.30")
+
+    def test_ejecuta_con_entorno_filtrado_y_plazo(self):
+        from unittest import mock
+        with mock.patch("subprocess.run") as run:
+            run.return_value = mock.Mock(returncode=0, stdout="ok", stderr="")
+            rc, salida = conector.ejecutor_ssh_directo("192.168.1.30", "iptables -L -n")
+        self.assertEqual((rc, salida), (0, "ok"))
+        args, kw = run.call_args
+        self.assertEqual(args[0][0], "ssh")
+        self.assertEqual(kw["timeout"], conector.PLAZO_SSH_S)
+        self.assertFalse([k for k in kw["env"] if k.startswith("TRIAJE_")])   # sin secretos al hijo
+
+    def test_timeout_devuelve_124(self):
+        from unittest import mock
+        import subprocess as sp
+        with mock.patch("subprocess.run", side_effect=sp.TimeoutExpired("ssh", 1)):
+            rc, _ = conector.ejecutor_ssh_directo("192.168.1.30", "iptables -L -n")
+        self.assertEqual(rc, 124)
+
+    def test_modo_directo_sin_clave_en_el_host_queda_fail_closed(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"TRIAJE_SSH_MODO": "directo"}), \
+             mock.patch.object(conector, "SSH_CLAVE", "/no/existe/clave"):
+            ej = conector.ejecutor_por_defecto(escribir=lambda *a: None)
+            rc, salida = ej("192.168.1.30", "iptables -L -n")
+        self.assertEqual(rc, 126)                              # el ejecutor que rechaza, no ssh
+
+    def test_modo_directo_con_clave_usa_el_ejecutor_directo(self):
+        import tempfile
+        from unittest import mock
+        with tempfile.NamedTemporaryFile() as clave, \
+             mock.patch.dict(os.environ, {"TRIAJE_SSH_MODO": "directo"}), \
+             mock.patch.object(conector, "SSH_CLAVE", clave.name):
+            ej = conector.ejecutor_por_defecto(escribir=lambda *a: None)
+        self.assertIs(ej, conector.ejecutor_ssh_directo)

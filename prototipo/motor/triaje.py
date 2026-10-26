@@ -1,8 +1,6 @@
-"""Orquesta el lazo de decisión: ingesta -> análisis -> política -> perfil -> traza."""
-import json, os, sys, yaml
-from prototipo.entrada import ingesta
+"""El pipeline de decisión: análisis -> política -> perfil -> registro. Puro: sin ficheros ni red
+(el CLI por lotes que lo recorre vive en `servicio/triaje_lote`; el daemon, en `servicio/stream`)."""
 from prototipo.motor import analisis, politica, perfil as perfilm, correspondencia
-from prototipo.accion import catalogo as catm
 from prototipo.servicio import traza
 
 def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decision, timestamp,
@@ -52,29 +50,3 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
     return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro,
                             version_perfil=version_perfil, contexto=ctx)
 
-def main(argv):
-    alertas_path, perfil_path, hallazgos_path, salida = argv[1:5]
-    perfil_dict = perfilm.cargar(perfil_path)
-    perfil_nombre = perfil_path.split("/")[-1].replace(".yml", "")
-    with open(hallazgos_path, encoding="utf-8") as f:
-        hallazgos = json.load(f)
-    catalogo = catm.cargar_catalogo(os.path.join(os.path.dirname(os.path.dirname(__file__)), "catalogo.yml"))
-    n = 0
-    os.makedirs(os.path.dirname(salida) or ".", exist_ok=True)  # crea run/ (u otro dir de la salida)
-    with open(alertas_path, encoding="utf-8") as fin, open(salida, "w", encoding="utf-8") as fout:
-        for i, linea in enumerate(fin):
-            linea = linea.strip()
-            if not linea:
-                continue
-            alerta = ingesta.parsear_linea(linea)
-            if alerta is None:
-                continue
-            ts = alerta.get("timestamp", "")
-            r = procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo,
-                         id_decision=f"d{i}", timestamp=ts)
-            fout.write(json.dumps(r, ensure_ascii=False) + "\n")
-            n += 1
-    print(f"{n} decisiones -> {salida}")
-
-if __name__ == "__main__":
-    main(sys.argv)

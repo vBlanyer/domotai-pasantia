@@ -287,3 +287,24 @@ class TestRecomendacion(unittest.TestCase):
         r = triaje.procesar(alerta, {"nodos": {}}, perfil, "prueba", CAT, id_decision="d1", timestamp="t")
         self.assertEqual(r["clase"], "fp_actividad_legitima")
         self.assertIsNone(r["recomendacion"])
+
+
+class TestTriajeLote(unittest.TestCase):
+    def test_lineas_vacias_y_con_espacios_se_saltan_sin_mover_la_numeracion(self):
+        # Revisión del traslado a servicio/triaje_lote: parsear_linea ya hace el strip y devuelve
+        # None en vacías — este test FIJA que el CLI movido se comporta igual que el original
+        # (las saltadas consumen índice: la tercera línea válida sigue siendo d2).
+        import contextlib, io, json, os, tempfile
+        from prototipo.servicio import triaje_lote
+        d = tempfile.mkdtemp()
+        alertas, salida = os.path.join(d, "a.jsonl"), os.path.join(d, "s.jsonl")
+        valida = json.dumps({"id_alerta": "x", "activo": "objetivo-vuln", "origen_ip": "1.2.3.4",
+                             "familia": "acceso_credenciales", "servicio": "ssh", "regla_id": "5760"})
+        with open(alertas, "w", encoding="utf-8") as f:
+            f.write("\n   \n" + valida + "\n")
+        with contextlib.redirect_stdout(io.StringIO()):
+            triaje_lote.main(["triaje_lote", alertas,
+                              os.path.join(FX, "perfil.yml"), os.path.join(FX, "hallazgos.json"), salida])
+        regs = [json.loads(l) for l in open(salida, encoding="utf-8")]
+        self.assertEqual(len(regs), 1)
+        self.assertEqual(regs[0]["id_decision"], "d2")     # las dos saltadas consumieron d0 y d1

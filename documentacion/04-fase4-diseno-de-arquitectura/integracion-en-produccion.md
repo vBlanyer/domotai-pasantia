@@ -196,7 +196,7 @@ Configuración por variables de entorno en el nodo de gestión:
 | Variable | Para qué |
 |---|---|
 | `TRIAJE_NODO_GESTION` | Nodo desde el que sale el SSH (el nodo de gestión). |
-| `TRIAJE_SSH_MODO` | `clave` (producción) \| `password` (solo lab). |
+| `TRIAJE_SSH_MODO` | `clave` (producción, vía el nodo de gestión) \| `directo` (SSH desde el propio host, sin Docker: `TRIAJE_SSH_CLAVE`/`TRIAJE_SSH_KNOWN_HOSTS` son rutas del host) \| `password` (solo lab). |
 | `TRIAJE_SSH_USUARIO` | Usuario dedicado (p. ej. `triaje`). |
 | `TRIAJE_SSH_CLAVE` | Ruta de la clave privada. |
 | `TRIAJE_SSH_KNOWN_HOSTS` | Fichero de *host keys* verificadas. |
