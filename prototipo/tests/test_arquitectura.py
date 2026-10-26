@@ -27,7 +27,20 @@ EXCEPCIONES = {
     ("motor/triaje", "servicio"),    # su main() batch escribe la traza
     ("accion/revertir", "servicio"), # la reversión escribe su registro en la cadena (traza)
 }
-_IMPORT = re.compile(r"from prototipo\.(%s)[.\s]|import prototipo\.(%s)\." % ("|".join(CAPAS), "|".join(CAPAS)))
+# Las tres formas: `from prototipo.X import …`, `import prototipo.X[...]` y `from prototipo import X, Y`.
+_CAPAS_RE = "|".join(CAPAS)
+_IMPORT = re.compile(r"from prototipo\.(%s)\b|import prototipo\.(%s)\b" % (_CAPAS_RE, _CAPAS_RE))
+_FROM_PAQ = re.compile(r"^\s*from prototipo import ([^#\n]+)", re.M)
+
+
+def _destinos(texto, capa_propia):
+    destinos = {m.group(1) or m.group(2) for m in _IMPORT.finditer(texto)}
+    for m in _FROM_PAQ.finditer(texto):
+        for nombre in m.group(1).split(","):
+            base = nombre.split(" as ")[0].strip()
+            if base in CAPAS:
+                destinos.add(base)
+    return destinos - {capa_propia}
 
 
 def _grafo():
@@ -38,11 +51,23 @@ def _grafo():
                 continue
             with open(os.path.join(RAIZ, capa, nombre), encoding="utf-8") as f:
                 texto = f.read()
-            for m in _IMPORT.finditer(texto):
-                destino = m.group(1) or m.group(2)
-                if destino != capa:
-                    aristas.add((f"{capa}/{nombre[:-3]}", destino))
+            for destino in _destinos(texto, capa):
+                aristas.add((f"{capa}/{nombre[:-3]}", destino))
     return aristas
+
+
+class TestDetector(unittest.TestCase):
+    def test_ve_las_tres_formas_de_import(self):
+        # Revisión: el regex original exigía punto tras `import prototipo.motor` y no veía
+        # `from prototipo import motor` — una dependencia nueva escrita así pasaba invisible.
+        texto = ("from prototipo.servicio import traza\n"
+                 "import prototipo.accion\n"
+                 "from prototipo import explicacion, motor\n")
+        self.assertEqual(_destinos(texto, "motor"), {"servicio", "accion", "explicacion"})
+
+    def test_no_confunde_palabras_parecidas(self):
+        texto = "from prototipo.motor import analisis\nfrom prototipo.tests import x\n# motor\n"
+        self.assertEqual(_destinos(texto, "servicio"), {"motor"})
 
 
 class TestContratoDeCapas(unittest.TestCase):
