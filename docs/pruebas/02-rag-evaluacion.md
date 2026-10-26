@@ -27,13 +27,13 @@ Destila las técnicas del perímetro del bundle STIX oficial y las compone con l
 
 **Sinopsis**
 ```
-python3 -m prototipo.extraer_attack [bundle.json] [curado.jsonl] [corpus.jsonl]
+python3 -m prototipo.explicacion.extraer_attack [bundle.json] [curado.jsonl] [corpus.jsonl]
 ```
 
 **Ejemplo**
 ```bash
 # requiere prototipo/corpus/fuentes/enterprise-attack.json (ver prototipo/corpus/fuentes/README.md)
-python3 -m prototipo.extraer_attack
+python3 -m prototipo.explicacion.extraer_attack
 ```
 
 **Esperado:** `15 tecnicas extraidas + 17 curadas -> 32 fichas -> prototipo/corpus/corpus.jsonl`.
@@ -42,17 +42,17 @@ python3 -m prototipo.extraer_attack
 
 **Sinopsis**
 ```
-python3 -m prototipo.rag ( --indexar | --consulta "<texto>" )
+python3 -m prototipo.explicacion.rag ( --indexar | --consulta "<texto>" )
 ```
 
 **Ejemplo** (generar el índice de embeddings; una vez, ~40 s)
 ```bash
-python3 -m prototipo.rag --indexar
+python3 -m prototipo.explicacion.rag --indexar
 ```
 
 **Ejemplo** (ver qué recupera para una consulta defensiva)
 ```bash
-python3 -m prototipo.rag --consulta "contramedida defensiva D3FEND filtrado de trafico ante fuerza bruta SSH"
+python3 -m prototipo.explicacion.rag --consulta "contramedida defensiva D3FEND filtrado de trafico ante fuerza bruta SSH"
 ```
 
 **Esperado:** los pasajes más cercanos por coseno (fichas ATT&CK / D3FEND / mapeos). El corpus encadena

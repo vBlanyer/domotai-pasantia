@@ -89,7 +89,7 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
 - Terminal del analista **sin secuencias de control** (los campos del log del atacante y del export
   del cliente se imprimen saneados); el banner avisa si falta `TRIAJE_TRAZA_CLAVE` (cadena sin
   firma); los 500 ya no filtran el detalle de la excepción al cliente; la traza batch de
-  `prototipo.lazo` nace 0600.
+  `prototipo.servicio.lazo` nace 0600.
 
 ### Añadido (portabilidad)
 - **`lab/portatil/`: la demo en Docker plano, sin Containerlab** — compose de dos nodos (gestión +

@@ -84,7 +84,7 @@ Si prefieres el dato en bruto (una línea JSON cada ~2 s):
 export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
 rm -f /tmp/traza-banco.jsonl            # empezar con una traza limpia
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
-  | python3 -m prototipo.stream - prototipo/perfiles/bancario.yml \
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/bancario.yml \
       lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json \
       --ventana-agrupacion 15 --salida /tmp/traza-banco.jsonl
 ```
@@ -214,7 +214,7 @@ estado base: aísla la red de gestión y por eso se filtra de la salida.
 **Traza:** cada sesión del daemon añade registros a `/tmp/traza-banco.jsonl`. Para verificar su integridad:
 
 ```bash
-python3 -m prototipo.traza --verificar /tmp/traza-banco.jsonl
+python3 -m prototipo.servicio.traza --verificar /tmp/traza-banco.jsonl
 ```
 
 Para empezar una sesión nueva desde cero, bórrala (`rm -f /tmp/traza-banco.jsonl`) antes de arrancar el

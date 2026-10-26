@@ -20,7 +20,8 @@ mkdir -p run
 SALIDA="run/trazas-$(date +%F-%H%M).jsonl"
 
 echo "→ deteniendo el daemon anterior (si hay)…"
-pkill -9 -f "python3 -m prototipo.servicio.stream" 2>/dev/null || true
+# Patrón transicional (reorg 26/10): mata también un daemon arrancado con la ruta plana antigua.
+pkill -9 -f "python3 -m prototipo(\.servicio)?\.stream" 2>/dev/null || true
 pkill -9 -f "tail -n0 -F /var/ossec/logs/alerts/alerts.json" 2>/dev/null || true
 sleep 1
 

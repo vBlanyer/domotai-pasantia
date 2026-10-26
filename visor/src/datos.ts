@@ -172,7 +172,7 @@ export function esDecision(d: Decision): boolean {
 }
 
 // Ciclo de vida del caso: pliega los registros `actualizacion_caso` de la traza en el estado actual
-// por id_decision (espejo de prototipo/casos.estado_de_casos). Una decisión sin ninguna actualización
+// por id_decision (espejo de prototipo/servicio/casos.estado_de_casos). Una decisión sin ninguna actualización
 // no aparece aquí (su estado implícito es 'nuevo').
 export type CasoNota = { texto: string; operador?: string | null; decidido_en?: string | null }
 export type CasoEstado = { estado: string; asignado: string | null; notas: CasoNota[]; actualizado_en?: string | null }

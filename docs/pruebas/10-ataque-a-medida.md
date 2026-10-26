@@ -163,7 +163,8 @@ python3 -m lab.banco.pruebas --caso RDP      # o SMB, DBDIR, FPNEX
 ```bash
 python3 - <<'PY'
 import json
-from prototipo import triaje, perfil as pf, catalogo as catm
+from prototipo.motor import triaje, perfil as pf
+from prototipo.accion import catalogo as catm
 from lab.banco import red, casos
 perfil = pf.cargar('prototipo/perfiles/bancario.yml')
 cat = catm.cargar_catalogo('prototipo/catalogo.yml')

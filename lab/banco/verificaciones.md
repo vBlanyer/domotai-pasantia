@@ -391,11 +391,11 @@ validación humana que se imprime sí habla de `BLOQUEAR_IP_FIREWALL en fw-core`
 orden ejecutada (`orden sobre: 10.60.0.10`) y esa mutación real van contra el activo.
 
 Precisión sobre ese mensaje: el paso de `fw-core` **sí se alcanzó y se preguntó**
-(`_aprobar` en `prototipo/explicacion/agente_mitigacion.py:177` imprime exactamente esa línea antes de
+(`_aprobar` en `prototipo/explicacion/agente_mitigacion.py:217` imprime exactamente esa línea antes de
 leer la respuesta). Pero `_aprobar` exige que la respuesta empiece por «s»
 (`leer(...).strip().lower().startswith("s")`), y el ensayo usó `leer=lambda _: "1"` para
 **todas** las lecturas del lazo — válido para otro prompt del mismo flujo (elegir `[1-N]`
-de una lista, en `prototipo/servicio/validacion.py:56`), pero no para el `[s/N]` de la aprobación de
+de una lista, en `prototipo/servicio/validacion.py:95`), pero no para el `[s/N]` de la aprobación de
 `fw-core`, donde `"1"` no empieza por «s» y se interpreta como rechazo. El código no se
 saltó el firewall por diseño; el guion de prueba respondió «no» sin querer a esa pregunta
 concreta. Lo que sí queda como hallazgo (y es lo que muestra V5) es que el primer contacto

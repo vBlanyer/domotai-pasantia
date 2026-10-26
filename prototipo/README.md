@@ -25,7 +25,7 @@ arquitectura del informe); los datos y la configuración viven en la raíz del p
 | Carpeta | Capa | Módulos |
 |---|---|---|
 | [`entrada/`](entrada/) | De la fuente al esquema común | `ingesta` · `adaptador_wazuh` · `receptor` |
-| [`motor/`](motor/) | El motor de decisión (puro, sin E/S) | `analisis` · `politica` · `familias` · `correspondencia` · `actores` · `impacto` · `postura` · `rafaga` · `agrupacion` · `arbol` · `perfil` · `servicios` · `inventario` · `triaje` · `orden` |
+| [`motor/`](motor/) | El motor de decisión (sin red ni SSH; solo lee su configuración) | `analisis` · `politica` · `familias` · `correspondencia` · `actores` · `impacto` · `postura` · `rafaga` · `agrupacion` · `arbol` · `perfil` · `servicios` · `inventario` · `triaje` · `orden` |
 | [`accion/`](accion/) | Acción y verificación (tocar el mundo) | `catalogo` · `conector` · `verificacion` · `revertir` · `contenciones` |
 | [`explicacion/`](explicacion/) | Explicación (justifica, no decide) | `justificador_llm` · `rag` · `agente_mitigacion` · `extraer_attack` |
 | [`servicio/`](servicio/) | Daemon, web y auditoría | `stream` · `lazo` · `tablero` · `traza` · `casos` · `validacion` · `red` · `retener_trazas` |
@@ -35,6 +35,10 @@ arquitectura del informe); los datos y la configuración viven en la raíz del p
 Los CLIs llevan la capa en su ruta: `python3 -m prototipo.servicio.stream`,
 `python3 -m prototipo.accion.catalogo --sudoers`, `python3 -m prototipo.herramientas.validar_reglas`, …
 (reorganizado el 26/10/2026; los documentos congelados anteriores citan las rutas planas antiguas).
+
+Las capas ordenan por **propósito**, no son (aún) un contrato de imports: p. ej. `motor/triaje` y
+`motor/perfil` leen el catálogo de `accion/` (su configuración), y el `main()` batch de `triaje`
+hace E/S. Convertir la taxonomía en contrato (import-linter) sería trabajo de v2.
 
 ---
 
