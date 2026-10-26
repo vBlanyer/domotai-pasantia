@@ -93,19 +93,19 @@ def formatear_informe(rec_fija, rec_agentica, sintesis=None, ks=(1, 3, 5), condi
 # -------------------------------------------------------------------- run --
 
 def _recuperar_ids_fijo(indice, embedder, k):
-    from prototipo import rag
+    from prototipo.explicacion import rag
     # via consultar_conocimiento (generador=None) para aplicar el mismo filtro de conocimiento (palanca 3)
     return lambda a: [p["id"] for p in rag.consultar_conocimiento(a, indice, embedder, generador=None, k=k)["pasajes"]]
 
 def _recuperar_ids_agentico(indice, embedder, generador, k):
-    from prototipo import rag
+    from prototipo.explicacion import rag
     def _fn(a):
         r = rag.consultar_conocimiento(a, indice, embedder, generador=generador, k=k)
         return [p["id"] for p in r["pasajes"]]
     return _fn
 
 def main(argv):
-    from prototipo import rag, justificador_llm as jl
+    from prototipo.explicacion import rag, justificador_llm as jl
     ks = (1, 3, 5)
     kmax = max(ks)
     con_sintesis = "--con-sintesis" in argv

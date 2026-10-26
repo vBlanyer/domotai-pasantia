@@ -55,11 +55,11 @@ mkdir -p "$GEN"
 sed "s/192\\.168\\.1\\.30/$IP_OBJ/g; s/^ip_gestion: .*/ip_gestion: $IP_GES/" \
   "$HERE/prototipo/perfiles/empresarial.yml" > "$GEN/perfil.yml"
 # El lazo por lotes consume alertas NORMALIZADAS (el daemon en vivo normaliza solo).
-python3 -m prototipo.ingesta "$HERE/lab/portatil/alerta-muestra.jsonl" "$GEN/alertas.jsonl" wazuh portatil
+python3 -m prototipo.entrada.ingesta "$HERE/lab/portatil/alerta-muestra.jsonl" "$GEN/alertas.jsonl" wazuh portatil
 
 echo "== 4. El lazo con el conector REAL (origen interno -> la aprobación es tuya: 1 aprueba) =="
 TRIAJE_NODO_GESTION=portatil-gestion TRIAJE_SSH_MODO=clave \
-  python3 -m prototipo.lazo "$GEN/alertas.jsonl" "$GEN/perfil.yml" \
+  python3 -m prototipo.servicio.lazo "$GEN/alertas.jsonl" "$GEN/perfil.yml" \
   "$HERE/lab/portatil/hallazgos.json" "$GEN/traza.jsonl"
 
 # El origen de la alerta de muestra (el «atacante»); -wF: literal y de palabra completa,
@@ -69,7 +69,7 @@ echo "== 5. La contención, vista desde DENTRO del objetivo =="
 if docker exec portatil-objetivo iptables -L INPUT -n | grep -wF -- "$ATACANTE"; then
   echo "== 6. Reversión (cierra el ciclo) =="
   TRIAJE_NODO_GESTION=portatil-gestion TRIAJE_SSH_MODO=clave \
-    python3 -m prototipo.revertir "$GEN/traza.jsonl" d0 --motivo "demo portátil: fin de la prueba"
+    python3 -m prototipo.accion.revertir "$GEN/traza.jsonl" d0 --motivo "demo portátil: fin de la prueba"
   if docker exec portatil-objetivo iptables -L INPUT -n | grep -qwF -- "$ATACANTE"; then
     echo "   ERROR: la regla sigue puesta"; exit 1
   fi

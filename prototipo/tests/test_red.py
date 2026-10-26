@@ -1,5 +1,5 @@
 import unittest
-from prototipo import red
+from prototipo.servicio import red
 
 BANCO = {
     "activos": {"web-banking": {"ip": "10.10.0.10", "funcion": "banca", "criticidad": "alta",
@@ -118,7 +118,7 @@ class TestRedMalFormada(unittest.TestCase):
         self.assertIn("a", r["nodos"])
 
     def test_depende_de_con_entradas_no_hashables(self):
-        from prototipo import tablero
+        from prototipo.servicio import tablero
         seccion = {"nodos": {"internet": {"tipo": "externo", "depende_de": [["b"], {"x": 1}, "web-banking"]}}}
         r = self._ok(seccion)
         self.assertEqual(r["nodos"]["internet"]["depende_de"], ["web-banking"])

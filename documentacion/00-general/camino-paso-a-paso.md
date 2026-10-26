@@ -114,29 +114,29 @@ Un único diagrama que reúna sandbox, Wazuh, motor de triaje, conector, auditor
 ## Bloque 3 — Prototipo (Fase 5)
 
 ### Paso 11 · Ingesta y normalización
-> **HECHO** (31/08/2026; a nivel de producto el 02/09/2026; agrupación RF-11 el 02/09/2026). El motor consume el esquema normalizado conservando `nivel_wazuh` como baseline. `prototipo/agrupacion.py` agrupa las alertas en incidentes (RF-11): 18 soportadas→2, 205→4. RF-01 se cumple ahora **a nivel de producto**: la ingesta vive en `prototipo/ingesta.py` (núcleo agnóstico de fuente, adaptador inyectable — RNF-06) + `prototipo/adaptador_wazuh.py` (el mapeo Wazuh); `lab/dataset/esquema.py` re-exporta desde ahí, así el pipeline del dataset sigue igual.
+> **HECHO** (31/08/2026; a nivel de producto el 02/09/2026; agrupación RF-11 el 02/09/2026). El motor consume el esquema normalizado conservando `nivel_wazuh` como baseline. `prototipo/motor/agrupacion.py` agrupa las alertas en incidentes (RF-11): 18 soportadas→2, 205→4. RF-01 se cumple ahora **a nivel de producto**: la ingesta vive en `prototipo/entrada/ingesta.py` (núcleo agnóstico de fuente, adaptador inyectable — RNF-06) + `prototipo/entrada/adaptador_wazuh.py` (el mapeo Wazuh); `lab/dataset/esquema.py` re-exporta desde ahí, así el pipeline del dataset sigue igual.
 Leer `alerts.json`, normalizar al esquema de entrada del motor de triaje, **conservando el nivel de regla** como baseline.
 
 ### Paso 12 · Interfaz de análisis y clasificador
-> **HECHO A MEDIAS** (31/08/2026; ampliado 02/09/2026). La interfaz `clasificar`/`justificar` existe (`prototipo/analisis.py`). Detrás hay un **baseline determinista** que produce **4 de las 6** clases —incluida `fp_actividad_legitima` vía `origenes_legitimos` del perfil (RF-03), que llevó la precisión de la Fase 6 de 0.556 a 1.0—; faltan `vp_acceso_consumado` y `vp_exposicion_gestion`, que exigen el encoder con fine-tuning, bloqueado por un dataset de una sola familia.
+> **HECHO A MEDIAS** (31/08/2026; ampliado 02/09/2026). La interfaz `clasificar`/`justificar` existe (`prototipo/motor/analisis.py`). Detrás hay un **baseline determinista** que produce **4 de las 6** clases —incluida `fp_actividad_legitima` vía `origenes_legitimos` del perfil (RF-03), que llevó la precisión de la Fase 6 de 0.556 a 1.0—; faltan `vp_acceso_consumado` y `vp_exposicion_gestion`, que exigen el encoder con fine-tuning, bloqueado por un dataset de una sola familia.
 Implementar `clasificar` y `justificar` como interfaz, y detrás el encoder con fine-tuning sobre la partición de entrenamiento del Paso 6.
 
 **Hecho cuando:** dada una alerta, devuelve clase, prioridad y **confianza numérica**.
 
 ### Paso 13 · Justificador en línea
-> **HECHO, con matiz** (31/08/2026). `prototipo/justificador_llm.py` corre un LLM real por subprocess, con anclaje verificable (RNF-02) y degradación a plantilla (RNF-09). Es un **1B, no un 3B**: medidos ~3,7 t/s en CPU. La Fase 6 midió que ancla al 100 % pero es semánticamente poco fiable.
+> **HECHO, con matiz** (31/08/2026). `prototipo/explicacion/justificador_llm.py` corre un LLM real por subprocess, con anclaje verificable (RNF-02) y degradación a plantilla (RNF-09). Es un **1B, no un 3B**: medidos ~3,7 t/s en CPU. La Fase 6 midió que ancla al 100 % pero es semánticamente poco fiable.
 Modelo de 3B cuantizado detrás de `justificar`.
 
 **Hecho cuando:** produce una justificación breve que **referencia campos concretos de la alerta** (RNF-02) en un tiempo tolerable para una persona.
 
 ### Paso 14 · Conector SSH
-> **HECHO** (31/08/2026). `prototipo/conector.py`: acción del catálogo → comando, ejecutor SSH inyectable, idempotencia verificar-antes-de-actuar y validación de parámetros contra inyección de comandos.
+> **HECHO** (31/08/2026). `prototipo/accion/conector.py`: acción del catálogo → comando, ejecutor SSH inyectable, idempotencia verificar-antes-de-actuar y validación de parámetros contra inyección de comandos.
 Traduce acciones abstractas del catálogo a comandos, con autenticación por clave, privilegio mínimo y registro de orden, comando, código de salida y salida.
 
 **Hecho cuando:** el motor de triaje ordena una acción del catálogo y el nodo del sandbox la ejecuta, con la traza completa registrada.
 
 ### Paso 15 · Validación humana y trazas
-> **HECHO** (31/08/2026). `prototipo/lazo.py` + `validacion.py` + `verificacion.py`. Lazo completo demostrado en vivo contra el laboratorio sobre `objetivo-vuln` con `BLOQUEAR_IP`, con ejecución y verificación confirmadas. **Cierra la Fase 5.**
+> **HECHO** (31/08/2026). `prototipo/servicio/lazo.py` + `validacion.py` + `verificacion.py`. Lazo completo demostrado en vivo contra el laboratorio sobre `objetivo-vuln` con `BLOQUEAR_IP`, con ejecución y verificación confirmadas. **Cierra la Fase 5.**
 Retener las órdenes que requieren aprobación, mostrar la justificación del Paso 13, registrar la decisión del analista.
 
 **Hecho cuando:** el **lazo completo funciona en vivo**: alerta de Wazuh → clasificación → justificación → validación humana → acción sobre el equipo de borde → verificación.

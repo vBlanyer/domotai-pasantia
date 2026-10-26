@@ -123,7 +123,8 @@ class TestFalloEsperado(unittest.TestCase):
 class TestNivelDecision(unittest.TestCase):
     def setUp(self):
         import os
-        from prototipo import perfil, catalogo
+        from prototipo.motor import perfil
+        from prototipo.accion import catalogo
         raiz = rg.RAIZ
         self.p = perfil.cargar(os.path.join(raiz, "prototipo/perfiles/bancario.yml"))
         self.c = catalogo.cargar_catalogo(os.path.join(raiz, "prototipo/catalogo.yml"))
@@ -208,7 +209,8 @@ class TestNivelDecision(unittest.TestCase):
 class TestNivelInyectadaPerfil(unittest.TestCase):
     def setUp(self):
         import os
-        from prototipo import perfil, catalogo
+        from prototipo.motor import perfil
+        from prototipo.accion import catalogo
         self.p = perfil.cargar(os.path.join(rg.RAIZ, "prototipo/perfiles/bancario.yml"))
         self.c = catalogo.cargar_catalogo(os.path.join(rg.RAIZ, "prototipo/catalogo.yml"))
 

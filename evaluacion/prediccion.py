@@ -1,6 +1,6 @@
 """Corre el motor de triaje por alerta y mapea la traza a prediccion binaria + tiempo."""
 import time
-from prototipo import triaje
+from prototipo.motor import triaje
 
 # Nota: una traza sin clase (None) cuenta como no-amenaza (negativo benigno).
 # `amenaza_enrutada` (nivel triar_y_enrutar) es una amenaza reconocida que se encamina en vez de

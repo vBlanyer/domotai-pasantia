@@ -1,5 +1,5 @@
 import io, json, os, unittest
-from prototipo import rag
+from prototipo.explicacion import rag
 
 RUTA_CORPUS = os.path.join(os.path.dirname(__file__), "..", "corpus", "corpus.jsonl")
 
@@ -270,7 +270,7 @@ class TestCoberturaDescarte(unittest.TestCase):
     # fundamenta con una ficha; una clase nueva sin su ficha degrada la justificación a la plantilla
     # sin avisar. FICHA_DESCARTE fija la correspondencia y el helper vigila que se cumpla.
     def test_las_tres_fuentes_estan_en_sincronia(self):
-        from prototipo.analisis import CLASES_SIN_AMENAZA
+        from prototipo.motor.analisis import CLASES_SIN_AMENAZA
         self.assertEqual(set(rag.FICHA_DESCARTE), set(CLASES_SIN_AMENAZA))
         self.assertEqual(set(rag.CONSULTA_DESCARTE), set(CLASES_SIN_AMENAZA))
 

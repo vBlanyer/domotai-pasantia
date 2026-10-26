@@ -55,7 +55,7 @@ generador, el servicio funciona con justificación de plantilla (RNF-09); sin el
 
 ### 3.2 Índice del RAG (cuando cambie el corpus o el embedder)
 ```bash
-python3 -m prototipo.rag --indexar       # esperado: "indice regenerado: 32 documentos"
+python3 -m prototipo.explicacion.rag --indexar       # esperado: "indice regenerado: 32 documentos"
 ```
 Si alguien cambia el embedder sin reindexar, la recuperación se detiene con un error explícito de
 dimensiones en lugar de devolver similitudes sin sentido.
@@ -78,11 +78,11 @@ Si cualquiera de los dos «denegado» no aparece, el aprovisionamiento **falla a
 # fuente real: el alerts.json de Wazuh. TRIAJE_ANCLA = syslog del manager: cada registro de la traza
 # se ancla alli (§5); sin la variable, el banner avisa "SIN ancla".
 TRIAJE_ANCLA=<ip-del-manager>:514 \
-python3 -m prototipo.stream /var/ossec/logs/alerts/alerts.json prototipo/perfiles/<cliente>.yml \
+python3 -m prototipo.servicio.stream /var/ossec/logs/alerts/alerts.json prototipo/perfiles/<cliente>.yml \
         --con-llm --ventana-agrupacion 10 --salida /var/lib/triaje/trazas.jsonl
 # en el laboratorio (el fichero vive dentro del contenedor):
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
-    | TRIAJE_ANCLA=127.0.0.1:514 python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
+    | TRIAJE_ANCLA=127.0.0.1:514 python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
 ```
 Lee el banner antes de nada. Debe decir **con qué credencial entra** y **que la traza se ancla**:
 ```
@@ -128,7 +128,7 @@ traza continúa donde quedó.
 
 **Revertir una acción** (falso positivo confirmado, cliente que pide levantar un bloqueo):
 ```bash
-python3 -m prototipo.revertir /var/lib/triaje/trazas.jsonl s7 --motivo "falso positivo confirmado por el cliente"
+python3 -m prototipo.accion.revertir /var/lib/triaje/trazas.jsonl s7 --motivo "falso positivo confirmado por el cliente"
 # esperado: s7: BLOQUEAR_IP en objetivo-vuln -> revertida · comando: iptables -D INPUT -s 192.168.1.10 -j DROP
 ```
 La reversión sale de la orden guardada en la traza y del catálogo, la ejecuta el mismo conector, se verifica
@@ -139,7 +139,7 @@ revierten acciones con `reversion: definida`; las transitorias y las de observac
 
 | Qué | Cómo | Cuándo |
 |---|---|---|
-| Integridad de la traza | `python3 -m prototipo.traza --verificar trazas.jsonl --anclas <alerts.json de Wazuh>` → `cadena valida: N registros` y `anclas: el ancla coincide: N registros` | diario, y antes de cualquier revisión |
+| Integridad de la traza | `python3 -m prototipo.servicio.traza --verificar trazas.jsonl --anclas <alerts.json de Wazuh>` → `cadena valida: N registros` y `anclas: el ancla coincide: N registros` | diario, y antes de cualquier revisión |
 | Anclaje | es automático: con `TRIAJE_ANCLA`, cada registro envía su hash al manager y queda en `alerts.json` (regla local 100100, que `wazuh-run.sh` instala). El verificador distingue **TRUNCADA** (mismo linaje, faltan registros al final), **REHECHA** (el fichero se borró y se volvió a crear con el mismo nombre) y **ALTERADA** | nunca borres ni recrees el fichero de la traza: si necesitas otro, usa otro nombre |
 | Servidores vivos | `curl -s 127.0.0.1:8080/health`, `…:8082/health` → `{"status":"ok"}` | al arrancar y si las justificaciones salen «de plantilla» |
 | Mínimo privilegio vigente | re-ejecuta `aprovisionar-minimo-privilegio.sh` (es idempotente) | tras cambiar el catálogo |
@@ -158,7 +158,7 @@ revierten acciones con `reversion: definida`; las transitorias y las de observac
 | El mismo origen genera un incidente tras otro | es un origen legítimo no declarado (administración, escáner, auditor) | decláralo en `origenes_legitimos` del perfil y reinicia el servicio |
 | Alertas con clase `no_soportada` | están fuera del perímetro del caso de uso (diez familias en el registro hoy) | quedan en la traza con su severidad de origen; no se descartan, no se actúan |
 | Wazuh deja de producir alertas | el reenvío syslog del nodo se cayó | en el lab: `sh lab/scripts/reenvio-syslog.sh` |
-| Un bloqueo quedó puesto tras una demo o prueba | acción ejecutada y no revertida | `prototipo.revertir` con su `id_decision` (nunca a mano, para que conste) |
+| Un bloqueo quedó puesto tras una demo o prueba | acción ejecutada y no revertida | `prototipo.accion.revertir` con su `id_decision` (nunca a mano, para que conste) |
 
 ## 7. Reproducibilidad: cómo repetir una decisión
 
@@ -198,13 +198,13 @@ en el código. Para repetir una campaña completa: `python3 -m evaluacion.campan
 ```
 [x] sh lab/scripts/llm-server.sh                 → listo en :8080
 [x] sh lab/scripts/llm-server.sh --embedder      → listo en :8082
-[x] python3 -m prototipo.rag --indexar           → 32 documentos
+[x] python3 -m prototipo.explicacion.rag --indexar           → 32 documentos
 [x] sh lab/scripts/aprovisionar-minimo-privilegio.sh → permitido OK · denegado OK · denegado OK
 [x] daemon con --con-llm, banner "conector SSH con clave"
 [x] ataque real (5 intentos SSH) → 1 incidente de 4 alertas, BLOQUEAR_IP ejecutado como triaje
     (auth.log del nodo: sudo: triaje : … COMMAND=/sbin/iptables -A INPUT -s 192.168.1.10 -j DROP)
-[x] python3 -m prototipo.traza --verificar       → cadena valida: 1 registros
-[x] python3 -m prototipo.revertir … s1 --motivo … → revertida; cadena valida: 2 registros
+[x] python3 -m prototipo.servicio.traza --verificar       → cadena valida: 1 registros
+[x] python3 -m prototipo.accion.revertir … s1 --motivo … → revertida; cadena valida: 2 registros
 [x] segunda reversión                            → "ya fue revertida"
 [x] anclaje: sesión con TRIAJE_ANCLA → 8 registros, 8 anclas en Wazuh → "el ancla coincide";
     un registro menos → TRUNCADA; fichero rehecho con el mismo nombre → REHECHA

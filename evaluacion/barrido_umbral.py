@@ -11,7 +11,8 @@ arrastra como control (debe quedarse constante). No toca el motor ni las cifras 
 análisis que varía un parámetro del perfil en una COPIA."""
 import argparse, json, os, sys
 from evaluacion import campana, cargar, prioridad
-from prototipo import catalogo as catm, perfil as perfilm
+from prototipo.motor import perfil as perfilm
+from prototipo.accion import catalogo as catm
 
 UMBRALES = [round(0.1 * i, 1) for i in range(11)]   # 0.0 .. 1.0 en pasos de 0.1
 

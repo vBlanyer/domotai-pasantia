@@ -1,5 +1,5 @@
 import unittest
-from prototipo import correspondencia
+from prototipo.motor import correspondencia
 
 REG = correspondencia.cargar()
 

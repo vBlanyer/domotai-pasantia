@@ -282,7 +282,7 @@ el cliente antes de salir). D7 — límite de detección.
 ```sh
 AUDITOR_NODOS="$(python3 -m lab.banco.red nodos)" AUDITOR_PUERTOS="$(python3 -m lab.banco.red puertos)" \
 TRIAJE_AUDITOR=clab-banco-auditor sh lab/scripts/auditar.sh lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json
-python3 -m prototipo.inventario prototipo/perfiles/bancario.yml lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json
+python3 -m prototipo.motor.inventario prototipo/perfiles/bancario.yml lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json
 ```
 
 `red.nodos_auditor()` / `red.puertos_auditor()`:
@@ -351,13 +351,15 @@ incluidos en el perfil.
 
 **Esta verificación no corre contra el laboratorio: es una simulación.** El `ej` de abajo es
 un ejecutor **inyectado** (una función Python que sustituye por completo al ejecutor SSH
-real de `prototipo/conector.py`) — no toca ningún contenedor del banco. Sirve para observar,
+real de `prototipo/accion/conector.py`) — no toca ningún contenedor del banco. Sirve para observar,
 con trazabilidad exacta, qué IP y qué comando construye `lazo.py` internamente antes de
 llegar al conector real.
 
 ```sh
 PYTHONPATH=. python3 - <<'EOF'
-from prototipo import lazo, catalogo as catm, perfil as perfilm
+from prototipo.motor import perfil as perfilm
+from prototipo.accion import catalogo as catm
+from prototipo.servicio import lazo
 p = perfilm.cargar("prototipo/perfiles/bancario.yml"); c = catm.cargar_catalogo("prototipo/catalogo.yml")
 toc = []
 def ej(ip, cmd): toc.append(ip); return (0, "DROP") if "grep" in cmd and len(toc) > 1 else (1, "")
@@ -389,11 +391,11 @@ validación humana que se imprime sí habla de `BLOQUEAR_IP_FIREWALL en fw-core`
 orden ejecutada (`orden sobre: 10.60.0.10`) y esa mutación real van contra el activo.
 
 Precisión sobre ese mensaje: el paso de `fw-core` **sí se alcanzó y se preguntó**
-(`_aprobar` en `prototipo/agente_mitigacion.py:177` imprime exactamente esa línea antes de
+(`_aprobar` en `prototipo/explicacion/agente_mitigacion.py:177` imprime exactamente esa línea antes de
 leer la respuesta). Pero `_aprobar` exige que la respuesta empiece por «s»
 (`leer(...).strip().lower().startswith("s")`), y el ensayo usó `leer=lambda _: "1"` para
 **todas** las lecturas del lazo — válido para otro prompt del mismo flujo (elegir `[1-N]`
-de una lista, en `prototipo/validacion.py:56`), pero no para el `[s/N]` de la aprobación de
+de una lista, en `prototipo/servicio/validacion.py:56`), pero no para el `[s/N]` de la aprobación de
 `fw-core`, donde `"1"` no empieza por «s» y se interpreta como rechazo. El código no se
 saltó el firewall por diseño; el guion de prueba respondió «no» sin querer a esa pregunta
 concreta. Lo que sí queda como hallazgo (y es lo que muestra V5) es que el primer contacto
@@ -418,7 +420,7 @@ que H2 (ver V7).
 ```sh
 export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
 PYTHONPATH=. python3 - <<'EOF'
-from prototipo import conector, catalogo as catm
+from prototipo.accion import conector, catalogo as catm
 c = catm.cargar_catalogo("prototipo/catalogo.yml"); ej = conector.ejecutor_por_defecto()
 for nodo, ip in (("fw-core", "10.0.0.1"), ("fw-edge", "10.0.0.254")):
     o = {"decision_id": "v6", "accion_id": "BLOQUEAR_IP_FIREWALL", "nodo_objetivo": nodo, "nodo_ip": ip,
@@ -458,14 +460,15 @@ esperada (código de salida 0, sin rastro de la IP de prueba después).
 ```sh
 export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
 PYTHONPATH=. python3 -c "
-from prototipo import conector
+from prototipo.accion import conector
 ej = conector.ejecutor_por_defecto(); print(ej('10.0.0.1', 'iptables -A FORWARD -s 10.40.0.10 -j DROP')[0])"
 sleep 8; docker exec clab-banco-mdr-siem tail -n1 /var/log/banco/salud.jsonl
 PYTHONPATH=. python3 -c "
-from prototipo import conector
+from prototipo.accion import conector
 ej = conector.ejecutor_por_defecto(); print(ej('10.0.0.1', 'iptables -D FORWARD -s 10.40.0.10 -j DROP')[0])"
 PYTHONPATH=. python3 -c "
-from prototipo import impacto, perfil, catalogo
+from prototipo.motor import impacto, perfil
+from prototipo.accion import catalogo
 p = perfil.cargar('prototipo/perfiles/bancario.yml'); c = catalogo.cargar_catalogo('prototipo/catalogo.yml')
 d = impacto.determinar('BLOQUEAR_IP_FIREWALL', {'ip': '10.40.0.10'}, 'core-db', p, c)
 print('prediccion:', d['activos_afectados_en_cascada'], '|', d['motivo'])"
@@ -491,19 +494,19 @@ reversión, `sh lab/banco/banco.sh test` confirmó todos los servicios sanos otr
 
 **Conclusión (K1) — causa verificada en el código, no en la dirección de `depende_de`:**
 la hipótesis inicial (que `afectados_en_cascada` no camina la dependencia en sentido
-inverso) es incorrecta. `prototipo/impacto.py:54-72` construye explícitamente un mapa
+inverso) es incorrecta. `prototipo/motor/impacto.py:54-72` construye explícitamente un mapa
 `dependientes` invertido (`dependientes.setdefault(dep, set()).add(nombre)` por cada
 `nombre: {depende_de: [dep, ...]}` del perfil) y hace el cierre transitivo sobre ese mapa
 invertido — si se la invoca con `activo="middleware"`, sí encuentra a `web-banking`,
 `api-movil` y `atm` como dependientes. El problema real está un nivel más arriba, en
-`determinar()` (`prototipo/impacto.py:189-190`):
+`determinar()` (`prototipo/motor/impacto.py:189-190`):
 
 ```python
 cascada = (afectados_en_cascada(activo, perfil)
            if accion_id in ACCIONES_SOBRE_PUERTO or accion_id in ACCIONES_SOBRE_NODO else [])
 ```
 
-y en la clasificación de acciones (`prototipo/impacto.py:15-17`):
+y en la clasificación de acciones (`prototipo/motor/impacto.py:15-17`):
 
 ```python
 ACCIONES_SOBRE_IP     = frozenset({"BLOQUEAR_IP", "BLOQUEAR_IP_FIREWALL", "MATAR_CONEXION"})

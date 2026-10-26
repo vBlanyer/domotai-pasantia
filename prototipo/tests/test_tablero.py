@@ -7,7 +7,7 @@ import threading
 import time
 import unittest
 from unittest import mock
-from prototipo import tablero, traza
+from prototipo.servicio import tablero, traza
 
 
 class TestEstadoYLector(unittest.TestCase):
@@ -216,7 +216,7 @@ class TestLectoresDeDatos(unittest.TestCase):
         # visor por /api/trazas con sus campos (si _resumen_traza los descarta, el panel de caso
         # muestra siempre 'nuevo' vacío). Se comprueba que lista_trazas los conserva Y que
         # casos.estado_de_casos los pliega al estado correcto.
-        from prototipo import casos
+        from prototipo.servicio import casos
         ruta = self._traza_tmp([
             {"id_decision": "s1", "timestamp": "t1", "activo": "web", "clase": "vp_intento_acceso"},
             casos.construir_actualizacion("s1", estado="en_revision", asignado="ana", ts="t2"),
@@ -231,7 +231,7 @@ class TestLectoresDeDatos(unittest.TestCase):
     def test_traza_detalle_fallback_ignora_las_actualizaciones_de_caso(self):
         # MEDIO de la revisión: sin índice, el fallback debe devolver la DECISIÓN (con su contenido),
         # no un `actualizacion_caso` que comparte el id_decision y no trae justificacion/ejecucion.
-        from prototipo import casos
+        from prototipo.servicio import casos
         ruta = self._traza_tmp([
             {"id_decision": "s1", "timestamp": "t1", "activo": "web", "accion_final": "BLOQUEAR_IP"},
             casos.construir_actualizacion("s1", estado="resuelto", ts="t2")])
@@ -751,7 +751,7 @@ class TestRevertirTodoAPI(unittest.TestCase):
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
         puerto = srv.server_address[1]
         estados = []
-        with mock.patch("prototipo.revertir.revertir_todas", side_effect=_revertir_lenta):
+        with mock.patch("prototipo.accion.revertir.revertir_todas", side_effect=_revertir_lenta):
             hilos = [threading.Thread(target=lambda: estados.append(
                 self._post(puerto, "/api/revertir-todo", {"confirmar": True})[0])) for _ in range(2)]
             for h in hilos: h.start()
@@ -857,7 +857,7 @@ class TestHealthz(unittest.TestCase):
         return r.status, json.loads(cuerpo)
 
     def test_healthz_devuelve_la_salud_del_daemon(self):
-        from prototipo import stream
+        from prototipo.servicio import stream
         lat = stream.Latido()
         lat.alerta()
         srv = tablero.crear_servidor(tablero.EstadoTablero(), "/no/existe.jsonl", puerto=0,

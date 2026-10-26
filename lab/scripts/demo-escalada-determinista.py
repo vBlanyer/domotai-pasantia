@@ -25,7 +25,9 @@ Qué observar/evaluar:
 import os, sys
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, REPO)
-from prototipo import lazo, validacion, catalogo as catm, perfil as perfilm
+from prototipo.motor import perfil as perfilm
+from prototipo.accion import catalogo as catm
+from prototipo.servicio import lazo, validacion
 
 AUTO = "--auto" in sys.argv
 

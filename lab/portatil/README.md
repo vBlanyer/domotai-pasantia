@@ -15,10 +15,10 @@ Qué hace, paso a paso: levanta los nodos (`docker compose`, construyendo `banco
 [`aprovisionar-minimo-privilegio.sh`](../scripts/aprovisionar-minimo-privilegio.sh) (sus tres
 comprobaciones incluidas) → genera el perfil (el empresarial con el activo apuntando al contenedor,
 en `run/portatil/`) → normaliza la [alerta de muestra](alerta-muestra.jsonl) (fuerza bruta SSH 5760
-grabada de la campaña real) → `prototipo.lazo` decide `vp_intento_acceso`, el origen interno exige
+grabada de la campaña real) → `prototipo.servicio.lazo` decide `vp_intento_acceso`, el origen interno exige
 **tu aprobación**, y al aprobar aplica `BLOQUEAR_IP` por SSH, **verifica** la regla en el objetivo y
 la deja trazada → la demo enseña la regla `iptables` desde dentro del contenedor y **revierte** con
-`prototipo.revertir`, dejando el objetivo limpio y el ciclo entero en `run/portatil/traza.jsonl`.
+`prototipo.accion.revertir`, dejando el objetivo limpio y el ciclo entero en `run/portatil/traza.jsonl`.
 
 ## Requisitos y lecciones de plataforma
 
@@ -27,9 +27,9 @@ la deja trazada → la demo enseña la regla `iptables` desde dentro del contene
   «you must be root» aunque el sudo funcione. Containerlab se la da a sus nodos sin pedirla.
 - La dependencia real del conector es **Docker, no Containerlab**: el SSH sale del nodo de gestión
   vía `docker exec` (`TRIAJE_NODO_GESTION`). Para un host sin Docker haría falta un ejecutor SSH
-  directo (seam pequeño, aislado en `prototipo/conector.py`).
-- `prototipo.lazo`/`triaje` por lotes consumen alertas **normalizadas** (`prototipo.ingesta`);
-  el daemon en vivo (`prototipo.stream`) normaliza solo.
+  directo (seam pequeño, aislado en `prototipo/accion/conector.py`).
+- `prototipo.servicio.lazo`/`triaje` por lotes consumen alertas **normalizadas** (`prototipo.entrada.ingesta`);
+  el daemon en vivo (`prototipo.servicio.stream`) normaliza solo.
 
 ## Variante viva (detección real, opcional)
 

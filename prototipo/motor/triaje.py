@@ -1,0 +1,80 @@
+"""Orquesta el lazo de decisión: ingesta -> análisis -> política -> perfil -> traza."""
+import json, os, sys, yaml
+from prototipo.entrada import ingesta
+from prototipo.motor import analisis, politica, perfil as perfilm, correspondencia
+from prototipo.accion import catalogo as catm
+from prototipo.servicio import traza
+
+def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decision, timestamp,
+             justificar_fn=analisis.justificar, registro_correspondencia=None):
+    ctx = analisis.enriquecer(alerta, hallazgos, perfil_dict)
+    clas = analisis.clasificar(alerta, ctx)
+    # justificar_fn puede devolver str (plantilla, legado) o dict con metadata (LLM: version, pasajes).
+    res = justificar_fn(alerta, ctx, clas["clase"])
+    if isinstance(res, dict):
+        just, version_just, pasajes = res.get("texto", ""), res.get("version_justificador", "desconocido"), res.get("pasajes_usados", [])
+        consulta_rag, recuperacion_agentica = res.get("consulta_usada", ""), res.get("recuperacion_agentica", False)
+        descartada = res.get("llm_descartada")
+    else:
+        just, version_just, pasajes = res, "plantilla-0", []
+        consulta_rag, recuperacion_agentica = "", False
+        descartada = None
+    accion, params = politica.proponer(clas["clase"], alerta)
+    impacto = catalogo[accion]["impacto"] if accion else "ninguno"
+    filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),
+                             alerta.get("servicio"), clas["confianza"], hallazgos=hallazgos)
+    # Escalada de un no_soportada GRAVE (opt-in del perfil, RF-13): un desconocido de SEVERIDAD alta no
+    # debe quedar solo en el log. Si el perfil fija `continuidad.revisar_no_soportada_nivel` y el nivel
+    # Wazuh lo alcanza, se marca para REVISIÓN humana (resultado 'revisar'), SIN acción (no hay nada que
+    # contener, no se adivina una). Ausente la clave -> apagado (comportamiento de siempre), así el
+    # canónico —medido sin ella— no se mueve. El ruido de plataforma (nivel bajo) sigue sin molestar.
+    if clas["clase"] == "no_soportada":
+        umbral_rev = (perfil_dict.get("continuidad") or {}).get("revisar_no_soportada_nivel")
+        nivel = alerta.get("nivel_wazuh")
+        _es_entero = lambda x: isinstance(x, int) and not isinstance(x, bool)
+        # Fail-safe: un umbral mal escrito en el YAML (texto/lista) NO debe reventar el triaje con un
+        # TypeError en `nivel >= umbral`; se trata como apagado. `perfil.validar` además lo avisa al arrancar.
+        if _es_entero(umbral_rev) and _es_entero(nivel) and nivel >= umbral_rev:
+            filtro = {**filtro, "resultado": "revisar", "requiere_humano": True}
+    ruta = perfilm.ruta_de(perfil_dict, clas.get("ruta"))
+    # Recomendacion de respuesta dirigida (asesora, NO cambia accion/filtro): la calcula el registro
+    # de correspondencia a partir de la familia y el servicio atacado. El default cachea (registro()).
+    reg_corr = registro_correspondencia if registro_correspondencia is not None else correspondencia.registro()
+    recomendacion = correspondencia.recomendar(alerta.get("familia"), alerta.get("servicio"),
+                                               clas["clase"], reg_corr)
+    analisis_out = {**clas, "justificacion": just, "version_justificador": version_just, "pasajes_usados": pasajes,
+                    "consulta_rag": consulta_rag, "recuperacion_agentica": recuperacion_agentica, "ruta": ruta,
+                    "justificacion_descartada": descartada, "recomendacion": recomendacion,
+                    # Señal ASESORA del punto ciego 'low-and-slow' desde un origen de confianza (no
+                    # cambia clase/accion/filtro): se calcula con el contexto ya enriquecido.
+                    "aviso": analisis.aviso_vigilancia(ctx, clas["clase"])}
+    version_perfil = perfil_dict.get("version", "v0")
+    return traza.construir(id_decision, timestamp, alerta, analisis_out, accion, impacto, perfil_nombre, filtro,
+                            version_perfil=version_perfil, contexto=ctx)
+
+def main(argv):
+    alertas_path, perfil_path, hallazgos_path, salida = argv[1:5]
+    perfil_dict = perfilm.cargar(perfil_path)
+    perfil_nombre = perfil_path.split("/")[-1].replace(".yml", "")
+    with open(hallazgos_path, encoding="utf-8") as f:
+        hallazgos = json.load(f)
+    catalogo = catm.cargar_catalogo(os.path.join(os.path.dirname(os.path.dirname(__file__)), "catalogo.yml"))
+    n = 0
+    os.makedirs(os.path.dirname(salida) or ".", exist_ok=True)  # crea run/ (u otro dir de la salida)
+    with open(alertas_path, encoding="utf-8") as fin, open(salida, "w", encoding="utf-8") as fout:
+        for i, linea in enumerate(fin):
+            linea = linea.strip()
+            if not linea:
+                continue
+            alerta = ingesta.parsear_linea(linea)
+            if alerta is None:
+                continue
+            ts = alerta.get("timestamp", "")
+            r = procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo,
+                         id_decision=f"d{i}", timestamp=ts)
+            fout.write(json.dumps(r, ensure_ascii=False) + "\n")
+            n += 1
+    print(f"{n} decisiones -> {salida}")
+
+if __name__ == "__main__":
+    main(sys.argv)

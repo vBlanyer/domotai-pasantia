@@ -8,7 +8,9 @@ Uso:  python3 lab/scripts/demo-agente-escalado.py [--lab] [--autonomo] [--con-ll
 import json, os, sys
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, REPO)
-from prototipo import agente_mitigacion as ag, catalogo as catm, perfil as perfilm, conector, rag
+from prototipo.motor import perfil as perfilm
+from prototipo.accion import catalogo as catm, conector
+from prototipo.explicacion import agente_mitigacion as ag, rag
 
 
 class EjecutorSimulado:
@@ -46,7 +48,7 @@ def main():
         # Misma invocacion que stream.construir_mitigar_fn: generador por defecto (servidor si
         # esta arrancado) con el esquema derivado del catalogo y la topologia, para que el
         # modelo no pueda nombrar nada fuera del catalogo (RF-15).
-        from prototipo import justificador_llm
+        from prototipo.explicacion import justificador_llm
         esquema = ag.esquema_accion(catalogo, ag.resolver_topologia(perfil))
         base = justificador_llm.generador_por_defecto()
         generador = ((lambda p: base(p, esquema=esquema))

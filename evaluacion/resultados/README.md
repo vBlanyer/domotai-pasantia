@@ -186,7 +186,7 @@ para el determinista). El margen de una segunda opinión es lo que falla el fall
   que el modelo puede ver (RNF-08)— los distingue.
 - **Y el único gris real es el más peligroso para un LLM.** Son ataques desde la IP del administrador. En el
   desarrollo del justificador se midió que, con la ráfaga solo en los datos, el modelo explicaba el origen
-  como legítimo (`prototipo/justificador_llm.py`, rama de ráfaga): una segunda opinión abierta sobre esos casos
+  como legítimo (`prototipo/explicacion/justificador_llm.py`, rama de ráfaga): una segunda opinión abierta sobre esos casos
   tiende a proponer «actividad del admin» y a empujar al analista a no contener un equipo comprometido.
 
 **Conclusión:** el clasificador determinista **satura** las métricas de este dataset; un LLM en la decisión no
@@ -219,7 +219,7 @@ partición de evaluación con el perfil `empresarial` corregido para describir l
 - **El coste es real:** el analista revisa 4,5 veces más decisiones. Un cliente que prefiera automatizar el
   bloqueo de sus activos internos lo declara (`continuidad.actores.activo_interno: automatica_si_confianza`).
   La automatización sigue disponible para orígenes externos desconocidos con confianza alta.
-- **Reconciliación del inventario del laboratorio** (`python3 -m prototipo.inventario`), que muestra la
+- **Reconciliación del inventario del laboratorio** (`python3 -m prototipo.motor.inventario`), que muestra la
   exposición no reconocida:
 
 ```

@@ -1,6 +1,6 @@
 import os, json, unittest
 from datetime import datetime
-from prototipo import agrupacion
+from prototipo.motor import agrupacion
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 

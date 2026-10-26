@@ -1,5 +1,5 @@
 import json, os, unittest
-from prototipo import politica
+from prototipo.motor import politica
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 def alerta():
@@ -71,7 +71,7 @@ class TestProponer(unittest.TestCase):
         self.assertIsNone(acc)
 
     def test_amenaza_enrutada_no_propone_accion(self):
-        from prototipo import politica
+        from prototipo.motor import politica
         accion, params = politica.proponer("amenaza_enrutada", {"origen_ip": "1.2.3.4"})
         self.assertIsNone(accion)
         self.assertEqual(params, {})

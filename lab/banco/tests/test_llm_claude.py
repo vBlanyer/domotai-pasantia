@@ -5,7 +5,8 @@ import threading
 import unittest
 
 from lab.scripts import llm_claude
-from prototipo import justificador_llm, stream
+from prototipo.explicacion import justificador_llm
+from prototipo.servicio import stream
 
 ESQUEMA = {"type": "object", "properties": {"explicacion": {"type": "string"}},
            "required": ["explicacion"], "additionalProperties": False}

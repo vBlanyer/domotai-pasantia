@@ -1,7 +1,8 @@
 """La sección `red` de bancario.yml describe la red del laboratorio: cada enlace de Containerlab
 tiene que aparecer como enlace hijo→padre del perfil (en un sentido u otro)."""
 import os, unittest, yaml
-from prototipo import red, perfil as perfilm
+from prototipo.motor import perfil as perfilm
+from prototipo.servicio import red
 
 RAIZ = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 

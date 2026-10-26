@@ -1,6 +1,6 @@
 import unittest
 
-from prototipo import banco_carga
+from prototipo.herramientas import banco_carga
 
 
 class TestBancoCarga(unittest.TestCase):

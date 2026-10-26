@@ -1,5 +1,5 @@
 import contextlib, io, json, os, tempfile, unittest
-from prototipo import inventario
+from prototipo.motor import inventario
 
 PERFIL = {"activos": {
     "objetivo-vuln": {"servicios_prestados": [22, 80, 443]},

@@ -1,5 +1,5 @@
 import os, unittest
-from prototipo import verificacion, catalogo
+from prototipo.accion import verificacion, catalogo
 
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
 ORDEN = {"accion_id": "BLOQUEAR_IP", "nodo_ip": "192.168.1.30", "params": {"ip": "192.168.1.10"}}

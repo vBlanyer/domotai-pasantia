@@ -1,5 +1,6 @@
 import os, unittest, yaml
-from prototipo import perfil, catalogo
+from prototipo.motor import perfil
+from prototipo.accion import catalogo
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
@@ -240,12 +241,12 @@ class TestPerfilBancario(unittest.TestCase):
                 self.assertEqual(nodo["ip"], self.p["activos"][nombre]["ip"], nombre)
 
     def test_aislar_el_middleware_afecta_en_cascada_a_la_banca(self):   # Nivel 2
-        from prototipo import impacto
+        from prototipo.motor import impacto
         d = impacto.determinar("AISLAR_NODO", {}, "middleware", self.p, CAT)
         self.assertEqual(d["activos_afectados_en_cascada"], ["api-movil", "web-banking"])
 
     def test_caer_el_hsm_arrastra_al_core_y_a_swift(self):
-        from prototipo import impacto
+        from prototipo.motor import impacto
         self.assertEqual(impacto.afectados_en_cascada("hsm", self.p),
                          ["api-movil", "middleware", "swift-alliance", "web-banking"])
 
@@ -261,7 +262,7 @@ class TestPerfilEmpresarial(unittest.TestCase):
         self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None))
 
     def test_el_inventario_es_el_del_laboratorio(self):   # C6: un nombre por equipo
-        from prototipo import orden
+        from prototipo.motor import orden
         self.assertEqual(set(self.p["activos"]), set(orden.IP_DE_NODO))
         for nombre, ip in orden.IP_DE_NODO.items():
             self.assertEqual(self.p["activos"][nombre]["ip"], ip, nombre)

@@ -1,5 +1,7 @@
 import json, os, unittest, yaml
-from prototipo import agente_mitigacion as ag, catalogo, lazo
+from prototipo.accion import catalogo
+from prototipo.explicacion import agente_mitigacion as ag
+from prototipo.servicio import lazo
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
@@ -71,7 +73,7 @@ class TestHerramientasReadOnly(unittest.TestCase):
                                                              "gateway", "192.168.1.10"), "activo")
 
     def test_consultar_conocimiento_resume_pasajes(self):
-        from prototipo import rag
+        from prototipo.explicacion import rag
         emb = lambda textos: [[1.0 if "bloquear" in t.lower() else 0.0] for t in textos]
         indice = rag.indexar([{"id": "mapeo-acceso_credenciales", "tipo": "mapeo",
                                "titulo": "Mapeo acceso", "texto": "bloquear ip contramedida D3-ITF"}], emb)
@@ -257,7 +259,7 @@ class TestBucleReact(unittest.TestCase):
         self.assertTrue(paso["observacion"].startswith("Vetado por el perfil"))
 
     def test_agente_consulta_conocimiento_rag(self):
-        from prototipo import rag
+        from prototipo.explicacion import rag
         emb = lambda textos: [[1.0 if "bloquear" in t.lower() else 0.0] for t in textos]
         indice = rag.indexar([{"id": "mapeo-acceso_credenciales", "tipo": "mapeo",
                                "titulo": "Mapeo acceso", "texto": "bloquear ip D3-ITF"}], emb)

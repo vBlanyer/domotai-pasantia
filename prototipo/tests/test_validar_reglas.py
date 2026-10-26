@@ -1,6 +1,6 @@
 import contextlib, io, json, os, tempfile, unittest
 
-from prototipo import validar_reglas
+from prototipo.herramientas import validar_reglas
 
 
 def _cruda(groups, rid="1"):

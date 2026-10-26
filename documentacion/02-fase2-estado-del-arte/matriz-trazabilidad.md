@@ -14,24 +14,24 @@ hacia los requisitos que las materializan.
 
 | RF | Implementa en | Estado |
 |----|---------------|--------|
-| RF-01 | `prototipo/ingesta.py` (+ `adaptador_wazuh.py`) | ✔ |
-| RF-02 | `analisis.enriquecer` + `prototipo/postura.py` | ~ (sin histórico de SOC) |
-| RF-03 | `prototipo/analisis.py` + `familias.yml` + `arbol.py` | ~ (4/6 clases; límite de datos) |
+| RF-01 | `prototipo/entrada/ingesta.py` (+ `adaptador_wazuh.py`) | ✔ |
+| RF-02 | `analisis.enriquecer` + `prototipo/motor/postura.py` | ~ (sin histórico de SOC) |
+| RF-03 | `prototipo/motor/analisis.py` + `familias.yml` + `arbol.py` | ~ (4/6 clases; límite de datos) |
 | RF-04 | `analisis._priorizar` (criticidad, V4) | ~ (granularidad a afinar) |
 | RF-05 | `traza.py` (`justificacion_estructurada`) + `justificador_llm.py` + `rag.py` | ✔ |
-| RF-06 | `prototipo/analisis.py` (confianza) | ✔ |
-| RF-07 | `prototipo/perfil.py` (`continuidad.umbral_confianza`) | ~ (calibración pendiente) |
-| RF-08 | `prototipo/lazo.py` (aprobar / rechazar / reclasificar) | ✔ |
-| RF-09 | `prototipo/traza.py` (`version_justificador`, cadena de hashes) | ✔ |
-| RF-10 | `prototipo/familias.py` + perímetro (`no_soportada`) | ✔ |
-| RF-11 | `prototipo/agrupacion.py` | ✔ |
+| RF-06 | `prototipo/motor/analisis.py` (confianza) | ✔ |
+| RF-07 | `prototipo/motor/perfil.py` (`continuidad.umbral_confianza`) | ~ (calibración pendiente) |
+| RF-08 | `prototipo/servicio/lazo.py` (aprobar / rechazar / reclasificar) | ✔ |
+| RF-09 | `prototipo/servicio/traza.py` (`version_justificador`, cadena de hashes) | ✔ |
+| RF-10 | `prototipo/motor/familias.py` + perímetro (`no_soportada`) | ✔ |
+| RF-11 | `prototipo/motor/agrupacion.py` | ✔ |
 | RF-12 | `traza.py` (feedback persistido) → [bucle de feedback](../00-general/bucle-de-feedback-rf12.md) | ✔ |
-| RF-13 | `prototipo/stream.py` + `traza.py` (traza JSONL = interfaz de salida) | ~ (push a producción = futuro) |
+| RF-13 | `prototipo/servicio/stream.py` + `traza.py` (traza JSONL = interfaz de salida) | ~ (push a producción = futuro) |
 | RF-14 | `evaluacion/` (campaña vs baseline) | ✔ |
-| RF-15 | `prototipo/catalogo.py` + conector (catálogo cerrado) | **+** |
+| RF-15 | `prototipo/accion/catalogo.py` + conector (catálogo cerrado) | **+** |
 | RF-16 | `ingesta.py` / `adaptador_wazuh.py` (activo sin agente) | **+** |
-| RF-17 | `prototipo/impacto.py` (`impacto.determinar`) + `actores.py` | **+** |
-| RF-18 | catálogo (reversibilidad) + `prototipo/revertir.py` | **+** |
+| RF-17 | `prototipo/motor/impacto.py` (`impacto.determinar`) + `actores.py` | **+** |
+| RF-18 | catálogo (reversibilidad) + `prototipo/accion/revertir.py` | **+** |
 | RF-19 | `perfil.filtrar` (veto duro sobre `ip_gestion`) | **+** |
 | RF-20 | `evaluacion/` (métricas de continuidad) | **+** |
 
@@ -47,7 +47,7 @@ hacia los requisitos que las materializan.
 | RNF-06 | `ingesta.py` + adaptador (esquema agnóstico de fabricante) | ✔ |
 | RNF-07 | `analisis.py` / `postura.py` (baja confianza ante telemetría incompleta) | ✔ |
 | RNF-08 | `evento_crudo` tratado como **dato inerte, nunca instrucción** | ~ (superficie crítica: el log lo escribe quien ataca) |
-| RNF-09 | `prototipo/lazo.py` (fallo del modelo → cola manual, RNF-09) | ✔ |
+| RNF-09 | `prototipo/servicio/lazo.py` (fallo del modelo → cola manual, RNF-09) | ✔ |
 | RNF-10 | perfiles YAML (reglas/umbrales); **prompts en código** (`construir_prompt`) | ~ (externalizar prompts = futuro) |
 | RNF-11 | salida legible (`traza.py` / tablero) | ✔ |
 | RNF-12 | política documentada ([protocolos §8](../04-fase4-diseno-de-arquitectura/protocolos-comunicacion-sandbox.md)); **no implementada** | ~ (anonimización/retención = config de despliegue) |

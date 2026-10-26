@@ -49,13 +49,13 @@ class TestDemo(unittest.TestCase):
         self.assertIn("aprovisionar-minimo-privilegio.sh", self._demo())
 
     def test_termina_revirtiendo_la_contencion(self):
-        self.assertIn("prototipo.revertir", self._demo())
+        self.assertIn("prototipo.accion.revertir", self._demo())
 
     def test_normaliza_antes_del_lazo(self):
         # Trampa del spike: lazo/triaje por lotes consumen alertas NORMALIZADAS.
         d = self._demo()
-        self.assertIn("prototipo.ingesta", d)
-        self.assertIn("prototipo.lazo", d)
+        self.assertIn("prototipo.entrada.ingesta", d)
+        self.assertIn("prototipo.servicio.lazo", d)
 
     def test_reconstruye_la_imagen(self):
         # Lección ya documentada del banco: con image:+build:, un tag viejo se reusa en silencio

@@ -118,7 +118,7 @@ Dos ficheros gobiernan lo que el MDR puede hacer en el cliente, y **cambiarlos c
   aplicarse, versionado en git (ya lo están).
 - **Quién aprueba** añadir una acción al catálogo (y regenerar el sudoers) o subir la automatización de un
   perfil.
-- Tras cada cambio del catálogo, **regenerar el sudoers** (`python3 -m prototipo.catalogo --sudoers …`) y
+- Tras cada cambio del catálogo, **regenerar el sudoers** (`python3 -m prototipo.accion.catalogo --sudoers …`) y
   redesplegarlo a los nodos.
 
 ---

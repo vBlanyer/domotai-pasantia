@@ -19,4 +19,4 @@ cd "$RAIZ"
 PUERTO="${TRIAJE_WEB_PUERTO:-8787}"
 
 tail -n0 -F "$TRIAJE_ALERTS" \
-  | python3 -m prototipo.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web "$PUERTO" --salida "$TRIAJE_SALIDA"
+  | python3 -m prototipo.servicio.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web "$PUERTO" --salida "$TRIAJE_SALIDA"

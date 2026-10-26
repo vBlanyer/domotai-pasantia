@@ -1,5 +1,5 @@
 import unittest
-from prototipo import rafaga, arbol
+from prototipo.motor import rafaga, arbol
 
 
 def _a(origen, seg, regla="5760"):

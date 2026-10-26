@@ -1,5 +1,5 @@
 """Árbol de decisión del etiquetado: asigna el ground truth a cada alerta."""
-from prototipo.postura import postura_de  # noqa: F401  (re-exportación: la lógica vive en el producto)
+from prototipo.motor.postura import postura_de  # noqa: F401  (re-exportación: la lógica vive en el producto)
 
 # Familias dentro del caso de uso. El ground truth aquí es la pregunta amenaza/no-amenaza (VP/FP),
 # ORTOGONAL a cómo el producto responde: `explotacion_conocida` es una familia soportada (su VP/FP

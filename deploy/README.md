@@ -6,7 +6,7 @@ Son plantillas: ajústalas a las rutas y al usuario del cliente.
 
 | Fichero | Qué es |
 |---|---|
-| `arrancar-mdr.sh` | Wrapper del *pipe* `tail -F alerts.json \| python3 -m prototipo.stream … --web --salida <fijo>` (systemd no hace *pipes*). Lee las variables del `EnvironmentFile`. |
+| `arrancar-mdr.sh` | Wrapper del *pipe* `tail -F alerts.json \| python3 -m prototipo.servicio.stream … --web --salida <fijo>` (systemd no hace *pipes*). Lee las variables del `EnvironmentFile`. |
 | `mdr-triaje.service` | Unidad systemd: `Restart=always` (resiliencia: reinicia aunque el daemon salga 0 tras un EOF de la fuente) + endurecimiento básico. |
 | `triaje.env.ejemplo` | Ejemplo de `EnvironmentFile` (fuente, perfil, `--salida` fijo, conector SSH, HMAC). |
 
@@ -30,7 +30,7 @@ Si el SIEM está en otra máquina y reenvía las alertas por TCP (en vez de comp
 daemon puede escuchar directamente, sin el *pipe* del wrapper:
 
 ```sh
-python3 -m prototipo.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web --salida "$TRIAJE_SALIDA" \
+python3 -m prototipo.servicio.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web --salida "$TRIAJE_SALIDA" \
   --escuchar 0.0.0.0:6514 --permitir 10.0.0.5,10.0.0.6 \
   [--tls-cert cert.pem --tls-clave clave.pem [--tls-ca ca.pem]]
 ```
@@ -80,10 +80,10 @@ antiguos (nunca el que el daemon escribe, nunca uno con la cadena de hashes rota
 
 ```sh
 # simulación (no borra):
-python3 -m prototipo.retener_trazas run --max 30
+python3 -m prototipo.servicio.retener_trazas run --max 30
 # aplicar (p. ej. cron semanal): conserva los 30 más recientes y nunca el fichero vivo
 0 4 * * 0  cd /opt/mdr && . /etc/mdr/triaje.env && \
-  python3 -m prototipo.retener_trazas run --max 30 --excepto "$TRIAJE_SALIDA" --aplicar
+  python3 -m prototipo.servicio.retener_trazas run --max 30 --excepto "$TRIAJE_SALIDA" --aplicar
 ```
 
 - También admite `--max-dias D` (poda lo más viejo que D días).

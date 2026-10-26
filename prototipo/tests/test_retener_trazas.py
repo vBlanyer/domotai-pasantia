@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from prototipo import retener_trazas as rt, traza
+from prototipo.servicio import retener_trazas as rt, traza
 
 
 class TestPlanRetencion(unittest.TestCase):

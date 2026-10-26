@@ -28,6 +28,6 @@ El bundle NO se indexa tal cual (es enorme y ruidoso para un 1B). El flujo es:
    soportado (acceso a credenciales, reconocimiento, servicio expuesto, explotación conocida).
 2. **Redactar** fichas cortas y correctas (técnica → indicadores → contramedida D3FEND → acción del
    catálogo) hacia `prototipo/corpus/corpus.jsonl`.
-3. **Reindexar** con `python3 -m prototipo.rag --indexar` (embeddings locales).
+3. **Reindexar** con `python3 -m prototipo.explicacion.rag --indexar` (embeddings locales).
 
 Es decir: la fuente cruda es MITRE; el corpus curado es lo que embebe el RAG.

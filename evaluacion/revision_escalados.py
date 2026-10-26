@@ -19,7 +19,9 @@ import random
 import sys
 
 from evaluacion import cargar
-from prototipo import rafaga, triaje, validacion, catalogo as catm, perfil as perfilm
+from prototipo.motor import rafaga, triaje, perfil as perfilm
+from prototipo.accion import catalogo as catm
+from prototipo.servicio import validacion
 
 RUBRICA = ("Una fila por decision que el sistema te pasaria a ti. Lee la columna lo_que_ve_el_analista como si "
            "te saliera en la terminal durante el turno. "

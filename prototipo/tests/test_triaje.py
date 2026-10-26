@@ -1,5 +1,6 @@
 import json, os, unittest, yaml
-from prototipo import triaje, catalogo
+from prototipo.motor import triaje
+from prototipo.accion import catalogo
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
@@ -246,7 +247,7 @@ class TestImpactoDeterminado(unittest.TestCase):
 
     def test_pasa_los_hallazgos_al_filtro(self):
         from unittest import mock
-        from prototipo import perfil as perfilm
+        from prototipo.motor import perfil as perfilm
         h = j("hallazgos.json")
         with mock.patch.object(perfilm, "filtrar", wraps=perfilm.filtrar) as f:
             triaje.procesar(j("alerta_vp.json"), h, y("perfil.yml"), "prueba", CAT, "d1", "t")

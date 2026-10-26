@@ -4,7 +4,8 @@ no descubrirse al regenerar el informe. Se fijan las dos lecturas de la regla de
 (ventana ±60 s, la del informe) y causal (solo alertas pasadas, la que ve el daemon en vivo)."""
 import json, os, unittest
 from evaluacion import campana, cargar, prioridad
-from prototipo import catalogo as catm, perfil as perfilm
+from prototipo.motor import perfil as perfilm
+from prototipo.accion import catalogo as catm
 
 RAIZ = os.path.join(os.path.dirname(__file__), "..", "..")
 

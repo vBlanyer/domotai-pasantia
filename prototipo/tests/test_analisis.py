@@ -1,5 +1,5 @@
 import json, os, unittest, yaml
-from prototipo import analisis
+from prototipo.motor import analisis
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 def cargar_json(n):
@@ -284,7 +284,7 @@ class TestRafaga(unittest.TestCase):
         self.assertEqual(r["clase"], "vp_intento_acceso"); self.assertEqual(r["confianza"], 1.0)
 
     def test_la_plantilla_y_el_prompt_mencionan_la_rafaga(self):
-        from prototipo import justificador_llm as jl
+        from prototipo.explicacion import justificador_llm as jl
         a = dict(self.ALERTA, rafaga_60s=12)
         ctx = analisis.enriquecer(a, self.HALL, self.PERFIL)
         self.assertIn("ráfaga de 12", analisis.justificar(a, ctx, "vp_intento_acceso"))

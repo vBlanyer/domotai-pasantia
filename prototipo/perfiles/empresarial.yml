@@ -6,7 +6,7 @@ version: v0
 
 # Inventario de la red protegida (RF-17). criticidad gobierna la prioridad (media: la efectiva
 # hasta ahora, C6); servicios_prestados son los puertos que el cliente reconoce como su servicio
-# (lo demás abierto es exposición no reconocida: python3 -m prototipo.inventario); funcion dice qué
+# (lo demás abierto es exposición no reconocida: python3 -m prototipo.motor.inventario); funcion dice qué
 # es el equipo, para que el analista y el agente sepan a quién tocan.
 activos:
   borde:         { ip: 192.168.1.1,  funcion: "equipo de borde: enruta la LAN hacia el proveedor",

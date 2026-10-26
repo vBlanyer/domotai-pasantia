@@ -1,5 +1,5 @@
 import unittest
-from prototipo import revertir
+from prototipo.accion import revertir
 
 CAT = {
     "BLOQUEAR_IP": {"reversion": "definida", "comando": "iptables -A INPUT -s {ip} -j DROP",
@@ -85,7 +85,7 @@ if __name__ == "__main__":
 class TestRevertirConVerificacionExacta(unittest.TestCase):
     def test_revertir_una_ip_prefijo_de_otra_bloqueada_se_da_por_revertida(self):
         import os
-        from prototipo import catalogo
+        from prototipo.accion import catalogo
         from prototipo.tests.iptables_falso import NodoIptables
         cat = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
         nodo = NodoIptables(drop_input=["192.168.1.11", "192.168.1.110"])
@@ -99,7 +99,7 @@ class TestCliRevertir(unittest.TestCase):
     decisión con ese id, o la que indique --indice, y la reversión se encadena bien."""
     def _traza(self, d):
         import json, os
-        from prototipo import traza
+        from prototipo.servicio import traza
         ruta = os.path.join(d, "t.jsonl")
         with open(ruta, "w", encoding="utf-8") as f:
             c = traza.Cadena(f, nombre="t.jsonl", ancla="")
@@ -110,10 +110,10 @@ class TestCliRevertir(unittest.TestCase):
     def _correr(self, ruta, *args):
         import os
         from unittest import mock
-        from prototipo import catalogo
+        from prototipo.accion import catalogo
         from prototipo.tests.iptables_falso import NodoIptables
         nodo = NodoIptables(drop_input=["198.51.100.7", "198.51.100.99"])
-        with mock.patch("prototipo.conector.ejecutor_por_defecto", lambda *a, **k: nodo), \
+        with mock.patch("prototipo.accion.conector.ejecutor_por_defecto", lambda *a, **k: nodo), \
              mock.patch("builtins.print"):
             rc = revertir._main([ruta, "s1", *args])
         return rc, nodo
@@ -127,7 +127,7 @@ class TestCliRevertir(unittest.TestCase):
 
     def test_indice_elige_la_decision_y_ya_revertida_mira_esa(self):
         import tempfile
-        from prototipo import traza
+        from prototipo.servicio import traza
         with tempfile.TemporaryDirectory() as d:
             ruta = self._traza(d)
             self._correr(ruta)                                     # revierte la última (índice 1)
@@ -141,7 +141,7 @@ class TestCliRevertir(unittest.TestCase):
     def test_el_ancla_de_la_reversion_lleva_el_fichero_y_el_recuento(self):
         import tempfile
         from unittest import mock
-        from prototipo import traza
+        from prototipo.servicio import traza
         capturas = []
         with tempfile.TemporaryDirectory() as d:
             ruta = self._traza(d)
@@ -163,7 +163,7 @@ class TestRevertirTodas(unittest.TestCase):
 
     def _traza(self, registros):
         import json, os, tempfile
-        from prototipo import traza
+        from prototipo.servicio import traza
         ruta = os.path.join(tempfile.mkdtemp(), "trazas.jsonl")
         prev = traza.GENESIS
         with open(ruta, "w", encoding="utf-8") as f:
@@ -173,7 +173,7 @@ class TestRevertirTodas(unittest.TestCase):
         return ruta
 
     def test_revierte_todas_las_activas_y_escribe_reversiones(self):
-        from prototipo import traza
+        from prototipo.servicio import traza
         ruta = self._traza([self._dec("s1", "198.51.100.10"), self._dec("s2", "203.0.113.9")])
         res = revertir.revertir_todas(ruta, CAT, EjecutorFalso(), motivo="masa", operador="ana")
         self.assertEqual(res["revertidas"], 2)

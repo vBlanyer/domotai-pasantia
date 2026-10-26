@@ -19,7 +19,8 @@ import argparse, copy, json
 from collections import Counter
 
 from evaluacion import cargar, prediccion
-from prototipo import rafaga, catalogo as catm, perfil as perfilm
+from prototipo.motor import rafaga, perfil as perfilm
+from prototipo.accion import catalogo as catm
 
 SOPORTADAS = ("VP", "FP", "PROPIA")
 

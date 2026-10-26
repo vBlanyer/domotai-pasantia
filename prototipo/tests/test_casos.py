@@ -1,5 +1,5 @@
 import unittest
-from prototipo import casos
+from prototipo.servicio import casos
 
 
 class TestConstruirActualizacion(unittest.TestCase):

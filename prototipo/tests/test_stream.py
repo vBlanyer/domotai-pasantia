@@ -1,5 +1,6 @@
 import contextlib, io, json, os, tempfile, time, unittest, yaml
-from prototipo import stream, catalogo, lazo, tablero
+from prototipo.accion import catalogo
+from prototipo.servicio import stream, lazo, tablero
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
@@ -56,7 +57,7 @@ class TestBucleInmediato(unittest.TestCase):
         traza = json.loads(lineas[0])
         self.assertEqual(traza["clase"], "vp_intento_acceso")
         # RF-09: lo que escribe el daemon esta encadenado y verifica
-        from prototipo import traza as traza_mod
+        from prototipo.servicio import traza as traza_mod
         self.assertEqual(traza["hash_previo"], traza_mod.GENESIS)
         self.assertTrue(traza_mod.verificar([traza])["valida"])
         self.assertIn("192.168.1.10", traza["justificacion"])
@@ -434,7 +435,7 @@ class TestModoAgente(unittest.TestCase):
 class TestAgenteEscribeEnLaTarjeta(unittest.TestCase):
     def test_el_agente_usa_el_escribir_que_le_pasa_el_lazo(self):
         from unittest import mock
-        from prototipo import agente_mitigacion as ag, justificador_llm, rag
+        from prototipo.explicacion import agente_mitigacion as ag, justificador_llm, rag
         visto = {}
         with mock.patch.object(rag, "cargar_indice", return_value=None), \
              mock.patch.object(rag, "embedder_por_defecto", return_value=None), \
@@ -468,7 +469,7 @@ class TestAgenteYActividadPropia(unittest.TestCase):
 
 class TestModoAgenteEscalada(unittest.TestCase):
     def test_daemon_delega_y_el_agente_escala_a_firewall(self):
-        from prototipo import agente_mitigacion as ag
+        from prototipo.explicacion import agente_mitigacion as ag
         perfil = dict(y("perfil.yml"))
         perfil["topologia"] = {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30"},
                                "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}
@@ -637,7 +638,7 @@ class TestCLI(unittest.TestCase):
     def test_con_llm_la_justificacion_es_estructurada(self):
         # En vivo se usa la salida JSON restringida: con el 1B, la libre caía casi siempre a plantilla.
         from unittest import mock
-        from prototipo import justificador_llm, rag
+        from prototipo.explicacion import justificador_llm, rag
         with mock.patch.object(rag, "cargar_indice", return_value={}), \
              mock.patch.object(rag, "embedder_por_defecto", return_value=None), \
              mock.patch.object(rag, "recuperar_fn_agentico", return_value=lambda a, c: []), \
@@ -706,7 +707,7 @@ class TestLecturaInteractiva(unittest.TestCase):
 
 class TestStream(unittest.TestCase):
     def test_linea_decision_muestra_encaminamiento(self):
-        from prototipo import stream
+        from prototipo.servicio import stream
         d = {"clase": "amenaza_enrutada", "prioridad": 3, "confianza": 1.0,
              "accion_propuesta": None, "accion_final": None, "resultado_filtro": "sin_accion",
              "version_justificador": "plantilla-0", "ruta": "cola-appsec-banco"}
@@ -737,7 +738,7 @@ class TestStream(unittest.TestCase):
 
     def test_mitigar_fn_pasa_los_hallazgos_al_agente(self):
         from unittest import mock
-        from prototipo import agente_mitigacion as ag, justificador_llm, rag
+        from prototipo.explicacion import agente_mitigacion as ag, justificador_llm, rag
         vistos = {}
         def falso_bucle(*a, **k):
             vistos.update(k)
@@ -928,7 +929,7 @@ class TestSupresionEnVivo(unittest.TestCase):
         sup = [r for r in registros if r.get("tipo") == "actividad_suprimida"]
         self.assertEqual(len(sup), 1)                              # y queda un resumen en la traza
         self.assertEqual(sup[0]["clave"]["origen_ip"], "1.1.1.1")
-        from prototipo import traza as tm
+        from prototipo.servicio import traza as tm
         self.assertTrue(tm.verificar(registros)["valida"])         # la cadena sigue integra
 
     def test_otra_ip_no_se_suprime(self):
@@ -1135,7 +1136,7 @@ class TestBarreraDeExcepciones(unittest.TestCase):
         self.assertEqual(len(errores), 2)
         self.assertIn("docker", errores[0]["error"])
         self.assertEqual(errores[0]["origen_ip"], "1.1.1.1")
-        from prototipo import traza as tm
+        from prototipo.servicio import traza as tm
         self.assertTrue(tm.verificar(regs)["valida"])
 
     def test_un_ejecutor_que_lanza_al_aprobar_en_la_web_deja_la_decision_en_la_traza(self):
@@ -1176,13 +1177,14 @@ class TestTrazaDelDaemon(unittest.TestCase):
 class TestRevertirConElDaemonVivo(unittest.TestCase):
     def test_revertir_desde_la_cli_a_mitad_de_sesion_no_rompe_la_cadena(self):
         from unittest import mock
-        from prototipo import revertir, traza as tm
+        from prototipo.accion import revertir
+        from prototipo.servicio import traza as tm
         from prototipo.tests.iptables_falso import NodoIptables
         with tempfile.TemporaryDirectory() as d:
             ruta = os.path.join(d, "t.jsonl")
             def fuente():
                 yield _linea("1.1.1.1")
-                with mock.patch("prototipo.conector.ejecutor_por_defecto",
+                with mock.patch("prototipo.accion.conector.ejecutor_por_defecto",
                                 lambda *a, **k: NodoIptables(drop_input=["1.1.1.1"])), mock.patch("builtins.print"):
                     self.assertEqual(revertir._main([ruta, "s1"]), 0)
                 yield _linea("2.2.2.2", seg=5)
