@@ -961,12 +961,14 @@ class _Manejador(BaseHTTPRequestHandler):
                 except ValueError as e:
                     return self._responder({"error": str(e)}, 400)   # estado inválido o actualización vacía
                 if ok:   # el ciclo de caso también es diario del operador (anotar_linea sanea B3)
+                    # id/asignado vienen del cuerpo HTTP (hasta 64 KiB): acotados como en la traza.
+                    idd = str(cuerpo.get("id"))[:casos._TOPE_CAMPO] if cuerpo.get("id") else "?"
+                    asig = casos._limpiar(cuerpo.get("asignado"), casos._TOPE_CAMPO)
                     partes = [f"estado → {cuerpo.get('estado')}" if cuerpo.get("estado") else None,
-                              f"asignado a {cuerpo.get('asignado')}" if cuerpo.get("asignado") else None,
+                              f"asignado a {asig}" if asig else None,
                               "nota añadida" if cuerpo.get("nota") else None,
                               f"por {operador}" if operador else None]
-                    s.estado.anotar_linea(f"☰ {cuerpo.get('id')} caso: "
-                                          + " · ".join(p for p in partes if p))
+                    s.estado.anotar_linea(f"☰ {idd} caso: " + " · ".join(p for p in partes if p))
                 return self._responder({"ok": True}) if ok else self._responder({"error": "no disponible en este modo"}, 409)
             pid, resp = str(cuerpo.get("id")), str(cuerpo.get("respuesta", ""))
             # cola no bloqueante -> el resolutor del daemon ejecuta y traza; si no, el lazo bloqueante.

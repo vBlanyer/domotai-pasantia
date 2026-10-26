@@ -1440,3 +1440,13 @@ class TestDiarioDelOperador(unittest.TestCase):
         st, _ = self._post(self._servir(estado), "/api/caso", {"id": "s1", "nota": "x"})
         self.assertEqual(st, 409)
         self.assertEqual(estado.consola(), (0, []))
+
+    def test_el_caso_acota_id_y_asignado_del_cuerpo(self):
+        # id/asignado vienen del cuerpo HTTP (hasta 64 KiB): la línea del feed no los repite enteros.
+        estado = tablero.EstadoTablero()
+        estado.fijar_actualizador(lambda idd, **kw: True)
+        st, _ = self._post(self._servir(estado), "/api/caso",
+                           {"id": "x" * 500, "asignado": "y" * 500})
+        self.assertEqual(st, 200)
+        _, lineas = estado.consola()
+        self.assertLess(len(lineas[-1]["linea"]), 200, lineas[-1]["linea"])
