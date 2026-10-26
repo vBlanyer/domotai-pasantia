@@ -1341,6 +1341,14 @@ class TestConsolaAPI(unittest.TestCase):
         self.assertTrue(all(l["t"] for l in lineas))             # hora del servidor por línea
         self.assertNotIn("\x1b", lineas[1]["linea"])             # B3 también en esta superficie
 
+    def test_el_contexto_de_las_tarjetas_tambien_va_saneado(self):
+        # Revisión: _lineas (el contexto del incidente en las tarjetas de Aprobaciones) también
+        # viaja al navegador — el saneo B3 cubre AMBAS superficies, no solo el feed.
+        estado = tablero.EstadoTablero()
+        estado.anotar_linea("contexto con \x1b[2J escape")
+        pid, _ = estado.registrar_pendiente("menu", "Elige:")
+        self.assertNotIn("\x1b", "".join(estado.pendientes()[0]["lineas"]))
+
     def test_incremental_por_desde(self):
         estado = tablero.EstadoTablero()
         for i in range(5):

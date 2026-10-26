@@ -200,7 +200,7 @@ class EstadoTablero:
         with self._lock:
             if linea.startswith(_MARCA_INCIDENTE):
                 self._lineas = []
-            self._lineas.append(linea)
+            self._lineas.append(sana)   # ambas superficies viajan al navegador: ambas saneadas
             self._consola_n += 1
             self._consola.append({"n": self._consola_n, "t": datetime.now().strftime("%H:%M:%S"),
                                   "linea": sana})
