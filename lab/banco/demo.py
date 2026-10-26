@@ -1,7 +1,15 @@
 """Lanzador de ataques del laboratorio del banco, por número, para demostraciones.
 
     sh lab/banco/banco.sh atacar             (menú interactivo; o: python3 -m lab.banco.demo)
-    sh lab/banco/banco.sh atacar auto [N] [gap]   (TANDA AUTOMÁTICA: lanza toda la batería sola)
+    sh lab/banco/banco.sh atacar auto [N] [gap]          (TANDA: lanza toda la batería una vez, o N veces)
+    sh lab/banco/banco.sh atacar continuo [opciones]     (SOAK: ataques variados SIN FIN hasta Ctrl+C)
+
+La tanda CONTINUA (`continuo`/`soak`, o la tecla `c` del menú) ejercita el MDR de forma sostenida:
+baraja TODA la batería en cada vuelta y la lanza sin parar hasta Ctrl+C, con la IP de origen rotada
+(para que la supresión y los bloqueos previos no la ahoguen) y restaurando el banco cada N ataques
+(`--restaurar-cada`, def. 20) para que no se degrade. `--gap` separa los ataques, `--semilla` fija
+el orden (reproducible) y `--vueltas` lo acota si no se quiere sin fin. Al parar, un resumen por
+familia; luego `sh lab/banco/banco.sh restaurar`.
 
 El menú cubre LAS 10 FAMILIAS (ninguna queda sin ataque): los casos de red del catálogo
 (`lab/banco/casos.py`) numerados —fuerza bruta, reconocimiento, telnet, explotación web— y, a
@@ -25,6 +33,8 @@ Con la tecla `r` se activa la **IP de origen rotativa**: cada ataque sale desde 
 misma subred del atacante (alias en la interfaz de datos + `ssh -b`), para poder repetir el mismo
 ataque sin chocar con la supresión del MDR ni con el bloqueo previo, como un atacante que rota IPs.
 """
+import os
+import random
 import subprocess
 import sys
 import time
@@ -303,6 +313,27 @@ def deshacer(caso, ejecutar=subprocess.run, src_ip=None):
             _exec(nodo, cmd, ejecutar)
 
 
+def _siguiente_rotada(caso, contadores):
+    """La próxima IP de origen rotada para `caso`, avanzando el contador de su subred: IPs nuevas
+    contiguas, nunca una que el MDR pueda tener ya bloqueada de un ataque anterior."""
+    subred = caso["origen"].rsplit(".", 1)[0]
+    n = contadores.get(subred, 0)
+    contadores[subred] = n + 1
+    return ip_rotada(caso["origen"], n)
+
+
+def _ruta_banco_sh():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "banco.sh")
+
+
+def restaurar_banco(ejecutar=subprocess.run):
+    """Deja el banco sano a mitad de un soak reusando `banco.sh restaurar` (la MISMA rutina que la
+    restauración manual: quita los bloqueos que aplicó el MDR al contener y reinicia los servicios
+    caídos). Así una tanda larga no deja el banco degradado —host aislado, servicio caído— hasta el
+    punto de dejar de generar incidentes nuevos."""
+    return ejecutar(["sh", _ruta_banco_sh(), "restaurar"], capture_output=True, text=True)
+
+
 def tanda_automatica(ejecutar=subprocess.run, dormir=time.sleep, repeticiones=1, gap=6, escribir=print):
     """Lanza TODA la batería de ataques vivos (los que atacan desde un origen), uno tras otro y solos,
     con IP de origen ROTADA: sin esperas de 60 s ni supresión, y cada uno aparece como incidente
@@ -315,10 +346,7 @@ def tanda_automatica(ejecutar=subprocess.run, dormir=time.sleep, repeticiones=1,
     escribir(f"== Tanda automática: {total} ataque(s), IP de origen rotada (ve el tablero) ==")
     for _ in range(repeticiones):
         for caso in vivos:
-            subred = caso["origen"].rsplit(".", 1)[0]
-            n = contadores.get(subred, 0)
-            contadores[subred] = n + 1
-            src = ip_rotada(caso["origen"], n)
+            src = _siguiente_rotada(caso, contadores)
             hecho += 1
             escribir(f"  [{hecho}/{total}] {caso['id']} — {caso['titulo']} desde {src}")
             lanzar(caso, ejecutar=ejecutar, src_ip=src)
@@ -332,11 +360,74 @@ def tanda_automatica(ejecutar=subprocess.run, dormir=time.sleep, repeticiones=1,
     escribir(f"  tanda completa ({total} ataques). Deshaz con: sh lab/banco/banco.sh restaurar")
 
 
+def tanda_continua(ejecutar=subprocess.run, dormir=time.sleep, gap=6, restaurar_cada=20,
+                   semilla=None, vueltas=None, escribir=print):
+    """Lanza ataques VARIADOS de forma indefinida —barajando el orden en cada vuelta y rotando la IP
+    de origen— hasta que algo lo pare (Ctrl+C) o se cumplan `vueltas`. Pensado para SOAK/estrés del
+    MDR: ejercita el camino detección→triaje→respuesta de forma continua y en orden impredecible,
+    contra el banco propio. La IP de origen nueva en cada ataque de red esquiva la supresión y los
+    bloqueos previos; cada `restaurar_cada` ataques se restaura el banco para que no se degrade
+    indefinidamente (0 lo desactiva). `semilla` fija el orden (reproducible, RNF-03). `vueltas=None`
+    = sin fin. Devuelve {lanzados, vueltas, tally} al parar. NO deshace los ataques de host: al
+    terminar, `sh lab/banco/banco.sh restaurar`."""
+    rng = random.Random(semilla)
+    rotables = [c for c in casos_vivos() if rotable(c)]
+    contadores, tally, lanzados, vuelta = {}, {}, 0, 0
+    limite = "sin fin (Ctrl+C para parar)" if vueltas is None else f"{vueltas} vuelta(s)"
+    escribir(f"== Tanda CONTINUA — {limite}: ataques variados, IP de origen rotada, "
+             f"restaura cada {restaurar_cada or 'nunca'} ==")
+    try:
+        while vueltas is None or vuelta < vueltas:
+            vuelta += 1
+            # El pool de la vuelta: cada caso de red con su IP nueva + los ataques de host, barajado
+            # para que el orden no sea siempre el mismo (un soak realista, no un guion fijo).
+            pool = [("red", c, _siguiente_rotada(c, contadores)) for c in rotables]
+            pool += [("host", h, None) for h in ATAQUES_HOST]
+            rng.shuffle(pool)
+            for tipo, item, src in pool:
+                lanzados += 1
+                tally[item["id"]] = tally.get(item["id"], 0) + 1
+                desde = f" desde {src}" if src else ""
+                escribir(f"  [{lanzados}] vuelta {vuelta} · {item['id']} — {item['titulo']}{desde}")
+                if tipo == "red":
+                    lanzar(item, ejecutar=ejecutar, src_ip=src)
+                else:
+                    item["lanzar"](ejecutar=ejecutar)
+                if restaurar_cada and lanzados % restaurar_cada == 0:
+                    escribir(f"  · restaurando el banco tras {lanzados} ataque(s) (que no se degrade)")
+                    restaurar_banco(ejecutar=ejecutar)
+                dormir(gap)
+    except (KeyboardInterrupt, EOFError):
+        pass
+    escribir(f"\n== parada: {lanzados} ataque(s) en {vuelta} vuelta(s) ==")
+    for id_, n in sorted(tally.items(), key=lambda kv: (-kv[1], kv[0])):
+        escribir(f"   {id_}: {n}")
+    escribir("  restaura el banco con: sh lab/banco/banco.sh restaurar")
+    return {"lanzados": lanzados, "vueltas": vuelta, "tally": tally}
+
+
+def _parsear_continuo(argv):
+    import argparse
+    p = argparse.ArgumentParser(prog="banco.sh atacar continuo",
+                                description="Soak del MDR: lanza ataques variados sin fin (Ctrl+C para parar).")
+    p.add_argument("--gap", type=float, default=6, help="segundos entre ataques (def. 6)")
+    p.add_argument("--restaurar-cada", type=int, default=20, dest="restaurar_cada",
+                   help="restaura el banco cada N ataques; 0 lo desactiva (def. 20)")
+    p.add_argument("--semilla", type=int, default=None, help="fija el orden del barajado (reproducible)")
+    p.add_argument("--vueltas", type=int, default=None, help="para tras N vueltas completas (def. sin fin)")
+    return p.parse_args(argv)
+
+
 def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
     if argv and argv[0] == "auto":   # no interactivo: sh lab/banco/banco.sh atacar auto [repeticiones] [gap]
         reps = int(argv[1]) if len(argv) > 1 else 1
         gap = float(argv[2]) if len(argv) > 2 else 6
         tanda_automatica(ejecutar=ejecutar, dormir=dormir, repeticiones=reps, gap=gap)
+        return 0
+    if argv and argv[0] in ("continuo", "soak"):   # soak: ataques variados sin fin (Ctrl+C para parar)
+        a = _parsear_continuo(argv[1:])
+        tanda_continua(ejecutar=ejecutar, dormir=dormir, gap=a.gap, restaurar_cada=a.restaurar_cada,
+                       semilla=a.semilla, vueltas=a.vueltas)
         return 0
     vivos = casos_vivos()
     ultimo = 0.0
@@ -350,10 +441,11 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
             print(menu(vivos))
             print(LINEA_A_MEDIDA)
             print("  t. Tanda automática (lanza TODA la batería sola: red + host, IP rotada)")
+            print("  c. Tanda CONTINUA / soak (ataques variados SIN FIN hasta Ctrl+C; IP rotada, auto-restaura)")
             print(f"  r. IP de origen rotativa: {'ON' if rotar else 'OFF'}  "
                   "(cada ataque de red desde una IP nueva; esquiva supresión y bloqueo previo)")
             print("  0. Salir")
-            sel = leer(f"Elige [0-{base + len(ATAQUES_HOST)}, a, t, r]: ").strip().lower()
+            sel = leer(f"Elige [0-{base + len(ATAQUES_HOST)}, a, t, c, r]: ").strip().lower()
             if sel in ("0", "", "q"):
                 return 0
             if sel == "r":
@@ -361,6 +453,9 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
                 continue
             if sel == "t":
                 tanda_automatica(ejecutar=ejecutar, dormir=dormir)
+                continue
+            if sel == "c":
+                tanda_continua(ejecutar=ejecutar, dormir=dormir)
                 continue
             if sel == "a":
                 caso = elegir_a_medida(leer)

@@ -8,6 +8,10 @@
 #   sh lab/banco/banco.sh cascada core-db tumba un servicio, muestra que cae y lo restaura
 #   sh lab/banco/banco.sh restaurar       quita los bloqueos de ataque y reinicia los servicios
 #                                         caidos (deja el banco sano tras una demo, sin down/up)
+#   sh lab/banco/banco.sh atacar          menu de ataques (tecla 't'=tanda, 'c'=soak continuo)
+#   sh lab/banco/banco.sh atacar auto     lanza TODA la bateria una vez, sin interaccion
+#   sh lab/banco/banco.sh atacar continuo ataques variados SIN FIN para probar el MDR en continuo
+#                                         (Ctrl+C para parar; --gap/--restaurar-cada/--semilla/--vueltas)
 #   sh lab/banco/banco.sh vigilar         panel en vivo: servicios en verde/rojo y ultimos cambios
 #   sh lab/banco/banco.sh aprovisionar    minimo privilegio del conector en los nodos del banco
 #                                         (hace falta despues de cada 'up': containerlab recrea
@@ -135,8 +139,13 @@ case "${1:-up}" in
     cd "$RAIZ" && exec python3 -m lab.banco.panel
     ;;
   atacar)
-    shift   # pasa el resto a demo: `atacar auto [repeticiones] [gap]` corre la tanda automática
+    # pasa el resto a demo:
+    #   atacar                      menú interactivo (incluye la tecla 'c' = tanda continua / soak)
+    #   atacar auto [reps] [gap]    tanda automática: toda la batería una vez (o 'reps' veces)
+    #   atacar continuo [opciones]  SOAK: ataques variados SIN FIN hasta Ctrl+C (alias: soak)
+    #                               opciones: --gap S --restaurar-cada N --semilla S --vueltas N
+    shift
     cd "$RAIZ" && exec python3 -m lab.banco.demo "$@"
     ;;
-  *) echo "uso: $0 up|down|status|test|cascada <servicio>|restaurar|aprovisionar|vigilar|atacar [auto]" ;;
+  *) echo "uso: $0 up|down|status|test|cascada <servicio>|restaurar|aprovisionar|vigilar|atacar [auto|continuo]" ;;
 esac

@@ -112,6 +112,15 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   el lazo por lotes consume alertas normalizadas. `wazuh-run.sh` ahora es parametrizable
   (`WAZUH_NOMBRE`/`WAZUH_RED`/`WAZUH_PERMITIR`, defaults del lab intactos) para la variante viva.
 
+### Añadido (banco de pruebas)
+- **Tanda CONTINUA / soak** (`sh lab/banco/banco.sh atacar continuo`, alias `soak`, o la tecla `c`
+  del menú): lanza ataques **variados sin fin** —barajando TODA la batería en cada vuelta y rotando
+  la IP de origen— hasta `Ctrl+C`, para ejercitar el camino detección→triaje→respuesta del MDR de
+  forma sostenida. Restaura el banco cada N ataques (`--restaurar-cada`, def. 20; reusa `banco.sh
+  restaurar`) para que no se degrade; `--gap` separa los ataques, `--semilla` fija el orden
+  (reproducible, RNF-03) y `--vueltas` lo acota. Al parar, un resumen por familia. El orden rotado
+  de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
+
 ### Añadido (visor)
 - **La Consola narra la caja negra**: el porqué de cada decisión (señales: ráfaga/umbral, postura
   del auditor, origen legítimo; y la política con su motivo cuando no permite en automático) y la
