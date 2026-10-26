@@ -43,6 +43,8 @@ export function clasificarLinea(linea: string): TipoLinea {
   if (linea.startsWith("⚠")) return "incidente"
   if (linea.startsWith("  Clase:") || linea.startsWith("⏸")) return "decision"
   if (linea.startsWith("↩")) return "supresion"
+  // ✗ es ambiguo: la verificación fallida es narración de la RESPUESTA; el resto, error de proceso
+  if (/^✗ \S+ NO verificada/.test(linea)) return "ejecucion"
   if (linea.startsWith("✗")) return "error"
   if (linea.startsWith("↺")) return "propia"
   if (linea.startsWith("[aviso]") || linea.startsWith("[red]")) return "aviso"
