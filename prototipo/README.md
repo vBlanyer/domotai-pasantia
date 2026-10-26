@@ -36,9 +36,12 @@ Los CLIs llevan la capa en su ruta: `python3 -m prototipo.servicio.stream`,
 `python3 -m prototipo.accion.catalogo --sudoers`, `python3 -m prototipo.herramientas.validar_reglas`, …
 (reorganizado el 26/10/2026; los documentos congelados anteriores citan las rutas planas antiguas).
 
-Las capas ordenan por **propósito**, no son (aún) un contrato de imports: p. ej. `motor/triaje` y
-`motor/perfil` leen el catálogo de `accion/` (su configuración), y el `main()` batch de `triaje`
-hace E/S. Convertir la taxonomía en contrato (import-linter) sería trabajo de v2.
+Las capas son **contrato, no solo taxonomía**: [`tests/test_arquitectura.py`](tests/test_arquitectura.py)
+garantiza que solo se importa **hacia dentro** (`motor/` no mira hacia fuera; `entrada/` y `accion/`
+solo usan `motor/`; a `herramientas/` no lo importa nadie). Las 4 dependencias ascendentes vigentes
+están congeladas como excepciones en ese test (el `main()` batch de `motor/triaje` ×3 y la traza que
+escribe `accion/revertir`): una nueva rompe la suite, y reducirlas (mover la orquestación batch de
+`triaje` a `servicio/`) es el siguiente paso natural si se retoma en v2.
 
 ---
 

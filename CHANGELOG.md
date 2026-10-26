@@ -36,6 +36,9 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   `prototipo.herramientas.validar_reglas`, … (scripts, deploy, demos y docs vivos actualizados en la
   misma pasada; los documentos congelados citan las rutas planas antiguas). También: mapa del paquete
   en su README y retirado el dato huérfano `ilustrativas.jsonl` (demo RNF-14 antigua; nada lo leía).
+- **Las capas son contrato**: `tests/test_arquitectura.py` fija la dirección de los imports (solo
+  hacia dentro) con las 4 dependencias ascendentes vigentes congeladas como excepciones — una nueva
+  rompe la suite. De paso cayó un import muerto (`motor/perfil` → `accion/catalogo`, sin uso).
 - Agente ReAct: optimalidad validada con un modelo capaz y reproducibilidad probada (documentado).
 
 ### Corregido
