@@ -41,7 +41,8 @@ garantiza que solo se importa **hacia dentro** (`motor/` no mira hacia fuera; `e
 solo usan `motor/`; a `herramientas/` no lo importa nadie). Las 4 dependencias ascendentes vigentes
 están congeladas como excepciones en ese test (el `main()` batch de `motor/triaje` ×3 y la traza que
 escribe `accion/revertir`): una nueva rompe la suite, y reducirlas (mover la orquestación batch de
-`triaje` a `servicio/`) es el siguiente paso natural si se retoma en v2.
+`triaje` a `servicio/`) es el siguiente paso natural si se retoma en
+[v2](../documentacion/00-general/v2-trabajo-aplazado.md).
 
 ---
 

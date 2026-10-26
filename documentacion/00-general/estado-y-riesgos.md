@@ -4,6 +4,8 @@ Documento de trabajo interno. Recoge qué está decidido, qué está bloqueado y
 
 Su propósito principal es preparar la reunión con la empresa: las incongruencias 1, 3 y 4 solo pueden resolverlas ellos.
 
+Lo aplazado conscientemente a después de la entrega vive en [v2-trabajo-aplazado.md](./v2-trabajo-aplazado.md) (único registro de «v2»).
+
 ---
 
 ## 1. Estado por fase

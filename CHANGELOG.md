@@ -39,6 +39,9 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
 - **Las capas son contrato**: `tests/test_arquitectura.py` fija la dirección de los imports (solo
   hacia dentro) con las 4 dependencias ascendentes vigentes congeladas como excepciones — una nueva
   rompe la suite. De paso cayó un import muerto (`motor/perfil` → `accion/catalogo`, sin uso).
+- **«v2» tiene por fin un registro**: [documentacion/00-general/v2-trabajo-aplazado.md]
+  (todo lo aplazado conscientemente a después de la entrega, con su porqué; antes eran menciones
+  dispersas sin un sitio donde buscarlas).
 - Agente ReAct: optimalidad validada con un modelo capaz y reproducibilidad probada (documentado).
 
 ### Corregido

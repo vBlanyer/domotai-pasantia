@@ -10,6 +10,7 @@ estado está. Empieza por ahí.
 - [00-general/](00-general/) — plan de trabajo y roadmap, los dos documentos que van a coordinación.
   - [estado-y-riesgos.md](00-general/estado-y-riesgos.md) — estado por fase, decisiones cerradas e incongruencias abiertas.
   - [camino-paso-a-paso.md](00-general/camino-paso-a-paso.md) — plan de ejecución ordenado, con criterio de cierre por paso.
+  - [v2-trabajo-aplazado.md](00-general/v2-trabajo-aplazado.md) — el único registro de «v2»: lo aplazado conscientemente a después de la entrega, con su porqué.
 - [material-superado/](material-superado/) — material superado, conservado por trazabilidad. No es diseño vigente.
 
 ## Las siete fases
