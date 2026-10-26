@@ -19,7 +19,7 @@ Regla de negocio (política + perfil): [`documentacion/04-fase4-diseno-de-arquit
 
 ## Mapa del paquete (por capas)
 
-Los 37 módulos están organizados en **subpaquetes por capa** (la misma taxonomía que el capítulo de
+Los 38 módulos están organizados en **subpaquetes por capa** (la misma taxonomía que el capítulo de
 arquitectura del informe); los datos y la configuración viven en la raíz del paquete:
 
 | Carpeta | Capa | Módulos |
@@ -28,7 +28,7 @@ arquitectura del informe); los datos y la configuración viven en la raíz del p
 | [`motor/`](motor/) | El motor de decisión (sin red ni SSH; solo lee su configuración) | `analisis` · `politica` · `familias` · `correspondencia` · `actores` · `impacto` · `postura` · `rafaga` · `agrupacion` · `arbol` · `perfil` · `servicios` · `inventario` · `triaje` · `orden` |
 | [`accion/`](accion/) | Acción y verificación (tocar el mundo) | `catalogo` · `conector` · `verificacion` · `revertir` · `contenciones` |
 | [`explicacion/`](explicacion/) | Explicación (justifica, no decide) | `justificador_llm` · `rag` · `agente_mitigacion` · `extraer_attack` |
-| [`servicio/`](servicio/) | Daemon, web y auditoría | `stream` · `lazo` · `tablero` · `traza` · `casos` · `validacion` · `red` · `retener_trazas` |
+| [`servicio/`](servicio/) | Daemon, web y auditoría | `stream` · `lazo` · `triaje_lote` · `tablero` · `traza` · `casos` · `validacion` · `red` · `retener_trazas` |
 | [`herramientas/`](herramientas/) | CLIs del operador | `validar_reglas` · `banco_carga` |
 | raíz | Datos y config | `perfiles/` · `corpus/` · `catalogo.yml` · `familias.yml` · `correspondencia.yml` |
 
@@ -38,11 +38,10 @@ Los CLIs llevan la capa en su ruta: `python3 -m prototipo.servicio.stream`,
 
 Las capas son **contrato, no solo taxonomía**: [`tests/test_arquitectura.py`](tests/test_arquitectura.py)
 garantiza que solo se importa **hacia dentro** (`motor/` no mira hacia fuera; `entrada/` y `accion/`
-solo usan `motor/`; a `herramientas/` no lo importa nadie). Las 4 dependencias ascendentes vigentes
-están congeladas como excepciones en ese test (el `main()` batch de `motor/triaje` ×3 y la traza que
-escribe `accion/revertir`): una nueva rompe la suite, y reducirlas (mover la orquestación batch de
-`triaje` a `servicio/`) es el siguiente paso natural si se retoma en
-[v2](../documentacion/00-general/v2-trabajo-aplazado.md).
+solo usan `motor/`; a `herramientas/` no lo importa nadie). Quedan **2 excepciones congeladas** en
+ese test, y ambas son la misma cuestión: `motor/triaje.procesar` y `accion/revertir` construyen su
+registro con `servicio/traza` — valorar la traza como módulo transversal es lo que queda en
+[v2](../documentacion/00-general/v2-trabajo-aplazado.md). Una dependencia ascendente nueva rompe la suite.
 
 ---
 

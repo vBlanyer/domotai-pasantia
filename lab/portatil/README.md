@@ -25,9 +25,10 @@ la deja trazada → la demo enseña la regla `iptables` desde dentro del contene
 - Docker con el plugin compose; Python 3 + PyYAML (lo mismo que el repo).
 - El objetivo necesita `CAP_NET_ADMIN` (el compose ya lo declara): sin ella, `iptables` falla con
   «you must be root» aunque el sudo funcione. Containerlab se la da a sus nodos sin pedirla.
-- La dependencia real del conector es **Docker, no Containerlab**: el SSH sale del nodo de gestión
-  vía `docker exec` (`TRIAJE_NODO_GESTION`). Para un host sin Docker haría falta un ejecutor SSH
-  directo (seam pequeño, aislado en `prototipo/accion/conector.py`).
+- La dependencia del conector era **Docker, no Containerlab**: el SSH sale del nodo de gestión vía
+  `docker exec` (`TRIAJE_NODO_GESTION`). Para un host **sin Docker** ya existe el modo directo
+  (`TRIAJE_SSH_MODO=directo`, con `TRIAJE_SSH_CLAVE`/`TRIAJE_SSH_KNOWN_HOSTS` como rutas del host),
+  validado en vivo contra esta misma demo.
 - `prototipo.servicio.lazo`/`triaje` por lotes consumen alertas **normalizadas** (`prototipo.entrada.ingesta`);
   el daemon en vivo (`prototipo.servicio.stream`) normaliza solo.
 

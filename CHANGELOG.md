@@ -39,6 +39,12 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
 - **Las capas son contrato**: `tests/test_arquitectura.py` fija la dirección de los imports (solo
   hacia dentro) con las 4 dependencias ascendentes vigentes congeladas como excepciones — una nueva
   rompe la suite. De paso cayó un import muerto (`motor/perfil` → `accion/catalogo`, sin uso).
+- **Dos adelantos de v2** (26/10): el `main()` por lotes de `triaje` vive ahora en
+  `servicio/triaje_lote` (CLI: `python3 -m prototipo.servicio.triaje_lote`) y `motor/` queda
+  importable standalone — las excepciones del contrato bajan de 4 a 2 (ambas, la traza como formato
+  transversal); y **`TRIAJE_SSH_MODO=directo`**: el conector hace SSH desde el propio host, sin
+  `docker exec` (clave/known_hosts del host, mismas opciones endurecidas, fail-closed sin clave) —
+  desplegable en VM/bare-metal sin Docker, validado en vivo contra la demo portátil.
 - **«v2» tiene por fin un registro**: [documentacion/00-general/v2-trabajo-aplazado.md]
   (todo lo aplazado conscientemente a después de la entrega, con su porqué; antes eran menciones
   dispersas sin un sitio donde buscarlas).

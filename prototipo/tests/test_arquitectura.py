@@ -21,10 +21,10 @@ PERMITIDAS = {
     "herramientas": {"entrada", "motor", "accion", "explicacion", "servicio"},
 }
 # Deuda consciente (candidatas a resolverse en v2); todo lo demás ascendente es un error.
+# Ambas son la MISMA cuestión: traza.py (el formato del registro auditable) es transversal
+# y vive en servicio/ — valorarlo como módulo transversal es el pendiente real de v2.
 EXCEPCIONES = {
-    ("motor/triaje", "accion"),      # su main() batch carga el catálogo
-    ("motor/triaje", "entrada"),     # su main() batch normaliza las alertas
-    ("motor/triaje", "servicio"),    # su main() batch escribe la traza
+    ("motor/triaje", "servicio"),    # procesar() construye el registro con traza.construir
     ("accion/revertir", "servicio"), # la reversión escribe su registro en la cadena (traza)
 }
 # Las tres formas: `from prototipo.X import …`, `import prototipo.X[...]` y `from prototipo import X, Y`.

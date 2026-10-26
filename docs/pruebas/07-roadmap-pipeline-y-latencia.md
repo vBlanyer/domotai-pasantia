@@ -131,7 +131,7 @@ instantánea) para iterar; el `--con-llm` real, con su calidad, es cosa de la m�
 
 ```bash
 # decisión determinista sobre el dataset (instantánea, cualquier máquina)
-python3 -m prototipo.motor.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
+python3 -m prototipo.servicio.triaje_lote lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
     lab/campañas/2026-08-31-evaluacion/hallazgos.json /tmp/salida.jsonl
 
 # una generación real del 1B por subproceso (fuerza el camino sin servidor)

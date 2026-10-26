@@ -24,12 +24,12 @@ Corre el lazo completo: clasifica → política → perfil → traza.
 
 **Sinopsis**
 ```
-python3 -m prototipo.motor.triaje <alertas.jsonl> <perfil.yml> <hallazgos.json> <salida.jsonl>
+python3 -m prototipo.servicio.triaje_lote <alertas.jsonl> <perfil.yml> <hallazgos.json> <salida.jsonl>
 ```
 
 **Ejemplo**
 ```bash
-python3 -m prototipo.motor.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
+python3 -m prototipo.servicio.triaje_lote lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
     lab/campañas/2026-08-31-evaluacion/hallazgos.json salida.jsonl
 ```
 

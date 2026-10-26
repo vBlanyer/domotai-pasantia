@@ -13,7 +13,7 @@ externos están documentados con plantillas en
 
 | Qué | Por qué se aplazó | Detalle |
 |---|---|---|
-| **Reducir las 4 excepciones del contrato de capas**: mover el `main()` batch de `motor/triaje` a `servicio/` (sus 3 excepciones) y valorar si la traza merece ser transversal (la 4ª: `accion/revertir` → `servicio/traza`) | El contrato ya está garantizado por test con las excepciones congeladas; moverlas es mejora, no riesgo | [`prototipo/tests/test_arquitectura.py`](../../prototipo/tests/test_arquitectura.py) (lista `EXCEPCIONES`) |
+| **Valorar la traza como módulo transversal** — las 2 excepciones restantes del contrato son la misma cuestión: `motor/triaje.procesar` y `accion/revertir` construyen su registro con `servicio/traza` | El contrato ya está garantizado por test con ambas congeladas; es una decisión de diseño, no un hueco. (El otro ítem de esta fila —mover el `main()` batch de `triaje` a `servicio/triaje_lote`— se adelantó el 26/10.) | [`prototipo/tests/test_arquitectura.py`](../../prototipo/tests/test_arquitectura.py) (lista `EXCEPCIONES`) |
 | **Nivel 2: partir los dos módulos gordos** — `servicio/stream.py` (~1.140 líneas) en `terminal` / `supresion` / `cli` + el bucle, y `servicio/tablero.py` (~980) en `web_estado` / `web_datos` / `web_http` + fachada | Solo legibilidad; reglas si se hace: el estado a nivel de módulo (caches, locks) viaja ENTERO con su módulo, y los tests que importan privados se actualizan — sin fachadas con estado duplicado | Mapa del paquete en [`prototipo/README.md`](../../prototipo/README.md) |
 | **Trocear `prototipo/README.md` (~61 KB)**: raíz corta (mapa + arranque) + un README por capa | Es el fichero más pesado de la raíz, pero es documentación, no riesgo | — |
 | Espejar `prototipo/tests/` por capas | Cosmético; `discover` los encuentra igual | — |
@@ -28,7 +28,7 @@ capas = código. Analizado con datos el 26/10 (13–15 citas vivas por fichero).
 | Qué | Por qué se aplazó | Detalle |
 |---|---|---|
 | **Drivers por plano para equipos no-SSH** (REST/NETCONF/SNMP/TR-069/central); `docker exec` como driver de referencia ejercitable | Rollout por tipo de equipo, trabajo por cliente; el patrón y los seams están documentados | [integracion-en-produccion.md §2.6](../04-fase4-diseno-de-arquitectura/integracion-en-produccion.md) |
-| **Ejecutor SSH directo** (sin `docker exec` al nodo de gestión) para desplegar en hosts sin Docker | La demo portátil demostró que la dependencia real es Docker; el seam es pequeño y está aislado en `prototipo/accion/conector.py` | [lab/portatil/README.md](../../lab/portatil/README.md) |
+| ~~Ejecutor SSH directo~~ — **adelantado el 26/10**: `TRIAJE_SSH_MODO=directo` (clave y known_hosts del HOST), validado en vivo contra la demo portátil | — | `prototipo/accion/conector.py` |
 | Integración end-to-end con un equipo de borde de firmware real (p. ej. OpenWrt) | Descartada el 06/10 (revertida): el bloqueo en el borde ya funciona; esto es validación extra, no requisito | CHANGELOG / estado-y-riesgos |
 | Segunda fuente de alertas (CEF) | Analizada y aparcada el 21/09; decisiones abiertas en su spec | `archivo/proceso-desarrollo/superpowers/specs/` |
 
