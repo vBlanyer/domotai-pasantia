@@ -13,7 +13,7 @@ sh lab/lab.sh up          # despliega la red + Wazuh + aprovisiona el auditor (~
 sh lab/lab.sh status      # comprobar: 8 nodos arriba, plano de datos OK
 ```
 
-Asegúrate de tener el índice RAG (`python3 -m prototipo.rag --indexar`, Nivel 2.3).
+Asegúrate de tener el índice RAG (`python3 -m prototipo.explicacion.rag --indexar`, Nivel 2.3).
 
 ## 3.1 · Demo del lazo completo (víctima / atacante / triaje)
 
@@ -58,7 +58,7 @@ falta humano, ejecuta, escribe la traza línea a línea y vuelve a escuchar. `Ct
 
 **Sinopsis**
 ```
-python3 -m prototipo.stream <alerts.json | -> [perfil.yml] [hallazgos.json] \
+python3 -m prototipo.servicio.stream <alerts.json | -> [perfil.yml] [hallazgos.json] \
         [--con-llm | --sin-llm] [--agente] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]
 ```
 (`--ventana-agrupacion N`: acumula la ráfaga N s antes de emitir el incidente; `N=0` = al instante. Default 5.)
@@ -78,7 +78,7 @@ La escalada **real** se ejerce con la topología `red-cliente-firewall` (ver [05
 **Ejemplo** (en el lab: el `alerts.json` vive dentro del contenedor de Wazuh → canaliza su `tail -F`)
 ```bash
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
-    | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
+    | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
     # con los servidores residentes arrancados (sh lab/scripts/llm-server.sh y --embedder) la justificación
     # tarda ~3 s por incidente; sin ellos, el daemon sigue funcionando pero más despacio
 ```
@@ -86,13 +86,13 @@ docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/ale
 
 **Ejemplo** (en producción: Wazuh escribe a un fichero del host montado)
 ```bash
-python3 -m prototipo.stream /var/ossec/logs/alerts/alerts.json prototipo/perfiles/empresarial.yml --con-llm
+python3 -m prototipo.servicio.stream /var/ossec/logs/alerts/alerts.json prototipo/perfiles/empresarial.yml --con-llm
 ```
 
 **Ejemplo** (prueba de humo sin lab ni modelo: alerta cruda por *stdin*, ejecutor simulado)
 ```bash
 printf '%s\n' '{"id":"z1","rule":{"id":"5760","level":10,"groups":["sshd","authentication_failed"],"mitre":{"id":["T1110.001"]}},"predecoder":{"hostname":"objetivo-vuln","program_name":"sshd"},"data":{"srcip":"192.168.1.10"},"timestamp":"2026-09-09T00:00:00Z","full_log":"Failed password for root from 192.168.1.10"}' \
-    | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
+    | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
 ```
 
 ## 3.4 · Agente de mitigación (escalado multi-nodo host → firewall)
@@ -132,7 +132,7 @@ Elige **una** vista (o abre varias terminales):
 **A1 · Daemon MDR en tiempo real** (escucha Wazuh, triaja, responde):
 ```bash
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
-    | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
+    | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml --con-llm --ventana-agrupacion 10
 ```
 
 **A2 · Alertas crudas de Wazuh** (ver lo que detecta el SIEM):

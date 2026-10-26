@@ -1,5 +1,5 @@
 import json, unittest
-from prototipo import traza
+from prototipo.servicio import traza
 
 class TestConstruir(unittest.TestCase):
     def test_registro_completo(self):

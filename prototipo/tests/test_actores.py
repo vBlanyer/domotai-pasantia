@@ -1,5 +1,5 @@
 import unittest
-from prototipo import actores
+from prototipo.motor import actores
 
 PERFIL = {
     "ip_gestion": "172.20.20.4",

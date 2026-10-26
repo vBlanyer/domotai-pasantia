@@ -7,7 +7,7 @@
 #   - en el auditor (nodo de gestion): un par de claves RSA en /root/.ssh/triaje y la clave del
 #     host del nodo en /root/.ssh/known_hosts_triaje, para que el conector verifique el host.
 #   - en el nodo: un usuario 'triaje' sin contrasena (solo clave), y un bloque en /etc/sudoers
-#     GENERADO DESDE EL CATALOGO (python3 -m prototipo.catalogo --sudoers) que le permite, sin
+#     GENERADO DESDE EL CATALOGO (python3 -m prototipo.accion.catalogo --sudoers) que le permite, sin
 #     contrasena, exactamente los comandos del catalogo cerrado de acciones y nada mas. Las rutas
 #     de los binarios se resuelven en el propio nodo, porque sudoers las exige absolutas.
 #
@@ -51,7 +51,7 @@ docker exec $NODO sh -c "
 echo "== 3. Sudoers generado desde el catalogo =="
 RUTAS=$(docker exec $NODO sh -c 'for b in iptables ss tc service passwd tcpdump ps ip reboot ping timeout restaurar; do
   p=$(command -v $b 2>/dev/null || true); printf "%s=%s," "$b" "$p"; done')
-SUDOERS=$(cd "$HERE" && python3 -m prototipo.catalogo --sudoers "$USUARIO" --rutas "$RUTAS")
+SUDOERS=$(cd "$HERE" && python3 -m prototipo.accion.catalogo --sudoers "$USUARIO" --rutas "$RUTAS")
 # sudoers.d si el sudo del nodo lo admite (Alpine); si no (sudo 1.6.9 de Metasploitable), un bloque
 # entre marcas en /etc/sudoers. En ambos casos visudo -c valida antes de dar por bueno.
 docker exec -i $NODO sh -c "

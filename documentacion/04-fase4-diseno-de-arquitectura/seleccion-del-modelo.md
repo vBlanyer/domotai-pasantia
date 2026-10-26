@@ -59,7 +59,7 @@ El factor limitante no es el modelo por sí solo, sino que **el sandbox se ejecu
 > **Corrección de diseño (Fase 5).** El **ajuste fino del encoder de seguridad se descartó**. Con solo
 > unos cientos de filas etiquetadas (el dataset de la Fase 3), un encoder de ~110M de parámetros
 > **memoriza** el conjunto y no puede validarse sin fuga entre entrenamiento y evaluación. La
-> clasificación la resuelve en su lugar un **árbol de decisión** (CART, `prototipo/arbol.py`):
+> clasificación la resuelve en su lugar un **árbol de decisión** (CART, `prototipo/motor/arbol.py`):
 > determinista, entrenable y auditable con esa cantidad de datos, y que conserva la confianza numérica
 > que el umbral de validación humana necesita. **No se aplicó fine-tuning a ningún modelo.** El diseño
 > original con encoder se conserva a continuación por trazabilidad de la decisión.
@@ -179,7 +179,7 @@ Advertencia metodológica que debe recogerse en el informe de la Fase 7:
 
 > **Nota (Fase 5).** Dos entradas de esta tabla no reflejan lo finalmente implementado: (1) el **ajuste
 > fino del encoder** («Con fine-tuning») se **descartó** a favor de un árbol de decisión
-> (`prototipo/arbol.py`); no se aplicó fine-tuning a ningún modelo. (2) El 8B «Recomendado» para el
+> (`prototipo/motor/arbol.py`); no se aplicó fine-tuning a ningún modelo. (2) El 8B «Recomendado» para el
 > Perfil B —como el «Solo en lote» (Instruct) del Perfil A— eran una aspiración; el 8B que se implementó
 > y evaluó realmente es **Llama-3.1-8B-Instruct** (`llama-3.1-8b-instruct-q4.gguf`), no Foundation-Sec-8B.
 > Ver las correcciones en las §3 y §4.

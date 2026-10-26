@@ -1,6 +1,6 @@
 import unittest
 
-from prototipo import contenciones
+from prototipo.accion import contenciones
 
 # Catálogo mínimo: contenciones con estado (reversibles) y una transitoria (no deja estado).
 CAT = {

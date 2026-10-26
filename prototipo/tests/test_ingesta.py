@@ -1,5 +1,5 @@
 import os, json, unittest
-from prototipo import ingesta, adaptador_wazuh
+from prototipo.entrada import ingesta, adaptador_wazuh
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -192,7 +192,7 @@ class TestTolerancia(unittest.TestCase):
     def test_regla_id_y_nivel_hostiles_no_rompen_la_agrupacion(self):
         # regla_id se usa como clave de Counter (agrupacion) y nivel_wazuh en comparaciones max/sorted:
         # un tipo hostil ahi tambien tumba el daemon FUERA de la barrera. Deben quedar hashable/comparable.
-        from prototipo import agrupacion
+        from prototipo.motor import agrupacion
         cr = lambda i, rid, lvl: {"id": i, "rule": {"id": rid, "groups": ["authentication_failed"], "level": lvl},
                                   "predecoder": {"hostname": "web", "program_name": "sshd"},
                                   "data": {"srcip": "1.2.3.4"}, "timestamp": "2026-01-01T00:00:00Z"}
@@ -228,7 +228,7 @@ if __name__ == "__main__":
 class TestTelemetriaPropia(unittest.TestCase):
     def test_las_anclas_de_la_traza_no_son_alertas(self):
         # Sin esto: ancla -> alerta -> decision -> ancla -> ... (medido: 14 registros por un ataque).
-        from prototipo import adaptador_wazuh
+        from prototipo.entrada import adaptador_wazuh
         cruda = {"id": "x", "rule": {"id": "100100", "level": 3, "groups": ["triaje"]},
                  "predecoder": {"hostname": "triaje", "program_name": "triaje-ancla"},
                  "full_log": "fichero=t.jsonl registros=3 hash=abc"}
@@ -236,7 +236,7 @@ class TestTelemetriaPropia(unittest.TestCase):
 
     def test_ingerir_fichero_salta_la_telemetria_propia(self):
         import json, os, tempfile
-        from prototipo import adaptador_wazuh
+        from prototipo.entrada import adaptador_wazuh
         ruta = tempfile.mktemp(suffix=".json")
         with open(ruta, "w", encoding="utf-8") as f:
             f.write(json.dumps({"id": "1", "rule": {"id": "100100", "groups": ["triaje"]}}) + "\n")

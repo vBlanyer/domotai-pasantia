@@ -3,7 +3,7 @@ import threading
 import time
 import unittest
 
-from prototipo import receptor
+from prototipo.entrada import receptor
 
 
 def _cliente_envia(puerto, datos, espera=0.3):

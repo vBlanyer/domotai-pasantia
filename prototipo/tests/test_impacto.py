@@ -1,5 +1,6 @@
 import os, unittest
-from prototipo import impacto, catalogo
+from prototipo.motor import impacto
+from prototipo.accion import catalogo
 
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
 PERFIL = {

@@ -1,6 +1,6 @@
 # Referencia de la API HTTP del daemon
 
-La API que sirve el daemon en vivo (`prototipo/tablero.py`, lanzado por `stream.py --web`). La
+La API que sirve el daemon en vivo (`prototipo/servicio/tablero.py`, lanzado por `stream.py --web`). La
 consume el **visor** (consola web) y puede consumirla cualquier cliente local. **No** es la interfaz
 de salida canónica hacia el cliente (esa es la **traza JSONL**, RF-13); es la interfaz de
 lectura/aprobación de la consola.
@@ -9,7 +9,7 @@ lectura/aprobación de la consola.
   accesible desde la red. Exponerla a otros es trabajo de un proxy del cliente (ver la guía de integración).
 - **Formato:** JSON en cuerpo y respuesta. Los errores son `{"error": "<texto>"}` con el código HTTP.
 - Los esquemas autoritativos de respuesta viven, validados con Zod, en `visor/src/api.ts`; los
-  construye `prototipo/tablero.py`.
+  construye `prototipo/servicio/tablero.py`.
 
 ## Modelo de seguridad
 

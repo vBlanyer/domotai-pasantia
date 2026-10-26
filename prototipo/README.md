@@ -19,23 +19,26 @@ Regla de negocio (política + perfil): [`documentacion/04-fase4-diseno-de-arquit
 
 ## Mapa del paquete (por capas)
 
-Los 37 módulos de la raíz, por la capa a la que pertenecen (la misma taxonomía que el capítulo de
-arquitectura del informe):
+Los 37 módulos están organizados en **subpaquetes por capa** (la misma taxonomía que el capítulo de
+arquitectura del informe); los datos y la configuración viven en la raíz del paquete:
 
-| Capa | Módulos |
-|---|---|
-| **Entrada** (fuente → esquema común) | `ingesta` · `adaptador_wazuh` · `receptor` |
-| **Motor de decisión** (puro, sin E/S) | `analisis` · `politica` · `familias` · `correspondencia` · `actores` · `impacto` · `postura` · `rafaga` · `agrupacion` · `arbol` · `perfil` · `servicios` · `inventario` · `triaje` · `orden` |
-| **Acción y verificación** (tocar el mundo) | `catalogo` · `conector` · `verificacion` · `revertir` · `contenciones` |
-| **Explicación** (justifica, no decide) | `justificador_llm` · `rag` · `agente_mitigacion` · `extraer_attack` · `corpus/` |
-| **Servicio** (daemon, web, auditoría) | `stream` · `lazo` · `tablero` · `traza` · `casos` · `validacion` · `red` · `retener_trazas` |
-| **Herramientas de operador** | `validar_reglas` · `banco_carga` |
-| **Datos y config** | `perfiles/` · `catalogo.yml` · `familias.yml` · `correspondencia.yml` |
+| Carpeta | Capa | Módulos |
+|---|---|---|
+| [`entrada/`](entrada/) | De la fuente al esquema común | `ingesta` · `adaptador_wazuh` · `receptor` |
+| [`motor/`](motor/) | El motor de decisión (sin red ni SSH; solo lee su configuración) | `analisis` · `politica` · `familias` · `correspondencia` · `actores` · `impacto` · `postura` · `rafaga` · `agrupacion` · `arbol` · `perfil` · `servicios` · `inventario` · `triaje` · `orden` |
+| [`accion/`](accion/) | Acción y verificación (tocar el mundo) | `catalogo` · `conector` · `verificacion` · `revertir` · `contenciones` |
+| [`explicacion/`](explicacion/) | Explicación (justifica, no decide) | `justificador_llm` · `rag` · `agente_mitigacion` · `extraer_attack` |
+| [`servicio/`](servicio/) | Daemon, web y auditoría | `stream` · `lazo` · `tablero` · `traza` · `casos` · `validacion` · `red` · `retener_trazas` |
+| [`herramientas/`](herramientas/) | CLIs del operador | `validar_reglas` · `banco_carga` |
+| raíz | Datos y config | `perfiles/` · `corpus/` · `catalogo.yml` · `familias.yml` · `correspondencia.yml` |
 
-El paquete es **plano a propósito**: 14 de estos módulos son interfaz pública de operación
-(`python3 -m prototipo.<módulo>`, citados en RUNBOOK/deploy/demos/informe), así que moverlos rompe
-scripts y documentación, no solo imports. La reorganización en subpaquetes por capa queda para una
-v2 posterior a la entrega.
+Los CLIs llevan la capa en su ruta: `python3 -m prototipo.servicio.stream`,
+`python3 -m prototipo.accion.catalogo --sudoers`, `python3 -m prototipo.herramientas.validar_reglas`, …
+(reorganizado el 26/10/2026; los documentos congelados anteriores citan las rutas planas antiguas).
+
+Las capas ordenan por **propósito**, no son (aún) un contrato de imports: p. ej. `motor/triaje` y
+`motor/perfil` leen el catálogo de `accion/` (su configuración), y el `main()` batch de `triaje`
+hace E/S. Convertir la taxonomía en contrato (import-linter) sería trabajo de v2.
 
 ---
 
@@ -59,20 +62,20 @@ Cada paso vive en su propio módulo, con una responsabilidad y un motivo de camb
 
 | Módulo | Responsabilidad |
 |--------|------------------|
-| `prototipo/analisis.py` | Interfaz `enriquecer` / `clasificar` / `justificar` + implementación baseline |
-| `prototipo/catalogo.py` | El catálogo de acciones como dato (impacto, reversión, comando) — carga `catalogo.yml` |
-| `prototipo/politica.py` | Tabla determinista clase → acción candidata (principio de mínimo impacto) |
-| `prototipo/perfil.py` | El perfil de cliente (V3/V4) y el filtro `permite`/`degrada`/`veta` (RNF-14, RF-17 a RF-19) |
-| `prototipo/actores.py` | ¿Quién es esta IP para el cliente? Gestión, dispositivo de red, activo interno o desconocido, resuelto solo desde el perfil (RF-17/19) |
-| `prototipo/impacto.py` | Impacto **determinado** de una acción: a quién bloquea y qué servicios detiene, nunca por debajo del catálogo (RF-17) |
-| `prototipo/inventario.py` | Reconciliación del inventario declarado con lo que ve el auditor (CLI) |
-| `prototipo/traza.py` | Construye el registro de decisión auditable (RF-09) |
-| `prototipo/triaje.py` | Orquesta el lazo completo y expone el CLI |
+| `prototipo/motor/analisis.py` | Interfaz `enriquecer` / `clasificar` / `justificar` + implementación baseline |
+| `prototipo/accion/catalogo.py` | El catálogo de acciones como dato (impacto, reversión, comando) — carga `catalogo.yml` |
+| `prototipo/motor/politica.py` | Tabla determinista clase → acción candidata (principio de mínimo impacto) |
+| `prototipo/motor/perfil.py` | El perfil de cliente (V3/V4) y el filtro `permite`/`degrada`/`veta` (RNF-14, RF-17 a RF-19) |
+| `prototipo/motor/actores.py` | ¿Quién es esta IP para el cliente? Gestión, dispositivo de red, activo interno o desconocido, resuelto solo desde el perfil (RF-17/19) |
+| `prototipo/motor/impacto.py` | Impacto **determinado** de una acción: a quién bloquea y qué servicios detiene, nunca por debajo del catálogo (RF-17) |
+| `prototipo/motor/inventario.py` | Reconciliación del inventario declarado con lo que ve el auditor (CLI) |
+| `prototipo/servicio/traza.py` | Construye el registro de decisión auditable (RF-09) |
+| `prototipo/motor/triaje.py` | Orquesta el lazo completo y expone el CLI |
 
 ## 2. El clasificador es un baseline, no un modelo
 
 > **Sexta regla (11/09/2026): la ráfaga.** Si el perfil declara `rafaga: {umbral: N}` y llegan ≥ N alertas del
-> mismo origen en 60 s (`alerta["rafaga_60s"]`, calculado por `prototipo/rafaga.py` en la campaña y en el
+> mismo origen en 60 s (`alerta["rafaga_60s"]`, calculado por `prototipo/motor/rafaga.py` en la campaña y en el
 > daemon), la alerta es `vp_intento_acceso` **aunque el origen esté declarado legítimo**, con confianza 0.6 para
 > que el humano confirme antes de bloquear al administrador. Es lo único que aportó el clasificador entrenado
 > (`evaluacion/entrenado.py`, árbol CART) con evidencia fuerte: raíz `n_origen_60s > 8.5`, estable con las
@@ -161,7 +164,7 @@ registro rompe la cadena desde ahí. El daemon retoma la cadena del fichero al r
 (`traza.ultimo_hash`), así que varias sesiones forman una sola.
 
 ```bash
-python3 -m prototipo.traza --verificar trazas-stream.jsonl
+python3 -m prototipo.servicio.traza --verificar trazas-stream.jsonl
 #   cadena valida: 3 registros · ultimo hash c3d6825c38bdce71...
 #   CADENA ROTA en el registro 1 (de 3): el hash no corresponde al contenido (registro alterado)
 #   149 registros anteriores a la cadena (sin proteccion); se verifica desde el 149   <- trazas viejas
@@ -180,13 +183,13 @@ Verificado en vivo con los tres casos. El adaptador de Wazuh descarta las alerta
 Desde la raíz del repo (para que `import prototipo` y `from lab.dataset...` resuelvan):
 
 ```bash
-python3 -m prototipo.triaje <alertas.jsonl> <perfil.yml> <hallazgos.json> <salida.jsonl>
+python3 -m prototipo.motor.triaje <alertas.jsonl> <perfil.yml> <hallazgos.json> <salida.jsonl>
 ```
 
 Ejemplo, sobre el dataset etiquetado real de la Fase 3 y los hallazgos de la campaña de evaluación:
 
 ```bash
-python3 -m prototipo.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
+python3 -m prototipo.motor.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
   "lab/campañas/2026-08-31-evaluacion/hallazgos.json" /tmp/trazas-emp.jsonl
 ```
 
@@ -197,7 +200,7 @@ mismo esquema).
 
 ## 5. Perfiles y RNF-14: dónde coinciden, dónde divergen
 
-RNF-14 exige que el motor sea **configurable por cliente** sin cambiar código. `prototipo/perfil.py`
+RNF-14 exige que el motor sea **configurable por cliente** sin cambiar código. `prototipo/motor/perfil.py`
 lo cumple con dos perfiles de ejemplo, `empresarial.yml` y `residencial.yml`, que difieren en cómo
 tratan el impacto de una acción, no en qué acción proponen (eso lo decide la política, igual para
 todos).
@@ -226,7 +229,7 @@ directamente con `BLOQUEAR_PUERTO` y con `BLOQUEAR_IP` (la accion en la que degr
 `vp_intento_acceso`, `fp_exposicion_inexistente` y `no_soportada`; nunca produce
 `vp_exposicion_gestion`, que es la única clase que la política traduce en una acción de impacto
 `alcanza_servicio` (`BLOQUEAR_PUERTO`/`CERRAR_SERVICIO`). Por eso, corriendo
-`python3 -m prototipo.triaje` sobre el dataset real con `residencial.yml` y con `empresarial.yml`,
+`python3 -m prototipo.motor.triaje` sobre el dataset real con `residencial.yml` y con `empresarial.yml`,
 las decisiones **coinciden** siempre: toda la actividad que el baseline sabe clasificar propone
 `BLOQUEAR_IP` (impacto `localizado`), y ningún perfil degrada ni veta ese impacto. La divergencia
 demostrada arriba es real y trazable a una regla del perfil, pero hoy solo se ejercita a nivel de
@@ -267,7 +270,7 @@ aprobación humana muestra la misma línea **Consecuencia** antes de que el anal
 **Reconciliación** — lo declarado frente a lo descubierto:
 
 ```bash
-python3 -m prototipo.inventario prototipo/perfiles/empresarial.yml lab/campañas/2026-08-31-evaluacion/hallazgos.json
+python3 -m prototipo.motor.inventario prototipo/perfiles/empresarial.yml lab/campañas/2026-08-31-evaluacion/hallazgos.json
 ```
 
 Efecto medido y reconciliación del laboratorio: [`../evaluacion/resultados/README.md`](../evaluacion/resultados/README.md).
@@ -283,7 +286,7 @@ dependientes, así que también es una cota superior.
 ## 6. Corrida sobre el dataset real de la Fase 3
 
 ```bash
-python3 -m prototipo.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
+python3 -m prototipo.motor.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
   "lab/campañas/2026-08-31-evaluacion/hallazgos.json" /tmp/trazas-emp.jsonl
 ```
 
@@ -328,11 +331,11 @@ decisión (5A) ──► ¿requiere_humano? ──sí──► validación por t
 
 | Módulo | Responsabilidad |
 |--------|------------------|
-| `prototipo/orden.py` | Traduce la decisión + la alerta en una orden (acción, nodo, IP, params) — la frontera motor↔conector |
-| `prototipo/conector.py` | Renderiza el comando del catálogo con los params de la orden y lo ejecuta con el ejecutor inyectado |
-| `prototipo/validacion.py` | Muestra la decisión por terminal y captura el veredicto humano (RF-08) |
-| `prototipo/verificacion.py` | Reejecuta el comando de verificación del catálogo para confirmar el efecto |
-| `prototipo/lazo.py` | Orquesta decisión → validación → orden → conector → verificación, con CLI (`--auto` / vivo) |
+| `prototipo/motor/orden.py` | Traduce la decisión + la alerta en una orden (acción, nodo, IP, params) — la frontera motor↔conector |
+| `prototipo/accion/conector.py` | Renderiza el comando del catálogo con los params de la orden y lo ejecuta con el ejecutor inyectado |
+| `prototipo/servicio/validacion.py` | Muestra la decisión por terminal y captura el veredicto humano (RF-08) |
+| `prototipo/accion/verificacion.py` | Reejecuta el comando de verificación del catálogo para confirmar el efecto |
+| `prototipo/servicio/lazo.py` | Orquesta decisión → validación → orden → conector → verificación, con CLI (`--auto` / vivo) |
 
 **El conector (`conector.py`).**
 
@@ -374,7 +377,7 @@ spec de 5B); no es la credencial de producción ni pretende serlo.
 `conector.ejecutor_ssh_clave` entra como el usuario dedicado `triaje` con clave (sin contraseña en el
 código ni en la red), verifica la clave del host contra un `known_hosts` propio, no puede quedarse
 preguntando (`BatchMode`, `ssh -n`) y ejecuta con `sudo` **restringido a un sudoers generado desde el
-catálogo** (`python3 -m prototipo.catalogo --sudoers triaje --rutas …`): la frontera de privilegio en el
+catálogo** (`python3 -m prototipo.accion.catalogo --sudoers triaje --rutas …`): la frontera de privilegio en el
 nodo es exactamente el catálogo cerrado de acciones (RF-15), con los parámetros como comodines, que son
 seguros porque el conector rechaza parámetros con espacios o metacaracteres. Se aprovisiona con
 `sh lab/scripts/aprovisionar-minimo-privilegio.sh`, que termina comprobando que un comando del catálogo
@@ -410,7 +413,9 @@ perfil `empresarial` veta la acción automática:
 ```bash
 python3 - <<'PY'
 import json
-from prototipo import lazo, catalogo, perfil
+from prototipo.motor import perfil
+from prototipo.accion import catalogo
+from prototipo.servicio import lazo
 CAT = catalogo.cargar_catalogo("prototipo/catalogo.yml")
 P = perfil.cargar("prototipo/perfiles/empresarial.yml")
 H = json.load(open("prototipo/tests/fixtures/hallazgos.json"))
@@ -437,7 +442,7 @@ vez de antes.
 **El orquestador (`lazo.py`) y su CLI.**
 
 ```bash
-python3 -m prototipo.lazo <alertas.jsonl> <perfil.yml> <hallazgos.json> <salida.jsonl> [--auto]
+python3 -m prototipo.servicio.lazo <alertas.jsonl> <perfil.yml> <hallazgos.json> <salida.jsonl> [--auto]
 ```
 
 - **`--auto`** usa un ejecutor falso (sin red, sin laboratorio): útil para correr el lazo completo
@@ -461,7 +466,7 @@ generativo real. Diseño completo:
 
 | Módulo | Responsabilidad |
 |--------|------------------|
-| `prototipo/justificador_llm.py` | `construir_prompt`, `verificar_anclaje`, `justificar_llm`, `adaptador`, `generador_llama` |
+| `prototipo/explicacion/justificador_llm.py` | `construir_prompt`, `verificar_anclaje`, `justificar_llm`, `adaptador`, `generador_llama` |
 
 **La frontera de subprocess.** El modelo vive en un entorno conda aparte (`triaje-ml`), no en el
 `python3` del sistema que corre el resto del prototipo. `generador_llama` lo invoca por
@@ -511,7 +516,7 @@ mkdir -p modelos
 # colocar ahí llama-3.2-1b-q4.gguf (Llama-3.2-1B cuantizado a 4 bits)
 ```
 
-`prototipo/justificador_llm.py` ubica el binario y el modelo por convención
+`prototipo/explicacion/justificador_llm.py` ubica el binario y el modelo por convención
 (`~/miniforge3/envs/triaje-ml/bin/llama-simple` y `modelos/llama-3.2-1b-q4.gguf`), configurables por
 las variables de entorno `LLAMA_BIN` y `LLAMA_MODELO` si un despliegue los coloca en otro sitio. Se
 corre siempre con el `python3` del sistema (**no** se activa el entorno conda) — es
@@ -524,7 +529,7 @@ Sobre una alerta VP (`vp_intento_acceso`, `regla_id 5763`, MITRE `T1110`, `orige
 
 ```bash
 python3 - <<'PY'
-from prototipo import justificador_llm as jl
+from prototipo.explicacion import justificador_llm as jl
 alerta = {"regla_id":"5763","mitre":["T1110"],"origen_ip":"192.168.1.10",
           "activo":"objetivo-vuln","servicio":"ssh"}
 ctx = {"postura":{"expuesto":True},"criticidad":"alta"}
@@ -582,7 +587,7 @@ se le pasa `justificar_fn` a `triaje.procesar`.
 
 ## 10. RAG — recuperación aumentada local (5D)
 
-El **objetivo general del proyecto exige un módulo RAG local**. `prototipo/rag.py` lo implementa detrás
+El **objetivo general del proyecto exige un módulo RAG local**. `prototipo/explicacion/rag.py` lo implementa detrás
 de la interfaz `justificar_llm` de la sección 9, y arregla el fallo que la Fase 6 midió (el 1B describía
 las reglas y técnicas al revés).
 
@@ -596,12 +601,12 @@ las reglas y técnicas al revés).
   Python puro** y devuelve el top-k, y **se detiene** si la dimensión de la consulta no coincide con la
   del índice (cambiar de embedder sin reindexar producía similitudes plausibles y sin sentido). El
   índice se precomputa a `prototipo/corpus/indice.json` (versionado); se regenera con
-  `python3 -m prototipo.rag --indexar`.
+  `python3 -m prototipo.explicacion.rag --indexar`.
 - **Prompt aumentado**: `construir_prompt(..., pasajes)` inyecta un bloque «Conocimiento de referencia»
   con las fichas recuperadas. Sin `pasajes` es **byte-idéntico a 5C** (retrocompatible).
   `justificar_con_rag(...)` recupera, justifica y **degrada a plantilla** si el embedder o el generador
   fallan (RNF-09). La recuperación y el embedder son **inyectables** (falsos en los tests).
-- **CLI**: `python3 -m prototipo.rag --consulta "regla 5760 MITRE T1110.001 servicio ssh"` imprime los
+- **CLI**: `python3 -m prototipo.explicacion.rag --consulta "regla 5760 MITRE T1110.001 servicio ssh"` imprime los
   pasajes recuperados.
 
 **Medido (Fase 6, contraste `--con-rag` vs sin RAG sobre las 18 soportadas):** RAG **corrige la
@@ -629,7 +634,7 @@ dimensiones aunque no compartan ni una palabra. Lo produce `bge-m3`, un modelo e
 (a diferencia del Llama generativo, que redacta texto). El vector es **función solo del texto**: el mismo
 texto da siempre el mismo vector.
 
-**Indexado (una vez, `python3 -m prototipo.rag --indexar`).** `rag.indexar(corpus, embedder)` embebe el
+**Indexado (una vez, `python3 -m prototipo.explicacion.rag --indexar`).** `rag.indexar(corpus, embedder)` embebe el
 `texto` de cada ficha del corpus y guarda `{…campos…, "vector": [1024 números]}` en `corpus/indice.json`
 (versionado). Ese fichero **es** el almacén: las ~32 fichas (técnicas ATT&CK, contramedidas D3FEND, reglas
 de Wazuh, vulns, descartes) con su vector al lado. Se regenera al tocar el corpus.
@@ -671,7 +676,7 @@ Recomendación del tutor: que el RAG *"tenga un agente / no sea determinista"*. 
 **paso de consulta agéntico de un salto, registrado y degradable**, sin sacrificar auditabilidad:
 
 - **Corpus v2 (ATT&CK + D3FEND):** el corpus (32 fichas) se **compila** de dos fuentes con
-  `prototipo/extraer_attack.py`: las técnicas **ATT&CK** se **destilan del bundle STIX oficial**
+  `prototipo/explicacion/extraer_attack.py`: las técnicas **ATT&CK** se **destilan del bundle STIX oficial**
   (`corpus/fuentes/enterprise-attack.json`, ~54 MB, gitignored) — solo las del perímetro soportado
   (allowlist `TECNICAS_PERIMETRO`, 15 técnicas de las 4 familias originales del corpus — las familias
   posteriores no ampliaron el corpus, que es un valor canónico), con la descripción oficial limpia; y las
@@ -679,7 +684,7 @@ Recomendación del tutor: que el RAG *"tenga un agente / no sea determinista"*. 
   `corpus/curado.jsonl`. El **mapeo** encadena *técnica ofensiva → contramedida D3FEND → acción del
   catálogo* (p. ej. `T1110.001 → D3-ITF/D3-NTF → BLOQUEAR_IP`). D3FEND (`D3-NTF`, `D3-ITF`, `D3-AL`,
   `D3-NI`) verificado contra [d3fend.mitre.org](https://d3fend.mitre.org/). Regenerar:
-  `python3 -m prototipo.extraer_attack` → `python3 -m prototipo.rag --indexar`.
+  `python3 -m prototipo.explicacion.extraer_attack` → `python3 -m prototipo.explicacion.rag --indexar`.
 - **Consulta agéntica** (`rag.consulta_agentica`): el 1B decide **qué añadir** a la búsqueda; se **aumenta**
   la consulta fija (conserva los anclajes estructurados, RNF-08) con la aportación del modelo — nunca es
   peor que la fija. Si la salida es vacía o inventa IPs, **degrada** a la consulta fija (RNF-09). Corre a
@@ -749,13 +754,13 @@ Tres cambios posteriores a la evaluación, cada uno con su medición en
 contención hacia el perímetro. **Cada salto pasa por `perfil.filtrar`** (veto duro → se salta el dispositivo;
 degrada → la alternativa; `requiere_humano` → se pregunta; el agente ReAct conserva su aprobación por paso
 con `siempre_humano=True`). El plan queda en la traza como `escalada`, con `orden_efectiva`, y
-`prototipo.revertir` la usa cuando la ejecución en el host no tuvo éxito. Verificado en vivo con
+`prototipo.accion.revertir` la usa cuando la ejecución en el host no tuvo éxito. Verificado en vivo con
 `red-cliente-firewall` y el conector con clave (escenario C: 5,2 s del ataque a la regla verificada en el
 borde). Sin `topologia` en el perfil no hay a dónde escalar.
 
 ### 10.ter Agente de mitigación (ReAct + Tool Calling acotado)
 
-`prototipo/agente_mitigacion.py` es un **agente ReAct** que **determina la estrategia de mitigación y
+`prototipo/explicacion/agente_mitigacion.py` es un **agente ReAct** que **determina la estrategia de mitigación y
 escala de dispositivo** (host → firewall) reaccionando a los errores — la respuesta orquestada multi-nodo
 que pidió el requerimiento — **sin** que el LLM redacte shell:
 
@@ -788,8 +793,8 @@ El punto de entrada del prototipo: lee las alertas de la fuente del cliente y la
 común** que consume el motor, tolerando campos ausentes.
 
 - **Agnóstico de fuente (RNF-06):** el conocimiento de la fuente vive en un **adaptador inyectable**
-  (`cruda -> dict` de los 12 campos del esquema). `prototipo/adaptador_wazuh.py` es el implementado;
-  `prototipo/ingesta.py` es el núcleo, que no sabe de fabricante. El registro `ingesta.ADAPTADORES`
+  (`cruda -> dict` de los 12 campos del esquema). `prototipo/entrada/adaptador_wazuh.py` es el implementado;
+  `prototipo/entrada/ingesta.py` es el núcleo, que no sabe de fabricante. El registro `ingesta.ADAPTADORES`
   admite una segunda fuente (el sistema de la empresa) por el mismo módulo, sin tocar el motor.
 - **Tolerante, sin inferir (RNF-07):** el mapeo usa `.get()` con defaults, así que una alerta con
   campos ausentes no rompe ni inventa valores; `ingesta.campos_ausentes(reg)` lista los campos críticos
@@ -797,7 +802,7 @@ común** que consume el motor, tolerando campos ausentes.
 - **Activo desde los campos del evento (RF-16):** `resolver_activo` deduce el activo del hostname que
   decodifica Wazuh, no del id de agente (que en Containerlab es siempre `000`).
 - **Robusto:** `ingerir_fichero` lee JSONL saltando líneas vacías o corruptas.
-- **CLI:** `python3 -m prototipo.ingesta <alerts.json> <salida.jsonl> [fuente=wazuh] [campaña]` —
+- **CLI:** `python3 -m prototipo.entrada.ingesta <alerts.json> <salida.jsonl> [fuente=wazuh] [campaña]` —
   verificada en vivo sobre el `alerts.json` real de Wazuh.
 
 `lab/dataset/esquema.py` re-exporta desde `adaptador_wazuh` por compatibilidad, así que el pipeline del
@@ -806,7 +811,7 @@ dataset (Fase 3) sigue usándolo sin cambios; la dirección de dependencia queda
 ## 12. Agrupación por incidente (RF-11)
 
 El analista no debería triar 18 alertas casi idénticas, sino los **incidentes** que representan.
-`prototipo/agrupacion.py` colapsa las ráfagas —misma `(origen_ip, activo, servicio, familia)` dentro de una
+`prototipo/motor/agrupacion.py` colapsa las ráfagas —misma `(origen_ip, activo, servicio, familia)` dentro de una
 **ventana temporal** (`ventana_seg`, 300 s por defecto)— en un incidente, **por encima** de la correlación
 que Wazuh ya hace (reglas 5763/5712).
 
@@ -814,7 +819,7 @@ que Wazuh ya hace (reglas 5763/5712).
   `reglas`, la ventana (`primera_ts`/`ultima_ts`), los `ids`, y el **`representante`** = la alerta más
   informativa (mayor `nivel_wazuh`, la correlada). El motor triaja el representante, no cada alerta.
 - Puro y tolerante (RNF-07): una alerta sin timestamp no rompe la agrupación.
-- **CLI:** `python3 -m prototipo.agrupacion <alertas.jsonl> <incidentes.jsonl> [ventana_seg]`.
+- **CLI:** `python3 -m prototipo.motor.agrupacion <alertas.jsonl> <incidentes.jsonl> [ventana_seg]`.
 
 **Medido (Fase 6):** 18 alertas soportadas → **2 incidentes** (9× menos ítems); 205 → **4** (~51×). Triar
 los 2 representantes reproduce las 2 decisiones correctas. Detalle en el
@@ -822,12 +827,12 @@ los 2 representantes reproduce las 2 decisiones correctas. Detalle en el
 
 ## 13. Modo tiempo real (daemon / listener MDR)
 
-`prototipo/stream.py` es el runner en streaming: se queda **escuchando** alertas de Wazuh sin cerrarse
+`prototipo/servicio/stream.py` es el runner en streaming: se queda **escuchando** alertas de Wazuh sin cerrarse
 —como en producción— en vez de correr por lotes o de un solo tiro. Es una **capa de orquestación** sobre
 `lazo.procesar_lazo` (§8), sin lógica de decisión propia:
 
 - **Fuente inyectable:** sigue un fichero del host estilo `tail -f` (tolerando que aún no exista) o lee de
-  `stdin` (`-`), para canalizar `docker exec … tail -F … | python3 -m prototipo.stream -` cuando el
+  `stdin` (`-`), para canalizar `docker exec … tail -F … | python3 -m prototipo.servicio.stream -` cuando el
   `alerts.json` vive dentro del contenedor de Wazuh. La fuente inyectable hace el bucle testeable con una
   lista (mock del generador de líneas).
 - **Ventana de agrupación (RF-11):** acumula la ráfaga `--ventana-agrupacion N` segundos y la colapsa con
@@ -839,6 +844,6 @@ los 2 representantes reproduce las 2 decisiones correctas. Detalle en el
   delega en `agente_mitigacion.bucle_react` — decide la estrategia y **escala host→firewall**, con aprobación
   **por paso**, reutilizando el conector y el conocimiento RAG. Es el mismo patrón de inyección que
   `justificar_fn` (en `lazo.procesar_lazo`); sin modelo, el agente degrada al motor determinista.
-- **CLI:** `python3 -m prototipo.stream <ruta|-> [perfil] [hallazgos] [--con-llm|--sin-llm] [--agente] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]`.
+- **CLI:** `python3 -m prototipo.servicio.stream <ruta|-> [perfil] [hallazgos] [--con-llm|--sin-llm] [--agente] [--ventana-agrupacion N] [--sin-lab] [--salida trazas.jsonl]`.
   `Ctrl+C` cierra limpio e imprime el resumen de la sesión. Uso paso a paso en
   [`../docs/pruebas/03-lab-en-vivo.md`](../docs/pruebas/03-lab-en-vivo.md) §3.3.

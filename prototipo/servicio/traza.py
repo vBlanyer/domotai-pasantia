@@ -1,0 +1,356 @@
+"""Construye el registro de decisión auditable (RF-09) y lo encadena por hash.
+
+La cadena: cada registro lleva `hash_previo` (el `hash` del anterior; un valor fijo para el
+primero) y `hash` = SHA-256 de `hash_previo` + el registro en JSON canonico (claves ordenadas,
+sin espacios, sin los dos campos de la cadena). Alterar cualquier campo de cualquier registro,
+borrar uno, insertar uno o cambiar el orden rompe la cadena desde ese punto, y `verificar`
+dice en cual.
+
+Lo que la cadena sola NO cubre: truncar el fichero por el final. Los registros que quedan
+siguen encadenados entre si, asi que la cadena prueba la integridad de lo que hay, no que no
+falte nada al final. Para eso esta el ANCLA: tras cada registro, la cadena envia el hash y el
+numero de registros como un evento syslog al manager de Wazuh (TRIAJE_ANCLA=host:puerto), que
+lo guarda con su regla local 100100 en alerts.json. Wazuh es otro sistema, ya es la fuente de
+verdad del triaje, y el fichero que escribe no lo controla quien controla la traza. Verificar
+con `--anclas <alerts.json>` compara la traza con el ancla mas reciente: si el ancla cuenta mas
+registros de los que hay, la traza esta truncada; si el registro que el ancla senala tiene otro
+hash, esta alterada o no es ese fichero.
+"""
+import glob
+import hashlib
+import hmac
+import json
+import os
+import re
+import socket
+import time
+
+VERSION_BASELINE = "baseline-0"
+GENESIS = "0" * 64
+_CAMPOS_CADENA = ("hash", "hash_previo")
+ANCLA_DESTINO = os.environ.get("TRIAJE_ANCLA")          # "host:puerto" del syslog del manager; sin ella no se ancla
+_ANCLA_RE = re.compile(r"triaje-ancla: fichero=(\S+) linaje=([0-9a-f]{16}) registros=(\d+) "
+                       r"hash=([0-9a-f]{64})(?: mac=([0-9a-f]{64}))?")
+
+def _canonico(registro):
+    limpio = {k: v for k, v in registro.items() if k not in _CAMPOS_CADENA}
+    return json.dumps(limpio, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+def _hash(hash_previo, registro):
+    # Con TRIAJE_TRAZA_CLAVE la cadena se FIRMA con HMAC-SHA256: quien pueda reescribir el fichero no
+    # puede recalcular una cadena válida sin la clave (que vive fuera del alcance del escritor). Sin
+    # clave, SHA-256 encadenado como siempre (tamper-evident solo frente a quien no reescriba el todo).
+    msg = (hash_previo + _canonico(registro)).encode("utf-8")
+    clave = os.environ.get("TRIAJE_TRAZA_CLAVE")
+    if clave:
+        return hmac.new(clave.encode("utf-8"), msg, hashlib.sha256).hexdigest()
+    return hashlib.sha256(msg).hexdigest()
+
+
+def abrir_append(ruta):
+    """Abre la traza para añadir con permisos 0600 (solo el dueño). La cadena es tamper-evident, pero
+    quien pueda ESCRIBIR el fichero puede recalcularla (salvo con TRIAJE_TRAZA_CLAVE); restringir la
+    escritura al usuario del daemon es la primera línea de defensa (RF-09). Se crea con 0600 en el
+    propio open (sin ventana de carrera por umask) y se endurece también un fichero preexistente."""
+    fd = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        os.chmod(ruta, 0o600)
+    except OSError:
+        pass
+    return os.fdopen(fd, "a", encoding="utf-8")
+
+def encadenar(registro, hash_previo):
+    """Copia del registro con `hash_previo` y su `hash`."""
+    return {**registro, "hash_previo": hash_previo, "hash": _hash(hash_previo, registro)}
+
+def verificar(registros):
+    """Recorre la cadena. Devuelve {valida, n, primer_fallo, motivo}; `primer_fallo` es el indice
+    (desde 0) del primer registro que no cuadra, o None."""
+    esperado = GENESIS
+    for i, reg in enumerate(registros):
+        if "hash" not in reg or "hash_previo" not in reg:
+            return {"valida": False, "n": i, "primer_fallo": i, "motivo": "registro sin cadena"}
+        if reg["hash_previo"] != esperado:
+            return {"valida": False, "n": i, "primer_fallo": i,
+                    "motivo": "hash_previo no coincide con el registro anterior (borrado, insercion o reorden)"}
+        if reg["hash"] != _hash(reg["hash_previo"], reg):
+            return {"valida": False, "n": i, "primer_fallo": i,
+                    "motivo": "el hash no corresponde al contenido (registro alterado)"}
+        esperado = reg["hash"]
+    return {"valida": True, "n": len(registros) if isinstance(registros, list) else None,
+            "primer_fallo": None, "motivo": ""}
+
+def leer_registros(ruta):
+    with open(ruta, encoding="utf-8") as f:
+        return [json.loads(l) for l in f if l.strip()]
+
+def familia(ruta):
+    """Segmentos de una traza en orden cronológico (#6): los archivados `<base>.<N>.jsonl` (N
+    ascendente, más antiguos primero) y por último el activo `<base>.jsonl`. Hoy, sin rotación en
+    caliente, suele ser solo el activo; deja el sistema listo para múltiples segmentos."""
+    base = ruta[:-len(".jsonl")] if ruta.endswith(".jsonl") else ruta
+    segs = []
+    for p in glob.glob(f"{base}.*.jsonl"):
+        resto = p[len(base) + 1:-len(".jsonl")]
+        if resto.isdigit():
+            segs.append((int(resto), p))
+    return [p for _, p in sorted(segs)] + ([ruta] if os.path.exists(ruta) else [])
+
+def leer_familia(ruta):
+    """Registros de todos los segmentos de `ruta` concatenados en orden cronológico. La
+    reconstrucción de estado del daemon (#4) la usa para no perder el histórico si la traza se
+    hubiera segmentado."""
+    regs = []
+    for p in familia(ruta):
+        regs.extend(leer_registros(p))
+    return regs
+
+def ultimo_hash(ruta):
+    """Hash del ultimo registro de un fichero de traza, o GENESIS si no existe o esta vacio. Sirve
+    para retomar la cadena al reabrir el fichero y para anclar su estado fuera de el."""
+    try:
+        regs = leer_registros(ruta)
+    except FileNotFoundError:
+        return GENESIS
+    return regs[-1].get("hash", GENESIS) if regs else GENESIS
+
+def _tamano(ruta):
+    try:
+        return os.path.getsize(ruta) if ruta else None
+    except OSError:
+        return 0
+
+def linaje_de(registros):
+    """Identidad de un fichero de traza: los 16 primeros caracteres del hash de su primer registro.
+    Un fichero borrado y rehecho con el mismo nombre tiene otro linaje; uno truncado, el mismo."""
+    return registros[0]["hash"][:16] if registros and registros[0].get("hash") else None
+
+def _mac_ancla(nombre, linaje, n, hash_, clave):
+    msg = f"{nombre}|{linaje}|{n}|{hash_}".encode("utf-8")
+    return hmac.new(clave.encode("utf-8"), msg, hashlib.sha256).hexdigest()
+
+def formatear_ancla(nombre, linaje, n, hash_):
+    """Linea syslog (prioridad 38 = auth.info, como el resto del laboratorio) con el ancla. Con
+    TRIAJE_TRAZA_CLAVE se firma con HMAC (`mac=`): el canal syslog UDP no está autenticado, así que
+    sin firma un atacante podría spoofear un ancla que avale una traza forjada."""
+    base = (f"<38>{time.strftime('%b %d %H:%M:%S')} triaje triaje-ancla: fichero={nombre} linaje={linaje} "
+            f"registros={n} hash={hash_}")
+    clave = os.environ.get("TRIAJE_TRAZA_CLAVE")
+    return base + (f" mac={_mac_ancla(nombre, linaje, n, hash_, clave)}" if clave else "")
+
+def _enviar_udp(linea, destino):
+    host, puerto = destino.rsplit(":", 1)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.sendto(linea.encode("utf-8"), (host, int(puerto)))
+
+def anclar(nombre, linaje, n, hash_, destino=None, _enviar=_enviar_udp):
+    """Envia el ancla al manager. Nunca lanza: anclar es lo mejor posible, y que falle el ancla no
+    debe parar la traza (que es lo que esta protegiendo). Devuelve si se envio."""
+    destino = destino or ANCLA_DESTINO
+    if not destino:
+        return False
+    try:
+        _enviar(formatear_ancla(nombre, linaje, n, hash_), destino)
+        return True
+    except (OSError, ValueError):
+        return False
+
+def leer_anclas(ruta_alerts, nombre):
+    """[(registros, hash, linaje)] de las anclas de `nombre` en un alerts.json de Wazuh. Con
+    TRIAJE_TRAZA_CLAVE se exige HMAC válido: una ancla sin `mac` o con firma incorrecta (spoofeada por
+    el canal syslog) se descarta. Sin clave, se aceptan todas (compatibilidad)."""
+    clave = os.environ.get("TRIAJE_TRAZA_CLAVE")
+    anclas = []
+    with open(ruta_alerts, encoding="utf-8", errors="replace") as f:
+        for l in f:
+            if "triaje-ancla" not in l:
+                continue
+            m = _ANCLA_RE.search(l)
+            if not (m and m.group(1) == nombre):
+                continue
+            nom, linaje, n, hash_, mac = m.group(1), m.group(2), int(m.group(3)), m.group(4), m.group(5)
+            if clave and (mac is None or not hmac.compare_digest(mac, _mac_ancla(nom, linaje, n, hash_, clave))):
+                continue                      # ancla no firmada o firma inválida: descartada
+            anclas.append((n, hash_, linaje))
+    return anclas
+
+def verificar_contra_anclas(registros, anclas):
+    """Compara la traza con las anclas que Wazuh guarda para su nombre de fichero.
+
+    Tres fallos distintos, y conviene nombrarlos: TRUNCADA (las anclas de este mismo linaje
+    cuentan mas registros de los que hay), REHECHA (hay anclas para ese nombre y ninguna
+    coincide con ningun registro: el fichero se borro y se volvio a crear, que es perder lo
+    anclado) y ALTERADA (el registro que el ancla senala tiene otro hash)."""
+    if not anclas:
+        return {"valida": True, "motivo": "sin anclas para este fichero", "ancla": None}
+    linaje = linaje_de(registros)
+    mias = [(n, h) for n, h, lin in anclas if lin == linaje]
+    if not mias:
+        n, h, _ = max(anclas)
+        return {"valida": False, "ancla": (n, h),
+                "motivo": f"REHECHA: Wazuh tiene {len(anclas)} anclas para este nombre (hasta {n} registros) y "
+                          f"ninguna es de este linaje; el fichero se borro y se volvio a crear"}
+    n, h = max(mias)
+    if n > len(registros):
+        return {"valida": False, "ancla": (n, h),
+                "motivo": f"TRUNCADA: el ancla mas reciente de este linaje cuenta {n} registros y la traza "
+                          f"tiene {len(registros)}"}
+    if registros[n - 1].get("hash") != h:
+        return {"valida": False, "ancla": (n, h),
+                "motivo": f"ALTERADA: el registro {n - 1} no tiene el hash que el ancla senala"}
+    return {"valida": True, "ancla": (n, h),
+            "motivo": f"el ancla coincide: {n} registros" + (f" (la traza tiene {len(registros) - n} mas, aun sin anclar)"
+                                                            if len(registros) > n else "")}
+
+class Cadena:
+    """Escribe registros encadenados, una linea JSON por registro, sobre un objeto fichero, y
+    ancla cada uno en el manager si hay destino (`ancla`). `n` y `nombre` retoman un fichero.
+
+    Con `ruta` (el fichero en disco), varios escritores pueden compartirlo —el daemon y la CLI de
+    revertir—: cada escritura toma un flock y, si el fichero crecio desde la ultima escritura propia,
+    relee el ultimo hash y el recuento antes de encadenar. Sin esto, el daemon encadenaba sobre el
+    hash que guardaba en memoria y la reversion escrita entre medias rompia la cadena."""
+    def __init__(self, fichero, hash_previo=GENESIS, n=0, nombre="", ancla=None, linaje=None, ruta=None):
+        self.fichero, self.ultimo, self.n, self.nombre = fichero, hash_previo, n, nombre
+        self.ancla = ancla if ancla is not None else ANCLA_DESTINO
+        self.linaje, self.anclados = linaje, 0
+        self.ruta = ruta
+        self._tamano = _tamano(ruta)
+    def _resincronizar(self):
+        if self.ruta is None or _tamano(self.ruta) == self._tamano:
+            return
+        regs = leer_registros(self.ruta)
+        self.ultimo = regs[-1].get("hash", GENESIS) if regs else GENESIS
+        self.n = len(regs)
+        self.linaje = self.linaje or linaje_de(regs)
+    def escribir(self, registro):
+        if self.ruta is None:
+            return self._escribir(registro)
+        import fcntl
+        fcntl.flock(self.fichero.fileno(), fcntl.LOCK_EX)
+        try:
+            self._resincronizar()
+            return self._escribir(registro)
+        finally:
+            fcntl.flock(self.fichero.fileno(), fcntl.LOCK_UN)
+    def _escribir(self, registro):
+        reg = encadenar(registro, self.ultimo)
+        self.fichero.write(json.dumps(reg, ensure_ascii=False) + "\n")
+        self.fichero.flush()
+        self._tamano = _tamano(self.ruta)
+        self.ultimo, self.n = reg["hash"], self.n + 1
+        if self.linaje is None:
+            self.linaje = reg["hash"][:16]        # fichero nuevo: el primer registro fija el linaje
+        if self.ancla and anclar(self.nombre, self.linaje, self.n, self.ultimo, self.ancla):
+            self.anclados += 1
+        return reg
+
+def _main(argv):
+    if len(argv) >= 2 and argv[0] == "--verificar":
+        try:
+            regs = leer_registros(argv[1])
+        except FileNotFoundError:
+            print(f"no existe {argv[1]}"); return 2
+        # Un fichero puede empezar con registros anteriores a la cadena (escritos antes de
+        # que existiera). Se informan como tales y se verifica desde el primer encadenado: no
+        # son una rotura, son historia sin proteccion, y conviene que se vea la frontera.
+        k = next((i for i, reg in enumerate(regs) if "hash" in reg), len(regs))
+        if k:
+            print(f"{k} registros anteriores a la cadena (sin proteccion); se verifica desde el {k}")
+        v = verificar(regs[k:])
+        if not v["valida"]:
+            print(f"CADENA ROTA en el registro {k + v['primer_fallo']} (de {len(regs)}): {v['motivo']}")
+            # V1.1 #4: el fallo más confuso es verificar una traza FIRMADA sin su clave -> el HMAC no
+            # cuadra y parece "alterada". Si no hay clave en el entorno, avisar de que puede ser eso.
+            if "hash no corresponde" in v["motivo"] and not os.environ.get("TRIAJE_TRAZA_CLAVE"):
+                print("  aviso: si la traza se escribió con TRIAJE_TRAZA_CLAVE (HMAC), fija la MISMA "
+                      "clave antes de verificar; sin ella una cadena firmada se reporta como alterada")
+            return 1
+        print(f"cadena valida: {v['n']} registros · ultimo hash {regs[-1]['hash'][:16]}..." if regs[k:]
+              else "sin registros encadenados: cadena trivialmente valida")
+        if "--anclas" in argv:
+            anclas = leer_anclas(argv[argv.index("--anclas") + 1], os.path.basename(argv[1]))
+            a = verificar_contra_anclas(regs[k:], anclas)
+            print(("anclas: " if a["valida"] else "ANCLAS: ") + a["motivo"])
+            return 0 if a["valida"] else 1
+        return 0
+    print("uso: python3 -m prototipo.servicio.traza --verificar <traza.jsonl> [--anclas <alerts.json de Wazuh>]")
+    return 2
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_main(sys.argv[1:]))
+
+def justificacion_estructurada(alerta, analisis_out, accion_prop):
+    """Justificación estructurada (RF-05): los 4 componentes de la decisión como objeto.
+    Puro y tolerante — usa `.get()`, no infiere lo ausente (RNF-07)."""
+    return {
+        "evidencia": {
+            "regla": alerta.get("regla_id"),
+            "origen_ip": alerta.get("origen_ip"),
+            "activo": alerta.get("activo"),
+            "servicio": alerta.get("servicio"),
+        },
+        "hipotesis": {
+            "clase": analisis_out.get("clase"),
+            "confianza": analisis_out.get("confianza"),
+        },
+        "tecnica_mitre": alerta.get("mitre", []) or [],
+        "accion_sugerida": accion_prop,
+    }
+
+VERSION_ESQUEMA = 1   # sube si cambia el significado de un campo del registro de decisión
+
+
+def _contexto(alerta, contexto):
+    """Los insumos con los que se decidió (salida de analisis.enriquecer + la alerta normalizada):
+    con ellos una decisión en vivo se puede re-derivar y auditar (RF-09, RF-13). La ráfaga en vivo
+    depende de qué alertas habían llegado, así que sin guardarla no se sabría por qué salió esa clase."""
+    if contexto is None:
+        return None
+    postura = contexto.get("postura")
+    return {"familia": alerta.get("familia"), "nivel_wazuh": alerta.get("nivel_wazuh"),
+            "regla_id": alerta.get("regla_id"), "mitre": alerta.get("mitre") or [],
+            "origen_ip": alerta.get("origen_ip"), "servicio": alerta.get("servicio"),
+            "rafaga_60s": contexto.get("rafaga"), "umbral_rafaga": contexto.get("umbral_rafaga"),
+            # ventana larga: sin ella un auditor no puede re-derivar por qué saltó el aviso de vigilancia
+            "rafaga_600s": contexto.get("rafaga_larga"), "umbral_largo": contexto.get("umbral_largo"),
+            "origen_legitimo": contexto.get("origen_legitimo"), "criticidad": contexto.get("criticidad"),
+            "postura": None if postura is None else {"expuesto": postura.get("expuesto"),
+                                                     "servicios_abiertos": postura.get("servicios_abiertos")}}
+
+
+def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto, perfil_nombre, filtro_out, version_perfil,
+              contexto=None):
+    return {
+        "tipo": "decision",
+        "version_esquema": VERSION_ESQUEMA,
+        "id_decision": id_decision,
+        "timestamp": timestamp,
+        "id_alerta": alerta.get("id_alerta"),
+        "activo": alerta.get("activo"),
+        "clase": analisis_out.get("clase"),
+        "prioridad": analisis_out.get("prioridad"),
+        "confianza": analisis_out.get("confianza"),
+        "justificacion": analisis_out.get("justificacion"),
+        "justificacion_estructurada": justificacion_estructurada(alerta, analisis_out, accion_prop),
+        "version_justificador": analisis_out.get("version_justificador", "plantilla-0"),  # RF-09/RNF-03
+        "pasajes_usados": analisis_out.get("pasajes_usados", []),
+        "consulta_rag": analisis_out.get("consulta_rag", ""),                    # Opcion C (RNF-03)
+        "recuperacion_agentica": analisis_out.get("recuperacion_agentica", False),
+        # lo que respondió el modelo y por qué no pasó el anclaje (None si no se usó o se aceptó)
+        "justificacion_descartada": analisis_out.get("justificacion_descartada"),
+        "ruta": analisis_out.get("ruta"),                    # rol/destino de encaminamiento (triar_y_enrutar)
+        "recomendacion": analisis_out.get("recomendacion"),  # respuesta dirigida recomendada (asesora)
+        "aviso": analisis_out.get("aviso"),                  # señal de vigilancia 'low-and-slow' (asesora)
+        "accion_propuesta": accion_prop,
+        "impacto": impacto,
+        "perfil_aplicado": perfil_nombre,
+        "resultado_filtro": filtro_out.get("resultado"),
+        "accion_final": filtro_out.get("accion_final"),
+        "requiere_humano": filtro_out.get("requiere_humano"),
+        "impacto_determinado": filtro_out.get("impacto"),   # a quién bloquea y qué detiene (RF-17)
+        "version_baseline": VERSION_BASELINE,
+        "version_perfil": version_perfil,
+        "contexto": _contexto(alerta, contexto),
+    }

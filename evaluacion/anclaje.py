@@ -3,8 +3,8 @@
 El resumen se desglosa por clase porque la tasa global esconde el comportamiento que
 interesa: la justificacion de una amenaza y la de un descarte responden a preguntas
 distintas y han fallado de formas distintas."""
-from prototipo import analisis
-from prototipo import justificador_llm
+from prototipo.motor import analisis
+from prototipo.explicacion import justificador_llm
 
 def soportadas(filas):
     return [f for f in filas if f.get("etiqueta") in ("VP", "FP")]

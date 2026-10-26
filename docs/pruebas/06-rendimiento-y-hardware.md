@@ -43,7 +43,7 @@ otra razón para el hardware objetivo. La calibración (banco §2.4) es la que p
 
 Se repitió el experimento con el embedder dedicado (`bge-m3`, agrupación CLS), ampliando el corpus vigente
 de 32 fichas con 8 técnicas hermanas del perímetro (`T1110.002`, `T1078.001`, `T1078.003`, `T1021.001`,
-`T1021.002`, `T1595.003`, `T1211`, `T1212`), extraídas del bundle oficial con `prototipo/extraer_attack.py`
+`T1021.002`, `T1595.003`, `T1211`, `T1212`), extraídas del bundle oficial con `prototipo/explicacion/extraer_attack.py`
 y medidas en memoria sin tocar el corpus versionado:
 
 | Recuperación fija | 32 fichas | 40 fichas |
@@ -121,7 +121,7 @@ medir esto y que cualquier despliegue debe respetar: `cache_prompt: false` en ca
 
 ```bash
 # lazo humano rápido (plantilla, instantáneo) + ventana corta
-… | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml \
+… | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml \
       lab/campañas/hallazgos-sin-perfilar.json --ventana-agrupacion 5
 # y cuando quieras ver el RAG, añade --con-llm y asume la espera del 1B
 ```

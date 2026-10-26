@@ -1,0 +1,1139 @@
+"""Runner en streaming (daemon / listener MDR): escucha alertas de Wazuh sin cerrarse y las pasa
+por el pipeline existente (ingesta -> agrupacion -> triaje -> explicabilidad -> validacion ->
+mitigacion -> traza) en tiempo real. Es una capa de orquestacion: no reimplementa logica del motor.
+
+La fuente de lineas es inyectable (fichero seguido estilo `tail -f`, o stdin), lo que hace el bucle
+testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Wazuh vive dentro del
+contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.servicio.stream -`.
+"""
+import collections, io, json, os, select, sys, threading, time
+from prototipo.entrada import ingesta, adaptador_wazuh
+from prototipo.motor import analisis, agrupacion, rafaga
+from prototipo.servicio import casos, lazo, traza, validacion
+
+_ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
+
+# ------------------------------------------------------------------ parseo/UX --
+
+def _parsear(linea):
+    """Linea cruda JSON -> alerta normalizada, o None si vacia/corrupta (RNF-07: no inventar)."""
+    cruda = ingesta.parsear_linea(linea)
+    if not isinstance(cruda, dict):          # JSON válido pero no es una alerta: [1,2], null, "x"
+        return None
+    try:
+        return ingesta.normalizar(cruda, _ADAPTADOR)
+    except Exception as e:                   # campos con el tipo que no toca ({"rule": null}, data lista…)
+        print(f"[aviso] alerta descartada, no se pudo normalizar: {type(e).__name__}: {e}", file=sys.stderr)
+        return None
+
+def _resumen_incidente(inc):
+    c = inc["clave"]
+    reglas = ", ".join(f"{k}x{v}" for k, v in inc["reglas"].items())
+    # texto_terminal: estos campos vienen del log del atacante (B3: sin él, una secuencia ANSI
+    # podía alterar u ocultar lo que ve el analista en la terminal).
+    v = validacion.texto_terminal
+    return (f"⚠ Incidente: {inc['conteo']} alerta(s) · {v(c['origen_ip'])} -> {v(c['activo'])} "
+            f"({v(c['servicio'])}) · reglas [{v(reglas)}]")
+
+def _linea_decision(d):
+    base = (f"  Clase: {d['clase']} · Prioridad: {d['prioridad']} · Confianza: {d['confianza']} · "
+            f"accion {d['accion_propuesta']} -> {d['accion_final']} (filtro: {validacion.filtro_legible(d)}) · "
+            f"justificador {d.get('version_justificador')}")
+    det = d.get("impacto_determinado") or {}
+    motivo = det.get("motivo")
+    if motivo:
+        if d.get("accion_final") is None:   # veto duro: la consecuencia no llegó a ejecutarse
+            motivo = f"(vetada) {motivo}"
+        base += f"\n  Consecuencia: {motivo}"
+    mit = d.get("mitigacion_agente")
+    if mit:
+        base += (f"\n  Agente: {mit.get('resultado')} · ejecutor {mit.get('dispositivo_ejecutor')} · "
+                 f"escalado {mit.get('escalado')}")
+    esc = d.get("escalada")
+    if esc:
+        base += (f"\n  Escalada (el activo no respondio): {esc.get('resultado')} · "
+                 f"contenido en {esc.get('dispositivo_ejecutor')}")
+    if d.get("clase") == "amenaza_enrutada":
+        base += f"\n  Enrutado a: {d.get('ruta')} (triaje sin contencion automatica)"
+    return base
+
+# --------------------------------------------------------------------- bucle --
+
+def _clave_supresion(fuente):
+    """(origen_ip, activo, familia) de un incidente (su `clave`) o de una alerta. El activo cuenta:
+    un bloqueo en el host (INPUT) no protege a otro activo, así que el mismo atacante contra otro
+    objetivo es otra decisión."""
+    c = fuente["clave"] if isinstance(fuente.get("clave"), dict) else fuente
+    return (c.get("origen_ip"), c.get("activo"), c.get("familia"))
+
+
+def _desenlace(d, perfil):
+    """(texto, perimetral) de una decisión cerrada, o (None, False) si no está cerrada: una contención
+    que no se aplicó ni se verificó no se recuerda, para que la repetición se vuelva a decidir en vez
+    de quedar silenciada como «ya decidido». `perimetral`: contuvo un cortafuegos perimetral, que
+    corta al atacante hacia todo lo que hay detrás, no solo hacia este activo."""
+    if (d.get("ejecucion") or {}).get("error"):   # la ejecución lanzó: no hay nada cerrado
+        return None, False
+    v = d.get("veredicto_humano")
+    if v == "rechazar":
+        return "rechazada por el analista", False
+    if v == "reclasificar":
+        return f"reclasificada a {d.get('clase_reclasificada')}", False
+    for plan in (d.get("escalada"), d.get("mitigacion_agente")):
+        plan = plan or {}
+        if plan.get("resultado") == "mitigado":
+            disp = plan.get("dispositivo_ejecutor")
+            rol = (((perfil or {}).get("topologia") or {}).get(disp) or {}).get("rol")
+            return f"contenida en {disp}", rol == "firewall_perimetral"
+        if plan.get("resultado") == "cancelado_por_humano":
+            return "escalada rechazada por el analista", False
+    orden = d.get("orden")
+    if orden:
+        if (d.get("ejecucion") or {}).get("exito") and (d.get("verificacion") or {}).get("verificado"):
+            return f"contenida en {orden.get('nodo_objetivo')}", False
+        return None, False
+    if d.get("ruta"):
+        return f"enrutada a {d['ruta']}", False
+    clase = d.get("clase") or ""
+    return (f"descartada ({clase})" if clase.startswith("fp_") else f"sin contención ({clase or 'sin clase'})"), False
+
+
+def _ordenar_por_severidad(incidentes):
+    """Incidentes por severidad del SIEM (nivel_wazuh del representante) descendente; estable.
+
+    E-minimo bajo carga: cuando llegan muchos ataques distintos a la vez, se procesan los mas graves
+    primero. La prioridad fina se calcula al decidir, aqui usamos el nivel de la regla como proxy."""
+    return sorted(incidentes, key=lambda inc: inc["representante"].get("nivel_wazuh") or 0, reverse=True)
+
+
+class MemoriaDecisiones:
+    """Recuerda las decisiones cerradas de la sesión por (origen_ip, activo, familia), para suprimir
+    sus repeticiones (RF-11): una vez decidido un ataque, las alertas siguientes no se re-justifican
+    ni se vuelven a preguntar. La traza recibe un registro-resumen 'actividad_suprimida' que referencia
+    la decisión original. Es memoria de sesión: se pierde al reiniciar.
+
+    - Lo resuelto por el analista en la web se recuerda igual que en la terminal.
+    - Una contención que no se aplicó no se recuerda (la repetición se vuelve a decidir).
+    - Contenido en un cortafuegos perimetral: cubre al atacante contra cualquier activo detrás.
+    - Sin IP de origen no hay a quién atribuir la repetición: nunca se suprime.
+    - Se usa desde el lazo y desde el hilo HTTP (resolutor): lock."""
+    MAX_ENTRADAS = 50000   # cota LRU: un flood de orígenes falsificados no agota memoria
+
+    def __init__(self, perfil=None, max_entradas=MAX_ENTRADAS):
+        self._decididas = collections.OrderedDict()
+        self._perfil = perfil
+        self._lock = threading.Lock()
+        self.suprimidas = 0
+        self.max_entradas = max_entradas
+
+    @classmethod
+    def desde_traza(cls, registros, perfil=None, max_entradas=MAX_ENTRADAS):
+        """Reconstruye la memoria reproduciendo las decisiones cerradas de la traza (#4): tras
+        reiniciar, la repetición de un ataque ya decidido sigue suprimida. Excluye las revertidas
+        (vuelven a ser decidibles) y las que no se pueden re-clavar (sin `contexto`, falta
+        origen_ip/familia). La fuente es la propia traza (RF-09), no un estado paralelo."""
+        from prototipo.accion import contenciones
+        mem = cls(perfil, max_entradas)
+        rev_idx, rev_id = contenciones.revertidas(registros)   # por índice (único en traza multi-sesión)
+        for i, reg in enumerate(registros):
+            if reg.get("tipo") not in (None, "decision") or i in rev_idx or reg.get("id_decision") in rev_id:
+                continue
+            ctx = reg.get("contexto") or {}
+            ip, familia = ctx.get("origen_ip"), ctx.get("familia")
+            if ip is None or familia is None:
+                continue
+            mem.recordar((ip, reg.get("activo"), familia), reg)
+        return mem
+
+    def buscar(self, clave):
+        ip, _activo, familia = clave
+        if ip is None:
+            return None
+        with self._lock:
+            return self._decididas.get(clave) or self._decididas.get((ip, "*", familia))
+
+    def recordar(self, clave, d):
+        if clave[0] is None:
+            return
+        desenlace, perimetral = _desenlace(d, self._perfil)
+        if desenlace is None:
+            return
+        previa = {"id_decision": d.get("id_decision"), "veredicto": d.get("veredicto_humano"),
+                  "clase": d.get("clase"), "desenlace": desenlace}
+        with self._lock:
+            self._decididas[clave] = previa
+            if perimetral:
+                self._decididas[(clave[0], "*", clave[2])] = previa
+            while len(self._decididas) > self.max_entradas:
+                self._decididas.popitem(last=False)   # evicta la entrada menos reciente
+
+    def registro_supresion(self, inc, previa):
+        ip, activo, familia = _clave_supresion(inc)
+        with self._lock:
+            self.suprimidas += inc["conteo"]
+        return {"id_decision": f"{previa['id_decision']}~sup", "tipo": "actividad_suprimida",
+                "referencia": previa["id_decision"],
+                "clave": {"origen_ip": ip, "activo": activo, "familia": familia},
+                "alertas_suprimidas": inc["conteo"],
+                "primera_ts": inc.get("primera_ts"), "ultima_ts": inc.get("ultima_ts"),
+                "veredicto_previo": previa.get("veredicto"), "desenlace": previa.get("desenlace")}
+
+
+class ActividadMDR:
+    """Nodos en los que el MDR acaba de ejecutar algo (aplicar/verificar una contención). Para eso el
+    conector entra por SSH desde el nodo de gestión y Wazuh registra ese login como una alerta: sin
+    esto, cada contención generaba una decisión fantasma («no_soportada») en la consola."""
+    VENTANA_SEG = 120
+
+    def __init__(self, reloj=time.monotonic):
+        self._reloj, self._ultima = reloj, {}
+
+    def envolver(self, ejecutor):
+        def _ejecutor(nodo_ip, comando):
+            self._ultima[nodo_ip] = self._reloj()
+            return ejecutor(nodo_ip, comando)
+        return _ejecutor
+
+    def reciente(self, ip):
+        t = self._ultima.get(ip)
+        return t is not None and self._reloj() - t <= self.VENTANA_SEG
+
+
+class Latido:
+    """Señal de vida del daemon para el healthcheck (#5). El lazo principal llama a `tick()` en cada
+    iteración (incluidos los ticks de reposo), así que `lazo_quietud_s` mide si el lazo sigue vivo:
+    un lazo colgado deja de iterar y `estado()` pasa a `ok=false`, un fallo que «el proceso existe»
+    no detecta. `alerta()` (por alerta procesada) alimenta el silencio de ingesta y el conteo. Un
+    monitor local sondea /healthz (el daemon liga solo a 127.0.0.1)."""
+    def __init__(self, reloj=time.monotonic):
+        self._reloj = reloj
+        self._desde = _ahora_iso()
+        self._ultimo_tick = reloj()
+        self._ultima_alerta = None
+        self._alertas = 0
+
+    def tick(self):
+        self._ultimo_tick = self._reloj()
+
+    def alerta(self):
+        self._ultima_alerta = self._ultimo_tick = self._reloj()
+        self._alertas += 1
+
+    def estado(self, umbral_s=120):
+        ahora = self._reloj()
+        sil = None if self._ultima_alerta is None else round(ahora - self._ultima_alerta, 1)
+        return {"ok": (ahora - self._ultimo_tick) < umbral_s, "desde": self._desde,
+                "lazo_quietud_s": round(ahora - self._ultimo_tick, 1),
+                "ingesta_silencio_s": sil, "alertas": self._alertas}
+
+
+def _es_actividad_propia(rep, perfil, actividad):
+    """El login de gestión contra un nodo que el MDR acaba de tocar. Tres condiciones a la vez: origen
+    = ip_gestion, fuera de toda familia de amenaza (un login correcto, no fallos: si el nodo de gestión
+    estuviera comprometido y atacara, se triaría) y el MDR ejecutó en ese nodo hace poco."""
+    from prototipo.motor import actores, familias, perfil as perfilm
+    gestion = (perfil or {}).get("ip_gestion")
+    if (not gestion or not actores._coincide(rep.get("origen_ip"), gestion)
+            or rep.get("familia") in familias.registro()):
+        return False
+    ip = perfilm.ip_de(perfil, rep.get("activo"))
+    return bool(ip) and actividad.reciente(ip)
+
+
+def _registro_propio(inc, id_registro):
+    rep = inc["representante"]
+    return {"id_decision": id_registro, "tipo": "actividad_propia", "timestamp": rep.get("timestamp"),
+            "activo": rep.get("activo"), "origen_ip": rep.get("origen_ip"), "alertas": inc["conteo"],
+            "reglas": dict(inc["reglas"]),
+            "motivo": "login del nodo de gestión del MDR al aplicar o verificar una orden en el activo"}
+
+
+def _ahora_iso():
+    from prototipo.accion import conector
+    return conector.ahora_iso()
+
+
+def _registro_error(inc, id_decision, error):
+    rep = inc["representante"]
+    return {"id_decision": id_decision, "tipo": "error", "timestamp": rep.get("timestamp"),
+            "activo": rep.get("activo"), "origen_ip": rep.get("origen_ip"), "familia": rep.get("familia"),
+            "alertas": inc.get("conteo"), "error": f"{type(error).__name__}: {error}"}
+
+
+def _registro_descarte(entrada):
+    """Registro encadenado del desalojo por tope de la cola de pendientes (M3): una tarjeta que el
+    analista nunca verá no puede desaparecer del rastro auditado (RF-09). Tipo `error` a propósito:
+    es un suceso operativo, no una decisión, y el visor ya trata ese tipo (NO_DECISIONES)."""
+    d, a = entrada.get("decision") or {}, entrada.get("alerta") or {}
+    base = d.get("id_decision") or entrada.get("id") or "?"
+    return {"id_decision": f"{base}~tope", "tipo": "error", "timestamp": a.get("timestamp"),
+            "activo": a.get("activo"), "origen_ip": a.get("origen_ip"), "familia": a.get("familia"),
+            "alertas": 1 + (entrada.get("suprimidas") or 0),
+            "error": "desalojada de la cola de pendientes al llegar al tope: quedó SIN veredicto "
+                     f"humano (proponía {d.get('accion_final') or 'ninguna acción'})"}
+
+
+def _linea_error(reg):
+    # también estos campos vienen del log del atacante (y el error puede arrastrarlos) — B3
+    v = validacion.texto_terminal
+    return (f"✗ {reg['id_decision']}: no se pudo procesar el incidente de {v(reg['origen_ip'])} "
+            f"-> {v(reg['activo'])}: {v(reg['error'])}")
+
+
+def _linea_propia(reg):
+    return (f"↺ actividad propia del MDR en {validacion.texto_terminal(reg['activo'])} "
+            f"({reg['alertas']} alerta(s)): no es un ataque")
+
+
+def _linea_supresion(reg):
+    c = reg["clave"]
+    v = validacion.texto_terminal
+    return (f"↩ {v(c['origen_ip'])} → {v(c.get('activo'))} · {c['familia']} — ya decidido "
+            f"({reg.get('desenlace') or reg['veredicto_previo'] or 'auto'}) "
+            f"· +{reg['alertas_suprimidas']} suprimida(s) [ref {reg['referencia']}]")
+
+
+def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
+                        id_decision, cadena, escribir, leer, mitigar_fn=None, encolar=None,
+                        escribir_traza=None, diferir_escalada=None, pausa=None):
+    from prototipo.accion import conector
+    rep = inc["representante"]
+    escribir(_resumen_incidente(inc))
+    # Qué agrupa esta decisión (RF-11): va en el registro también si pasa por la cola.
+    meta = {"incidente": {"conteo": inc.get("conteo"), "primera_ts": inc.get("primera_ts"),
+                          "ultima_ts": inc.get("ultima_ts")}}
+    kw = {} if justificar_fn is None else {"justificar_fn": justificar_fn}
+    if mitigar_fn is not None:
+        kw["mitigar_fn"] = mitigar_fn
+    if encolar is not None:
+        kw["encolar"] = lambda decision, alerta: encolar({**decision, **meta}, alerta)
+    if diferir_escalada is not None:
+        kw["diferir_escalada"] = (lambda parcial, alerta, desde, lineas:
+                                  diferir_escalada({**parcial, **meta}, alerta, desde, lineas))
+    if pausa is not None:
+        kw["pausa"] = pausa
+    d = lazo.procesar_lazo(rep, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
+                           id_decision, rep.get("timestamp", ""), leer=leer, escribir=escribir, **kw)
+    d = {**d, **meta, "decidido_en": conector.ahora_iso()}
+    if d.get("en_cola"):            # modo web no bloqueante: se resolverá y trazará al aprobar
+        escribir(_linea_en_cola(d))
+        return d
+    escribir(_linea_decision(d))
+    if cadena is not None:
+        (escribir_traza or cadena.escribir)(d)   # traza.Cadena: cada registro encadenado al anterior
+    return d
+
+
+def _linea_en_cola(d):
+    return f"⏸ En cola (espera al analista) · {d.get('clase')} · confianza {d.get('confianza')}"
+
+
+def _entrada_cola(decision, alerta):
+    """Construye la entrada de la cola: contexto para resolver + líneas para mostrar (mismas que el
+    prompt de la terminal, para que el visor las presente igual)."""
+    from prototipo.servicio import validacion
+    menu = "¿Qué hacer con este incidente?\n" + "\n".join(
+        f"  {i}) {e}" for i, e in enumerate(validacion._ETIQUETAS_VEREDICTO, 1))
+    incid = (f"⚠ Incidente: {alerta.get('origen_ip')} -> {alerta.get('activo')} "
+             f"({alerta.get('servicio')})")
+    return {"clave": _clave_supresion(alerta),
+            "severidad": decision.get("prioridad") or 0,
+            "decision": decision, "alerta": alerta, "recibido_en": time.time(),
+            "tipo": "menu", "prompt": "Elige [1-3]: ",
+            # None = vetada sin sustituta (p. ej. el canal de gestión): aprobar no ejecuta nada, y el
+            # visor no debe prometer una contención
+            "accion_final": decision.get("accion_final"),
+            "lineas": [incid, validacion.mostrar(decision, alerta), menu]}
+
+
+def _entrada_escalada(parcial, alerta, desde, lineas):
+    """Entrada de cola para una escalada que pide humano (modo web): el activo no respondió y la
+    contención debe subir al perímetro. El visor la pinta como tarjeta «escalada» (s / vacío)."""
+    incid = (f"⚠ Incidente: {alerta.get('origen_ip')} -> {alerta.get('activo')} "
+             f"({alerta.get('servicio')})")
+    return {"clave": ("escalada", *_clave_supresion(alerta)),
+            "severidad": parcial.get("prioridad") or 0,
+            "decision": parcial, "alerta": alerta, "desde": desde,
+            "recibido_en": parcial.get("recibido_en") or time.time(),
+            "tipo": "escalada", "prompt": "¿aprobar la ejecución? [s/N] ",
+            "accion_final": parcial.get("accion_final"),
+            "lineas": [incid, f"{desde} no respondió al MDR: la contención escala al perímetro.",
+                       *(_legible(l) for l in lineas)]}
+
+
+def _legible(linea):
+    """«── Validación humana ── ACCION en DISPOSITIVO …» -> «Acción: ACCION en DISPOSITIVO …»: el visor
+    descarta las líneas «──» (son separadores en la terminal) y esta dice qué se va a aprobar."""
+    prefijo = "── Validación humana ── "
+    return "Acción: " + linea[len(prefijo):] if linea.startswith(prefijo) else linea
+
+
+def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, escribir, diferir_escalada=None,
+                         al_resolver=None):
+    """Devuelve resolver(pid, respuesta)->bool: aplica el veredicto del analista a una decisión en
+    cola (ejecuta la contención + escribe la traza), sin bloquear el lazo. Reclasificar es en dos
+    pasos: '3' pasa al submenú de clases; el número de clase finaliza.
+
+    Si la contención aprobada tiene que escalar y el salto pide humano, no se aprueba solo: se
+    encola una tarjeta de escalada (`diferir_escalada`) y el registro se traza cuando se resuelva."""
+    from prototipo.motor import analisis
+    def _cerrar(r, entrada, alerta, operador=None):
+        # Marcas de tiempo para el MTTR (tiempo de respuesta del analista) en el panel de métricas.
+        # `veredicto_por`: quién aprobó, para el no repudio en la traza.
+        r = {**r, "recibido_en": entrada.get("recibido_en"), "resuelto_en": time.time(),
+             "decidido_en": _ahora_iso(), "veredicto_por": operador or None}
+        escribir(_linea_decision(r))
+        escribir_traza(r)
+        if al_resolver is not None:
+            al_resolver(r, alerta)
+
+    def _resolver_escalada(entrada, respuesta, operador=None):
+        alerta = entrada["alerta"]
+        # La espera cuenta desde la primera tarjeta aunque la escalada se difiera varias veces.
+        decision = {**entrada["decision"], "recibido_en": entrada.get("recibido_en")}
+        try:
+            r = lazo.reanudar_escalada(decision, alerta, perfil, catalogo, ejecutor, respuesta,
+                                       entrada.get("desde"), alerta.get("timestamp", ""),
+                                       diferir_escalada=diferir_escalada, pausa=estado.pausada)
+        except Exception as e:               # la decisión no se pierde: se traza con el fallo
+            r = {**decision, "escalada": {"resultado": "fallido", "error": f"{type(e).__name__}: {e}"}}
+            r.pop("en_cola", None)
+        if r.get("en_cola"):                           # el salto siguiente también pide humano
+            return
+        _cerrar({**r, "veredicto_escalada": "aprobar" if respuesta.lower().startswith("s") else "rechazar"},
+                entrada, alerta, operador)
+
+    def _resolver_menu(entrada, veredicto, clase, operador=None):
+        decision = {**entrada["decision"], "recibido_en": entrada.get("recibido_en")}
+        alerta = entrada["alerta"]
+        try:
+            r = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor,
+                                       decision.get("id_decision", ""), alerta.get("timestamp", ""),
+                                       veredicto=veredicto, clase_reclasificada=clase,
+                                       diferir_escalada=diferir_escalada, leer=lambda *_: "",
+                                       pausa=estado.pausada)
+        except Exception as e:
+            # No se reencola (podría reejecutar a medias): se traza la decisión con el fallo, en vez
+            # de un 500 que la hacía desaparecer sin rastro.
+            r = {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase,
+                 "ejecucion": {"exito": False, "error": f"{type(e).__name__}: {e}"}}
+        if r.get("en_cola"):                           # escala y el salto pide humano: su tarjeta trazará
+            return
+        _cerrar(r, entrada, alerta, operador)
+
+    def _con_la_tarjeta_tomada(pid, fn):
+        # La tarjeta sigue en la cola, marcada en curso, mientras se ejecuta la respuesta (SSH de
+        # varios segundos): una repetición que llega entonces se suma a ella en vez de abrir otra.
+        # Sale de la cola al terminar, cuando la decisión ya está trazada y recordada.
+        if estado.tomar_decision(pid) is None:         # otra respuesta ya la está resolviendo
+            return False
+        try:
+            fn()
+            return True
+        finally:
+            estado.sacar_decision(pid)
+
+    def resolver(pid, respuesta, paso=None, operador=None):
+        entrada = estado.ver_decision(pid)
+        if entrada is None or entrada.get("en_curso"):
+            return False
+        # Una respuesta dada a un menú ya superado (p. ej. «Aprobar» pulsado justo después de
+        # «Reclasificar», antes de que el visor refresque) no se reinterpreta en el menú nuevo.
+        if paso is not None:
+            try:
+                if int(paso) != entrada.get("paso", 0):
+                    return False
+            except (TypeError, ValueError):
+                return False
+        respuesta = (respuesta or "").strip()
+        if entrada.get("tipo") == "escalada":          # escalada diferida: se retoma con la respuesta
+            return _con_la_tarjeta_tomada(pid, lambda: _resolver_escalada(entrada, respuesta, operador))
+        if not entrada.get("esperando_clase"):
+            if respuesta == "3":                       # reclasificar -> submenú de clases (no finaliza)
+                clases = [c for c in analisis.CLASES if c != entrada["decision"].get("clase")]
+                menu = "Nueva clase:\n" + "\n".join(f"  {i}) {c}" for i, c in enumerate(clases, 1))
+                estado.actualizar_decision(pid, {"esperando_clase": True, "clases": clases,
+                                                 "lineas": entrada["lineas"][:1] + [menu],
+                                                 "prompt": f"Elige [1-{len(clases)}]: ",
+                                                 "paso": entrada.get("paso", 0) + 1})
+                return True
+            veredicto, clase = {"1": "aprobar", "2": "rechazar"}.get(respuesta, "rechazar"), None
+        else:
+            clases = entrada.get("clases", [])
+            if respuesta.isdigit() and 1 <= int(respuesta) <= len(clases):
+                veredicto, clase = "reclasificar", clases[int(respuesta) - 1]
+            else:
+                veredicto, clase = "rechazar", None
+        return _con_la_tarjeta_tomada(pid, lambda: _resolver_menu(entrada, veredicto, clase, operador))
+    return resolver
+
+def _contar(resumen, d, incidente=True):
+    """Suma una decisión al resumen. `incidente=False` al resolver una tarjeta: el incidente ya se
+    contó cuando entró en la cola; ahora se suma su desenlace."""
+    if incidente:
+        resumen["incidentes"] += 1
+    v = d.get("veredicto_humano")
+    if v == "aprobar": resumen["aprobadas"] += 1
+    elif v == "reclasificar": resumen["reclasificadas"] += 1
+    elif v == "rechazar": resumen["rechazadas"] += 1
+    if (d.get("ejecucion") or {}).get("exito"):                    # camino determinista
+        resumen["ejecutadas"] += 1
+    elif (d.get("escalada") or {}).get("resultado") == "mitigado":   # el activo no respondio: escalada
+        resumen["ejecutadas"] += 1
+    if (d.get("mitigacion_agente") or {}).get("resultado") == "mitigado":   # camino agente
+        resumen["ejecutadas"] += 1
+
+# Tope de hilos del agente en modo web (#2 / pentest #13b): el modo agente lanza un hilo por
+# incidente; sin cota, un aluvión de incidentes distintos agota los hilos. Se acota con un semáforo
+# que se adquiere ANTES de arrancar (backpressure: el bucle de ingesta espera si el pool está lleno).
+# Parseo defensivo: una mala config (no entero, 0, negativo) no debe romper el import ni colgar el lazo.
+try:
+    _MAX_HILOS_AGENTE = max(1, int(os.environ.get("TRIAJE_MAX_HILOS_AGENTE") or "8"))
+except ValueError:
+    _MAX_HILOS_AGENTE = 8
+
+
+def _lanzar_acotado(pool, fn, latido=None, espera_tick=5.0):
+    """Lanza fn() en un hilo demonio acotado por `pool` (BoundedSemaphore): adquiere en el hilo que
+    llama (backpressure si está lleno) y libera al terminar, pase lo que pase. Mientras espera un
+    permiso, tickea el `latido` para que el healthcheck NO confunda el backpressure con un lazo
+    colgado y reinicie el daemon justo en el aluvión que esto defiende (revisión V1.1)."""
+    while not pool.acquire(timeout=espera_tick):
+        if latido is not None:
+            latido.tick()
+    def _correr():
+        try:
+            fn()
+        finally:
+            pool.release()
+    try:
+        threading.Thread(target=_correr, daemon=True).start()
+    except Exception:          # si start() falla (p. ej. agotamiento global de hilos), no fugar el permiso
+        pool.release()
+        raise
+
+
+def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
+             justificar_fn=None, ventana_agrupacion=0, salida_traza=None,
+             escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
+             hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
+             resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
+             latido=None, actividad=None):
+    """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
+
+    `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
+    a partir de `hash_previo`, que es el ultimo hash del fichero si se retoma uno existente.
+
+    ventana_agrupacion == 0  -> cada alerta se procesa al instante (un incidente por alerta).
+    ventana_agrupacion  > 0  -> se acumulan las alertas y, cuando pasan N segundos de pared desde la
+                                primera (o al agotarse la fuente), se agrupan (RF-11) y se emiten los
+                                incidentes; los ticks None permiten vencer la ventana sin lineas nuevas.
+    """
+    # `resumen` puede venir de fuera (main): el daemon se cierra con Ctrl+C, que sale de aquí con una
+    # excepción, y quien lo llama necesita las cifras igualmente.
+    resumen = _resumen_nuevo() if resumen is None else resumen
+    for k, v in _resumen_nuevo().items():
+        resumen.setdefault(k, v)
+    # Toda ejecución del MDR (lazo, resolutor web, escalada) pasa por aquí: se anota el nodo tocado
+    # para reconocer después el eco de su propio login. `actividad` puede venir COMPARTIDA del main
+    # (B7): el servidor web usa la misma instancia para que los SSH de /api/revertir-todo también
+    # se reconozcan y no se triajen como alertas fantasma.
+    actividad = actividad or ActividadMDR()   # tiempo de pared propio: no consume el reloj de la ventana
+    ejecutor = actividad.envolver(ejecutor)
+    # Con `ruta_traza`, la cadena bloquea y relee el fichero en cada escritura: la CLI de revertir
+    # puede anotar una reversión en él con el daemon en marcha sin romper la cadena.
+    cadena = (traza.Cadena(salida_traza, hash_previo, n=n_previos, nombre=nombre_traza, linaje=linaje,
+                           ruta=ruta_traza)
+              if salida_traza is not None else None)
+    # La traza puede escribirse desde dos hilos (el lazo y el servidor web al resolver una decisión
+    # en cola): un lock serializa la cadena de hashes.
+    _traza_lock = threading.Lock()
+    def escribir_traza(reg):
+        with _traza_lock:
+            if cadena is not None:
+                try:
+                    cadena.escribir(reg)
+                except ValueError:
+                    # Fichero ya cerrado en el apagado (un hilo del agente aprobado justo al salir):
+                    # ese registro se pierde, pero la cadena no se corrompe (falla antes de escribir).
+                    pass
+    memoria = memoria if memoria is not None else MemoriaDecisiones(perfil)
+    _resumen_lock = threading.Lock()
+    def al_resolver(r, alerta):
+        # Lo que el analista resuelve en la web se recuerda y se cuenta igual que en la terminal.
+        with _resumen_lock:
+            _contar(resumen, r, incidente=False)
+        if suprimir:
+            memoria.recordar(_clave_supresion(alerta), r)
+    # Modo web no bloqueante: encolar en vez de bloquear, y registrar cómo se resuelve (ejecuta+traza).
+    encolar = diferir_escalada = None
+    pausa = estado_web.pausada if estado_web is not None else None   # kill switch (#8)
+    if estado_web is not None:
+        def encolar(decision, alerta):
+            estado_web.encolar_decision(_entrada_cola(decision, alerta))
+        # La escalada automática que pide humano tampoco puede bloquear el lazo: sin esto, la
+        # pregunta esperaba sin plazo en una ruta que el visor no muestra y el daemon se congelaba.
+        def diferir_escalada(parcial, alerta, desde, lineas):
+            estado_web.encolar_decision(_entrada_escalada(parcial, alerta, desde, lineas))
+        estado_web.fijar_resolutor(
+            _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir,
+                                 diferir_escalada=diferir_escalada, al_resolver=al_resolver))
+        # Ciclo de vida del caso: el visor anota estado/asignado/nota como un registro `actualizacion_caso`
+        # ENCADENADO (no muta la decisión; respeta RF-09). Reusa escribir_traza (lock + HMAC + flock), así
+        # que convive con las escrituras del lazo y del resolutor. construir_actualizacion valida (estado
+        # cerrado, actualización no vacía) y propaga ValueError -> el handler responde 400.
+        def actualizar_caso(id_decision, estado=None, asignado=None, nota=None, operador=None):
+            escribir_traza(casos.construir_actualizacion(
+                id_decision, estado=estado, asignado=asignado, nota=nota, operador=operador, ts=_ahora_iso()))
+            return True
+        estado_web.fijar_actualizador(actualizar_caso)
+        # El desalojo por el tope de la cola (M3) también se encadena: nada desaparece en silencio.
+        estado_web.fijar_descartador(lambda entrada: escribir_traza(_registro_descarte(entrada)))
+    seq = [0]
+    ventana_rafaga = rafaga.Ventana()
+    ventana_larga = rafaga.Ventana(ventana_s=rafaga.VENTANA_LARGA_S)   # señal de vigilancia 'low-and-slow'
+    def _suprimir(inc, previa):
+        reg = memoria.registro_supresion(inc, previa)
+        escribir(_linea_supresion(reg))
+        escribir_traza(reg)
+    def _misma_clase(rep_, previa):
+        # La decisión recordada solo vale si el motor la volvería a tomar: con la ráfaga de ahora,
+        # un origen legítimo que no para deja de ser FP (6.ª regla) y hay que decidir de nuevo.
+        return analisis.clasificar(rep_, analisis.enriquecer(rep_, hallazgos, perfil))["clase"] == previa.get("clase")
+    # Modo --agente web: cada incidente se resuelve en su propio hilo para que el agente, que
+    # aprueba paso a paso, no congele el lazo (con `lector_incidente`, un lector con el contexto
+    # propio de la tarjeta de ese incidente). `_en_vuelo` evita que una repetición lance un segundo
+    # agente mientras el primero sigue pendiente del analista.
+    _en_vuelo, _en_vuelo_lock = {}, threading.Lock()
+    _pool_agente = threading.BoundedSemaphore(_MAX_HILOS_AGENTE)   # acota los hilos del modo agente (#2)
+    def _procesar_incidente_async(inc, id_decision, clave):
+        esc, lee = escribir, leer
+        if lector_incidente is not None:
+            buf = []
+            def esc(t, _buf=buf):
+                escribir(t); _buf.append(t)
+            lee = lector_incidente(buf)
+        try:
+            try:
+                d = _procesar_incidente(
+                    inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
+                    id_decision, cadena, esc, lee, mitigar_fn=mitigar_fn,
+                    encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada,
+                    pausa=pausa)
+            except Exception as e:
+                # Barrera: un fallo con un incidente (un ejecutor que lanza, un dato inesperado) no
+                # tumba el daemon ni el visor; queda un registro 'error' encadenado y se sigue.
+                reg = _registro_error(inc, id_decision, e)
+                escribir(_linea_error(reg))
+                escribir_traza(reg)
+                d = None
+            if d is not None:
+                with _resumen_lock:
+                    _contar(resumen, d)
+                # Las decisiones en cola aún no se deciden: se recuerdan al resolverlas (al_resolver).
+                if suprimir and not d.get("en_cola"):
+                    memoria.recordar(clave, d)
+        finally:
+            # Quitar de `_en_vuelo` en finally (y DESPUÉS de recordar): sin esto, un fallo en el
+            # apagado dejaría la clave atascada y suprimiría toda repetición futura como «en curso».
+            if lector_incidente is not None:
+                with _en_vuelo_lock:
+                    _en_vuelo.pop(clave, None)
+    def _procesa_lote(lote):
+        # E-minimo: bajo carga (muchos ataques distintos a la vez) se decide primero lo mas grave.
+        for inc in _ordenar_por_severidad(agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1))):
+            if _es_actividad_propia(inc["representante"], perfil, actividad):
+                resumen["propias"] += 1
+                reg = _registro_propio(inc, f"p{resumen['propias']}")
+                escribir(_linea_propia(reg))
+                escribir_traza(reg)
+                continue
+            # La rafaga del representante se toma al emitir el incidente, cuando la ventana ya
+            # contiene toda la rafaga, no al llegar la primera alerta.
+            inc["representante"][rafaga.CAMPO] = ventana_rafaga.contar(inc["representante"].get("origen_ip"))
+            inc["representante"][rafaga.CAMPO_LARGO] = ventana_larga.contar(inc["representante"].get("origen_ip"))
+            clave = _clave_supresion(inc)
+            if suprimir and estado_web is not None and clave[0] is not None:
+                # Ya espera al analista: se suma a su tarjeta sin triar ni ejecutar otra vez (antes
+                # cada repetición repetía el SSH contra el host caído antes de deduplicar).
+                ref = estado_web.sumar_repeticion({clave, ("escalada", *clave)}, inc["conteo"])
+                if ref is not None:
+                    _suprimir(inc, {"id_decision": ref, "veredicto": None, "desenlace": "pendiente del analista"})
+                    continue
+            # El chequeo «en vuelo» va ANTES que la memoria: el hilo recuerda y LUEGO quita de
+            # `_en_vuelo`, así que entre recordar y quitar la repetición aún se ve aquí (sin hueco).
+            if lector_incidente is not None and suprimir and clave[0] is not None:
+                with _en_vuelo_lock:
+                    en_curso = _en_vuelo.get(clave)
+                if en_curso is not None:          # un agente ya resuelve este (ip, activo, familia)
+                    _suprimir(inc, {"id_decision": en_curso, "veredicto": None,
+                                    "desenlace": "en curso (agente)"})
+                    continue
+            previa = memoria.buscar(clave) if suprimir else None
+            if previa is not None and _misma_clase(inc["representante"], previa):
+                _suprimir(inc, previa)
+                continue
+            seq[0] += 1
+            id_decision = f"s{seq[0]}"
+            if lector_incidente is not None:
+                with _en_vuelo_lock:
+                    _en_vuelo[clave] = id_decision
+                _lanzar_acotado(_pool_agente, lambda inc=inc, id_decision=id_decision, clave=clave:
+                                _procesar_incidente_async(inc, id_decision, clave), latido=latido)
+            else:
+                _procesar_incidente_async(inc, id_decision, clave)
+
+    buffer, t0 = [], None
+    def _descargar():
+        nonlocal buffer, t0
+        if buffer:
+            # Se vacía ANTES de procesar: si Ctrl+C corta a mitad del lote (p. ej. en la pregunta al
+            # analista), el cierre no vuelve a procesar ni a preguntar lo mismo.
+            lote, buffer, t0 = buffer, [], None
+            _procesa_lote(lote)
+
+    ultimo_evento = reloj()
+    silencio_avisado = False
+    def _latido(parsee, ahora):
+        # Latido de la ingesta: si la fuente (Wazuh) deja de enviar, se avisa una vez; al volver una
+        # alerta, se rearma. Un fallo silencioso de la ingesta es peor que uno ruidoso.
+        nonlocal ultimo_evento, silencio_avisado
+        if parsee:
+            ultimo_evento = ahora; silencio_avisado = False
+        elif silencio_s and not silencio_avisado and ahora - ultimo_evento >= silencio_s:
+            escribir(f"[aviso] ingesta: sin alertas desde hace {int(ahora - ultimo_evento)} s; "
+                     "¿sigue viva la fuente (Wazuh)?")
+            silencio_avisado = True
+    try:
+        for linea in fuente_lineas:
+            ahora = reloj()                            # una sola lectura del reloj por iteración
+            if latido is not None:
+                latido.tick()                          # vitalidad del lazo (cada iteración), para /healthz
+            if ventana_agrupacion <= 0:                # modo inmediato
+                if linea is None:
+                    _latido(False, ahora)
+                    continue
+                alerta = _parsear(linea)
+                if alerta is None:
+                    continue
+                _latido(True, ahora)
+                if latido is not None:
+                    latido.alerta()
+                resumen["alertas"] += 1; ventana_rafaga.registrar(alerta); ventana_larga.registrar(alerta)
+                _procesa_lote([alerta])
+                continue
+            # modo con ventana
+            if linea is not None:
+                alerta = _parsear(linea)
+                if alerta is not None:
+                    _latido(True, ahora)
+                    if latido is not None:
+                        latido.alerta()
+                    resumen["alertas"] += 1; ventana_rafaga.registrar(alerta); ventana_larga.registrar(alerta)
+                    if t0 is None:
+                        t0 = ahora
+                    buffer.append(alerta)
+            else:
+                _latido(False, ahora)
+            if t0 is not None and (ahora - t0) >= ventana_agrupacion:
+                _descargar()
+        _descargar()                               # fuente agotada: descarga lo pendiente
+    except KeyboardInterrupt:
+        _descargar()           # cierre ordenado: lo que esperaba en la ventana se decide y se traza
+        raise
+    finally:
+        resumen["suprimidas"] = memoria.suprimidas
+    return resumen
+
+# ------------------------------------------------------------------ fuentes --
+
+_MAX_LINEA = 1024 * 1024   # tope de una línea de la fuente (anti-OOM): una alerta real es < 64 KiB
+
+def leer_lineas_stdin(stream=sys.stdin, intervalo=0.5):
+    """Rinde líneas de stdin y, en reposo, `None` (tick) para que la ventana de agrupación pueda
+    cerrarse aunque no lleguen alertas nuevas. Usa select sobre el descriptor; si no hay uno real
+    (tests con StringIO), cae a iteración simple sin ticks."""
+    try:
+        fd = stream.fileno()
+    except (OSError, ValueError, io.UnsupportedOperation):
+        for linea in stream:
+            yield linea
+        return
+    # Se lee el descriptor con os.read y un búfer propio, no con stream.readline(): readline se trae
+    # un bloque entero al búfer de Python y devuelve una sola línea, y el resto queda invisible para
+    # select (el descriptor ya está vacío) hasta que llega otro dato, a veces minutos después.
+    pendiente = b""
+    descartando = False                     # tras una línea sin fin sobredimensionada: resync al próximo \n
+    while True:
+        listos, _, _ = select.select([fd], [], [], intervalo)
+        if not listos:
+            yield None                      # reposo -> permite vencer la ventana
+            continue
+        datos = os.read(fd, 65536)
+        if not datos:                       # EOF: lo que quede sin salto de línea también cuenta
+            if pendiente and not descartando:
+                yield pendiente.decode("utf-8", "replace")
+            return
+        buf = pendiente + datos
+        if descartando:                     # venimos de una línea gigante: descartar hasta el \n
+            nl = buf.find(b"\n")
+            if nl == -1:
+                pendiente = b""
+                continue
+            buf, descartando = buf[nl + 1:], False
+        *completas, pendiente = buf.split(b"\n")
+        for linea in completas:
+            yield linea.decode("utf-8", "replace") + "\n"
+        if len(pendiente) > _MAX_LINEA:     # línea sin salto demasiado larga -> descartar (anti-OOM)
+            pendiente, descartando = b"", True
+
+def leer_lineas_fichero(ruta, intervalo=0.5, desde_inicio=False, detener=None, dormir=time.sleep,
+                        una_vez=False):
+    """Sigue un fichero como `tail -f`. Tolera que no exista aun (espera activa). Reabre en
+    rotacion/truncado. Rinde None en reposo para que la ventana pueda vencer sin lineas nuevas.
+    Con `una_vez` lo lee desde el principio y PARA en EOF (procesa-y-sale, para un fichero finito:
+    pruebas, demos, reproceso puntual) en vez de quedarse siguiendolo para siempre (#6)."""
+    if una_vez:
+        desde_inicio = True
+    f, pos = None, 0
+    try:
+        while detener is None or not detener():
+            if f is None:
+                if not os.path.exists(ruta):
+                    if una_vez:                    # nada que procesar y no se sigue: termina
+                        return
+                    yield None
+                    dormir(intervalo)
+                    continue
+                f = open(ruta, encoding="utf-8", errors="replace")
+                if not desde_inicio:
+                    f.seek(0, os.SEEK_END)          # tail -f: solo lo nuevo
+                pos = f.tell()
+            try:
+                if os.path.getsize(ruta) < pos:    # truncado/rotacion -> reabrir desde 0
+                    f.close(); f, pos = None, 0
+                    continue
+            except OSError:
+                f.close(); f = None
+                continue
+            linea = f.readline()
+            if linea:
+                pos = f.tell()
+                yield linea
+            elif una_vez:                          # EOF en modo una-vez: procesa y termina
+                return
+            else:
+                yield None
+                dormir(intervalo)
+    finally:
+        if f is not None:
+            f.close()
+
+# ---------------------------------------------------------------------- CLI --
+
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_PERFIL_DEF = os.path.join(_RAIZ, "prototipo", "perfiles", "empresarial.yml")
+_HALLAZGOS_DEF = os.path.join(_RAIZ, "lab", "campañas", "2026-08-31-evaluacion", "hallazgos.json")
+
+def parsear_args(argv):
+    pos, con_llm, ventana, salida, sin_lab, agente = [], False, 5, "run/trazas-stream.jsonl", False, False
+    web, web_puerto, sin_supresion = False, 8787, False
+    una_vez = False
+    escuchar, permitir, tls_cert, tls_clave, tls_ca = None, None, None, None, None   # permitir None = flag ausente
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--con-llm": con_llm = True
+        elif a == "--sin-llm": con_llm = False
+        elif a == "--sin-lab": sin_lab = True
+        elif a == "--agente": agente = True
+        elif a == "--sin-supresion": sin_supresion = True
+        elif a == "--una-vez": una_vez = True            # lee un fichero finito hasta EOF y sale (#6)
+        elif a == "--web":
+            web = True
+            if i + 1 < len(argv) and argv[i + 1].isdigit(): i += 1; web_puerto = int(argv[i])
+        elif a == "--ventana-agrupacion": i += 1; ventana = int(argv[i])
+        elif a == "--salida": i += 1; salida = argv[i]
+        elif a == "--escuchar": i += 1; escuchar = argv[i]            # host:puerto (#1 receptor de red)
+        elif a == "--permitir": i += 1; permitir = [x for x in argv[i].split(",") if x]
+        elif a == "--tls-cert": i += 1; tls_cert = argv[i]
+        elif a == "--tls-clave": i += 1; tls_clave = argv[i]
+        elif a == "--tls-ca": i += 1; tls_ca = argv[i]
+        else: pos.append(a)
+        i += 1
+    return {"ruta": pos[0] if pos else "-",
+            "perfil": pos[1] if len(pos) > 1 else _PERFIL_DEF,
+            "hallazgos": pos[2] if len(pos) > 2 else _HALLAZGOS_DEF,
+            "con_llm": con_llm, "ventana": ventana, "salida": salida, "sin_lab": sin_lab,
+            "agente": agente, "web": web, "web_puerto": web_puerto, "sin_supresion": sin_supresion,
+            "una_vez": una_vez,
+            "escuchar": escuchar, "permitir": permitir, "tls_cert": tls_cert, "tls_clave": tls_clave,
+            "tls_ca": tls_ca}
+
+_LOOPBACK = ("127.0.0.1", "localhost")
+
+def validar_escucha(escuchar, permitir, tls_cert=None, tls_ca=None):
+    """Valida --escuchar/--permitir/--tls-* al arrancar y devuelve (host, puerto). Fail-closed (M2):
+    escuchar fuera de loopback EXIGE lista blanca — un receptor abierto en la red convierte el triaje
+    en un arma de DoS por alertas falsas, y un aviso por consola no basta como única barrera."""
+    host, _, puerto = escuchar.rpartition(":")
+    if not puerto.isdigit():
+        raise SystemExit(f"--escuchar: se esperaba host:puerto, no {escuchar!r}")
+    host = host or "0.0.0.0"
+    if ":" in host:
+        raise SystemExit(f"--escuchar {escuchar}: el receptor es IPv4 (usa una dirección IPv4)")
+    if permitir is not None and not permitir:
+        raise SystemExit("--permitir vacío: indica las IPs del SIEM")
+    if permitir is None and host not in _LOOPBACK:
+        raise SystemExit(f"--escuchar {escuchar}: escuchar fuera de loopback exige --permitir "
+                         "(la lista blanca con las IPs del SIEM)")
+    if tls_ca and not tls_cert:
+        raise SystemExit("--tls-ca sin --tls-cert: el mTLS exige el certificado del servidor "
+                         "(un --tls-ca colgante no puede ignorarse en silencio)")
+    return host, int(puerto)
+
+def construir_mitigar_fn(agente, perfil, catalogo, ejecutor, escribir=print, hallazgos=None):
+    """Modo --agente: devuelve un `mitigar_fn(decision, alerta, leer, escribir=..., ejecutor=...) -> plan` que delega en el agente
+    ReAct (decide estrategia, ESCALA host->firewall, aprueba POR PASO, consulta ATT&CK/D3FEND). Usa el 1B
+    para el ReAct; sin modelo/indice, bucle_react degrada al motor determinista (RNF-09)."""
+    if not agente:
+        return None
+    from prototipo.explicacion import agente_mitigacion as ag, justificador_llm, rag
+    try:
+        indice = rag.cargar_indice()
+    except Exception as e:
+        escribir(f"[aviso] indice RAG no disponible para el agente ({e}); sin herramienta de conocimiento.")
+        indice = None
+    base = justificador_llm.generador_por_defecto()
+    def _fn(decision, alerta, leer, escribir=escribir, ejecutor=ejecutor):
+        # El esquema se deriva del catalogo y de la topologia, y restringe el muestreo: el modelo
+        # no puede nombrar una herramienta, un dispositivo ni una accion que no existan (RF-15). Se
+        # construye POR INCIDENTE para limitar los dispositivos a la cadena de contencion del activo
+        # atacado: al fallar un salto, el agente escala por la cadena, no hacia un equipo ajeno.
+        esquema = ag.esquema_accion(catalogo, ag.resolver_topologia(perfil, hallazgos),
+                                    activo=alerta.get("activo"))
+        # Solo el generador por servidor entiende el esquema; con el subproceso se cae al formato
+        # textual, que `parsear_accion` sigue aceptando.
+        gen = ((lambda p: base(p, esquema=esquema))
+               if base is justificador_llm.generador_servidor else base)
+        # `escribir` llega del lazo: en la web es el que alimenta la tarjeta; con print, las preguntas
+        # del agente solo salían por la terminal del daemon y la tarjeta quedaba sin contexto.
+        return ag.bucle_react(alerta, decision.get("clase"), perfil, catalogo, ejecutor,
+                              gen, leer=leer, autonomo=False,
+                              timestamp=decision.get("timestamp", ""),
+                              indice=indice, embedder=rag.embedder_por_defecto(), escribir=escribir,
+                              hallazgos=hallazgos, confianza=decision.get("confianza", 1.0),
+                              recomendacion=decision.get("recomendacion"))
+    return _fn
+
+def _servidor_responde(url, plazo=2):
+    import urllib.request
+    try:
+        with urllib.request.urlopen(url.rstrip("/") + "/health", timeout=plazo) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+def ajustar_modo_llm(cfg, sondear=_servidor_responde, escribir=print):
+    """--con-llm y --agente necesitan el servidor del modelo. Sin él, cada alerta pagaba los plazos
+    de espera antes de caer a la plantilla y el banner anunciaba «LLM+RAG»: se avisa y se arranca en
+    modo determinista, que es con el que se decide igualmente (B4)."""
+    if not (cfg.get("con_llm") or cfg.get("agente")):
+        return cfg
+    from prototipo.explicacion import justificador_llm
+    if sondear(justificador_llm.URL):
+        escribir("[aviso] modo con modelo local (experimental): sin GPU, cada alerta tarda minutos.")
+        return cfg
+    escribir(f"[aviso] el servidor del modelo no responde en {justificador_llm.URL}: se arranca sin LLM "
+             "(justificación de plantilla, contención determinista). Levántalo con lab/scripts/llm-server.sh.")
+    return {**cfg, "con_llm": False, "agente": False}
+
+def construir_justificar_fn(con_llm, escribir=print):
+    if not con_llm:
+        return None
+    try:
+        from prototipo.explicacion import justificador_llm, rag
+        indice = rag.cargar_indice()
+        # RAG AGÉNTICO (Opción C): la consulta la decide el 1B y se excluyen las fichas regla-* del
+        # conocimiento (palanca 3). La traza registra consulta_rag/recuperacion_agentica/pasajes_usados.
+        gen = justificador_llm.generador_por_defecto()
+        recuperar_fn = rag.recuperar_fn_agentico(indice, rag.embedder_por_defecto(), generador=gen, k=3)
+        return justificador_llm.justificar_fn_rag(gen, recuperar_fn, estructurada=True)
+    except Exception as e:                          # sin indice/modelo -> degradar a plantilla (RNF-09)
+        escribir(f"[aviso] justificador LLM/RAG no disponible ({e}); se usara la plantilla.")
+        return None
+
+def lineas_avisos_red(perfil):
+    """Los avisos de la sección `red` del perfil, listos para imprimir al arrancar (spec §3)."""
+    from prototipo.servicio import tablero
+    return [f"[aviso] perfil, sección red: {a}" for a in tablero.estado_red(perfil, [])["avisos"]]
+
+_SALUD_DEF = {"contenedor": "clab-banco-mdr-siem", "fichero_en_contenedor": "/var/log/banco/salud.jsonl"}
+
+def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
+    """Arma el tablero para --web: EstadoTablero, el servidor (ligado a 127.0.0.1, SIN arrancar el
+    hilo), y los `escribir`/`leer` web que se inyectan en ejecutar. Las dependencias salen del perfil.
+    El `catalogo` sirve para reconstruir las contenciones activas de la traza (/api/contenciones)."""
+    from prototipo.servicio import tablero
+    estado = tablero.EstadoTablero()
+    activos = perfil.get("activos") or {}
+    deps = {n: (a or {}).get("depende_de", []) for n, a in activos.items()}
+    # Cola de aprobación no bloqueante salvo en modo agente (que aprueba por paso, bloqueante).
+    async_web = not cfg.get("agente")
+    # Auth opcional de la consola (#6/#8): sin TRIAJE_CONSOLA_TOKEN la consola queda abierta (como hoy).
+    # TRIAJE_CONSOLA_OPERADORES es un JSON opcional {token: nombre} para el no repudio por persona.
+    token = os.environ.get("TRIAJE_CONSOLA_TOKEN") or None
+    operadores = {}
+    _ops = os.environ.get("TRIAJE_CONSOLA_OPERADORES")
+    if _ops:
+        try:
+            operadores = json.loads(_ops)
+        except (ValueError, TypeError):
+            operadores = {}      # fail-safe: un JSON inválido no tumba el daemon ni abre la consola
+        if not isinstance(operadores, dict):
+            operadores = {}      # un JSON válido pero de otra forma ([..]/42) tampoco debe colarse
+    servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
+                                      puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
+                                      catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)
+                                      ejecutor=ejecutor,                     # des-bloqueo en masa (#8)
+                                      token=token, operadores=operadores)    # auth de la consola (#6/#8)
+    return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
+
+_NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",
+                    "ejecutor_ssh_lab": "conector SSH del laboratorio (contrasena por defecto)"}
+
+def banner(cfg, ejecutor=None):
+    fuente = "stdin (canalizado)" if cfg["ruta"] == "-" else cfg["ruta"]
+    just = "LLM+RAG" if cfg["con_llm"] else "plantilla"
+    # El banner dice QUE ejecutor se usa de verdad: con cual credencial entra al nodo importa
+    # tanto como con que perfil decide, y se vio un ensayo con la clave anunciando 'lab'.
+    nombre = getattr(ejecutor, "__name__", "")
+    lab = "simulado (--sin-lab)" if cfg["sin_lab"] else _NOMBRE_EJECUTOR.get(nombre, "conector SSH")
+    ancla = f"anclada en {traza.ANCLA_DESTINO}" if traza.ANCLA_DESTINO else "SIN ancla (TRIAJE_ANCLA no definida)"
+    # B4: sin la clave, la cadena corre SIN firma (quien reescriba el fichero puede recalcularla) —
+    # una producción que olvide la variable no debe arrancar degradada en silencio.
+    if not os.environ.get("TRIAJE_TRAZA_CLAVE"):
+        ancla += " · SIN firma HMAC (TRIAJE_TRAZA_CLAVE no definida)"
+    return ("\n" + "=" * 72 +
+            "\n  Monitor MDR en tiempo real — ACTIVO"
+            f"\n  Perfil: {os.path.basename(cfg['perfil'])} · Justificador: {just} · Ejecutor: {lab}"
+            f"\n  Escuchando: {fuente} · ventana de agrupacion: {cfg['ventana']}s · traza {ancla}"
+            "\n  (Ctrl+C para detener)\n" + "=" * 72)
+
+def _resumen_nuevo():
+    return {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,
+            "reclasificadas": 0, "ejecutadas": 0, "suprimidas": 0, "propias": 0}
+
+def _resumen_final(r):
+    return ("\n── Resumen de la sesion ──\n"
+            f"  Alertas vistas: {r['alertas']} · Incidentes: {r['incidentes']} · "
+            f"Suprimidas: {r.get('suprimidas', 0)} · Actividad propia: {r.get('propias', 0)}\n"
+            f"  Aprobadas: {r['aprobadas']} · Rechazadas: {r['rechazadas']} · "
+            f"Reclasificadas: {r['reclasificadas']} · Ejecutadas: {r['ejecutadas']}")
+
+def _leer_interactivo():
+    """Lector de la respuesta del ANALISTA desde el terminal de control (/dev/tty), no de stdin.
+    Imprescindible cuando las alertas llegan por stdin (pipe `… tail -F | stream -`): si se leyera de
+    stdin, el input() consumiría líneas de alerta como si fueran la respuesta. Cae a input() si no hay
+    tty (tests/CI/background)."""
+    try:
+        tty = open("/dev/tty")
+    except OSError:
+        return input
+    def _leer(prompt=""):
+        if prompt:
+            print(prompt, end="", flush=True)
+        linea = tty.readline()
+        if not linea:
+            raise EOFError
+        return linea.rstrip("\n")
+    return _leer
+
+def main(argv):
+    from prototipo.motor import perfil as perfilm
+    from prototipo.accion import catalogo as catm, conector
+    cfg = ajustar_modo_llm(parsear_args(argv))
+    perfil = perfilm.cargar(cfg["perfil"])
+    perfil_nombre = os.path.basename(cfg["perfil"]).replace(".yml", "")
+    with open(cfg["hallazgos"], encoding="utf-8") as f:
+        hallazgos = json.load(f)
+    catalogo = catm.cargar_catalogo(os.path.join(_RAIZ, "prototipo", "catalogo.yml"))
+    justificar_fn = construir_justificar_fn(cfg["con_llm"])
+    ejecutor = lazo._EjecutorAuto() if cfg["sin_lab"] else conector.ejecutor_por_defecto()
+    # Compartida por TODO lo que ejecuta SSH (lazo, servidor web, agente): su eco de login se
+    # reconoce como actividad propia y no se triaja como alerta fantasma (B7).
+    actividad = ActividadMDR()
+    mitigar_fn = construir_mitigar_fn(cfg["agente"], perfil, catalogo, actividad.envolver(ejecutor),
+                                      hallazgos=hallazgos)
+    if cfg["escuchar"]:                                  # #1: recibir alertas por red del SIEM
+        from prototipo.entrada import receptor
+        host, puerto = validar_escucha(cfg["escuchar"], cfg["permitir"],
+                                       tls_cert=cfg["tls_cert"], tls_ca=cfg["tls_ca"])
+        ctx = (receptor.contexto_tls(cfg["tls_cert"], cfg["tls_clave"], ca=cfg["tls_ca"])
+               if cfg["tls_cert"] else None)
+        fuente = receptor.escuchar(host, puerto, permitir=cfg["permitir"], contexto_tls=ctx)
+        print(f"[red] escuchando alertas en {host}:{puerto}"
+              + (((" · mTLS (exige cert de cliente)" if cfg["tls_ca"] else " · TLS")) if ctx else "")
+              + (f" · permitidas {','.join(cfg['permitir'])}" if cfg["permitir"]
+                 else " · sin lista blanca (solo loopback)"))
+    else:
+        fuente = (leer_lineas_stdin() if cfg["ruta"] == "-"
+                  else leer_lineas_fichero(cfg["ruta"], una_vez=cfg["una_vez"]))
+    print(banner(cfg, ejecutor))
+    try:                                           # cordura del perfil al arrancar (B11), sin romper
+        for aviso in perfilm.validar(perfil):
+            print(f"[aviso] perfil: {aviso}")
+    except Exception as e:
+        print(f"[aviso] perfil: no se pudo validar ({type(e).__name__}: {e})")
+    resumen = _resumen_nuevo()         # lo rellena ejecutar(); sobrevive a Ctrl+C
+    servidor, estado_web = None, None
+    lector_incidente = None
+    if cfg["web"]:
+        estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo,
+                                                               actividad.envolver(ejecutor))
+        for linea in lineas_avisos_red(perfil):
+            print(linea)
+        if not cfg["agente"]:
+            estado_web = estado          # cola no bloqueante (fuera del modo agente)
+        else:
+            # Modo agente: cada incidente se resuelve en su hilo (no congela el daemon) y su tarjeta
+            # lleva su propio contexto, no el buffer compartido del incidente en curso.
+            from prototipo.servicio import tablero
+            lector_incidente = lambda buf: tablero.LectorWeb(estado, lineas=buf)
+        threading.Thread(target=servidor.serve_forever, daemon=True).start()
+        print(f"[web] tablero en http://127.0.0.1:{servidor.server_address[1]}")
+    else:
+        escribir_fn, leer_fn = print, _leer_interactivo()   # comportamiento actual (terminal)
+    try:
+        os.makedirs(os.path.dirname(cfg["salida"]) or ".", exist_ok=True)  # crea run/ (u otro dir de --salida)
+        # Se retoma la cadena del fichero si ya existe: el ultimo hash escrito es el primer
+        # hash_previo de esta sesion, asi que la traza de varias sesiones es una sola cadena.
+        hash_previo = traza.ultimo_hash(cfg["salida"])
+        try:
+            previos = traza.leer_registros(cfg["salida"])
+        except FileNotFoundError:
+            previos = []
+        n_previos, linaje = len(previos), traza.linaje_de(previos)
+        # #4: al reiniciar, la supresión se reconstruye de la traza que se retoma (para que
+        # persista, en producción el daemon usa un --salida estable; ver integracion-en-produccion.md).
+        # Lee el fichero activo (los índices de reversión son relativos a él). Leer la FAMILIA de
+        # segmentos (traza.leer_familia) queda para la Opción B de #6, que además debe pasar la
+        # exclusión de revertidas a basarse en el hash del registro (único al concatenar), no en el índice.
+        memoria = MemoriaDecisiones.desde_traza(previos, perfil)
+        with traza.abrir_append(cfg["salida"]) as traza_f:   # permisos 0600 (integridad de la traza)
+            ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
+                     justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
+                     salida_traza=traza_f, escribir=escribir_fn, leer=leer_fn,
+                     mitigar_fn=mitigar_fn, suprimir=not cfg["sin_supresion"],
+                     hash_previo=hash_previo, n_previos=n_previos,
+                     nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
+                     estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
+                     lector_incidente=lector_incidente, memoria=memoria,
+                     latido=(servidor.latido if servidor else None), actividad=actividad)
+    except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
+        pass
+    print(_resumen_final(resumen))
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

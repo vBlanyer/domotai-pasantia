@@ -1,5 +1,5 @@
 import unittest
-from prototipo import servicios
+from prototipo.motor import servicios
 
 PERFIL = {"activos": {
     "web": {"criticidad": "alta", "servicios_prestados": [443, {"puerto": 80, "criticidad": "media"},

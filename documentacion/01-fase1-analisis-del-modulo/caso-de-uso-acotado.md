@@ -204,7 +204,7 @@ sistema al que sustituye.** Sin estas dos métricas, el informe final no podría
 contrario.
 
 Requiere que cada respuesta lleve su nivel de impacto declarado en la traza. **Ya está implementado**
-(RF-17): `prototipo/traza.py` guarda `impacto` e `impacto_determinado` en cada decisión, y las dos
+(RF-17): `prototipo/servicio/traza.py` guarda `impacto` e `impacto_determinado` en cada decisión, y las dos
 métricas de continuidad se computan en `evaluacion/metricas.py` (`disruptivas_indebidas` y
 `retencion_correcta`). Fue un añadido pequeño al
 [plan de métricas](../04-fase4-diseno-de-arquitectura/metricas-y-evaluacion.md) y al contrato de la

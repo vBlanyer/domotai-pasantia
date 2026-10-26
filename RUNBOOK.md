@@ -49,7 +49,7 @@ gestión para que el conector ejecute desde `mdr-siem`:
 export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
 
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
-  | python3 -m prototipo.stream - prototipo/perfiles/bancario.yml \
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/bancario.yml \
       lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json --web
 ```
 
@@ -63,7 +63,7 @@ docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/ale
 
 ### A. Terminal — el daemon (siempre)
 
-La salida de `python3 -m prototipo.stream …` es la vista principal:
+La salida de `python3 -m prototipo.servicio.stream …` es la vista principal:
 - **Feed de decisiones:** una línea por incidente (clase, confianza, acción propuesta/final, filtro del
   perfil, impacto y cascada).
 - **Menú de aprobación:** cuando una decisión requiere humano, aparece `[1] Aprobar · [2] Rechazar ·
@@ -173,10 +173,10 @@ python3 -m lab.banco.pruebas --guias      # regenera una guía por caso en docs/
 
 ---
 
-## 4. Flags del daemon (`prototipo.stream`)
+## 4. Flags del daemon (`prototipo.servicio.stream`)
 
 ```
-python3 -m prototipo.stream <fuente> <perfil> <hallazgos> [flags]
+python3 -m prototipo.servicio.stream <fuente> <perfil> <hallazgos> [flags]
 ```
 
 - `<fuente>`: `-` (stdin, lo normal con el pipe de Wazuh) o la ruta de un fichero de alertas.
@@ -225,7 +225,7 @@ sh reiniciar.sh --con-llm --agente
 Terminal 1 — daemon + web:
   export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
   docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
-    | python3 -m prototipo.stream - prototipo/perfiles/bancario.yml \
+    | python3 -m prototipo.servicio.stream - prototipo/perfiles/bancario.yml \
         lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json --web
   → abre http://127.0.0.1:8787
 

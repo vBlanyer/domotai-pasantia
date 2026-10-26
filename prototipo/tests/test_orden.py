@@ -1,5 +1,5 @@
 import unittest
-from prototipo import orden
+from prototipo.motor import orden
 
 DECISION_VP = {
     "id_decision": "d1", "activo": "objetivo-vuln", "accion_final": "BLOQUEAR_IP",

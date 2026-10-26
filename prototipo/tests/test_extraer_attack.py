@@ -1,5 +1,5 @@
 import unittest
-from prototipo import extraer_attack as ex
+from prototipo.explicacion import extraer_attack as ex
 
 
 def _tecnica(ext_id, name, desc, sub=False, deprecated=False, revoked=False, tactic="credential-access"):

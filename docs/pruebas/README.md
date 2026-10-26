@@ -28,7 +28,7 @@ Los Niveles 0–1 no necesitan lab ni modelo: el dataset etiquetado y los hallaz
 python3 -m unittest discover -s prototipo/tests
 
 # 1) El motor decide sobre 600 alertas reales (sin dependencias)
-python3 -m prototipo.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
+python3 -m prototipo.motor.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
     lab/campañas/2026-08-31-evaluacion/hallazgos.json salida.jsonl
 
 # 2) Evaluación contra el baseline (sin modelo, rápido)
@@ -42,7 +42,7 @@ python3 -m lab.banco.pruebas              # decision/inyectada/perfil, sin lab, 
 sh lab/lab.sh up banco && python3 -m lab.banco.pruebas --con-vivo   # además los casos de extremo a extremo
 
 # 5) Tablero web (con el daemon)
-python3 -m prototipo.stream <fuente-wazuh> prototipo/perfiles/bancario.yml \
+python3 -m prototipo.servicio.stream <fuente-wazuh> prototipo/perfiles/bancario.yml \
     lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json --web   # abre http://127.0.0.1:8787
 ```
 

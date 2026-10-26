@@ -29,9 +29,13 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
 ### Cambiado
 - Limpieza de estructura: `documentacion/archivo/` → `documentacion/material-superado/`; archivo de
   proceso reubicado; `README`/informe al día (10 familias y cifras de tests actuales).
-- Raíz de `prototipo/` más legible: **mapa del paquete por capas** en su README (los 37 módulos,
-  taxonomía del informe; el paquete se queda plano a propósito — 14 módulos son CLIs de operación
-  citados fuera) y retirado el dato huérfano `ilustrativas.jsonl` (demo RNF-14 antigua; nada lo lee).
+- **`prototipo/` reorganizado en subpaquetes por capa** (26/10): los 37 módulos viven ahora en
+  `entrada/ motor/ accion/ explicacion/ servicio/ herramientas/` (la taxonomía del capítulo de
+  arquitectura), con los datos (`perfiles/`, `corpus/`, `*.yml`) en la raíz del paquete. **Los CLIs
+  cambian de ruta**: `python3 -m prototipo.servicio.stream`, `prototipo.accion.catalogo --sudoers`,
+  `prototipo.herramientas.validar_reglas`, … (scripts, deploy, demos y docs vivos actualizados en la
+  misma pasada; los documentos congelados citan las rutas planas antiguas). También: mapa del paquete
+  en su README y retirado el dato huérfano `ilustrativas.jsonl` (demo RNF-14 antigua; nada lo leía).
 - Agente ReAct: optimalidad validada con un modelo capaz y reproducibilidad probada (documentado).
 
 ### Corregido
@@ -85,7 +89,7 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
 - Terminal del analista **sin secuencias de control** (los campos del log del atacante y del export
   del cliente se imprimen saneados); el banner avisa si falta `TRIAJE_TRAZA_CLAVE` (cadena sin
   firma); los 500 ya no filtran el detalle de la excepción al cliente; la traza batch de
-  `prototipo.lazo` nace 0600.
+  `prototipo.servicio.lazo` nace 0600.
 
 ### Añadido (portabilidad)
 - **`lab/portatil/`: la demo en Docker plano, sin Containerlab** — compose de dos nodos (gestión +

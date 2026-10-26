@@ -8,7 +8,7 @@ componente pendiente, para quien retome RF-12.
 ## Punto de partida: qué produce hoy el lazo
 
 Cada vez que el analista **reclasifica** un incidente (o lo aprueba/rechaza), la traza encadenada por hash
-(`prototipo/traza.py`, RF-09) registra:
+(`prototipo/servicio/traza.py`, RF-09) registra:
 
 ```
 (alerta estructurada, clase_del_motor, veredicto_humano, clase_reclasificada)
@@ -26,7 +26,7 @@ La pregunta natural —"¿cómo entrena esto al RAG?"— parte de una confusión
 - El **RAG no es un modelo con pesos**: es *recuperación* sobre un **corpus curado** de fichas
   (MITRE/D3FEND/reglas/descartes) + un embedder + coseno. Mejorarlo es **curar el corpus**, no entrenar.
 - Lo que sí «aprende» es el **clasificador determinista** (reglas, descubiertas y validadas con el árbol
-  `prototipo/arbol.py`).
+  `prototipo/motor/arbol.py`).
 - Y el ajuste más directo de todos no es aprendizaje, es **configuración** (perfil, cobertura del auditor).
 
 Por eso un mes de reclasificaciones no alimenta *un* bucle, sino **cuatro**.
@@ -60,7 +60,7 @@ lee la señal y se cura a mano:
 
 - Muchos descartes a `fp_exposicion_inexistente` para un servicio que el justificador no supo fundamentar →
   se **añade o afina una ficha de descarte** (`TIPOS_DESCARTE`) que explique ese motivo, y se **reindexa**
-  con `python3 -m prototipo.rag --indexar`.
+  con `python3 -m prototipo.explicacion.rag --indexar`.
 - Ataques cuya técnica no tenía ficha MITRE/D3FEND → se añaden esas fichas.
 - **Cada cambio se valida contra el banco de recuperación** (`evaluacion/simular_ataques_rag.py`, Hit@k/MRR;
   ver [`docs/pruebas/02-rag-evaluacion.md`](../../docs/pruebas/02-rag-evaluacion.md)) **antes** de comprometerlo:
@@ -70,7 +70,7 @@ Esto mejora la **explicación** (el trabajo del RAG), no la clasificación. Para
 
 ### 3 · Las reglas del clasificador — el «entrenamiento» honesto
 
-Es el uso más valioso de las reclasificaciones: **etiquetas nuevas para el árbol**. `prototipo/arbol.py` ya
+Es el uso más valioso de las reclasificaciones: **etiquetas nuevas para el árbol**. `prototipo/motor/arbol.py` ya
 existe como instrumento de descubrimiento de reglas (así salió la 6ª, la de ráfaga, con evidencia 79/79; ver
 `evaluacion/entrenado.py`). El ciclo:
 

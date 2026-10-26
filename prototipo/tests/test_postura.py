@@ -1,5 +1,5 @@
 import unittest
-from prototipo import postura
+from prototipo.motor import postura
 
 H = {"nodos": {"objetivo-vuln": [{"servicio": "ssh", "estado": "open"},
                                  {"servicio": "telnet", "estado": "open"}]}}

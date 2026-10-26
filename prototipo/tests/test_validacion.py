@@ -1,5 +1,7 @@
 import os, unittest
-from prototipo import validacion, impacto, catalogo, perfil
+from prototipo.motor import impacto, perfil
+from prototipo.accion import catalogo
+from prototipo.servicio import validacion
 
 DECISION = {"clase": "vp_intento_acceso", "prioridad": 3, "confianza": 0.5,
             "justificacion": "Alerta 5760 desde 192.168.1.10 ...", "accion_propuesta": "BLOQUEAR_IP",

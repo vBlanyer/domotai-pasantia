@@ -16,9 +16,9 @@ import os
 import sys
 
 from evaluacion import cargar, metricas
-from prototipo import analisis, arbol
-from prototipo import perfil as perfilm
-from prototipo.postura import postura_de
+from prototipo.motor import analisis, arbol
+from prototipo.motor import perfil as perfilm
+from prototipo.motor.postura import postura_de
 
 RASGOS = ["familia", "regla_id", "nivel_wazuh", "servicio", "origen_legitimo", "expuesto",
           "n_origen_60s", "reglas_60s", "nivel_max_60s", "exito_120s"]

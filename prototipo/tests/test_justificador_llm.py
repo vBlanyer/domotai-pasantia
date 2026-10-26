@@ -1,5 +1,5 @@
 import io, json, unittest
-from prototipo import justificador_llm as jl
+from prototipo.explicacion import justificador_llm as jl
 
 ALERTA = {"regla_id": "5763", "mitre": ["T1110"], "origen_ip": "192.168.1.10",
           "activo": "objetivo-vuln", "servicio": "ssh",

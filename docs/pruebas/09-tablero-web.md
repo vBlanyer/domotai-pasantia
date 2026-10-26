@@ -1,8 +1,8 @@
 # 09 · Tablero web
 
-Consola web local de observabilidad y aprobación para el daemon (`prototipo/stream.py`). No sustituye a la
+Consola web local de observabilidad y aprobación para el daemon (`prototipo/servicio/stream.py`). No sustituye a la
 terminal — es una vista adicional: el mismo menú `[Aprobar/Rechazar/Reclasificar]` que hoy se responde por
-`/dev/tty` también se puede resolver desde el navegador. El **backend** vive en `prototipo/tablero.py` (API
+`/dev/tty` también se puede resolver desde el navegador. El **backend** vive en `prototipo/servicio/tablero.py` (API
 JSON de la biblioteca estándar, con CORS) y el daemon lo embebe con `stream.py --web`; **no importa nada de
 `lab/`** (la salud se lee como JSONL genérico y las dependencias entre activos llegan del perfil). El
 **frontend** es un SPA **React** (Vite + TypeScript + shadcn-ui + Tailwind + Zod) en `visor/`, una pieza
@@ -29,7 +29,7 @@ sh lab/lab.sh up banco && sh lab/banco/banco.sh aprovisionar
 Y el daemon con `--web` en vez de (o junto a) la terminal:
 
 ```bash
-python3 -m prototipo.stream <fuente-wazuh> prototipo/perfiles/bancario.yml \
+python3 -m prototipo.servicio.stream <fuente-wazuh> prototipo/perfiles/bancario.yml \
     lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json --web
 ```
 
@@ -93,7 +93,7 @@ Lo único que las pruebas unitarias no cubren es aprobar de verdad desde el nave
 ```
 1. sh lab/lab.sh up banco && sh lab/banco/banco.sh aprovisionar
 2. (arranca el monitor si no corre; ver 08)
-3. python3 -m prototipo.stream <fuente-wazuh> prototipo/perfiles/bancario.yml \
+3. python3 -m prototipo.servicio.stream <fuente-wazuh> prototipo/perfiles/bancario.yml \
        lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json --web
 4. Abre http://127.0.0.1:8787 → pestaña Salud muestra los nodos; lanza un ataque que exija
    humano (p. ej. A1 del banco de pruebas) → aparece en Aprobaciones → pulsa Aprobar/Rechazar →

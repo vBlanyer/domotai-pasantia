@@ -5,7 +5,8 @@ Mapa de un vistazo de qué es cada carpeta. El diseño completo está en
 
 ```
 .
-├── prototipo/          Producto: motor de triaje MDR (paquete Python, stdlib + yaml)
+├── prototipo/          Producto: motor de triaje MDR (paquete Python por capas: entrada/ motor/
+│                       accion/ explicacion/ servicio/ herramientas/ + datos en la raíz; stdlib + yaml)
 ├── visor/              Producto: consola web (React/TS/Vite) que sirve el daemon
 ├── deploy/             Producto: kit de despliegue en producción (systemd + /healthz)
 ├── evaluacion/         Arnés de evaluación contra el baseline + resultados medidos

@@ -24,12 +24,12 @@ Corre el lazo completo: clasifica → política → perfil → traza.
 
 **Sinopsis**
 ```
-python3 -m prototipo.triaje <alertas.jsonl> <perfil.yml> <hallazgos.json> <salida.jsonl>
+python3 -m prototipo.motor.triaje <alertas.jsonl> <perfil.yml> <hallazgos.json> <salida.jsonl>
 ```
 
 **Ejemplo**
 ```bash
-python3 -m prototipo.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
+python3 -m prototipo.motor.triaje lab/dataset/etiquetado.jsonl prototipo/perfiles/empresarial.yml \
     lab/campañas/2026-08-31-evaluacion/hallazgos.json salida.jsonl
 ```
 
@@ -47,12 +47,12 @@ Normaliza alertas crudas de Wazuh al esquema del motor (agnóstico de fuente).
 
 **Sinopsis**
 ```
-python3 -m prototipo.ingesta <cruda.json> <salida.jsonl> [fuente=wazuh] [campaña]
+python3 -m prototipo.entrada.ingesta <cruda.json> <salida.jsonl> [fuente=wazuh] [campaña]
 ```
 
 **Ejemplo**
 ```bash
-python3 -m prototipo.ingesta lab/campañas/2026-08-31-evaluacion/alerts.json normalizado.jsonl wazuh
+python3 -m prototipo.entrada.ingesta lab/campañas/2026-08-31-evaluacion/alerts.json normalizado.jsonl wazuh
 ```
 
 **Esperado:** `N alertas normalizadas -> normalizado.jsonl`. Avisa de las alertas con campos críticos
@@ -64,12 +64,12 @@ Colapsa las ráfagas casi idénticas en incidentes.
 
 **Sinopsis**
 ```
-python3 -m prototipo.agrupacion <normalizado.jsonl> <salida.jsonl> [ventana_seg=300]
+python3 -m prototipo.motor.agrupacion <normalizado.jsonl> <salida.jsonl> [ventana_seg=300]
 ```
 
 **Ejemplo**
 ```bash
-python3 -m prototipo.agrupacion normalizado.jsonl incidentes.jsonl 300
+python3 -m prototipo.motor.agrupacion normalizado.jsonl incidentes.jsonl 300
 ```
 
 **Esperado:** `N alertas -> M incidentes (ventana 300s)`. Sobre las 205 de evaluación da **4 incidentes**;

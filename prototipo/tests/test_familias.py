@@ -1,5 +1,5 @@
 import unittest
-from prototipo import familias
+from prototipo.motor import familias
 
 class TestRegistroFamilias(unittest.TestCase):
     def test_familia_actuar_trae_nivel_y_mitre(self):

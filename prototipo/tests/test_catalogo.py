@@ -1,5 +1,5 @@
 import os, unittest
-from prototipo import catalogo
+from prototipo.accion import catalogo
 
 RAIZ = os.path.join(os.path.dirname(__file__), "..", "catalogo.yml")
 

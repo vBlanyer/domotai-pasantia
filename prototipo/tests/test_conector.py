@@ -1,5 +1,5 @@
 import os, unittest
-from prototipo import conector, catalogo
+from prototipo.accion import conector, catalogo
 
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
 ORDEN = {"decision_id": "d1", "accion_id": "BLOQUEAR_IP", "nodo_objetivo": "objetivo-vuln",
@@ -227,7 +227,7 @@ class TestNodoGestion(unittest.TestCase):
     def test_por_defecto_el_auditor_de_la_red_pequena(self):
         import os
         from unittest import mock
-        from prototipo import conector
+        from prototipo.accion import conector
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop("TRIAJE_NODO_GESTION", None)
             self.assertEqual(conector.nodo_gestion(), "clab-red-cliente-auditor")
@@ -235,14 +235,14 @@ class TestNodoGestion(unittest.TestCase):
     def test_configurable_por_entorno(self):
         import os
         from unittest import mock
-        from prototipo import conector
+        from prototipo.accion import conector
         with mock.patch.dict(os.environ, {"TRIAJE_NODO_GESTION": "clab-banco-mdr-siem"}):
             self.assertEqual(conector.nodo_gestion(), "clab-banco-mdr-siem")
 
     def test_el_ssh_se_lanza_en_el_nodo_configurado(self):
         import os, subprocess
         from unittest import mock
-        from prototipo import conector
+        from prototipo.accion import conector
         visto = {}
         def falso_run(args, **kw):
             visto["args"] = args
@@ -271,7 +271,7 @@ class TestVerificacionExacta(unittest.TestCase):
 
     def test_una_regla_accept_no_cuenta_como_bloqueo(self):
         from prototipo.tests.iptables_falso import NodoIptables
-        from prototipo import verificacion
+        from prototipo.accion import verificacion
         nodo = NodoIptables(accept_input=["192.168.1.10"])
         self.assertFalse(verificacion.confirmar(ORDEN, CAT, nodo)["verificado"])
         nodo.reglas["INPUT"].append(("DROP", "192.168.1.10"))

@@ -45,7 +45,7 @@ sh lab/banco/banco.sh aprovisionar       # mínimo privilegio del conector — O
 # arrancar el daemon (lee las alertas de Wazuh y decide; --web levanta el visor)
 export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
-  | python3 -m prototipo.stream - prototipo/perfiles/bancario.yml \
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/bancario.yml \
       lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json --web
 #   → visor en http://127.0.0.1:8787
 ```
@@ -71,10 +71,10 @@ En otra terminal, **lanza ataques** por menú: `sh lab/banco/banco.sh atacar`. A
 | Componente | Dónde | Estado |
 |------------|-------|--------|
 | **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, **957 tests** |
-| **Justificador con LLM real + RAG** (LLM local —1B por defecto; Llama-3.1-8B en GPU como objetivo—; recuperación aumentada local con embedder bge-m3 sobre corpus de MITRE/D3FEND/reglas/descartes, dependiente de la clase decidida) | [`prototipo/justificador_llm.py`](prototipo/justificador_llm.py), [`prototipo/rag.py`](prototipo/rag.py) | Funcional (requiere GPU; sustituto [`lab/scripts/llm_claude.py`](lab/scripts/llm_claude.py)) |
-| **Daemon en tiempo real** (agrupa en incidentes; valida con el analista; `--sin-llm`/`--con-llm`/`--agente`; healthcheck `/healthz`) | [`prototipo/stream.py`](prototipo/stream.py) | Funcional |
-| **Consola web** (8 vistas: panel, métricas e informe exportable, estado de servicios, **Red** —mapa del cliente—, decisiones, aprobaciones, **Contenciones activas** + *kill switch*, trazas) | [`prototipo/tablero.py`](prototipo/tablero.py), [`visor/`](visor/) | Funcional, **187 tests** (React/TS) |
-| **Agente de mitigación** (ReAct: contiene en el host, escala al cortafuegos solo si falla; respeta el filtro del perfil) | [`prototipo/agente_mitigacion.py`](prototipo/agente_mitigacion.py) | Funcional, salida restringida por esquema; experimental |
+| **Justificador con LLM real + RAG** (LLM local —1B por defecto; Llama-3.1-8B en GPU como objetivo—; recuperación aumentada local con embedder bge-m3 sobre corpus de MITRE/D3FEND/reglas/descartes, dependiente de la clase decidida) | [`prototipo/explicacion/justificador_llm.py`](prototipo/explicacion/justificador_llm.py), [`prototipo/explicacion/rag.py`](prototipo/explicacion/rag.py) | Funcional (requiere GPU; sustituto [`lab/scripts/llm_claude.py`](lab/scripts/llm_claude.py)) |
+| **Daemon en tiempo real** (agrupa en incidentes; valida con el analista; `--sin-llm`/`--con-llm`/`--agente`; healthcheck `/healthz`) | [`prototipo/servicio/stream.py`](prototipo/servicio/stream.py) | Funcional |
+| **Consola web** (8 vistas: panel, métricas e informe exportable, estado de servicios, **Red** —mapa del cliente—, decisiones, aprobaciones, **Contenciones activas** + *kill switch*, trazas) | [`prototipo/servicio/tablero.py`](prototipo/servicio/tablero.py), [`visor/`](visor/) | Funcional, **187 tests** (React/TS) |
+| **Agente de mitigación** (ReAct: contiene en el host, escala al cortafuegos solo si falla; respeta el filtro del perfil) | [`prototipo/explicacion/agente_mitigacion.py`](prototipo/explicacion/agente_mitigacion.py) | Funcional, salida restringida por esquema; experimental |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap, objetivos; lanzador de ataques a medida) | [`lab/`](lab/) | Ejecutable, **137 tests** |
 | **Dataset etiquetado** (600 alertas VP/FP/PROPIA/no_soportada; particionado 300/300 a priori por campaña) | [`lab/dataset/`](lab/dataset/) | Cerrado, **39 tests** |
 | **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, **63 tests**; campaña ejecutada |
@@ -90,8 +90,8 @@ extensible** ([`prototipo/familias.yml`](prototipo/familias.yml), hoy **10 famil
 con tres niveles de respuesta — **actuar** (contener con el catálogo cerrado), **triar y encaminar** (clasificar
 y derivar con contexto MITRE, sin contener) y **no soportada** (a juicio humano, severidad intacta). Añadir una
 familia es una línea; la cobertura real por cliente es *lo que su SIEM detecta ∩ lo que el registro cubre*
-(medible con `python3 -m prototipo.validar_reglas <muestra-alerts.json>` sobre una exportación del
-`alerts.json` del cliente — p. ej. `python3 -m prototipo.validar_reglas "lab/campañas/2026-08-31-evaluacion/alerts.json"`).
+(medible con `python3 -m prototipo.herramientas.validar_reglas <muestra-alerts.json>` sobre una exportación del
+`alerts.json` del cliente — p. ej. `python3 -m prototipo.herramientas.validar_reglas "lab/campañas/2026-08-31-evaluacion/alerts.json"`).
 Así el sistema **dice la verdad** en el borde de su competencia en vez de inventar una respuesta.
 
 ## Cómo está organizado el repositorio
@@ -131,5 +131,5 @@ analista el **29,7 % (89/300)** y reduce a **cero** las contenciones automática
 queda para los orígenes externos). Fuente: [`evaluacion/resultados/`](evaluacion/resultados/README.md).
 
 Decisión de diseño: el clasificador **no** es un codificador con ajuste fino, sino un **árbol de decisión**
-([`arbol.py`](prototipo/arbol.py)) que valida y descubre reglas para el baseline determinista auditable — la
+([`arbol.py`](prototipo/motor/arbol.py)) que valida y descubre reglas para el baseline determinista auditable — la
 escala honesta para un dataset de unos cientos de filas. El justificador LLM sí es real.

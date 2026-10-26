@@ -8,7 +8,7 @@ comportamientos que conviene disparar con precisión.
 simulado):
 
 ```
-Sinopsis:  printf '%s\n' '<alerta cruda Wazuh JSON>' | python3 -m prototipo.stream - <perfil.yml> --sin-lab --ventana-agrupacion 0
+Sinopsis:  printf '%s\n' '<alerta cruda Wazuh JSON>' | python3 -m prototipo.servicio.stream - <perfil.yml> --sin-lab --ventana-agrupacion 0
 ```
 
 La alerta cruda lleva solo campos que el adaptador Wazuh mapea: `rule.id`, `rule.groups` (→ servicio y
@@ -74,7 +74,7 @@ for i in $(seq 1 8); do
 **Por inyección** (sin lab, origen externo):
 ```bash
 printf '%s\n' '{"id":"A1","rule":{"id":"5760","level":10,"groups":["sshd","authentication_failed"],"mitre":{"id":["T1110.001"]}},"predecoder":{"hostname":"objetivo-vuln","program_name":"sshd"},"data":{"srcip":"203.0.113.9"},"timestamp":"2026-09-09T00:00:00Z","full_log":"Failed password for root from 203.0.113.9"}' \
-  | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
 ```
 
 **Esperado** (salida real):
@@ -98,7 +98,7 @@ al analista**.
 de agrupación amplia (15 s) hace que la ráfaga completa se colapse en **un solo incidente → un solo prompt**:
 ```bash
 docker exec clab-red-cliente-wazuh sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
-  | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml \
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml \
       lab/campañas/hallazgos-sin-perfilar.json --sin-lab --ventana-agrupacion 15
 ```
 
@@ -123,7 +123,7 @@ ejecución es simulada; quita `--sin-lab` para que `aprobar` bloquee de verdad p
 **Por inyección** (sin lab, para un vistazo rápido; se pipea `rechazar` para no colgar):
 ```bash
 printf '%s\nrechazar\n' '{"id":"B1","rule":{"id":"5760","level":10,"groups":["sshd","authentication_failed"],"mitre":{"id":["T1110.001"]}},"predecoder":{"hostname":"camara-desconocida","program_name":"sshd"},"data":{"srcip":"192.168.1.55"},"timestamp":"2026-09-09T00:00:00Z","full_log":"Failed password for admin from 192.168.1.55"}' \
-  | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
 ```
 
 **Esperado** (salida real):
@@ -188,13 +188,13 @@ Wazuh genera la alerta con `srcip 192.168.1.1`; pásala por el daemon (o déjalo
 ```bash
 docker exec clab-red-cliente-wazuh sh -c "tail -40 /var/ossec/logs/alerts/alerts.json" \
   | grep -a '"srcip":"192.168.1.1"' | tail -1 \
-  | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
 ```
 
 **Por inyección** (sin lab):
 ```bash
 printf '%s\n' '{"id":"D1","rule":{"id":"5760","level":10,"groups":["sshd","authentication_failed"],"mitre":{"id":["T1110.001"]}},"predecoder":{"hostname":"objetivo-vuln","program_name":"sshd"},"data":{"srcip":"192.168.1.1"},"timestamp":"2026-09-09T00:00:00Z","full_log":"Failed password for root from 192.168.1.1"}' \
-  | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
 ```
 
 **Esperado** (salida real, verificado en vivo y por inyección):
@@ -212,7 +212,7 @@ la marca **`no_soportada`** y conserva su severidad, sin inventar una clasificac
 
 ```bash
 printf '%s\n' '{"id":"E1","rule":{"id":"510","level":7,"groups":["rootcheck"]},"predecoder":{"hostname":"objetivo-vuln","program_name":"rootcheck"},"data":{"srcip":"192.168.1.60"},"timestamp":"2026-09-09T00:00:00Z","full_log":"Rootcheck: integrity change"}' \
-  | python3 -m prototipo.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/empresarial.yml --sin-lab --ventana-agrupacion 0
 ```
 
 **Esperado** (salida real):

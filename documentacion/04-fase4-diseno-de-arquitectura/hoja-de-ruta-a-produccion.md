@@ -43,7 +43,7 @@ es código: lo aporta o decide la empresa/cliente, y su detalle con plantillas e
 
 ### 1. Receptor de alertas de red (SIEM remoto) — 🛠 Prototipo · Alta · **TRANSPORTE HECHO**
 **Lo que era.** `stream.py` solo leía fichero/stdin; un SIEM remoto no tenía por dónde entregar las alertas.
-**Lo que se hizo.** `prototipo/receptor.py`: servidor **TCP** (`escuchar(...)`, generador que rinde líneas +
+**Lo que se hizo.** `prototipo/entrada/receptor.py`: servidor **TCP** (`escuchar(...)`, generador que rinde líneas +
 `None` en reposo, encaja en el bucle como la fuente de stdin) con **lista blanca de IPs** (`--permitir`: solo
 el SIEM; el resto se cierra al instante → mitiga el DoS por alertas falsas, R1), **TLS opcional**
 (`--tls-cert/--tls-clave`, o terminado por un proxy de la empresa), tope de tamaño de línea y de conexiones.
@@ -57,7 +57,7 @@ alerta recibida produce la misma decisión que por fichero.
 ### 2. Validar el contenido de detección del SIEM del cliente — 🤝 Integración · Alta · **HERRAMIENTA LISTA**
 **Estado.** `adaptador_wazuh.familia_de` mapea grupos/reglas de Wazuh → familia. Si el cliente usa otro
 *ruleset* (otros IDs/grupos), el adaptador clasifica como `otra` y el motor no actúa.
-**Lo que se hizo (🛠, lado prototipo).** `python3 -m prototipo.validar_reglas <muestra-alerts.json>`: pasa una
+**Lo que se hizo (🛠, lado prototipo).** `python3 -m prototipo.herramientas.validar_reglas <muestra-alerts.json>`: pasa una
 muestra del `alerts.json` del cliente por el adaptador y reporta cuántas alertas caen en cada familia con
 playbook, cuántas quedan **sin cobertura** (`otra`/`plataforma`, con su regla/grupos para afinar) y cuántas son
 telemetría propia. Hace **medible** la cobertura antes del go-live.
@@ -84,7 +84,7 @@ confirma la contención sobre dispositivos reales.
 había registro de bloqueos activos (el MDR no «recordaba» qué tenía contenido).
 **Lo que se hizo.** Reconstrucción **desde la propia traza** (fuente de verdad, sin fichero paralelo):
 `MemoriaDecisiones.desde_traza(previos, perfil)` repone la supresión al arrancar (excluye las revertidas y las
-no re-clavables sin `contexto`); `prototipo/contenciones.py:activas(regs, catalogo)` deriva las contenciones
+no re-clavables sin `contexto`); `prototipo/accion/contenciones.py:activas(regs, catalogo)` deriva las contenciones
 activas (ejecutadas, verificadas, reversibles `definida`, no revertidas) y `/api/contenciones` las sirve; el
 visor las lista en **«Contenciones activas»**. Para que persista entre reinicios, el daemon usa un `--salida`
 estable (ver [integración §2.5](integracion-en-produccion.md)).
@@ -109,7 +109,7 @@ biblioteca estándar).
 ### 6. Rotación y retención de la traza — 🛠 Prototipo · Media · **RETENCIÓN HECHA**
 **Lo que era.** Los ficheros de traza se acumulaban en `run/` sin política; un daemon de larga vida con
 `--salida` fijo podía crecer sin límite.
-**Lo que se hizo.** Comando de **retención offline** `python3 -m prototipo.retener_trazas <dir> [--max N |
+**Lo que se hizo.** Comando de **retención offline** `python3 -m prototipo.servicio.retener_trazas <dir> [--max N |
 --max-dias D] [--excepto RUTA] [--aplicar]`: poda los ficheros `trazas-*.jsonl` antiguos por número o
 antigüedad, **nunca el más reciente** (el activo) ni el nombrado con `--excepto` (el `$TRIAJE_SALIDA` vivo), ni
 uno cuya cadena **no verifique** (se conserva con aviso); sin `--aplicar` simula. Verifica con HMAC, así que el
@@ -190,7 +190,7 @@ estable.
 ## E. Escala
 
 ### 12. Escala y volumen real — 🛠 Prototipo · Media · **MEDIDO**
-**Lo que se hizo.** Benchmark reproducible `python3 -m prototipo.banco_carga [N]`: pasa N alertas sintéticas
+**Lo que se hizo.** Benchmark reproducible `python3 -m prototipo.herramientas.banco_carga [N]`: pasa N alertas sintéticas
 por el motor con ejecutor simulado (sin SSH) y mide decisiones/seg y ms/alerta. Medición en el portátil de
 desarrollo (modo determinista, camino completo ingesta→análisis→decisión→filtro→traza encadenada): **~565
 decisiones/seg (~1.8 ms/alerta)** por proceso. El *back-pressure* del ingreso ya entró con #1 (cola acotada del

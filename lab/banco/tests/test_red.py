@@ -2,7 +2,7 @@ import os
 import unittest
 import yaml
 from lab.banco import red
-from prototipo import servicios
+from prototipo.motor import servicios
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 with open(os.path.join(RAIZ, "prototipo", "perfiles", "bancario.yml"), encoding="utf-8") as f:

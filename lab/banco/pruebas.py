@@ -257,7 +257,7 @@ def decidir(caso, ruta_traza, ejecutor, perfil, hallazgos, catalogo, escribir, l
 
     `leer` permite sustituir el `Lector` guionizado (usado en las corridas automaticas) por un lector
     interactivo real (p. ej. `stream._leer_interactivo()`, usado por `--paso-a-paso`)."""
-    from prototipo import stream
+    from prototipo.servicio import stream
     lector = leer if leer is not None else Lector(menu=caso.get("menu"), escalada=caso.get("escalada"))
     tail = subprocess.Popen(["docker", "exec", WAZUH, "tail", "-n0", "-F", ALERTAS],
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
@@ -290,7 +290,7 @@ def deshacer(caso):
 
 def _comparar_decision(esperado, traza):
     """Diferencias entre lo esperado y la traza de triaje.procesar (para nivel decision)."""
-    from prototipo import validacion
+    from prototipo.servicio import validacion
     obs = {"clase": traza.get("clase"), "confianza": traza.get("confianza"),
            "accion_final": traza.get("accion_final"), "requiere_humano": traza.get("requiere_humano"),
            "filtro": validacion.filtro_legible(traza),
@@ -302,7 +302,7 @@ def _comparar_decision(esperado, traza):
 
 def correr_decision(caso, perfil, hallazgos, catalogo):
     import time
-    from prototipo import triaje, rafaga
+    from prototipo.motor import triaje, rafaga
     t0 = time.time()
     hallazgos = caso.get("hallazgos", hallazgos)   # postura propia del caso (p. ej. un servicio expuesto inyectado)
     a = dict(caso["alerta"]); a.setdefault("timestamp", "2026-09-22T00:00:00Z"); a.setdefault("mitre", [])
@@ -321,7 +321,7 @@ def correr_inyectada(caso, perfil, catalogo):
     """Filtra una acción inyectada directamente (sin ataque real): permite/degrada/veta, con quién
     ejecuta al final, si queda retenida y la predicción de cascada (nivel `inyectada`)."""
     import time
-    from prototipo import perfil as perfilm
+    from prototipo.motor import perfil as perfilm
     t0 = time.time()
     filtro = perfilm.filtrar(perfil, caso["accion"], caso.get("params", {}), catalogo,
                              caso["activo"], caso.get("servicio"), caso.get("confianza", 1.0))
@@ -340,7 +340,7 @@ def correr_perfil(caso, perfil, catalogo):
     sin reversión definida se vete (RF-18) y que la cascada del inventario termine aunque haya
     dependencias (guardia de ciclos de `impacto.afectados_en_cascada`)."""
     import time
-    from prototipo import perfil as perfilm, impacto
+    from prototipo.motor import perfil as perfilm, impacto
     t0 = time.time()
     esp, fallos = caso["esperado"], []
     if caso["comprobacion"] == "sin_reversion":
@@ -419,7 +419,7 @@ def paso_a_paso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo):
         r = correr_caso(caso, dir_salida, ejecutor, perfil, hallazgos, catalogo)
         print(f"-> {r['resultado']}" + "".join(f"\n   - {d}" for d in r["detalle"]))
         return r
-    from prototipo import stream
+    from prototipo.servicio import stream
     _pausar("estado base")
     problemas = estado_base()
     if problemas:
@@ -497,7 +497,8 @@ def main(argv=None):
     elegido = next(c for c in casos.CASOS if c["id"] == a.caso) if a.caso is not None else None
     con_vivo = con_vivo_forzado(elegido, a.con_vivo)
     os.environ["TRIAJE_NODO_GESTION"] = f"{P}-mdr-siem"
-    from prototipo import conector, perfil as perfilm, catalogo as catm
+    from prototipo.motor import perfil as perfilm
+    from prototipo.accion import conector, catalogo as catm
     perfil = perfilm.cargar(PERFIL)
     catalogo = catm.cargar_catalogo(os.path.join(RAIZ, "prototipo", "catalogo.yml"))
     with open(HALLAZGOS, encoding="utf-8") as f:

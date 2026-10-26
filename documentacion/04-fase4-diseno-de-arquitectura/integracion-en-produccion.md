@@ -12,9 +12,9 @@ de la arquitectura consolidada:
 
 | Punto de aislamiento | En el laboratorio | En producción | Dónde se cambia |
 |---|---|---|---|
-| **1. Fuente de alertas** | Wazuh (emula el SIEM del cliente) | El SIEM real del cliente | Un adaptador de ingesta (`prototipo/adaptador_wazuh.py` → uno nuevo) |
+| **1. Fuente de alertas** | Wazuh (emula el SIEM del cliente) | El SIEM real del cliente | Un adaptador de ingesta (`prototipo/entrada/adaptador_wazuh.py` → uno nuevo) |
 | **2. Modelo de análisis** | Plantilla determinista (demo) / 8B opcional | El modelo que el hardware del cliente admita | Interfaz `clasificar` / `justificar` |
-| **3. Canal hacia el objetivo** | `docker exec … ssh` a nodos Containerlab | SSH real desde el nodo de gestión (o TR-069/ACS para CPE) | El conector (`prototipo/conector.py`) |
+| **3. Canal hacia el objetivo** | `docker exec … ssh` a nodos Containerlab | SSH real desde el nodo de gestión (o TR-069/ACS para CPE) | El conector (`prototipo/accion/conector.py`) |
 
 > «Cambiar cualquiera de los tres es escribir un adaptador nuevo sin tocar la lógica de decisión.»
 
@@ -60,7 +60,7 @@ flowchart LR
 ```
 
 **Dónde corre cada pieza.** Todo el MDR vive en **un nodo de gestión out-of-band** (fuera del plano de datos
-del cliente): el daemon (`prototipo/stream.py`), el conector, la traza y el visor. Ese nodo necesita:
+del cliente): el daemon (`prototipo/servicio/stream.py`), el conector, la traza y el visor. Ese nodo necesita:
 
 - **Entrada:** alcanzar el flujo de alertas del SIEM (fichero `alerts.json` seguido como `tail -F`, o un
   receptor syslog — ver §3.2 y §5).
@@ -129,7 +129,7 @@ ahí el motor es **agnóstico de la fuente**.
 
 **Validar la cobertura antes del go-live.** El mapeo de `adaptador_wazuh.familia_de` asume los grupos/reglas de
 Wazuh; si el *ruleset* del cliente difiere, sus alertas caen en `otra` y el motor no actúa. `python3 -m
-prototipo.validar_reglas <muestra-alerts.json>` toma una exportación de ejemplo de las alertas del cliente y
+prototipo.herramientas.validar_reglas <muestra-alerts.json>` toma una exportación de ejemplo de las alertas del cliente y
 reporta cuántas cubre cada familia con playbook y cuáles quedan sin mapear (con su regla/grupos), para afinar
 el adaptador en el alta.
 
@@ -171,7 +171,7 @@ BLOQUEAR_IP:
 privilegio en el nodo. `catalogo.py` **genera el sudoers** a partir de él:
 
 ```bash
-python3 -m prototipo.catalogo --sudoers triaje \
+python3 -m prototipo.accion.catalogo --sudoers triaje \
     --rutas iptables=/sbin/iptables,service=/usr/sbin/service,passwd=/usr/bin/passwd \
     --allowlist service=nginx:apache2,passwd=appuser
 ```
@@ -180,7 +180,7 @@ Emite líneas `triaje ALL=(root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP`
 restringe los comodines de **servicio/cuenta** a valores concretos (no `service * stop`); `{ip}`/`{puerto}`
 quedan como comodín por naturaleza. El usuario del conector **solo puede ejecutar lo que el catálogo define**.
 
-### 2.4 El conector y las credenciales — `prototipo/conector.py`
+### 2.4 El conector y las credenciales — `prototipo/accion/conector.py`
 
 Ejecuta las órdenes con el patrón **verificar → actuar → reverificar** (idempotente: si ya está en el estado
 deseado, no re-ejecuta). Hay **dos ejecutores**:
@@ -209,7 +209,7 @@ IP real y rechaza `None`/metacaracteres/valores que empiecen por `-`.
 > (el laboratorio usa el ejecutor de contraseña vía `docker exec`). Validarlo contra un dispositivo de verdad
 > es parte del rollout (ver §6).
 
-### 2.5 El arranque del daemon — `prototipo/stream.py`
+### 2.5 El arranque del daemon — `prototipo/servicio/stream.py`
 
 ```bash
 # Producción (esquema): el SIEM reenvía alertas; el daemon las sigue y sirve el visor.
@@ -220,7 +220,7 @@ export TRIAJE_SSH_KNOWN_HOSTS=/ruta/known_hosts
 export TRIAJE_NODO_GESTION=<nodo-de-gestion>
 
 tail -n0 -F /ruta/al/alerts.json \
-  | python3 -m prototipo.stream - prototipo/perfiles/<cliente>.yml <hallazgos.json> --web
+  | python3 -m prototipo.servicio.stream - prototipo/perfiles/<cliente>.yml <hallazgos.json> --web
 ```
 
 - **Posicionales:** fuente (`-` = stdin), perfil, hallazgos de postura (Nmap del auditor; opcional según

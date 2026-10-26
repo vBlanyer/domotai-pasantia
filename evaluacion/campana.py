@@ -1,8 +1,10 @@
 """Orquesta la campana de evaluacion: prototipo vs baseline, todas las metricas, y el informe."""
 import argparse, json, os, datetime
 from evaluacion import cargar, prediccion, baseline, prioridad, anclaje, metricas
-from prototipo import rafaga
-from prototipo import catalogo as catm, perfil as perfilm, triaje, justificador_llm
+from prototipo.motor import rafaga
+from prototipo.motor import perfil as perfilm, triaje
+from prototipo.accion import catalogo as catm
+from prototipo.explicacion import justificador_llm
 
 def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_prioridad,
             con_llm=True, generador=None, recuperar_fn=None, _procesar=triaje.procesar,
@@ -122,11 +124,11 @@ def main(argv):
 
     recuperar_fn = None
     if a.con_rag:
-        from prototipo import rag
+        from prototipo.explicacion import rag
         try:
             indice = rag.cargar_indice()
         except FileNotFoundError:
-            print("ERROR: falta el indice del RAG. Genera primero: python3 -m prototipo.rag --indexar")
+            print("ERROR: falta el indice del RAG. Genera primero: python3 -m prototipo.explicacion.rag --indexar")
             return 1
         # Se usa el mismo recuperador que el sistema en produccion (filtro por tipo, consulta
         # dependiente de la clase y consulta registrada en la traza) en vez de una recuperacion

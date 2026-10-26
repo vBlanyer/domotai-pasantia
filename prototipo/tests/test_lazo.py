@@ -1,5 +1,6 @@
 import json, os, unittest, yaml
-from prototipo import lazo, catalogo
+from prototipo.accion import catalogo
+from prototipo.servicio import lazo
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
 CAT = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
@@ -420,7 +421,7 @@ class TestEscaladaPorDefecto(unittest.TestCase):
         self.assertEqual(ej.aplicado, set())
 
     def test_la_reversion_de_una_escalada_sale_de_la_orden_efectiva(self):
-        from prototipo import revertir
+        from prototipo.accion import revertir
         ej = self.HostCaido()
         r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil_con_topologia(),
                                "prueba", CAT, ej, "d1", "t", leer=lambda p: "s")

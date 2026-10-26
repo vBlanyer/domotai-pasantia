@@ -1,6 +1,6 @@
 import os, unittest
 from evaluacion import ablacion_postura as ab
-from prototipo import catalogo as catm
+from prototipo.accion import catalogo as catm
 
 CAT = catm.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "..", "prototipo", "catalogo.yml"))
 PERFIL = {"origenes_legitimos": ["192.168.1.1"], "rafaga": {"umbral": 9},

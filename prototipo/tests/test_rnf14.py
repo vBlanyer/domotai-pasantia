@@ -1,6 +1,7 @@
 # prototipo/tests/test_rnf14.py
 import os, unittest
-from prototipo import perfil, catalogo
+from prototipo.motor import perfil
+from prototipo.accion import catalogo
 
 BASE = os.path.join(os.path.dirname(__file__), "..")
 CAT = catalogo.cargar_catalogo(os.path.join(BASE, "catalogo.yml"))

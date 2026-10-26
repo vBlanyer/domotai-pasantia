@@ -3,15 +3,18 @@
 motor de triaje con RAG y el conector SSH real, y muestra el bloqueo y su verificación.
 
 Uso:  python3 lab/scripts/demo-lazo-vivo.py
-Requiere el laboratorio en marcha (sh lab/lab.sh up) y el índice RAG (python3 -m prototipo.rag --indexar).
+Requiere el laboratorio en marcha (sh lab/lab.sh up) y el índice RAG (python3 -m prototipo.explicacion.rag --indexar).
 """
 import json, subprocess, os, sys, time
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, REPO)
-from prototipo import ingesta, adaptador_wazuh
-from prototipo import triaje, orden as ordenm, conector, verificacion
-from prototipo import perfil as perfilm, catalogo as catm, rag, justificador_llm
+from prototipo.entrada import ingesta, adaptador_wazuh
+from prototipo.motor import triaje, orden as ordenm
+from prototipo.accion import conector, verificacion
+from prototipo.motor import perfil as perfilm
+from prototipo.accion import catalogo as catm
+from prototipo.explicacion import rag, justificador_llm
 
 VICT_C, VICT_IP, ATAC_C, ATAC_IP, WAZUH_C = (
     "clab-red-cliente-objetivo-vuln", "192.168.1.30",

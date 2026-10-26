@@ -1,0 +1,333 @@
+"""El perfil de cliente (V3/V4) y el filtro permite/degrada/veta (RNF-14, RF-17/18/19)."""
+import ipaddress
+import yaml
+from prototipo.motor import actores, impacto as impactom
+from prototipo.accion import catalogo as _cat
+
+UMBRAL_CONFIANZA = 0.7   # default; configurable por perfil en continuidad.umbral_confianza (RF-07). Sin calibrar aún (barrido pendiente)
+DEGRADACION = {"BLOQUEAR_PUERTO": "BLOQUEAR_IP"}   # alcanza_servicio -> localizado
+_ACCIONES_SOBRE_CUENTA = frozenset({"FORZAR_CAMBIO_PASS"})   # la acción recae sobre una cuenta (usuario)
+_REVERSION_OK = {"definida", "auto", "transitoria"}
+_CRITICIDADES = ("baja", "media", "alta", "critica")
+
+def cargar(ruta):
+    with open(ruta, encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+def _ip_ok(s):
+    return actores._canon(s) is not None
+
+def _cidr_ok(s):
+    try:
+        ipaddress.ip_network(str(s), strict=False)
+        return True
+    except ValueError:
+        return False
+
+def validar(perfil):
+    """Revisa el perfil al cargarlo y devuelve una lista de avisos (vacía = coherente), SIN romper:
+    un perfil mal escrito debe verse al arrancar, no fallar en silencio en la primera alerta. No
+    cambia ninguna decisión; es un chequeo de cordura (B11)."""
+    perfil = perfil or {}
+    avisos = []
+    activos = perfil.get("activos")
+    if activos is not None and not isinstance(activos, dict):
+        avisos.append("activos: se esperaba un mapa de equipos")
+        activos = {}
+    activos = activos or {}
+    topologia = perfil.get("topologia")
+    if topologia is not None and not isinstance(topologia, dict):
+        avisos.append("topologia: se esperaba un mapa")
+    if not perfil.get("ip_gestion"):
+        avisos.append("no hay ip_gestion declarada: RF-19 no puede proteger el plano de gestión")
+    elif not _ip_ok(perfil.get("ip_gestion")):
+        avisos.append(f"ip_gestion no es una IP válida: {perfil.get('ip_gestion')!r}")
+    for nombre, a in activos.items():
+        if not isinstance(a, dict):
+            avisos.append(f"activo {nombre}: se esperaba un mapa")
+            continue
+        if a.get("ip") is not None and not _ip_ok(a.get("ip")):
+            avisos.append(f"activo {nombre}: IP no parseable {a.get('ip')!r}")
+        dep_de = a.get("depende_de")
+        if dep_de is not None and not isinstance(dep_de, (list, tuple)):
+            avisos.append(f"activo {nombre}: depende_de debe ser una lista, no {dep_de!r}")
+        else:
+            for dep in dep_de or []:
+                if dep not in activos:
+                    avisos.append(f"activo {nombre}: depende_de un activo inexistente ({dep})")
+        for sp in a.get("servicios_prestados") or []:
+            if isinstance(sp, dict):
+                if sp.get("puerto") is None:
+                    avisos.append(f"activo {nombre}: servicio sin puerto ({sp!r})")
+                c = sp.get("criticidad")
+                if c is not None and c not in _CRITICIDADES:
+                    avisos.append(f"activo {nombre}: criticidad de servicio no reconocida ({c!r})")
+    for clave in ("origenes_legitimos", "terceros_confiables", "redes_internas"):
+        v = perfil.get(clave)
+        if v is None:
+            continue
+        if not isinstance(v, (list, tuple)):
+            avisos.append(f"{clave}: se esperaba una lista, no {v!r}")
+            continue
+        for item in v:
+            if not (_ip_ok(item) or _cidr_ok(item)):
+                avisos.append(f"{clave}: entrada no es IP ni CIDR válido ({item!r})")
+    rutas = perfil.get("rutas")
+    if rutas is not None and not isinstance(rutas, dict):
+        avisos.append("rutas: se esperaba un mapa rol->destino")
+    u = (perfil.get("continuidad") or {}).get("umbral_confianza")
+    if u is not None and not (isinstance(u, (int, float)) and 0 <= u <= 1):
+        avisos.append(f"continuidad.umbral_confianza fuera de [0,1]: {u!r}")
+    r = (perfil.get("rafaga") or {}).get("umbral")
+    if r is not None and not (isinstance(r, int) and r > 0):
+        avisos.append(f"rafaga.umbral debe ser un entero positivo: {r!r}")
+    nr = (perfil.get("continuidad") or {}).get("revisar_no_soportada_nivel")
+    if nr is not None and not (isinstance(nr, int) and not isinstance(nr, bool) and nr > 0):
+        avisos.append(f"continuidad.revisar_no_soportada_nivel debe ser un entero positivo: {nr!r}")
+    return avisos
+
+def criticidad_de(perfil, activo):
+    return perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")
+
+def ip_de(perfil, nodo):
+    """IP de ejecución de `nodo` declarada en el perfil (ver `actores.ip_de`). None si el perfil no
+    la declara (orden.construir cae entonces al mapa heredado del laboratorio)."""
+    return actores.ip_de(perfil, nodo)
+
+def ejecutor_aislamiento(perfil, activo):
+    """Nodo que pone en CUARENTENA a `activo` (AISLAR_NODO): su cortafuegos de borde —el primer
+    `firewall_perimetral` siguiendo la cadena `gateway` de la topología—, no el propio host: un host
+    hoja no se aísla con una regla FORWARD sobre sí mismo (solo afecta al tráfico en tránsito). Reusa
+    el mismo mecanismo que BLOQUEAR_IP_FIREWALL (bloqueo de reenvío en el borde). Devuelve (nombre, ip),
+    o (None, None) si el activo no tiene ruta a un cortafuegos (sin cuarentena ejecutable -> fail-closed)."""
+    topo = (perfil or {}).get("topologia") or {}
+    visto = set()
+    actual = (topo.get(activo) or {}).get("gateway")
+    while actual and actual not in visto:
+        visto.add(actual)
+        nodo = topo.get(actual)
+        if not isinstance(nodo, dict):
+            break
+        if nodo.get("rol") == "firewall_perimetral":
+            return actual, ip_de(perfil, actual)
+        actual = nodo.get("gateway")
+    return None, None
+
+def interfaz_de(perfil, activo):
+    """Interfaz de red declarada del `activo` en el inventario (para LIMITAR_BANDA: la interfaz cuyo
+    `tc` se acota). None si no está declarada -> sin throttle ejecutable (fail-closed)."""
+    info = ((perfil or {}).get("activos") or {}).get(activo) or {}
+    return info.get("interfaz") if isinstance(info, dict) else None
+
+def ruta_de(perfil, rol):
+    """Rol logico de ruta (p. ej. 'appsec') -> destino real del cliente. Sin binding, el rol mismo.
+    El registro de familias es agnostico; el binding a la cola/equipo del cliente vive en el perfil."""
+    if not rol:
+        return None
+    return perfil.get("rutas", {}).get(rol, rol)
+
+def _res(resultado, accion_final, requiere_humano):
+    return {"resultado": resultado, "accion_final": accion_final, "requiere_humano": requiere_humano}
+
+def _umbral(perfil):
+    # RF-07: el umbral de escalado es configurable por perfil; 0.7 por defecto.
+    return perfil.get("continuidad", {}).get("umbral_confianza", UMBRAL_CONFIANZA)
+
+def _corta_gestion(catalogo, accion_id, servicio):
+    # Sin `corta_gestion_si` la acción no corta la gestión: una alerta sin servicio (None) no puede
+    # casar con la clave ausente (None), o cualquier acción suya quedaría vetada en duro.
+    corta = catalogo.get(accion_id, {}).get("corta_gestion_si")
+    return corta is not None and corta == servicio
+
+def _excepcion_nunca_automatica(perfil, activo, params):
+    # La excepción del perfil marca un puerto/servicio de un activo como no-automatico.
+    puerto = params.get("puerto")
+    for ex in perfil.get("excepciones", []) or []:
+        if (ex.get("activo") == activo and ex.get("regla") == "nunca_automatica"
+                and ex.get("servicio") == puerto):
+            return True
+    return False
+
+def _permite_nivel(perfil, nivel, confianza):
+    # regla impacto_<nivel> del perfil: ¿la deja en automático con esta confianza?
+    regla = perfil.get("continuidad", {}).get(f"impacto_{nivel}", "humano_siempre")
+    if regla == "automatica":
+        return True
+    if regla == "automatica_si_confianza":
+        return confianza >= _umbral(perfil)
+    return False
+
+def _permite_localizado(perfil, confianza):
+    # regla impacto_localizado del perfil aplicada a una acción ya localizada
+    return _permite_nivel(perfil, "localizado", confianza)
+
+def _filtrar_reglas(perfil, accion_id, params, catalogo, activo, servicio, confianza, nivel):
+    """Las reglas de continuidad de siempre (RF-17 a RF-19), aplicadas con el nivel de impacto
+    DETERMINADO (`nivel`, nunca por debajo del catálogo: C2)."""
+    acc = catalogo[accion_id]
+    cont = perfil.get("continuidad", {})
+    # Precondición dura RF-19: no cortar el plano de gestión.
+    if cont.get("no_cortar_gestion") and _corta_gestion(catalogo, accion_id, servicio):
+        return _res("veta", None, True)
+    # Precondición dura RF-18: reversión definida y verificable.
+    if cont.get("reversibilidad_obligatoria") and acc.get("reversion") not in _REVERSION_OK:
+        return _res("veta", None, True)
+    # Excepción por servicio/activo (más específica que la regla por impacto).
+    if _excepcion_nunca_automatica(perfil, activo, params):
+        alt = DEGRADACION.get(accion_id)
+        if alt is not None:
+            return _res("degrada", alt, not _permite_localizado(perfil, confianza))
+        return _res("veta", accion_id, True)
+    regla = cont.get(f"impacto_{nivel}", "humano_siempre")
+    if regla == "automatica":
+        return _res("permite", accion_id, False)
+    if regla == "automatica_si_confianza":
+        if confianza >= _umbral(perfil):
+            return _res("permite", accion_id, False)
+        return _res("veta", accion_id, True)
+    # regla == "humano_siempre" (impacto alcanza_servicio): intentar degradar
+    alt = DEGRADACION.get(accion_id)
+    if alt is not None:
+        if _permite_localizado(perfil, confianza):
+            return _res("degrada", alt, False)
+        return _res("degrada", alt, True)
+    return _res("veta", accion_id, True)
+
+def _aplicar_actor(res, perfil, det):
+    """A quién bloquea la acción FINAL (C1, C4). El canal de gestión es veto duro (RF-19): cortarlo
+    impide la siguiente respuesta y la verificación. Un activo interno o un dispositivo de red con
+    política `humano_siempre` queda retenido para validación humana (el analista puede aprobarlo)."""
+    actor = det.get("actor")
+    if not res["accion_final"] or not actor:
+        return res
+    if actor["tipo"] == "gestion":
+        return _res("veta", None, True)
+    if (actor["tipo"] in actores.TIPOS_CON_POLITICA
+            and actores.politica(perfil, actor["tipo"]) == "humano_siempre"):
+        return _res("degrada" if res["resultado"] == "degrada" else "veta", res["accion_final"], True)
+    return res
+
+def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, hallazgos=None):
+    """permite / degrada / veta. El resultado lleva `impacto`: el impacto DETERMINADO de la acción
+    final (a quién bloquea y qué servicios detiene, `impacto.determinar`). Quien no lo use sigue
+    funcionando igual. La conciencia de actores vive aquí (C5) para que ningún punto de decisión
+    —tampoco un salto de la escalada— pueda saltársela."""
+    if accion_id is None:
+        return _res("sin_accion", None, False)
+    if accion_id not in catalogo:
+        return _res("veta", None, True)
+    det = impactom.determinar(accion_id, params, activo, perfil, catalogo, hallazgos)
+    if accion_id in impactom.ACCIONES_SOBRE_IP and not actores.es_ipv4((params or {}).get("ip")):
+        # Sin IP de origen (p. ej. una alerta sin srcip) o con una IPv6 no hay a quien bloquear con
+        # el catalogo: sin este veto se ejecutaba 'iptables -A INPUT -s None -j DROP' en automatico.
+        return {**_res("veta", None, True),
+                "impacto": {**det, "motivo": "sin IP de origen IPv4 válida: no hay a quién bloquear"}}
+    if accion_id in _ACCIONES_SOBRE_CUENTA and not (params or {}).get("usuario"):
+        # Simétrico al veto anterior: sin la cuenta en el evento no hay nada que bloquear; se veta en
+        # duro en vez de gastar una decisión humana sobre la cuenta "None" (falla-cerrado antes).
+        return {**_res("veta", None, True),
+                "impacto": {**det, "motivo": "sin usuario: no hay cuenta que bloquear"}}
+    # Bloquear por ORIGEN a un externo NO inventariado (el atacante) corta SOLO a esa IP —0 colateral,
+    # "0 servicios detenidos"—, lo mismo en el host que en el perímetro: no se retiene al humano solo
+    # por ser un salto perimetral (impacto de catálogo alcanza_servicio). Así la escalada de un ataque
+    # externo cuyo activo no responde (E1) se contiene sola en el cortafuegos. El humano se reserva para
+    # cuando el bloqueado podría ser una IP PROPIA: un activo_interno o un dispositivo_red conservan su
+    # nivel y su política de actor (abajo), y un cliente cauto lo retiene con
+    # continuidad.contener_externos_desconocidos (el guard de más abajo sigue actuando).
+    nivel_efectivo = det["nivel"]
+    if (accion_id in impactom.ACCIONES_SOBRE_IP and (det.get("actor") or {}).get("tipo") == "desconocido"):
+        nivel_efectivo = min(det["nivel"], "localizado", key=impactom.NIVELES.index)
+    res = _filtrar_reglas(perfil, accion_id, params, catalogo, activo, servicio, confianza, nivel_efectivo)
+    if res["accion_final"] and res["accion_final"] != accion_id:   # degradada: se ejecuta otra acción
+        det = impactom.determinar(res["accion_final"], params, activo, perfil, catalogo, hallazgos)
+        # C2: `_filtrar_reglas` decidió con el nivel de la acción PROPUESTA; la acción degradada
+        # puede resultar en un nivel MAYOR (p. ej. bloquear IP de un dispositivo de red sube a
+        # alcanza_servicio). Si la regla de continuidad para ese nivel final no lo autoriza en
+        # automático, la acción sigue ejecutándose (sigue "degrada"), pero retenida para el humano.
+        if not _permite_nivel(perfil, det["nivel"], confianza):
+            res = {**res, "requiere_humano": True}
+    final = _aplicar_actor(res, perfil, det)
+    # Tercero externo de confianza (socio crítico): un ataque aparente desde él no se auto-bloquea
+    # —cortarlo tiraría un servicio de negocio—, se retiene para un humano (la acción se conserva).
+    if (accion_id in impactom.ACCIONES_SOBRE_IP and final.get("accion_final")
+            and not final.get("requiere_humano")
+            and actores.es_tercero_confiable((params or {}).get("ip"), perfil)):
+        final = {**final, "requiere_humano": True}
+        det = {**det, "motivo": f"{det.get('motivo') or ''} · origen en terceros_confiables: "
+                                "no se bloquea en automático, requiere aprobación".strip()}
+    # Postura conservadora OPCIONAL (continuidad.contener_externos_desconocidos: humano_siempre): un
+    # externo no inventariado puede ser una IP legítima SUPLANTADA (srcip/XFF forjado) para provocar un
+    # auto-bloqueo dañino. Si el perfil lo activa, se retiene para humano. Apagado por defecto -> el
+    # comportamiento (y las métricas canónicas) no cambian.
+    if (accion_id in impactom.ACCIONES_SOBRE_IP and final.get("accion_final")
+            and not final.get("requiere_humano")
+            and (det.get("actor") or {}).get("tipo") == "desconocido"
+            and perfil.get("continuidad", {}).get("contener_externos_desconocidos") == "humano_siempre"):
+        final = {**final, "requiere_humano": True}
+        det = {**det, "motivo": f"{det.get('motivo') or ''} · externo desconocido: "
+                                "no se bloquea en automático (política del perfil)".strip()}
+    # Acciones marcadas `nunca_automatica` en el catálogo (REINICIAR_NODO/AISLAR_NODO): guard duro,
+    # jamás se auto-ejecutan aunque el perfil del cliente las autorizara. Un atacante que forje una
+    # alerta de alta confianza no puede disparar un reinicio/aislamiento de una joya de la corona.
+    if final.get("accion_final") and catalogo.get(final["accion_final"], {}).get("nunca_automatica"):
+        final = {**final, "requiere_humano": True}
+    # Cuarentena real en el borde (6ª familia, FIM): AISLAR_NODO corta el reenvío del host en su
+    # cortafuegos de borde (como BLOQUEAR_IP_FIREWALL), no en el propio host. Si no hay IP del host en
+    # el inventario o no hay cortafuegos al que escalar, no existe cuarentena ejecutable: fail-closed a
+    # veto duro (el humano recibe la alerta, sin una acción que no correría). Va al final: no pisa un
+    # veto previo (p. ej. gestión, que ya anuló `accion_final`).
+    if final.get("accion_final") == "AISLAR_NODO":
+        _ejec, ejec_ip = ejecutor_aislamiento(perfil, activo)
+        if not actores.es_ipv4(ip_de(perfil, activo)) or not ejec_ip:
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede aislar el host: sin IP en el inventario "
+                                "o sin cortafuegos de borde al que escalar la cuarentena"}}
+    # DoS/flood (7ª familia): LIMITAR_BANDA acota la banda del enlace del host víctima. No se acota el
+    # canal de gestión (RF-19: degradarlo impide responder/verificar), y sin interfaz declarada no hay
+    # throttle ejecutable -> ambos fail-closed a veto duro.
+    if final.get("accion_final") == "LIMITAR_BANDA":
+        objetivo_ip = ip_de(perfil, activo)
+        gestion = (perfil or {}).get("ip_gestion")
+        # Fail-closed: sin IP del host no se puede acotar la banda (el conector la necesita) NI
+        # comprobar que no es el canal de gestión -> veto duro, sin depender de que el conector rechace.
+        if not objetivo_ip:
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede acotar la banda: el activo no tiene IP en el inventario"}}
+        if gestion and actores._coincide(objetivo_ip, gestion):
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se acota la banda del canal de gestión (RF-19)"}}
+        if not interfaz_de(perfil, activo):
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede acotar la banda: el activo no declara interfaz en el inventario"}}
+    # Exfiltración/C2 (9ª familia): BLOQUEAR_DESTINO corta el egreso al destino malicioso en el
+    # cortafuegos de borde del host que baliza (como AISLAR_NODO). Sin una IP de destino IPv4 válida
+    # (params.ip, que pone politica.proponer desde la alerta) no hay egreso que cortar con el catálogo,
+    # y sin cortafuegos de borde al que escalar no hay dónde ejecutarlo -> ambos fail-closed a veto duro.
+    if final.get("accion_final") == "BLOQUEAR_DESTINO":
+        destino = (params or {}).get("ip")
+        _ejec, ejec_ip = ejecutor_aislamiento(perfil, activo)
+        if not actores.es_ipv4(destino):
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede bloquear el egreso: sin IP de destino IPv4 válida"}}
+        # RF-19 + anti self-DoS: el destino de un C2 real es EXTERNO (no inventariado). Como BLOQUEAR_DESTINO
+        # no pasa por la conciencia de actores (actúa sobre el destino, no el origen), aquí se comprueba
+        # explícitamente: si el destino coincide con una IP PROPIA —el canal de gestión, un activo interno
+        # o un dispositivo de red—, bloquear el egreso hacia ella cortaría tráfico legítimo/el plano SOC.
+        # Eso nunca es un C2 legítimo (señal de alerta forjada o FP de la lista de amenazas): veto duro.
+        quien = actores.quien_es(destino, perfil)
+        if quien and quien.get("tipo") != "desconocido":
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se bloquea el egreso hacia una IP propia "
+                                f"({impactom._TIPO_LEGIBLE.get(quien['tipo'], quien['tipo'])}): "
+                                "un destino de C2 es externo; coincidir con un activo propio es forja o FP"}}
+        if not ejec_ip:
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede bloquear el egreso: sin cortafuegos de borde al que escalar"}}
+        # Destino externo bloqueable que además es un tercero de confianza (socio crítico declarado):
+        # cortar el egreso hacia él tiraría un servicio de negocio. Ya se retiene para humano
+        # (nunca_automatica), pero el analista debe verlo EXPLÍCITO, igual que al bloquear un tercero por
+        # ORIGEN: una alerta forjada/FP que marque al socio como C2 no debe cortarlo sin ojo humano.
+        if actores.es_tercero_confiable(destino, perfil):
+            det = {**det, "motivo": (f"{det.get('motivo') or ''} · destino en terceros_confiables: "
+                   "cortar el egreso tiraría un servicio de negocio, revisar con cuidado").strip()}
+    return {**final, "impacto": det}
