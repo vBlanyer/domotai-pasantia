@@ -321,5 +321,115 @@ class TestTandaAutomatica(unittest.TestCase):
         self.assertTrue(any("ip addr add" in a[-1] for a in llamadas))
 
 
+class TestTandaContinua(unittest.TestCase):
+    """Soak: lanza ataques VARIADOS sin fin (hasta Ctrl+C o `vueltas`), barajando el orden y rotando
+    la IP de origen, para ejercitar el camino detección→triaje→respuesta del MDR de forma continua."""
+
+    def _fake(self):
+        llamadas = []
+        def ejecutar(args, **kw):
+            llamadas.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+        return llamadas, ejecutar
+
+    def _ids_lanzados(self, lineas):
+        """Los ids de ataque en el orden en que la tanda los narró ('  [N] vuelta V · ID — ...')."""
+        import re
+        return [m.group(1) for l in lineas for m in [re.search(r"· (\S+) —", l)] if m]
+
+    def _pool_por_vuelta(self):
+        rotables = [c for c in demo.casos_vivos() if demo.rotable(c)]
+        return len(rotables) + len(demo.ATAQUES_HOST)
+
+    def test_para_tras_las_vueltas_pedidas_y_cubre_todas_las_familias(self):
+        llamadas, ejecutar = self._fake()
+        lineas = []
+        res = demo.tanda_continua(ejecutar=ejecutar, dormir=lambda *_: None, vueltas=1,
+                                  restaurar_cada=0, semilla=7, escribir=lineas.append)
+        self.assertEqual(res["vueltas"], 1)
+        ids = self._ids_lanzados(lineas)
+        self.assertEqual(len(ids), self._pool_por_vuelta())
+        # una vuelta cubre TODAS las familias: los seis ataques de host y los casos de red rotables.
+        for h in demo.ATAQUES_HOST:
+            self.assertIn(h["id"], ids, h["id"])
+        for c in demo.casos_vivos():
+            if demo.rotable(c):
+                self.assertIn(c["id"], ids, c["id"])
+
+    def test_rota_la_ip_sin_repetir_entre_vueltas(self):
+        import re
+        llamadas, ejecutar = self._fake()
+        lineas = []
+        demo.tanda_continua(ejecutar=ejecutar, dormir=lambda *_: None, vueltas=3,
+                            restaurar_cada=0, semilla=1, escribir=lineas.append)
+        ips = [m.group(1) for l in lineas for m in [re.search(r"desde (\d+\.\d+\.\d+\.\d+)", l)] if m]
+        self.assertTrue(ips)                                   # hubo ataques de red rotados
+        self.assertEqual(len(ips), len(set(ips)))              # ninguna IP de origen se reutilizó
+
+    def test_el_orden_es_reproducible_con_semilla_y_cambia_al_cambiarla(self):
+        def corrida(semilla):
+            _, ejecutar = self._fake()
+            lineas = []
+            demo.tanda_continua(ejecutar=ejecutar, dormir=lambda *_: None, vueltas=2,
+                                restaurar_cada=0, semilla=semilla, escribir=lineas.append)
+            return self._ids_lanzados(lineas)
+        self.assertEqual(corrida(42), corrida(42))             # misma semilla -> mismo orden (RNF-03)
+        self.assertNotEqual(corrida(1), corrida(2))            # semillas distintas -> orden distinto
+
+    def test_restaura_el_banco_cada_n_ataques(self):
+        llamadas, ejecutar = self._fake()
+        demo.tanda_continua(ejecutar=ejecutar, dormir=lambda *_: None, vueltas=2,
+                            restaurar_cada=3, semilla=5, escribir=lambda *_: None)
+        restauraciones = [a for a in llamadas if a[0] == "sh" and a[-1] == "restaurar"]
+        self.assertTrue(restauraciones, "debió restaurar el banco al llegar al tope")
+        self.assertTrue(restauraciones[0][1].endswith("banco.sh"))
+
+    def test_no_restaura_si_el_tope_es_cero(self):
+        llamadas, ejecutar = self._fake()
+        demo.tanda_continua(ejecutar=ejecutar, dormir=lambda *_: None, vueltas=3,
+                            restaurar_cada=0, semilla=5, escribir=lambda *_: None)
+        self.assertFalse([a for a in llamadas if a[-1] == "restaurar"])
+
+    def test_para_limpio_con_ctrlc_y_resume(self):
+        llamadas, ejecutar = self._fake()
+        lineas = []
+        n = {"i": 0}
+        def dormir(_):
+            n["i"] += 1
+            if n["i"] >= 2:
+                raise KeyboardInterrupt
+        # sin fin (vueltas=None): solo Ctrl+C lo para; debe salir limpio y dejar un resumen.
+        res = demo.tanda_continua(ejecutar=ejecutar, dormir=dormir, vueltas=None,
+                                  restaurar_cada=0, semilla=5, escribir=lineas.append)
+        self.assertEqual(res["lanzados"], 2)                   # paró en el 2º gap
+        self.assertTrue(any("parada" in l for l in lineas))
+
+    def test_restaurar_banco_reusa_el_script_del_banco(self):
+        llamadas, ejecutar = self._fake()
+        demo.restaurar_banco(ejecutar=ejecutar)
+        self.assertEqual(len(llamadas), 1)
+        self.assertEqual(llamadas[0][0], "sh")
+        self.assertTrue(llamadas[0][1].endswith("banco.sh"))
+        self.assertEqual(llamadas[0][2], "restaurar")
+
+    def test_main_continuo_corre_la_tanda(self):
+        llamadas, ejecutar = self._fake()
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            rc = demo.main(["continuo", "--vueltas", "1", "--restaurar-cada", "0"],
+                           ejecutar=ejecutar, dormir=lambda *_: None)
+        self.assertEqual(rc, 0)
+        self.assertTrue(any("ip addr add" in a[-1] for a in llamadas))
+        self.assertIn("parada", salida.getvalue())
+
+    def test_soak_es_alias_de_continuo(self):
+        llamadas, ejecutar = self._fake()
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = demo.main(["soak", "--vueltas", "1", "--restaurar-cada", "0"],
+                           ejecutar=ejecutar, dormir=lambda *_: None)
+        self.assertEqual(rc, 0)
+        self.assertTrue(any("ip addr add" in a[-1] for a in llamadas))
+
+
 if __name__ == "__main__":
     unittest.main()

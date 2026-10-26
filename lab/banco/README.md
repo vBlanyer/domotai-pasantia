@@ -13,6 +13,7 @@ actúa. Diseño: `archivo/proceso-desarrollo/superpowers/specs/2026-09-21-labora
     sh lab/banco/banco.sh cascada core-db # ver una cascada real y su recuperación
     sh lab/banco/banco.sh vigilar         # panel en vivo: servicios en verde/rojo
     sh lab/banco/banco.sh atacar          # lanzador de ataques por número (para demos)
+    sh lab/banco/banco.sh atacar continuo # SOAK: ataques variados sin fin, para probar el MDR en continuo
     sh lab/lab.sh down banco
 
 Prueba manual completa (casos, limpieza y reinicio): [`docs/pruebas/08-laboratorio-banco.md`](../../docs/pruebas/08-laboratorio-banco.md).
