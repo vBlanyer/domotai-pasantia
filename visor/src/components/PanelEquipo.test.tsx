@@ -74,3 +74,27 @@ describe("PanelEquipo — pivote y jerarquía", () => {
     expect(screen.getByText(/Eventos recientes/)).toBeInTheDocument()
   })
 })
+
+describe("PanelEquipo — subred y pivote del pie", () => {
+  const nod = { nombre: "web-banking", actividad: { objetivo: 3, origen: 0, contuvo_aqui: 0, pendientes: 0, estado: "atacado", ultima: null } } as unknown as Parameters<typeof PanelEquipo>[0]["nodo"]
+
+  it("agrupa los atacantes por subred con el conmutador", () => {
+    const ev = Array.from({ length: 3 }, (_, i) => (
+      { indice: i, origen_ip: `198.51.100.${10 + i}`, prioridad: 4, relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { alcance: "externo" } }
+    )) as unknown as Parameters<typeof PanelEquipo>[0]["eventos"]
+    render(<PanelEquipo nodo={nod} eventos={ev} onVerDecisiones={() => {}} />)
+    fireEvent.click(screen.getByRole("button", { name: /por subred/i }))
+    expect(screen.getByText("198.51.100.0/24")).toBeInTheDocument()
+    expect(screen.getByText(/3 IP/)).toBeInTheDocument()
+  })
+
+  it("con muchos orígenes, el pie pivota a Decisiones (ya no es texto muerto)", () => {
+    const onVerDecisiones = vi.fn()
+    const ev = Array.from({ length: 10 }, (_, i) => (
+      { indice: i, origen_ip: `198.51.${i}.10`, prioridad: 4, relaciones: { "web-banking": ["objetivo"] } }
+    )) as unknown as Parameters<typeof PanelEquipo>[0]["eventos"]
+    render(<PanelEquipo nodo={nod} eventos={ev} onVerDecisiones={onVerDecisiones} />)
+    fireEvent.click(screen.getByRole("button", { name: /orígenes en Decisiones/i }))
+    expect(onVerDecisiones).toHaveBeenCalled()
+  })
+})

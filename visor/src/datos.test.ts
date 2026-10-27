@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -359,5 +359,21 @@ describe("atacantesDe: ranking por gravedad", () => {
     const r = atacantesDe(ev, "x")
     expect(r.map((at) => at.ip)).toEqual(["b", "a"])     // b primero por gravedad, aunque tenga menos ataques
     expect(r[0].prioridad).toBe(4)
+  })
+})
+
+describe("agruparPorSubred", () => {
+  it("colapsa por /24 sumando ataques e IPs, con gravedad máxima y unión de 'también en'", () => {
+    const at = [
+      { ip: "198.51.100.10", n: 3, prioridad: 4, ultima: "t2", alcance: "externo", otrosEquipos: [] },
+      { ip: "198.51.100.11", n: 1, prioridad: 2, ultima: "t1", alcance: "externo", otrosEquipos: ["core-db"] },
+      { ip: "10.0.0.5", n: 2, prioridad: 3, ultima: "t3", alcance: "interno", otrosEquipos: [] },
+    ]
+    const g = agruparPorSubred(at)
+    const banco = g.find((x) => x.cidr === "198.51.100.0/24")!
+    expect(banco).toMatchObject({ ips: 2, n: 4, prioridad: 4, prefijo: "198.51.100." })
+    expect(banco.otrosEquipos).toEqual(["core-db"])
+    expect(g.find((x) => x.cidr === "10.0.0.0/24")!.ips).toBe(1)
+    expect(g[0].cidr).toBe("198.51.100.0/24")        // ordenado por gravedad (P4) primero
   })
 })
