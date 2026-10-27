@@ -192,3 +192,54 @@ class TestRevertirTodas(unittest.TestCase):
         ruta = self._traza([])
         self.assertEqual(revertir.revertir_todas(ruta, CAT, EjecutorFalso()),
                          {"revertidas": 0, "fallidas": 0, "detalle": []})
+
+
+class TestRevertirUna(unittest.TestCase):
+    """Reversión de UNA contención concreta por su índice de traza (botón por fila del panel), sin
+    tocar las demás. Mismo criterio que el des-bloqueo en masa, pero acotado a un índice."""
+    def _dec(self, id_decision, ip):
+        return {"tipo": "decision", "id_decision": id_decision, "activo": "objetivo-vuln",
+                "orden": {"accion_id": "BLOQUEAR_IP", "nodo_objetivo": "objetivo-vuln",
+                          "nodo_ip": "192.168.1.30", "params": {"ip": ip}},
+                "ejecucion": {"exito": True, "idempotente": False}, "verificacion": {"verificado": True}}
+
+    def _traza(self, registros):
+        import json, os, tempfile
+        from prototipo.servicio import traza
+        ruta = os.path.join(tempfile.mkdtemp(), "trazas.jsonl")
+        prev = traza.GENESIS
+        with open(ruta, "w", encoding="utf-8") as f:
+            for r in registros:
+                enc = traza.encadenar(r, prev); prev = enc["hash"]
+                f.write(json.dumps(enc) + "\n")
+        return ruta
+
+    def test_revierte_solo_el_indice_pedido(self):
+        from prototipo.servicio import traza
+        ruta = self._traza([self._dec("s1", "198.51.100.10"), self._dec("s2", "203.0.113.9")])
+        res = revertir.revertir_una(ruta, 1, CAT, EjecutorFalso(), motivo="fp", operador="ana")
+        self.assertTrue(res["revertida"])
+        self.assertEqual(res["detalle"]["id_decision"], "s2")
+        regs = traza.leer_registros(ruta)
+        revs = [r for r in regs if r.get("tipo") == "reversion"]
+        self.assertEqual(len(revs), 1)                              # solo una, no todas
+        self.assertEqual(revs[0]["indice_revertido"], 1)
+        self.assertEqual(revs[0]["operador"], "ana")
+        self.assertTrue(traza.verificar(regs)["valida"])            # la cadena sigue íntegra
+        # s1 (índice 0) sigue activa; s2 (índice 1) ya no
+        from prototipo.accion import contenciones
+        activas = contenciones.activas(traza.leer_registros(ruta), CAT)
+        self.assertEqual([a["indice"] for a in activas], [0])
+
+    def test_un_indice_que_no_es_contencion_activa_no_revierte(self):
+        ruta = self._traza([self._dec("s1", "198.51.100.10")])
+        res = revertir.revertir_una(ruta, 5, CAT, EjecutorFalso())   # índice inexistente
+        self.assertFalse(res["revertida"])
+        self.assertIn("error", res)
+
+    def test_no_revierte_dos_veces_el_mismo_indice(self):
+        ruta = self._traza([self._dec("s1", "198.51.100.10")])
+        self.assertTrue(revertir.revertir_una(ruta, 0, CAT, EjecutorFalso())["revertida"])
+        res2 = revertir.revertir_una(ruta, 0, CAT, EjecutorFalso())  # ya no está activa
+        self.assertFalse(res2["revertida"])
+        self.assertIn("error", res2)

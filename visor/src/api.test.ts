@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { getConsola, revertirTodo, SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getCaso, getPendientes, ahoraServidor, recordando, listaConocida } from "./api"
+import { getConsola, revertirTodo, revertirUna, SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getCaso, getPendientes, ahoraServidor, recordando, listaConocida } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -309,6 +309,17 @@ describe("revertirTodo", () => {
     vi.stubGlobal("fetch", f)
     await revertirTodo()
     expect(JSON.parse(f.mock.calls[0][1].body)).toMatchObject({ confirmar: true })
+  })
+})
+
+describe("revertirUna", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it("manda el índice y el gesto explícito al endpoint individual", async () => {
+    const f = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ revertida: true }) })
+    vi.stubGlobal("fetch", f)
+    await revertirUna(9)
+    expect(f.mock.calls[0][0]).toMatch(/\/api\/revertir$/)
+    expect(JSON.parse(f.mock.calls[0][1].body)).toMatchObject({ indice: 9, confirmar: true })
   })
 })
 

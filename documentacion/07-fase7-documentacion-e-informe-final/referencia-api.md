@@ -53,6 +53,7 @@ Requieren `Origin` localhost (si viene de navegador) y token si está configurad
 | `POST /api/caso` | `{id, estado?, asignado?, nota?, operador?}` | `{ok:true}` · `400` si `estado` no es válido o la actualización está vacía · `409` en modo bloqueante. `estado` ∈ `{nuevo, en_revision, resuelto}`. Añade un registro `actualizacion_caso` **encadenado** (no muta la decisión). |
 | `POST /api/pausa` | `{pausar: bool}` | `{pausada: bool}`. *Kill switch*: con `true`, toda contención automática pasa a esperar humano. Narra el **cambio** en la Consola (`⏻ … por <operador>`); un reenvío idempotente no deja línea. |
 | `POST /api/revertir-todo` | `{confirmar: true, operador?}` | Resultado del **des-bloqueo en masa** (revierte todas las contenciones activas). Sin `confirmar: true` → `400` (gesto explícito: levanta todos los bloqueos del atacante); si ya hay uno en curso → `409` (exclusión mutua). |
+| `POST /api/revertir` | `{indice, confirmar: true, operador?}` | **Revierte UNA sola contención** por su `indice` de traza (el botón por fila del panel). `{revertida: bool, detalle}`. Sin `confirmar: true` → `400`; `indice` no numérico → `400`; si el índice no es una contención activa (inexistente o ya revertida) → `409`. Serializado con el des-bloqueo en masa (mismo lock). |
 
 ## Códigos de estado
 
@@ -82,6 +83,6 @@ curl -fsS -X POST -H "Content-Type: application/json" -H "Authorization: Bearer 
 curl -fsS "http://127.0.0.1:8787/api/metricas?desde=2026-10-01&hasta=2026-10-31"
 ```
 
-> Nota: las acciones (`/api/aprobar`, `/api/caso`, `/api/revertir-todo`, `/api/pausa`) ejecutan o
+> Nota: las acciones (`/api/aprobar`, `/api/caso`, `/api/revertir-todo`, `/api/revertir`, `/api/pausa`) ejecutan o
 > cambian estado real y quedan en la traza con el operador (no repudio). Trátalas con el mismo cuidado
 > que una contención manual.

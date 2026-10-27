@@ -767,6 +767,76 @@ class TestRevertirTodoAPI(unittest.TestCase):
         self.assertEqual(sorted(estados), [200, 409])
 
 
+class TestRevertirUnaAPI(unittest.TestCase):
+    """POST /api/revertir {indice} des-bloquea UNA contención concreta (botón por fila del panel)."""
+    CAT = {"BLOQUEAR_IP": {"reversion": "definida", "comando": "iptables -A INPUT -s {ip} -j DROP",
+                           "reversion_cmd": "iptables -D INPUT -s {ip} -j DROP",
+                           "verificacion": "iptables -L -n | grep {ip}"}}
+
+    def _ej(self, nodo_ip, cmd):
+        return (0, "") if cmd.startswith("iptables -D") else (1, "")
+
+    def _traza_dos_bloqueos(self):
+        ruta = os.path.join(tempfile.mkdtemp(), "trazas.jsonl")
+        prev = traza.GENESIS
+        with open(ruta, "w", encoding="utf-8") as f:
+            for i, ip in enumerate(("198.51.100.10", "203.0.113.9")):
+                reg = {"tipo": "decision", "id_decision": f"s{i + 1}", "activo": "objetivo-vuln",
+                       "orden": {"accion_id": "BLOQUEAR_IP", "nodo_objetivo": "objetivo-vuln",
+                                 "nodo_ip": "192.168.1.30", "params": {"ip": ip}},
+                       "ejecucion": {"exito": True}, "verificacion": {"verificado": True}}
+                enc = traza.encadenar(reg, prev); prev = enc["hash"]
+                f.write(json.dumps(enc) + "\n")
+        return ruta
+
+    def _srv(self, ruta):
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), ruta, puerto=0,
+                                     estaticos=tempfile.mkdtemp(), catalogo=self.CAT, ejecutor=self._ej)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv
+
+    def _post(self, puerto, ruta, obj):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=5)
+        c.request("POST", ruta, json.dumps(obj), {"Content-Type": "application/json"})
+        r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, json.loads(cuerpo)
+
+    def test_revierte_solo_el_indice_pedido_y_lo_narra(self):
+        ruta = self._traza_dos_bloqueos()
+        srv = self._srv(ruta)
+        estado, cuerpo = self._post(srv.server_address[1], "/api/revertir",
+                                    {"indice": 1, "confirmar": True, "operador": "ana"})
+        self.assertEqual(estado, 200)
+        self.assertTrue(cuerpo["revertida"])
+        # solo la del índice 1; la del índice 0 sigue activa
+        from prototipo.accion import contenciones
+        activas = contenciones.activas(traza.leer_registros(ruta), self.CAT)
+        self.assertEqual([a["indice"] for a in activas], [0])
+        # la Consola lo narra (↶ con operador)
+        _, lineas = srv.estado.consola()
+        self.assertTrue(any(l["linea"].startswith("↶") and "por ana" in l["linea"] for l in lineas), lineas)
+
+    def test_sin_confirmar_no_revierte(self):
+        ruta = self._traza_dos_bloqueos()
+        srv = self._srv(ruta)
+        estado, _ = self._post(srv.server_address[1], "/api/revertir", {"indice": 1})
+        self.assertEqual(estado, 400)
+        self.assertFalse(any(r.get("tipo") == "reversion" for r in traza.leer_registros(ruta)))
+
+    def test_indice_no_activo_da_409(self):
+        ruta = self._traza_dos_bloqueos()
+        srv = self._srv(ruta)
+        estado, _ = self._post(srv.server_address[1], "/api/revertir", {"indice": 99, "confirmar": True})
+        self.assertEqual(estado, 409)
+
+    def test_indice_invalido_da_400(self):
+        ruta = self._traza_dos_bloqueos()
+        srv = self._srv(ruta)
+        estado, _ = self._post(srv.server_address[1], "/api/revertir", {"indice": "x", "confirmar": True})
+        self.assertEqual(estado, 400)
+
+
 class TestResolucionDeOperador(unittest.TestCase):
     """M5 de la auditoría 20/10: con mapa de operadores, el campo `operador` del cuerpo NO puede
     identificar — el usuario del token compartido atribuía su veredicto a cualquier nombre."""

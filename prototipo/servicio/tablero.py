@@ -917,7 +917,7 @@ class _Manejador(BaseHTTPRequestHandler):
         try:
             s = self.server
             ruta = self.path.split("?", 1)[0]
-            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/caso"):
+            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso"):
                 return self._responder({"error": "no encontrado"}, 404)
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -952,6 +952,32 @@ class _Manejador(BaseHTTPRequestHandler):
                 s.estado.anotar_linea(f"↶ des-bloqueo en masa: {res.get('revertidas', 0)} revertida(s), "
                                       f"{res.get('fallidas', 0)} fallida(s)"
                                       + (f" · por {operador}" if operador else ""))
+                return self._responder(res)
+            if ruta == "/api/revertir":   # des-bloqueo de UNA contención por su índice de traza
+                if (cuerpo.get("confirmar") if isinstance(cuerpo, dict) else None) is not True:
+                    return self._responder({"error": "falta confirmar: true"}, 400)
+                try:
+                    indice = int(cuerpo.get("indice"))
+                except (TypeError, ValueError):
+                    return self._responder({"error": "indice invalido"}, 400)
+                # Se serializa con el des-bloqueo en masa: una reversión individual y una en masa
+                # concurrentes podrían calcular las activas y ejecutar los `iptables -D` a la vez.
+                if not _revertir_todo_lock.acquire(blocking=False):
+                    return self._responder({"error": "ya hay un des-bloqueo en curso"}, 409)
+                try:
+                    from prototipo.accion import revertir, conector
+                    ejecutor = getattr(s, "ejecutor", None) or conector.ejecutor_por_defecto()
+                    res = revertir.revertir_una(s.ruta_traza, indice, s.catalogo, ejecutor,
+                                                motivo="des-bloqueo individual", operador=operador)
+                finally:
+                    _revertir_todo_lock.release()
+                if "error" in res:   # el índice no era una contención activa (inexistente o ya revertida)
+                    return self._responder(res, 409)
+                d = res.get("detalle") or {}
+                s.estado.anotar_linea(
+                    f"↶ des-bloqueo de {d.get('accion_id')} en {d.get('nodo')} ({d.get('objetivo')})"
+                    + ("" if res.get("revertida") else " — FALLÓ")
+                    + (f" · por {operador}" if operador else ""))
                 return self._responder(res)
             if ruta == "/api/caso":   # ciclo de vida del caso: añade un `actualizacion_caso` a la cadena
                 try:
