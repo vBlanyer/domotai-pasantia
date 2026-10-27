@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 
 // Las gráficas se stubean (como en Metricas.test) para asertar los DATOS derivados, no Recharts.
 vi.mock("./charts", () => ({
@@ -53,5 +53,24 @@ describe("PanelEquipo — correlación de atacantes", () => {
     expect(screen.getAllByText("198.51.100.11").length).toBeGreaterThan(0)  // en la tabla de atacantes (y en la lista)
     expect(screen.getByText("×2")).toBeInTheDocument()                 // nº de ataques contra el equipo
     expect(screen.getByText(/1 equipo/)).toBeInTheDocument()           // correlación: también en core-db
+  })
+})
+
+describe("PanelEquipo — pivote y jerarquía", () => {
+  const nod = { nombre: "web-banking", actividad: { objetivo: 2, origen: 0, contuvo_aqui: 0, pendientes: 0, estado: "atacado", ultima: null } } as unknown as Parameters<typeof PanelEquipo>[0]["nodo"]
+  const ev = [
+    { indice: 1, origen_ip: "198.51.100.11", prioridad: 4, timestamp: "2026-10-27T10:00:00", clase: "vp_intento_acceso", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { alcance: "externo" } },
+  ] as unknown as Parameters<typeof PanelEquipo>[0]["eventos"]
+
+  it("al pulsar una IP atacante pide ver sus decisiones", () => {
+    const onVerOrigen = vi.fn()
+    render(<PanelEquipo nodo={nod} eventos={ev} todos={ev} onVerDecisiones={() => {}} onVerOrigen={onVerOrigen} />)
+    fireEvent.click(screen.getByRole("button", { name: "198.51.100.11" }))
+    expect(onVerOrigen).toHaveBeenCalledWith("198.51.100.11")
+  })
+
+  it("la lista de eventos es un bloque plegable", () => {
+    render(<PanelEquipo nodo={nod} eventos={ev} onVerDecisiones={() => {}} />)
+    expect(screen.getByText(/Eventos recientes/)).toBeInTheDocument()
   })
 })

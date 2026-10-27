@@ -127,6 +127,12 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Panel del equipo más accionable** (vista Red): la tabla de atacantes se **rankea por gravedad**
+  (prioridad del peor ataque de cada origen, con su badge, y desempate por nº de ataques), cada **IP
+  es clicable** y pivota a Decisiones **filtradas por esa IP** (seguir el hilo del atacante), y la
+  **lista de eventos cruda pasa a un bloque plegable** con títulos de sección, para que el panel se
+  lea como resumen → correlación → detalle. `atacantesDe` expone `prioridad`; Decisiones acepta
+  `textoInicial` para sembrar el filtro al pivotar.
 - **Correlación de atacantes por dispositivo** (vista Red): al pinchar un equipo, su panel lista los
   **orígenes que lo han atacado** con el **nº de veces** que cada IP lo golpeó, su alcance
   (interno/externo) y —correlación entre dispositivos, al estilo de los MDR comerciales— **en cuántos

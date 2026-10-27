@@ -344,12 +344,14 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
   )
 }
 
-export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
-  equipo?: string | null; onQuitarEquipo?: () => void; onVerIncidente?: (d: Decision) => void
+export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, onVerIncidente }: {
+  equipo?: string | null; textoInicial?: string; onQuitarEquipo?: () => void; onVerIncidente?: (d: Decision) => void
 } = {}) {
   const r = useSondeo(getDecisiones)
   const [abierto, setAbierto] = useState<string | null>(null)
-  const [filtro, setFiltro] = useState<Filtro>({ texto: "", clase: "" })
+  const [filtro, setFiltro] = useState<Filtro>({ texto: textoInicial, clase: "" })
+  // Al pivotar desde otra vista (p. ej. clic en una IP atacante) se siembra el filtro de texto.
+  useEffect(() => setFiltro((f) => ({ ...f, texto: textoInicial })), [textoInicial])
   const [pagina, setPagina] = useState(1)
   const [tam, setTam] = useState(TAM_PAGINA)
   // Al cambiar filtro o equipo la lista cambia de tamaño: se vuelve a la primera página.
