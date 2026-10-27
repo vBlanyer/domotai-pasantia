@@ -144,11 +144,12 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   las públicas como «sin base GeoIP cargada»; punto de extensión documentado para enchufar una
   GeoLite2. Additivo: no cambia ninguna decisión ni el texto del motivo.
 - **Datos por dispositivo en la vista Red**: al pinchar un equipo, su panel muestra ahora, además de
-  la lista de eventos, un resumen de la ventana —conteos (total / automáticas / retenidas / contenidas)
-  y último visto— y dos gráficas propias: **donut por clase** y **tendencia por día**, calculadas en
-  cliente de la traza filtrada por ese equipo (`relaciones`), reutilizando `Donut`/`Tendencia` de
-  `charts.tsx` y el helper `agruparPorDia`. Se quitó el recorte a 30 de `Red.tsx` para no truncar las
-  agregaciones (la lista del panel sigue mostrando los 30 más recientes).
+  la lista de eventos, dos gráficas propias: **donut por clase** y **tendencia por día**, calculadas
+  en cliente de la traza filtrada por ese equipo (`relaciones`), reutilizando `Donut`/`Tendencia` de
+  `charts.tsx` y el helper `agruparPorDia`. Los conteos del equipo quedan en la fila de actividad
+  (recibidos / originados / contenidos aquí / pendientes + último visto), sin duplicarlos. Se quitó
+  el recorte a 30 de `Red.tsx` para no truncar las agregaciones (la lista del panel sigue mostrando
+  los 30 más recientes).
 - **Paginación** de las listas largas (Trazas y Decisiones): control «Anterior / página X de Y /
   Siguiente» con **selector de filas por página (10 / 20 / 50, por defecto 20)**, paginado en cliente
   sobre el feed que ya llega acotado; la página y el tamaño viven en el componente y no se reinician

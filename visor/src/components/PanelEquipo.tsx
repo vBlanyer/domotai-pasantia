@@ -29,11 +29,8 @@ export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones }: {
   const v = ESTADO_VISUAL[a.estado] ?? ESTADO_VISUAL.sin_actividad
   const CAT = useTema().oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
   const atacantes = atacantesDe(eventos, nodo.nombre, todos)
-  // Resumen de la ventana de eventos del equipo (lo que ya llega del feed): conteos + gráficas.
+  // Gráficas derivadas de la ventana de eventos del equipo (los conteos ya los da `nodo.actividad`).
   const total = eventos.length
-  const auto = eventos.filter((d) => d.requiere_humano === false).length
-  const retenido = eventos.filter((d) => d.contencion === "retenida").length
-  const contenido = eventos.filter((d) => d.contencion === "contenida").length
   const porClase = eventos.reduce<Record<string, number>>((m, d) => {
     if (d.clase) m[d.clase] = (m[d.clase] ?? 0) + 1
     return m
@@ -63,16 +60,10 @@ export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones }: {
         <span className="rounded bg-slate-500/15 px-1.5 py-0.5">{a.origen} originados</span>
         <span className="rounded bg-emerald-500/15 px-1.5 py-0.5">{a.contuvo_aqui} contenidos aquí</span>
         <span className="rounded bg-amber-400/20 px-1.5 py-0.5">{a.pendientes} pendientes</span>
+        <span className="rounded px-1.5 py-0.5 text-muted-foreground">último: {hora(a.ultima)}</span>
       </div>
       {total > 0 && (
         <div className="space-y-3 border-t border-border pt-2">
-          <div className="flex flex-wrap gap-1.5 text-xs">
-            <span className="rounded bg-muted px-1.5 py-0.5">{total} en la ventana</span>
-            <span className="rounded bg-sky-500/15 px-1.5 py-0.5">{auto} automática(s)</span>
-            <span className="rounded bg-amber-400/20 px-1.5 py-0.5">{retenido} retenida(s)</span>
-            <span className="rounded bg-emerald-500/15 px-1.5 py-0.5">{contenido} contenida(s)</span>
-            <span className="rounded px-1.5 py-0.5 text-muted-foreground">último: {hora(a.ultima)}</span>
-          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <div className="mb-1 text-xs text-muted-foreground">Por clase</div>
