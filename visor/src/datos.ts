@@ -230,3 +230,17 @@ export function estadoDeCasos(regs: Decision[]): Record<string, CasoEstado> {
   }
   return casos
 }
+
+// Paginación en cliente de las listas largas (Trazas, Decisiones). El feed ya llega acotado con
+// `indice` global estable (claveDe), así que basta cortar en cliente; la página vive en el
+// componente y sobrevive al sondeo. `tam` por defecto TAM_PAGINA.
+export const TAM_PAGINA = 25
+
+export function paginar<T>(xs: T[], pagina: number, tam: number = TAM_PAGINA): {
+  filas: T[]; pagina: number; paginas: number; total: number
+} {
+  const total = xs.length
+  const paginas = Math.max(1, Math.ceil(total / tam))
+  const p = Math.min(Math.max(1, Math.floor(pagina) || 1), paginas)   // clampa a [1, paginas]
+  return { filas: xs.slice((p - 1) * tam, p * tam), pagina: p, paginas, total }
+}

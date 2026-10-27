@@ -60,4 +60,23 @@ describe("Trazas", () => {
     render(<Trazas />)
     expect(screen.getByText(/actividad propia del MDR/)).toBeInTheDocument()
   })
+
+  it("pagina la lista: 25 filas por página y «Siguiente» avanza", () => {
+    h.trazas = Array.from({ length: 30 }, (_, i) => reg(100 + i, `s${100 + i}`))
+    h.verif = {}
+    render(<Trazas />)
+    expect(screen.getByText("s100")).toBeInTheDocument()          // página 1
+    expect(screen.queryByText("s129")).not.toBeInTheDocument()
+    expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+    expect(screen.getByText("s129")).toBeInTheDocument()          // página 2
+    expect(screen.queryByText("s100")).not.toBeInTheDocument()
+  })
+
+  it("sin exceso de filas no hay paginador", () => {
+    h.trazas = [reg(500, "s501"), reg(501, "s502")]
+    h.verif = {}
+    render(<Trazas />)
+    expect(screen.queryByRole("button", { name: "Siguiente" })).not.toBeInTheDocument()
+  })
 })

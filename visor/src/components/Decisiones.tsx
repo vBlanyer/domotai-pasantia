@@ -3,7 +3,8 @@ import { ChevronDown, ChevronRight, Shield, ShieldCheck, ShieldX, TriangleAlert 
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros, Prioridad, DatosCongelados } from "./bits"
-import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, ventanaDe, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, ventanaDe, paginar, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
+import { Paginador } from "./Paginador"
 
 const COLS = 8
 
@@ -338,6 +339,9 @@ export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
   const r = useSondeo(getDecisiones)
   const [abierto, setAbierto] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>({ texto: "", clase: "" })
+  const [pagina, setPagina] = useState(1)
+  // Al cambiar filtro o equipo la lista cambia de tamaño: se vuelve a la primera página.
+  useEffect(() => setPagina(1), [filtro.texto, filtro.clase, equipo])
   if (!r) return <Cargando />
   // C2: con la conexión perdida pero datos previos, se conserva la tabla congelada con aviso.
   const fallo = "error" in r ? r : null
@@ -345,6 +349,7 @@ export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
   if (!d) return <SinConexion causa={fallo?.causa} />
   if (d.length === 0) return <Vacio>Aún no hay decisiones. Lanza un ataque para verlas aquí.</Vacio>
   const filtradas = filtrarDecisiones(d, { ...filtro, equipo })
+  const pag = paginar(filtradas, pagina)
   const ventana = ventanaDe(d)
   return (
     <div className="space-y-3">
@@ -368,8 +373,10 @@ export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtradas.map((x, i) => {
-              const clave = claveDe(x, i)
+            {pag.filas.map((x, i) => {
+              // Índice ABSOLUTO (no el de la página) para que la clave de fallback —sin `indice`—
+              // sea única entre páginas y `abierto` no se confunda.
+              const clave = claveDe(x, (pag.pagina - 1) * TAM_PAGINA + i)
               return (
                 <FilaDecision
                   key={clave}
@@ -383,6 +390,7 @@ export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
           </TableBody>
         </Table>
       </div>
+      <Paginador pagina={pag.pagina} paginas={pag.paginas} onPagina={setPagina} />
     </div>
   )
 }

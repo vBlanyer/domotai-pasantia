@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -284,5 +284,22 @@ describe("filtrarConsola", () => {
     const ls = [L("▶ s1 BLOQUEAR_IP …", 1), L("✔ s1 verificada", 2), L("⚠ Incidente", 3),
                 L("↶ des-bloqueo en masa", 4)]
     expect(filtrarConsola(ls, "ejecucion", "").map((l) => l.n)).toEqual([1, 2, 4])
+  })
+})
+
+describe("paginar", () => {
+  const xs = Array.from({ length: 30 }, (_, i) => i)
+  it("corta a la página pedida y cuenta las páginas", () => {
+    const r = paginar(xs, 1, 25)
+    expect(r.filas).toHaveLength(25)
+    expect(r).toMatchObject({ pagina: 1, paginas: 2, total: 30 })
+    expect(paginar(xs, 2, 25).filas).toEqual(xs.slice(25))
+  })
+  it("clampa una página fuera de rango a [1, paginas]", () => {
+    expect(paginar(xs, 99, 25).pagina).toBe(2)
+    expect(paginar(xs, 0, 25).pagina).toBe(1)
+  })
+  it("una lista vacía es una sola página vacía", () => {
+    expect(paginar([], 1, 25)).toMatchObject({ filas: [], pagina: 1, paginas: 1, total: 0 })
   })
 })

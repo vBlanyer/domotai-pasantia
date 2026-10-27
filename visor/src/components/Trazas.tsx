@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useSondeo, getTrazas, getVerificacion, type Decision } from "@/api"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, Punto, BarraFiltros, DatosCongelados } from "./bits"
-import { filtrarDecisiones, clasesDe, claveDe, ventanaDe, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, ventanaDe, paginar, type Filtro } from "@/datos"
+import { Paginador } from "./Paginador"
 
 type Estado = { texto: string; ok: boolean; roto?: number | null } | null
 
@@ -20,6 +21,9 @@ export function Trazas() {
   const t = useSondeo(getTrazas)
   const [cadena, setCadena] = useState<Estado>(null)
   const [filtro, setFiltro] = useState<Filtro>({ texto: "", clase: "" })
+  const [pagina, setPagina] = useState(1)
+  // Al cambiar el filtro la lista cambia de tamaño: se vuelve a la primera página.
+  useEffect(() => setPagina(1), [filtro.texto, filtro.clase])
   const verificar = async () => {
     const r = await getVerificacion()
     if ("error" in r) return setCadena({ texto: "sin conexión", ok: false })
@@ -37,6 +41,7 @@ export function Trazas() {
   const enFiltro = new Set(filtrarDecisiones(regs, filtro))
   // `i` es la posición en la cadena completa (el backend la anota): la ventana puede empezar a mitad.
   const filas = regs.map((r, k) => ({ r, k, i: r.indice ?? k })).filter(({ r }) => enFiltro.has(r))
+  const pag = paginar(filas, pagina)
   const ventana = ventanaDe(regs)
   const rotoFuera = !!ventana && cadena?.roto != null && cadena.roto < ventana.desde
 
@@ -90,7 +95,7 @@ export function Trazas() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filas.map(({ r, k, i }) => {
+              {pag.filas.map(({ r, k, i }) => {
                 const roto = cadena?.roto === i
                 const suprimida = r.tipo === "actividad_suprimida"
                 return (
@@ -123,6 +128,7 @@ export function Trazas() {
             </TableBody>
           </Table>
         </div>
+        <Paginador pagina={pag.pagina} paginas={pag.paginas} onPagina={setPagina} />
         </>
       )}
     </div>
