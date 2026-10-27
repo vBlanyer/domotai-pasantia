@@ -113,6 +113,11 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   (`WAZUH_NOMBRE`/`WAZUH_RED`/`WAZUH_PERMITIR`, defaults del lab intactos) para la variante viva.
 
 ### Añadido (banco de pruebas)
+- **El lanzador de ataques deja de ser una caja negra**: muestra el comando EXACTO que se inyecta en
+  cada nodo (`↳ <nodo> $ <comando>`) —la preparación, el ataque y el deshacer—, no solo el título.
+  Es `demo.ejecutor_detallado`, que envuelve el ejecutor y narra cada `docker exec` antes de lanzarlo
+  sin cambiar qué se ejecuta. ON por defecto en el menú interactivo (tecla `v` para apagarlo) y
+  opt-in en las tandas con `--verbose`/`-v`.
 - **Tanda CONTINUA / soak** (`sh lab/banco/banco.sh atacar continuo`, alias `soak`, o la tecla `c`
   del menú): lanza ataques **variados sin fin** —barajando TODA la batería en cada vuelta y rotando
   la IP de origen— hasta `Ctrl+C`, para ejercitar el camino detección→triaje→respuesta del MDR de

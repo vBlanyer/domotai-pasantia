@@ -431,5 +431,87 @@ class TestTandaContinua(unittest.TestCase):
         self.assertTrue(any("ip addr add" in a[-1] for a in llamadas))
 
 
+class TestDetalleDeComandos(unittest.TestCase):
+    """Que el script de ataque NO sea una caja negra: un ejecutor que narra el nodo y el comando de
+    shell exacto de cada ataque antes de lanzarlo (prep, ataque, deshacer, restauración)."""
+
+    def _fake(self):
+        llamadas = []
+        def ejecutar(args, **kw):
+            llamadas.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+        return llamadas, ejecutar
+
+    def _main_out(self, respuestas, ejecutar):
+        r = iter(respuestas)
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            demo.main(leer=lambda _="": next(r), ejecutar=ejecutar, dormir=lambda *_: None)
+        return salida.getvalue()
+
+    def test_describir_comando_muestra_nodo_y_shell(self):
+        linea = demo._describir_comando(
+            ["docker", "exec", "clab-banco-web-banking", "sh", "-c", "adduser -D backdoor; echo x"])
+        self.assertIn("web-banking", linea)
+        self.assertIn("adduser -D backdoor; echo x", linea)             # el comando entero, no un resumen
+
+    def test_describir_comando_ignora_el_detached(self):
+        linea = demo._describir_comando(
+            ["docker", "exec", "-d", "clab-banco-core-db", "sh", "-c", "python3 servicio.py --nombre core-db"])
+        self.assertIn("core-db", linea)
+        self.assertIn("servicio.py", linea)
+
+    def test_describir_comando_nombra_la_restauracion(self):
+        self.assertIn("restaurar", demo._describir_comando(["sh", "/x/lab/banco/banco.sh", "restaurar"]))
+
+    def test_ejecutor_detallado_narra_antes_y_pasa_el_comando_igual(self):
+        llamadas, ejecutar = self._fake()
+        lineas = []
+        ej = demo.ejecutor_detallado(ejecutar, escribir=lineas.append)
+        args = ["docker", "exec", "clab-banco-atm", "sh", "-c", "nc -s 1.2.3.4 10.10.0.10 23"]
+        ej(args)
+        self.assertEqual(llamadas, [args])                              # no cambia QUÉ se ejecuta
+        self.assertTrue(any("atm" in l and "nc -s 1.2.3.4" in l for l in lineas), lineas)
+
+    def test_continuo_verbose_muestra_los_comandos(self):
+        _, ejecutar = self._fake()
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            demo.main(["continuo", "--vueltas", "1", "--restaurar-cada", "0", "--verbose"],
+                      ejecutar=ejecutar, dormir=lambda *_: None)
+        out = salida.getvalue()
+        self.assertIn("↳", out)
+        self.assertIn("ip addr add", out)                              # el interno de un ataque rotado, visible
+
+    def test_continuo_sin_verbose_no_detalla(self):
+        _, ejecutar = self._fake()
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            demo.main(["continuo", "--vueltas", "1", "--restaurar-cada", "0"],
+                      ejecutar=ejecutar, dormir=lambda *_: None)
+        self.assertNotIn("↳", salida.getvalue())
+
+    def test_auto_verbose_muestra_los_comandos(self):
+        _, ejecutar = self._fake()
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            demo.main(["auto", "1", "0", "--verbose"], ejecutar=ejecutar, dormir=lambda *_: None)
+        self.assertIn("↳", salida.getvalue())
+
+    def test_el_menu_detalla_por_defecto(self):
+        # Por defecto el menú interactivo YA muestra los comandos (no es caja negra): lanza D1 (2),
+        # no deshace (N), sale (0), y el comando real de la fuerza bruta queda a la vista.
+        _, ejecutar = self._fake()
+        out = self._main_out(["2", "N", "0"], ejecutar)
+        self.assertIn("↳", out)
+        self.assertIn("sshpass", out)
+
+    def test_la_tecla_v_apaga_el_detalle(self):
+        _, ejecutar = self._fake()
+        out = self._main_out(["v", "2", "N", "0"], ejecutar)           # v apaga; luego lanza D1
+        self.assertIn("Detalle de comandos: OFF", out)
+        self.assertNotIn("↳", out)
+
+
 if __name__ == "__main__":
     unittest.main()
