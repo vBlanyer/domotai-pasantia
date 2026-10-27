@@ -127,6 +127,10 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Runbook por familia en la tarjeta**: el detalle de una decisión muestra ahora los **pasos de
+  respuesta recomendados** para esa familia (qué contuvo, qué verificar, qué investigar, cómo
+  reclasificar/revertir) — aflora el conocimiento del RUNBOOK junto a la `recomendacion` del motor.
+  En cliente, con `datos.pasosRunbook(clase)`.
 - **Perfil de atacante** (página de entidad, drill-down): al pulsar una IP en la tabla de atacantes
   del panel de Red se abre su ficha — ataques totales, **equipos atacados** (con cuántas veces y la
   última), gravedad máxima, ventana temporal, el enriquecimiento (alcance/clasificación/geo) y la

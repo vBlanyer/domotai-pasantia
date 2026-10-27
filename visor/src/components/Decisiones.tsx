@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Shield, ShieldCheck, ShieldX, TriangleAlert 
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros, Prioridad, DatosCongelados } from "./bits"
-import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, ventanaDe, paginar, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, ventanaDe, paginar, pasosRunbook, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
 import { Paginador } from "./Paginador"
 import { OrigenBadges } from "./OrigenBadges"
 
@@ -109,8 +109,8 @@ function BloqueContencion({ c }: { c: Contencion }) {
   )
 }
 
-function Detalles({ id, indice, origen, origenIp }: {
-  id: string; indice?: number | null; origen?: Decision["enriquecimiento_origen"]; origenIp?: string | null
+function Detalles({ id, indice, origen, origenIp, clase }: {
+  id: string; indice?: number | null; origen?: Decision["enriquecimiento_origen"]; origenIp?: string | null; clase?: string | null
 }) {
   const [det, setDet] = useState<Detalle | { error: string }>()
   useEffect(() => {
@@ -202,6 +202,13 @@ function Detalles({ id, indice, origen, origenIp }: {
           </Campo>
         )}
         {motivo && <Campo etiqueta="Impacto"><span className="text-muted-foreground">{motivo}</span></Campo>}
+        {pasosRunbook(clase).length > 0 && (
+          <Campo etiqueta="Respuesta recomendada (runbook)">
+            <ol className="list-decimal space-y-0.5 pl-4 text-xs text-muted-foreground">
+              {pasosRunbook(clase).map((p, i) => <li key={i}>{p}</li>)}
+            </ol>
+          </Campo>
+        )}
         {det.recomendacion?.respuesta && (
           <Campo etiqueta="Recomendación">
             <div>
@@ -336,7 +343,7 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
                 ↗ Ver grafo del incidente
               </button>
             )}
-            <Detalles id={d.id_decision} indice={d.indice} origen={d.enriquecimiento_origen} origenIp={d.origen_ip} />
+            <Detalles id={d.id_decision} indice={d.indice} origen={d.enriquecimiento_origen} origenIp={d.origen_ip} clase={d.clase} />
           </TableCell>
         </TableRow>
       )}

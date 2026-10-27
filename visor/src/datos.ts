@@ -376,3 +376,60 @@ export function perfilAtacante(todos: Decision[], ip: string): {
   const equipos = [...eq.entries()].map(([equipo, g]) => ({ equipo, n: g.n, ultima: g.ultima })).sort((a, b) => b.n - a.n)
   return { ip, n, prioridad, primera, ultima, enriquecimiento: enr, equipos, porDia: agruparPorDia(suyas) }
 }
+
+// Runbook por familia: los pasos de respuesta recomendados para el analista, aflorados en la tarjeta
+// de decisión (complementa la `recomendacion` del motor). Clave = clase del motor; FP/desconocida → [].
+const RUNBOOK: Record<string, string[]> = {
+  vp_intento_acceso: [
+    "Confirma el bloqueo del origen en el borde (contención aplicada y verificada).",
+    "Revisa si tras la fuerza bruta hubo un login exitoso: sería acceso consumado (corta la sesión).",
+    "Si el origen es legítimo (mantenimiento, escáner autorizado), reclasifica y decláralo de confianza.",
+  ],
+  vp_reconocimiento: [
+    "Verifica el bloqueo del escáner en el borde.",
+    "Comprueba si el reconocimiento precede a un intento de acceso contra el mismo activo.",
+    "Si es un escáner autorizado, reclasifica.",
+  ],
+  vp_abuso_cuenta: [
+    "Bloquea/deshabilita la cuenta implicada (acción humana incondicional).",
+    "Fuerza el cambio de credenciales y revisa los accesos recientes de esa cuenta.",
+    "Comprueba si la cuenta se creó sin autorización (backdoor).",
+  ],
+  vp_integridad: [
+    "Aísla el host en cuarentena en el borde (contención aprobada).",
+    "Identifica qué fichero crítico cambió y compáralo con el respaldo.",
+    "Planifica la restauración y la causa raíz antes de reconectar.",
+  ],
+  vp_denegacion_servicio: [
+    "Acota la banda del enlace de la víctima (contención gradual).",
+    "Si el flujo es entrante, la contención en la víctima es parcial: escala al borde si hace falta.",
+    "Vigila la salud del servicio durante la mitigación.",
+  ],
+  vp_acceso_consumado: [
+    "Corta la sesión viva del atacante en el activo (MATAR_CONEXION).",
+    "Revisa qué hizo durante la sesión (persistencia, movimiento lateral).",
+    "Rota credenciales y revisa cuentas y servicios tocados.",
+  ],
+  vp_exfiltracion: [
+    "Bloquea el destino malicioso en el cortafuegos de borde (egreso).",
+    "Identifica qué datos salieron y por qué canal.",
+    "Busca el implante/C2 en el host de origen.",
+  ],
+  vp_malware: [
+    "Aísla el host en cuarentena en el borde.",
+    "Recoge la muestra y su veredicto; busca otros hosts con el mismo indicador.",
+    "Limpia o reimagina el host antes de reconectarlo.",
+  ],
+  amenaza_enrutada: [
+    "No hay contención automática: se enruta a la cola especializada (p. ej. AppSec).",
+    "Traslada el caso al equipo destinatario con el contexto del incidente.",
+  ],
+  no_soportada: [
+    "Frontera honesta del alcance: revisa la alerta manualmente.",
+    "Si es un patrón recurrente, valora ampliar el catálogo de familias.",
+  ],
+}
+
+export function pasosRunbook(clase?: string | null): string[] {
+  return (clase && RUNBOOK[clase]) || []
+}
