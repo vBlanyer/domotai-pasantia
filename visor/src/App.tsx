@@ -7,6 +7,7 @@ import { Dashboard } from "@/components/Dashboard"
 import { Metricas } from "@/components/Metricas"
 import { Salud } from "@/components/Salud"
 import { Red } from "@/components/Red"
+import { Campanas } from "@/components/Campanas"
 import { Decisiones } from "@/components/Decisiones"
 import { Aprobaciones } from "@/components/Aprobaciones"
 import { Consola } from "@/components/Consola"
@@ -16,7 +17,7 @@ import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "incidente"
+type Vista = "panel" | "metricas" | "salud" | "red" | "campanas" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "incidente"
 
 // Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
 // navegador no lo permite, se ignora en silencio.
@@ -77,6 +78,7 @@ const NAV: { id: Vista; nombre: string }[] = [
   { id: "metricas", nombre: "Métricas e informe" },
   { id: "salud", nombre: "Estado de servicios" },
   { id: "red", nombre: "Red" },
+  { id: "campanas", nombre: "Campañas" },
   { id: "decisiones", nombre: "Decisiones" },
   { id: "aprobaciones", nombre: "Aprobaciones" },
   { id: "consola", nombre: "Consola" },
@@ -196,6 +198,7 @@ export default function App() {
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}
           {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }} />}
+          {vista === "campanas" && <Campanas onVerOrigen={(p) => { setEquipo(null); setTextoDec(p); setVista("decisiones") }} />}
           {vista === "decisiones" && (
             <Decisiones equipo={equipo} textoInicial={textoDec} onQuitarEquipo={() => setEquipo(null)}
               onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }} />

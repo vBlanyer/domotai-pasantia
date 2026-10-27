@@ -75,10 +75,12 @@ La salida de `python3 -m prototipo.servicio.stream …` es la vista principal:
 
 ### B. Web — el visor React (con `--web`)
 
-Consola visual que consume la misma API del daemon (tema claro/oscuro). **Nueve vistas:** Panel (KPIs +
+Consola visual que consume la misma API del daemon (tema claro/oscuro). **Diez vistas:** Panel (KPIs +
 gráficos), Métricas e informe (tendencia, distribución y matriz ATT&CK; exportable a PDF por periodo),
 Estado de servicios (las apps de negocio en verde/rojo + dependencias), Red (mapa de la red
-del cliente por zonas; al pulsar un equipo, sus eventos), Decisiones (el feed; filas
+del cliente por zonas; al pulsar un equipo, sus eventos, gráficas y **correlación de atacantes** —por
+IP o por subred—), **Campañas** (los ataques agrupados por bloque de origen /24 a través de todos los
+equipos: una campaña que rota IPs = una fila, con sus objetivos, gravedad y ventana), Decisiones (el feed; filas
 expandibles con justificación, MITRE y pasajes del RAG), Aprobaciones (aprobar/rechazar desde el navegador),
 **Contenciones activas** (qué sigue bloqueado, reconstruido de la traza; **pausar la automatización**
 —*kill switch*—, des-bloqueo en masa y **revertir una contención concreta** desde su fila), Trazas

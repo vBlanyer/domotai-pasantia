@@ -127,6 +127,10 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Vista «Campañas»** (attack story, 10ª vista): los ataques agrupados por **bloque de origen /24 a
+  través de todos los equipos** — una campaña que rota IPs contra varios activos aparece como una sola
+  fila, con sus **objetivos** (a qué equipos pegó y cuántas veces), nº de IPs, gravedad y ventana
+  temporal. Pulsar un bloque pivota a Decisiones filtradas por él. En cliente, con `datos.campanasDe`.
 - **Panel del equipo más accionable** (vista Red): la tabla de atacantes se **rankea por gravedad**
   (prioridad del peor ataque de cada origen, con su badge, y desempate por nº de ataques), cada **IP
   es clicable** y pivota a Decisiones **filtradas por esa IP** (seguir el hilo del atacante), y la
