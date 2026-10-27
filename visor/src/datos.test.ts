@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -391,5 +391,19 @@ describe("campanasDe", () => {
     expect(c[0]).toMatchObject({ cidr: "198.51.100.0/24", ips: 2, n: 3, prioridad: 4, prefijo: "198.51.100." })
     expect(c[0].objetivos).toEqual([{ equipo: "web-banking", n: 2 }, { equipo: "core-db", n: 1 }])
     expect(c[0].primera).toBe("t1"); expect(c[0].ultima).toBe("t3")
+  })
+})
+
+describe("perfilAtacante", () => {
+  it("resume una IP: ataques, equipos atacados, gravedad, ventana y enriquecimiento", () => {
+    const t = [
+      { origen_ip: "198.51.100.10", prioridad: 4, timestamp: "2026-10-27T10:00:00", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { alcance: "externo", clasificacion_ip: "documentacion" } },
+      { origen_ip: "198.51.100.10", prioridad: 2, timestamp: "2026-10-27T12:00:00", relaciones: { "core-db": ["objetivo"] } },
+      { origen_ip: "9.9.9.9", prioridad: 4, timestamp: "2026-10-27T11:00:00", relaciones: { "web-banking": ["objetivo"] } },  // otra IP
+    ] as unknown as Decision[]
+    const p = perfilAtacante(t, "198.51.100.10")
+    expect(p).toMatchObject({ ip: "198.51.100.10", n: 2, prioridad: 4, primera: "2026-10-27T10:00:00", ultima: "2026-10-27T12:00:00" })
+    expect(p.equipos).toEqual([{ equipo: "web-banking", n: 1, ultima: "2026-10-27T10:00:00" }, { equipo: "core-db", n: 1, ultima: "2026-10-27T12:00:00" }])
+    expect(p.enriquecimiento?.alcance).toBe("externo")
   })
 })

@@ -26,9 +26,10 @@ const hora = (ts?: string | null) => {
   return isNaN(t.getTime()) ? ts : new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(t)
 }
 
-export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones, onVerOrigen }: {
+export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones, onVerOrigen, onVerAtacante }: {
   nodo: NodoRed; eventos: Decision[]; todos?: Decision[]; onVerDecisiones: () => void
-  onVerOrigen?: (ip: string) => void
+  onVerOrigen?: (texto: string) => void        // bloque/subred → Decisiones filtradas
+  onVerAtacante?: (ip: string) => void          // una IP → su perfil de atacante
 }) {
   const a = nodo.actividad
   const v = ESTADO_VISUAL[a.estado] ?? ESTADO_VISUAL.sin_actividad
@@ -126,9 +127,9 @@ export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones, onVerO
                 : atacantes.slice(0, TOP_ATACANTES).map((at) => (
                   <tr key={at.ip}>
                     <td className="py-0.5">
-                      {onVerOrigen
-                        ? <button onClick={() => onVerOrigen(at.ip)}
-                            className="font-mono underline-offset-2 hover:underline" title="Ver sus decisiones">{at.ip}</button>
+                      {(onVerAtacante ?? onVerOrigen)
+                        ? <button onClick={() => (onVerAtacante ?? onVerOrigen)!(at.ip)}
+                            className="font-mono underline-offset-2 hover:underline" title="Ver el perfil del atacante">{at.ip}</button>
                         : <span className="font-mono">{at.ip}</span>}
                       {at.alcance && <span className="ml-1 text-muted-foreground">· {at.alcance}</span>}
                     </td>

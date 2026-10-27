@@ -343,3 +343,36 @@ export function campanasDe(todos: Decision[]): {
     .map((g) => ({ cidr: g.cidr, prefijo: g.prefijo, ips: g.ips.size, n: g.n, prioridad: g.prioridad, primera: g.primera, ultima: g.ultima, alcance: g.alcance, objetivos: [...g.objetivos.entries()].map(([equipo, n]) => ({ equipo, n })).sort((a, b) => b.n - a.n) }))
     .sort((x, y) => y.prioridad - x.prioridad || y.n - x.n || (x.cidr < y.cidr ? -1 : 1))
 }
+
+// Perfil de atacante (página de entidad): resume una IP de origen — nº de ataques, a qué equipos
+// pegó (con cuántas veces y la última), gravedad máxima, ventana temporal, el enriquecimiento (de
+// cualquiera de sus decisiones) y su actividad por día. Todo de los ataques RECIBIDOS (objetivo).
+export function perfilAtacante(todos: Decision[], ip: string): {
+  ip: string; n: number; prioridad: number; primera: string | null; ultima: string | null
+  enriquecimiento?: Decision["enriquecimiento_origen"]; equipos: { equipo: string; n: number; ultima: string | null }[]
+  porDia: { dia: string; n: number }[]
+} {
+  const suyas = todos.filter((d) => d.origen_ip === ip &&
+    Object.values(d.relaciones ?? {}).some((e) => (e ?? []).includes("objetivo")))
+  const eq = new Map<string, { n: number; ultima: string | null }>()
+  let n = 0, prioridad = 0, primera: string | null = null, ultima: string | null = null
+  let enr: Decision["enriquecimiento_origen"] | undefined
+  for (const d of suyas) {
+    n += 1
+    prioridad = Math.max(prioridad, d.prioridad ?? 0)
+    if (d.timestamp) {
+      if (!primera || d.timestamp < primera) primera = d.timestamp
+      if (!ultima || d.timestamp > ultima) ultima = d.timestamp
+    }
+    if (!enr && d.enriquecimiento_origen) enr = d.enriquecimiento_origen
+    for (const [e, etqs] of Object.entries(d.relaciones ?? {})) {
+      if (!(etqs ?? []).includes("objetivo")) continue
+      const g = eq.get(e) ?? { n: 0, ultima: null }
+      g.n += 1
+      if (d.timestamp && (!g.ultima || d.timestamp > g.ultima)) g.ultima = d.timestamp
+      eq.set(e, g)
+    }
+  }
+  const equipos = [...eq.entries()].map(([equipo, g]) => ({ equipo, n: g.n, ultima: g.ultima })).sort((a, b) => b.n - a.n)
+  return { ip, n, prioridad, primera, ultima, enriquecimiento: enr, equipos, porDia: agruparPorDia(suyas) }
+}
