@@ -127,6 +127,10 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Perfil de atacante** (página de entidad, drill-down): al pulsar una IP en la tabla de atacantes
+  del panel de Red se abre su ficha — ataques totales, **equipos atacados** (con cuántas veces y la
+  última), gravedad máxima, ventana temporal, el enriquecimiento (alcance/clasificación/geo) y la
+  tendencia por día —, con pivote a sus decisiones. En cliente, con `datos.perfilAtacante`.
 - **Vista «Campañas»** (attack story, 10ª vista): los ataques agrupados por **bloque de origen /24 a
   través de todos los equipos** — una campaña que rota IPs contra varios activos aparece como una sola
   fila, con sus **objetivos** (a qué equipos pegó y cuántas veces), nº de IPs, gravedad y ventana

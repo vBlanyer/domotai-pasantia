@@ -8,6 +8,7 @@ import { Metricas } from "@/components/Metricas"
 import { Salud } from "@/components/Salud"
 import { Red } from "@/components/Red"
 import { Campanas } from "@/components/Campanas"
+import { PerfilAtacante } from "@/components/PerfilAtacante"
 import { Decisiones } from "@/components/Decisiones"
 import { Aprobaciones } from "@/components/Aprobaciones"
 import { Consola } from "@/components/Consola"
@@ -17,7 +18,7 @@ import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "campanas" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "incidente"
+type Vista = "panel" | "metricas" | "salud" | "red" | "campanas" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "incidente" | "atacante"
 
 // Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
 // navegador no lo permite, se ignora en silencio.
@@ -90,6 +91,7 @@ export default function App() {
   const [vista, setVista] = useState<Vista>("panel")
   const [equipo, setEquipo] = useState<string | null>(null)
   const [textoDec, setTextoDec] = useState("")        // filtro de Decisiones sembrado al pivotar (p. ej. una IP)
+  const [atacanteIp, setAtacanteIp] = useState<string | null>(null)   // perfil de atacante (drill-down)
   const [incidente, setIncidente] = useState<Decision | null>(null)
   const [token, setToken] = useState(tokenActual())   // auth opcional de la consola (#6); vacío = abierta
   const [menu, setMenu] = useState(false)             // drawer de navegación en móvil (< md)
@@ -103,7 +105,9 @@ export default function App() {
   const nPend = pendConocidos?.length ?? 0
   const [avisos, setAvisos] = useState(leerAvisos)
   useAvisoPendientes(pendConocidos, avisos)
-  const titulo = vista === "incidente" ? "Incidente" : NAV.find((n) => n.id === vista)!.nombre
+  const titulo = vista === "incidente" ? "Incidente"
+    : vista === "atacante" ? "Perfil de atacante"
+    : NAV.find((n) => n.id === vista)!.nombre
 
   return (
     <div className="flex min-h-screen bg-[#f7f7f5] text-foreground dark:bg-[#0d0d0d] print:bg-white">
@@ -197,8 +201,13 @@ export default function App() {
           {vista === "panel" && <Dashboard conectado={conectado} onVerAprobaciones={() => setVista("aprobaciones")} />}
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}
-          {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }} />}
+          {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }}
+            onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }} />}
           {vista === "campanas" && <Campanas onVerOrigen={(p) => { setEquipo(null); setTextoDec(p); setVista("decisiones") }} />}
+          {vista === "atacante" && atacanteIp && (
+            <PerfilAtacante ip={atacanteIp} onVolver={() => setVista("red")}
+              onVerDecisiones={(ip) => { setEquipo(null); setTextoDec(ip); setVista("decisiones") }} />
+          )}
           {vista === "decisiones" && (
             <Decisiones equipo={equipo} textoInicial={textoDec} onQuitarEquipo={() => setEquipo(null)}
               onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }} />
