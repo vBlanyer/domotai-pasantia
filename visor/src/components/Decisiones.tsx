@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Shield, ShieldCheck, ShieldX, TriangleAlert 
 import { useSondeo, getDecisiones, getTrazaDetalle, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros, Prioridad, DatosCongelados } from "./bits"
-import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, ventanaDe, paginar, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, ventanaDe, paginar, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
 import { Paginador } from "./Paginador"
 
 const COLS = 8
@@ -374,7 +374,9 @@ export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
           </TableHeader>
           <TableBody>
             {pag.filas.map((x, i) => {
-              const clave = claveDe(x, i)
+              // Índice ABSOLUTO (no el de la página) para que la clave de fallback —sin `indice`—
+              // sea única entre páginas y `abierto` no se confunda.
+              const clave = claveDe(x, (pag.pagina - 1) * TAM_PAGINA + i)
               return (
                 <FilaDecision
                   key={clave}
