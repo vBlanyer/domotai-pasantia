@@ -39,6 +39,9 @@ export function PanelEquipo({ nodo, eventos, onVerDecisiones }: {
   }, {})
   const segClase: Segmento[] = Object.keys(porClase).sort()
     .map((c) => ({ name: etiquetaClase(c), value: porClase[c], fill: colorClase(c, CAT) }))
+  // El total del donut es la suma de sus porciones (eventos con clase), para que el centro cuadre
+  // con las porciones aunque algún evento venga sin clase.
+  const totalClasificado = segClase.reduce((s, x) => s + x.value, 0)
   const porDia = agruparPorDia(eventos)
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card p-4 text-sm">
@@ -72,7 +75,7 @@ export function PanelEquipo({ nodo, eventos, onVerDecisiones }: {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <div className="mb-1 text-xs text-muted-foreground">Por clase</div>
-              <Donut data={segClase} total={total} unidad="eventos" />
+              <Donut data={segClase} total={totalClasificado} unidad="eventos" />
             </div>
             <div>
               <div className="mb-1 text-xs text-muted-foreground">Actividad por día</div>
