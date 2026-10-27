@@ -1532,13 +1532,16 @@ class TestEnriquecimientoOrigenEnElResumen(unittest.TestCase):
         self.addCleanup(os.unlink, f.name)
         return f.name
 
-    def test_resumen_incluye_el_enriquecimiento_del_origen(self):
-        reg = {"id_decision": "s1", "clase": "vp_intento_acceso",
+    def test_resumen_clasifica_el_origen_no_el_actor_de_la_accion(self):
+        # Guarda de regresión: en AISLAR_NODO el `impacto_determinado.actor` es el NODO aislado
+        # (interno); el enriquecimiento debe clasificar la IP de ORIGEN (externa), no reusar ese actor.
+        reg = {"id_decision": "s1", "clase": "vp_malware", "accion_final": "AISLAR_NODO",
                "justificacion_estructurada": {"evidencia": {"origen_ip": "198.51.100.10"}},
-               "impacto_determinado": {"actor": {"tipo": "desconocido", "por": None}},
+               "impacto_determinado": {"actor": {"tipo": "activo_interno", "nombre": "web-banking", "por": "inventario"}},
                "contexto": {"origen_legitimo": False}}
         ruta = self._traza_tmp([reg])
         e = tablero.lista_trazas(ruta, perfil={"redes_internas": ["10.0.0.0/8"]})[0]["enriquecimiento_origen"]
-        self.assertEqual(e["alcance"], "externo")
+        self.assertEqual(e["alcance"], "externo")              # el ORIGEN, no el nodo aislado
+        self.assertFalse(e["inventariado"])
         self.assertEqual(e["clasificacion_ip"], "documentacion")
         self.assertFalse(e["geolocalizable"])

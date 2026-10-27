@@ -153,13 +153,16 @@ def geolocalizar(ip):
     return None
 
 
-def enriquecer_origen(ip, perfil, actor=None, legitimo=None):
-    """Enriquecimiento de la IP de origen para el visor: {alcance, inventariado, por,
-    clasificacion_ip, tercero_confiable, legitimo, geolocalizable, geo}. Reusa `actor`
-    (impacto_determinado.actor) si se pasa; si no, lo resuelve con `quien_es`. None si no hay IP."""
+def enriquecer_origen(ip, perfil, legitimo=None):
+    """Enriquecimiento de la IP de ORIGEN para el visor: {alcance, inventariado, por,
+    clasificacion_ip, tercero_confiable, legitimo, geolocalizable, geo}. None si no hay IP.
+
+    El actor se resuelve SIEMPRE con `quien_es(ip, perfil)` sobre la propia IP de origen: NO se
+    reutiliza `impacto_determinado.actor`, que es el actor de lo que toca la acción —el origen al
+    bloquear su IP, pero el NODO al aislarlo (AISLAR_NODO)—, lo que etiquetaría mal al atacante."""
     if not ip:
         return None
-    a = actor or quien_es(ip, perfil)
+    a = quien_es(ip, perfil)
     tipo = (a or {}).get("tipo")
     clase = clasificar_ip(ip)
     return {

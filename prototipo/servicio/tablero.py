@@ -341,7 +341,7 @@ def _resumen_traza(reg, ips=None, externos=(), perfil=None):
             # enriquecimiento de la IP de origen (additivo): reusa el actor del motor + ipaddress;
             # la geo es un seam offline (hoy None). Ver actores.enriquecer_origen.
             "enriquecimiento_origen": actores.enriquecer_origen(
-                _origen_ip, perfil, imp.get("actor"), (reg.get("contexto") or {}).get("origen_legitimo")),
+                _origen_ip, perfil, (reg.get("contexto") or {}).get("origen_legitimo")),
             # de dónde viene la justificación (plantilla vs LLM), la técnica y si consultó el RAG:
             # el detalle completo (texto + pasajes) sale por /api/traza/<id>.
             "version_justificador": reg.get("version_justificador"),

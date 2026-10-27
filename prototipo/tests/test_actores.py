@@ -137,10 +137,10 @@ class TestEnriquecerOrigen(unittest.TestCase):
         self.assertFalse(e["geolocalizable"])
         self.assertIsNone(e["geo"])
 
-    def test_reusa_el_actor_ya_calculado(self):
-        # Con el actor del motor (impacto_determinado.actor), no recomputa: lo mapea a alcance.
-        e = actores.enriquecer_origen("10.40.0.11", self.PERFIL,
-                                      actor={"tipo": "activo_interno", "por": "redes_internas"})
+    def test_clasifica_el_origen_con_quien_es(self):
+        # Siempre resuelve el actor sobre la PROPIA IP de origen (no reutiliza el del motor): una IP
+        # de las redes internas sale "interno/inventariado".
+        e = actores.enriquecer_origen("10.0.0.5", self.PERFIL)
         self.assertEqual(e["alcance"], "interno")
         self.assertTrue(e["inventariado"])
         self.assertEqual(e["por"], "redes_internas")
