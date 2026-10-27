@@ -1084,7 +1084,9 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
                                       catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)
                                       ejecutor=ejecutor,                     # des-bloqueo en masa (#8)
-                                      token=token, operadores=operadores)    # auth de la consola (#6/#8)
+                                      token=token, operadores=operadores,    # auth de la consola (#6/#8)
+                                      # watchlist/IoC local junto a la salida (anotación del analista)
+                                      watchlist_ruta=os.path.join(os.path.dirname(cfg["salida"]) or ".", "watchlist.json"))
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",

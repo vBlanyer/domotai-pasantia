@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -432,5 +432,15 @@ describe("riesgoEquipo / riesgoAtacante", () => {
     const r = riesgoAtacante({ n: 5, prioridad: 4, equipos: [{ equipo: "a", n: 2, ultima: null }, { equipo: "b", n: 2, ultima: null }, { equipo: "c", n: 1, ultima: null }] } as unknown as Parameters<typeof riesgoAtacante>[0])
     expect(r.nivel).toBe("critico")
     expect(r.factores.some((f) => /3 equipos/.test(f))).toBe(true)
+  })
+})
+
+describe("enWatchlist", () => {
+  const wl = [{ indicador: "198.51.100.10", nota: "C2" }, { indicador: "203.0.113.0/24", nota: "bloque malo" }]
+  it("marca por IP exacta y por /24, y no marca lo que no está", () => {
+    expect(enWatchlist("198.51.100.10", wl)?.nota).toBe("C2")
+    expect(enWatchlist("203.0.113.55", wl)?.nota).toBe("bloque malo")   // dentro del /24
+    expect(enWatchlist("10.0.0.1", wl)).toBeNull()
+    expect(enWatchlist(null, wl)).toBeNull()
   })
 })

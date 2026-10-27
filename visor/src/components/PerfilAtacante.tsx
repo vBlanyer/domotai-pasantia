@@ -1,10 +1,10 @@
-import { useSondeo, getTrazas, type Decision } from "@/api"
+import { useSondeo, getTrazas, getWatchlist, type Decision, type WatchEntrada } from "@/api"
 import { Prioridad, RiesgoBadge, Cargando, SinConexion } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { OrigenBadges } from "@/components/OrigenBadges"
 import { Tendencia } from "@/components/charts"
-import { perfilAtacante, riesgoAtacante } from "@/datos"
+import { perfilAtacante, riesgoAtacante, enWatchlist } from "@/datos"
 
 const hora = (ts?: string | null) => {
   if (!ts) return "—"
@@ -27,16 +27,20 @@ export function PerfilAtacante({ ip, onVolver, onVerDecisiones }: {
   ip: string; onVolver: () => void; onVerDecisiones: (ip: string) => void
 }) {
   const t = useSondeo(getTrazas)
+  const wl = useSondeo(getWatchlist)
   if (!t) return <Cargando />
   const fallo = "error" in t ? t : null
   if (fallo && !fallo.datos) return <SinConexion causa={fallo.causa} />
   const regs: Decision[] = fallo ? (fallo.datos ?? []) : (t as Decision[])
   const p = perfilAtacante(regs, ip)
+  const marcada = enWatchlist(ip, (Array.isArray(wl) ? wl : []) as WatchEntrada[])
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Button size="sm" variant="secondary" onClick={onVolver}>← Volver</Button>
         <div className="font-heading text-base font-semibold font-mono">{ip}</div>
+        {marcada && <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-xs font-medium text-rose-700 dark:text-rose-300"
+          title={marcada.nota ?? "en la watchlist"}>⚑ watchlist</span>}
         <RiesgoBadge r={riesgoAtacante(p)} />
         <OrigenBadges e={p.enriquecimiento} />
         <Button size="sm" className="ml-auto" onClick={() => onVerDecisiones(ip)}>Ver sus decisiones →</Button>

@@ -127,6 +127,13 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Watchlist / IoC local** (11ª vista): una lista de indicadores (IP o CIDR) que el analista marca
+  como maliciosos — alta/baja desde el visor, persistida en `watchlist.json` (junto a `--salida`) vía
+  `GET`/`POST /api/watchlist`. El visor marca con **⚑** los orígenes que coinciden en la tabla de
+  atacantes y en el perfil de atacante. Es una **anotación del analista**: NO toca el motor ni las
+  métricas (la lista de amenazas del cliente sigue en el SIEM). Backend: `prototipo/servicio/watchlist.py`
+  (almacén JSON atómico, valida IP/CIDR con `ipaddress`); frontend: `datos.enWatchlist` (coincidencia
+  exacta o por /24).
 - **Riesgo por entidad** (asesor y explicable): una insignia «Riesgo: bajo/medio/alto/crítico» en el
   panel del equipo y en el perfil de atacante, con los **factores** que lo elevaron en el tooltip
   (gravedad del peor ataque, volumen, decisiones pendientes, contención sin confirmar, criticidad del
