@@ -104,6 +104,31 @@ def revertir_todas(ruta, catalogo, ejecutor, motivo="", operador=None, _ahora=No
     return {"revertidas": revertidas, "fallidas": fallidas, "detalle": detalle}
 
 
+def revertir_una(ruta, indice, catalogo, ejecutor, motivo="", operador=None, _ahora=None):
+    """Revierte UNA contención concreta por su índice de traza (el botón por fila del panel), sin
+    tocar las demás. `indice` debe apuntar a una contención ACTIVA (misma lista que /api/contenciones
+    y que el des-bloqueo en masa); si no lo es —índice inexistente, ya revertida, o no deja estado
+    reversible— no hace nada. Anota la reversión en la MISMA cadena (fichero bloqueado y releído),
+    con `indice_revertido` y `operador`. Devuelve {revertida, detalle} o {revertida: False, error}."""
+    from prototipo.accion import contenciones
+    regs = traza.leer_registros(ruta)
+    activa = next((a for a in contenciones.activas(regs, catalogo) if a["indice"] == indice), None)
+    if activa is None:
+        return {"revertida": False, "error": "el índice no es una contención activa"}
+    ts = _ahora or (datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000")
+    with traza.abrir_append(ruta) as f:                  # 0600; flock + relectura para coexistir con el daemon
+        previos = traza.leer_registros(ruta)
+        cadena = traza.Cadena(f, traza.ultimo_hash(ruta), n=len(previos),
+                              nombre=os.path.basename(ruta), linaje=traza.linaje_de(previos), ruta=ruta)
+        r = {**revertir(regs[indice], catalogo, ejecutor, ts, motivo), "indice_revertido": indice}
+        if operador:
+            r["operador"] = operador
+        cadena.escribir(r)
+    detalle = {"id_decision": regs[indice].get("id_decision"), "accion_id": r.get("accion_id"),
+               "nodo": r.get("nodo"), "objetivo": activa.get("objetivo"), "exito": r.get("exito")}
+    return {"revertida": bool(r.get("exito")), "detalle": detalle}
+
+
 def _main(argv):
     if len(argv) < 2:
         print("uso: python3 -m prototipo.accion.revertir <traza.jsonl> <id_decision> [--indice N] [--motivo \"...\"]")

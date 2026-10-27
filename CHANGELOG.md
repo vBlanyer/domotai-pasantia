@@ -127,6 +127,12 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Revertir una contención concreta** desde su fila en «Contenciones activas», no solo el
+  des-bloqueo en masa: cada fila tiene un botón «Revertir» con confirmación que llama al nuevo
+  `POST /api/revertir {indice, confirmar}` (`revertir.revertir_una`), que des-bloquea esa sola
+  contención por su índice de traza sin tocar las demás. Serializado con el kill switch (mismo
+  lock), con atribución de operador y su línea `↶` en la Consola. Un índice que ya no es una
+  contención activa → `409`.
 - **La Consola narra la caja negra**: el porqué de cada decisión (señales: ráfaga/umbral, postura
   del auditor, origen legítimo; y la política con su motivo cuando no permite en automático) y la
   respuesta paso a paso (`▶` orden con su comando exacto, idempotencia, `✔/✗` verificación honesta,

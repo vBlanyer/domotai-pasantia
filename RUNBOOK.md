@@ -81,7 +81,8 @@ Estado de servicios (las apps de negocio en verde/rojo + dependencias), Red (map
 del cliente por zonas; al pulsar un equipo, sus eventos), Decisiones (el feed; filas
 expandibles con justificación, MITRE y pasajes del RAG), Aprobaciones (aprobar/rechazar desde el navegador),
 **Contenciones activas** (qué sigue bloqueado, reconstruido de la traza; **pausar la automatización**
-—*kill switch*— y des-bloqueo en masa), Trazas (registro completo + verificar la cadena de hashes) y
+—*kill switch*—, des-bloqueo en masa y **revertir una contención concreta** desde su fila), Trazas
+(registro completo + verificar la cadena de hashes) y
 **Consola** (el registro vivo del daemon: incidentes, el porqué de cada decisión, la respuesta paso a
 paso y el diario del operador —veredictos con su nombre, kill switch, ciclo de caso y contexto del
 arranque—, con filtros por tipo y búsqueda). El daemon expone además `GET /healthz` con su propia

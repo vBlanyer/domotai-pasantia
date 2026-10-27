@@ -128,7 +128,8 @@ export const RedSchema = z.object({
   avisos: z.array(z.string()).optional(),
 })
 export const ContencionSchema = z.object({
-  id_decision: z.string(), objetivo: z.string().nullable(),           // IP, cuenta o servicio bloqueado
+  id_decision: z.string(), indice: z.number().nullable().optional(),  // índice de traza: identifica la contención a revertir
+  objetivo: z.string().nullable(),                                    // IP, cuenta o servicio bloqueado
   ip: z.string().nullable().optional(), usuario: z.string().nullable().optional(),
   servicio: z.string().nullable().optional(), activo: z.string().nullable(),
   nodo: z.string().nullable(), accion_id: z.string(), ts: z.string().nullable(),
@@ -360,6 +361,19 @@ export async function revertirTodo(): Promise<{ revertidas: number; fallidas: nu
       method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
       // confirmar: el backend exige el gesto explícito (B2) — el diálogo de la vista es el gesto.
       body: JSON.stringify({ confirmar: true, ...(operador ? { operador } : {}) }),
+    })
+    if (!r.ok) return null
+    return await r.json()
+  } catch { return null }
+}
+
+export async function revertirUna(indice: number): Promise<{ revertida: boolean } | null> {
+  try {
+    const operador = operadorActual()
+    const r = await fetch(BASE + "/api/revertir", {
+      method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
+      // confirmar: mismo gesto explícito que el des-bloqueo en masa (el diálogo de la fila es el gesto).
+      body: JSON.stringify({ indice, confirmar: true, ...(operador ? { operador } : {}) }),
     })
     if (!r.ok) return null
     return await r.json()
