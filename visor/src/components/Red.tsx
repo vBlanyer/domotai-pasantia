@@ -4,7 +4,7 @@ import { Cargando, SinConexion } from "@/components/bits"
 import { MapaRed, ESTADO_VISUAL } from "@/components/MapaRed"
 import { PanelEquipo } from "@/components/PanelEquipo"
 
-export function Red({ onVerDecisiones }: { onVerDecisiones: (equipo: string) => void }) {
+export function Red({ onVerDecisiones }: { onVerDecisiones: (equipo: string | null, texto?: string) => void }) {
   const red = useSondeo(getRed)
   const trazas = useSondeo(getTrazas)
   const [sel, setSel] = useState<string | null>(null)
@@ -37,7 +37,8 @@ export function Red({ onVerDecisiones }: { onVerDecisiones: (equipo: string) => 
         </div>
         {nodo
           ? <PanelEquipo nodo={nodo} eventos={eventos} todos={Array.isArray(trazas) ? trazas : []}
-              onVerDecisiones={() => onVerDecisiones(nodo.nombre)} />
+              onVerDecisiones={() => onVerDecisiones(nodo.nombre)}
+              onVerOrigen={(ip) => onVerDecisiones(null, ip)} />
           : <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
               Pulsa un equipo para ver sus eventos.</div>}
       </div>

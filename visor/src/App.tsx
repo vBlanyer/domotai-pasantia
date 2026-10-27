@@ -87,6 +87,7 @@ const NAV: { id: Vista; nombre: string }[] = [
 export default function App() {
   const [vista, setVista] = useState<Vista>("panel")
   const [equipo, setEquipo] = useState<string | null>(null)
+  const [textoDec, setTextoDec] = useState("")        // filtro de Decisiones sembrado al pivotar (p. ej. una IP)
   const [incidente, setIncidente] = useState<Decision | null>(null)
   const [token, setToken] = useState(tokenActual())   // auth opcional de la consola (#6); vacío = abierta
   const [menu, setMenu] = useState(false)             // drawer de navegación en móvil (< md)
@@ -194,9 +195,9 @@ export default function App() {
           {vista === "panel" && <Dashboard conectado={conectado} onVerAprobaciones={() => setVista("aprobaciones")} />}
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}
-          {vista === "red" && <Red onVerDecisiones={(n) => { setEquipo(n); setVista("decisiones") }} />}
+          {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }} />}
           {vista === "decisiones" && (
-            <Decisiones equipo={equipo} onQuitarEquipo={() => setEquipo(null)}
+            <Decisiones equipo={equipo} textoInicial={textoDec} onQuitarEquipo={() => setEquipo(null)}
               onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }} />
           )}
           {vista === "aprobaciones" && <Aprobaciones />}

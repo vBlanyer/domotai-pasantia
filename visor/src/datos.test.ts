@@ -348,3 +348,16 @@ describe("atacantesDe", () => {
     expect(r.find((a) => a.ip === "10.200.0.11")!.otrosEquipos).toEqual([])
   })
 })
+
+describe("atacantesDe: ranking por gravedad", () => {
+  it("ordena por prioridad máxima y luego por nº de ataques; expone prioridad", () => {
+    const ev = [
+      { origen_ip: "a", prioridad: 2, relaciones: { x: ["objetivo"] } },
+      { origen_ip: "a", prioridad: 2, relaciones: { x: ["objetivo"] } },   // a: n2, prio2
+      { origen_ip: "b", prioridad: 4, relaciones: { x: ["objetivo"] } },   // b: n1, prio4 (más grave)
+    ] as unknown as Decision[]
+    const r = atacantesDe(ev, "x")
+    expect(r.map((at) => at.ip)).toEqual(["b", "a"])     // b primero por gravedad, aunque tenga menos ataques
+    expect(r[0].prioridad).toBe(4)
+  })
+})

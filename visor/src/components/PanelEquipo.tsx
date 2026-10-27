@@ -1,5 +1,6 @@
 import type { Decision, NodoRed } from "@/api"
 import { ESTADO_VISUAL } from "@/components/MapaRed"
+import { Prioridad } from "@/components/bits"
 import { Donut, Tendencia, type Segmento } from "./charts"
 import { etiquetaClase, colorClase, agruparPorDia, atacantesDe } from "@/datos"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK } from "@/theme"
@@ -22,8 +23,9 @@ const hora = (ts?: string | null) => {
   return isNaN(t.getTime()) ? ts : new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(t)
 }
 
-export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones }: {
+export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones, onVerOrigen }: {
   nodo: NodoRed; eventos: Decision[]; todos?: Decision[]; onVerDecisiones: () => void
+  onVerOrigen?: (ip: string) => void
 }) {
   const a = nodo.actividad
   const v = ESTADO_VISUAL[a.estado] ?? ESTADO_VISUAL.sin_actividad
@@ -78,20 +80,26 @@ export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones }: {
       )}
       {atacantes.length > 0 && (
         <div className="space-y-1 border-t border-border pt-2">
-          <div className="text-xs text-muted-foreground">Atacantes de este equipo (correlación)</div>
+          <div className="font-heading text-xs font-semibold">Atacantes de este equipo (correlación)</div>
           <table className="w-full text-xs">
             <thead>
               <tr className="text-left text-muted-foreground">
-                <th className="font-normal">Origen</th><th className="font-normal">Ataques</th>
-                <th className="font-normal">Alcance</th><th className="font-normal">También en</th>
+                <th className="font-normal">Origen</th><th className="font-normal">Gravedad</th>
+                <th className="font-normal">Ataques</th><th className="font-normal">También en</th>
               </tr>
             </thead>
             <tbody>
               {atacantes.slice(0, 8).map((at) => (
                 <tr key={at.ip}>
-                  <td className="font-mono">{at.ip}</td>
+                  <td className="py-0.5">
+                    {onVerOrigen
+                      ? <button onClick={() => onVerOrigen(at.ip)}
+                          className="font-mono underline-offset-2 hover:underline" title="Ver sus decisiones">{at.ip}</button>
+                      : <span className="font-mono">{at.ip}</span>}
+                    {at.alcance && <span className="ml-1 text-muted-foreground">· {at.alcance}</span>}
+                  </td>
+                  <td><Prioridad n={at.prioridad || null} /></td>
                   <td className="tabular-nums">×{at.n}</td>
-                  <td>{at.alcance ?? "—"}</td>
                   <td className="text-muted-foreground">
                     {at.otrosEquipos.length
                       ? <span title={at.otrosEquipos.join(", ")}>{at.otrosEquipos.length} equipo(s)</span>
@@ -106,25 +114,30 @@ export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones }: {
           )}
         </div>
       )}
-      <ul className="space-y-2 border-t border-border pt-2">
-        {eventos.length === 0 && <li className="text-muted-foreground">Sin eventos en la traza reciente.</li>}
-        {eventos.length > 30 && (
-          <li className="text-xs text-muted-foreground">Mostrando los 30 más recientes de {eventos.length}.</li>
-        )}
-        {eventos.slice(0, 30).map((d) => (
-          <li key={d.indice ?? d.id_decision} className="space-y-0.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">{hora(d.timestamp)}</span>
-              {(d.relaciones?.[nodo.nombre] ?? []).map((e) => (
-                <span key={e} className="rounded bg-muted px-1.5 text-xs">{ETIQUETA[e] ?? e}</span>
-              ))}
-              <span className="font-mono text-xs">{d.origen_ip ?? "—"}</span>
-              <span className="text-xs">{d.clase ?? "—"}</span>
-            </div>
-            <div className="text-xs text-muted-foreground">{(DESENLACE[d.contencion ?? ""] ?? (() => d.contencion ?? ""))(d)}</div>
-          </li>
-        ))}
-      </ul>
+      <details className="border-t border-border pt-2">
+        <summary className="cursor-pointer font-heading text-xs font-semibold text-muted-foreground">
+          Eventos recientes ({eventos.length})
+        </summary>
+        <ul className="mt-2 space-y-2">
+          {eventos.length === 0 && <li className="text-muted-foreground">Sin eventos en la traza reciente.</li>}
+          {eventos.length > 30 && (
+            <li className="text-xs text-muted-foreground">Mostrando los 30 más recientes de {eventos.length}.</li>
+          )}
+          {eventos.slice(0, 30).map((d) => (
+            <li key={d.indice ?? d.id_decision} className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">{hora(d.timestamp)}</span>
+                {(d.relaciones?.[nodo.nombre] ?? []).map((e) => (
+                  <span key={e} className="rounded bg-muted px-1.5 text-xs">{ETIQUETA[e] ?? e}</span>
+                ))}
+                <span className="font-mono text-xs">{d.origen_ip ?? "—"}</span>
+                <span className="text-xs">{d.clase ?? "—"}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">{(DESENLACE[d.contencion ?? ""] ?? (() => d.contencion ?? ""))(d)}</div>
+            </li>
+          ))}
+        </ul>
+      </details>
       <button onClick={onVerDecisiones} className="text-sm text-sky-600 hover:underline dark:text-sky-400">Ver en Decisiones →</button>
     </div>
   )

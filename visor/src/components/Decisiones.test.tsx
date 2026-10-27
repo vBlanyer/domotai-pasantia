@@ -261,3 +261,15 @@ describe("Detalle: enriquecimiento del origen", () => {
     expect(screen.getByText(/sin geolocalización/)).toBeInTheDocument()
   })
 })
+
+describe("Decisiones: filtro sembrado por navegación", () => {
+  it("siembra el filtro de texto con textoInicial (al pivotar desde una IP)", () => {
+    h.decisiones = [
+      { indice: 1, id_decision: "s1", clase: "vp_intento_acceso", activo: "web-banking", origen_ip: "9.9.9.9", prioridad: 3 },
+      { indice: 2, id_decision: "s2", clase: "vp_intento_acceso", activo: "core-db", origen_ip: "1.1.1.1", prioridad: 3 },
+    ]
+    render(<Decisiones textoInicial="9.9.9.9" />)
+    expect(screen.getByRole("button", { name: /ver detalle de web-banking/i })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /ver detalle de core-db/i })).not.toBeInTheDocument()
+  })
+})
