@@ -20,3 +20,14 @@ describe("PerfilAtacante", () => {
     expect(onVerDecisiones).toHaveBeenCalledWith("198.51.100.10")
   })
 })
+
+describe("PerfilAtacante — riesgo", () => {
+  it("muestra la insignia de riesgo del atacante", () => {
+    h.trazas = [
+      { indice: 1, origen_ip: "198.51.100.10", prioridad: 4, timestamp: "2026-10-27T10:00:00", relaciones: { "web-banking": ["objetivo"] } },
+      { indice: 2, origen_ip: "198.51.100.10", prioridad: 4, timestamp: "2026-10-27T11:00:00", relaciones: { "core-db": ["objetivo"] } },
+    ]
+    render(<PerfilAtacante ip="198.51.100.10" onVolver={() => {}} onVerDecisiones={() => {}} />)
+    expect(screen.getByText(/Riesgo:/)).toBeInTheDocument()
+  })
+})

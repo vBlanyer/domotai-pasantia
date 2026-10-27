@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -413,5 +413,24 @@ describe("pasosRunbook", () => {
     expect(pasosRunbook("vp_intento_acceso").length).toBeGreaterThan(0)
     expect(pasosRunbook("fp_actividad_legitima")).toEqual([])
     expect(pasosRunbook(null)).toEqual([])
+  })
+})
+
+describe("riesgoEquipo / riesgoAtacante", () => {
+  const nod = (extra = {}) => ({ nombre: "web-banking", criticidad: "alta", actividad: { pendientes: 0 }, ...extra }) as unknown as Parameters<typeof riesgoEquipo>[0]
+  it("sin ataques recibidos, el riesgo del equipo es bajo", () => {
+    expect(riesgoEquipo(nod(), []).nivel).toBe("bajo")
+  })
+  it("un ataque P4 contra un activo crítico con pendientes sube el riesgo y expone los factores", () => {
+    const ev = [{ prioridad: 4, relaciones: { "web-banking": ["objetivo"] } }] as unknown as Parameters<typeof riesgoEquipo>[1]
+    const r = riesgoEquipo(nod({ actividad: { pendientes: 2 } }), ev)
+    expect(["alto", "critico"]).toContain(r.nivel)
+    expect(r.factores.some((f) => /prioridad 4/.test(f))).toBe(true)
+    expect(r.factores.some((f) => /pendiente/.test(f))).toBe(true)
+  })
+  it("un atacante que pega a varios equipos con P4 es crítico", () => {
+    const r = riesgoAtacante({ n: 5, prioridad: 4, equipos: [{ equipo: "a", n: 2, ultima: null }, { equipo: "b", n: 2, ultima: null }, { equipo: "c", n: 1, ultima: null }] } as unknown as Parameters<typeof riesgoAtacante>[0])
+    expect(r.nivel).toBe("critico")
+    expect(r.factores.some((f) => /3 equipos/.test(f))).toBe(true)
   })
 })

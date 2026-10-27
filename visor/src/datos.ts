@@ -433,3 +433,48 @@ const RUNBOOK: Record<string, string[]> = {
 export function pasosRunbook(clase?: string | null): string[] {
   return (clase && RUNBOOK[clase]) || []
 }
+
+// Riesgo por entidad (ASESOR y EXPLICABLE, no un número mágico): un nivel bajo/medio/alto/crítico
+// con los factores que lo elevaron. Fórmula transparente sobre señales objetivas (gravedad del peor
+// ataque, volumen, decisiones pendientes, contención sin confirmar, criticidad del activo).
+export type Riesgo = { nivel: "bajo" | "medio" | "alto" | "critico"; etiqueta: string; puntuacion: number; factores: string[] }
+
+function nivelDeRiesgo(p: number, factores: string[]): Riesgo {
+  const n = p >= 90 ? "critico" : p >= 60 ? "alto" : p >= 30 ? "medio" : "bajo"
+  return { nivel: n, etiqueta: n === "critico" ? "crítico" : n, puntuacion: p, factores }
+}
+
+export function riesgoEquipo(
+  nodo: { nombre: string; criticidad?: string | null; actividad?: { pendientes?: number } },
+  eventos: Decision[],
+): Riesgo {
+  const recibidos = eventos.filter((d) => (d.relaciones?.[nodo.nombre] ?? []).includes("objetivo"))
+  if (recibidos.length === 0) return nivelDeRiesgo(0, ["sin ataques recibidos"])
+  const f: string[] = []
+  let p = 0
+  const maxPrio = Math.max(0, ...recibidos.map((d) => d.prioridad ?? 0))
+  p += maxPrio * 20
+  if (maxPrio) f.push(`ataque de prioridad ${maxPrio}`)
+  if (recibidos.length >= 10) { p += 15; f.push(`${recibidos.length} ataques recibidos`) }
+  else if (recibidos.length >= 3) { p += 8; f.push(`${recibidos.length} ataques recibidos`) }
+  const pend = nodo.actividad?.pendientes ?? 0
+  if (pend > 0) { p += 15; f.push(`${pend} decisión(es) pendiente(s)`) }
+  const expuestos = recibidos.filter((d) => d.contencion === "fallida").length
+  if (expuestos) { p += 15; f.push(`${expuestos} contención(es) sin confirmar`) }
+  const crit = (nodo.criticidad ?? "").toLowerCase()
+  if (crit === "alta" || crit === "critica" || crit === "crítica") { p += 10; f.push(`activo ${nodo.criticidad}`) }
+  return nivelDeRiesgo(Math.min(100, p), f)
+}
+
+export function riesgoAtacante(perfil: { n: number; prioridad: number; equipos: { equipo: string }[] }): Riesgo {
+  const f: string[] = []
+  let p = (perfil.prioridad ?? 0) * 20
+  if (perfil.prioridad) f.push(`ataque de prioridad ${perfil.prioridad}`)
+  if (perfil.n >= 10) { p += 15; f.push(`${perfil.n} ataques`) }
+  else if (perfil.n >= 3) { p += 8; f.push(`${perfil.n} ataques`) }
+  const eq = perfil.equipos.length
+  if (eq >= 3) { p += 20; f.push(`${eq} equipos atacados`) }
+  else if (eq >= 2) { p += 10; f.push(`${eq} equipos atacados`) }
+  if (!f.length) f.push("actividad baja")
+  return nivelDeRiesgo(Math.min(100, p), f)
+}

@@ -98,3 +98,12 @@ describe("PanelEquipo — subred y pivote del pie", () => {
     expect(onVerDecisiones).toHaveBeenCalled()
   })
 })
+
+describe("PanelEquipo — riesgo del equipo", () => {
+  it("muestra la insignia de riesgo", () => {
+    const nod = { nombre: "web-banking", criticidad: "alta", actividad: { objetivo: 1, origen: 0, contuvo_aqui: 0, pendientes: 2, estado: "atacado", ultima: null } } as unknown as Parameters<typeof PanelEquipo>[0]["nodo"]
+    const ev = [{ indice: 1, origen_ip: "198.51.100.10", prioridad: 4, relaciones: { "web-banking": ["objetivo"] } }] as unknown as Parameters<typeof PanelEquipo>[0]["eventos"]
+    render(<PanelEquipo nodo={nod} eventos={ev} onVerDecisiones={() => {}} />)
+    expect(screen.getByText(/Riesgo:/)).toBeInTheDocument()
+  })
+})

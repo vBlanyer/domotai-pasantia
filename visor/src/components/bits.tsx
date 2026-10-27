@@ -106,3 +106,20 @@ export function Prioridad({ n }: { n?: number | null }) {
 export function Dato({ children, className }: { children: ReactNode; className?: string }) {
   return <span className={cn("font-mono text-xs text-muted-foreground", className)}>{children}</span>
 }
+
+const RIESGO_CLS: Record<string, string> = {
+  bajo: "bg-muted text-muted-foreground",
+  medio: "bg-amber-400/20 text-amber-700 dark:text-amber-300",
+  alto: "bg-orange-500/20 text-orange-700 dark:text-orange-300",
+  critico: "bg-rose-500/20 text-rose-700 dark:text-rose-300",
+}
+
+// Insignia de riesgo por entidad: nivel + sus factores en el tooltip (asesor, explicable).
+export function RiesgoBadge({ r }: { r: { nivel: string; etiqueta: string; factores: string[] } }) {
+  return (
+    <span title={r.factores.join(" · ")}
+      className={cn("whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium", RIESGO_CLS[r.nivel] ?? RIESGO_CLS.bajo)}>
+      Riesgo: {r.etiqueta}
+    </span>
+  )
+}

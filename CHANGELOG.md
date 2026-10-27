@@ -127,6 +127,11 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Riesgo por entidad** (asesor y explicable): una insignia «Riesgo: bajo/medio/alto/crítico» en el
+  panel del equipo y en el perfil de atacante, con los **factores** que lo elevaron en el tooltip
+  (gravedad del peor ataque, volumen, decisiones pendientes, contención sin confirmar, criticidad del
+  activo / nº de equipos atacados). Fórmula transparente sobre señales objetivas, en cliente
+  (`datos.riesgoEquipo` / `riesgoAtacante`); no un número mágico.
 - **Tiempos de respuesta / SLA** en Métricas: además del MTTR medio, ahora el **MTTR mediano**, el
   **% dentro de SLA** (umbral configurable con `TRIAJE_SLA_SEG`, def. 15 min) y los **SLA incumplidos**
   —al estilo de los dashboards comerciales—, calculados de los timestamps de la cola humana
