@@ -1,10 +1,10 @@
 import { useSondeo, getTrazas, type Decision } from "@/api"
-import { Prioridad, Cargando, SinConexion } from "@/components/bits"
+import { Prioridad, RiesgoBadge, Cargando, SinConexion } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { OrigenBadges } from "@/components/OrigenBadges"
 import { Tendencia } from "@/components/charts"
-import { perfilAtacante } from "@/datos"
+import { perfilAtacante, riesgoAtacante } from "@/datos"
 
 const hora = (ts?: string | null) => {
   if (!ts) return "—"
@@ -37,6 +37,7 @@ export function PerfilAtacante({ ip, onVolver, onVerDecisiones }: {
       <div className="flex flex-wrap items-center gap-3">
         <Button size="sm" variant="secondary" onClick={onVolver}>← Volver</Button>
         <div className="font-heading text-base font-semibold font-mono">{ip}</div>
+        <RiesgoBadge r={riesgoAtacante(p)} />
         <OrigenBadges e={p.enriquecimiento} />
         <Button size="sm" className="ml-auto" onClick={() => onVerDecisiones(ip)}>Ver sus decisiones →</Button>
       </div>

@@ -1,9 +1,9 @@
 import { useState } from "react"
 import type { Decision, NodoRed } from "@/api"
 import { ESTADO_VISUAL } from "@/components/MapaRed"
-import { Prioridad } from "@/components/bits"
+import { Prioridad, RiesgoBadge } from "@/components/bits"
 import { Donut, Tendencia, type Segmento } from "./charts"
-import { etiquetaClase, colorClase, agruparPorDia, atacantesDe, agruparPorSubred } from "@/datos"
+import { etiquetaClase, colorClase, agruparPorDia, atacantesDe, agruparPorSubred, riesgoEquipo } from "@/datos"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK } from "@/theme"
 import { useTema } from "@/tema"
 
@@ -63,7 +63,10 @@ export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones, onVerO
           {nodo.servicios_prestados?.length ? ` · servicios ${nodo.servicios_prestados.join(", ")}` : ""}
           {nodo.depende_de?.length ? ` · depende de ${nodo.depende_de.join(", ")}` : ""}
         </div>
-        <div className="mt-1 text-xs">{v.icono} {v.texto}</div>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+          <span>{v.icono} {v.texto}</span>
+          <RiesgoBadge r={riesgoEquipo(nodo, eventos)} />
+        </div>
       </div>
       <div className="flex flex-wrap gap-1.5 text-xs">
         <span className="rounded bg-rose-500/15 px-1.5 py-0.5">{a.objetivo} recibidos</span>
