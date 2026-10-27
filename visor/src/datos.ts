@@ -258,3 +258,29 @@ export function agruparPorDia(ds: Decision[]): { dia: string; n: number }[] {
   }
   return [...cuenta.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([dia, n]) => ({ dia, n }))
 }
+
+// Correlación de atacantes por dispositivo: los orígenes que ATACARON `equipo` (relación objetivo),
+// con cuántas veces, su alcance (del enriquecimiento) y en qué OTROS equipos pegó la misma IP
+// (correlación entre dispositivos, al estilo de los MDR comerciales). `todos` = el feed completo.
+export function atacantesDe(eventos: Decision[], equipo: string, todos: Decision[] = []):
+  { ip: string; n: number; ultima: string | null; alcance?: string; otrosEquipos: string[] }[] {
+  const spread = new Map<string, Set<string>>()          // ip -> equipos que atacó (objetivo)
+  for (const d of todos) {
+    if (!d.origen_ip) continue
+    for (const [eq, etqs] of Object.entries(d.relaciones ?? {})) {
+      if ((etqs ?? []).includes("objetivo")) (spread.get(d.origen_ip) ?? spread.set(d.origen_ip, new Set()).get(d.origen_ip)!).add(eq)
+    }
+  }
+  const acc = new Map<string, { ip: string; n: number; ultima: string | null; alcance?: string }>()
+  for (const d of eventos) {
+    if (!d.origen_ip || !(d.relaciones?.[equipo] ?? []).includes("objetivo")) continue   // solo ataques RECIBIDOS
+    const a = acc.get(d.origen_ip) ?? { ip: d.origen_ip, n: 0, ultima: null, alcance: d.enriquecimiento_origen?.alcance ?? undefined }
+    a.n += 1
+    if (d.timestamp && (!a.ultima || d.timestamp > a.ultima)) a.ultima = d.timestamp
+    if (!a.alcance && d.enriquecimiento_origen?.alcance) a.alcance = d.enriquecimiento_origen.alcance
+    acc.set(d.origen_ip, a)
+  }
+  return [...acc.values()]
+    .map((a) => ({ ...a, otrosEquipos: [...(spread.get(a.ip) ?? new Set<string>())].filter((e) => e !== equipo).sort() }))
+    .sort((x, y) => y.n - x.n || (x.ip < y.ip ? -1 : 1))
+}

@@ -39,7 +39,8 @@ describe("Red", () => {
     fireEvent.click(screen.getByRole("button", { name: /web-banking/ }))
     expect(screen.getByText("banca en línea")).toBeInTheDocument()
     expect(screen.getByText(/2 recibidos/)).toBeInTheDocument()
-    expect(screen.getByText("198.51.100.10")).toBeInTheDocument()
+    // la IP aparece en la tabla de atacantes y en la lista de eventos: basta con que esté
+    expect(screen.getAllByText("198.51.100.10").length).toBeGreaterThan(0)
     expect(screen.getByText(/contenida en fw-core/)).toBeInTheDocument()
     expect(screen.queryByText("fp_actividad_legitima")).not.toBeInTheDocument()
     expect(screen.getAllByText("objetivo").length).toBe(2)
