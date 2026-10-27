@@ -11,10 +11,11 @@ baraja TODA la batería en cada vuelta y la lanza sin parar hasta Ctrl+C, con la
 el orden (reproducible) y `--vueltas` lo acota si no se quiere sin fin. Al parar, un resumen por
 familia; luego `sh lab/banco/banco.sh restaurar`.
 
-Para que el ataque NO sea una caja negra, el menú muestra por defecto —y las tandas con `--verbose`/
-`-v` (o la tecla `v`)— el comando EXACTO que se inyecta en cada nodo (`↳ <nodo> $ <comando>`): la
+Para que el ataque NO sea una caja negra, TODAS las modalidades —el menú, `auto` y `continuo`—
+muestran POR DEFECTO el comando EXACTO que se inyecta en cada nodo (`↳ <nodo> $ <comando>`): la
 preparación, el ataque y el deshacer. Es `ejecutor_detallado`, que envuelve el ejecutor y narra cada
-`docker exec` justo antes de lanzarlo, sin cambiar qué se ejecuta.
+`docker exec` justo antes de lanzarlo, sin cambiar qué se ejecuta. Para silenciarlo en una tanda
+(p. ej. un soak largo volcado a fichero): `--sin-detalle` (`-q`); en el menú, la tecla `v`.
 
 El menú cubre LAS 10 FAMILIAS (ninguna queda sin ataque): los casos de red del catálogo
 (`lab/banco/casos.py`) numerados —fuerza bruta, reconocimiento, telnet, explotación web— y, a
@@ -441,25 +442,31 @@ def _parsear_continuo(argv):
                    help="restaura el banco cada N ataques; 0 lo desactiva (def. 20)")
     p.add_argument("--semilla", type=int, default=None, help="fija el orden del barajado (reproducible)")
     p.add_argument("--vueltas", type=int, default=None, help="para tras N vueltas completas (def. sin fin)")
-    p.add_argument("-v", "--verbose", "--detalle", action="store_true", dest="verbose",
-                   help="muestra el nodo y el comando exacto de cada ataque (no caja negra)")
+    p.add_argument("-q", "--sin-detalle", "--silencioso", action="store_true", dest="silencioso",
+                   help="NO muestra el comando de cada ataque (por defecto sí se muestra)")
+    # --verbose/-v se acepta por compatibilidad: el detalle ya es el comportamiento por defecto.
+    p.add_argument("-v", "--verbose", "--detalle", action="store_true", dest="verbose", help=argparse.SUPPRESS)
     return p.parse_args(argv)
 
 
-_BANDERAS_DETALLE = ("-v", "--verbose", "--detalle")
+# El detalle del comando de cada ataque sale POR DEFECTO en todas las modalidades (menú y tandas):
+# la consola de ataque no es una caja negra. Estas banderas lo SILENCIAN en las tandas.
+_BANDERAS_SILENCIO = ("-q", "--sin-detalle", "--silencioso")
+_BANDERAS_DETALLE = ("-v", "--verbose", "--detalle")   # redundantes (ya es el defecto); se aceptan igual
 
 
 def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
-    if argv and argv[0] == "auto":   # no interactivo: sh lab/banco/banco.sh atacar auto [repeticiones] [gap] [-v]
-        pos = [x for x in argv[1:] if x not in _BANDERAS_DETALLE]
-        ej = ejecutor_detallado(ejecutar) if any(x in _BANDERAS_DETALLE for x in argv[1:]) else ejecutar
+    if argv and argv[0] == "auto":   # no interactivo: sh lab/banco/banco.sh atacar auto [repeticiones] [gap] [-q]
+        banderas = _BANDERAS_SILENCIO + _BANDERAS_DETALLE
+        pos = [x for x in argv[1:] if x not in banderas]
+        ej = ejecutar if any(x in _BANDERAS_SILENCIO for x in argv[1:]) else ejecutor_detallado(ejecutar)
         reps = int(pos[0]) if len(pos) > 0 else 1
         gap = float(pos[1]) if len(pos) > 1 else 6
         tanda_automatica(ejecutar=ej, dormir=dormir, repeticiones=reps, gap=gap)
         return 0
     if argv and argv[0] in ("continuo", "soak"):   # soak: ataques variados sin fin (Ctrl+C para parar)
         a = _parsear_continuo(argv[1:])
-        ej = ejecutor_detallado(ejecutar) if a.verbose else ejecutar
+        ej = ejecutar if a.silencioso else ejecutor_detallado(ejecutar)
         tanda_continua(ejecutar=ej, dormir=dormir, gap=a.gap, restaurar_cada=a.restaurar_cada,
                        semilla=a.semilla, vueltas=a.vueltas)
         return 0

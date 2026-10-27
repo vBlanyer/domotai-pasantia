@@ -143,9 +143,10 @@ case "${1:-up}" in
     #   atacar                      menú interactivo (incluye la tecla 'c' = tanda continua / soak)
     #   atacar auto [reps] [gap]    tanda automática: toda la batería una vez (o 'reps' veces)
     #   atacar continuo [opciones]  SOAK: ataques variados SIN FIN hasta Ctrl+C (alias: soak)
-    #                               opciones: --gap S --restaurar-cada N --semilla S --vueltas N --verbose
-    #   --verbose / -v              muestra el nodo y el comando exacto de cada ataque (no caja negra;
-    #                               el menu lo trae ON por defecto, tecla 'v' para apagarlo)
+    #                               opciones: --gap S --restaurar-cada N --semilla S --vueltas N
+    #   detalle de comandos         TODAS las modalidades (menu, auto, continuo) muestran por defecto
+    #                               el nodo y el comando exacto de cada ataque (no caja negra);
+    #                               --sin-detalle / -q lo silencia en las tandas (tecla 'v' en el menu)
     shift
     cd "$RAIZ" && exec python3 -m lab.banco.demo "$@"
     ;;
