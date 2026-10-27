@@ -21,12 +21,11 @@ const eventos = [
 ] as unknown as Parameters<typeof PanelEquipo>[0]["eventos"]
 
 describe("PanelEquipo — datos por dispositivo", () => {
-  it("muestra conteos derivados de los eventos de la ventana", () => {
+  it("no duplica los conteos: una sola fila (actividad) y el último visto, sin fila 'en la ventana'", () => {
     render(<PanelEquipo nodo={nodo} eventos={eventos} onVerDecisiones={() => {}} />)
-    expect(screen.getByText(/3 en la ventana/)).toBeInTheDocument()
-    expect(screen.getByText(/1 automática/)).toBeInTheDocument()
-    expect(screen.getByText(/1 retenida/)).toBeInTheDocument()
-    expect(screen.getByText(/2 contenida/)).toBeInTheDocument()
+    expect(screen.getByText(/3 recibidos/)).toBeInTheDocument()       // la fila de actividad (autoritativa)
+    expect(screen.getByText(/último:/)).toBeInTheDocument()
+    expect(screen.queryByText(/en la ventana/)).not.toBeInTheDocument()   // sin la fila redundante
   })
 
   it("deriva el donut por clase (2 clases) y la tendencia por día (2 días)", () => {
