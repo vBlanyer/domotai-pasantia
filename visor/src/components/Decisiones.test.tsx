@@ -227,3 +227,23 @@ describe("FilaDecision accesible por teclado", () => {
     expect(screen.getByRole("button", { name: /ver detalle de srv/i })).toHaveAttribute("aria-expanded", "true")
   })
 })
+
+describe("Decisiones paginadas", () => {
+  it("muestra 25 por página y «Siguiente» avanza", () => {
+    h.decisiones = Array.from({ length: 30 }, (_, i) => (
+      { indice: 100 + i, id_decision: `s${100 + i}`, clase: "vp_intento_acceso", activo: `eq${100 + i}`, prioridad: 3 }))
+    render(<Decisiones />)
+    expect(screen.getByRole("button", { name: /ver detalle de eq100/i })).toBeInTheDocument()   // pág. 1
+    expect(screen.queryByRole("button", { name: /ver detalle de eq129/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+    expect(screen.getByRole("button", { name: /ver detalle de eq129/i })).toBeInTheDocument()    // pág. 2
+    expect(screen.queryByRole("button", { name: /ver detalle de eq100/i })).not.toBeInTheDocument()
+  })
+
+  it("con pocas decisiones no hay paginador", () => {
+    h.decisiones = [{ indice: 1, id_decision: "s1", clase: "vp_intento_acceso", activo: "srv", prioridad: 2 }]
+    render(<Decisiones />)
+    expect(screen.queryByRole("button", { name: "Siguiente" })).not.toBeInTheDocument()
+  })
+})

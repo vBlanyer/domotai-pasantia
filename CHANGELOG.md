@@ -127,6 +127,10 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Paginación** de las listas largas (Trazas y Decisiones): control «Anterior / página X de Y /
+  Siguiente» (25 por página), paginado en cliente sobre el feed que ya llega acotado; la página vive
+  en el componente y no se reinicia con el sondeo, y vuelve a 1 al cambiar el filtro. Helper puro
+  `paginar` en `datos.ts` + componente reutilizable `Paginador.tsx`.
 - **Revertir una contención concreta** desde su fila en «Contenciones activas», no solo el
   des-bloqueo en masa: cada fila tiene un botón «Revertir» con confirmación que llama al nuevo
   `POST /api/revertir {indice, confirmar}` (`revertir.revertir_una`), que des-bloquea esa sola
