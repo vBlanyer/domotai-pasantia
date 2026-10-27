@@ -12,8 +12,10 @@ export function Red({ onVerDecisiones }: { onVerDecisiones: (equipo: string) => 
   if (!red) return <Cargando />
   if ("error" in red) return <SinConexion />
   const nodo = red.nodos.find((n) => n.nombre === sel)
+  // La ventana filtrada completa (hasta 500) para que las gráficas por dispositivo no queden
+  // truncadas; la lista de eventos del panel ya acota su propio render.
   const eventos = nodo && Array.isArray(trazas)
-    ? trazas.filter((d) => d.relaciones?.[nodo.nombre]).slice().reverse().slice(0, 30) : []
+    ? trazas.filter((d) => d.relaciones?.[nodo.nombre]).slice().reverse() : []
   const avisos = red.avisos ?? []
   return (
     <div className="space-y-3">

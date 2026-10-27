@@ -127,6 +127,12 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Datos por dispositivo en la vista Red**: al pinchar un equipo, su panel muestra ahora, además de
+  la lista de eventos, un resumen de la ventana —conteos (total / automáticas / retenidas / contenidas)
+  y último visto— y dos gráficas propias: **donut por clase** y **tendencia por día**, calculadas en
+  cliente de la traza filtrada por ese equipo (`relaciones`), reutilizando `Donut`/`Tendencia` de
+  `charts.tsx` y el helper `agruparPorDia`. Se quitó el recorte a 30 de `Red.tsx` para no truncar las
+  agregaciones (la lista del panel sigue mostrando los 30 más recientes).
 - **Paginación** de las listas largas (Trazas y Decisiones): control «Anterior / página X de Y /
   Siguiente» (25 por página), paginado en cliente sobre el feed que ya llega acotado; la página vive
   en el componente y no se reinicia con el sondeo, y vuelve a 1 al cambiar el filtro. Helper puro

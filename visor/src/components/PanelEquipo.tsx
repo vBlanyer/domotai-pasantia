@@ -1,5 +1,9 @@
 import type { Decision, NodoRed } from "@/api"
 import { ESTADO_VISUAL } from "@/components/MapaRed"
+import { Donut, Tendencia, type Segmento } from "./charts"
+import { etiquetaClase, colorClase, agruparPorDia } from "@/datos"
+import { CATEGORICO_LIGHT, CATEGORICO_DARK } from "@/theme"
+import { useTema } from "@/tema"
 
 const ETIQUETA: Record<string, string> = { objetivo: "objetivo", origen: "origen", contuvo_aqui: "contuvo aquí" }
 const DESENLACE: Record<string, (d: Decision) => string> = {
@@ -23,6 +27,22 @@ export function PanelEquipo({ nodo, eventos, onVerDecisiones }: {
 }) {
   const a = nodo.actividad
   const v = ESTADO_VISUAL[a.estado] ?? ESTADO_VISUAL.sin_actividad
+  const CAT = useTema().oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
+  // Resumen de la ventana de eventos del equipo (lo que ya llega del feed): conteos + gráficas.
+  const total = eventos.length
+  const auto = eventos.filter((d) => d.requiere_humano === false).length
+  const retenido = eventos.filter((d) => d.contencion === "retenida").length
+  const contenido = eventos.filter((d) => d.contencion === "contenida").length
+  const porClase = eventos.reduce<Record<string, number>>((m, d) => {
+    if (d.clase) m[d.clase] = (m[d.clase] ?? 0) + 1
+    return m
+  }, {})
+  const segClase: Segmento[] = Object.keys(porClase).sort()
+    .map((c) => ({ name: etiquetaClase(c), value: porClase[c], fill: colorClase(c, CAT) }))
+  // El total del donut es la suma de sus porciones (eventos con clase), para que el centro cuadre
+  // con las porciones aunque algún evento venga sin clase.
+  const totalClasificado = segClase.reduce((s, x) => s + x.value, 0)
+  const porDia = agruparPorDia(eventos)
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card p-4 text-sm">
       <div>
@@ -43,9 +63,33 @@ export function PanelEquipo({ nodo, eventos, onVerDecisiones }: {
         <span className="rounded bg-emerald-500/15 px-1.5 py-0.5">{a.contuvo_aqui} contenidos aquí</span>
         <span className="rounded bg-amber-400/20 px-1.5 py-0.5">{a.pendientes} pendientes</span>
       </div>
+      {total > 0 && (
+        <div className="space-y-3 border-t border-border pt-2">
+          <div className="flex flex-wrap gap-1.5 text-xs">
+            <span className="rounded bg-muted px-1.5 py-0.5">{total} en la ventana</span>
+            <span className="rounded bg-sky-500/15 px-1.5 py-0.5">{auto} automática(s)</span>
+            <span className="rounded bg-amber-400/20 px-1.5 py-0.5">{retenido} retenida(s)</span>
+            <span className="rounded bg-emerald-500/15 px-1.5 py-0.5">{contenido} contenida(s)</span>
+            <span className="rounded px-1.5 py-0.5 text-muted-foreground">último: {hora(a.ultima)}</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <div className="mb-1 text-xs text-muted-foreground">Por clase</div>
+              <Donut data={segClase} total={totalClasificado} unidad="eventos" />
+            </div>
+            <div>
+              <div className="mb-1 text-xs text-muted-foreground">Actividad por día</div>
+              <Tendencia data={porDia} />
+            </div>
+          </div>
+        </div>
+      )}
       <ul className="space-y-2 border-t border-border pt-2">
         {eventos.length === 0 && <li className="text-muted-foreground">Sin eventos en la traza reciente.</li>}
-        {eventos.map((d) => (
+        {eventos.length > 30 && (
+          <li className="text-xs text-muted-foreground">Mostrando los 30 más recientes de {eventos.length}.</li>
+        )}
+        {eventos.slice(0, 30).map((d) => (
           <li key={d.indice ?? d.id_decision} className="space-y-0.5">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-xs text-muted-foreground">{hora(d.timestamp)}</span>

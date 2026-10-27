@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -301,5 +301,18 @@ describe("paginar", () => {
   })
   it("una lista vacía es una sola página vacía", () => {
     expect(paginar([], 1, 25)).toMatchObject({ filas: [], pagina: 1, paginas: 1, total: 0 })
+  })
+})
+
+describe("agruparPorDia", () => {
+  it("cuenta eventos por día e ignora los sin timestamp, ordenando cronológicamente", () => {
+    const ds = [
+      { timestamp: "2026-10-27T10:00:00" }, { timestamp: "2026-10-27T11:30:00" },
+      { timestamp: "2026-10-26T09:00:00" }, { timestamp: null },
+    ] as unknown as Decision[]
+    expect(agruparPorDia(ds)).toEqual([{ dia: "2026-10-26", n: 1 }, { dia: "2026-10-27", n: 2 }])
+  })
+  it("una lista vacía da []", () => {
+    expect(agruparPorDia([])).toEqual([])
   })
 })

@@ -244,3 +244,15 @@ export function paginar<T>(xs: T[], pagina: number, tam: number = TAM_PAGINA): {
   const p = Math.min(Math.max(1, Math.floor(pagina) || 1), paginas)   // clampa a [1, paginas]
   return { filas: xs.slice((p - 1) * tam, p * tam), pagina: p, paginas, total }
 }
+
+// Cuenta eventos por día (YYYY-MM-DD del timestamp ISO), para la gráfica de tendencia por equipo.
+// Ignora los registros sin timestamp; ordena cronológicamente.
+export function agruparPorDia(ds: Decision[]): { dia: string; n: number }[] {
+  const cuenta = new Map<string, number>()
+  for (const d of ds) {
+    if (!d.timestamp) continue
+    const dia = d.timestamp.slice(0, 10)               // día del ISO, determinista y sin depender de Date
+    cuenta.set(dia, (cuenta.get(dia) ?? 0) + 1)
+  }
+  return [...cuenta.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([dia, n]) => ({ dia, n }))
+}
