@@ -138,7 +138,10 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   (interno/externo) y —correlación entre dispositivos, al estilo de los MDR comerciales— **en cuántos
   equipos más** ha pegado esa misma IP. En cliente, con el helper `atacantesDe` (cuenta los ataques
   RECIBIDOS por relación `objetivo`, agrupa por `origen_ip` y cruza el feed completo para el «también
-  en N equipos»).
+  en N equipos»). Con **muchos orígenes** (una campaña que rota IPs del mismo bloque), se **agrupa
+  por subred /24** (conmutador «por IP / por subred», por subred por defecto): una campaña = una fila
+  con su nº de IPs (`agruparPorSubred`). Y el pie deja de ser texto muerto: **«Ver los N orígenes en
+  Decisiones →»** pivota a la lista completa, paginada y filtrable.
 - **Más información de la IP atacante** en el detalle de una decisión y en el grafo del incidente:
   alcance (interno/externo), si está inventariada, clasificación de la IP (pública/privada/de
   documentación/loopback), tercero de confianza, origen legítimo y ubicación. El enriquecimiento lo

@@ -1,10 +1,13 @@
+import { useState } from "react"
 import type { Decision, NodoRed } from "@/api"
 import { ESTADO_VISUAL } from "@/components/MapaRed"
 import { Prioridad } from "@/components/bits"
 import { Donut, Tendencia, type Segmento } from "./charts"
-import { etiquetaClase, colorClase, agruparPorDia, atacantesDe } from "@/datos"
+import { etiquetaClase, colorClase, agruparPorDia, atacantesDe, agruparPorSubred } from "@/datos"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK } from "@/theme"
 import { useTema } from "@/tema"
+
+const TOP_ATACANTES = 8
 
 const ETIQUETA: Record<string, string> = { objetivo: "objetivo", origen: "origen", contuvo_aqui: "contuvo aquí" }
 const DESENLACE: Record<string, (d: Decision) => string> = {
@@ -31,6 +34,10 @@ export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones, onVerO
   const v = ESTADO_VISUAL[a.estado] ?? ESTADO_VISUAL.sin_actividad
   const CAT = useTema().oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
   const atacantes = atacantesDe(eventos, nodo.nombre, todos)
+  // Con muchos orígenes (p. ej. una campaña que rota IPs del mismo /24) se agrupa por subred por
+  // defecto: una campaña = una fila. Con pocos, por IP. El conmutador deja alternar.
+  const [modo, setModo] = useState<"ip" | "subred">(atacantes.length > TOP_ATACANTES ? "subred" : "ip")
+  const subredes = agruparPorSubred(atacantes)
   // Gráficas derivadas de la ventana de eventos del equipo (los conteos ya los da `nodo.actividad`).
   const total = eventos.length
   const porClase = eventos.reduce<Record<string, number>>((m, d) => {
@@ -80,37 +87,64 @@ export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones, onVerO
       )}
       {atacantes.length > 0 && (
         <div className="space-y-1 border-t border-border pt-2">
-          <div className="font-heading text-xs font-semibold">Atacantes de este equipo (correlación)</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="font-heading text-xs font-semibold">Atacantes de este equipo (correlación)</div>
+            <div className="flex gap-1.5 text-xs">
+              <button onClick={() => setModo("ip")}
+                className={modo === "ip" ? "font-semibold" : "text-muted-foreground hover:underline"}>por IP</button>
+              <span className="text-muted-foreground">·</span>
+              <button onClick={() => setModo("subred")}
+                className={modo === "subred" ? "font-semibold" : "text-muted-foreground hover:underline"}>por subred</button>
+            </div>
+          </div>
           <table className="w-full text-xs">
             <thead>
               <tr className="text-left text-muted-foreground">
-                <th className="font-normal">Origen</th><th className="font-normal">Gravedad</th>
-                <th className="font-normal">Ataques</th><th className="font-normal">También en</th>
+                <th className="font-normal">{modo === "subred" ? "Bloque de origen" : "Origen"}</th>
+                <th className="font-normal">Gravedad</th><th className="font-normal">Ataques</th>
+                <th className="font-normal">También en</th>
               </tr>
             </thead>
             <tbody>
-              {atacantes.slice(0, 8).map((at) => (
-                <tr key={at.ip}>
-                  <td className="py-0.5">
-                    {onVerOrigen
-                      ? <button onClick={() => onVerOrigen(at.ip)}
-                          className="font-mono underline-offset-2 hover:underline" title="Ver sus decisiones">{at.ip}</button>
-                      : <span className="font-mono">{at.ip}</span>}
-                    {at.alcance && <span className="ml-1 text-muted-foreground">· {at.alcance}</span>}
-                  </td>
-                  <td><Prioridad n={at.prioridad || null} /></td>
-                  <td className="tabular-nums">×{at.n}</td>
-                  <td className="text-muted-foreground">
-                    {at.otrosEquipos.length
-                      ? <span title={at.otrosEquipos.join(", ")}>{at.otrosEquipos.length} equipo(s)</span>
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
+              {modo === "subred"
+                ? subredes.slice(0, TOP_ATACANTES).map((s) => (
+                  <tr key={s.cidr}>
+                    <td className="py-0.5">
+                      {onVerOrigen
+                        ? <button onClick={() => onVerOrigen(s.prefijo)}
+                            className="font-mono underline-offset-2 hover:underline" title="Ver las decisiones del bloque">{s.cidr}</button>
+                        : <span className="font-mono">{s.cidr}</span>}
+                      <span className="ml-1 text-muted-foreground">· {s.ips} IP{s.ips === 1 ? "" : "s"}{s.alcance ? ` · ${s.alcance}` : ""}</span>
+                    </td>
+                    <td><Prioridad n={s.prioridad || null} /></td>
+                    <td className="tabular-nums">×{s.n}</td>
+                    <td className="text-muted-foreground">
+                      {s.otrosEquipos.length ? <span title={s.otrosEquipos.join(", ")}>{s.otrosEquipos.length} equipo(s)</span> : "—"}
+                    </td>
+                  </tr>
+                ))
+                : atacantes.slice(0, TOP_ATACANTES).map((at) => (
+                  <tr key={at.ip}>
+                    <td className="py-0.5">
+                      {onVerOrigen
+                        ? <button onClick={() => onVerOrigen(at.ip)}
+                            className="font-mono underline-offset-2 hover:underline" title="Ver sus decisiones">{at.ip}</button>
+                        : <span className="font-mono">{at.ip}</span>}
+                      {at.alcance && <span className="ml-1 text-muted-foreground">· {at.alcance}</span>}
+                    </td>
+                    <td><Prioridad n={at.prioridad || null} /></td>
+                    <td className="tabular-nums">×{at.n}</td>
+                    <td className="text-muted-foreground">
+                      {at.otrosEquipos.length ? <span title={at.otrosEquipos.join(", ")}>{at.otrosEquipos.length} equipo(s)</span> : "—"}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
-          {atacantes.length > 8 && (
-            <div className="text-xs text-muted-foreground">+{atacantes.length - 8} orígenes más</div>
+          {atacantes.length > TOP_ATACANTES && (
+            <button onClick={onVerDecisiones} className="text-xs text-sky-600 hover:underline dark:text-sky-400">
+              Ver los {atacantes.length} orígenes en Decisiones →
+            </button>
           )}
         </div>
       )}

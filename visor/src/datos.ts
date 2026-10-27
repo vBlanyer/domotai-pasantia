@@ -286,3 +286,28 @@ export function atacantesDe(eventos: Decision[], equipo: string, todos: Decision
     // rankea por GRAVEDAD (el peor primero), luego por nº de ataques, luego IP para estabilidad
     .sort((x, y) => y.prioridad - x.prioridad || y.n - x.n || (x.ip < y.ip ? -1 : 1))
 }
+
+// Agrupa los atacantes (salida de atacantesDe) por subred /24 (bloque de origen): una campaña que
+// rota IPs del mismo bloque se colapsa en UNA fila, que es la correlación útil cuando hay muchos
+// orígenes singleton. Las IPs que no son IPv4 quedan como su propia clave.
+export function agruparPorSubred(
+  atacantes: { ip: string; n: number; prioridad: number; ultima: string | null; alcance?: string; otrosEquipos: string[] }[],
+): { cidr: string; prefijo: string; ips: number; n: number; prioridad: number; ultima: string | null; alcance?: string; otrosEquipos: string[] }[] {
+  const acc = new Map<string, { cidr: string; prefijo: string; ips: number; n: number; prioridad: number; ultima: string | null; alcance?: string; otros: Set<string> }>()
+  for (const at of atacantes) {
+    const m = /^(\d+)\.(\d+)\.(\d+)\.\d+$/.exec(at.ip)
+    const cidr = m ? `${m[1]}.${m[2]}.${m[3]}.0/24` : at.ip
+    const prefijo = m ? `${m[1]}.${m[2]}.${m[3]}.` : at.ip
+    const g = acc.get(cidr) ?? { cidr, prefijo, ips: 0, n: 0, prioridad: 0, ultima: null, alcance: at.alcance, otros: new Set<string>() }
+    g.ips += 1
+    g.n += at.n
+    g.prioridad = Math.max(g.prioridad, at.prioridad)
+    if (at.ultima && (!g.ultima || at.ultima > g.ultima)) g.ultima = at.ultima
+    if (!g.alcance && at.alcance) g.alcance = at.alcance
+    for (const e of at.otrosEquipos) g.otros.add(e)
+    acc.set(cidr, g)
+  }
+  return [...acc.values()]
+    .map((g) => ({ cidr: g.cidr, prefijo: g.prefijo, ips: g.ips, n: g.n, prioridad: g.prioridad, ultima: g.ultima, alcance: g.alcance, otrosEquipos: [...g.otros].sort() }))
+    .sort((x, y) => y.prioridad - x.prioridad || y.n - x.n || (x.cidr < y.cidr ? -1 : 1))
+}
