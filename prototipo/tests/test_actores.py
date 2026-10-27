@@ -114,3 +114,47 @@ class TestPolitica(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEnriquecerOrigen(unittest.TestCase):
+    """Enriquecimiento de la IP de origen para el visor (additivo): alcance, clasificación de IP,
+    tercero de confianza y geolocalización (seam offline, hoy None)."""
+    PERFIL = {**PERFIL, "terceros_confiables": ["203.0.113.200"]}
+
+    def test_clasifica_la_ip_por_su_rango(self):
+        self.assertEqual(actores.clasificar_ip("8.8.8.8"), "publica")
+        self.assertEqual(actores.clasificar_ip("10.40.0.11"), "privada")
+        self.assertEqual(actores.clasificar_ip("198.51.100.10"), "documentacion")
+        self.assertEqual(actores.clasificar_ip("203.0.113.9"), "documentacion")
+        self.assertEqual(actores.clasificar_ip("127.0.0.1"), "loopback")
+        self.assertEqual(actores.clasificar_ip("nope"), "invalida")
+
+    def test_un_externo_de_documentacion_no_geolocaliza(self):
+        e = actores.enriquecer_origen("198.51.100.10", self.PERFIL)
+        self.assertEqual(e["alcance"], "externo")
+        self.assertFalse(e["inventariado"])
+        self.assertEqual(e["clasificacion_ip"], "documentacion")
+        self.assertFalse(e["geolocalizable"])
+        self.assertIsNone(e["geo"])
+
+    def test_clasifica_el_origen_con_quien_es(self):
+        # Siempre resuelve el actor sobre la PROPIA IP de origen (no reutiliza el del motor): una IP
+        # de las redes internas sale "interno/inventariado".
+        e = actores.enriquecer_origen("10.0.0.5", self.PERFIL)
+        self.assertEqual(e["alcance"], "interno")
+        self.assertTrue(e["inventariado"])
+        self.assertEqual(e["por"], "redes_internas")
+
+    def test_marca_el_tercero_de_confianza_y_la_legitimidad(self):
+        e = actores.enriquecer_origen("203.0.113.200", self.PERFIL, legitimo=True)
+        self.assertTrue(e["tercero_confiable"])
+        self.assertTrue(e["legitimo"])
+
+    def test_una_ip_publica_es_geolocalizable_pero_el_seam_da_none(self):
+        e = actores.enriquecer_origen("8.8.8.8", self.PERFIL)
+        self.assertTrue(e["geolocalizable"])
+        self.assertIsNone(e["geo"])             # sin base GeoIP; punto de extensión
+        self.assertIsNone(actores.geolocalizar("8.8.8.8"))
+
+    def test_sin_ip_es_none(self):
+        self.assertIsNone(actores.enriquecer_origen(None, self.PERFIL))

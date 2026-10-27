@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros, Prioridad, DatosCongelados } from "./bits"
 import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, ventanaDe, paginar, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
 import { Paginador } from "./Paginador"
+import { OrigenBadges } from "./OrigenBadges"
 
 const COLS = 8
 
@@ -108,7 +109,9 @@ function BloqueContencion({ c }: { c: Contencion }) {
   )
 }
 
-function Detalles({ id, indice }: { id: string; indice?: number | null }) {
+function Detalles({ id, indice, origen, origenIp }: {
+  id: string; indice?: number | null; origen?: Decision["enriquecimiento_origen"]; origenIp?: string | null
+}) {
   const [det, setDet] = useState<Detalle | { error: string }>()
   useEffect(() => {
     let vivo = true
@@ -188,6 +191,14 @@ function Detalles({ id, indice }: { id: string; indice?: number | null }) {
                 escalada {det.veredicto_escalada === "aprobar" ? "aprobada" : "rechazada"} por el analista
               </div>
             )}
+          </Campo>
+        )}
+        {origen && (
+          <Campo etiqueta="Origen">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs">{origenIp ?? "—"}</span>
+              <OrigenBadges e={origen} />
+            </div>
           </Campo>
         )}
         {motivo && <Campo etiqueta="Impacto"><span className="text-muted-foreground">{motivo}</span></Campo>}
@@ -325,7 +336,7 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
                 ↗ Ver grafo del incidente
               </button>
             )}
-            <Detalles id={d.id_decision} indice={d.indice} />
+            <Detalles id={d.id_decision} indice={d.indice} origen={d.enriquecimiento_origen} origenIp={d.origen_ip} />
           </TableCell>
         </TableRow>
       )}

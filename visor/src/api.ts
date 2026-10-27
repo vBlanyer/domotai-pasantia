@@ -46,6 +46,14 @@ export const DecisionSchema = z.object({
   nodo: z.string().nullable().optional(), error: z.string().nullable().optional(),
   // relaciones evento-equipo en la red y dispositivo de contención
   relaciones: z.record(z.string(), z.array(z.string())).nullable().optional(), contencion: z.string().nullable().optional(), dispositivo: z.string().nullable().optional(),
+  // enriquecimiento de la IP de origen (backend: actores.enriquecer_origen): alcance interno/externo,
+  // clasificación de la IP, tercero de confianza, legitimidad y geolocalización (offline; hoy null)
+  enriquecimiento_origen: z.object({
+    alcance: z.string(), inventariado: z.boolean(), por: z.string().nullable().optional(),
+    clasificacion_ip: z.string(), tercero_confiable: z.boolean(), legitimo: z.boolean(),
+    geolocalizable: z.boolean(),
+    geo: z.object({ pais: z.string().nullable().optional(), ciudad: z.string().nullable().optional() }).nullable().optional(),
+  }).nullable().optional(),
   // ciclo de vida del caso (registro `actualizacion_caso`): estado/asignado/nota + quién y cuándo
   estado: z.string().nullable().optional(), asignado: z.string().nullable().optional(),
   nota: z.string().nullable().optional(), operador: z.string().nullable().optional(),

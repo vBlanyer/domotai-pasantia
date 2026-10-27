@@ -247,3 +247,17 @@ describe("Decisiones paginadas", () => {
     expect(screen.queryByRole("button", { name: "Siguiente" })).not.toBeInTheDocument()
   })
 })
+
+describe("Detalle: enriquecimiento del origen", () => {
+  it("muestra el alcance y «sin geolocalización» del origen de la fila", async () => {
+    h.detalle = { id_decision: "s1", justificacion: "x" }
+    render(<table><tbody><FilaDecision d={{ id_decision: "s1", clase: "vp_intento_acceso", activo: "web-banking",
+      origen_ip: "198.51.100.10",
+      enriquecimiento_origen: { alcance: "externo", inventariado: false, clasificacion_ip: "documentacion",
+        tercero_confiable: false, legitimo: false, geolocalizable: false, geo: null } }}
+      abierto onToggle={() => {}} /></tbody></table>)
+    expect(await screen.findByText("Origen")).toBeInTheDocument()
+    expect(screen.getByText("externo")).toBeInTheDocument()
+    expect(screen.getByText(/sin geolocalización/)).toBeInTheDocument()
+  })
+})

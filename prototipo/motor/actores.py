@@ -119,6 +119,64 @@ def es_tercero_confiable(ip, perfil):
     return c is not None and _en_redes(c, [t for t in tcs if isinstance(t, str) and "/" in t])
 
 
+# Enriquecimiento de la IP de ORIGEN para el visor (RF-17/RF-19, additivo: no cambia ninguna
+# decisión ni el texto del motivo). Reusa el actor que el motor ya calcula y clasifica la IP por su
+# propio rango con la stdlib; la geolocalización es un seam OFFLINE opcional (hoy None).
+_ALCANCE = {"activo_interno": "interno", "desconocido": "externo",
+            "gestion": "gestion", "dispositivo_red": "dispositivo_red"}
+# Rangos de documentación/ejemplo (RFC 5737 IPv4, RFC 3849 IPv6): de laboratorio, NO geolocalizan.
+_DOC = ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24", "2001:db8::/32")
+
+
+def clasificar_ip(ip):
+    """Clase de `ip` por su propio rango: 'publica' | 'privada' | 'documentacion' | 'loopback' |
+    'invalida'. Decide si la geolocalización tiene sentido (solo las públicas reales). Las de
+    documentación se comprueban antes que `is_private` (algunas versiones las marcan privadas)."""
+    c = _canon(ip)
+    if c is None:
+        return "invalida"
+    d = ipaddress.ip_address(c)
+    if any(d in ipaddress.ip_network(r) for r in _DOC):
+        return "documentacion"
+    if d.is_loopback:
+        return "loopback"
+    if d.is_private:
+        return "privada"
+    return "publica" if d.is_global else "privada"
+
+
+def geolocalizar(ip):
+    """Geolocalización OFFLINE opcional. Hoy devuelve None: no hay base GeoIP y la política del
+    proyecto es solo stdlib + PyYAML (sin `maxminddb`). Punto de extensión: si en el futuro
+    `TRIAJE_GEOIP_DB` apunta a un `.mmdb` y hay un lector disponible, resolver aquí
+    {pais, ciudad, ...} para las IPs públicas; las privadas/documentación/loopback no geolocalizan."""
+    return None
+
+
+def enriquecer_origen(ip, perfil, legitimo=None):
+    """Enriquecimiento de la IP de ORIGEN para el visor: {alcance, inventariado, por,
+    clasificacion_ip, tercero_confiable, legitimo, geolocalizable, geo}. None si no hay IP.
+
+    El actor se resuelve SIEMPRE con `quien_es(ip, perfil)` sobre la propia IP de origen: NO se
+    reutiliza `impacto_determinado.actor`, que es el actor de lo que toca la acción —el origen al
+    bloquear su IP, pero el NODO al aislarlo (AISLAR_NODO)—, lo que etiquetaría mal al atacante."""
+    if not ip:
+        return None
+    a = quien_es(ip, perfil)
+    tipo = (a or {}).get("tipo")
+    clase = clasificar_ip(ip)
+    return {
+        "alcance": _ALCANCE.get(tipo, "externo"),
+        "inventariado": bool(tipo) and tipo != "desconocido",
+        "por": (a or {}).get("por"),
+        "clasificacion_ip": clase,
+        "tercero_confiable": es_tercero_confiable(ip, perfil),
+        "legitimo": bool(legitimo),
+        "geolocalizable": clase == "publica",
+        "geo": geolocalizar(ip),
+    }
+
+
 def politica(perfil, tipo):
     """Política del perfil para bloquear un actor de `tipo` (`continuidad.actores`). Por defecto
     `humano_siempre` (C1). Un valor que no es una política conocida también cae a

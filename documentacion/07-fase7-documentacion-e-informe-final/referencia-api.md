@@ -32,7 +32,7 @@ Los **estáticos** (el visor) no exigen token, para que la SPA cargue y pida el 
 | `GET /healthz` | — | Salud del **propio MDR**: `{ok, alertas, lazo_quietud_s, ingesta_silencio_s}`. `ok=false` si el lazo lleva demasiado tiempo sin iterar (colgado). Distinto de `/api/salud`. |
 | `GET /api/salud` | — | Salud de los **servicios del cliente** (por servicio + dependencias). |
 | `GET /api/red` | — | Mapa de la red con la actividad por equipo (`{nodos, zonas, enlaces}`). |
-| `GET /api/decisiones` | — | Las últimas 50 decisiones (resumen por fila). |
+| `GET /api/decisiones` | — | Las últimas 50 decisiones (resumen por fila). Cada fila incluye `enriquecimiento_origen` de la IP atacante: `{alcance (interno/externo/…), inventariado, clasificacion_ip (publica/privada/documentacion/loopback), tercero_confiable, legitimo, geolocalizable, geo}`. Reusa el actor del motor + `ipaddress`; `geo` es un seam **offline** (hoy `null`). |
 | `GET /api/pendientes` | — | La **cola de aprobación** (array), ordenada por severidad. Cada ítem: `{id, tipo, prompt, lineas, severidad, suprimidas, paso, accion_final, activo, origen_ip, encolado_en}`. |
 | `GET /api/trazas` | `limite` (opc.) | La cola de la traza encadenada (últimos N registros, decisiones + reversiones + actualizaciones de caso…). |
 | `GET /api/traza/<id>` | `indice` (opc.) | El **detalle completo** de una decisión (justificación, ejecución, verificación, escalada, pasajes del RAG, impacto determinado). `404` si no existe. |
