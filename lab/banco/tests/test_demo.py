@@ -473,30 +473,38 @@ class TestDetalleDeComandos(unittest.TestCase):
         self.assertEqual(llamadas, [args])                              # no cambia QUÉ se ejecuta
         self.assertTrue(any("atm" in l and "nc -s 1.2.3.4" in l for l in lineas), lineas)
 
-    def test_continuo_verbose_muestra_los_comandos(self):
-        _, ejecutar = self._fake()
-        salida = io.StringIO()
-        with contextlib.redirect_stdout(salida):
-            demo.main(["continuo", "--vueltas", "1", "--restaurar-cada", "0", "--verbose"],
-                      ejecutar=ejecutar, dormir=lambda *_: None)
-        out = salida.getvalue()
-        self.assertIn("↳", out)
-        self.assertIn("ip addr add", out)                              # el interno de un ataque rotado, visible
-
-    def test_continuo_sin_verbose_no_detalla(self):
+    def test_continuo_muestra_los_comandos_por_defecto(self):
+        # La consola de ataque NO es caja negra tampoco en la tanda continua: sale por defecto.
         _, ejecutar = self._fake()
         salida = io.StringIO()
         with contextlib.redirect_stdout(salida):
             demo.main(["continuo", "--vueltas", "1", "--restaurar-cada", "0"],
                       ejecutar=ejecutar, dormir=lambda *_: None)
-        self.assertNotIn("↳", salida.getvalue())
+        out = salida.getvalue()
+        self.assertIn("↳", out)
+        self.assertIn("ip addr add", out)                              # el interno de un ataque rotado, visible
 
-    def test_auto_verbose_muestra_los_comandos(self):
+    def test_continuo_sin_detalle_silencia(self):
         _, ejecutar = self._fake()
         salida = io.StringIO()
         with contextlib.redirect_stdout(salida):
-            demo.main(["auto", "1", "0", "--verbose"], ejecutar=ejecutar, dormir=lambda *_: None)
+            demo.main(["continuo", "--vueltas", "1", "--restaurar-cada", "0", "--sin-detalle"],
+                      ejecutar=ejecutar, dormir=lambda *_: None)
+        self.assertNotIn("↳", salida.getvalue())
+
+    def test_auto_muestra_los_comandos_por_defecto(self):
+        _, ejecutar = self._fake()
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            demo.main(["auto", "1", "0"], ejecutar=ejecutar, dormir=lambda *_: None)
         self.assertIn("↳", salida.getvalue())
+
+    def test_auto_sin_detalle_silencia(self):
+        _, ejecutar = self._fake()
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            demo.main(["auto", "1", "0", "-q"], ejecutar=ejecutar, dormir=lambda *_: None)
+        self.assertNotIn("↳", salida.getvalue())
 
     def test_el_menu_detalla_por_defecto(self):
         # Por defecto el menú interactivo YA muestra los comandos (no es caja negra): lanza D1 (2),
