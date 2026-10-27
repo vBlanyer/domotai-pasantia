@@ -273,3 +273,13 @@ describe("Decisiones: filtro sembrado por navegación", () => {
     expect(screen.queryByRole("button", { name: /ver detalle de core-db/i })).not.toBeInTheDocument()
   })
 })
+
+describe("Detalle: runbook de la familia", () => {
+  it("muestra los pasos recomendados de respuesta de la clase", async () => {
+    h.detalle = { id_decision: "s1", justificacion: "x" }
+    render(<table><tbody><FilaDecision d={{ id_decision: "s1", clase: "vp_exfiltracion", activo: "web-banking" }}
+      abierto onToggle={() => {}} /></tbody></table>)
+    expect(await screen.findByText(/Respuesta recomendada \(runbook\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Bloquea el destino malicioso/)).toBeInTheDocument()
+  })
+})

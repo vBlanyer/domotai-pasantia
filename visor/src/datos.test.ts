@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -405,5 +405,13 @@ describe("perfilAtacante", () => {
     expect(p).toMatchObject({ ip: "198.51.100.10", n: 2, prioridad: 4, primera: "2026-10-27T10:00:00", ultima: "2026-10-27T12:00:00" })
     expect(p.equipos).toEqual([{ equipo: "web-banking", n: 1, ultima: "2026-10-27T10:00:00" }, { equipo: "core-db", n: 1, ultima: "2026-10-27T12:00:00" }])
     expect(p.enriquecimiento?.alcance).toBe("externo")
+  })
+})
+
+describe("pasosRunbook", () => {
+  it("da los pasos recomendados de una familia conocida y [] para una desconocida/FP", () => {
+    expect(pasosRunbook("vp_intento_acceso").length).toBeGreaterThan(0)
+    expect(pasosRunbook("fp_actividad_legitima")).toEqual([])
+    expect(pasosRunbook(null)).toEqual([])
   })
 })
