@@ -31,6 +31,7 @@ capas = código. Analizado con datos el 26/10 (13–15 citas vivas por fichero).
 | ~~Ejecutor SSH directo~~ — **adelantado el 26/10**: `TRIAJE_SSH_MODO=directo` (clave y known_hosts del HOST), validado en vivo contra la demo portátil | — | `prototipo/accion/conector.py` |
 | Integración end-to-end con un equipo de borde de firmware real (p. ej. OpenWrt) | Descartada el 06/10 (revertida): el bloqueo en el borde ya funciona; esto es validación extra, no requisito | CHANGELOG / estado-y-riesgos |
 | Segunda fuente de alertas (CEF) | Analizada y aparcada el 21/09; decisiones abiertas en su spec | `archivo/proceso-desarrollo/superpowers/specs/` |
+| **Despliegue en AWS con OpenTofu** (MDR + visor + LLM en GPU) — **diseño + diagrama listos**; falta escribir la IaC (`infra/aws/`) y validarla (offline/LocalStack o `apply` real) | Acordado con el tutor (27/10) como lo último del backlog; el usuario eligió entregar solo el diseño por ahora | [despliegue-aws-opentofu.md](../04-fase4-diseno-de-arquitectura/despliegue-aws-opentofu.md) |
 
 ## Metodología de evaluación (opcional — descartado para la entrega el 21/10)
 
