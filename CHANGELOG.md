@@ -144,9 +144,11 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   `charts.tsx` y el helper `agruparPorDia`. Se quitó el recorte a 30 de `Red.tsx` para no truncar las
   agregaciones (la lista del panel sigue mostrando los 30 más recientes).
 - **Paginación** de las listas largas (Trazas y Decisiones): control «Anterior / página X de Y /
-  Siguiente» (25 por página), paginado en cliente sobre el feed que ya llega acotado; la página vive
-  en el componente y no se reinicia con el sondeo, y vuelve a 1 al cambiar el filtro. Helper puro
-  `paginar` en `datos.ts` + componente reutilizable `Paginador.tsx`.
+  Siguiente» con **selector de filas por página (10 / 20 / 50, por defecto 20)**, paginado en cliente
+  sobre el feed que ya llega acotado; la página y el tamaño viven en el componente y no se reinician
+  con el sondeo, y vuelven a la primera página al cambiar el filtro o el tamaño. El selector aparece
+  en cuanto la lista supera el tamaño mínimo (10) aunque quepa en una página; el prev/siguiente, solo
+  con más de una. Helper puro `paginar` (expone `desde`) en `datos.ts` + componente `Paginador.tsx`.
 - **Revertir una contención concreta** desde su fila en «Contenciones activas», no solo el
   des-bloqueo en masa: cada fila tiene un botón «Revertir» con confirmación que llama al nuevo
   `POST /api/revertir {indice, confirmar}` (`revertir.revertir_una`), que des-bloquea esa sola

@@ -316,3 +316,11 @@ describe("agruparPorDia", () => {
     expect(agruparPorDia([])).toEqual([])
   })
 })
+
+describe("paginar: desplazamiento y tamaño por defecto", () => {
+  const xs = Array.from({ length: 30 }, (_, i) => i)
+  it("expone `desde` (desplazamiento) y el tamaño por defecto es 20", () => {
+    expect(paginar(xs, 2, 10).desde).toBe(10)
+    expect(paginar(xs, 1).filas).toHaveLength(20)
+  })
+})
