@@ -169,6 +169,10 @@ export const MetricasSchema = z.object({
   resueltos_humano: z.number().optional(), override: z.number().optional(),
   tasa_override: z.number().optional(),
   mttr_seg: z.number().nullable(),
+  // tiempos de respuesta / SLA (cola humana): mediana + % dentro del umbral e incumplidos
+  mttr_mediano_seg: z.number().nullable().optional(), sla_umbral_seg: z.number().optional(),
+  sla_resueltos: z.number().optional(), sla_dentro: z.number().optional(),
+  sla_incumplidos: z.number().optional(), sla_pct: z.number().nullable().optional(),
   por_clase: z.record(z.string(), z.number()), veredictos: z.record(z.string(), z.number()),
   por_dia: z.array(z.object({ dia: z.string(), n: z.number() })),
   top_activos: z.array(z.object({ nombre: z.string(), n: z.number() })),

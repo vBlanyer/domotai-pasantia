@@ -130,6 +130,11 @@ export function Metricas() {
                 <Kpi valor={pct(m.pct_auto)} etiqueta="resuelto sin humano (automatizado)" />
                 <Kpi valor={pct(m.pct_humano ?? 0)} etiqueta="escalado a decisión humana" />
                 <Kpi valor={m.mttr_seg != null ? `${m.mttr_seg}s` : "—"} etiqueta="tiempo medio de respuesta (MTTR)" />
+                <Kpi valor={m.mttr_mediano_seg != null ? `${m.mttr_mediano_seg}s` : "—"} etiqueta="MTTR mediano" />
+                <Kpi valor={m.sla_pct != null ? pct(m.sla_pct) : "—"}
+                  etiqueta={`dentro de SLA (${Math.round((m.sla_umbral_seg ?? 900) / 60)} min)`}
+                  aviso={m.sla_pct != null && m.sla_pct < 1} />
+                <Kpi valor={String(m.sla_incumplidos ?? 0)} etiqueta="SLA incumplidos" aviso={(m.sla_incumplidos ?? 0) > 0} />
                 <Kpi valor={String(m.suprimidas)} etiqueta="alertas de ruido evitadas" />
                 <Kpi valor={pct(m.tasa_override ?? 0)} etiqueta="corrección del analista (override)" aviso={(m.tasa_override ?? 0) > 0} />
               </div>

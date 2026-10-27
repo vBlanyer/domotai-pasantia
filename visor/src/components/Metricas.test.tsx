@@ -18,6 +18,7 @@ const base: Datos = {
   mttr_seg: 48, por_clase: { vp_intento_acceso: 168, no_soportada: 72 },
   veredictos: { aprobar: 10, rechazar: 2 }, por_dia: [{ dia: "2026-10-14", n: 31 }],
   top_activos: [{ nombre: "web-banking", n: 98 }], mitre: [{ tecnica: "T1110.001", n: 161 }],
+  mttr_mediano_seg: 32, sla_umbral_seg: 900, sla_resueltos: 99, sla_dentro: 95, sla_incumplidos: 4, sla_pct: 0.96,
 }
 
 describe("Métricas (vista unificada métricas + informe)", () => {
@@ -30,6 +31,14 @@ describe("Métricas (vista unificada métricas + informe)", () => {
     expect(screen.getByText("Veredictos humanos")).toBeInTheDocument()      // donut exclusivo de Métricas
     expect(screen.getByRole("button", { name: "En vivo" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Guardar PDF/ })).toBeInTheDocument()
+  })
+
+  it("muestra los tiempos de respuesta y el SLA", async () => {
+    h.vivo = { ...base }
+    render(<Metricas />)
+    expect(await screen.findByText("MTTR mediano")).toBeInTheDocument()
+    expect(screen.getByText(/dentro de SLA \(15 min\)/)).toBeInTheDocument()
+    expect(screen.getByText("SLA incumplidos")).toBeInTheDocument()
   })
 
   it("al elegir «Este mes» consulta el periodo y muestra su etiqueta", async () => {

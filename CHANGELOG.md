@@ -127,6 +127,10 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Tiempos de respuesta / SLA** en Métricas: además del MTTR medio, ahora el **MTTR mediano**, el
+  **% dentro de SLA** (umbral configurable con `TRIAJE_SLA_SEG`, def. 15 min) y los **SLA incumplidos**
+  —al estilo de los dashboards comerciales—, calculados de los timestamps de la cola humana
+  (`recibido_en`→`resuelto_en`). Backend: `metricas` devuelve `mttr_mediano_seg` + bloque `sla_*`.
 - **Runbook por familia en la tarjeta**: el detalle de una decisión muestra ahora los **pasos de
   respuesta recomendados** para esa familia (qué contuvo, qué verificar, qué investigar, cómo
   reclasificar/revertir) — aflora el conocimiento del RUNBOOK junto a la `recomendacion` del motor.

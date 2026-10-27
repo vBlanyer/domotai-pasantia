@@ -1545,3 +1545,24 @@ class TestEnriquecimientoOrigenEnElResumen(unittest.TestCase):
         self.assertFalse(e["inventariado"])
         self.assertEqual(e["clasificacion_ip"], "documentacion")
         self.assertFalse(e["geolocalizable"])
+
+
+class TestMetricasSLA(unittest.TestCase):
+    """Tiempos de respuesta: MTTR mediano + SLA (% dentro / incumplidos) de los timestamps de la cola."""
+    def _dec(self, dt):
+        return {"tipo": "decision", "clase": "vp_intento_acceso", "requiere_humano": True,
+                "recibido_en": 100.0, "resuelto_en": 100.0 + dt}
+
+    def test_mttr_mediano_y_sla(self):
+        m = tablero.metricas([self._dec(10), self._dec(20), self._dec(1000)])   # 10s, 20s, 1000s
+        self.assertEqual(m["mttr_mediano_seg"], 20)
+        self.assertEqual(m["sla_umbral_seg"], 900)        # def. 15 min
+        self.assertEqual(m["sla_dentro"], 2)
+        self.assertEqual(m["sla_incumplidos"], 1)
+        self.assertAlmostEqual(m["sla_pct"], 0.667, places=2)
+
+    def test_sin_resueltos_los_tiempos_son_none(self):
+        m = tablero.metricas([{"tipo": "decision", "clase": "vp_reconocimiento", "requiere_humano": False}])
+        self.assertIsNone(m["mttr_mediano_seg"])
+        self.assertIsNone(m["sla_pct"])
+        self.assertEqual(m["sla_incumplidos"], 0)
