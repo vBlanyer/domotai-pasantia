@@ -34,6 +34,13 @@ function boton(op: Opcion): { etiqueta: string; variante: "default" | "destructi
   return { etiqueta: legible !== base ? legible : op.etiqueta, variante: "outline" }
 }
 
+// La `respuesta` que espera el daemon para un veredicto, según el tipo de pendiente (para el bloque).
+function respuestaPara(p: Pendiente, veredicto: "aprobar" | "rechazar"): string {
+  if (p.tipo === "escalada") return veredicto === "aprobar" ? "s" : ""
+  const op = parsearPendiente(p).opciones.find((o) => boton(o).etiqueta === (veredicto === "aprobar" ? "Aprobar" : "Rechazar"))
+  return op ? op.n : veredicto === "aprobar" ? "1" : "2"
+}
+
 function LineaInfo({ t }: { t: string }) {
   const i = t.indexOf(": ")
   if (i === -1) return <div className="text-sm">{t}</div>
@@ -57,7 +64,9 @@ function useAhora(ms = 1000): number {
   return ahora
 }
 
-function Tarjeta({ p, edadMs = 0 }: { p: Pendiente; edadMs?: number }) {
+function Tarjeta({ p, edadMs = 0, seleccionada, onSeleccion }: {
+  p: Pendiente; edadMs?: number; seleccionada?: boolean; onSeleccion?: (checked: boolean) => void
+}) {
   const v = parsearPendiente(p)
   const escalada = p.tipo === "escalada"
   const viejo = envejecido(edadMs)
@@ -109,6 +118,8 @@ function Tarjeta({ p, edadMs = 0 }: { p: Pendiente; edadMs?: number }) {
   return (
     <div className={`overflow-hidden rounded-lg border ${viejo ? "border-rose-500/50 bg-rose-500/[0.05]" : "border-amber-500/40 bg-amber-500/[0.04]"}`}>
       <div className={`flex flex-wrap items-center gap-2 border-b px-4 py-2.5 ${viejo ? "border-rose-500/25" : "border-amber-500/20"}`}>
+        {onSeleccion && <input type="checkbox" aria-label="Seleccionar" checked={!!seleccionada}
+          onChange={(e) => onSeleccion(e.target.checked)} className="size-4 accent-amber-600" />}
         <Punto estado="pendiente" />
         <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Espera tu decisión</span>
         {!!p.severidad && <Prioridad n={p.severidad} />}
@@ -195,20 +206,54 @@ function BarraOperador() {
 export function Aprobaciones() {
   const p = useSondeo(getPendientes)
   const ahora = useAhora()   // hook incondicional (antes de cualquier return); 1 Hz para el SLA en vivo
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [confirmarBloque, setConfirmarBloque] = useState(false)
+  const toast = useToast()
   // Con la conexión perdida pero datos previos, la cola se sigue mostrando (congelada) con aviso:
   // vaciarla en un parpadeo de red haría «desaparecer» decisiones que siguen esperando (C2).
   const lista = !p ? null : "error" in p ? (p.datos ?? null) : p
   const fallo = p && "error" in p ? p : null
+  const elegidas = (lista ?? []).filter((x) => sel.has(x.id))
+  const alternar = (id: string, c: boolean) => setSel((s) => { const n = new Set(s); c ? n.add(id) : n.delete(id); return n })
+
+  // Acciones en bloque: aplica el mismo veredicto a las seleccionadas (reusa el POST por decisión).
+  async function enBloque(veredicto: "aprobar" | "rechazar") {
+    setConfirmarBloque(false)
+    let ok = 0, falladas = 0
+    for (const x of elegidas) {
+      const r = await aprobar(x.id, respuestaPara(x, veredicto), x.paso)
+      r === "ok" ? ok++ : falladas++
+    }
+    setSel(new Set())
+    toast({ type: falladas ? "error" : "success",
+      title: `${ok} ${veredicto === "aprobar" ? "aprobada(s)" : "rechazada(s)"}${falladas ? ` · ${falladas} sin aplicar` : ""}` })
+  }
+
   const cuerpo = !p ? <Cargando />
     : lista === null ? <SinConexion causa={fallo?.causa} />
     : lista.length === 0 ? <Vacio>Nada que aprobar ahora mismo. Cuando una decisión necesite un humano, aparecerá aquí.</Vacio>
     // la clave incluye el paso: un menú nuevo (submenú de clases) monta la tarjeta con estado limpio
-    : <div className="space-y-4">{lista.map((x) => <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} edadMs={msDesde(x.encolado_en, ahora)} />)}</div>
+    : <div className="space-y-4">{lista.map((x) => (
+        <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} edadMs={msDesde(x.encolado_en, ahora)}
+          seleccionada={sel.has(x.id)} onSeleccion={(c) => alternar(x.id, c)} />
+      ))}</div>
   return (
     <div className="space-y-4">
       <BarraOperador />
+      {elegidas.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm">
+          <span className="font-medium">{elegidas.length} seleccionada(s)</span>
+          <Button size="sm" variant="destructive" onClick={() => enBloque("rechazar")}>Rechazar seleccionadas</Button>
+          <Button size="sm" onClick={() => setConfirmarBloque(true)}>Aprobar seleccionadas</Button>
+          <button onClick={() => setSel(new Set())} className="ml-auto text-xs text-muted-foreground hover:underline">quitar selección</button>
+        </div>
+      )}
       {fallo && lista !== null && <DatosCongelados fallo={fallo} />}
       {cuerpo}
+      <AlertDialog open={confirmarBloque} onOpenChange={(o) => { if (!o) setConfirmarBloque(false) }}
+        title={`¿Aprobar ${elegidas.length} decisión(es)?`}
+        description="Se ejecutará la acción propuesta de cada una (contención). Revisa que es lo que quieres."
+        confirmLabel="Aprobar todas" onConfirm={() => enBloque("aprobar")} />
     </div>
   )
 }

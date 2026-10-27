@@ -148,3 +148,18 @@ describe("Aprobaciones", () => {
     expect(h.aprobar).toHaveBeenCalledWith("7", "s", undefined)
   })
 })
+
+describe("Aprobaciones en bloque", () => {
+  beforeEach(() => { h.aprobar.mockReset() })
+  it("rechaza varias seleccionadas con una sola acción", async () => {
+    h.aprobar.mockResolvedValue("ok")
+    h.pendientes = [tarjeta({ id: "7" }), tarjeta({ id: "8" })]
+    render(vista())
+    const checks = screen.getAllByRole("checkbox", { name: "Seleccionar" })
+    fireEvent.click(checks[0]); fireEvent.click(checks[1])
+    fireEvent.click(boton("Rechazar seleccionadas"))
+    await waitFor(() => expect(h.aprobar).toHaveBeenCalledTimes(2))
+    expect(h.aprobar).toHaveBeenCalledWith("7", "2", 0)        // rechazar = opción 2 del menú
+    expect(h.aprobar).toHaveBeenCalledWith("8", "2", 0)
+  })
+})

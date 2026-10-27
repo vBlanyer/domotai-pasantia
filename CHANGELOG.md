@@ -127,6 +127,10 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Acciones en bloque en Aprobaciones**: casilla por tarjeta y una barra para **rechazar** o
+  **aprobar las seleccionadas** de una vez (aprobar con confirmación, porque ejecuta contención).
+  Reutiliza el POST `/api/aprobar` por decisión con la respuesta correcta según el tipo de pendiente
+  (`respuestaPara`); al terminar, un resumen de cuántas se aplicaron. Sin backend nuevo.
 - **Watchlist / IoC local** (11ª vista): una lista de indicadores (IP o CIDR) que el analista marca
   como maliciosos — alta/baja desde el visor, persistida en `watchlist.json` (junto a `--salida`) vía
   `GET`/`POST /api/watchlist`. El visor marca con **⚑** los orígenes que coinciden en la tabla de
