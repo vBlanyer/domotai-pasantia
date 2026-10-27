@@ -11,6 +11,11 @@ baraja TODA la batería en cada vuelta y la lanza sin parar hasta Ctrl+C, con la
 el orden (reproducible) y `--vueltas` lo acota si no se quiere sin fin. Al parar, un resumen por
 familia; luego `sh lab/banco/banco.sh restaurar`.
 
+Para que el ataque NO sea una caja negra, el menú muestra por defecto —y las tandas con `--verbose`/
+`-v` (o la tecla `v`)— el comando EXACTO que se inyecta en cada nodo (`↳ <nodo> $ <comando>`): la
+preparación, el ataque y el deshacer. Es `ejecutor_detallado`, que envuelve el ejecutor y narra cada
+`docker exec` justo antes de lanzarlo, sin cambiar qué se ejecuta.
+
 El menú cubre LAS 10 FAMILIAS (ninguna queda sin ataque): los casos de red del catálogo
 (`lab/banco/casos.py`) numerados —fuerza bruta, reconocimiento, telnet, explotación web— y, a
 continuación, los **ataques de host** (`ATAQUES_HOST`) cuya respuesta no es bloquear una IP de
@@ -82,6 +87,27 @@ def deshacer_rotado(caso, src_ip):
 
 def _exec(nodo, cmd, ejecutar=subprocess.run):
     return ejecutar(["docker", "exec", f"{P}-{nodo}", "sh", "-c", cmd], capture_output=True, text=True)
+
+
+def _describir_comando(args):
+    """Una línea legible de lo que el lanzador va a ejecutar contra el banco: el nodo y el comando de
+    shell EXACTO (o la acción, si no es un `docker exec`). Es lo que convierte el script de ataque en
+    algo transparente en vez de una caja negra: se ve qué se inyecta y dónde."""
+    if args[:2] == ["docker", "exec"]:
+        cont = next((a for a in args if isinstance(a, str) and a.startswith(f"{P}-")), f"{P}-?")
+        return f"    ↳ {cont[len(P) + 1:]} $ {args[-1]}"     # <nodo> $ <comando>
+    if args[:1] == ["sh"] and args[-1:] == ["restaurar"]:
+        return "    ↳ (banco) restaurar: quita los bloqueos que aplicó el MDR y reinicia los servicios"
+    return "    ↳ " + " ".join(str(a) for a in args)
+
+
+def ejecutor_detallado(ejecutar=subprocess.run, escribir=print):
+    """Envuelve un ejecutor para NARRAR cada comando (el nodo y el shell exacto) justo antes de
+    lanzarlo. No cambia qué se ejecuta: solo lo hace visible, para que el ataque no sea opaco."""
+    def _ejecutar(args, **kw):
+        escribir(_describir_comando(args))
+        return ejecutar(args, **kw)
+    return _ejecutar
 
 
 # --- Ataque de ABUSO DE CUENTA (familia abuso_de_cuenta) ---------------------------------------
@@ -415,23 +441,32 @@ def _parsear_continuo(argv):
                    help="restaura el banco cada N ataques; 0 lo desactiva (def. 20)")
     p.add_argument("--semilla", type=int, default=None, help="fija el orden del barajado (reproducible)")
     p.add_argument("--vueltas", type=int, default=None, help="para tras N vueltas completas (def. sin fin)")
+    p.add_argument("-v", "--verbose", "--detalle", action="store_true", dest="verbose",
+                   help="muestra el nodo y el comando exacto de cada ataque (no caja negra)")
     return p.parse_args(argv)
 
 
+_BANDERAS_DETALLE = ("-v", "--verbose", "--detalle")
+
+
 def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
-    if argv and argv[0] == "auto":   # no interactivo: sh lab/banco/banco.sh atacar auto [repeticiones] [gap]
-        reps = int(argv[1]) if len(argv) > 1 else 1
-        gap = float(argv[2]) if len(argv) > 2 else 6
-        tanda_automatica(ejecutar=ejecutar, dormir=dormir, repeticiones=reps, gap=gap)
+    if argv and argv[0] == "auto":   # no interactivo: sh lab/banco/banco.sh atacar auto [repeticiones] [gap] [-v]
+        pos = [x for x in argv[1:] if x not in _BANDERAS_DETALLE]
+        ej = ejecutor_detallado(ejecutar) if any(x in _BANDERAS_DETALLE for x in argv[1:]) else ejecutar
+        reps = int(pos[0]) if len(pos) > 0 else 1
+        gap = float(pos[1]) if len(pos) > 1 else 6
+        tanda_automatica(ejecutar=ej, dormir=dormir, repeticiones=reps, gap=gap)
         return 0
     if argv and argv[0] in ("continuo", "soak"):   # soak: ataques variados sin fin (Ctrl+C para parar)
         a = _parsear_continuo(argv[1:])
-        tanda_continua(ejecutar=ejecutar, dormir=dormir, gap=a.gap, restaurar_cada=a.restaurar_cada,
+        ej = ejecutor_detallado(ejecutar) if a.verbose else ejecutar
+        tanda_continua(ejecutar=ej, dormir=dormir, gap=a.gap, restaurar_cada=a.restaurar_cada,
                        semilla=a.semilla, vueltas=a.vueltas)
         return 0
     vivos = casos_vivos()
     ultimo = 0.0
     rotar = False
+    detallar = True                 # por defecto, el menú MUESTRA el comando de cada ataque (no caja negra)
     contadores = {}                 # subred -> nº de lanzamientos rotados (para IPs nuevas contiguas)
     sin_deshacer = {}               # origen -> caso que atacó desde él y no se deshizo (puede estar bloqueado)
     try:
@@ -444,18 +479,25 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
             print("  c. Tanda CONTINUA / soak (ataques variados SIN FIN hasta Ctrl+C; IP rotada, auto-restaura)")
             print(f"  r. IP de origen rotativa: {'ON' if rotar else 'OFF'}  "
                   "(cada ataque de red desde una IP nueva; esquiva supresión y bloqueo previo)")
+            print(f"  v. Detalle de comandos: {'ON' if detallar else 'OFF'}  "
+                  "(muestra el nodo y el comando exacto de cada ataque)")
             print("  0. Salir")
-            sel = leer(f"Elige [0-{base + len(ATAQUES_HOST)}, a, t, c, r]: ").strip().lower()
+            sel = leer(f"Elige [0-{base + len(ATAQUES_HOST)}, a, t, c, r, v]: ").strip().lower()
             if sel in ("0", "", "q"):
                 return 0
             if sel == "r":
                 rotar = not rotar
                 continue
+            if sel == "v":
+                detallar = not detallar
+                continue
+            # El ejecutor que se usa para TODO lo que se lance en esta vuelta: narrado o no.
+            ej = ejecutor_detallado(ejecutar) if detallar else ejecutar
             if sel == "t":
-                tanda_automatica(ejecutar=ejecutar, dormir=dormir)
+                tanda_automatica(ejecutar=ej, dormir=dormir)
                 continue
             if sel == "c":
-                tanda_continua(ejecutar=ejecutar, dormir=dormir)
+                tanda_continua(ejecutar=ej, dormir=dormir)
                 continue
             if sel == "a":
                 caso = elegir_a_medida(leer)
@@ -473,9 +515,9 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
                     # Ataque de host (cuenta/FIM/DoS): sin IP de origen, no rota; lanza y ofrece deshacer.
                     host = ATAQUES_HOST[idx - base - 1]
                     print(f"  lanzando {host['id']} — {host['titulo']}...")
-                    host["lanzar"](ejecutar=ejecutar)
+                    host["lanzar"](ejecutar=ej)
                     if leer("  ¿deshacer/restaurar? [s/N] ").strip().lower().startswith("s"):
-                        host["deshacer"](ejecutar=ejecutar); print("  restaurado")
+                        host["deshacer"](ejecutar=ej); print("  restaurado")
                     continue
                 try:
                     caso = vivos[idx - 1]
@@ -507,13 +549,13 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
 
             desde = f" desde {src}" if src else ""
             print(f"  lanzando {caso['id']} — {caso['titulo']}{desde}...")
-            lanzar(caso, ejecutar=ejecutar, src_ip=src)
+            lanzar(caso, ejecutar=ej, src_ip=src)
             if caso.get("ataque") and src is None:
                 ultimo = time.time()
                 if origen:
                     sin_deshacer[origen] = caso["id"]
             if caso.get("deshacer") and leer("  ¿deshacer/restaurar el caso? [s/N] ").strip().lower().startswith("s"):
-                deshacer(caso, ejecutar=ejecutar, src_ip=src)
+                deshacer(caso, ejecutar=ej, src_ip=src)
                 if src is None:
                     sin_deshacer.pop(origen, None)
                 print("  restaurado")
