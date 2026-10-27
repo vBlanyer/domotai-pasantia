@@ -1520,3 +1520,25 @@ class TestDiarioDelOperador(unittest.TestCase):
         self.assertEqual(st, 200)
         _, lineas = estado.consola()
         self.assertLess(len(lineas[-1]["linea"]), 200, lineas[-1]["linea"])
+
+
+class TestEnriquecimientoOrigenEnElResumen(unittest.TestCase):
+    """_resumen_traza/lista_trazas exponen `enriquecimiento_origen` reutilizando el actor del motor."""
+    def _traza_tmp(self, registros):
+        f = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8")
+        for r in registros:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        f.close()
+        self.addCleanup(os.unlink, f.name)
+        return f.name
+
+    def test_resumen_incluye_el_enriquecimiento_del_origen(self):
+        reg = {"id_decision": "s1", "clase": "vp_intento_acceso",
+               "justificacion_estructurada": {"evidencia": {"origen_ip": "198.51.100.10"}},
+               "impacto_determinado": {"actor": {"tipo": "desconocido", "por": None}},
+               "contexto": {"origen_legitimo": False}}
+        ruta = self._traza_tmp([reg])
+        e = tablero.lista_trazas(ruta, perfil={"redes_internas": ["10.0.0.0/8"]})[0]["enriquecimiento_origen"]
+        self.assertEqual(e["alcance"], "externo")
+        self.assertEqual(e["clasificacion_ip"], "documentacion")
+        self.assertFalse(e["geolocalizable"])

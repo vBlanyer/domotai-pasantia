@@ -127,6 +127,16 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Más información de la IP atacante** en el detalle de una decisión y en el grafo del incidente:
+  alcance (interno/externo), si está inventariada, clasificación de la IP (pública/privada/de
+  documentación/loopback), tercero de confianza, origen legítimo y ubicación. El enriquecimiento lo
+  calcula el backend (`actores.enriquecer_origen`) **reutilizando** el actor que el motor ya
+  determina (`impacto_determinado.actor`) + la stdlib `ipaddress`; se expone como
+  `enriquecimiento_origen` en `/api/decisiones` y `/api/trazas` y se pinta con el componente
+  `OrigenBadges`. La **geolocalización** es un *seam offline opcional* (sin dependencia nueva): hoy
+  devuelve `null`, así que las IPs de documentación/internas se muestran como «sin geolocalización» y
+  las públicas como «sin base GeoIP cargada»; punto de extensión documentado para enchufar una
+  GeoLite2. Additivo: no cambia ninguna decisión ni el texto del motivo.
 - **Datos por dispositivo en la vista Red**: al pinchar un equipo, su panel muestra ahora, además de
   la lista de eventos, un resumen de la ventana —conteos (total / automáticas / retenidas / contenidas)
   y último visto— y dos gráficas propias: **donut por clase** y **tendencia por día**, calculadas en

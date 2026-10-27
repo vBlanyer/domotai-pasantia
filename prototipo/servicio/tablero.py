@@ -319,10 +319,11 @@ def estado_salud(muestra, dependencias=None):
     return {"t": muestra.get("t"), "servicios": servicios, "caidos": caidos, "total": len(estados)}
 
 
-def _resumen_traza(reg, ips=None, externos=()):
+def _resumen_traza(reg, ips=None, externos=(), perfil=None):
     imp = reg.get("impacto_determinado") or {}
     est = reg.get("justificacion_estructurada") or {}
     _conten = contencion_de(reg)                 # una sola vez (desenlace + dispositivo)
+    _origen_ip = (est.get("evidencia") or {}).get("origen_ip")
     return {"id_decision": reg.get("id_decision"), "timestamp": reg.get("timestamp"),
             "activo": reg.get("activo"), "clase": reg.get("clase"), "confianza": reg.get("confianza"),
             "accion_final": reg.get("accion_final"), "requiere_humano": reg.get("requiere_humano"),
@@ -336,7 +337,11 @@ def _resumen_traza(reg, ips=None, externos=()):
             "impacto": reg.get("impacto") or imp.get("nivel"), "motivo": imp.get("motivo"),
             # activos que caerían en cascada por la acción: se marca en la fila (aviso de seguridad)
             "cascada": imp.get("activos_afectados_en_cascada") or [],
-            "origen_ip": (est.get("evidencia") or {}).get("origen_ip"),
+            "origen_ip": _origen_ip,
+            # enriquecimiento de la IP de origen (additivo): reusa el actor del motor + ipaddress;
+            # la geo es un seam offline (hoy None). Ver actores.enriquecer_origen.
+            "enriquecimiento_origen": actores.enriquecer_origen(
+                _origen_ip, perfil, imp.get("actor"), (reg.get("contexto") or {}).get("origen_legitimo")),
             # de dónde viene la justificación (plantilla vs LLM), la técnica y si consultó el RAG:
             # el detalle completo (texto + pasajes) sale por /api/traza/<id>.
             "version_justificador": reg.get("version_justificador"),
@@ -629,7 +634,7 @@ def lista_trazas(ruta, n=None, perfil=None):
         mapa = _red_segura(perfil)[0]
         ips = {nm: v.get("ip") for nm, v in mapa["nodos"].items() if v.get("ip")}
         externos = [nm for nm, v in mapa["nodos"].items() if v.get("tipo") == "externo"]
-    return [{**_resumen_traza(r, ips, externos), "indice": inicio + k} for k, r in enumerate(regs[inicio:])]
+    return [{**_resumen_traza(r, ips, externos, perfil), "indice": inicio + k} for k, r in enumerate(regs[inicio:])]
 
 
 _CORPUS_POR_ID = None

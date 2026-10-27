@@ -6,6 +6,7 @@ import { Cargando, SinConexion, ClaseBadge, Prioridad } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { estadosDelIncidente } from "@/incidente"
+import { OrigenBadges } from "@/components/OrigenBadges"
 
 const LEYENDA = ["origen", "atacado", "contenido", "en_cascada", "sin_actividad"] as const
 
@@ -176,7 +177,11 @@ export function VistaIncidente({ decision, onVolver }: { decision: Decision; onV
 
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2">
             <dt className="text-muted-foreground">Severidad</dt><dd><Prioridad n={decision.prioridad} /></dd>
-            <dt className="text-muted-foreground">Origen</dt><dd className="font-mono text-xs">{decision.origen_ip ?? "—"}</dd>
+            <dt className="text-muted-foreground">Origen</dt>
+            <dd className="space-y-1">
+              <div className="font-mono text-xs">{decision.origen_ip ?? "—"}</div>
+              <OrigenBadges e={decision.enriquecimiento_origen} />
+            </dd>
             <dt className="text-muted-foreground">Activo</dt><dd>{decision.activo ?? "—"}</dd>
             <dt className="text-muted-foreground">Acción</dt>
             <dd>{decision.accion_final ?? "—"}{decision.veredicto_humano ? ` (${decision.veredicto_humano})` : ""}</dd>
