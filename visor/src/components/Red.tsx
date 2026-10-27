@@ -36,7 +36,8 @@ export function Red({ onVerDecisiones }: { onVerDecisiones: (equipo: string) => 
           <MapaRed red={red} seleccionado={sel} onSeleccionar={setSel} dependencias={deps} />
         </div>
         {nodo
-          ? <PanelEquipo nodo={nodo} eventos={eventos} onVerDecisiones={() => onVerDecisiones(nodo.nombre)} />
+          ? <PanelEquipo nodo={nodo} eventos={eventos} todos={Array.isArray(trazas) ? trazas : []}
+              onVerDecisiones={() => onVerDecisiones(nodo.nombre)} />
           : <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
               Pulsa un equipo para ver sus eventos.</div>}
       </div>

@@ -1,7 +1,7 @@
 import type { Decision, NodoRed } from "@/api"
 import { ESTADO_VISUAL } from "@/components/MapaRed"
 import { Donut, Tendencia, type Segmento } from "./charts"
-import { etiquetaClase, colorClase, agruparPorDia } from "@/datos"
+import { etiquetaClase, colorClase, agruparPorDia, atacantesDe } from "@/datos"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK } from "@/theme"
 import { useTema } from "@/tema"
 
@@ -22,12 +22,13 @@ const hora = (ts?: string | null) => {
   return isNaN(t.getTime()) ? ts : new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(t)
 }
 
-export function PanelEquipo({ nodo, eventos, onVerDecisiones }: {
-  nodo: NodoRed; eventos: Decision[]; onVerDecisiones: () => void
+export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones }: {
+  nodo: NodoRed; eventos: Decision[]; todos?: Decision[]; onVerDecisiones: () => void
 }) {
   const a = nodo.actividad
   const v = ESTADO_VISUAL[a.estado] ?? ESTADO_VISUAL.sin_actividad
   const CAT = useTema().oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
+  const atacantes = atacantesDe(eventos, nodo.nombre, todos)
   // Resumen de la ventana de eventos del equipo (lo que ya llega del feed): conteos + gráficas.
   const total = eventos.length
   const auto = eventos.filter((d) => d.requiere_humano === false).length
@@ -82,6 +83,36 @@ export function PanelEquipo({ nodo, eventos, onVerDecisiones }: {
               <Tendencia data={porDia} />
             </div>
           </div>
+        </div>
+      )}
+      {atacantes.length > 0 && (
+        <div className="space-y-1 border-t border-border pt-2">
+          <div className="text-xs text-muted-foreground">Atacantes de este equipo (correlación)</div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                <th className="font-normal">Origen</th><th className="font-normal">Ataques</th>
+                <th className="font-normal">Alcance</th><th className="font-normal">También en</th>
+              </tr>
+            </thead>
+            <tbody>
+              {atacantes.slice(0, 8).map((at) => (
+                <tr key={at.ip}>
+                  <td className="font-mono">{at.ip}</td>
+                  <td className="tabular-nums">×{at.n}</td>
+                  <td>{at.alcance ?? "—"}</td>
+                  <td className="text-muted-foreground">
+                    {at.otrosEquipos.length
+                      ? <span title={at.otrosEquipos.join(", ")}>{at.otrosEquipos.length} equipo(s)</span>
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {atacantes.length > 8 && (
+            <div className="text-xs text-muted-foreground">+{atacantes.length - 8} orígenes más</div>
+          )}
         </div>
       )}
       <ul className="space-y-2 border-t border-border pt-2">

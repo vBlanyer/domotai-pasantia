@@ -41,3 +41,18 @@ describe("PanelEquipo — datos por dispositivo", () => {
     expect(screen.getByText(/Sin eventos/)).toBeInTheDocument()
   })
 })
+
+describe("PanelEquipo — correlación de atacantes", () => {
+  it("lista los orígenes con su nº de ataques, alcance y otros equipos", () => {
+    const nod = { nombre: "web-banking", actividad: { objetivo: 3, origen: 0, contuvo_aqui: 0, pendientes: 0, estado: "atacado", ultima: null } } as unknown as Parameters<typeof PanelEquipo>[0]["nodo"]
+    const ev = [
+      { indice: 1, origen_ip: "198.51.100.11", timestamp: "2026-10-27T10:00:00", clase: "vp_intento_acceso", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { alcance: "externo" } },
+      { indice: 2, origen_ip: "198.51.100.11", timestamp: "2026-10-27T12:00:00", clase: "vp_intento_acceso", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { alcance: "externo" } },
+    ] as unknown as Parameters<typeof PanelEquipo>[0]["eventos"]
+    const todos = [...ev, { indice: 3, origen_ip: "198.51.100.11", relaciones: { "core-db": ["objetivo"] } }] as unknown as Parameters<typeof PanelEquipo>[0]["eventos"]
+    render(<PanelEquipo nodo={nod} eventos={ev} todos={todos} onVerDecisiones={() => {}} />)
+    expect(screen.getAllByText("198.51.100.11").length).toBeGreaterThan(0)  // en la tabla de atacantes (y en la lista)
+    expect(screen.getByText("×2")).toBeInTheDocument()                 // nº de ataques contra el equipo
+    expect(screen.getByText(/1 equipo/)).toBeInTheDocument()           // correlación: también en core-db
+  })
+})

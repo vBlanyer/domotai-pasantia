@@ -127,6 +127,12 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Correlación de atacantes por dispositivo** (vista Red): al pinchar un equipo, su panel lista los
+  **orígenes que lo han atacado** con el **nº de veces** que cada IP lo golpeó, su alcance
+  (interno/externo) y —correlación entre dispositivos, al estilo de los MDR comerciales— **en cuántos
+  equipos más** ha pegado esa misma IP. En cliente, con el helper `atacantesDe` (cuenta los ataques
+  RECIBIDOS por relación `objetivo`, agrupa por `origen_ip` y cruza el feed completo para el «también
+  en N equipos»).
 - **Más información de la IP atacante** en el detalle de una decisión y en el grafo del incidente:
   alcance (interno/externo), si está inventariada, clasificación de la IP (pública/privada/de
   documentación/loopback), tercero de confianza, origen legítimo y ubicación. El enriquecimiento lo

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -322,5 +322,29 @@ describe("paginar: desplazamiento y tamaño por defecto", () => {
   it("expone `desde` (desplazamiento) y el tamaño por defecto es 20", () => {
     expect(paginar(xs, 2, 10).desde).toBe(10)
     expect(paginar(xs, 1).filas).toHaveLength(20)
+  })
+})
+
+describe("atacantesDe", () => {
+  const ev = [
+    { origen_ip: "198.51.100.11", timestamp: "2026-10-27T10:00:00", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { alcance: "externo" } },
+    { origen_ip: "198.51.100.11", timestamp: "2026-10-27T12:00:00", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { alcance: "externo" } },
+    { origen_ip: "10.200.0.11", timestamp: "2026-10-27T09:00:00", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { alcance: "interno" } },
+    { origen_ip: null, timestamp: "2026-10-27T09:30:00", relaciones: { "web-banking": ["objetivo"] } },        // host-injected sin IP → se ignora
+    { origen_ip: "198.51.100.11", timestamp: "2026-10-27T13:00:00", relaciones: { "web-banking": ["origen"] } }, // el equipo como ORIGEN, no ataque recibido → se ignora
+  ] as unknown as Decision[]
+
+  it("cuenta ataques por IP contra el equipo, ordenados de más a menos", () => {
+    const r = atacantesDe(ev, "web-banking")
+    expect(r.map((a) => [a.ip, a.n])).toEqual([["198.51.100.11", 2], ["10.200.0.11", 1]])
+    expect(r[0].alcance).toBe("externo")
+    expect(r[0].ultima).toBe("2026-10-27T12:00:00")
+  })
+
+  it("correlaciona en qué otros equipos pegó la misma IP (todos)", () => {
+    const todos = [...ev, { origen_ip: "198.51.100.11", relaciones: { "core-db": ["objetivo"] } }] as unknown as Decision[]
+    const r = atacantesDe(ev, "web-banking", todos)
+    expect(r.find((a) => a.ip === "198.51.100.11")!.otrosEquipos).toEqual(["core-db"])
+    expect(r.find((a) => a.ip === "10.200.0.11")!.otrosEquipos).toEqual([])
   })
 })
