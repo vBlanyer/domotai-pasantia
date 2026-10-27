@@ -234,15 +234,17 @@ export function estadoDeCasos(regs: Decision[]): Record<string, CasoEstado> {
 // Paginación en cliente de las listas largas (Trazas, Decisiones). El feed ya llega acotado con
 // `indice` global estable (claveDe), así que basta cortar en cliente; la página vive en el
 // componente y sobrevive al sondeo. `tam` por defecto TAM_PAGINA.
-export const TAM_PAGINA = 25
+export const TAMANOS = [10, 20, 50] as const        // tamaños de página ofrecidos en el selector
+export const TAM_PAGINA = 20                         // por defecto (uno de TAMANOS)
 
 export function paginar<T>(xs: T[], pagina: number, tam: number = TAM_PAGINA): {
-  filas: T[]; pagina: number; paginas: number; total: number
+  filas: T[]; pagina: number; paginas: number; total: number; desde: number
 } {
   const total = xs.length
   const paginas = Math.max(1, Math.ceil(total / tam))
   const p = Math.min(Math.max(1, Math.floor(pagina) || 1), paginas)   // clampa a [1, paginas]
-  return { filas: xs.slice((p - 1) * tam, p * tam), pagina: p, paginas, total }
+  const desde = (p - 1) * tam                        // desplazamiento absoluto (para claves estables)
+  return { filas: xs.slice(desde, desde + tam), pagina: p, paginas, total, desde }
 }
 
 // Cuenta eventos por día (YYYY-MM-DD del timestamp ISO), para la gráfica de tendencia por equipo.

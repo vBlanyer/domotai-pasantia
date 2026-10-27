@@ -61,7 +61,7 @@ describe("Trazas", () => {
     expect(screen.getByText(/actividad propia del MDR/)).toBeInTheDocument()
   })
 
-  it("pagina la lista: 25 filas por página y «Siguiente» avanza", () => {
+  it("pagina la lista con el tamaño por defecto y «Siguiente» avanza", () => {
     h.trazas = Array.from({ length: 30 }, (_, i) => reg(100 + i, `s${100 + i}`))
     h.verif = {}
     render(<Trazas />)
@@ -73,10 +73,24 @@ describe("Trazas", () => {
     expect(screen.queryByText("s100")).not.toBeInTheDocument()
   })
 
+  it("permite elegir el tamaño de página (10/20/50)", () => {
+    h.trazas = Array.from({ length: 15 }, (_, i) => reg(100 + i, `s${100 + i}`))
+    h.verif = {}
+    render(<Trazas />)
+    expect(screen.queryByRole("button", { name: "Siguiente" })).not.toBeInTheDocument()   // 15 ≤ 20: una página
+    fireEvent.change(screen.getByLabelText("Filas por página"), { target: { value: "10" } })
+    expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
+    expect(screen.getByText("s100")).toBeInTheDocument()
+    expect(screen.queryByText("s114")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+    expect(screen.getByText("s114")).toBeInTheDocument()
+  })
+
   it("sin exceso de filas no hay paginador", () => {
     h.trazas = [reg(500, "s501"), reg(501, "s502")]
     h.verif = {}
     render(<Trazas />)
     expect(screen.queryByRole("button", { name: "Siguiente" })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Filas por página")).not.toBeInTheDocument()
   })
 })

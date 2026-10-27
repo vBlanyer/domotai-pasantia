@@ -351,8 +351,10 @@ export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
   const [abierto, setAbierto] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>({ texto: "", clase: "" })
   const [pagina, setPagina] = useState(1)
+  const [tam, setTam] = useState(TAM_PAGINA)
   // Al cambiar filtro o equipo la lista cambia de tamaño: se vuelve a la primera página.
   useEffect(() => setPagina(1), [filtro.texto, filtro.clase, equipo])
+  const elegirTam = (t: number) => { setTam(t); setPagina(1) }
   if (!r) return <Cargando />
   // C2: con la conexión perdida pero datos previos, se conserva la tabla congelada con aviso.
   const fallo = "error" in r ? r : null
@@ -360,7 +362,7 @@ export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
   if (!d) return <SinConexion causa={fallo?.causa} />
   if (d.length === 0) return <Vacio>Aún no hay decisiones. Lanza un ataque para verlas aquí.</Vacio>
   const filtradas = filtrarDecisiones(d, { ...filtro, equipo })
-  const pag = paginar(filtradas, pagina)
+  const pag = paginar(filtradas, pagina, tam)
   const ventana = ventanaDe(d)
   return (
     <div className="space-y-3">
@@ -387,7 +389,7 @@ export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
             {pag.filas.map((x, i) => {
               // Índice ABSOLUTO (no el de la página) para que la clave de fallback —sin `indice`—
               // sea única entre páginas y `abierto` no se confunda.
-              const clave = claveDe(x, (pag.pagina - 1) * TAM_PAGINA + i)
+              const clave = claveDe(x, pag.desde + i)
               return (
                 <FilaDecision
                   key={clave}
@@ -401,7 +403,8 @@ export function Decisiones({ equipo = null, onQuitarEquipo, onVerIncidente }: {
           </TableBody>
         </Table>
       </div>
-      <Paginador pagina={pag.pagina} paginas={pag.paginas} onPagina={setPagina} />
+      <Paginador pagina={pag.pagina} paginas={pag.paginas} total={pag.total} tam={tam}
+        onPagina={setPagina} onTam={elegirTam} />
     </div>
   )
 }
