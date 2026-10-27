@@ -311,3 +311,35 @@ export function agruparPorSubred(
     .map((g) => ({ cidr: g.cidr, prefijo: g.prefijo, ips: g.ips, n: g.n, prioridad: g.prioridad, ultima: g.ultima, alcance: g.alcance, otrosEquipos: [...g.otros].sort() }))
     .sort((x, y) => y.prioridad - x.prioridad || y.n - x.n || (x.cidr < y.cidr ? -1 : 1))
 }
+
+// Campañas (attack story): agrupa TODOS los ataques recibidos (relación objetivo) por bloque de
+// origen /24, a través de todos los equipos. Una campaña que rota IPs contra varios activos se ve
+// como una sola fila: nº de IPs, ataques, a qué equipos pegó (con cuántas veces), gravedad y ventana.
+export function campanasDe(todos: Decision[]): {
+  cidr: string; prefijo: string; ips: number; n: number; prioridad: number
+  primera: string | null; ultima: string | null; alcance?: string; objetivos: { equipo: string; n: number }[]
+}[] {
+  const acc = new Map<string, { cidr: string; prefijo: string; ips: Set<string>; n: number; prioridad: number; primera: string | null; ultima: string | null; alcance?: string; objetivos: Map<string, number> }>()
+  for (const d of todos) {
+    if (!d.origen_ip) continue
+    const objetivos = Object.entries(d.relaciones ?? {}).filter(([, e]) => (e ?? []).includes("objetivo")).map(([eq]) => eq)
+    if (!objetivos.length) continue
+    const m = /^(\d+)\.(\d+)\.(\d+)\.\d+$/.exec(d.origen_ip)
+    const cidr = m ? `${m[1]}.${m[2]}.${m[3]}.0/24` : d.origen_ip
+    const prefijo = m ? `${m[1]}.${m[2]}.${m[3]}.` : d.origen_ip
+    const g = acc.get(cidr) ?? { cidr, prefijo, ips: new Set<string>(), n: 0, prioridad: 0, primera: null, ultima: null, alcance: d.enriquecimiento_origen?.alcance, objetivos: new Map<string, number>() }
+    g.ips.add(d.origen_ip)
+    g.n += 1
+    g.prioridad = Math.max(g.prioridad, d.prioridad ?? 0)
+    if (d.timestamp) {
+      if (!g.primera || d.timestamp < g.primera) g.primera = d.timestamp
+      if (!g.ultima || d.timestamp > g.ultima) g.ultima = d.timestamp
+    }
+    if (!g.alcance && d.enriquecimiento_origen?.alcance) g.alcance = d.enriquecimiento_origen.alcance
+    for (const t of objetivos) g.objetivos.set(t, (g.objetivos.get(t) ?? 0) + 1)
+    acc.set(cidr, g)
+  }
+  return [...acc.values()]
+    .map((g) => ({ cidr: g.cidr, prefijo: g.prefijo, ips: g.ips.size, n: g.n, prioridad: g.prioridad, primera: g.primera, ultima: g.ultima, alcance: g.alcance, objetivos: [...g.objetivos.entries()].map(([equipo, n]) => ({ equipo, n })).sort((a, b) => b.n - a.n) }))
+    .sort((x, y) => y.prioridad - x.prioridad || y.n - x.n || (x.cidr < y.cidr ? -1 : 1))
+}

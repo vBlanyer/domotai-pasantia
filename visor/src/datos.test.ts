@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -375,5 +375,21 @@ describe("agruparPorSubred", () => {
     expect(banco.otrosEquipos).toEqual(["core-db"])
     expect(g.find((x) => x.cidr === "10.0.0.0/24")!.ips).toBe(1)
     expect(g[0].cidr).toBe("198.51.100.0/24")        // ordenado por gravedad (P4) primero
+  })
+})
+
+describe("campanasDe", () => {
+  it("agrupa por bloque de origen a través de equipos, con objetivos, gravedad y ventana", () => {
+    const t = [
+      { origen_ip: "198.51.100.10", prioridad: 4, timestamp: "t2", relaciones: { "web-banking": ["objetivo"] } },
+      { origen_ip: "198.51.100.11", prioridad: 3, timestamp: "t1", relaciones: { "core-db": ["objetivo"] } },
+      { origen_ip: "198.51.100.10", prioridad: 2, timestamp: "t3", relaciones: { "web-banking": ["objetivo"] } },
+      { origen_ip: null, relaciones: { "web-banking": ["objetivo"] } },     // sin IP → se ignora
+    ] as unknown as Decision[]
+    const c = campanasDe(t)
+    expect(c).toHaveLength(1)
+    expect(c[0]).toMatchObject({ cidr: "198.51.100.0/24", ips: 2, n: 3, prioridad: 4, prefijo: "198.51.100." })
+    expect(c[0].objetivos).toEqual([{ equipo: "web-banking", n: 2 }, { equipo: "core-db", n: 1 }])
+    expect(c[0].primera).toBe("t1"); expect(c[0].ultima).toBe("t3")
   })
 })
