@@ -24,6 +24,12 @@ _MARCA_INCIDENTE = "⚠"   # el resumen de incidente de stream empieza por esta 
 # Cota del listado /api/trazas: el visor lo sondea cada 2 s, y sin ella cada tick releería y
 # enviaría la traza entera. Los totales del periodo salen de /api/metricas (fichero completo).
 LIMITE_TRAZAS = 500
+# Umbral de SLA del tiempo de respuesta humano (segundos): decisiones de la cola resueltas por encima
+# de esto cuentan como incumplidas en /api/metricas. Configurable con TRIAJE_SLA_SEG (def. 15 min).
+try:
+    _SLA_SEG = int(os.environ.get("TRIAJE_SLA_SEG") or 900)
+except ValueError:
+    _SLA_SEG = 900
 # Tope de la cola de pendientes (M3 de la auditoría 20/10): a diferencia de la supresión (que deduplica
 # por clave), un atacante que controla sus logs fabrica CLAVES infinitas (un srcip distinto por alerta,
 # ni siquiera tiene que ser una IP) y cada una encola tarjeta nueva -> memoria sin límite y /api/pendientes
@@ -496,6 +502,15 @@ def estado_red(perfil, registros, pendientes=(), salud=None):
                              if d in r["nodos"]],
             "zonas": [{"nombre": z, "nodos": ms} for z, ms in r["zonas"]], "avisos": r["avisos"] + extra_avisos}
 
+def _mediana(xs):
+    s = sorted(xs)
+    n = len(s)
+    if not n:
+        return None
+    m = n // 2
+    return s[m] if n % 2 else (s[m - 1] + s[m]) / 2
+
+
 def metricas(regs, desde=None, hasta=None):
     """Indicadores del periodo (vista SLA) calculados de la traza: tasa de FP, % automatizado, MTTR
     (tiempo medio de respuesta humana, de recibido_en/resuelto_en), ruido evitado (suprimidas), y
@@ -557,6 +572,12 @@ def metricas(regs, desde=None, hasta=None):
         "tasa_override": round(override / resueltos_humano, 3) if resueltos_humano else 0.0,
         "suprimidas": sum((r.get("alertas_suprimidas") or 0) for r in regs if r.get("tipo") == "actividad_suprimida"),
         "mttr_seg": round(sum(tiempos) / len(tiempos), 1) if tiempos else None,
+        # Tiempos de respuesta / SLA (de la cola humana): mediana + % dentro del umbral e incumplidos.
+        "mttr_mediano_seg": round(_mediana(tiempos), 1) if tiempos else None,
+        "sla_umbral_seg": _SLA_SEG, "sla_resueltos": len(tiempos),
+        "sla_dentro": sum(1 for x in tiempos if x <= _SLA_SEG),
+        "sla_incumplidos": sum(1 for x in tiempos if x > _SLA_SEG),
+        "sla_pct": round(sum(1 for x in tiempos if x <= _SLA_SEG) / len(tiempos), 3) if tiempos else None,
         "por_clase": por_clase, "veredictos": veredictos,
         "por_dia": [{"dia": d[5:], "n": n} for d, n in sorted(por_dia.items())],
         "top_activos": ranking(activos, "nombre"), "mitre": ranking(mitre, "tecnica"),
