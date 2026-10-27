@@ -392,6 +392,27 @@ export async function revertirUna(indice: number): Promise<{ revertida: boolean 
   } catch { return null }
 }
 
+export const WatchEntradaSchema = z.object({
+  indicador: z.string(), nota: z.string().nullable().optional(),
+  operador: z.string().nullable().optional(), agregado_en: z.string().nullable().optional(),
+})
+export type WatchEntrada = z.infer<typeof WatchEntradaSchema>
+export const getWatchlist = () => pedir("/api/watchlist", z.array(WatchEntradaSchema))
+
+async function _postWatchlist(cuerpo: Record<string, unknown>): Promise<WatchEntrada[] | null> {
+  try {
+    const operador = operadorActual()
+    const r = await fetch(BASE + "/api/watchlist", {
+      method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ ...cuerpo, ...(operador ? { operador } : {}) }),
+    })
+    if (!r.ok) return null
+    return await r.json()
+  } catch { return null }
+}
+export const watchlistAgregar = (indicador: string, nota = "") => _postWatchlist({ indicador, nota })
+export const watchlistQuitar = (indicador: string) => _postWatchlist({ quitar: indicador })
+
 export function controlesDePendiente(p: Pendiente): { etiqueta: string; respuesta: string; variante: "aprobar" | "rechazar" }[] {
   return p.tipo === "escalada"
     ? [{ etiqueta: "Aprobar", respuesta: "s", variante: "aprobar" }, { etiqueta: "Rechazar", respuesta: "", variante: "rechazar" }]

@@ -907,6 +907,9 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/consola":    # feed vivo del daemon (vista «Consola»), incremental
                 hasta, lineas = s.estado.consola(desde=_entero(self.path, "desde") or 0)
                 return self._responder({"hasta": hasta, "lineas": lineas})
+            if ruta == "/api/watchlist":  # watchlist/IoC local (anotación del analista; no toca el motor)
+                from prototipo.servicio import watchlist
+                return self._responder(watchlist.cargar(s.watchlist_ruta) if s.watchlist_ruta else [])
             if ruta.startswith("/api/caso/"):
                 # Ciclo de caso plegado sobre el fichero COMPLETO (como /api/metricas): el caso no
                 # «rejuvenece» cuando sus actualizaciones salen de la ventana de /api/trazas.
@@ -943,7 +946,7 @@ class _Manejador(BaseHTTPRequestHandler):
         try:
             s = self.server
             ruta = self.path.split("?", 1)[0]
-            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso"):
+            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso", "/api/watchlist"):
                 return self._responder({"error": "no encontrado"}, 404)
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -1005,6 +1008,21 @@ class _Manejador(BaseHTTPRequestHandler):
                     + ("" if res.get("revertida") else " — FALLÓ")
                     + (f" · por {operador}" if operador else ""))
                 return self._responder(res)
+            if ruta == "/api/watchlist":   # alta/baja en la watchlist/IoC local (anotación, no toca el motor)
+                from prototipo.servicio import watchlist
+                if not s.watchlist_ruta:
+                    return self._responder({"error": "watchlist no disponible en este modo"}, 409)
+                quitar = cuerpo.get("quitar") if isinstance(cuerpo, dict) else None
+                try:
+                    if quitar:
+                        lista = watchlist.quitar(s.watchlist_ruta, str(quitar))
+                    else:
+                        lista = watchlist.agregar(s.watchlist_ruta, str(cuerpo.get("indicador") or ""),
+                                                  nota=str(cuerpo.get("nota") or ""), operador=operador,
+                                                  ts=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+                except ValueError as e:
+                    return self._responder({"error": str(e)}, 400)   # indicador no válido
+                return self._responder(lista)
             if ruta == "/api/caso":   # ciclo de vida del caso: añade un `actualizacion_caso` a la cadena
                 try:
                     ok = s.estado.actualizar_caso(cuerpo.get("id"), estado=cuerpo.get("estado"),
@@ -1050,7 +1068,7 @@ def _vista_pendiente(p):
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
                    puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
                    async_web=False, perfil=None, catalogo=None, latido=None, ejecutor=None,
-                   token=None, operadores=None):
+                   token=None, operadores=None, watchlist_ruta=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
     fichero_en_contenedor}. `async_web` activa la cola de aprobación no bloqueante. `token` (opcional,
     #6): si se da, toda la API exige 'Authorization: Bearer <token>'; `operadores` (token->nombre, #8)
@@ -1069,4 +1087,5 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.ejecutor = ejecutor              # el ejecutor del daemon, para el des-bloqueo en masa (#8)
     srv.token = token                    # auth opcional de la consola (#6): None = abierta
     srv.operadores = operadores or {}    # token->operador para el no repudio (#8)
+    srv.watchlist_ruta = watchlist_ruta  # watchlist/IoC local (anotación del analista; None = sin fichero)
     return srv

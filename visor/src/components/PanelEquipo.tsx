@@ -1,9 +1,9 @@
 import { useState } from "react"
-import type { Decision, NodoRed } from "@/api"
+import type { Decision, NodoRed, WatchEntrada } from "@/api"
 import { ESTADO_VISUAL } from "@/components/MapaRed"
 import { Prioridad, RiesgoBadge } from "@/components/bits"
 import { Donut, Tendencia, type Segmento } from "./charts"
-import { etiquetaClase, colorClase, agruparPorDia, atacantesDe, agruparPorSubred, riesgoEquipo } from "@/datos"
+import { etiquetaClase, colorClase, agruparPorDia, atacantesDe, agruparPorSubred, riesgoEquipo, enWatchlist } from "@/datos"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK } from "@/theme"
 import { useTema } from "@/tema"
 
@@ -26,8 +26,8 @@ const hora = (ts?: string | null) => {
   return isNaN(t.getTime()) ? ts : new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(t)
 }
 
-export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones, onVerOrigen, onVerAtacante }: {
-  nodo: NodoRed; eventos: Decision[]; todos?: Decision[]; onVerDecisiones: () => void
+export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDecisiones, onVerOrigen, onVerAtacante }: {
+  nodo: NodoRed; eventos: Decision[]; todos?: Decision[]; watchlist?: WatchEntrada[]; onVerDecisiones: () => void
   onVerOrigen?: (texto: string) => void        // bloque/subred → Decisiones filtradas
   onVerAtacante?: (ip: string) => void          // una IP → su perfil de atacante
 }) {
@@ -130,6 +130,7 @@ export function PanelEquipo({ nodo, eventos, todos = [], onVerDecisiones, onVerO
                 : atacantes.slice(0, TOP_ATACANTES).map((at) => (
                   <tr key={at.ip}>
                     <td className="py-0.5">
+                      {enWatchlist(at.ip, watchlist) && <span title={enWatchlist(at.ip, watchlist)?.nota ?? "en la watchlist"}>⚑ </span>}
                       {(onVerAtacante ?? onVerOrigen)
                         ? <button onClick={() => (onVerAtacante ?? onVerOrigen)!(at.ip)}
                             className="font-mono underline-offset-2 hover:underline" title="Ver el perfil del atacante">{at.ip}</button>

@@ -1566,3 +1566,34 @@ class TestMetricasSLA(unittest.TestCase):
         self.assertIsNone(m["mttr_mediano_seg"])
         self.assertIsNone(m["sla_pct"])
         self.assertEqual(m["sla_incumplidos"], 0)
+
+
+class TestWatchlistAPI(unittest.TestCase):
+    """GET/POST /api/watchlist: alta/baja de indicadores (IP/CIDR). Anotación, no toca el motor."""
+    def _srv(self):
+        d = tempfile.mkdtemp()
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), os.path.join(d, "t.jsonl"), puerto=0,
+                                     estaticos=tempfile.mkdtemp(), watchlist_ruta=os.path.join(d, "wl.json"))
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv.server_address[1]
+
+    def _req(self, puerto, metodo, obj=None):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=5)
+        c.request(metodo, "/api/watchlist", json.dumps(obj) if obj is not None else None,
+                  {"Content-Type": "application/json"} if obj is not None else {})
+        r = c.getresponse(); cuerpo = json.loads(r.read()); c.close()
+        return r.status, cuerpo
+
+    def test_alta_baja_y_validacion(self):
+        p = self._srv()
+        self.assertEqual(self._req(p, "GET")[1], [])
+        st, lista = self._req(p, "POST", {"indicador": "198.51.100.10", "nota": "C2"})
+        self.assertEqual(st, 200)
+        self.assertEqual(lista[0]["indicador"], "198.51.100.10")
+        self.assertEqual(self._req(p, "GET")[1][0]["nota"], "C2")
+        # indicador inválido → 400
+        self.assertEqual(self._req(p, "POST", {"indicador": "no-ip"})[0], 400)
+        # quitar
+        st, lista = self._req(p, "POST", {"quitar": "198.51.100.10"})
+        self.assertEqual(lista, [])

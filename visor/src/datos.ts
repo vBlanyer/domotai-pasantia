@@ -478,3 +478,17 @@ export function riesgoAtacante(perfil: { n: number; prioridad: number; equipos: 
   if (!f.length) f.push("actividad baja")
   return nivelDeRiesgo(Math.min(100, p), f)
 }
+
+// ¿Está `ip` en la watchlist? Coincidencia por IP exacta o por /24 (soporte simple, sin lib CIDR).
+export function enWatchlist(
+  ip: string | null | undefined,
+  lista: { indicador: string; nota?: string | null }[],
+): { indicador: string; nota?: string | null } | null {
+  if (!ip) return null
+  for (const e of lista) {
+    if (e.indicador === ip) return e
+    const m = /^(\d+\.\d+\.\d+)\.0\/24$/.exec(e.indicador)
+    if (m && ip.startsWith(m[1] + ".")) return e
+  }
+  return null
+}

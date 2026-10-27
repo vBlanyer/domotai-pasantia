@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { getRed, getTrazas, useSondeo } from "@/api"
+import { getRed, getTrazas, getWatchlist, useSondeo, type WatchEntrada } from "@/api"
 import { Cargando, SinConexion } from "@/components/bits"
 import { MapaRed, ESTADO_VISUAL } from "@/components/MapaRed"
 import { PanelEquipo } from "@/components/PanelEquipo"
@@ -10,6 +10,8 @@ export function Red({ onVerDecisiones, onVerAtacante }: {
 }) {
   const red = useSondeo(getRed)
   const trazas = useSondeo(getTrazas)
+  const wl = useSondeo(getWatchlist)
+  const watchlist: WatchEntrada[] = Array.isArray(wl) ? wl : []
   const [sel, setSel] = useState<string | null>(null)
   const [deps, setDeps] = useState(true)
   if (!red) return <Cargando />
@@ -40,6 +42,7 @@ export function Red({ onVerDecisiones, onVerAtacante }: {
         </div>
         {nodo
           ? <PanelEquipo nodo={nodo} eventos={eventos} todos={Array.isArray(trazas) ? trazas : []}
+              watchlist={watchlist}
               onVerDecisiones={() => onVerDecisiones(nodo.nombre)}
               onVerOrigen={(texto) => onVerDecisiones(null, texto)}
               onVerAtacante={onVerAtacante} />
