@@ -1,7 +1,8 @@
 #!/bin/bash
-# cloud-init de la instancia GPU del LLM justificador. ${modelo_url} lo rellena OpenTofu; las variables
-# de shell van como $${...}. Es un ESQUEMA del arranque; en producción conviene partir de una AMI con
-# drivers NVIDIA (p. ej. Deep Learning AMI) para no compilar el driver en el arranque.
+# cloud-init de la instancia GPU del LLM justificador. La variable de plantilla modelo_url la rellena
+# OpenTofu con templatefile; las variables de SHELL van con doble dólar. Es un ESQUEMA del arranque; en
+# producción conviene partir de una AMI con drivers NVIDIA (p. ej. Deep Learning AMI) para no compilar
+# el driver en el arranque.
 # REQUISITO: los git clone/curl de abajo necesitan egreso de bootstrap (var.egreso_bootstrap=true) o
 # una AMI horneada / pesos en S3; la subred privada no sale a Internet por defecto.
 set -euxo pipefail

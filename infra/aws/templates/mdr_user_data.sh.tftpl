@@ -1,6 +1,7 @@
 #!/bin/bash
-# cloud-init del MDR (Amazon Linux 2023). Variables ${...} las rellena OpenTofu (templatefile);
-# las variables de shell van escapadas como $${...} para que templatefile las deje literales.
+# cloud-init del MDR (Amazon Linux 2023). Las variables de plantilla (repo_url, repo_rama, salida,
+# llm_url) las rellena OpenTofu con templatefile; las variables de SHELL van con doble dólar para que
+# templatefile las deje literales.
 # REQUISITO: dnf/git clone necesitan egreso de bootstrap (var.egreso_bootstrap=true) o una AMI
 # horneada / artefactos en S3; la subred privada no sale a Internet por defecto (ver README).
 set -euxo pipefail
