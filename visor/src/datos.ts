@@ -259,6 +259,52 @@ export function agruparPorDia(ds: Decision[]): { dia: string; n: number }[] {
   return [...cuenta.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([dia, n]) => ({ dia, n }))
 }
 
+// Cronología de un incidente/atacante (attack story): eventos ordenados por tiempo, mezclando la
+// DETECCIÓN (decisiones) con la RESPUESTA (reversión de contención, hitos del ciclo de caso). Ignora
+// el ruido (supresión, eco propio, error). Puro: ordena comparando el string ISO (como agruparPorDia),
+// sin `Date`; los eventos sin hora van al final de forma estable.
+export type EventoCronologia = {
+  clave: string; ts: string | null; tipo: "decision" | "reversion" | "caso"
+  clase?: string | null; prioridad?: number | null; origen_ip?: string | null; activo?: string | null
+  accion?: string | null; veredicto_humano?: string | null; nota?: string | null; operador?: string | null
+}
+
+export function cronologiaDe(regs: Decision[]): EventoCronologia[] {
+  const eventos: EventoCronologia[] = []
+  regs.forEach((d, i) => {
+    const clave = claveDe(d, i)
+    const tipo = d.tipo ?? "decision"
+    if (tipo === "reversion") {
+      eventos.push({ clave, ts: d.decidido_en ?? d.timestamp ?? null, tipo: "reversion",
+        activo: d.nodo, accion: d.accion_id, operador: d.operador })
+    } else if (tipo === "actualizacion_caso") {
+      eventos.push({ clave, ts: d.decidido_en ?? d.timestamp ?? null, tipo: "caso",
+        activo: d.activo, nota: d.nota, operador: d.operador })
+    } else if (esDecision(d)) {
+      eventos.push({ clave, ts: d.timestamp ?? null, tipo: "decision",
+        clase: d.clase, prioridad: d.prioridad, origen_ip: d.origen_ip, activo: d.activo,
+        accion: d.accion_final ?? d.contencion, veredicto_humano: d.veredicto_humano })
+    }
+    // actividad_suprimida / actividad_propia / error -> ruido, se ignoran
+  })
+  const orden = (e: EventoCronologia) => e.ts ?? "￿"   // sin hora -> al final
+  return eventos.sort((a, b) => (orden(a) < orden(b) ? -1 : orden(a) > orden(b) ? 1 : 0))
+}
+
+// Todos los eventos (detección + RESPUESTA) de una entidad definida por un predicado sobre sus
+// decisiones: sus decisiones + las reversiones/hitos de caso que las referencian (por `id_decision`).
+// Necesario porque reversión/caso no llevan `origen_ip`: sin correlacionar, la línea de tiempo del
+// atacante/incidente solo mostraría detecciones. Reutilizable por el perfil de atacante y el detalle
+// de incidente para alimentar `cronologiaDe`/`LineaTiempo`.
+export function eventosDeEntidad(todos: Decision[], pertenece: (d: Decision) => boolean): Decision[] {
+  const decisiones = todos.filter((d) => esDecision(d) && pertenece(d))
+  const ids = new Set(decisiones.map((d) => d.id_decision).filter(Boolean))
+  const respuestas = todos.filter((d) =>
+    (d.tipo === "reversion" && ids.has(d.id_decision_revertida ?? "")) ||
+    (d.tipo === "actualizacion_caso" && ids.has(d.id_decision ?? "")))
+  return [...decisiones, ...respuestas]
+}
+
 // Correlación de atacantes por dispositivo: los orígenes que ATACARON `equipo` (relación objetivo),
 // con cuántas veces, su alcance (del enriquecimiento) y en qué OTROS equipos pegó la misma IP
 // (correlación entre dispositivos, al estilo de los MDR comerciales). `todos` = el feed completo.

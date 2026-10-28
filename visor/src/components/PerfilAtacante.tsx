@@ -4,8 +4,9 @@ import { Prioridad, RiesgoBadge, Cargando, SinConexion } from "@/components/bits
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { OrigenBadges } from "@/components/OrigenBadges"
+import { LineaTiempo } from "@/components/LineaTiempo"
 import { Tendencia } from "@/components/charts"
-import { perfilAtacante, riesgoAtacante, enWatchlist } from "@/datos"
+import { perfilAtacante, riesgoAtacante, enWatchlist, eventosDeEntidad } from "@/datos"
 
 const hora = (ts?: string | null) => {
   if (!ts) return "—"
@@ -98,6 +99,10 @@ export function PerfilAtacante({ ip, onVolver, onVerDecisiones }: {
           <div className="mb-1 text-xs text-muted-foreground">Actividad por día</div>
           <Tendencia data={p.porDia} />
         </div>
+      </div>
+      <div className="rounded-lg border border-border bg-card p-3">
+        <div className="mb-2 text-xs text-muted-foreground">Línea de tiempo</div>
+        <LineaTiempo regs={eventosDeEntidad(regs, (d) => d.origen_ip === ip)} />
       </div>
     </div>
   )

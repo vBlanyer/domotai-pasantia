@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe, cronologiaDe, eventosDeEntidad } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -476,5 +476,57 @@ describe("ubicacionesDe", () => {
     ] as unknown as Decision[]
     const us = ubicacionesDe(t).find((x) => x.clave === "US")!
     expect(us).toMatchObject({ n: 3, mitigados: 1, enCurso: 2 })   // total = mitigados + enCurso
+  })
+})
+
+describe("cronologiaDe", () => {
+  it("ordena por timestamp ascendente y mapea tipo/campos (detección + respuesta)", () => {
+    const regs = [
+      { indice: 3, tipo: "actualizacion_caso", activo: "web-banking", nota: "en revisión", operador: "ana", decidido_en: "2026-10-28T10:30:00" },
+      { indice: 1, timestamp: "2026-10-28T10:00:00", clase: "vp_intento_acceso", prioridad: 3, origen_ip: "8.8.8.8", activo: "web-banking", accion_final: "BLOQUEAR_IP" },
+      { indice: 2, tipo: "reversion", nodo: "fw-core", accion_id: "BLOQUEAR_IP", operador: "ana", decidido_en: "2026-10-28T10:15:00" },
+    ] as unknown as Decision[]
+    const c = cronologiaDe(regs)
+    expect(c.map((e) => e.tipo)).toEqual(["decision", "reversion", "caso"])   // 10:00 < 10:15 < 10:30
+    expect(c[0]).toMatchObject({ clase: "vp_intento_acceso", prioridad: 3, origen_ip: "8.8.8.8", accion: "BLOQUEAR_IP" })
+    expect(c[1]).toMatchObject({ tipo: "reversion", activo: "fw-core", accion: "BLOQUEAR_IP" })
+    expect(c[2]).toMatchObject({ tipo: "caso", nota: "en revisión", operador: "ana" })
+  })
+
+  it("ignora supresión, actividad propia y errores (ruido)", () => {
+    const regs = [
+      { indice: 1, timestamp: "2026-10-28T10:00:00", clase: "vp_intento_acceso" },
+      { indice: 2, tipo: "actividad_suprimida", timestamp: "2026-10-28T10:01:00" },
+      { indice: 3, tipo: "actividad_propia", timestamp: "2026-10-28T10:02:00" },
+      { indice: 4, tipo: "error", timestamp: "2026-10-28T10:03:00" },
+    ] as unknown as Decision[]
+    expect(cronologiaDe(regs).map((e) => e.tipo)).toEqual(["decision"])
+  })
+
+  it("coloca los eventos sin timestamp al final", () => {
+    const regs = [
+      { indice: 1, clase: "vp_integridad" },                                  // sin ts
+      { indice: 2, timestamp: "2026-10-28T09:00:00", clase: "vp_intento_acceso" },
+    ] as unknown as Decision[]
+    const c = cronologiaDe(regs)
+    expect(c[0].ts).toBe("2026-10-28T09:00:00")
+    expect(c[1].ts).toBeNull()
+  })
+})
+
+describe("eventosDeEntidad", () => {
+  it("incluye las decisiones de la entidad + las respuestas (reversión/caso) que las referencian", () => {
+    const regs = [
+      { indice: 1, id_decision: "d1", origen_ip: "8.8.8.8", timestamp: "2026-10-28T10:00:00", clase: "vp_intento_acceso" },
+      { indice: 2, id_decision: "d2", origen_ip: "1.1.1.1", timestamp: "2026-10-28T10:05:00", clase: "vp_intento_acceso" },
+      { indice: 3, tipo: "reversion", id_decision_revertida: "d1", nodo: "fw-core", decidido_en: "2026-10-28T10:10:00" },
+      { indice: 4, tipo: "actualizacion_caso", id_decision: "d1", nota: "resuelto", decidido_en: "2026-10-28T10:20:00" },
+      { indice: 5, tipo: "actualizacion_caso", id_decision: "d2", nota: "del otro", decidido_en: "2026-10-28T10:25:00" },
+    ] as unknown as Decision[]
+    const e = eventosDeEntidad(regs, (d) => d.origen_ip === "8.8.8.8")
+    expect(e.length).toBe(3)                                       // d1 + su reversión + su caso
+    expect(e.some((d) => d.tipo === "reversion")).toBe(true)
+    expect(e.some((d) => d.tipo === "actualizacion_caso" && d.id_decision === "d1")).toBe(true)
+    expect(e.some((d) => d.id_decision === "d2")).toBe(false)      // el otro atacante queda fuera
   })
 })
