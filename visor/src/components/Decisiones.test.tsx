@@ -300,3 +300,24 @@ describe("Decisiones: mi cola (asignadas a mí)", () => {
     fijarOperador("")
   })
 })
+
+describe("Decisiones: «mi cola» se habilita al poner el nombre", () => {
+  it("sin operador la casilla está deshabilitada; al escribir el nombre se habilita y filtra", async () => {
+    const { fijarOperador } = await import("@/api")
+    fijarOperador("")
+    h.decisiones = [
+      { indice: 1, id_decision: "s1", clase: "vp_intento_acceso", activo: "web-banking", prioridad: 3 },
+      { indice: 2, id_decision: "s2", clase: "vp_intento_acceso", activo: "core-db", prioridad: 3 },
+      { indice: 3, id_decision: "s1", tipo: "actualizacion_caso", asignado: "ana", estado: "en_revision" },
+    ]
+    render(<Decisiones />)
+    const casilla = screen.getByRole("checkbox", { name: /Solo mías/i })
+    expect(casilla).toBeDisabled()
+    fireEvent.change(screen.getByPlaceholderText("tu nombre"), { target: { value: "ana" } })
+    expect(screen.getByRole("checkbox", { name: /Solo mías/i })).toBeEnabled()
+    fireEvent.click(screen.getByRole("checkbox", { name: /Solo mías/i }))
+    expect(screen.getByRole("button", { name: /ver detalle de web-banking/i })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /ver detalle de core-db/i })).not.toBeInTheDocument()
+    fijarOperador("")
+  })
+})
