@@ -13,6 +13,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
   inline en la MISMA proyección equirectangular que los marcadores (`x = lon+180`, `y = 90−lat`), así
   que los puntos caen sobre el continente correcto. Es un **asset de build** (`visor/src/worldmap.ts`,
   siluetas pre-proyectadas); el producto sigue **sin dependencias ni egreso**.
+- **Filtro de métricas en «Ubicaciones» + conteo sobre los puntos**: los marcadores ahora llevan
+  **encima el número de ataques** de la métrica elegida, y un filtro de tres valores dimensiona/numera
+  el mapa: **En curso** (recibidos aún no contenidos), **Total** (recibidos) y **Mitigados**
+  (contención «contenida»). Partición limpia: `total = en curso + mitigados`. La tabla gana las tres
+  columnas (resaltando la activa) y los botones muestran las cifras **globales** (todas las ubicaciones,
+  incluidas lab/internas de la tabla); el mapa numera solo las geolocalizadas. `datos.ubicacionesDe`
+  calcula `mitigados`/`enCurso` por ubicación (additivo, sin tocar el motor).
 
 ## [1.2] — 2026-10-28 · Cobertura de familias, consola MDR y expansión del visor
 
