@@ -294,6 +294,22 @@ sh lab/portatil/demo.sh down     # apagar
 
 Ver [lab/portatil/README.md](lab/portatil/README.md) (incluye la variante viva con Wazuh).
 
+**Demo de geolocalización (sin contenedores):** en el laboratorio real los ataques vienen de IPs del
+lab (`10.x`) y de documentación (`198.51.100.x`) que —por diseño honesto— **no geolocalizan**, así que
+la vista «Ubicaciones» sale vacía. Esta demo **simula** el caso de producción: inyecta una campaña
+**sintética** de ataques con IPs **públicas** de ~12 países (de la misma tabla de muestra que usa el
+enriquecimiento) por el **pipeline real** (normalizador → motor → traza → visor), para que el mapa se
+encienda en vivo. Solo Python; no toca el motor ni el corpus (traza aparte, `run/trazas-geo-demo.jsonl`):
+
+```bash
+sh lab/geo_demo/geo-demo.sh                  # arranca el daemon web y va inyectando ataques (Ctrl-C para)
+sh lab/geo_demo/geo-demo.sh --pausa 0.3 --por-pais 2   # más denso / más rápido
+TRIAJE_RDNS=1 sh lab/geo_demo/geo-demo.sh    # además resuelve el DNS inverso (egreso, opt-in)
+```
+
+Luego abre `http://127.0.0.1:8787` → **Ubicaciones** (mapa por país) y **Decisiones** (país + ASN + rDNS).
+Es un escenario claramente etiquetado («[DEMO SINTÉTICA]» en el evento crudo), no tráfico real.
+
 **La red pequeña (sin banco):** el motor también corre sobre la red pequeña del cliente
 (Metasploitable + Wazuh):
 
@@ -310,8 +326,8 @@ No conviven las dos redes a la vez (comparten la red de gestión); `lab.sh` lo p
 ## 9. Probar las suites (antes de fusionar)
 
 ```bash
-# Núcleo Python (motor, evaluación, dataset, banco, demo portátil)
-for d in prototipo/tests evaluacion/tests lab/dataset/tests lab/banco/tests lab/portatil/tests; do \
+# Núcleo Python (motor, evaluación, dataset, banco, demo portátil, demo de geolocalización)
+for d in prototipo/tests evaluacion/tests lab/dataset/tests lab/banco/tests lab/portatil/tests lab/geo_demo/tests; do \
   PYTHONPATH=. python3 -m unittest discover -s "$d" -t . 2>&1 | tail -1; done
 
 # Visor React

@@ -125,6 +125,14 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   restaurar`) para que no se degrade; `--gap` separa los ataques, `--semilla` fija el orden
   (reproducible, RNF-03) y `--vueltas` lo acota. Al parar, un resumen por familia. El orden rotado
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
+- **Demo de geolocalización observable, SIN contenedores** (`lab/geo_demo/`): en el laboratorio real
+  los ataques vienen de IPs del lab/documentación que —por diseño honesto— no geolocalizan, así que la
+  vista «Ubicaciones» sale vacía. Esta demo **simula** el caso de producción: `generador.py` fabrica una
+  campaña **sintética** de ataques con IPs **públicas** de ~12 países (de la misma tabla de muestra que
+  usa el enriquecimiento) y `geo-demo.sh` las inyecta en vivo por el **pipeline real** (normalizador →
+  motor → traza → visor), de modo que el mapa se encienda. Solo Python; no toca el motor ni el corpus
+  (traza aparte, `run/trazas-geo-demo.jsonl`); escenario claramente etiquetado («[DEMO SINTÉTICA]» en el
+  evento crudo). `--continuo`/`--por-pais`/`--pausa`/`--semilla` (reproducible, RNF-03). Suite `lab/geo_demo/tests`.
 
 ### Añadido (visor)
 - **Ubicaciones de origen** (12ª vista) + **geolocalización OFFLINE**: `actores.geolocalizar` resuelve
