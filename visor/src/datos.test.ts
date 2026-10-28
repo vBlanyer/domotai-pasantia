@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe, cronologiaDe, eventosDeEntidad } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe, cronologiaDe, eventosDeEntidad, claveIncidenteDe } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -528,5 +528,15 @@ describe("eventosDeEntidad", () => {
     expect(e.some((d) => d.tipo === "reversion")).toBe(true)
     expect(e.some((d) => d.tipo === "actualizacion_caso" && d.id_decision === "d1")).toBe(true)
     expect(e.some((d) => d.id_decision === "d2")).toBe(false)      // el otro atacante queda fuera
+  })
+})
+
+describe("claveIncidenteDe", () => {
+  it("deriva la clave de incidente del /24, URL-safe y con prefijo inc:", () => {
+    expect(claveIncidenteDe("203.0.113.9")).toBe("inc:203.0.113")
+    expect(claveIncidenteDe("10.40.0.10")).toBe("inc:10.40.0")
+    expect(claveIncidenteDe("203.0.113.200")).toBe(claveIncidenteDe("203.0.113.9"))   // mismo /24 = mismo incidente
+    expect(claveIncidenteDe("no-es-ip")).toBe("inc:no-es-ip")                          // fallback tolerante
+    expect(claveIncidenteDe(null)).toBe("inc:")
   })
 })

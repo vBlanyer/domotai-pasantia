@@ -17,11 +17,13 @@ import { Consola } from "@/components/Consola"
 import { Trazas } from "@/components/Trazas"
 import { Contenciones } from "@/components/Contenciones"
 import { Politicas } from "@/components/Politicas"
+import { Incidentes } from "@/components/Incidentes"
+import { DetalleIncidente } from "@/components/DetalleIncidente"
 import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "campanas" | "ubicaciones" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "incidente" | "atacante"
+type Vista = "panel" | "metricas" | "salud" | "red" | "campanas" | "ubicaciones" | "incidentes" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "detalle_incidente" | "incidente" | "atacante"
 
 // Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
 // navegador no lo permite, se ignora en silencio.
@@ -84,6 +86,7 @@ const NAV: { id: Vista; nombre: string }[] = [
   { id: "red", nombre: "Red" },
   { id: "campanas", nombre: "Campañas" },
   { id: "ubicaciones", nombre: "Ubicaciones" },
+  { id: "incidentes", nombre: "Incidentes" },
   { id: "decisiones", nombre: "Decisiones" },
   { id: "aprobaciones", nombre: "Aprobaciones" },
   { id: "consola", nombre: "Consola" },
@@ -99,6 +102,7 @@ export default function App() {
   const [textoDec, setTextoDec] = useState("")        // filtro de Decisiones sembrado al pivotar (p. ej. una IP)
   const [atacanteIp, setAtacanteIp] = useState<string | null>(null)   // perfil de atacante (drill-down)
   const [paisAprob, setPaisAprob] = useState("")      // filtro de Aprobaciones por ubicación (desde Ubicaciones)
+  const [incidenteSel, setIncidenteSel] = useState<{ clave: string; cidr: string } | null>(null)   // detalle de incidente
   const [incidente, setIncidente] = useState<Decision | null>(null)
   const [token, setToken] = useState(tokenActual())   // auth opcional de la consola (#6); vacío = abierta
   const [menu, setMenu] = useState(false)             // drawer de navegación en móvil (< md)
@@ -114,6 +118,7 @@ export default function App() {
   useAvisoPendientes(pendConocidos, avisos)
   const titulo = vista === "incidente" ? "Incidente"
     : vista === "atacante" ? "Perfil de atacante"
+    : vista === "detalle_incidente" ? "Detalle del incidente"
     : NAV.find((n) => n.id === vista)!.nombre
 
   return (
@@ -228,6 +233,11 @@ export default function App() {
           {vista === "contenciones" && <Contenciones />}
           {vista === "watchlist" && <Watchlist />}
           {vista === "politicas" && <Politicas />}
+          {vista === "incidentes" && <Incidentes
+            onVerIncidente={(clave, cidr) => { setIncidenteSel({ clave, cidr }); setVista("detalle_incidente") }} />}
+          {vista === "detalle_incidente" && incidenteSel && (
+            <DetalleIncidente clave={incidenteSel.clave} cidr={incidenteSel.cidr} onVolver={() => setVista("incidentes")} />
+          )}
           {vista === "incidente" && incidente && (
             <VistaIncidente decision={incidente} onVolver={() => setVista("decisiones")} />
           )}
