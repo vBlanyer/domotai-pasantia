@@ -6,7 +6,7 @@ data "aws_availability_zones" "disponibles" {
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
-  enable_dns_hostnames = true   # necesario para el DNS privado de los endpoints VPC
+  enable_dns_hostnames = true # necesario para el DNS privado de los endpoints VPC
   tags                 = { Name = "${var.proyecto}-vpc" }
 }
 
