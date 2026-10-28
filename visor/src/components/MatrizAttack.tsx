@@ -1,4 +1,4 @@
-import { TACTICAS, TECNICAS, tecnicasDe } from "@/attack"
+import { TACTICAS, TACTICAS_FUERA, TECNICAS, tecnicasDe } from "@/attack"
 import { useTema } from "@/tema"
 
 type Tecnica = { tecnica: string; n: number }
@@ -40,8 +40,13 @@ export function MatrizAttack({ tecnicas }: { tecnicas: Tecnica[] }) {
   // Técnicas observadas que no están en nuestro mapa de referencia: no se pierden, van a «Otras».
   const desconocidas = tecnicas.filter((t) => !TECNICAS[t.tecnica]).map((t) => t.tecnica)
 
-  const columnas = TACTICAS.map((tac) => ({ nombre: tac.nombre, ids: tecnicasDe(tac.id) }))
+  const columnas: { nombre: string; ids: string[]; fuera?: boolean }[] =
+    TACTICAS.map((tac) => ({ nombre: tac.nombre, ids: tecnicasDe(tac.id) }))
   if (desconocidas.length) columnas.push({ nombre: "Otras", ids: [...new Set(desconocidas)].sort() })
+  // Tácticas fuera de alcance (por diseño): se muestran en gris, no como huecos.
+  for (const tac of TACTICAS_FUERA) columnas.push({ nombre: tac.nombre, ids: [], fuera: true })
+  const cobertura = TACTICAS.length                      // tácticas que cubrimos
+  const totalTacticas = TACTICAS.length + TACTICAS_FUERA.length
 
   return (
     <div>
@@ -55,7 +60,13 @@ export function MatrizAttack({ tecnicas }: { tecnicas: Tecnica[] }) {
           ))}
         </span>
         <span>más</span>
+        <span className="ml-2 h-3 w-3 rounded-sm border border-dashed border-border bg-muted/40" />
+        <span>fuera de alcance (por diseño)</span>
       </div>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Cobertura: <b>{cobertura} de {totalTacticas}</b> tácticas de ATT&CK Enterprise. Las {TACTICAS_FUERA.length}
+        {" "}restantes quedan <b>fuera de alcance por diseño</b> (territorio EDR/host, no de un triaje sobre el SIEM).
+      </p>
       {/* C5: en pantalla desplaza en horizontal; al IMPRIMIR (informe PDF) las columnas envuelven
           para que la matriz salga completa en el A4, no recortada por el overflow. */}
       <div className="overflow-x-auto print:overflow-visible">
@@ -63,13 +74,15 @@ export function MatrizAttack({ tecnicas }: { tecnicas: Tecnica[] }) {
           {columnas.map((col) => {
             const total = col.ids.reduce((s, id) => s + (conteo[id] ?? 0), 0)
             return (
-              <div key={col.nombre} className="min-w-[8.5rem] flex-1 break-inside-avoid print:min-w-[6rem]">
+              <div key={col.nombre} className={`min-w-[8.5rem] flex-1 break-inside-avoid print:min-w-[6rem] ${col.fuera ? "opacity-60" : ""}`}>
                 <div className="mb-2 border-b border-border pb-1.5">
-                  <div className="text-xs font-medium">{col.nombre}</div>
-                  <div className="text-[10px] tabular-nums text-muted-foreground">{total} det.</div>
+                  <div className={`text-xs font-medium ${col.fuera ? "text-muted-foreground" : ""}`}>{col.nombre}</div>
+                  <div className="text-[10px] tabular-nums text-muted-foreground">{col.fuera ? "fuera de alcance" : `${total} det.`}</div>
                 </div>
                 <div className="space-y-1.5">
-                  {col.ids.map((id) => (
+                  {col.fuera ? (
+                    <div className="rounded-md border border-dashed border-border px-2 py-1.5 text-[10px] text-muted-foreground">por diseño</div>
+                  ) : col.ids.map((id) => (
                     <Celda key={id} id={id} n={conteo[id] ?? 0} max={max} serie={serie} />
                   ))}
                 </div>
