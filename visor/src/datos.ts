@@ -495,7 +495,15 @@ export function enWatchlist(
 
 // Ubicación de origen de cada ataque recibido, para la vista «Ubicaciones»: país real (si la IP
 // pública geolocaliza), o un cubo honesto —red interna, laboratorio/documentación, pública sin geo—.
-function ubicacionDe(d: Decision): { clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null } {
+type ConOrigen = { enriquecimiento_origen?: Decision["enriquecimiento_origen"] }
+
+// La etiqueta de ubicación de un registro (decisión o pendiente): país real o el cubo (red interna /
+// laboratorio / loopback / pública sin geo / desconocida). Compartida por el mapa y el filtro de Aprobaciones.
+export function ubicacionLabelDe(d: ConOrigen): string {
+  return ubicacionDe(d).nombre
+}
+
+function ubicacionDe(d: ConOrigen): { clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null } {
   const e = d.enriquecimiento_origen
   if (e?.geo?.pais) return { clave: e.geo.codigo ?? e.geo.pais, nombre: e.geo.pais, lat: (e.geo as { lat?: number }).lat, lon: (e.geo as { lon?: number }).lon, codigo: e.geo.codigo }
   switch (e?.clasificacion_ip) {

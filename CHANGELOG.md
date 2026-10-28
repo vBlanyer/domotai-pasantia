@@ -26,11 +26,15 @@ capítulo de resultados, y `evaluacion/resultados/`).
   atender), «Total»/«Mitigados» → **Decisiones filtradas por ese país** (`filtrarDecisiones` ahora
   también busca el país del enriquecimiento geo). Los números sobre los puntos son `pointer-events-none`
   y no seleccionables (antes el texto interceptaba el hover y se podía copiar).
-- **Ubicación del origen en «Aprobaciones» + filtro por país**: cada tarjeta de la cola muestra ahora la
-  IP, el activo y la **ubicación/alcance** del origen (badges), y «En curso» desde el mapa **filtra la
-  cola a ese país** (con un chip para quitar el filtro). Backend: `/api/pendientes` incluye
-  `enriquecimiento_origen` por ítem (`_vista_pendiente(p, perfil)`; mismo shape que el feed). El esquema
-  Zod del enriquecimiento se extrajo a `EnriquecimientoOrigenSchema` y se reusa en decisiones y pendientes.
+- **Ubicación del origen en «Aprobaciones» + filtro propio por ubicación**: cada tarjeta de la cola
+  muestra ahora la IP, el activo y la **ubicación/alcance** del origen (badges). Aprobaciones tiene un
+  **filtro propio** (un selector con las ubicaciones presentes en la cola, «Todas» para quitar) y la
+  **ubicación de cada tarjeta es un enlace** (`📍 … · filtrar`) que fija ese filtro; «En curso» desde el
+  mapa de Ubicaciones lo **siembra** con ese país. El filtro usa `ubicacionLabelDe` (misma etiqueta que
+  el mapa: país real o cubo lab/interna…), así cubre todas las ubicaciones, no solo países. Backend:
+  `/api/pendientes` incluye `enriquecimiento_origen` por ítem (`_vista_pendiente(p, perfil)`; mismo shape
+  que el feed). El esquema Zod del enriquecimiento se extrajo a `EnriquecimientoOrigenSchema` y se reusa
+  en decisiones y pendientes.
 
 ## [1.2] — 2026-10-28 · Cobertura de familias, consola MDR y expansión del visor
 
