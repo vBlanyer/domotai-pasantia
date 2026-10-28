@@ -84,8 +84,8 @@ export function filtrarDecisiones(ds: Decision[], f: Filtro): Decision[] {
     if (f.clase && d.clase !== f.clase) return false
     if (f.equipo && !d.relaciones?.[f.equipo]) return false
     if (!t) return true
-    return [d.activo, d.origen_ip, d.id_decision, d.clase, d.accion_final]
-      .some((v) => (v ?? "").toLowerCase().includes(t))
+    return [d.activo, d.origen_ip, d.id_decision, d.clase, d.accion_final, d.enriquecimiento_origen?.geo?.pais]
+      .some((v) => (v ?? "").toLowerCase().includes(t))   // incluye el país (para pivotar desde Ubicaciones)
   })
 }
 

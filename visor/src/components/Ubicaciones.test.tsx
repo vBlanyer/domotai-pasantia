@@ -38,4 +38,33 @@ describe("Ubicaciones", () => {
     render(<Ubicaciones />)
     expect(screen.getByText(/Sin orígenes geolocalizables/)).toBeInTheDocument()
   })
+
+  it("al pulsar un país navega según el filtro: Total→Decisiones(país), En curso→Aprobaciones", () => {
+    h.trazas = [
+      { indice: 1, origen_ip: "8.8.8.1", contencion: "fallida", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: { pais: "Estados Unidos", codigo: "US", lat: 37, lon: -122 } } },
+    ]
+    const onVerPais = vi.fn(), onVerAprobaciones = vi.fn()
+    render(<Ubicaciones onVerPais={onVerPais} onVerAprobaciones={onVerAprobaciones} />)
+    // filtro «Total» → Decisiones filtradas por el país
+    fireEvent.click(screen.getByRole("button", { name: /Total/i }))
+    fireEvent.click(screen.getByTitle("Ver en Decisiones"))
+    expect(onVerPais).toHaveBeenCalledWith("Estados Unidos")
+    expect(onVerAprobaciones).not.toHaveBeenCalled()
+    // filtro «En curso» → Aprobaciones
+    fireEvent.click(screen.getByRole("button", { name: /En curso/i }))
+    fireEvent.click(screen.getByTitle("Ver en Aprobaciones"))
+    expect(onVerAprobaciones).toHaveBeenCalled()
+  })
+
+  it("hover sobre un punto muestra el desglose de las tres métricas", () => {
+    h.trazas = [
+      { indice: 1, origen_ip: "8.8.8.1", contencion: "contenida", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: { pais: "Estados Unidos", codigo: "US", lat: 37, lon: -122 } } },
+      { indice: 2, origen_ip: "8.8.8.2", contencion: "fallida", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: { pais: "Estados Unidos", codigo: "US", lat: 37, lon: -122 } } },
+    ]
+    render(<Ubicaciones />)
+    fireEvent.mouseMove(document.querySelector("svg circle")!, { clientX: 100, clientY: 100 })
+    expect(screen.getByText(/En curso 1/)).toBeInTheDocument()
+    expect(screen.getByText(/Total 2/)).toBeInTheDocument()
+    expect(screen.getByText(/Mitigados 1/)).toBeInTheDocument()
+  })
 })

@@ -207,7 +207,9 @@ export default function App() {
           {vista === "salud" && <Salud />}
           {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }}
             onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }} />}
-          {vista === "ubicaciones" && <Ubicaciones />}
+          {vista === "ubicaciones" && <Ubicaciones
+            onVerPais={(pais) => { setEquipo(null); setTextoDec(pais); setVista("decisiones") }}
+            onVerAprobaciones={() => setVista("aprobaciones")} />}
           {vista === "campanas" && <Campanas onVerOrigen={(p) => { setEquipo(null); setTextoDec(p); setVista("decisiones") }} />}
           {vista === "atacante" && atacanteIp && (
             <PerfilAtacante ip={atacanteIp} onVolver={() => setVista("red")}

@@ -20,6 +20,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
   columnas (resaltando la activa) y los botones muestran las cifras **globales** (todas las ubicaciones,
   incluidas lab/internas de la tabla); el mapa numera solo las geolocalizadas. `datos.ubicacionesDe`
   calcula `mitigados`/`enCurso` por ubicación (additivo, sin tocar el motor).
+- **Hover y navegación en «Ubicaciones»**: al pasar el ratón por un punto del mapa sale una **tarjeta**
+  que sigue al cursor con el desglose (en curso · total · mitigados · IPs). Las **filas de país** de la
+  tabla son **clicables** y pivotan **según el filtro activo**: «En curso» → **Aprobaciones** (la cola a
+  atender), «Total»/«Mitigados» → **Decisiones filtradas por ese país** (`filtrarDecisiones` ahora
+  también busca el país del enriquecimiento geo).
 
 ## [1.2] — 2026-10-28 · Cobertura de familias, consola MDR y expansión del visor
 
