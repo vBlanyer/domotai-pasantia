@@ -1,0 +1,11 @@
+[
+  {"cidr": "8.8.8.0/24",      "asn": "AS15169", "org": "Google LLC"},
+  {"cidr": "1.1.1.0/24",      "asn": "AS13335", "org": "Cloudflare, Inc."},
+  {"cidr": "103.21.244.0/22", "asn": "AS13335", "org": "Cloudflare, Inc."},
+  {"cidr": "208.67.222.0/24", "asn": "AS36692", "org": "Cisco OpenDNS"},
+  {"cidr": "80.58.0.0/16",    "asn": "AS3352",  "org": "Telefónica de España"},
+  {"cidr": "51.15.0.0/16",    "asn": "AS12876", "org": "Scaleway / Online SAS"},
+  {"cidr": "200.160.0.0/16",  "asn": "AS22548", "org": "NIC.br"},
+  {"cidr": "202.12.27.0/24",  "asn": "AS7500",  "org": "WIDE Project"},
+  {"cidr": "5.45.0.0/16",     "asn": "AS13238", "org": "Yandex LLC"}
+]

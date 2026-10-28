@@ -1597,3 +1597,26 @@ class TestWatchlistAPI(unittest.TestCase):
         # quitar
         st, lista = self._req(p, "POST", {"quitar": "198.51.100.10"})
         self.assertEqual(lista, [])
+
+
+class TestRdnsAPI(unittest.TestCase):
+    """GET /api/rdns?ip=: DNS inverso opt-in. Apagado por defecto (sin TRIAJE_RDNS) → rdns null."""
+    def _srv(self):
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), os.path.join(tempfile.mkdtemp(), "t.jsonl"),
+                                     puerto=0, estaticos=tempfile.mkdtemp())
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv.server_address[1]
+
+    def _get(self, puerto, ruta):
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=5)
+        c.request("GET", ruta); r = c.getresponse(); cuerpo = json.loads(r.read()); c.close()
+        return r.status, cuerpo
+
+    def test_apagado_devuelve_rdns_null(self):
+        st, cuerpo = self._get(self._srv(), "/api/rdns?ip=8.8.8.8")
+        self.assertEqual(st, 200)
+        self.assertEqual(cuerpo, {"ip": "8.8.8.8", "rdns": None})
+
+    def test_ip_invalida_da_400(self):
+        self.assertEqual(self._get(self._srv(), "/api/rdns?ip=nope")[0], 400)

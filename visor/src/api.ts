@@ -54,6 +54,8 @@ export const DecisionSchema = z.object({
     geolocalizable: z.boolean(),
     geo: z.object({ pais: z.string().nullable().optional(), ciudad: z.string().nullable().optional(),
       codigo: z.string().nullable().optional(), lat: z.number().nullable().optional(), lon: z.number().nullable().optional() }).nullable().optional(),
+    // ASN/organización (tabla offline en corpus/asn-muestra.json; solo IP pública en tabla)
+    asn: z.object({ asn: z.string(), org: z.string() }).nullable().optional(),
   }).nullable().optional(),
   // ciclo de vida del caso (registro `actualizacion_caso`): estado/asignado/nota + quién y cuándo
   estado: z.string().nullable().optional(), asignado: z.string().nullable().optional(),
@@ -413,6 +415,11 @@ async function _postWatchlist(cuerpo: Record<string, unknown>): Promise<WatchEnt
 }
 export const watchlistAgregar = (indicador: string, nota = "") => _postWatchlist({ indicador, nota })
 export const watchlistQuitar = (indicador: string) => _postWatchlist({ quitar: indicador })
+
+// rDNS (DNS inverso) de una IP pública. Opt-in en el backend (TRIAJE_RDNS): apagado por defecto
+// devuelve null sin tocar la red (RNF-01). Bajo demanda desde el perfil del atacante, nunca en el sondeo.
+export const RdnsSchema = z.object({ ip: z.string(), rdns: z.string().nullable().optional() })
+export const getRdns = (ip: string) => pedir(`/api/rdns?ip=${encodeURIComponent(ip)}`, RdnsSchema)
 
 export function controlesDePendiente(p: Pendiente): { etiqueta: string; respuesta: string; variante: "aprobar" | "rechazar" }[] {
   return p.tipo === "escalada"

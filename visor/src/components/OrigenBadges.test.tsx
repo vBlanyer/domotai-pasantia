@@ -26,6 +26,18 @@ describe("OrigenBadges", () => {
     expect(screen.getByText(/origen legítimo/)).toBeInTheDocument()
   })
 
+  it("muestra la organización del ASN cuando la IP está en la tabla offline", () => {
+    render(<OrigenBadges e={{ ...base, clasificacion_ip: "publica", geolocalizable: true,
+      asn: { asn: "AS15169", org: "Google LLC" } }} />)
+    expect(screen.getByText("Google LLC")).toBeInTheDocument()
+    expect(screen.getByTitle("AS15169")).toBeInTheDocument()
+  })
+
+  it("sin ASN no pinta el badge de organización", () => {
+    render(<OrigenBadges e={{ ...base, asn: null }} />)
+    expect(screen.queryByText("Google LLC")).not.toBeInTheDocument()
+  })
+
   it("sin enriquecimiento no renderiza nada", () => {
     const { container } = render(<OrigenBadges e={null} />)
     expect(container).toBeEmptyDOMElement()

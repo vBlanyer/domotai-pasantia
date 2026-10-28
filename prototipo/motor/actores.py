@@ -165,6 +165,75 @@ def _tabla_geoip():
     return _GEOIP
 
 
+_ASN = None
+
+
+def _tabla_asn():
+    """Tabla ASN OFFLINE (muestra curada de bloques públicos → {asn, org}), como la de geo: sin
+    dependencias ni egreso, sustituible por un dataset real (p. ej. GeoLite2-ASN) en producción."""
+    global _ASN
+    if _ASN is None:
+        import json
+        ruta = os.path.join(os.path.dirname(os.path.dirname(__file__)), "corpus", "asn-muestra.json")
+        try:
+            with open(ruta, encoding="utf-8") as f:
+                _ASN = [e for e in json.load(f) if isinstance(e, dict) and e.get("cidr")]
+        except (OSError, ValueError):
+            _ASN = []
+    return _ASN
+
+
+def asn_de(ip):
+    """{asn, org} de una IP PÚBLICA que caiga en un bloque conocido (tabla offline), o None. Las
+    privadas/documentación/loopback no tienen ASN de Internet."""
+    if clasificar_ip(ip) != "publica":
+        return None
+    direccion = ipaddress.ip_address(_canon(ip))
+    for e in _tabla_asn():
+        try:
+            if direccion in ipaddress.ip_network(e["cidr"]):
+                return {"asn": e.get("asn"), "org": e.get("org")}
+        except ValueError:
+            continue
+    return None
+
+
+_RDNS_CACHE = {}
+
+
+def rdns(ip, resolutor=None):
+    """DNS inverso (PTR) de una IP pública. OPT-IN y APAGADO por defecto: solo consulta si
+    `TRIAJE_RDNS` está activo —una consulta DNS es EGRESO, contra RNF-01—. Solo IPs públicas; se
+    cachea. None si está apagado, no es pública, o no resuelve. `resolutor` inyectable para tests."""
+    if not os.environ.get("TRIAJE_RDNS") or clasificar_ip(ip) != "publica":
+        return None
+    c = _canon(ip)
+    if c in _RDNS_CACHE:
+        return _RDNS_CACHE[c]
+    if resolutor is None:
+        import socket
+        # timeout POR LLAMADA: gethostbyaddr no lo acepta como argumento, así que fijamos el
+        # default del socket y lo restauramos en finally —no dejamos tocado el proceso entero—.
+        prev = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(3)
+        try:
+            nombre = socket.gethostbyaddr(c)[0]
+        except Exception:        # cualquier fallo de red/resolución -> sin PTR (no se propaga)
+            nombre = None
+        finally:
+            socket.setdefaulttimeout(prev)
+    else:
+        try:
+            nombre = resolutor(c)[0]
+        except Exception:
+            nombre = None
+    # Solo cacheamos resultados POSITIVOS: un fallo transitorio no debe condenar a la IP a no
+    # resolver nunca más en la vida del proceso (se reintenta en la próxima petición explícita).
+    if nombre:
+        _RDNS_CACHE[c] = nombre
+    return nombre
+
+
 def geolocalizar(ip):
     """Geolocalización OFFLINE (stdlib + tabla de muestra, sin egreso): {pais, codigo, lat, lon} para
     una IP PÚBLICA que caiga en un bloque conocido; None en otro caso. Las privadas, de documentación
@@ -203,6 +272,7 @@ def enriquecer_origen(ip, perfil, legitimo=None):
         "legitimo": bool(legitimo),
         "geolocalizable": clase == "publica",
         "geo": geolocalizar(ip),
+        "asn": asn_de(ip),           # offline (tabla de muestra); None si no es pública o no está
     }
 
 
