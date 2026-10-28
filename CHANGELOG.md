@@ -127,6 +127,9 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Mi cola** en Decisiones: un filtro «Solo mías» que deja solo las decisiones cuyo **caso está
+  asignado al operador actual** (reutiliza `estadoDeCasos` + `operadorActual`; deshabilitado si no hay
+  operador puesto). Sin backend nuevo.
 - **Acciones en bloque en Aprobaciones**: casilla por tarjeta y una barra para **rechazar** o
   **aprobar las seleccionadas** de una vez (aprobar con confirmación, porque ejecuta contención).
   Reutiliza el POST `/api/aprobar` por decisión con la respuesta correcta según el tipo de pendiente
