@@ -1,0 +1,62 @@
+# CI: las mismas puertas que se pasan en local, en cada push/PR a main.
+#  - Python: las 6 suites de pruebas (motor, evaluación, dataset, banco, portátil, geo-demo).
+#  - Visor: typecheck + vitest + build (React/TS).
+#  - IaC: formato + validación de OpenTofu (sin tocar ninguna cuenta AWS; solo `validate`).
+# No requiere secretos ni credenciales: todo es determinista y offline (RNF-01).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: Pruebas Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependencias (solo PyYAML; el resto es stdlib)
+        run: pip install pyyaml
+      - name: Suites
+        run: |
+          set -e
+          for d in prototipo evaluacion lab/dataset lab/banco lab/portatil lab/geo_demo; do
+            echo "== $d =="
+            PYTHONPATH=. python3 -m unittest discover -s "$d/tests" -p "test_*.py"
+          done
+
+  visor:
+    name: Visor (React/TS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: visor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: visor/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
+  iac:
+    name: IaC (OpenTofu)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/aws
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+      - run: tofu fmt -check -recursive
+      - run: tofu init -backend=false
+      - run: tofu validate
