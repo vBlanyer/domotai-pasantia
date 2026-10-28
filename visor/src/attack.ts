@@ -24,6 +24,14 @@ export const TACTICAS: Tactica[] = [
   { id: "impact", nombre: "Impacto" },
 ]
 
+// Tácticas de ATT&CK Enterprise que NO tocamos (fuera de alcance por diseño: son territorio
+// EDR/host/colección, no de un triaje sobre alertas de SIEM). Se muestran en gris para que la
+// cobertura sea honesta —qué cubrimos y qué queda fuera a propósito—, no como "huecos".
+export const TACTICAS_FUERA: Tactica[] = [
+  { id: "resource-development", nombre: "Desarrollo de recursos" },
+  { id: "collection", nombre: "Recolección" },
+]
+
 // Las 19 técnicas de las 10 familias (familias.yml). Multitáctica -> táctica primaria según el uso.
 export const TECNICAS: Record<string, { nombre: string; tactica: string }> = {
   // reconocimiento

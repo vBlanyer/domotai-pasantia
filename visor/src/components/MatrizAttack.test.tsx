@@ -67,4 +67,12 @@ describe("MatrizAttack", () => {
     expect(celdas.length).toBe(Object.keys(TECNICAS).length)
     expect(celdas.every((c) => c.getAttribute("data-activa") === "true")).toBe(true)
   })
+
+  it("muestra las tácticas fuera de alcance (por diseño), no como huecos", () => {
+    render(<MatrizAttack tecnicas={[{ tecnica: "T1110", n: 1 }]} />)
+    expect(screen.getByText("Recolección")).toBeInTheDocument()            // táctica no cubierta
+    expect(screen.getByText("Desarrollo de recursos")).toBeInTheDocument()
+    expect(screen.getAllByText("fuera de alcance").length).toBeGreaterThan(0)
+    expect(screen.getByText(/12 de 14/)).toBeInTheDocument()               // cobertura honesta
+  })
 })
