@@ -117,6 +117,27 @@ class TestExtremoAExtremo(unittest.TestCase):
         self.assertEqual(enr["geo"]["pais"], "Estados Unidos")
         self.assertEqual(enr["asn"]["org"], "Google LLC")
 
+    def test_un_bloqueo_llega_a_contenida_con_el_ejecutor_simulado(self):
+        # Sin contenedores, la demo corre con --sin-lab (lazo._EjecutorAuto): un BLOQUEAR_IP DEBE llegar
+        # a «contenida» para aparecer en «Contenciones activas». Con el conector real (sin --sin-lab) el
+        # iptables fallaría contra dispositivos inexistentes y quedaría «fallida» (la causa del panel vacío).
+        from prototipo.motor import perfil as perfilm
+        from prototipo.accion import catalogo as catm
+        from prototipo.servicio import lazo, tablero
+        base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        perfil = perfilm.cargar(os.path.join(base, "prototipo/perfiles/bancario.yml"))
+        with open(os.path.join(base, "lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json"), encoding="utf-8") as f:
+            hallazgos = json.load(f)     # los MISMOS hallazgos que usa geo-demo.sh
+        catalogo = catm.cargar_catalogo(os.path.join(base, "prototipo/catalogo.yml"))
+        alerta = _normalizar(generador.alerta_cruda("8.8.8.8", "acceso_credenciales", "web-banking"))
+        decision = lazo.decidir_incidente(alerta, hallazgos, perfil, "bancario", catalogo, "d0", alerta["timestamp"])
+        self.assertEqual(decision["accion_final"], "BLOQUEAR_IP")
+        # si la decisión pide humano, el analista aprueba; si es automática, veredicto None (sin humano)
+        veredicto = "aprobar" if decision.get("requiere_humano") else None
+        d = lazo.aplicar_veredicto(decision, alerta, perfil, catalogo, lazo._EjecutorAuto(),
+                                   "d0", alerta["timestamp"], veredicto=veredicto)
+        self.assertEqual(tablero.contencion_de(d)[0], "contenida")
+
 
 if __name__ == "__main__":
     unittest.main()

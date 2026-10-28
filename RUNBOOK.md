@@ -307,8 +307,10 @@ sh lab/geo_demo/geo-demo.sh --pausa 0.3 --por-pais 2   # más denso / más rápi
 TRIAJE_RDNS=1 sh lab/geo_demo/geo-demo.sh    # además resuelve el DNS inverso (egreso, opt-in)
 ```
 
-Luego abre `http://127.0.0.1:8787` → **Ubicaciones** (mapa por país) y **Decisiones** (país + ASN + rDNS).
-Es un escenario claramente etiquetado («[DEMO SINTÉTICA]» en el evento crudo), no tráfico real.
+Luego abre `http://127.0.0.1:8787` → **Ubicaciones** (mapa por país), **Decisiones** (país + ASN + rDNS)
+y **Contenciones activas** (la demo corre con `--sin-lab`, el ejecutor **simulado**, porque no hay
+contenedores que contener; así los bloqueos se ven «contenidos» en vez de «fallidos»). Es un escenario
+claramente etiquetado («[DEMO SINTÉTICA]» en el evento crudo), no tráfico real.
 
 **La red pequeña (sin banco):** el motor también corre sobre la red pequeña del cliente
 (Metasploitable + Wazuh):
