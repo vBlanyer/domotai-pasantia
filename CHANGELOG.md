@@ -7,6 +7,12 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [No publicado] — posterior a v1.4
 
+### Automatización
+- **CI con GitHub Actions** (`.github/workflows/ci.yml`): en cada push/PR a `main` corre las mismas
+  puertas que en local — las **6 suites Python**, el **gate del visor** (typecheck + vitest + build) y la
+  **validación de la IaC** (`tofu fmt -check` + `tofu validate`, sin tocar ninguna cuenta AWS). Sin
+  secretos ni credenciales.
+
 ### Documentación
 - **Informe (LaTeX) al día con v1.3/v1.4 + AWS**, sin tocar lo canónico: conteos de pruebas en la
   metodología (motor 1061, visor 281) y el párrafo del visor en las conclusiones ampliado a las **quince
