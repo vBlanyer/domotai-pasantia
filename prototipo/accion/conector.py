@@ -29,6 +29,17 @@ def ip_valida(ip):
 def render_comando(catalogo, accion_id, params):
     return catalogo[accion_id]["comando"].format(**params)
 
+
+def objetivo_presente(salida, params):
+    """¿Sigue el objetivo (la IP de la conexión) en la SALIDA del listado de verificación de una acción
+    transitoria (MATAR_CONEXION: `ss -tunap`)? Match de palabra completa y literal (como `grep -wF`),
+    para que 192.168.1.10 NO case con 192.168.1.100. El match va sobre la salida —no sobre el rc de un
+    pipe a grep— para que un fallo del listado (rc!=0) falle CERRADO en vez de leerse como «cortada»."""
+    ip = (params or {}).get("ip")
+    if not ip:
+        return False
+    return re.search(r'(?<![0-9A-Za-z_])' + re.escape(ip) + r'(?![0-9A-Za-z_])', salida or "") is not None
+
 def _params_seguros(params):
     # además del charset: nada que empiece por "-" (evita que un valor se interprete como flag, p.ej. de iptables).
     # None se renderizaria como el texto "None" (y lo acepta _SEGURO): un parametro ausente no es seguro.
@@ -73,11 +84,11 @@ def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
     rc, out = ejecutor(orden["nodo_ip"], cmd)
     rc_v2, out_v2 = ejecutor(orden["nodo_ip"], cmd_verif)
     # El sentido de la verificación depende del tipo de acción. Persistente (regla de iptables): rc0 =
-    # el estado DESEADO está presente = aplicada. Transitoria (MATAR_CONEXION): la verificación busca el
-    # estado INDESEADO (la conexión viva); rc0 = sigue viva = NO cortada, así que se INVIERTE: el corte
-    # fue efectivo cuando el grep NO la encuentra (rc != 0). Sin esta inversión, un corte exitoso se
-    # reportaba como fracaso y —peor— uno fallido (la sesión sigue) como éxito.
-    verif_ok = (rc_v2 != 0) if transitoria else (rc_v2 == 0)
+    # el estado DESEADO está presente = aplicada. Transitoria (MATAR_CONEXION): el listado (`ss -tunap`)
+    # debe CORRER (rc0) y la conexión objetivo NO debe aparecer en la salida. Se mira la SALIDA, no el
+    # rc de un pipe a grep: un fallo del listado (ss ausente rc127, SSH caído rc255, timeout rc124) da
+    # rc!=0 y falla CERRADO —no se reporta contenido un corte que ni se pudo verificar (FAIL-OPEN)—.
+    verif_ok = (rc_v2 == 0 and not objetivo_presente(out_v2, orden["params"])) if transitoria else (rc_v2 == 0)
     return _resultado(orden, cmd, rc, out, rc == 0 and verif_ok, False, timestamp)
 
 def _main(argv):  # lee una orden de stdin y la ejecuta (frontera de proceso; futuro conector en Go)
