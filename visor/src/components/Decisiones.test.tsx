@@ -283,3 +283,20 @@ describe("Detalle: runbook de la familia", () => {
     expect(screen.getByText(/Bloquea el destino malicioso/)).toBeInTheDocument()
   })
 })
+
+describe("Decisiones: mi cola (asignadas a mí)", () => {
+  it("con «Solo mías» deja solo las cuyo caso está asignado al operador actual", async () => {
+    const { fijarOperador } = await import("@/api")
+    fijarOperador("ana")
+    h.decisiones = [
+      { indice: 1, id_decision: "s1", clase: "vp_intento_acceso", activo: "web-banking", prioridad: 3 },
+      { indice: 2, id_decision: "s2", clase: "vp_intento_acceso", activo: "core-db", prioridad: 3 },
+      { indice: 3, id_decision: "s1", tipo: "actualizacion_caso", asignado: "ana", estado: "en_revision" },
+    ]
+    render(<Decisiones />)
+    fireEvent.click(screen.getByRole("checkbox", { name: /Solo mías/i }))
+    expect(screen.getByRole("button", { name: /ver detalle de web-banking/i })).toBeInTheDocument()   // s1 → ana
+    expect(screen.queryByRole("button", { name: /ver detalle de core-db/i })).not.toBeInTheDocument()  // s2 sin asignar
+    fijarOperador("")
+  })
+})
