@@ -47,6 +47,14 @@ describe("filtrarDecisiones", () => {
   it("sin filtros devuelve todo", () => {
     expect(filtrarDecisiones(D, { texto: " ", clase: "" }).length).toBe(3)
   })
+  it("por texto también busca el país geo (pivote desde Ubicaciones)", () => {
+    const ds = [
+      { id_decision: "a", origen_ip: "8.8.8.8", enriquecimiento_origen: { geo: { pais: "Estados Unidos", codigo: "US" } } },
+      { id_decision: "b", origen_ip: "5.45.0.1", enriquecimiento_origen: { geo: { pais: "Rusia", codigo: "RU" } } },
+    ] as unknown as Decision[]
+    expect(filtrarDecisiones(ds, { texto: "Estados Unidos", clase: "" }).map((d) => d.id_decision)).toEqual(["a"])
+    expect(filtrarDecisiones(ds, { texto: "rusia", clase: "" }).map((d) => d.id_decision)).toEqual(["b"])
+  })
   it("filtra por equipo según las relaciones del registro", () => {
     const ds = [{ id_decision: "s1", relaciones: { "web-banking": ["objetivo"] } },
                 { id_decision: "s2", relaciones: { "fw-core": ["contuvo_aqui"], "api-movil": ["objetivo"] } },

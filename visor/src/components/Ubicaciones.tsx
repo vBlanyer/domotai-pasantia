@@ -18,9 +18,17 @@ const METRICAS: { clave: MetricaUbicacion; etiqueta: string; color: string }[] =
 // muestra, sin egreso); las IPs de laboratorio/documentación e internas no geolocalizan y van en la
 // tabla. Mapamundi inline: siluetas de tierra (Natural Earth 110m, dominio público) + marcadores,
 // ambos en la misma proyección equirectangular (x=lon+180, y=90-lat). Sin dependencias ni egreso.
-export function Ubicaciones() {
+type Ubi = ReturnType<typeof ubicacionesDe>[number]
+
+// `onVerPais` pivota a Decisiones filtradas por ese país; `onVerAprobaciones` abre la cola. Según la
+// métrica activa, al pulsar una fila de país: «En curso» → Aprobaciones (la cola a atender), «Total»/
+// «Mitigados» → Decisiones del país.
+export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
+  onVerPais?: (pais: string) => void; onVerAprobaciones?: () => void
+} = {}) {
   const t = useSondeo(getTrazas)
   const [metrica, setMetrica] = useState<MetricaUbicacion>("enCurso")
+  const [hover, setHover] = useState<null | { x: number; y: number; p: Ubi }>(null)
   if (!t) return <Cargando />
   const fallo = "error" in t ? t : null
   if (fallo && !fallo.datos) return <SinConexion causa={fallo.causa} />
@@ -33,6 +41,11 @@ export function Ubicaciones() {
   const visibles = paises.map((p) => ({ ...p, v: p[metrica] })).filter((p) => p.v > 0)
   const maxV = Math.max(1, ...visibles.map((p) => p.v))
   const tot = (k: MetricaUbicacion) => ubis.reduce((s, u) => s + u[k], 0)
+  // a dónde lleva pulsar una fila de país, según el filtro activo (solo clicable si existe su handler)
+  const handlerActivo = metrica === "enCurso" ? onVerAprobaciones : onVerPais
+  const esNavegable = (u: Ubi) => u.lat != null && !!handlerActivo
+  const irA = (u: Ubi) => { if (metrica === "enCurso") onVerAprobaciones?.(); else onVerPais?.(u.nombre) }
+  const destino = metrica === "enCurso" ? "Aprobaciones" : "Decisiones"
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
@@ -71,7 +84,9 @@ export function Ubicaciones() {
               const r = 5 + 7 * (Math.log(p.v + 1) / Math.log(maxV + 1))
               return (
                 <g key={p.clave}>
-                  <circle cx={cx} cy={cy} r={r} className={activa.color} strokeWidth="0.5">
+                  <circle cx={cx} cy={cy} r={r} className={`${activa.color} cursor-help`} strokeWidth="0.5"
+                    onMouseMove={(e) => setHover({ x: e.clientX, y: e.clientY, p })}
+                    onMouseLeave={() => setHover(null)}>
                     <title>{p.nombre}: {p.v} {activa.etiqueta.toLowerCase()} · {p.n} total, {p.mitigados} mitigados, {p.ips} IP(s)</title>
                   </circle>
                   {/* la cantidad, ENCIMA del punto */}
@@ -84,7 +99,25 @@ export function Ubicaciones() {
           </svg>
         )}
       </div>
+      {/* hover sobre un punto: tarjeta que sigue al cursor con el desglose de las tres métricas */}
+      {hover && (
+        <div className="pointer-events-none fixed z-50 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs shadow-md"
+          style={{ left: hover.x + 12, top: hover.y + 12 }}>
+          <div className="font-medium">{hover.p.nombre}{hover.p.codigo ? ` (${hover.p.codigo})` : ""}</div>
+          <div className="mt-0.5 space-x-1.5">
+            <span className="text-rose-600 dark:text-rose-400">En curso {hover.p.enCurso}</span>
+            <span className="text-muted-foreground">· Total {hover.p.n}</span>
+            <span className="text-emerald-600 dark:text-emerald-400">· Mitigados {hover.p.mitigados}</span>
+          </div>
+          <div className="text-muted-foreground">{hover.p.ips} IP(s) distintas</div>
+        </div>
+      )}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
+        {handlerActivo && (
+          <div className="border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
+            Pulsa un país para ver sus ataques en <b>{destino}</b> (según el filtro «{activa.etiqueta.toLowerCase()}»).
+          </div>
+        )}
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -97,8 +130,11 @@ export function Ubicaciones() {
           </TableHeader>
           <TableBody>
             {ubis.map((u) => (
-              <TableRow key={u.clave}>
-                <TableCell>{u.codigo ? `${u.nombre} (${u.codigo})` : u.nombre}</TableCell>
+              <TableRow key={u.clave}
+                className={esNavegable(u) ? "cursor-pointer" : "hover:bg-transparent"}
+                onClick={esNavegable(u) ? () => irA(u) : undefined}
+                title={esNavegable(u) ? `Ver en ${destino}` : undefined}>
+                <TableCell>{u.codigo ? `${u.nombre} (${u.codigo})` : u.nombre}{esNavegable(u) && <span className="ml-1 text-muted-foreground">→</span>}</TableCell>
                 <TableCell className={`tabular-nums ${metrica === "enCurso" ? "font-semibold" : "text-muted-foreground"}`}>{u.enCurso}</TableCell>
                 <TableCell className={`tabular-nums ${metrica === "n" ? "font-semibold" : "text-muted-foreground"}`}>{u.n}</TableCell>
                 <TableCell className={`tabular-nums ${metrica === "mitigados" ? "font-semibold" : "text-muted-foreground"}`}>{u.mitigados}</TableCell>
