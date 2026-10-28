@@ -19,11 +19,12 @@ import { Contenciones } from "@/components/Contenciones"
 import { Politicas } from "@/components/Politicas"
 import { Incidentes } from "@/components/Incidentes"
 import { DetalleIncidente } from "@/components/DetalleIncidente"
+import { ResumenEjecutivo } from "@/components/ResumenEjecutivo"
 import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "campanas" | "ubicaciones" | "incidentes" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "detalle_incidente" | "incidente" | "atacante"
+type Vista = "panel" | "metricas" | "resumen" | "salud" | "red" | "campanas" | "ubicaciones" | "incidentes" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "detalle_incidente" | "incidente" | "atacante"
 
 // Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
 // navegador no lo permite, se ignora en silencio.
@@ -82,6 +83,7 @@ function useAvisoPendientes(pend: Pendiente[] | null, habilitado: boolean) {
 const NAV: { id: Vista; nombre: string }[] = [
   { id: "panel", nombre: "Panel" },
   { id: "metricas", nombre: "Métricas e informe" },
+  { id: "resumen", nombre: "Resumen ejecutivo" },
   { id: "salud", nombre: "Estado de servicios" },
   { id: "red", nombre: "Red" },
   { id: "campanas", nombre: "Campañas" },
@@ -212,6 +214,7 @@ export default function App() {
           )}
           {vista === "panel" && <Dashboard conectado={conectado} onVerAprobaciones={() => { setPaisAprob(""); setVista("aprobaciones") }} />}
           {vista === "metricas" && <Metricas />}
+          {vista === "resumen" && <ResumenEjecutivo />}
           {vista === "salud" && <Salud />}
           {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }}
             onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }} />}

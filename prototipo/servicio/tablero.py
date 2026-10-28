@@ -527,6 +527,7 @@ def metricas(regs, desde=None, hasta=None):
     dec = [r for r in regs if r.get("tipo") not in _NO_DECISIONES]
     total = len(dec)
     por_clase, veredictos, por_dia, activos, mitre = {}, {}, {}, {}, {}
+    por_familia, por_pais, _geo = {}, {}, {}   # ranking por familia de amenaza y por país (geo OFFLINE)
     fp = auto = 0
     tiempos = []
     reg_familias = familias.registro()
@@ -555,6 +556,17 @@ def metricas(regs, desde=None, hasta=None):
         familia = (r.get("contexto") or {}).get("familia")
         for t in (reg_familias.get(familia) or {}).get("mitre") or []:
             mitre[t] = mitre.get(t, 0) + 1
+        # Ranking por familia de amenaza y por país de origen (resumen ejecutivo). El país sale de
+        # geolocalizar OFFLINE (sin egreso), memoizado por IP; sin IP o sin geo -> "Sin geolocalizar".
+        if familia:
+            por_familia[familia] = por_familia.get(familia, 0) + 1
+        ip = (r.get("origen_ip")
+              or ((r.get("justificacion_estructurada") or {}).get("evidencia") or {}).get("origen_ip")
+              or (r.get("contexto") or {}).get("origen_ip"))
+        if ip not in _geo:
+            _geo[ip] = actores.geolocalizar(ip) if ip else None
+        por_pais[(_geo[ip] or {}).get("pais") or "Sin geolocalizar"] = \
+            por_pais.get((_geo[ip] or {}).get("pais") or "Sin geolocalizar", 0) + 1
         ini, fin = r.get("recibido_en"), r.get("resuelto_en")
         if isinstance(ini, (int, float)) and isinstance(fin, (int, float)):
             tiempos.append(fin - ini)
@@ -581,6 +593,7 @@ def metricas(regs, desde=None, hasta=None):
         "por_clase": por_clase, "veredictos": veredictos,
         "por_dia": [{"dia": d[5:], "n": n} for d, n in sorted(por_dia.items())],
         "top_activos": ranking(activos, "nombre"), "mitre": ranking(mitre, "tecnica"),
+        "por_familia": ranking(por_familia, "familia"), "por_pais": ranking(por_pais, "pais"),
         "desde": desde, "hasta": hasta,
     }
 

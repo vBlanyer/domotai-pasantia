@@ -277,6 +277,35 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(m["override"], 1)                         # 1 rechazar (corrigió al motor)
         self.assertEqual(m["tasa_override"], round(1 / 2, 3))
 
+    def test_metricas_incluye_por_familia(self):
+        regs = [
+            {"clase": "vp_intento_acceso", "contexto": {"familia": "acceso_credenciales"}},
+            {"clase": "vp_intento_acceso", "contexto": {"familia": "acceso_credenciales"}},
+            {"clase": "vp_integridad", "contexto": {"familia": "integridad_fichero"}},
+            {"tipo": "actividad_suprimida", "alertas_suprimidas": 3},            # no es decisión: no cuenta
+        ]
+        pf = {d["familia"]: d["n"] for d in tablero.metricas(regs)["por_familia"]}
+        self.assertEqual(pf, {"acceso_credenciales": 2, "integridad_fichero": 1})
+
+    def test_metricas_incluye_por_pais_offline(self):
+        # geolocaliza OFFLINE (tabla de muestra, sin egreso): IP pública conocida -> su país;
+        # privada/sin IP -> "Sin geolocalizar".
+        regs = [
+            {"clase": "vp_intento_acceso", "origen_ip": "8.8.8.8", "contexto": {"familia": "acceso_credenciales"}},
+            {"clase": "vp_intento_acceso", "origen_ip": "10.0.0.5", "contexto": {"familia": "acceso_credenciales"}},
+        ]
+        pp = {d["pais"]: d["n"] for d in tablero.metricas(regs)["por_pais"]}
+        self.assertEqual(pp.get("Estados Unidos"), 1)
+        self.assertEqual(pp.get("Sin geolocalizar"), 1)
+
+    def test_metricas_por_familia_respeta_el_rango(self):
+        regs = [
+            {"clase": "vp_intento_acceso", "timestamp": "2026-09-24T10:00:00Z", "contexto": {"familia": "acceso_credenciales"}},
+            {"clase": "vp_intento_acceso", "timestamp": "2026-10-01T10:00:00Z", "contexto": {"familia": "reconocimiento"}},
+        ]
+        m = tablero.metricas(regs, desde="2026-09-01", hasta="2026-09-30")
+        self.assertEqual([d["familia"] for d in m["por_familia"]], ["acceso_credenciales"])   # solo septiembre
+
     def test_metricas_mitre_es_cobertura_por_familia_incluidas_fim_y_dos(self):
         # Un ataque por familia enciende TODAS las técnicas de esa familia -> la matriz se llena.
         regs = [

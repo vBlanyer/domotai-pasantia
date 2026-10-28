@@ -8,6 +8,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
 ## [No publicado] — posterior a v1.3
 
 ### Añadido (visor)
+- **Vista «Resumen ejecutivo» (para dirección)**: una página por **periodo** (reusa `getMetricas{desde,
+  hasta}`; coherente, no mezcla con la ventana viva) con titulares de negocio (amenazas, tasa FP,
+  contenidas en automático vs a revisión humana, MTTR mediano, % dentro de SLA), **top amenazas por
+  familia** y **top ubicaciones por país**, acciones tomadas y cobertura ATT&CK; exportable a PDF.
+  `metricas()` se amplía (aditivo) con `por_familia` (de `contexto.familia`) y `por_pais`
+  (`actores.geolocalizar` **offline**, memoizado). `Kpi`/`Tarjeta` extraídos a `bits.tsx` (sin duplicar
+  con «Métricas e informe»). No toca el motor ni el canónico.
 - **Vista «Incidentes» (trabajar por incidente, no por alerta)**: cada incidente es una **campaña de
   origen /24** (las IPs rotadas de un atacante = una sola historia; reutiliza `campanasDe`), con su
   propio **caso** (estado/responsable/notas) a nivel incidente. Reutiliza la maquinaria de casos
