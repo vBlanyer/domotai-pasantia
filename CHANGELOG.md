@@ -24,7 +24,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
   que sigue al cursor con el desglose (en curso · total · mitigados · IPs). Las **filas de país** de la
   tabla son **clicables** y pivotan **según el filtro activo**: «En curso» → **Aprobaciones** (la cola a
   atender), «Total»/«Mitigados» → **Decisiones filtradas por ese país** (`filtrarDecisiones` ahora
-  también busca el país del enriquecimiento geo).
+  también busca el país del enriquecimiento geo). Los números sobre los puntos son `pointer-events-none`
+  y no seleccionables (antes el texto interceptaba el hover y se podía copiar).
+- **Ubicación del origen en «Aprobaciones» + filtro por país**: cada tarjeta de la cola muestra ahora la
+  IP, el activo y la **ubicación/alcance** del origen (badges), y «En curso» desde el mapa **filtra la
+  cola a ese país** (con un chip para quitar el filtro). Backend: `/api/pendientes` incluye
+  `enriquecimiento_origen` por ítem (`_vista_pendiente(p, perfil)`; mismo shape que el feed). El esquema
+  Zod del enriquecimiento se extrajo a `EnriquecimientoOrigenSchema` y se reusa en decisiones y pendientes.
 
 ## [1.2] — 2026-10-28 · Cobertura de familias, consola MDR y expansión del visor
 

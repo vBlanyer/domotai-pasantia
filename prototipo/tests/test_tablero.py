@@ -1274,6 +1274,18 @@ class TestVistaRed(unittest.TestCase):
         self.assertEqual((v["activo"], v["origen_ip"]), ("web-banking", "10.200.0.10"))
         self.assertNotIn("alerta", v)
 
+    def test_la_vista_de_pendientes_incluye_la_ubicacion_del_origen(self):
+        # para mostrar y filtrar por ubicación en Aprobaciones: el pendiente lleva el enriquecimiento
+        v = tablero._vista_pendiente({"id": "1", "alerta": {"activo": "web-banking", "origen_ip": "8.8.8.8"}},
+                                     perfil={})
+        enr = v["enriquecimiento_origen"]
+        self.assertEqual(enr["alcance"], "externo")
+        self.assertEqual(enr["geo"]["pais"], "Estados Unidos")
+
+    def test_la_vista_de_pendientes_sin_origen_no_revienta(self):
+        v = tablero._vista_pendiente({"id": "1", "alerta": {"activo": "web-banking"}}, perfil={})
+        self.assertIsNone(v["enriquecimiento_origen"])
+
 
 class TestResumenRecomendacion(unittest.TestCase):
     def test_resumen_traza_expone_la_recomendacion(self):

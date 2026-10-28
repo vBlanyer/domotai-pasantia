@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Cargando, SinConexion, Vacio, Punto, Prioridad, DatosCongelados } from "./bits"
+import { OrigenBadges } from "./OrigenBadges"
 
 // Lo que el aviso confirma tras un veredicto aplicado (mismo vocabulario que el menú del daemon).
 const HECHO: Record<string, string> = {
@@ -136,6 +137,13 @@ function Tarjeta({ p, edadMs = 0, seleccionada, onSeleccion }: {
       </div>
 
       <div className="space-y-3 p-4">
+        {(p.origen_ip || p.enriquecimiento_origen) && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {p.origen_ip && <span className="font-mono text-muted-foreground">{p.origen_ip}</span>}
+            {p.activo && <span className="text-muted-foreground">→ {p.activo}</span>}
+            <OrigenBadges e={p.enriquecimiento_origen} />
+          </div>
+        )}
         {v.info.length > 0 && (
           <div className="space-y-1">
             {v.info.map((t, i) => <LineaInfo key={i} t={t} />)}
@@ -203,16 +211,23 @@ function BarraOperador() {
   )
 }
 
-export function Aprobaciones() {
+export function Aprobaciones({ paisInicial = "", onQuitarPais }: {
+  paisInicial?: string; onQuitarPais?: () => void
+} = {}) {
   const p = useSondeo(getPendientes)
   const ahora = useAhora()   // hook incondicional (antes de cualquier return); 1 Hz para el SLA en vivo
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [confirmarBloque, setConfirmarBloque] = useState(false)
+  const [pais, setPais] = useState(paisInicial)       // filtro por ubicación, sembrado desde Ubicaciones
+  useEffect(() => setPais(paisInicial), [paisInicial])
   const toast = useToast()
   // Con la conexión perdida pero datos previos, la cola se sigue mostrando (congelada) con aviso:
   // vaciarla en un parpadeo de red haría «desaparecer» decisiones que siguen esperando (C2).
-  const lista = !p ? null : "error" in p ? (p.datos ?? null) : p
+  const todas = !p ? null : "error" in p ? (p.datos ?? null) : p
+  // filtro por país del enriquecimiento geo (al pivotar desde el mapa de Ubicaciones)
+  const lista = todas && pais ? todas.filter((x) => x.enriquecimiento_origen?.geo?.pais === pais) : todas
   const fallo = p && "error" in p ? p : null
+  const quitarPais = () => { setPais(""); onQuitarPais?.() }
   const elegidas = (lista ?? []).filter((x) => sel.has(x.id))
   const alternar = (id: string, c: boolean) => setSel((s) => { const n = new Set(s); c ? n.add(id) : n.delete(id); return n })
 
@@ -231,7 +246,9 @@ export function Aprobaciones() {
 
   const cuerpo = !p ? <Cargando />
     : lista === null ? <SinConexion causa={fallo?.causa} />
-    : lista.length === 0 ? <Vacio>Nada que aprobar ahora mismo. Cuando una decisión necesite un humano, aparecerá aquí.</Vacio>
+    : lista.length === 0 ? <Vacio>{pais
+        ? `Nada pendiente de ${pais} ahora mismo.`
+        : "Nada que aprobar ahora mismo. Cuando una decisión necesite un humano, aparecerá aquí."}</Vacio>
     // la clave incluye el paso: un menú nuevo (submenú de clases) monta la tarjeta con estado limpio
     : <div className="space-y-4">{lista.map((x) => (
         <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} edadMs={msDesde(x.encolado_en, ahora)}
@@ -240,6 +257,12 @@ export function Aprobaciones() {
   return (
     <div className="space-y-4">
       <BarraOperador />
+      {pais && (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+          <span>Filtrando por ubicación: <b>{pais}</b></span>
+          <button onClick={quitarPais} className="ml-auto text-xs text-muted-foreground hover:underline">quitar filtro ✕</button>
+        </div>
+      )}
       {elegidas.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm">
           <span className="font-medium">{elegidas.length} seleccionada(s)</span>
