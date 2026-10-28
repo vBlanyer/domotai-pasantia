@@ -52,7 +52,8 @@ export const DecisionSchema = z.object({
     alcance: z.string(), inventariado: z.boolean(), por: z.string().nullable().optional(),
     clasificacion_ip: z.string(), tercero_confiable: z.boolean(), legitimo: z.boolean(),
     geolocalizable: z.boolean(),
-    geo: z.object({ pais: z.string().nullable().optional(), ciudad: z.string().nullable().optional() }).nullable().optional(),
+    geo: z.object({ pais: z.string().nullable().optional(), ciudad: z.string().nullable().optional(),
+      codigo: z.string().nullable().optional(), lat: z.number().nullable().optional(), lon: z.number().nullable().optional() }).nullable().optional(),
   }).nullable().optional(),
   // ciclo de vida del caso (registro `actualizacion_caso`): estado/asignado/nota + quién y cuándo
   estado: z.string().nullable().optional(), asignado: z.string().nullable().optional(),

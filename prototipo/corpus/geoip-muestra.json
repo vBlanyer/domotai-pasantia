@@ -1,0 +1,16 @@
+[
+  {"cidr": "8.8.8.0/24",      "pais": "Estados Unidos", "codigo": "US", "lat": 37.4,  "lon": -122.1},
+  {"cidr": "1.1.1.0/24",      "pais": "Estados Unidos", "codigo": "US", "lat": 37.8,  "lon": -122.4},
+  {"cidr": "208.67.222.0/24", "pais": "Estados Unidos", "codigo": "US", "lat": 37.8,  "lon": -122.4},
+  {"cidr": "80.58.0.0/16",    "pais": "España",         "codigo": "ES", "lat": 40.4,  "lon": -3.7},
+  {"cidr": "212.0.0.0/8",     "pais": "Alemania",       "codigo": "DE", "lat": 51.2,  "lon": 10.4},
+  {"cidr": "51.15.0.0/16",    "pais": "Francia",        "codigo": "FR", "lat": 48.9,  "lon": 2.4},
+  {"cidr": "77.75.74.0/24",   "pais": "Reino Unido",    "codigo": "GB", "lat": 51.5,  "lon": -0.1},
+  {"cidr": "200.160.0.0/16",  "pais": "Brasil",         "codigo": "BR", "lat": -23.5, "lon": -46.6},
+  {"cidr": "190.0.0.0/8",     "pais": "Colombia",       "codigo": "CO", "lat": 4.7,   "lon": -74.1},
+  {"cidr": "202.12.27.0/24",  "pais": "Japón",          "codigo": "JP", "lat": 35.7,  "lon": 139.7},
+  {"cidr": "116.0.0.0/8",     "pais": "China",          "codigo": "CN", "lat": 39.9,  "lon": 116.4},
+  {"cidr": "41.0.0.0/8",      "pais": "Sudáfrica",      "codigo": "ZA", "lat": -26.2, "lon": 28.0},
+  {"cidr": "5.45.0.0/16",     "pais": "Rusia",          "codigo": "RU", "lat": 55.8,  "lon": 37.6},
+  {"cidr": "103.21.244.0/22", "pais": "Australia",      "codigo": "AU", "lat": -33.9, "lon": 151.2}
+]

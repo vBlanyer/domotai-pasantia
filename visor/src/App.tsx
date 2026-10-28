@@ -8,6 +8,7 @@ import { Metricas } from "@/components/Metricas"
 import { Salud } from "@/components/Salud"
 import { Red } from "@/components/Red"
 import { Campanas } from "@/components/Campanas"
+import { Ubicaciones } from "@/components/Ubicaciones"
 import { PerfilAtacante } from "@/components/PerfilAtacante"
 import { Watchlist } from "@/components/Watchlist"
 import { Decisiones } from "@/components/Decisiones"
@@ -19,7 +20,7 @@ import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "campanas" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "incidente" | "atacante"
+type Vista = "panel" | "metricas" | "salud" | "red" | "campanas" | "ubicaciones" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "incidente" | "atacante"
 
 // Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
 // navegador no lo permite, se ignora en silencio.
@@ -81,6 +82,7 @@ const NAV: { id: Vista; nombre: string }[] = [
   { id: "salud", nombre: "Estado de servicios" },
   { id: "red", nombre: "Red" },
   { id: "campanas", nombre: "Campañas" },
+  { id: "ubicaciones", nombre: "Ubicaciones" },
   { id: "decisiones", nombre: "Decisiones" },
   { id: "aprobaciones", nombre: "Aprobaciones" },
   { id: "consola", nombre: "Consola" },
@@ -205,6 +207,7 @@ export default function App() {
           {vista === "salud" && <Salud />}
           {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }}
             onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }} />}
+          {vista === "ubicaciones" && <Ubicaciones />}
           {vista === "campanas" && <Campanas onVerOrigen={(p) => { setEquipo(null); setTextoDec(p); setVista("decisiones") }} />}
           {vista === "atacante" && atacanteIp && (
             <PerfilAtacante ip={atacanteIp} onVolver={() => setVista("red")}

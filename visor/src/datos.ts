@@ -492,3 +492,34 @@ export function enWatchlist(
   }
   return null
 }
+
+// Ubicación de origen de cada ataque recibido, para la vista «Ubicaciones»: país real (si la IP
+// pública geolocaliza), o un cubo honesto —red interna, laboratorio/documentación, pública sin geo—.
+function ubicacionDe(d: Decision): { clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null } {
+  const e = d.enriquecimiento_origen
+  if (e?.geo?.pais) return { clave: e.geo.codigo ?? e.geo.pais, nombre: e.geo.pais, lat: (e.geo as { lat?: number }).lat, lon: (e.geo as { lon?: number }).lon, codigo: e.geo.codigo }
+  switch (e?.clasificacion_ip) {
+    case "privada": return { clave: "interna", nombre: "Red interna" }
+    case "documentacion": return { clave: "lab", nombre: "Laboratorio / documentación" }
+    case "loopback": return { clave: "loopback", nombre: "Loopback" }
+    case "publica": return { clave: "sin-geo", nombre: "Pública (sin geolocalizar)" }
+    default: return { clave: "desconocida", nombre: "Desconocida" }
+  }
+}
+
+export function ubicacionesDe(todos: Decision[]): {
+  clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null; n: number; ips: number; prioridad: number
+}[] {
+  const acc = new Map<string, { clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null; n: number; ips: Set<string>; prioridad: number }>()
+  for (const d of todos) {
+    if (!d.origen_ip || !Object.values(d.relaciones ?? {}).some((e) => (e ?? []).includes("objetivo"))) continue
+    const u = ubicacionDe(d)
+    const g = acc.get(u.clave) ?? { ...u, n: 0, ips: new Set<string>(), prioridad: 0 }
+    g.n += 1
+    g.ips.add(d.origen_ip)
+    g.prioridad = Math.max(g.prioridad, d.prioridad ?? 0)
+    acc.set(u.clave, g)
+  }
+  return [...acc.values()].map((g) => ({ clave: g.clave, nombre: g.nombre, lat: g.lat, lon: g.lon, codigo: g.codigo, n: g.n, ips: g.ips.size, prioridad: g.prioridad }))
+    .sort((a, b) => b.n - a.n || (a.nombre < b.nombre ? -1 : 1))
+}

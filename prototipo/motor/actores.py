@@ -7,6 +7,7 @@ orígenes legítimos. Nada se adivina: una IP que no aparece en ninguna de esas 
 idéntico al de antes de existir este módulo).
 """
 import ipaddress
+import os
 
 POLITICA_POR_DEFECTO = "humano_siempre"          # C1: bloquear lo propio exige humano
 POLITICAS = ("humano_siempre", "automatica_si_confianza")
@@ -145,11 +146,39 @@ def clasificar_ip(ip):
     return "publica" if d.is_global else "privada"
 
 
+_GEOIP = None
+
+
+def _tabla_geoip():
+    """Tabla de geolocalización OFFLINE (sin dependencias ni egreso): una MUESTRA curada de bloques
+    públicos conocidos → país. Es un seed demostrable, sustituible por una base real (p. ej. GeoLite2)
+    en producción. Se carga una vez; si falta o está corrupta, queda vacía (geo = None)."""
+    global _GEOIP
+    if _GEOIP is None:
+        import json
+        ruta = os.path.join(os.path.dirname(os.path.dirname(__file__)), "corpus", "geoip-muestra.json")
+        try:
+            with open(ruta, encoding="utf-8") as f:
+                _GEOIP = [e for e in json.load(f) if isinstance(e, dict) and e.get("cidr")]
+        except (OSError, ValueError):
+            _GEOIP = []
+    return _GEOIP
+
+
 def geolocalizar(ip):
-    """Geolocalización OFFLINE opcional. Hoy devuelve None: no hay base GeoIP y la política del
-    proyecto es solo stdlib + PyYAML (sin `maxminddb`). Punto de extensión: si en el futuro
-    `TRIAJE_GEOIP_DB` apunta a un `.mmdb` y hay un lector disponible, resolver aquí
-    {pais, ciudad, ...} para las IPs públicas; las privadas/documentación/loopback no geolocalizan."""
+    """Geolocalización OFFLINE (stdlib + tabla de muestra, sin egreso): {pais, codigo, lat, lon} para
+    una IP PÚBLICA que caiga en un bloque conocido; None en otro caso. Las privadas, de documentación
+    y loopback nunca geolocalizan (no son direcciones de Internet)."""
+    if clasificar_ip(ip) != "publica":
+        return None
+    c = _canon(ip)
+    direccion = ipaddress.ip_address(c)
+    for e in _tabla_geoip():
+        try:
+            if direccion in ipaddress.ip_network(e["cidr"]):
+                return {"pais": e.get("pais"), "codigo": e.get("codigo"), "lat": e.get("lat"), "lon": e.get("lon")}
+        except ValueError:
+            continue
     return None
 
 

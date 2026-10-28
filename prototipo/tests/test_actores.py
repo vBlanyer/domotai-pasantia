@@ -150,11 +150,31 @@ class TestEnriquecerOrigen(unittest.TestCase):
         self.assertTrue(e["tercero_confiable"])
         self.assertTrue(e["legitimo"])
 
-    def test_una_ip_publica_es_geolocalizable_pero_el_seam_da_none(self):
+    def test_una_ip_publica_en_la_tabla_se_geolocaliza(self):
         e = actores.enriquecer_origen("8.8.8.8", self.PERFIL)
         self.assertTrue(e["geolocalizable"])
-        self.assertIsNone(e["geo"])             # sin base GeoIP; punto de extensión
-        self.assertIsNone(actores.geolocalizar("8.8.8.8"))
+        self.assertEqual((e["geo"] or {}).get("codigo"), "US")   # geo offline de la tabla de muestra
+
+    def test_una_publica_fuera_de_la_tabla_es_geolocalizable_sin_geo(self):
+        e = actores.enriquecer_origen("193.0.14.129", self.PERFIL)
+        self.assertTrue(e["geolocalizable"])
+        self.assertIsNone(e["geo"])             # pública pero no en la muestra
 
     def test_sin_ip_es_none(self):
         self.assertIsNone(actores.enriquecer_origen(None, self.PERFIL))
+
+
+class TestGeolocalizar(unittest.TestCase):
+    """Geolocalización OFFLINE con la tabla de muestra (sin dependencias ni egreso). Solo IPs públicas."""
+    def test_ip_publica_en_la_tabla_da_pais(self):
+        g = actores.geolocalizar("8.8.8.8")
+        self.assertIsNotNone(g)
+        self.assertEqual(g["codigo"], "US")
+        self.assertIn("lat", g)
+
+    def test_ip_de_documentacion_o_privada_no_geolocaliza(self):
+        self.assertIsNone(actores.geolocalizar("198.51.100.10"))   # documentación
+        self.assertIsNone(actores.geolocalizar("10.0.0.5"))        # privada
+
+    def test_ip_publica_fuera_de_la_tabla_es_none(self):
+        self.assertIsNone(actores.geolocalizar("193.0.14.129"))    # pública pero no en la muestra

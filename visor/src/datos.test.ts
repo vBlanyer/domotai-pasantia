@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -442,5 +442,21 @@ describe("enWatchlist", () => {
     expect(enWatchlist("203.0.113.55", wl)?.nota).toBe("bloque malo")   // dentro del /24
     expect(enWatchlist("10.0.0.1", wl)).toBeNull()
     expect(enWatchlist(null, wl)).toBeNull()
+  })
+})
+
+describe("ubicacionesDe", () => {
+  it("agrupa por país real, red interna y laboratorio (ataques recibidos)", () => {
+    const t = [
+      { origen_ip: "8.8.8.8", prioridad: 4, relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: { pais: "Estados Unidos", codigo: "US", lat: 37, lon: -122 } } },
+      { origen_ip: "198.51.100.10", prioridad: 3, relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "documentacion", geo: null } },
+      { origen_ip: "10.0.0.5", prioridad: 2, relaciones: { "core-db": ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "privada", geo: null } },
+    ] as unknown as Decision[]
+    const u = ubicacionesDe(t)
+    const porClave = Object.fromEntries(u.map((x) => [x.clave, x]))
+    expect(porClave["US"]).toMatchObject({ nombre: "Estados Unidos", n: 1, codigo: "US" })
+    expect(porClave["US"].lat).toBe(37)
+    expect(porClave["lab"].nombre).toBe("Laboratorio / documentación")
+    expect(porClave["interna"].nombre).toBe("Red interna")
   })
 })
