@@ -1,0 +1,8 @@
+# Estado y caché de OpenTofu/Terraform (nunca se commitean: contienen datos y a veces secretos).
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars          # valores concretos (región/cuenta); el ejemplo va aparte si hace falta
+crash.log
+override.tf
+override.tf.json

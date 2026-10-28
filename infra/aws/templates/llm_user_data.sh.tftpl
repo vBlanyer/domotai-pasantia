@@ -1,0 +1,38 @@
+#!/bin/bash
+# cloud-init de la instancia GPU del LLM justificador. ${modelo_url} lo rellena OpenTofu; las variables
+# de shell van como $${...}. Es un ESQUEMA del arranque; en producción conviene partir de una AMI con
+# drivers NVIDIA (p. ej. Deep Learning AMI) para no compilar el driver en el arranque.
+# REQUISITO: los git clone/curl de abajo necesitan egreso de bootstrap (var.egreso_bootstrap=true) o
+# una AMI horneada / pesos en S3; la subred privada no sale a Internet por defecto.
+set -euxo pipefail
+
+# 1. Toolchain + driver NVIDIA (en una AMI de Deep Learning este paso sobra).
+dnf install -y gcc make kernel-devel-$(uname -r) git || true
+# (driver NVIDIA: instalar según la AMI elegida; omitido aquí por depender de la familia g4/g5)
+
+# 2. llama.cpp (servidor de inferencia con endpoint HTTP + embeddings para el RAG).
+dnf install -y cmake gcc-c++ || true
+git clone --depth 1 https://github.com/ggml-org/llama.cpp /opt/llama.cpp || true
+
+# 3. Pesos del modelo (desde ${modelo_url} si se indicó; si no, se aportan aparte).
+mkdir -p /opt/modelos
+if [ -n "${modelo_url}" ]; then
+  curl -fsSL -o /opt/modelos/modelo.gguf "${modelo_url}" || true
+fi
+
+# 4. Arrancar llama-server en la red privada (lo consume el MDR por http://<ip-privada>:8080).
+#    --embedding habilita los vectores para el RAG local del justificador.
+cat > /etc/systemd/system/llama.service <<'EOF'
+[Unit]
+Description=llama-server (LLM justificador del MDR)
+After=network-online.target
+Wants=network-online.target
+[Service]
+ExecStart=/opt/llama.cpp/build/bin/llama-server --host 0.0.0.0 --port 8080 --embedding -m /opt/modelos/modelo.gguf
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable llama.service || true
+# El `start` real se deja para cuando el modelo y el driver estén listos (evita un bucle de reinicios).

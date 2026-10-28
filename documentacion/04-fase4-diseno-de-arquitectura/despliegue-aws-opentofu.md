@@ -1,8 +1,10 @@
 # Despliegue en AWS con OpenTofu — diseño de arquitectura
 
-> **Estado:** diseño + diagrama. Aún **no** se escribe la IaC (`.tf`/`.tofu`): este documento es el
-> plano para construirla cuando se decida *validar offline* o *aplicar* en una cuenta real. Ver
-> [trabajo aplazado](../00-general/v2-trabajo-aplazado.md).
+> **Estado:** diseño + diagrama **y la IaC escrita (fase 1)** en [`infra/aws/`](../../infra/aws/)
+> (OpenTofu), **pendiente de `tofu validate`** (el entorno de desarrollo no dejó instalar OpenTofu; ver
+> el README de esa carpeta). Falta decidir con el tutor industrial el *apply* en una cuenta real
+> (alcance/coste; la GPU del LLM es el grueso). Ver también el
+> [briefing de la reunión](briefing-reunion-despliegue-aws.md) y [trabajo aplazado](../00-general/v2-trabajo-aplazado.md).
 >
 > **Alcance elegido:** MDR (daemon) + visor **+ el LLM** justificador. **Herramienta:** OpenTofu
 > (HCL; los módulos sirven igual con Terraform).
