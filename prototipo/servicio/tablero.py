@@ -932,6 +932,8 @@ class _Manejador(BaseHTTPRequestHandler):
                 # El informe (con periodo) agrega TODAS las trazas; las métricas en vivo, la ejecución actual.
                 regs = _registros_periodo(s.ruta_traza) if (desde or hasta) else _registros_cacheados(s.ruta_traza)
                 return self._responder(metricas(regs, desde=desde, hasta=hasta))
+            if ruta == "/api/politica":   # playbook estático por familia (solo lectura)
+                return self._responder(politica_resumen(s.catalogo, s.perfil))
             if ruta.startswith("/api/"):
                 return self._responder({"error": "no encontrado"}, 404)
             return self._servir_archivo(ruta)          # el build de React (index.html + assets/)
@@ -1073,6 +1075,59 @@ def _vista_pendiente(p, perfil=None):
             "activo": alerta.get("activo"), "origen_ip": origen_ip,
             "enriquecimiento_origen": actores.enriquecer_origen(
                 origen_ip, perfil, (alerta.get("contexto") or {}).get("origen_legitimo")) if origen_ip else None}
+
+
+def politica_resumen(catalogo, perfil):
+    """Playbook ESTÁTICO por familia (solo lectura, determinista): familia → clase típica → acción →
+    impacto → automatización + vetos, derivado del catálogo + el perfil reutilizando el clasificador
+    real (`analisis.clasificar`) y la misma regla de continuidad que `motor/perfil._filtrar_reglas`.
+    Los matices por actor/IP (terceros de confianza, externo desconocido, excepciones por activo) se
+    refinan en tiempo de ejecución y NO se reflejan aquí: es la frontera honesta de una vista estática."""
+    from prototipo.motor import analisis, politica, correspondencia
+    _REVERSION_OK = {"definida", "auto", "transitoria"}   # igual que motor/perfil._REVERSION_OK
+    reg = familias.registro()
+    corr = correspondencia.registro()
+    cont = (perfil or {}).get("continuidad", {}) or {}
+    filas = []
+    for fam, entrada in reg.items():
+        clase = analisis.clasificar({"familia": fam}, {"postura": {"expuesto": True}}, reg)["clase"]
+        accion = politica.ACCION_POR_CLASE.get(clase)
+        acc = catalogo.get(accion, {}) if accion else {}
+        impacto = acc.get("impacto")
+        vetos = []
+        if accion is None:                               # enrutada / FP: sin contención automática
+            automatizacion = "requiere_humano"
+            vetos.append("sin contención automática: se tria/enruta o es falso positivo")
+        elif acc.get("nunca_automatica"):                # guard duro del catálogo (perfil.py:271)
+            automatizacion = "nunca_automatica"
+            vetos.append("nunca automática (guard duro del catálogo): siempre pasa por un humano")
+        elif cont.get("reversibilidad_obligatoria") and acc.get("reversion") not in _REVERSION_OK:
+            automatizacion = "requiere_humano"
+            vetos.append("vetada: su reversión no está garantizada (reversibilidad obligatoria)")
+        else:                                            # regla continuidad.impacto_<nivel> (perfil.py:180)
+            automatizacion = {"automatica": "automatica",
+                              "automatica_si_confianza": "automatica_si_confianza"}.get(
+                                  cont.get(f"impacto_{impacto}", "humano_siempre"), "requiere_humano")
+        # condiciones/vetos informativos (dependen del evento o del inventario; no cambian la etiqueta)
+        if accion and acc.get("corta_gestion_si") and cont.get("no_cortar_gestion"):
+            vetos.append(f"vetada si cortaría el plano de gestión (servicio {acc['corta_gestion_si']})")
+        if accion in ("BLOQUEAR_IP", "MATAR_CONEXION"):
+            vetos.append("requiere la IP de origen en el evento")
+        elif accion == "FORZAR_CAMBIO_PASS":
+            vetos.append("requiere la cuenta afectada en el evento")
+        elif accion == "AISLAR_NODO":
+            vetos.append("requiere la IP del host en el inventario y un cortafuegos de borde (si no, veto duro)")
+        elif accion == "LIMITAR_BANDA":
+            vetos.append("requiere la interfaz del host declarada (si no, veto duro)")
+        elif accion == "BLOQUEAR_DESTINO":
+            vetos.append("bloquea el destino malicioso (egreso) en el borde, no el origen")
+        filas.append({
+            "familia": fam, "clase_tipica": clase, "accion": accion, "impacto": impacto,
+            "automatizacion": automatizacion, "mitre": entrada.get("mitre") or [],
+            "nivel": entrada.get("nivel"), "ruta": entrada.get("ruta"), "vetos": vetos,
+            "recomendacion": correspondencia.recomendar(fam, None, clase, corr),
+        })
+    return filas
 
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,

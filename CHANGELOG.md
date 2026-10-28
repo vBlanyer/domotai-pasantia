@@ -5,6 +5,19 @@ Las **cifras canónicas de la evaluación** (clasificación, priorización, cont
 se mueven** entre versiones: todo lo posterior a v1.0 se diseñó para no alterarlas (ver el informe,
 capítulo de resultados, y `evaluacion/resultados/`).
 
+## [No publicado] — posterior a v1.3
+
+### Añadido (visor)
+- **Vista «Políticas» (playbook de solo lectura)**: por cada familia de amenaza, la clase que representa,
+  la acción del **catálogo cerrado** que se propone, su impacto, el nivel de **automatización**
+  (automática / auto si confianza / requiere humano / nunca automática) y los vetos/condiciones. Nuevo
+  endpoint `GET /api/politica` (`tablero.politica_resumen(catalogo, perfil)`) que deriva el playbook
+  **estáticamente** del catálogo + el perfil reutilizando el clasificador real (`analisis.clasificar`) y
+  la misma regla de continuidad que el filtro del motor; componente `Politicas.tsx` + `getPolitica`/
+  `PoliticaFamiliaSchema`. **Nota honesta**: los matices por actor/IP (terceros de confianza, externo
+  desconocido, excepciones por activo) se refinan en tiempo de ejecución y no se reflejan en esta vista
+  estática. Solo lectura; no toca el motor ni el canónico.
+
 ## [1.3] — 2026-10-28 · Geolocalización de orígenes, demo observable y endurecimiento
 
 Posterior a v1.2: **geolocalización de los orígenes** (mapamundi en «Ubicaciones», métricas en curso/

@@ -1632,3 +1632,69 @@ class TestRdnsAPI(unittest.TestCase):
 
     def test_ip_invalida_da_400(self):
         self.assertEqual(self._get(self._srv(), "/api/rdns?ip=nope")[0], 400)
+
+
+class TestPolitica(unittest.TestCase):
+    """`politica_resumen` serializa, por familia, el playbook estático (clase→acción→automatización+
+    vetos) desde el catálogo + el perfil, reutilizando el clasificador real. Solo lectura, determinista."""
+    @classmethod
+    def setUpClass(cls):
+        from prototipo.accion import catalogo as catm
+        from prototipo.motor import perfil as perfilm
+        raiz = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        cls.catalogo = catm.cargar_catalogo(os.path.join(raiz, "prototipo", "catalogo.yml"))
+        cls.perfil = perfilm.cargar(os.path.join(raiz, "prototipo", "perfiles", "bancario.yml"))
+
+    def _por_familia(self):
+        return {f["familia"]: f for f in tablero.politica_resumen(self.catalogo, self.perfil)}
+
+    def test_serializa_clase_accion_y_automatizacion_por_familia(self):
+        pf = self._por_familia()
+        self.assertEqual(pf["acceso_credenciales"]["clase_tipica"], "vp_intento_acceso")
+        self.assertEqual(pf["acceso_credenciales"]["accion"], "BLOQUEAR_IP")
+        self.assertEqual(pf["acceso_credenciales"]["automatizacion"], "automatica_si_confianza")
+        self.assertEqual(pf["abuso_de_cuenta"]["accion"], "FORZAR_CAMBIO_PASS")
+        self.assertEqual(pf["abuso_de_cuenta"]["automatizacion"], "nunca_automatica")
+        self.assertIsNone(pf["explotacion_conocida"]["accion"])
+        self.assertEqual(pf["explotacion_conocida"]["nivel"], "triar_y_enrutar")
+        self.assertEqual(pf["explotacion_conocida"]["ruta"], "appsec")
+        self.assertEqual(pf["explotacion_conocida"]["automatizacion"], "requiere_humano")
+
+    def test_vetos_y_mitre_por_familia(self):
+        pf = self._por_familia()
+        self.assertEqual(pf["integridad_fichero"]["accion"], "AISLAR_NODO")
+        self.assertEqual(pf["integridad_fichero"]["automatizacion"], "nunca_automatica")
+        self.assertTrue(any("nunca autom" in v.lower() for v in pf["integridad_fichero"]["vetos"]))
+        self.assertTrue(pf["acceso_credenciales"]["mitre"])   # no vacío
+
+    def test_cada_fila_trae_todas_las_claves(self):
+        claves = {"familia", "clase_tipica", "accion", "impacto", "automatizacion",
+                  "mitre", "nivel", "ruta", "vetos", "recomendacion"}
+        for fila in tablero.politica_resumen(self.catalogo, self.perfil):
+            self.assertEqual(set(fila) & claves, claves, fila.get("familia"))
+
+    def test_orden_estable(self):
+        una = [f["familia"] for f in tablero.politica_resumen(self.catalogo, self.perfil)]
+        otra = [f["familia"] for f in tablero.politica_resumen(self.catalogo, self.perfil)]
+        self.assertEqual(una, otra)
+        self.assertEqual(len(una), len(set(una)))   # una fila por familia
+
+
+class TestPoliticaAPI(unittest.TestCase):
+    def test_endpoint_sirve_la_politica(self):
+        import http.client as _h
+        raiz = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        from prototipo.accion import catalogo as catm
+        from prototipo.motor import perfil as perfilm
+        cat = catm.cargar_catalogo(os.path.join(raiz, "prototipo", "catalogo.yml"))
+        perf = perfilm.cargar(os.path.join(raiz, "prototipo", "perfiles", "bancario.yml"))
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "trazas.jsonl")
+            open(ruta, "w").close()
+            srv = tablero.crear_servidor(tablero.EstadoTablero(), ruta, perfil=perf, catalogo=cat, puerto=0)
+            th = threading.Thread(target=srv.handle_request, daemon=True); th.start()
+            c = _h.HTTPConnection("127.0.0.1", srv.server_address[1]); c.request("GET", "/api/politica")
+            r = c.getresponse(); cuerpo = json.loads(r.read()); c.close(); th.join(timeout=2)
+            srv.server_close()
+            self.assertEqual(r.status, 200)
+            self.assertTrue(any(f["familia"] == "acceso_credenciales" for f in cuerpo))

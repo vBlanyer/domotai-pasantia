@@ -301,6 +301,21 @@ export const getMetricas = (p?: { desde?: string; hasta?: string }) => {
 }
 export const getRed = () => pedir("/api/red", RedSchema)
 export const getContenciones = () => pedir("/api/contenciones", z.array(ContencionSchema))
+
+// Playbook estático por familia (solo lectura, GET /api/politica): clase típica → acción →
+// automatización + vetos, derivado del catálogo + el perfil. Para la vista «Políticas».
+export const PoliticaFamiliaSchema = z.object({
+  familia: z.string(), clase_tipica: z.string(),
+  accion: z.string().nullable().optional(), impacto: z.string().nullable().optional(),
+  automatizacion: z.string(), mitre: z.array(z.string()),
+  nivel: z.string().nullable().optional(), ruta: z.string().nullable().optional(),
+  vetos: z.array(z.string()),
+  recomendacion: z.object({ respuesta: z.string(), accion_sugerida: z.string().nullable().optional(),
+    ruta: z.string().nullable().optional(), servicio: z.string().nullable().optional(),
+    nota: z.string().nullable().optional() }).nullable().optional(),
+})
+export type PoliticaFamilia = z.infer<typeof PoliticaFamiliaSchema>
+export const getPolitica = () => pedirLista("/api/politica", PoliticaFamiliaSchema)
 export const getPausa = () => pedir("/api/pausa", z.object({ pausada: z.boolean() }))
 
 // Nombre del operador que aprueba (no repudio): se guarda por navegador y viaja en /api/aprobar.

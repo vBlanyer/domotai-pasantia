@@ -43,6 +43,7 @@ Los **estáticos** (el visor) no exigen token, para que la SPA cargue y pida el 
 | `GET /api/verificar` | — | Integridad de la cadena de hashes: `{ok, roto_en?, motivo?}`. |
 | `GET /api/contenciones` | — | Las contenciones **activas** ahora mismo (array). |
 | `GET /api/pausa` | — | Estado del *kill switch*: `{pausada: bool}`. |
+| `GET /api/politica` | — | **Playbook estático por familia** (solo lectura): `[{familia, clase_tipica, accion, impacto, automatizacion (automatica/automatica_si_confianza/requiere_humano/nunca_automatica), mitre[], nivel, ruta, vetos[], recomendacion}]`, derivado de `catalogo`+`perfil` reutilizando el clasificador y la regla de continuidad del motor. Los matices por actor/IP se refinan en runtime (frontera honesta). |
 | `GET /api/metricas` | `desde`, `hasta` (YYYY-MM-DD, opc.) | Métricas: `{total, fp, tasa_fp, auto, escalado_humano, tasa_override, mttr_seg, por_clase, veredictos, por_dia, top_activos, mitre, desde, hasta}` + **tiempos de respuesta / SLA**: `{mttr_mediano_seg, sla_umbral_seg (def. 900, env TRIAJE_SLA_SEG), sla_resueltos, sla_dentro, sla_incumplidos, sla_pct}`. Con periodo agrega **todo** el histórico (para el informe); sin él, la ejecución actual. |
 
 ## Endpoints de acción (POST)
