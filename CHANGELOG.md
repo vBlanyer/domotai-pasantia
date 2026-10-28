@@ -7,6 +7,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [No publicado] — posterior a v1.4
 
+### Documentación
+- **Informe (LaTeX) al día con v1.3/v1.4 + AWS**, sin tocar lo canónico: conteos de pruebas en la
+  metodología (motor 1061, visor 281) y el párrafo del visor en las conclusiones ampliado a las **quince
+  vistas** y a lo nuevo (trabajar por **incidente** = campaña /24 con su caso, **línea de tiempo** del
+  ataque, **playbook** de solo lectura por familia, **resumen ejecutivo** por periodo), más una mención
+  al **despliegue como IaC (OpenTofu) validada**. Resultados (ip6) y resumen (ip0) siguen congelados. PDF recompilado.
+
 ### Añadido (infraestructura / despliegue)
 - **IaC del despliegue en AWS (fase 1)** en [`infra/aws/`](infra/aws/) con **OpenTofu**: VPC con subred
   **privada** + endpoints VPC (SSM + S3), EC2 del **MDR** (daemon + visor, `systemd` de `deploy/`) + EBS
