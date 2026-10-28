@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { ChevronDown, ChevronRight, Shield, ShieldCheck, ShieldX, TriangleAlert } from "lucide-react"
-import { useSondeo, getDecisiones, getTrazaDetalle, operadorActual, type Decision, type Detalle, type Pasaje } from "@/api"
+import { useSondeo, getDecisiones, getTrazaDetalle, operadorActual, fijarOperador, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Cargando, SinConexion, Vacio, ClaseBadge, Dato, BarraFiltros, Prioridad, DatosCongelados } from "./bits"
 import { filtrarDecisiones, clasesDe, claveDe, contencionDe, filtroLegible, ventanaDe, paginar, pasosRunbook, estadoDeCasos, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
@@ -362,6 +362,7 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
   const [pagina, setPagina] = useState(1)
   const [tam, setTam] = useState(TAM_PAGINA)
   const [soloMias, setSoloMias] = useState(false)    // «mi cola»: solo las asignadas al operador actual
+  const [op, setOp] = useState(operadorActual())     // nombre del operador (local, para habilitar «mías» sin ir a Aprobaciones)
   // Al cambiar filtro, equipo o el toggle «mías» la lista cambia de tamaño: se vuelve a la primera página.
   useEffect(() => setPagina(1), [filtro.texto, filtro.clase, equipo, soloMias])
   const elegirTam = (t: number) => { setTam(t); setPagina(1) }
@@ -371,7 +372,7 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
   const d = "error" in r ? r.datos : r
   if (!d) return <SinConexion causa={fallo?.causa} />
   if (d.length === 0) return <Vacio>Aún no hay decisiones. Lanza un ataque para verlas aquí.</Vacio>
-  const yo = operadorActual().trim()
+  const yo = op.trim()
   const casos = estadoDeCasos(d)                     // estado de caso por id_decision (incluye `asignado`)
   const base = filtrarDecisiones(d, { ...filtro, equipo })
   // «Mi cola»: solo las decisiones cuyo caso está asignado al operador actual.
@@ -383,12 +384,19 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
       {fallo && <DatosCongelados fallo={fallo} />}
       <BarraFiltros f={filtro} set={setFiltro} clases={clasesDe(d)} cuenta={filtradas.length}
         equipo={equipo} onQuitarEquipo={onQuitarEquipo} />
-      <label className={`flex items-center gap-1.5 text-xs ${yo ? "text-foreground" : "text-muted-foreground"}`}
-        title={yo ? "" : "Pon tu nombre de operador en Aprobaciones para usar tu cola"}>
-        <input type="checkbox" checked={soloMias} disabled={!yo}
-          onChange={(e) => setSoloMias(e.target.checked)} className="size-3.5 accent-sky-600" />
-        Solo mías{yo ? ` (asignadas a ${yo})` : " (sin operador)"}
-      </label>
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        <label className="flex items-center gap-1.5 text-muted-foreground">
+          Operador:
+          <input value={op} placeholder="tu nombre"
+            onChange={(e) => { setOp(e.target.value); fijarOperador(e.target.value) }}
+            className="w-40 rounded-md border border-border bg-card px-2 py-1 text-foreground" />
+        </label>
+        <label className={`flex items-center gap-1.5 ${yo ? "text-foreground" : "text-muted-foreground"}`}>
+          <input type="checkbox" checked={soloMias && !!yo} disabled={!yo}
+            onChange={(e) => setSoloMias(e.target.checked)} className="size-3.5 accent-sky-600" />
+          Solo mías{yo ? ` (asignadas a ${yo})` : " — escribe tu nombre para activarlo"}
+        </label>
+      </div>
       {ventana && (
         // A7: el listado son los ÚLTIMOS registros, no el histórico — que el contador no lo sugiera.
         <p className="text-xs text-muted-foreground">
