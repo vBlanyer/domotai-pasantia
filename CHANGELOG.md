@@ -8,6 +8,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
 ## [No publicado] — posterior a v1.3
 
 ### Añadido (visor)
+- **Línea de tiempo del incidente/atacante** (`LineaTiempo` + `datos.cronologiaDe`): la cronología de
+  un ataque mezclando la **detección** (decisiones) con la **respuesta** (reversión de contención, hitos
+  del ciclo de caso), ordenada por tiempo. Helper puro desde el feed; el helper `eventosDeEntidad`
+  correlaciona las respuestas (que no llevan `origen_ip`) por el `id_decision` de las decisiones de la
+  entidad. Estrenada en el **perfil de atacante**; la reutilizará el detalle de incidente. Sin backend.
 - **Vista «Políticas» (playbook de solo lectura)**: por cada familia de amenaza, la clase que representa,
   la acción del **catálogo cerrado** que se propone, su impacto, el nivel de **automatización**
   (automática / auto si confianza / requiere humano / nunca automática) y los vetos/condiciones. Nuevo
