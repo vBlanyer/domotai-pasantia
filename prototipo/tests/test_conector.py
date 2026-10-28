@@ -121,18 +121,18 @@ class TestConector(unittest.TestCase):
         self.assertFalse(r["exito"]); self.assertEqual(ej.llamadas, [])
 
     def test_matar_conexion_transitoria_siempre_se_ejecuta(self):
-        # ss -K dst {ip}: verificación con rc0 significa "la conexión EXISTE", no "ya matada".
+        # ss -K dst {ip}: la verificación lista conexiones (`ss -tunap`) y el match es sobre la salida.
         # Para una acción transitoria, la idempotencia por verificación-antes-de-actuar NO aplica:
-        # debe ejecutarse siempre, aunque la primera verificación dé rc0.
+        # debe ejecutarse siempre, aunque la conexión siga presente.
         orden = {"decision_id": "d1", "accion_id": "MATAR_CONEXION", "nodo_objetivo": "objetivo-vuln",
                  "nodo_ip": "192.168.1.30", "params": {"ip": "192.168.1.10"}, "impacto": "localizado"}
         class EjecutorConexion:
             def __init__(self): self.llamadas = []
             def __call__(self, nodo_ip, comando):
                 self.llamadas.append(comando)
-                if "grep" in comando:
-                    return (0, "ESTAB ... 192.168.1.10")   # la conexión existe (antes y después)
-                return (0, "")   # ss -K
+                if "ss -K" in comando:
+                    return (0, "")   # el corte "corrió"
+                return (0, "tcp ESTAB 0 0 10.10.0.10:22 192.168.1.10:51000")   # la conexión sigue listada
         ej = EjecutorConexion()
         r = conector.ejecutar_orden(orden, CAT, ej, "2026-08-31T00:00:00Z")
         self.assertIsNotNone(r["comando_ejecutado"])   # SÍ se ejecutó, no se saltó por "idempotencia"
@@ -141,22 +141,35 @@ class TestConector(unittest.TestCase):
         self.assertFalse(r["exito"])   # la conexión SIGUE viva tras el corte -> NO es éxito (transitoria)
 
     def test_matar_conexion_corte_efectivo_es_exito(self):
-        # Transitoria: tras `ss -K`, si la verificación `grep ip` da rc!=0 (la conexión YA NO está),
-        # el corte funcionó -> exito True. (Antes el post-check usaba rc0=aplicada, al revés, y reportaba
-        # fracaso en un corte exitoso / éxito en uno fallido.)
+        # Transitoria: tras `ss -K`, si el listado corre (rc0) y la IP YA NO aparece, el corte
+        # funcionó -> exito True.
         orden = {"decision_id": "d1", "accion_id": "MATAR_CONEXION", "nodo_objetivo": "objetivo-vuln",
                  "nodo_ip": "192.168.1.30", "params": {"ip": "192.168.1.10"}, "impacto": "localizado"}
         class EjecutorCorta:
             def __init__(self): self.llamadas = []
             def __call__(self, nodo_ip, comando):
                 self.llamadas.append(comando)
-                if "grep" in comando:
-                    return (1, "")   # la conexión YA NO está (el corte funcionó)
-                return (0, "")       # ss -K
+                if "ss -K" in comando:
+                    return (0, "")   # el corte corrió
+                return (0, "tcp ESTAB 0 0 10.10.0.10:22 10.0.0.5:4000")   # la IP objetivo YA NO está
         ej = EjecutorCorta()
         r = conector.ejecutar_orden(orden, CAT, ej, "2026-08-31T00:00:00Z")
         self.assertTrue(r["exito"])
         self.assertIn("ss -K", " ".join(ej.llamadas))
+
+    def test_matar_conexion_fail_closed_si_el_post_check_no_puede_ejecutarse(self):
+        # El post-check de una transitoria usaba `rc != 0 = cortada`, así que un FALLO del chequeo
+        # (ss ausente rc127, SSH caído rc255, timeout rc124, error rc2) se leía como corte exitoso
+        # aunque la sesión siguiera viva: FAIL-OPEN. Como el match es sobre la salida con rc0, un
+        # rc!=0 del listado (ni corrió) debe fallar CERRADO.
+        orden = {"decision_id": "d1", "accion_id": "MATAR_CONEXION", "nodo_objetivo": "objetivo-vuln",
+                 "nodo_ip": "192.168.1.30", "params": {"ip": "192.168.1.10"}, "impacto": "localizado"}
+        for rc_fallo in (127, 255, 124, 2):
+            class EjecutorChequeoRoto:
+                def __call__(self, nodo_ip, comando, rc=rc_fallo):
+                    return (0, "") if "ss -K" in comando else (rc, "")   # el listado NO pudo correr
+            r = conector.ejecutar_orden(orden, CAT, EjecutorChequeoRoto(), "t")
+            self.assertFalse(r["exito"], f"rc {rc_fallo} debe fallar cerrado")
 
 
 class TestEjecutorClave(unittest.TestCase):

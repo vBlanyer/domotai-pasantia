@@ -61,6 +61,17 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   agrupación normaliza la zona con el mismo patrón que la ráfaga (`rafaga._instante`).
 
 ### Seguridad / Robustez
+- **Fail-open de `MATAR_CONEXION` corregido (verificación de contención transitoria).** El post-check
+  de una acción `transitoria` daba por **cortada** la conexión cuando `rc != 0`; así, un **fallo** del
+  chequeo (ss ausente `rc 127`, SSH caído `rc 255`, timeout `rc 124`) se leía como corte exitoso aunque
+  la sesión del intruso siguiera **viva** — y la revisión destapó que, con el pipe `ss … | grep`, hasta
+  un `ss` roto dejaba al grep devolver `rc 1` sobre entrada vacía (interpretado como «cortada»). Ahora
+  la verificación **lista** las conexiones (`ss -tunap`) y el match (¿sigue la IP?) se hace sobre la
+  **salida** con palabra completa (no confunde `192.168.1.10` con `.100`): solo cuenta como contenida si
+  el listado **corrió** (`rc 0`) y la IP **no aparece**. Un fallo del chequeo ahora **falla cerrado**.
+  Afecta a `verificacion.confirmar` y `conector.ejecutar_orden` (los dos sitios); `MATAR_CONEXION` no es
+  `nunca_automatica`, así que el fail-open podía darse en automático. Tests: `test_verificacion` /
+  `test_conector` (fail-closed ante `rc 127/255/124/2`, corte efectivo, prefijo de IP).
 - **Receptor de red**: cierre de la conexión ociosa (15 min sin datos: una conexión muda ya no
   retiene su slot), tope de conexiones **por IP** (8: un emisor comprometido no monopoliza los 64
   slots), rechazos y cierres **con rastro** en el log (frenado: uno por minuto y motivo),
