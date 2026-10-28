@@ -1,0 +1,60 @@
+#!/bin/bash
+# cloud-init del MDR (Amazon Linux 2023). Variables ${...} las rellena OpenTofu (templatefile);
+# las variables de shell van escapadas como $${...} para que templatefile las deje literales.
+# REQUISITO: dnf/git clone necesitan egreso de bootstrap (var.egreso_bootstrap=true) o una AMI
+# horneada / artefactos en S3; la subred privada no sale a Internet por defecto (ver README).
+set -euxo pipefail
+
+# 1. Dependencias (solo stdlib + PyYAML + git; sin nada más, como en el laboratorio).
+dnf install -y python3 python3-pyyaml git
+
+# 2. Usuario de servicio y repo en /opt/mdr.
+id triaje >/dev/null 2>&1 || useradd --system --home /opt/mdr --shell /usr/sbin/nologin triaje
+git clone --branch "${repo_rama}" --depth 1 "${repo_url}" /opt/mdr
+
+# 3. EBS cifrado de la traza montado en /mnt/traza (ruta FIJA de --salida: retoma estado al reiniciar).
+#    /mnt/traza se crea SIEMPRE (así TRIAJE_SALIDA es válido aunque el disco tarde o no aparezca); si el
+#    disco de datos llega (puede tardar: el attach es un recurso aparte), se formatea y se monta encima.
+#    En instancias Nitro el disco adjunto aparece como /dev/nvmeXn1.
+mkdir -p /mnt/traza
+DISCO=""
+for _ in $$(seq 1 30); do
+  for d in /dev/nvme1n1 /dev/nvme2n1 /dev/sdf /dev/xvdf; do
+    if [ -b "$${d}" ]; then DISCO="$${d}"; break; fi
+  done
+  [ -n "$${DISCO}" ] && break
+  sleep 2
+done
+if [ -n "$${DISCO}" ]; then
+  blkid "$${DISCO}" >/dev/null 2>&1 || mkfs -t xfs "$${DISCO}"
+  grep -q "/mnt/traza" /etc/fstab || echo "$${DISCO} /mnt/traza xfs defaults,nofail 0 2" >> /etc/fstab
+  mount -a
+fi
+chown triaje:triaje /mnt/traza
+
+# 4. EnvironmentFile de la unidad systemd (deploy/triaje.env.ejemplo como base). La fuente de alertas
+#    (alerts.json del SIEM del cliente) llega por VPN/peering o la alimenta un generador de prueba;
+#    aquí se apunta a una ruta local que se sigue con tail -F.
+install -d -m 0750 -o triaje -g triaje /etc/mdr /opt/mdr/run
+: > /opt/mdr/run/alerts.json && chown triaje:triaje /opt/mdr/run/alerts.json
+cat > /etc/mdr/triaje.env <<EOF
+TRIAJE_ALERTS=/opt/mdr/run/alerts.json
+TRIAJE_PERFIL=prototipo/perfiles/bancario.yml
+TRIAJE_HALLAZGOS=lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json
+TRIAJE_SALIDA=${salida}
+TRIAJE_WEB_PUERTO=8787
+# LLM justificador (vacío => justificador de plantilla, determinista). El motor no depende del LLM.
+TRIAJE_LLM_URL=${llm_url}
+EOF
+chmod 0640 /etc/mdr/triaje.env
+chown root:triaje /etc/mdr/triaje.env
+
+# NOTA (secretos, #9): la clave HMAC de la traza, el token del visor y la clave SSH del conector se
+# leen de Secrets Manager con el rol de instancia (permiso concedido en iam.tf). Aquí NO van en claro;
+# el fetch (p. ej. `aws secretsmanager get-secret-value`) se añade cuando se definan los ARNs.
+
+# 5. Unidad systemd de deploy/ y arranque.
+chown -R triaje:triaje /opt/mdr
+cp /opt/mdr/deploy/mdr-triaje.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now mdr-triaje

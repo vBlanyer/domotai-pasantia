@@ -5,6 +5,18 @@ Las **cifras canónicas de la evaluación** (clasificación, priorización, cont
 se mueven** entre versiones: todo lo posterior a v1.0 se diseñó para no alterarlas (ver el informe,
 capítulo de resultados, y `evaluacion/resultados/`).
 
+## [No publicado] — posterior a v1.4
+
+### Añadido (infraestructura / despliegue)
+- **IaC del despliegue en AWS (fase 1)** en [`infra/aws/`](infra/aws/) con **OpenTofu**: VPC con subred
+  **privada** + endpoints VPC (SSM + S3), EC2 del **MDR** (daemon + visor, `systemd` de `deploy/`) + EBS
+  cifrado para la traza, EC2 **GPU opcional** para el LLM (`llm_habilitado`, apagado por defecto por
+  coste), rol IAM mínimo (SSM + lectura de secretos) y acceso del analista por **túnel SSM** (sin puerto
+  público). Distingue **runtime sin egreso** (RNF-01) del **bootstrap** (egreso temporal opcional,
+  `egreso_bootstrap`, o AMI horneada / artefactos en S3). **Pendiente de `tofu validate`** (el entorno
+  no dejó instalar OpenTofu). No toca el motor ni el canónico. Doc: el diseño `despliegue-aws-opentofu.md`
+  y el **briefing para el tutor industrial** `briefing-reunion-despliegue-aws.md`.
+
 ## [1.4] — 2026-10-28 · Operación estilo MDR comercial: incidentes, políticas, cronología y resumen ejecutivo
 
 Cuatro vistas que acercan el prototipo a cómo opera un MDR comercial, todas **aditivas** (no tocan el
