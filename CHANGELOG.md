@@ -5,6 +5,15 @@ Las **cifras canónicas de la evaluación** (clasificación, priorización, cont
 se mueven** entre versiones: todo lo posterior a v1.0 se diseñó para no alterarlas (ver el informe,
 capítulo de resultados, y `evaluacion/resultados/`).
 
+## [No publicado] — posterior a v1.2
+
+### Añadido (visor)
+- **Mapamundi en la vista «Ubicaciones»**: el mapa pasó de una caja con rejilla a un **mapamundi con
+  las siluetas de los continentes** (Natural Earth 110m, dominio público), dibujadas como paths SVG
+  inline en la MISMA proyección equirectangular que los marcadores (`x = lon+180`, `y = 90−lat`), así
+  que los puntos caen sobre el continente correcto. Es un **asset de build** (`visor/src/worldmap.ts`,
+  siluetas pre-proyectadas); el producto sigue **sin dependencias ni egreso**.
+
 ## [1.2] — 2026-10-28 · Cobertura de familias, consola MDR y expansión del visor
 
 Posterior a v1.1 (2026-10-14 → 2026-10-28): cobertura de **las 10 familias**, **consola MDR**

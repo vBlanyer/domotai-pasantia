@@ -2,10 +2,12 @@ import { useSondeo, getTrazas, type Decision } from "@/api"
 import { Prioridad, Cargando, SinConexion, Vacio } from "@/components/bits"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ubicacionesDe } from "@/datos"
+import { TIERRA_PATHS } from "@/worldmap"
 
 // Vista «Ubicaciones»: origen de los ataques por ubicación. La geo es OFFLINE y aproximada (tabla de
 // muestra, sin egreso); las IPs de laboratorio/documentación e internas no geolocalizan y van en la
-// tabla. Mapa equirectangular ligero (sin contornos de país, inline, sin dependencias).
+// tabla. Mapamundi inline: siluetas de tierra (Natural Earth 110m, dominio público) + marcadores,
+// ambos en la misma proyección equirectangular (x=lon+180, y=90-lat). Sin dependencias ni egreso.
 export function Ubicaciones() {
   const t = useSondeo(getTrazas)
   if (!t) return <Cargando />
@@ -23,16 +25,20 @@ export function Ubicaciones() {
         sin egreso); las IPs de <b>laboratorio/documentación</b> e <b>internas</b> no se geolocalizan y van en la tabla.
       </p>
       <div className="rounded-lg border border-border bg-card p-3">
-        <div className="mb-1 text-xs text-muted-foreground">Mapa (equirectangular aproximado)</div>
+        <div className="mb-1 text-xs text-muted-foreground">Mapamundi (equirectangular aproximado)</div>
         {paises.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
             Sin orígenes geolocalizables (todos son de laboratorio o internos).
           </div>
         ) : (
-          <svg viewBox="0 0 360 180" className="h-auto w-full" role="img" aria-label="Mapa de orígenes de ataque">
+          <svg viewBox="0 0 360 180" className="h-auto w-full rounded bg-sky-500/5" role="img" aria-label="Mapamundi de orígenes de ataque">
+            {/* siluetas de tierra, al fondo */}
+            <g className="fill-muted stroke-border" strokeWidth="0.2" strokeOpacity={0.5}>
+              {TIERRA_PATHS.map((d, i) => <path key={i} d={d} />)}
+            </g>
             <rect x="0.5" y="0.5" width="359" height="179" fill="none" className="stroke-border" strokeWidth="1" />
-            {[90, 180, 270].map((x) => <line key={`v${x}`} x1={x} y1="0" x2={x} y2="180" className="stroke-border" strokeWidth="0.5" opacity="0.4" />)}
-            {[45, 90, 135].map((y) => <line key={`h${y}`} x1="0" y1={y} x2="360" y2={y} className="stroke-border" strokeWidth="0.5" opacity="0.4" />)}
+            {[90, 180, 270].map((x) => <line key={`v${x}`} x1={x} y1="0" x2={x} y2="180" className="stroke-border" strokeWidth="0.5" opacity="0.25" />)}
+            {[45, 90, 135].map((y) => <line key={`h${y}`} x1="0" y1={y} x2="360" y2={y} className="stroke-border" strokeWidth="0.5" opacity="0.25" />)}
             {paises.map((p) => {
               const cx = p.lon! + 180, cy = 90 - p.lat!
               const r = 3 + 6 * (Math.log(p.n + 1) / Math.log(maxN + 1))
