@@ -162,7 +162,12 @@ sistema de logs y el canal de respuesta. Como las anteriores, ninguna de estas p
 cifra de la evaluación; y lo que queda para un cliente concreto ---validar su conjunto de reglas,
 desplegar el auditor sobre su red y dimensionar el \emph{hardware} del modelo--- junto con las
 decisiones que corresponden a la organización ---la autorización por escrito del alcance de
-actuación y la custodia de los secretos--- se dejan identificadas en esa misma hoja de ruta.
+actuación y la custodia de los secretos--- se dejan identificadas en esa misma hoja de ruta. Ese
+despliegue se concretó además como \textbf{infraestructura como código} (OpenTofu): módulos que montan
+el daemon y el visor en una subred privada de AWS, con el modelo de lenguaje en una instancia con GPU
+opcional, acceso del analista por túnel sin puerto público y la traza en disco cifrado; quedan escritos
+y \emph{validados} de forma reproducible, a la espera de aplicarlos en una cuenta real. Preservan en la
+nube la postura de no comunicación con el exterior en tiempo de ejecución.
 
 Dos extensiones más, también posteriores a la evaluación, ensanchan el alcance sin tocar sus cifras.
 El registro de familias resultó extensible en la práctica: partiendo de las cuatro familias del
@@ -177,7 +182,7 @@ destino malicioso conocido (exfiltración y mando y control). Todas se ejercitar
 laboratorio y ninguna pertenece al conjunto de datos medido, de modo que ensanchan la cobertura sin
 alterar las cifras de la evaluación. Y la validación humana,
 que el prototipo evaluado hacía por terminal, se llevó además a un \textbf{visor web}: una consola
-de operaciones de doce vistas con el flujo de decisiones, la cola de aprobaciones ---con aviso al
+de operaciones de quince vistas con el flujo de decisiones, la cola de aprobaciones ---con aviso al
 analista (notificación y señal sonora al entrar una decisión) y el tiempo de espera de cada una a la
 vista, como un acuerdo de nivel de servicio---, el \textbf{ciclo de vida del caso} (estado, responsable
 y notas del analista, anotados como registros encadenados en la misma traza auditable), el mapa de la
@@ -188,7 +193,13 @@ ATT\&CK, el grafo del incidente sobre el mapa de la red y un informe exportable;
 destacada, una \textbf{consola en vivo} que narra la «caja negra» del sistema ---el porqué de cada
 decisión y la respuesta paso a paso--- junto al \textbf{diario del operador}. Desde ella el analista
 aprueba, pausa la automatización o revierte una contención ---todas o una concreta--- sin salir del
-navegador. El enriquecimiento del origen (alcance, clasificación de la IP, geolocalización y ASN) se
+navegador. Trabaja además \textbf{por incidente} ---una campaña de origen /24, que reúne las IP rotadas
+de un mismo atacante en una sola historia con su propio caso---, dibuja la \textbf{línea de tiempo} del
+ataque (detección y respuesta entrelazadas), expone de solo lectura el \textbf{playbook} por familia
+(qué acción y con qué grado de automatización trata cada amenaza, derivado del catálogo y el perfil) y
+un \textbf{resumen ejecutivo} por periodo para dirección (tasa de falsos positivos, automatización
+frente a revisión humana, tiempos de respuesta, y amenazas y ubicaciones destacadas), exportable a PDF.
+El enriquecimiento del origen (alcance, clasificación de la IP, geolocalización y ASN) se
 resuelve \textbf{sin salida a Internet}, a partir de tablas de muestra embebidas sustituibles por una
 base real; la resolución de DNS inverso queda como opción desactivada por omisión, coherente con la
 propiedad de no comunicación con el exterior que recorre todo el diseño.
