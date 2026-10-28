@@ -32,5 +32,8 @@ echo
 
 # El generador emite alertas Wazuh CRUDAS; el daemon las normaliza, triaja y sirve el visor en vivo.
 # --continuo mantiene abierta la tubería, así el daemon sigue arriba para navegar el tablero.
+# --sin-lab: NO hay contenedores que contener, así que se usa el ejecutor SIMULADO (lazo._EjecutorAuto);
+#   si no, el conector real intentaría iptables contra dispositivos inexistentes, toda contención
+#   quedaría «fallida» y «Contenciones activas» saldría VACÍA. Con él, los bloqueos se ven contenidos.
 python3 -m lab.geo_demo.generador --continuo "$@" \
-  | python3 -m prototipo.servicio.stream - "$PERFIL" "$HALLAZGOS" --web "$PUERTO" --salida "$SALIDA"
+  | python3 -m prototipo.servicio.stream - "$PERFIL" "$HALLAZGOS" --web "$PUERTO" --salida "$SALIDA" --sin-lab
