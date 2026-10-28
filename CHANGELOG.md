@@ -7,6 +7,15 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [No publicado] — posterior a v1.2
 
+### Documentación
+- **Informe (LaTeX) al día con el estado posterior a v1.2**, sin tocar las cifras canónicas ni el
+  capítulo de resultados: conteos de pruebas actualizados en la metodología (motor 1053, evaluación 63,
+  dataset 39, banco 156, portátil 14, geolocalización 12, visor 268) y el párrafo del visor en las
+  conclusiones ampliado a las **doce vistas** y a las últimas incorporaciones (consola en vivo con el
+  porqué y la respuesta paso a paso + diario del operador, Red por dispositivo, geolocalización offline
+  sobre mapamundi, campañas, perfil de atacante, watchlist, enriquecimiento con ASN y rDNS opt-in, todo
+  **sin egreso**). El resumen (registro congelado de la Fase 6) no se toca. PDF recompilado.
+
 ### Añadido (visor)
 - **Mapamundi en la vista «Ubicaciones»**: el mapa pasó de una caja con rejilla a un **mapamundi con
   las siluetas de los continentes** (Natural Earth 110m, dominio público), dibujadas como paths SVG
