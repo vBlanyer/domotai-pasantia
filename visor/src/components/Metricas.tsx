@@ -1,11 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState } from "react"
 import { Printer } from "lucide-react"
 import { getMetricas, type Metricas as Datos, type Fallo } from "@/api"
 import { Donut, Tendencia, Barras, type Segmento } from "./charts"
 import { MatrizAttack } from "./MatrizAttack"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK, ESTADO } from "@/theme"
 import { useTema } from "@/tema"
-import { Cargando, SinConexion, Vacio } from "./bits"
+import { Cargando, SinConexion, Vacio, Kpi, Tarjeta } from "./bits"
 import { etiquetaClase, colorClase } from "@/datos"
 import { rangoDe, etiquetaPeriodo, type Preset } from "@/informe"
 
@@ -21,24 +21,6 @@ const VEREDICTO = {
 type Seleccion = "vivo" | Preset | "rango"
 
 const pct = (x: number) => `${Math.round(x * 100)}%`
-
-function Kpi({ valor, etiqueta, aviso = false }: { valor: string; etiqueta: string; aviso?: boolean }) {
-  return (
-    <div className="rounded-xl border border-border bg-card px-5 py-4 shadow-sm">
-      <div className={`font-heading text-3xl font-semibold tabular-nums ${aviso ? "text-[color:#b5730b] dark:text-amber-400" : ""}`}>{valor}</div>
-      <div className="mt-1 text-sm text-muted-foreground">{etiqueta}</div>
-    </div>
-  )
-}
-
-function Tarjeta({ titulo, children }: { titulo: string; children: ReactNode }) {
-  return (
-    <section className="min-w-0 break-inside-avoid rounded-xl border border-border bg-card p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-medium text-muted-foreground">{titulo}</h2>
-      {children}
-    </section>
-  )
-}
 
 export function Metricas() {
   const oscuro = useTema().oscuro

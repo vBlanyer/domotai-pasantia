@@ -183,6 +183,9 @@ export const MetricasSchema = z.object({
   por_dia: z.array(z.object({ dia: z.string(), n: z.number() })),
   top_activos: z.array(z.object({ nombre: z.string(), n: z.number() })),
   mitre: z.array(z.object({ tecnica: z.string(), n: z.number() })),
+  // ranking por familia de amenaza y por país de origen (resumen ejecutivo; opcionales: daemons viejos no los traen)
+  por_familia: z.array(z.object({ familia: z.string(), n: z.number() })).optional(),
+  por_pais: z.array(z.object({ pais: z.string(), n: z.number() })).optional(),
   // periodo del informe (null = todo el histórico)
   desde: z.string().nullable().optional(), hasta: z.string().nullable().optional(),
 })

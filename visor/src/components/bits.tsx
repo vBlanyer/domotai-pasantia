@@ -123,3 +123,23 @@ export function RiesgoBadge({ r }: { r: { nivel: string; etiqueta: string; facto
     </span>
   )
 }
+
+// KPI y tarjeta de sección del informe/resumen (compartidos por «Métricas e informe» y «Resumen
+// ejecutivo»). `break-inside-avoid` para que no se partan al imprimir a PDF.
+export function Kpi({ valor, etiqueta, aviso = false }: { valor: string; etiqueta: string; aviso?: boolean }) {
+  return (
+    <div className="rounded-xl border border-border bg-card px-5 py-4 shadow-sm">
+      <div className={`font-heading text-3xl font-semibold tabular-nums ${aviso ? "text-[color:#b5730b] dark:text-amber-400" : ""}`}>{valor}</div>
+      <div className="mt-1 text-sm text-muted-foreground">{etiqueta}</div>
+    </div>
+  )
+}
+
+export function Tarjeta({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <section className="min-w-0 break-inside-avoid rounded-xl border border-border bg-card p-5 shadow-sm">
+      <h2 className="mb-4 text-sm font-medium text-muted-foreground">{titulo}</h2>
+      {children}
+    </section>
+  )
+}
