@@ -507,19 +507,26 @@ function ubicacionDe(d: Decision): { clave: string; nombre: string; lat?: number
   }
 }
 
+// Las tres métricas por ubicación: total (recibidos), mitigados (contención «contenida») y en curso
+// (recibidos aún NO contenidos = total − mitigados; partición limpia: total = mitigados + enCurso).
+export type MetricaUbicacion = "enCurso" | "n" | "mitigados"
+
 export function ubicacionesDe(todos: Decision[]): {
-  clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null; n: number; ips: number; prioridad: number
+  clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null
+  n: number; mitigados: number; enCurso: number; ips: number; prioridad: number
 }[] {
-  const acc = new Map<string, { clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null; n: number; ips: Set<string>; prioridad: number }>()
+  const acc = new Map<string, { clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null; n: number; mitigados: number; ips: Set<string>; prioridad: number }>()
   for (const d of todos) {
     if (!d.origen_ip || !Object.values(d.relaciones ?? {}).some((e) => (e ?? []).includes("objetivo"))) continue
     const u = ubicacionDe(d)
-    const g = acc.get(u.clave) ?? { ...u, n: 0, ips: new Set<string>(), prioridad: 0 }
+    const g = acc.get(u.clave) ?? { ...u, n: 0, mitigados: 0, ips: new Set<string>(), prioridad: 0 }
     g.n += 1
+    if (d.contencion === "contenida") g.mitigados += 1   // mitigado = contención efectiva y verificada
     g.ips.add(d.origen_ip)
     g.prioridad = Math.max(g.prioridad, d.prioridad ?? 0)
     acc.set(u.clave, g)
   }
-  return [...acc.values()].map((g) => ({ clave: g.clave, nombre: g.nombre, lat: g.lat, lon: g.lon, codigo: g.codigo, n: g.n, ips: g.ips.size, prioridad: g.prioridad }))
+  return [...acc.values()].map((g) => ({ clave: g.clave, nombre: g.nombre, lat: g.lat, lon: g.lon, codigo: g.codigo,
+    n: g.n, mitigados: g.mitigados, enCurso: g.n - g.mitigados, ips: g.ips.size, prioridad: g.prioridad }))
     .sort((a, b) => b.n - a.n || (a.nombre < b.nombre ? -1 : 1))
 }

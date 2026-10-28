@@ -459,4 +459,14 @@ describe("ubicacionesDe", () => {
     expect(porClave["lab"].nombre).toBe("Laboratorio / documentación")
     expect(porClave["interna"].nombre).toBe("Red interna")
   })
+
+  it("parte el total en mitigados (contenida) y en curso (el resto)", () => {
+    const t = [
+      { origen_ip: "8.8.8.1", contencion: "contenida", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: { pais: "Estados Unidos", codigo: "US", lat: 37, lon: -122 } } },
+      { origen_ip: "8.8.8.2", contencion: "fallida",   relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: { pais: "Estados Unidos", codigo: "US", lat: 37, lon: -122 } } },
+      { origen_ip: "8.8.8.3", contencion: "sin_accion", relaciones: { "web-banking": ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: { pais: "Estados Unidos", codigo: "US", lat: 37, lon: -122 } } },
+    ] as unknown as Decision[]
+    const us = ubicacionesDe(t).find((x) => x.clave === "US")!
+    expect(us).toMatchObject({ n: 3, mitigados: 1, enCurso: 2 })   // total = mitigados + enCurso
+  })
 })
