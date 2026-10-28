@@ -5,7 +5,13 @@ Las **cifras canónicas de la evaluación** (clasificación, priorización, cont
 se mueven** entre versiones: todo lo posterior a v1.0 se diseñó para no alterarlas (ver el informe,
 capítulo de resultados, y `evaluacion/resultados/`).
 
-## [No publicado] — posterior a v1.3
+## [1.4] — 2026-10-28 · Operación estilo MDR comercial: incidentes, políticas, cronología y resumen ejecutivo
+
+Cuatro vistas que acercan el prototipo a cómo opera un MDR comercial, todas **aditivas** (no tocan el
+motor de decisión ni las cifras canónicas de la evaluación): trabajar **por incidente** (campaña /24)
+con su propio caso, un **playbook** de solo lectura por familia, la **línea de tiempo** del ataque
+(detección + respuesta) y un **resumen ejecutivo** por periodo para dirección. Cierra el desarrollo del
+visor por nuestra parte (cambios futuros, solo por consejo del tutor). v1.4 no re-basa v1.0/v1.1/v1.2/v1.3.
 
 ### Añadido (visor)
 - **Vista «Resumen ejecutivo» (para dirección)**: una página por **periodo** (reusa `getMetricas{desde,
