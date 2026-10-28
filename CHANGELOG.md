@@ -8,6 +8,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
 ## [No publicado] — posterior a v1.3
 
 ### Añadido (visor)
+- **Vista «Incidentes» (trabajar por incidente, no por alerta)**: cada incidente es una **campaña de
+  origen /24** (las IPs rotadas de un atacante = una sola historia; reutiliza `campanasDe`), con su
+  propio **caso** (estado/responsable/notas) a nivel incidente. Reutiliza la maquinaria de casos
+  existente (`/api/caso`, `PanelCaso`) con una **clave sintética URL-safe** `inc:<prefijo/24>` (p. ej.
+  `inc:203.0.113`), que el prefijo `inc:` separa de los casos por decisión; **cero backend**. Drill-down
+  «detalle de incidente» con KPIs, la **línea de tiempo** del incidente y el panel de caso. `PanelCaso`
+  se extrajo a su propio módulo para reutilizarlo. Helper `datos.claveIncidenteDe`.
 - **Línea de tiempo del incidente/atacante** (`LineaTiempo` + `datos.cronologiaDe`): la cronología de
   un ataque mezclando la **detección** (decisiones) con la **respuesta** (reversión de contención, hitos
   del ciclo de caso), ordenada por tiempo. Helper puro desde el feed; el helper `eventosDeEntidad`

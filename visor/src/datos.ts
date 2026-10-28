@@ -305,6 +305,14 @@ export function eventosDeEntidad(todos: Decision[], pertenece: (d: Decision) => 
   return [...decisiones, ...respuestas]
 }
 
+// Clave de incidente (= campaña /24) URL-safe para reutilizar la maquinaria de casos (/api/caso) a
+// nivel incidente: "inc:" + prefijo /24 SIN la barra (p. ej. "inc:203.0.113"). El prefijo `inc:` la
+// separa de los casos por decisión (sN/dN) al plegar `estadoDeCasos`. Mismo /24 que `campanasDe`.
+export function claveIncidenteDe(ip?: string | null): string {
+  const m = /^(\d+)\.(\d+)\.(\d+)\.\d+$/.exec(ip ?? "")
+  return "inc:" + (m ? `${m[1]}.${m[2]}.${m[3]}` : (ip ?? ""))
+}
+
 // Correlación de atacantes por dispositivo: los orígenes que ATACARON `equipo` (relación objetivo),
 // con cuántas veces, su alcance (del enriquecimiento) y en qué OTROS equipos pegó la misma IP
 // (correlación entre dispositivos, al estilo de los MDR comerciales). `todos` = el feed completo.
