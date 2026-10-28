@@ -897,7 +897,7 @@ class _Manejador(BaseHTTPRequestHandler):
                 return self._responder(lista_trazas(s.ruta_traza, n=50, perfil=s.perfil))
             if ruta == "/api/pendientes":
                 if getattr(s, "async_web", False):     # cola no bloqueante: lista ordenada por severidad
-                    return self._responder([_vista_pendiente(p) for p in s.estado.decisiones_pendientes()])
+                    return self._responder([_vista_pendiente(p, s.perfil) for p in s.estado.decisiones_pendientes()])
                 return self._responder(s.estado.pendientes())
             if ruta == "/api/trazas":
                 return self._responder(lista_trazas(s.ruta_traza, n=_limite(self.path), perfil=s.perfil))
@@ -1064,11 +1064,15 @@ class _Manejador(BaseHTTPRequestHandler):
 _INTERNO_PENDIENTE = ("decision", "alerta", "clave", "orden", "desde")   # no se serializan a la web
 
 
-def _vista_pendiente(p):
-    """La vista serializable de una decisión en cola (sin el contexto interno de resolución)."""
+def _vista_pendiente(p, perfil=None):
+    """La vista serializable de una decisión en cola (sin el contexto interno de resolución). Incluye
+    el enriquecimiento del origen (ubicación/alcance) para mostrarlo y filtrar por país en Aprobaciones."""
     alerta = p.get("alerta") or {}
+    origen_ip = alerta.get("origen_ip")
     return {**{k: v for k, v in p.items() if k not in _INTERNO_PENDIENTE},
-            "activo": alerta.get("activo"), "origen_ip": alerta.get("origen_ip")}
+            "activo": alerta.get("activo"), "origen_ip": origen_ip,
+            "enriquecimiento_origen": actores.enriquecer_origen(
+                origen_ip, perfil, (alerta.get("contexto") or {}).get("origen_legitimo")) if origen_ip else None}
 
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,

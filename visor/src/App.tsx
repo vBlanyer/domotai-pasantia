@@ -96,6 +96,7 @@ export default function App() {
   const [equipo, setEquipo] = useState<string | null>(null)
   const [textoDec, setTextoDec] = useState("")        // filtro de Decisiones sembrado al pivotar (p. ej. una IP)
   const [atacanteIp, setAtacanteIp] = useState<string | null>(null)   // perfil de atacante (drill-down)
+  const [paisAprob, setPaisAprob] = useState("")      // filtro de Aprobaciones por ubicación (desde Ubicaciones)
   const [incidente, setIncidente] = useState<Decision | null>(null)
   const [token, setToken] = useState(tokenActual())   // auth opcional de la consola (#6); vacío = abierta
   const [menu, setMenu] = useState(false)             // drawer de navegación en móvil (< md)
@@ -130,7 +131,7 @@ export default function App() {
           {NAV.map((n) => (
             <button
               key={n.id}
-              onClick={() => { setVista(n.id); setMenu(false) }}
+              onClick={() => { if (n.id === "aprobaciones") setPaisAprob(""); setVista(n.id); setMenu(false) }}
               className={`mb-1 flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors ${
                 vista === n.id ? "bg-white/10 font-medium text-white" : "text-slate-300 hover:bg-white/5 hover:text-white"
               }`}
@@ -202,14 +203,14 @@ export default function App() {
               )}
             </div>
           )}
-          {vista === "panel" && <Dashboard conectado={conectado} onVerAprobaciones={() => setVista("aprobaciones")} />}
+          {vista === "panel" && <Dashboard conectado={conectado} onVerAprobaciones={() => { setPaisAprob(""); setVista("aprobaciones") }} />}
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud />}
           {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }}
             onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }} />}
           {vista === "ubicaciones" && <Ubicaciones
             onVerPais={(pais) => { setEquipo(null); setTextoDec(pais); setVista("decisiones") }}
-            onVerAprobaciones={() => setVista("aprobaciones")} />}
+            onVerAprobaciones={(pais) => { setPaisAprob(pais); setVista("aprobaciones") }} />}
           {vista === "campanas" && <Campanas onVerOrigen={(p) => { setEquipo(null); setTextoDec(p); setVista("decisiones") }} />}
           {vista === "atacante" && atacanteIp && (
             <PerfilAtacante ip={atacanteIp} onVolver={() => setVista("red")}
@@ -219,7 +220,7 @@ export default function App() {
             <Decisiones equipo={equipo} textoInicial={textoDec} onQuitarEquipo={() => setEquipo(null)}
               onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }} />
           )}
-          {vista === "aprobaciones" && <Aprobaciones />}
+          {vista === "aprobaciones" && <Aprobaciones paisInicial={paisAprob} onQuitarPais={() => setPaisAprob("")} />}
           {vista === "consola" && <Consola />}
           {vista === "trazas" && <Trazas />}
           {vista === "contenciones" && <Contenciones />}

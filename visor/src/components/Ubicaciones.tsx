@@ -24,7 +24,7 @@ type Ubi = ReturnType<typeof ubicacionesDe>[number]
 // métrica activa, al pulsar una fila de país: «En curso» → Aprobaciones (la cola a atender), «Total»/
 // «Mitigados» → Decisiones del país.
 export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
-  onVerPais?: (pais: string) => void; onVerAprobaciones?: () => void
+  onVerPais?: (pais: string) => void; onVerAprobaciones?: (pais: string) => void
 } = {}) {
   const t = useSondeo(getTrazas)
   const [metrica, setMetrica] = useState<MetricaUbicacion>("enCurso")
@@ -44,7 +44,7 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
   // a dónde lleva pulsar una fila de país, según el filtro activo (solo clicable si existe su handler)
   const handlerActivo = metrica === "enCurso" ? onVerAprobaciones : onVerPais
   const esNavegable = (u: Ubi) => u.lat != null && !!handlerActivo
-  const irA = (u: Ubi) => { if (metrica === "enCurso") onVerAprobaciones?.(); else onVerPais?.(u.nombre) }
+  const irA = (u: Ubi) => { if (metrica === "enCurso") onVerAprobaciones?.(u.nombre); else onVerPais?.(u.nombre) }
   const destino = metrica === "enCurso" ? "Aprobaciones" : "Decisiones"
   return (
     <div className="space-y-3">
@@ -89,10 +89,11 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
                     onMouseLeave={() => setHover(null)}>
                     <title>{p.nombre}: {p.v} {activa.etiqueta.toLowerCase()} · {p.n} total, {p.mitigados} mitigados, {p.ips} IP(s)</title>
                   </circle>
-                  {/* la cantidad, ENCIMA del punto */}
-                  <text x={cx} y={cy} dy="0.35em" textAnchor="middle" className="fill-white font-semibold"
+                  {/* la cantidad, ENCIMA del punto. pointer-events-none + select-none: el ratón pasa
+                      al círculo (el hover no se interrumpe) y el número no se selecciona/copia como texto */}
+                  <text x={cx} y={cy} dy="0.35em" textAnchor="middle" className="pointer-events-none select-none fill-white font-semibold"
                     fontSize={Math.min(r * 1.1, 8)}>{p.v}</text>
-                  <text x={cx} y={cy - r - 1} textAnchor="middle" className="fill-muted-foreground" fontSize="6">{p.codigo ?? p.nombre}</text>
+                  <text x={cx} y={cy - r - 1} textAnchor="middle" className="pointer-events-none select-none fill-muted-foreground" fontSize="6">{p.codigo ?? p.nombre}</text>
                 </g>
               )
             })}

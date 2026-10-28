@@ -20,6 +20,17 @@ export const RecomendacionSchema = z.object({
   ruta: z.string().nullable().optional(), servicio: z.string().nullable().optional(),
   nota: z.string().nullable().optional(),
 }).passthrough()
+// Enriquecimiento de la IP de origen (backend: actores.enriquecer_origen): alcance interno/externo,
+// clasificación de la IP, tercero de confianza, legitimidad, geolocalización (offline) y ASN. Compartido
+// por las decisiones del feed y por los pendientes de la cola de aprobación.
+export const EnriquecimientoOrigenSchema = z.object({
+  alcance: z.string(), inventariado: z.boolean(), por: z.string().nullable().optional(),
+  clasificacion_ip: z.string(), tercero_confiable: z.boolean(), legitimo: z.boolean(),
+  geolocalizable: z.boolean(),
+  geo: z.object({ pais: z.string().nullable().optional(), ciudad: z.string().nullable().optional(),
+    codigo: z.string().nullable().optional(), lat: z.number().nullable().optional(), lon: z.number().nullable().optional() }).nullable().optional(),
+  asn: z.object({ asn: z.string(), org: z.string() }).nullable().optional(),
+})
 export const DecisionSchema = z.object({
   id_decision: z.string().nullable().optional(), timestamp: z.string().nullable().optional(),
   activo: z.string().nullable().optional(), clase: z.string().nullable().optional(),
@@ -46,17 +57,7 @@ export const DecisionSchema = z.object({
   nodo: z.string().nullable().optional(), error: z.string().nullable().optional(),
   // relaciones evento-equipo en la red y dispositivo de contención
   relaciones: z.record(z.string(), z.array(z.string())).nullable().optional(), contencion: z.string().nullable().optional(), dispositivo: z.string().nullable().optional(),
-  // enriquecimiento de la IP de origen (backend: actores.enriquecer_origen): alcance interno/externo,
-  // clasificación de la IP, tercero de confianza, legitimidad y geolocalización (offline; hoy null)
-  enriquecimiento_origen: z.object({
-    alcance: z.string(), inventariado: z.boolean(), por: z.string().nullable().optional(),
-    clasificacion_ip: z.string(), tercero_confiable: z.boolean(), legitimo: z.boolean(),
-    geolocalizable: z.boolean(),
-    geo: z.object({ pais: z.string().nullable().optional(), ciudad: z.string().nullable().optional(),
-      codigo: z.string().nullable().optional(), lat: z.number().nullable().optional(), lon: z.number().nullable().optional() }).nullable().optional(),
-    // ASN/organización (tabla offline en corpus/asn-muestra.json; solo IP pública en tabla)
-    asn: z.object({ asn: z.string(), org: z.string() }).nullable().optional(),
-  }).nullable().optional(),
+  enriquecimiento_origen: EnriquecimientoOrigenSchema.nullable().optional(),
   // ciclo de vida del caso (registro `actualizacion_caso`): estado/asignado/nota + quién y cuándo
   estado: z.string().nullable().optional(), asignado: z.string().nullable().optional(),
   nota: z.string().nullable().optional(), operador: z.string().nullable().optional(),
@@ -158,6 +159,8 @@ export const PendienteSchema = z.object({
   accion_final: z.string().nullable().optional(),
   // estado activo y origen de la amenaza
   activo: z.string().nullable().optional(), origen_ip: z.string().nullable().optional(),
+  // ubicación/alcance del origen (mismo enriquecimiento que el feed), para mostrarlo y filtrar por país
+  enriquecimiento_origen: EnriquecimientoOrigenSchema.nullable().optional(),
   // hora de encolado (ISO, del servidor): el SLA del analista en el visor («lleva esperando X»)
   encolado_en: z.string().nullable().optional(),
 })
