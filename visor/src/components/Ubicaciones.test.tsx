@@ -15,6 +15,7 @@ describe("Ubicaciones", () => {
     expect(screen.getAllByText(/Estados Unidos/).length).toBeGreaterThan(0)   // en el mapa y en la tabla
     expect(screen.getByText(/Laboratorio/)).toBeInTheDocument()
     expect(document.querySelector("svg circle")).toBeTruthy()      // un país en el mapa
+    expect(document.querySelectorAll("svg path").length).toBeGreaterThan(20)   // siluetas de tierra (mapamundi)
   })
 
   it("sin geolocalizables lo dice (solo lab/internos)", () => {
