@@ -127,6 +127,16 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   de la IP nunca se reutiliza, así la supresión y los bloqueos previos no ahogan la tanda.
 
 ### Añadido (visor)
+- **Ubicaciones de origen** (12ª vista) + **geolocalización OFFLINE**: `actores.geolocalizar` resuelve
+  el país de una IP pública con una **tabla de muestra** curada (`prototipo/corpus/geoip-muestra.json`,
+  sin dependencias ni egreso; sustituible por GeoLite2); las privadas/documentación/loopback no
+  geolocalizan. La vista agrupa los ataques recibidos por **país real / red interna / laboratorio /
+  pública sin geo** con un **mapa equirectangular ligero** (marcadores por país) y una tabla
+  (ubicación · ataques · IPs · gravedad). El país real sale también en el enriquecimiento de la IP
+  (OrigenBadges). Honesto: con datos de laboratorio (IPs de documentación) el mapa sale vacío y lo dice.
+- **Cobertura ATT&CK honesta**: la matriz muestra también, en gris y «fuera de alcance», las tácticas
+  de Enterprise que no cubrimos por diseño (Desarrollo de recursos, Recolección), con un titular
+  «12 de 14 tácticas» — para que la cobertura no parezca un hueco cuando es alcance deliberado.
 - **Mi cola** en Decisiones: un filtro «Solo mías» que deja solo las decisiones cuyo **caso está
   asignado al operador actual** (reutiliza `estadoDeCasos` + `operadorActual`; deshabilitado si no hay
   operador puesto). Sin backend nuevo.
