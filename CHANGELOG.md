@@ -5,10 +5,14 @@ Las **cifras canónicas de la evaluación** (clasificación, priorización, cont
 se mueven** entre versiones: todo lo posterior a v1.0 se diseñó para no alterarlas (ver el informe,
 capítulo de resultados, y `evaluacion/resultados/`).
 
-## [No publicado] — sobre v1.1 (2026-10-14 → 2026-10-20)
+## [1.2] — 2026-10-28 · Cobertura de familias, consola MDR y expansión del visor
 
-Extensiones de cobertura y de consola posteriores a v1.1, en `main` pero **sin etiquetar**. No
-tocan el motor de decisión evaluado, así que el canónico sigue intacto.
+Posterior a v1.1 (2026-10-14 → 2026-10-28): cobertura de **las 10 familias**, **consola MDR**
+(aviso + ciclo de caso + feed vivo con caja negra narrada), gran **expansión del visor** (12 vistas:
+geolocalización/Ubicaciones, campañas, perfil de atacante, watchlist, SLA, riesgo, ATT&CK honesta),
+enriquecimiento del origen (**ASN offline + rDNS opt-in**), la **demo de geolocalización** sin
+contenedores y el cierre del **fail-open de `MATAR_CONEXION`**. No toca el motor de decisión evaluado,
+así que las cifras canónicas siguen intactas (v1.2 no re-basa v1.0/v1.1).
 
 ### Añadido
 - **Familias 6 a 10** (de 5 a **10**), cada una con su patrón de respuesta del catálogo cerrado:
