@@ -5,7 +5,13 @@ Las **cifras canónicas de la evaluación** (clasificación, priorización, cont
 se mueven** entre versiones: todo lo posterior a v1.0 se diseñó para no alterarlas (ver el informe,
 capítulo de resultados, y `evaluacion/resultados/`).
 
-## [No publicado] — posterior a v1.2
+## [1.3] — 2026-10-28 · Geolocalización de orígenes, demo observable y endurecimiento
+
+Posterior a v1.2: **geolocalización de los orígenes** (mapamundi en «Ubicaciones», métricas en curso/
+total/mitigados con conteo sobre los puntos y filtro, hover, y ubicación + filtro por ubicación en
+«Aprobaciones»), una **demo de geolocalización observable** sin contenedores, el **cierre de un
+fail-open** en la verificación de `MATAR_CONEXION` y el informe al día. No toca el motor de decisión
+evaluado, así que las cifras canónicas siguen intactas (v1.3 no re-basa v1.0/v1.1/v1.2).
 
 ### Documentación
 - **Informe (LaTeX) al día con el estado posterior a v1.2**, sin tocar las cifras canónicas ni el
