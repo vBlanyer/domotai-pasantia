@@ -1,4 +1,5 @@
-import { useSondeo, getTrazas, getWatchlist, type Decision, type WatchEntrada } from "@/api"
+import { useState } from "react"
+import { useSondeo, getTrazas, getWatchlist, getRdns, type Decision, type WatchEntrada } from "@/api"
 import { Prioridad, RiesgoBadge, Cargando, SinConexion } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -28,6 +29,14 @@ export function PerfilAtacante({ ip, onVolver, onVerDecisiones }: {
 }) {
   const t = useSondeo(getTrazas)
   const wl = useSondeo(getWatchlist)
+  // rDNS bajo demanda: null = no pedido; "cargando"; string = PTR; false = pedido pero sin resultado
+  // (rDNS apagado en el backend o sin PTR). Nunca se pide en el sondeo — solo con el botón.
+  const [rdns, setRdns] = useState<null | "cargando" | string | false>(null)
+  async function pedirRdns() {
+    setRdns("cargando")
+    const r = await getRdns(ip)
+    setRdns(r && !("error" in r) && r.rdns ? r.rdns : false)
+  }
   if (!t) return <Cargando />
   const fallo = "error" in t ? t : null
   if (fallo && !fallo.datos) return <SinConexion causa={fallo.causa} />
@@ -51,6 +60,18 @@ export function PerfilAtacante({ ip, onVolver, onVerDecisiones }: {
         <Kpi etiqueta="Gravedad"><Prioridad n={p.prioridad || null} /></Kpi>
         <Kpi etiqueta="Ventana">{hora(p.primera)} → {hora(p.ultima)}</Kpi>
       </div>
+      {p.enriquecimiento?.clasificacion_ip === "publica" && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground">DNS inverso:</span>
+          {rdns === null
+            ? <Button size="sm" variant="secondary" className="h-6 px-2 text-xs" onClick={pedirRdns}>Resolver (opt-in)</Button>
+            : rdns === "cargando"
+              ? <span className="text-muted-foreground">resolviendo…</span>
+              : rdns === false
+                ? <span className="text-muted-foreground">sin resolución (rDNS desactivado o sin PTR)</span>
+                : <span className="font-mono">{rdns}</span>}
+        </div>
+      )}
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="border-b border-border px-4 py-2 text-sm font-medium">Equipos atacados</div>

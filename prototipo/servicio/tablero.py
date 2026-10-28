@@ -910,6 +910,12 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/api/watchlist":  # watchlist/IoC local (anotación del analista; no toca el motor)
                 from prototipo.servicio import watchlist
                 return self._responder(watchlist.cargar(s.watchlist_ruta) if s.watchlist_ruta else [])
+            if ruta == "/api/rdns":       # DNS inverso (opt-in TRIAJE_RDNS; apagado por defecto = sin egreso)
+                from prototipo.motor import actores
+                ip = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("ip", [""])[0]
+                if not actores._canon(ip):
+                    return self._responder({"error": "ip no válida"}, 400)
+                return self._responder({"ip": ip, "rdns": actores.rdns(ip)})
             if ruta.startswith("/api/caso/"):
                 # Ciclo de caso plegado sobre el fichero COMPLETO (como /api/metricas): el caso no
                 # «rejuvenece» cuando sus actualizaciones salen de la ventana de /api/trazas.

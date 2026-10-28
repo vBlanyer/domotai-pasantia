@@ -134,6 +134,14 @@ tocan el motor de decisión evaluado, así que el canónico sigue intacto.
   pública sin geo** con un **mapa equirectangular ligero** (marcadores por país) y una tabla
   (ubicación · ataques · IPs · gravedad). El país real sale también en el enriquecimiento de la IP
   (OrigenBadges). Honesto: con datos de laboratorio (IPs de documentación) el mapa sale vacío y lo dice.
+- **ASN/organización OFFLINE + rDNS OPT-IN** del origen: `actores.asn_de` resuelve el ASN y la
+  organización de una IP pública con una **tabla de muestra** curada (`prototipo/corpus/asn-muestra.json`,
+  alineada con la de GeoIP; sin dependencias ni egreso) y el enriquecimiento la expone como un badge
+  más (`OrigenBadges`). El **DNS inverso** (`actores.rdns`, `GET /api/rdns?ip=`) está **apagado por
+  defecto**: solo consulta si `TRIAJE_RDNS` está activo —una consulta DNS es egreso, contra RNF-01— y
+  solo para IPs públicas; se pide **bajo demanda** desde el perfil del atacante (nunca en el sondeo),
+  cachea solo los positivos (un fallo transitorio no condena a la IP) y restaura el timeout global del
+  socket. Con el opt-in apagado el perfil muestra «sin resolución (rDNS desactivado o sin PTR)».
 - **Cobertura ATT&CK honesta**: la matriz muestra también, en gris y «fuera de alcance», las tácticas
   de Enterprise que no cubrimos por diseño (Desarrollo de recursos, Recolección), con un titular
   «12 de 14 tácticas» — para que la cobertura no parezca un hueco cuando es alcance deliberado.

@@ -27,6 +27,9 @@ export function OrigenBadges({ e }: { e?: Enr | null }) {
       {e.inventariado && <span className="rounded bg-muted px-1.5 py-0.5">inventariado</span>}
       {e.tercero_confiable && <span className="rounded bg-sky-500/15 px-1.5 py-0.5">tercero de confianza</span>}
       {e.legitimo && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5">origen legítimo</span>}
+      {e.asn && (
+        <span className="rounded bg-violet-500/15 px-1.5 py-0.5" title={e.asn.asn}>{e.asn.org}</span>
+      )}
       <span className="text-muted-foreground">· {geo}</span>
     </span>
   )

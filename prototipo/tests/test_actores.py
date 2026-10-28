@@ -178,3 +178,66 @@ class TestGeolocalizar(unittest.TestCase):
 
     def test_ip_publica_fuera_de_la_tabla_es_none(self):
         self.assertIsNone(actores.geolocalizar("193.0.14.129"))    # pública pero no en la muestra
+
+
+class TestAsnYRdns(unittest.TestCase):
+    """ASN offline (tabla de muestra, sin egreso) y rDNS OPT-IN (apagado por defecto: sin egreso)."""
+    def test_asn_de_ip_publica_en_la_tabla(self):
+        a = actores.asn_de("8.8.8.8")
+        self.assertEqual(a["asn"], "AS15169")
+        self.assertIn("Google", a["org"])
+
+    def test_asn_no_aplica_a_interna_ni_documentacion(self):
+        self.assertIsNone(actores.asn_de("10.0.0.5"))
+        self.assertIsNone(actores.asn_de("198.51.100.10"))
+
+    def test_enriquecer_incluye_asn(self):
+        e = actores.enriquecer_origen("8.8.8.8", {})
+        self.assertEqual((e["asn"] or {}).get("asn"), "AS15169")
+
+    def test_rdns_apagado_por_defecto_no_resuelve(self):
+        from unittest import mock
+        with mock.patch.dict("os.environ", {}, clear=False):
+            os_environ = __import__("os").environ
+            os_environ.pop("TRIAJE_RDNS", None)
+            # aunque pasemos un resolutor, sin el opt-in NO se consulta (sin egreso por defecto)
+            self.assertIsNone(actores.rdns("8.8.8.8", resolutor=lambda ip: ("malo.example", [], [])))
+
+    def test_rdns_optin_resuelve_solo_ip_publica(self):
+        import os
+        os.environ["TRIAJE_RDNS"] = "1"
+        try:
+            self.assertEqual(actores.rdns("8.8.8.8", resolutor=lambda ip: ("dns.google", [], [])), "dns.google")
+            self.assertIsNone(actores.rdns("10.0.0.5", resolutor=lambda ip: ("x", [], [])))   # interna: no
+        finally:
+            del os.environ["TRIAJE_RDNS"]
+
+    def test_rdns_no_cachea_fallos_transitorios(self):
+        import os
+        actores._RDNS_CACHE.pop("1.1.1.1", None)
+        os.environ["TRIAJE_RDNS"] = "1"
+        def rompe(ip):
+            raise OSError("fallo transitorio de DNS")
+        try:
+            self.assertIsNone(actores.rdns("1.1.1.1", resolutor=rompe))   # falla -> None
+            self.assertNotIn("1.1.1.1", actores._RDNS_CACHE)              # pero NO se cachea el None
+            # tras recuperarse el DNS, el siguiente intento sí resuelve (no quedó condenada)
+            self.assertEqual(actores.rdns("1.1.1.1", resolutor=lambda ip: ("one.one.one.one", [], [])), "one.one.one.one")
+        finally:
+            del os.environ["TRIAJE_RDNS"]
+            actores._RDNS_CACHE.pop("1.1.1.1", None)
+
+    def test_rdns_restaura_el_timeout_global_del_socket(self):
+        import os, socket
+        from unittest import mock
+        actores._RDNS_CACHE.pop("9.9.9.9", None)
+        previo = socket.getdefaulttimeout()
+        os.environ["TRIAJE_RDNS"] = "1"
+        try:
+            # ruta por defecto (resolutor None): fija el timeout del socket y debe restaurarlo
+            with mock.patch("socket.gethostbyaddr", side_effect=OSError("sin PTR")):
+                self.assertIsNone(actores.rdns("9.9.9.9"))
+            self.assertEqual(socket.getdefaulttimeout(), previo)         # no deja tocado el proceso
+        finally:
+            del os.environ["TRIAJE_RDNS"]
+            socket.setdefaulttimeout(previo)

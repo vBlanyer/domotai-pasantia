@@ -102,6 +102,11 @@ salud (para un monitor).
   ```
 - **Reconstruir el visor** tras cambiar su código: `cd visor && npm run build` (genera `visor/dist`, que
   sirve el daemon).
+- **Enriquecimiento del origen (offline por defecto):** país (geo), ASN y organización de la IP atacante
+  salen de tablas de muestra en `prototipo/corpus/` (`geoip-muestra.json`, `asn-muestra.json`) — **sin
+  egreso**. El **DNS inverso** del perfil del atacante está **apagado**: se activa con
+  `TRIAJE_RDNS=1` al arrancar el daemon (una consulta DNS es egreso; solo IP pública, bajo demanda).
+  Sin esa variable el botón «Resolver» del perfil responde «sin resolución».
 
 **Aprobaciones es una cola no bloqueante:** cuando una decisión necesita humano, se **encola** y el
 daemon **sigue procesando** (no se estanca esperándote). El panel muestra la **lista** de pendientes
