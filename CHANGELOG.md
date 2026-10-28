@@ -13,9 +13,10 @@ capítulo de resultados, y `evaluacion/resultados/`).
   cifrado para la traza, EC2 **GPU opcional** para el LLM (`llm_habilitado`, apagado por defecto por
   coste), rol IAM mínimo (SSM + lectura de secretos) y acceso del analista por **túnel SSM** (sin puerto
   público). Distingue **runtime sin egreso** (RNF-01) del **bootstrap** (egreso temporal opcional,
-  `egreso_bootstrap`, o AMI horneada / artefactos en S3). **Pendiente de `tofu validate`** (el entorno
-  no dejó instalar OpenTofu). No toca el motor ni el canónico. Doc: el diseño `despliegue-aws-opentofu.md`
-  y el **briefing para el tutor industrial** `briefing-reunion-despliegue-aws.md`.
+  `egreso_bootstrap`, o AMI horneada / artefactos en S3). **Validada** con `tofu validate` (OpenTofu
+  1.13.2, proveedor AWS 5.100.0) — fase 1 completa; falta el `apply` real (decisión del tutor
+  industrial). No toca el motor ni el canónico. Doc: el diseño `despliegue-aws-opentofu.md` y el
+  **briefing para el tutor industrial** `briefing-reunion-despliegue-aws.md`.
 
 ## [1.4] — 2026-10-28 · Operación estilo MDR comercial: incidentes, políticas, cronología y resumen ejecutivo
 

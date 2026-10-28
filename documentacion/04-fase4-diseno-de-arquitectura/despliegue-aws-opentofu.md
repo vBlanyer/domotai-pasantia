@@ -1,9 +1,8 @@
 # Despliegue en AWS con OpenTofu — diseño de arquitectura
 
-> **Estado:** diseño + diagrama **y la IaC escrita (fase 1)** en [`infra/aws/`](../../infra/aws/)
-> (OpenTofu), **pendiente de `tofu validate`** (el entorno de desarrollo no dejó instalar OpenTofu; ver
-> el README de esa carpeta). Falta decidir con el tutor industrial el *apply* en una cuenta real
-> (alcance/coste; la GPU del LLM es el grueso). Ver también el
+> **Estado:** diseño + diagrama **y la IaC validada (fase 1 ✓)** en [`infra/aws/`](../../infra/aws/)
+> (OpenTofu): `tofu validate` → *Success* (OpenTofu 1.13.2, proveedor AWS 5.100.0). Falta decidir con el
+> tutor industrial el *apply* en una cuenta real (alcance/coste; la GPU del LLM es el grueso). Ver también el
 > [briefing de la reunión](briefing-reunion-despliegue-aws.md) y [trabajo aplazado](../00-general/v2-trabajo-aplazado.md).
 >
 > **Alcance elegido:** MDR (daemon) + visor **+ el LLM** justificador. **Herramienta:** OpenTofu

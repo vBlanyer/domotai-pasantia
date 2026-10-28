@@ -6,10 +6,10 @@ AWS. Implementa el plano de
 Briefing para la reunión con el tutor industrial:
 [briefing-reunion-despliegue-aws.md](../../documentacion/04-fase4-diseno-de-arquitectura/briefing-reunion-despliegue-aws.md).
 
-> **Estado:** IaC escrita (fase 1). **Pendiente de `tofu validate`**: el entorno de desarrollo no dejó
-> instalar OpenTofu, así que la validación no se ha ejecutado aún. Ejecútala con los pasos de abajo.
-> **No hacer `apply` en una cuenta real** sin acordar alcance/coste con el tutor industrial (la GPU del
-> LLM es el grueso del coste; por eso `llm_habilitado = false` por defecto).
+> **Estado:** IaC **validada** (fase 1 ✓) — `tofu init` + `tofu validate` → *Success! The configuration
+> is valid* (OpenTofu 1.13.2, proveedor AWS 5.100.0, 2026-10-28). Falta decidir el `apply` real con el
+> tutor industrial. **No hacer `apply` en una cuenta real** sin acordar alcance/coste (la GPU del LLM es
+> el grueso del coste; por eso `llm_habilitado = false` por defecto).
 
 ## Qué crea
 - VPC con **subred privada** (sin IP pública), SG mínimos y **endpoints VPC** (SSM + S3): nada expuesto
