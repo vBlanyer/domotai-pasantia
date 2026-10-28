@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from "react"
 import { TriangleAlert, Clock } from "lucide-react"
 import { useSondeo, getPendientes, aprobar, parsearPendiente, operadorActual, fijarOperador, ahoraServidor, type Pendiente, type Opcion } from "@/api"
 import { edadTexto, envejecido, msDesde } from "@/alertas"
-import { etiquetaClase } from "@/datos"
+import { etiquetaClase, ubicacionLabelDe } from "@/datos"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -65,12 +65,14 @@ function useAhora(ms = 1000): number {
   return ahora
 }
 
-function Tarjeta({ p, edadMs = 0, seleccionada, onSeleccion }: {
+function Tarjeta({ p, edadMs = 0, seleccionada, onSeleccion, onUbicacion }: {
   p: Pendiente; edadMs?: number; seleccionada?: boolean; onSeleccion?: (checked: boolean) => void
+  onUbicacion?: (u: string) => void
 }) {
   const v = parsearPendiente(p)
   const escalada = p.tipo === "escalada"
   const viejo = envejecido(edadMs)
+  const ubic = p.enriquecimiento_origen ? ubicacionLabelDe(p) : null
   // Vetada sin sustituta (accion_final null; ausente = daemon antiguo): aprobar no ejecuta nada, así
   // que ni se confirma una cascada que no ocurrirá ni se anuncia una contención.
   const sinAccion = !escalada && p.accion_final === null
@@ -142,6 +144,10 @@ function Tarjeta({ p, edadMs = 0, seleccionada, onSeleccion }: {
             {p.origen_ip && <span className="font-mono text-muted-foreground">{p.origen_ip}</span>}
             {p.activo && <span className="text-muted-foreground">→ {p.activo}</span>}
             <OrigenBadges e={p.enriquecimiento_origen} />
+            {ubic && onUbicacion && (
+              <button onClick={() => onUbicacion(ubic)} title={`Filtrar la cola por ${ubic}`}
+                className="rounded bg-muted px-1.5 py-0.5 hover:underline">📍 {ubic} · filtrar</button>
+            )}
           </div>
         )}
         {v.info.length > 0 && (
@@ -224,8 +230,11 @@ export function Aprobaciones({ paisInicial = "", onQuitarPais }: {
   // Con la conexión perdida pero datos previos, la cola se sigue mostrando (congelada) con aviso:
   // vaciarla en un parpadeo de red haría «desaparecer» decisiones que siguen esperando (C2).
   const todas = !p ? null : "error" in p ? (p.datos ?? null) : p
-  // filtro por país del enriquecimiento geo (al pivotar desde el mapa de Ubicaciones)
-  const lista = todas && pais ? todas.filter((x) => x.enriquecimiento_origen?.geo?.pais === pais) : todas
+  // filtro por ubicación (país real o cubo lab/interna…): el propio de la vista y el sembrado al pivotar
+  // desde el mapa de Ubicaciones usan la MISMA etiqueta (ubicacionLabelDe).
+  const lista = todas && pais ? todas.filter((x) => ubicacionLabelDe(x) === pais) : todas
+  // ubicaciones presentes en la cola, para el selector (incluye la filtrada aunque ya no haya tarjetas)
+  const ubicaciones = [...new Set([...(todas ?? []).map(ubicacionLabelDe), ...(pais ? [pais] : [])])].sort()
   const fallo = p && "error" in p ? p : null
   const quitarPais = () => { setPais(""); onQuitarPais?.() }
   const elegidas = (lista ?? []).filter((x) => sel.has(x.id))
@@ -252,15 +261,21 @@ export function Aprobaciones({ paisInicial = "", onQuitarPais }: {
     // la clave incluye el paso: un menú nuevo (submenú de clases) monta la tarjeta con estado limpio
     : <div className="space-y-4">{lista.map((x) => (
         <Tarjeta key={`${x.id}:${x.paso ?? 0}`} p={x} edadMs={msDesde(x.encolado_en, ahora)}
-          seleccionada={sel.has(x.id)} onSeleccion={(c) => alternar(x.id, c)} />
+          seleccionada={sel.has(x.id)} onSeleccion={(c) => alternar(x.id, c)} onUbicacion={setPais} />
       ))}</div>
   return (
     <div className="space-y-4">
       <BarraOperador />
-      {pais && (
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
-          <span>Filtrando por ubicación: <b>{pais}</b></span>
-          <button onClick={quitarPais} className="ml-auto text-xs text-muted-foreground hover:underline">quitar filtro ✕</button>
+      {(ubicaciones.length > 1 || pais) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+          <label htmlFor="filtro-ubic" className="text-muted-foreground">Ubicación:</label>
+          <select id="filtro-ubic" value={pais} aria-label="Filtrar por ubicación"
+            onChange={(e) => { const v = e.target.value; setPais(v); if (!v) onQuitarPais?.() }}
+            className="rounded border border-border bg-background px-2 py-1 text-sm">
+            <option value="">Todas las ubicaciones</option>
+            {ubicaciones.map((u) => <option key={u} value={u}>{u}</option>)}
+          </select>
+          {pais && <button onClick={quitarPais} className="text-xs text-muted-foreground hover:underline">quitar ✕</button>}
         </div>
       )}
       {elegidas.length > 0 && (

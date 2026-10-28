@@ -169,33 +169,57 @@ const ENR_US = { alcance: "externo", inventariado: false, clasificacion_ip: "pub
   geo: { pais: "Estados Unidos", codigo: "US", lat: 37, lon: -122 } }
 const ENR_RU = { ...ENR_US, geo: { pais: "Rusia", codigo: "RU", lat: 55, lon: 37 } }
 
-describe("Aprobaciones — ubicación y filtro por país", () => {
+describe("Aprobaciones — ubicación y filtro por ubicación", () => {
   beforeEach(() => { h.aprobar.mockReset() })
 
   it("muestra la ubicación del origen en la tarjeta", () => {
     h.pendientes = [tarjeta({ id: "7", origen_ip: "8.8.8.8", activo: "web-banking", enriquecimiento_origen: ENR_US })]
     render(<Toaster><Aprobaciones /></Toaster>)
     expect(screen.getByText("8.8.8.8")).toBeInTheDocument()
-    expect(screen.getByText(/Estados Unidos/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Estados Unidos/).length).toBeGreaterThan(0)
     expect(screen.getByText("externo")).toBeInTheDocument()
   })
 
-  it("con paisInicial solo deja las de ese país y muestra el chip de filtro", () => {
+  it("tiene un filtro PROPIO: al elegir una ubicación deja solo esas", () => {
+    h.pendientes = [
+      tarjeta({ id: "7", origen_ip: "8.8.8.8", enriquecimiento_origen: ENR_US }),
+      tarjeta({ id: "8", origen_ip: "5.45.0.1", enriquecimiento_origen: ENR_RU }),
+    ]
+    render(<Toaster><Aprobaciones /></Toaster>)
+    expect(screen.getByText("8.8.8.8")).toBeInTheDocument()
+    expect(screen.getByText("5.45.0.1")).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Filtrar por ubicación"), { target: { value: "Rusia" } })
+    expect(screen.getByText("5.45.0.1")).toBeInTheDocument()
+    expect(screen.queryByText("8.8.8.8")).not.toBeInTheDocument()
+  })
+
+  it("la ubicación de la tarjeta enlaza al filtro (clic → filtra por esa ubicación)", () => {
+    h.pendientes = [
+      tarjeta({ id: "7", origen_ip: "8.8.8.8", enriquecimiento_origen: ENR_US }),
+      tarjeta({ id: "8", origen_ip: "5.45.0.1", enriquecimiento_origen: ENR_RU }),
+    ]
+    render(<Toaster><Aprobaciones /></Toaster>)
+    fireEvent.click(screen.getByText(/📍 Rusia · filtrar/))
+    expect(screen.getByText("5.45.0.1")).toBeInTheDocument()
+    expect(screen.queryByText("8.8.8.8")).not.toBeInTheDocument()
+  })
+
+  it("con paisInicial solo deja las de esa ubicación; el selector refleja el valor", () => {
     h.pendientes = [
       tarjeta({ id: "7", origen_ip: "8.8.8.8", enriquecimiento_origen: ENR_US }),
       tarjeta({ id: "8", origen_ip: "5.45.0.1", enriquecimiento_origen: ENR_RU }),
     ]
     render(<Toaster><Aprobaciones paisInicial="Estados Unidos" /></Toaster>)
-    expect(screen.getByText(/Filtrando por ubicación:/)).toBeInTheDocument()
+    expect((screen.getByLabelText("Filtrar por ubicación") as HTMLSelectElement).value).toBe("Estados Unidos")
     expect(screen.getByText("8.8.8.8")).toBeInTheDocument()
-    expect(screen.queryByText("5.45.0.1")).not.toBeInTheDocument()   // Rusia queda fuera
+    expect(screen.queryByText("5.45.0.1")).not.toBeInTheDocument()
   })
 
   it("quitar el filtro llama onQuitarPais", () => {
     const onQuitarPais = vi.fn()
     h.pendientes = [tarjeta({ id: "7", origen_ip: "8.8.8.8", enriquecimiento_origen: ENR_US })]
     render(<Toaster><Aprobaciones paisInicial="Estados Unidos" onQuitarPais={onQuitarPais} /></Toaster>)
-    fireEvent.click(screen.getByText(/quitar filtro/))
+    fireEvent.click(screen.getByText(/quitar/))
     expect(onQuitarPais).toHaveBeenCalled()
   })
 })
