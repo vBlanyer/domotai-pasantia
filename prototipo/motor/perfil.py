@@ -83,7 +83,48 @@ def validar(perfil):
     nr = (perfil.get("continuidad") or {}).get("revisar_no_soportada_nivel")
     if nr is not None and not (isinstance(nr, int) and not isinstance(nr, bool) and nr > 0):
         avisos.append(f"continuidad.revisar_no_soportada_nivel debe ser un entero positivo: {nr!r}")
+    avisos.extend(_avisos_posturas(perfil, activos))
     return avisos
+
+_POSTURAS = ("automatica_si_confianza", "humano_siempre")
+_DIMENSIONES_POLITICA = ("automatizacion_por_familia", "politicas_por_zona", "overrides_por_activo")
+
+def _avisos_posturas(perfil, activos):
+    """Avisos sobre las tres dimensiones de política: postura válida y clave (zona/activo) conocida."""
+    avisos = []
+    zonas = (perfil.get("red") or {}).get("zonas")
+    for dim in _DIMENSIONES_POLITICA:
+        mapa = perfil.get(dim)
+        if mapa is None:
+            continue
+        if not isinstance(mapa, dict):
+            avisos.append(f"{dim}: se esperaba un mapa clave->politica")
+            continue
+        for clave, pol in mapa.items():
+            post = pol.get("automatizacion") if isinstance(pol, dict) else None
+            if post not in _POSTURAS:
+                avisos.append(f"{dim}.{clave}: automatizacion no reconocida ({post!r})")
+            if dim == "politicas_por_zona" and isinstance(zonas, dict) and clave not in zonas:
+                avisos.append(f"{dim}: zona desconocida ({clave})")
+            if dim == "overrides_por_activo" and activos and clave not in activos:
+                avisos.append(f"{dim}: activo desconocido ({clave})")
+    return avisos
+
+def fusionar_politicas(perfil, overlay):
+    """Perfil NUEVO con el overlay aplicado por clave a las tres dimensiones de política
+    (un valor None quita la clave). No muta `perfil`."""
+    out = dict(perfil or {})
+    for dim in _DIMENSIONES_POLITICA:
+        if dim not in (overlay or {}):
+            continue
+        merged = dict(out.get(dim) or {})
+        for clave, pol in overlay[dim].items():
+            if pol is None:
+                merged.pop(clave, None)
+            else:
+                merged[clave] = pol
+        out[dim] = merged
+    return out
 
 def criticidad_de(perfil, activo):
     return perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")

@@ -72,3 +72,28 @@ class TestTriajePasaFamilia(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestFusionYValidacion(unittest.TestCase):
+    def test_fusionar_no_muta_y_aplica_overlay(self):
+        base = {"ip_gestion": "10.0.0.1"}
+        out = perfil.fusionar_politicas(base, {"politicas_por_zona": {"Core": {"automatizacion": "humano_siempre"}}})
+        self.assertEqual(out["politicas_por_zona"]["Core"]["automatizacion"], "humano_siempre")
+        self.assertNotIn("politicas_por_zona", base)
+
+    def test_fusionar_none_quita_clave(self):
+        base = {"politicas_por_zona": {"Core": {"automatizacion": "humano_siempre"}, "DMZ": {"automatizacion": "humano_siempre"}}}
+        out = perfil.fusionar_politicas(base, {"politicas_por_zona": {"Core": None}})
+        self.assertNotIn("Core", out["politicas_por_zona"])
+        self.assertIn("Core", base["politicas_por_zona"])
+
+    def test_validar_avisa_postura_invalida(self):
+        p = {**BASE, "automatizacion_por_familia": {"reconocimiento": {"automatizacion": "siempre_si"}}}
+        self.assertTrue(any("automatizacion" in a for a in perfil.validar(p)))
+
+    def test_validar_avisa_zona_o_activo_desconocido(self):
+        p = {**BASE, "politicas_por_zona": {"NoExiste": {"automatizacion": "humano_siempre"}},
+             "overrides_por_activo": {"fantasma": {"automatizacion": "humano_siempre"}}}
+        av = perfil.validar(p)
+        self.assertTrue(any("NoExiste" in a for a in av))
+        self.assertTrue(any("fantasma" in a for a in av))
