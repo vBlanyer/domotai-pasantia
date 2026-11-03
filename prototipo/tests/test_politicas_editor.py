@@ -83,6 +83,11 @@ class TestFusionYValidacion(unittest.TestCase):
         self.assertNotIn("Core", out["politicas_por_zona"])
         self.assertIn("Core", base["politicas_por_zona"])
 
+    def test_fusionar_dimension_nula_no_revienta(self):
+        base = {"politicas_por_zona": {"Core": {"automatizacion": "humano_siempre"}}}
+        out = perfil.fusionar_politicas(base, {"politicas_por_zona": None})
+        self.assertEqual(out["politicas_por_zona"], base["politicas_por_zona"])
+
     def test_validar_avisa_postura_invalida(self):
         p = {**BASE, "automatizacion_por_familia": {"reconocimiento": {"automatizacion": "siempre_si"}}}
         self.assertTrue(any("automatizacion" in a for a in perfil.validar(p)))

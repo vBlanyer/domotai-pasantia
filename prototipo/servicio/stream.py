@@ -1085,10 +1085,10 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
             operadores = {}      # un JSON válido pero de otra forma ([..]/42) tampoco debe colarse
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
-                                      catalogo=catalogo, latido=Latido(),
+                                      catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)
                                       # overlay operativo de políticas (editor del visor); perfil= es el canónico
                                       ruta_overlay=os.path.join(os.path.dirname(cfg["salida"]) or ".", "politica-operativa.yml"),
-                                      ruta_auditoria=os.path.join(os.path.dirname(cfg["salida"]) or ".", "politica-auditoria.jsonl"),   # salud del daemon (/healthz, #5)
+                                      ruta_auditoria=os.path.join(os.path.dirname(cfg["salida"]) or ".", "politica-auditoria.jsonl"),
                                       ejecutor=ejecutor,                     # des-bloqueo en masa (#8)
                                       token=token, operadores=operadores,    # auth de la consola (#6/#8)
                                       # watchlist/IoC local junto a la salida (anotación del analista)

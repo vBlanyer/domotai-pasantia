@@ -63,6 +63,25 @@ describe("Politicas", () => {
       { dimension: "activo", clave: "srv-web", automatizacion: null }))
   })
 
+  it("zona protegida: sus dispositivos no ofrecen override", () => {
+    h.pol = { familias: F, zonas: [{ ...Z[1], dispositivos: [
+      { activo: "jump-1", criticidad: "alta", override: null, postura_efectiva: "humano_siempre", cascada: [], radio: 0, cascada_posiblemente_incompleta: false }] }] }
+    render(<Politicas />)
+    fireEvent.click(screen.getByRole("tab", { name: /Por zona y dispositivo/ }))
+    expect(screen.getByText("jump-1")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /jump-1 (HEREDA|AUTO|HUMANO)/ })).toBeNull()
+  })
+
+  it("el valor optimista se poda al confirmarlo el servidor y no tapa cambios posteriores", async () => {
+    const { rerender } = render(<Politicas />)
+    fireEvent.click(screen.getByRole("button", { name: "acceso_credenciales HUMANO" }))
+    await waitFor(() => expect(h.act).toHaveBeenCalled())
+    const con = (a: string) => ({ familias: [{ ...F[0], automatizacion: a, automatizacion_efectiva: a }, F[1], F[2]], zonas: Z })
+    h.pol = con("humano_siempre"); rerender(<Politicas />)
+    h.pol = con("automatica_si_confianza"); rerender(<Politicas />)
+    await waitFor(() => expect(screen.getByRole("button", { name: "acceso_credenciales AUTO" }).getAttribute("aria-pressed")).toBe("true"))
+  })
+
   it("detalle de la familia seleccionada", () => {
     render(<Politicas />)
     fireEvent.click(screen.getByRole("button", { name: "Detalle malware" }))

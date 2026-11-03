@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   useSondeo, getPolitica, actualizarPolitica,
   type PoliticaEstado, type PoliticaFamilia, type ZonaPolitica, type DispositivoPolitica, type CambioPolitica,
@@ -82,6 +82,25 @@ export function Politicas() {
   // Valor elegido localmente hasta que el sondeo lo confirme (clave dimension:clave).
   const [local, setLocal] = useState<Record<string, Valor>>({})
 
+  // Poda el valor optimista cuando el sondeo ya lo confirma (el servidor vuelve a mandar).
+  useEffect(() => {
+    if (!t || "error" in t) return
+    const e = t as PoliticaEstado
+    const base: Record<string, Valor> = {}
+    for (const f of e.familias) base[`familia:${f.familia}`] = aValor(f.automatizacion_efectiva ?? f.automatizacion)
+    for (const z of e.zonas) {
+      base[`zona:${z.zona}`] = aValor(z.automatizacion)
+      for (const d of z.dispositivos) base[`activo:${d.activo}`] = aValor(d.override)
+    }
+    setLocal((l) => {
+      const ks = Object.keys(l).filter((k) => k in base && base[k] === l[k])
+      if (ks.length === 0) return l
+      const n = { ...l }
+      for (const k of ks) delete n[k]
+      return n
+    })
+  }, [t])
+
   if (!t) return <Cargando />
   const fallo = "error" in t ? t : null
   if (fallo && !fallo.datos) return <SinConexion causa={fallo.causa} />
@@ -162,9 +181,9 @@ export function Politicas() {
                       <span className="min-w-32 text-sm">{d.activo}</span>
                       <span className="text-xs text-muted-foreground">criticidad {d.criticidad ?? "—"} · radio {d.radio}
                         {d.cascada.length > 0 && ` · cascada: ${d.cascada.join(", ")}`}</span>
-                      <Segmento sujeto={d.activo} opciones={HEREDA}
+                      {!z.protegida && <Segmento sujeto={d.activo} opciones={HEREDA}
                         actual={val("activo", d.activo, aValor(d.override))}
-                        onElegir={(v) => cambiar({ dimension: "activo", clave: d.activo, automatizacion: v })} />
+                        onElegir={(v) => cambiar({ dimension: "activo", clave: d.activo, automatizacion: v })} />}
                       <button type="button" aria-label={`Detalle ${d.activo}`} onClick={() => setSel({ tipo: "activo", d, zona: z.zona })}
                         className="ml-auto text-xs text-muted-foreground hover:underline">detalle</button>
                     </li>

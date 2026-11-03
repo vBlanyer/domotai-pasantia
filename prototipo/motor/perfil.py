@@ -118,7 +118,7 @@ def fusionar_politicas(perfil, overlay):
         if dim not in (overlay or {}):
             continue
         merged = dict(out.get(dim) or {})
-        for clave, pol in overlay[dim].items():
+        for clave, pol in (overlay[dim] or {}).items():
             if pol is None:
                 merged.pop(clave, None)
             else:
