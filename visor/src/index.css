@@ -58,72 +58,74 @@
     --font-sans: 'Inter Variable', system-ui, sans-serif;
     --font-heading: 'Roboto', system-ui, sans-serif;
   }
+  /* Paleta «consola SOC» (clara). Solo valores de token: no cambia ninguna estructura. */
   :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0)
+    --background: #f3f6fa;
+    --foreground: #18212e;
+    --card: #ffffff;
+    --card-foreground: #18212e;
+    --popover: #ffffff;
+    --popover-foreground: #18212e;
+    --primary: #0d8ea4;
+    --primary-foreground: #ffffff;
+    --secondary: #eef2f7;
+    --secondary-foreground: #18212e;
+    --muted: #eef2f7;
+    --muted-foreground: #5a6776;
+    --accent: #e5eaf1;
+    --accent-foreground: #18212e;
+    --destructive: #bc3d28;
+    --border: #d6dde7;
+    --input: #d6dde7;
+    --ring: #0d8ea4;
+    --chart-1: #0d8ea4;
+    --chart-2: #1a7f37;
+    --chart-3: #8a6300;
+    --chart-4: #bc3d28;
+    --chart-5: #46566a;
+    --radius: 0.75rem;
+    --sidebar: #ffffff;
+    --sidebar-foreground: #18212e;
+    --sidebar-primary: #0d8ea4;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #eef2f7;
+    --sidebar-accent-foreground: #18212e;
+    --sidebar-border: #d6dde7;
+    --sidebar-ring: #0d8ea4
   }
+  /* Paleta «consola SOC» (oscura). */
   .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0)
+    --background: #0d1117;
+    --foreground: #e6edf3;
+    --card: #161b22;
+    --card-foreground: #e6edf3;
+    --popover: #161b22;
+    --popover-foreground: #e6edf3;
+    --primary: #3cc6da;
+    --primary-foreground: #06222a;
+    --secondary: #1b222d;
+    --secondary-foreground: #e6edf3;
+    --muted: #1b222d;
+    --muted-foreground: #8b98a9;
+    --accent: #212a37;
+    --accent-foreground: #e6edf3;
+    --destructive: #f0785f;
+    --border: #2a3340;
+    --input: #2a3340;
+    --ring: #3cc6da;
+    --chart-1: #3cc6da;
+    --chart-2: #3fb950;
+    --chart-3: #e3a93c;
+    --chart-4: #f0785f;
+    --chart-5: #9fb0c3;
+    --sidebar: #161b22;
+    --sidebar-foreground: #e6edf3;
+    --sidebar-primary: #3cc6da;
+    --sidebar-primary-foreground: #06222a;
+    --sidebar-accent: #1b222d;
+    --sidebar-accent-foreground: #e6edf3;
+    --sidebar-border: #2a3340;
+    --sidebar-ring: #3cc6da
   }
   * {
     @apply border-border outline-ring/50;
