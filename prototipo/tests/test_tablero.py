@@ -1726,4 +1726,51 @@ class TestPoliticaAPI(unittest.TestCase):
             r = c.getresponse(); cuerpo = json.loads(r.read()); c.close(); th.join(timeout=2)
             srv.server_close()
             self.assertEqual(r.status, 200)
-            self.assertTrue(any(f["familia"] == "acceso_credenciales" for f in cuerpo))
+            self.assertTrue(any(f["familia"] == "acceso_credenciales" for f in cuerpo["familias"]))
+
+
+class TestPoliticaEstado(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from prototipo.accion import catalogo as catm
+        from prototipo.motor import perfil as perfilm
+        raiz = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        cls.catalogo = catm.cargar_catalogo(os.path.join(raiz, "prototipo", "catalogo.yml"))
+        cls.perfil = perfilm.cargar(os.path.join(raiz, "prototipo", "perfiles", "bancario.yml"))
+
+    def _disp(self, estado, activo):
+        for z in estado["zonas"]:
+            for d in z["dispositivos"]:
+                if d["activo"] == activo:
+                    return d
+
+    def test_get_politica_devuelve_objeto_con_familias_y_zonas(self):
+        import http.client as _h
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "trazas.jsonl")
+            open(ruta, "w").close()
+            srv = tablero.crear_servidor(tablero.EstadoTablero(), ruta, perfil=self.perfil,
+                                         catalogo=self.catalogo, puerto=0)
+            th = threading.Thread(target=srv.handle_request, daemon=True); th.start()
+            c = _h.HTTPConnection("127.0.0.1", srv.server_address[1]); c.request("GET", "/api/politica")
+            r = c.getresponse(); cuerpo = json.loads(r.read()); c.close(); th.join(timeout=2)
+            srv.server_close()
+        self.assertIsInstance(cuerpo, dict)
+        self.assertIn("familias", cuerpo)
+        self.assertIn("zonas", cuerpo)
+
+    def test_zona_core_humano_marca_postura_efectiva(self):
+        import copy
+        perf = copy.deepcopy(self.perfil)
+        perf["politicas_por_zona"] = {"Core": {"automatizacion": "humano_siempre"}}
+        est = tablero.politica_estado(self.catalogo, perf)
+        self.assertEqual(self._disp(est, "middleware")["postura_efectiva"], "humano_siempre")
+
+    def test_cascada_hsm_lista_cuatro(self):
+        est = tablero.politica_estado(self.catalogo, self.perfil)
+        self.assertEqual(self._disp(est, "hsm")["radio"], 4)
+
+    def test_atm_cascada_posiblemente_incompleta(self):
+        est = tablero.politica_estado(self.catalogo, self.perfil)
+        self.assertIs(self._disp(est, "atm")["cascada_posiblemente_incompleta"], True)
+        self.assertIs(self._disp(est, "hsm")["cascada_posiblemente_incompleta"], False)

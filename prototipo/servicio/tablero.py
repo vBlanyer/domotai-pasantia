@@ -946,7 +946,7 @@ class _Manejador(BaseHTTPRequestHandler):
                 regs = _registros_periodo(s.ruta_traza) if (desde or hasta) else _registros_cacheados(s.ruta_traza)
                 return self._responder(metricas(regs, desde=desde, hasta=hasta))
             if ruta == "/api/politica":   # playbook estático por familia (solo lectura)
-                return self._responder(politica_resumen(s.catalogo, s.perfil))
+                return self._responder(politica_estado(s.catalogo, s.perfil))
             if ruta.startswith("/api/"):
                 return self._responder({"error": "no encontrado"}, 404)
             return self._servir_archivo(ruta)          # el build de React (index.html + assets/)
@@ -1141,6 +1141,46 @@ def politica_resumen(catalogo, perfil):
             "recomendacion": correspondencia.recomendar(fam, None, clase, corr),
         })
     return filas
+
+
+def politica_estado(catalogo, perfil):
+    """Estado de las políticas de respuesta: `familias` (playbook estático + postura declarada y
+    automatización efectiva) y `zonas` (postura por zona/dispositivo con radio de cascada). Solo lectura."""
+    from prototipo.motor import perfil as perfilm, impacto
+    perfil = perfil or {}
+    familias_ = []
+    for f in politica_resumen(catalogo, perfil):
+        postura = perfilm.postura_familia(perfil, f["familia"])
+        familias_.append({**f, "postura_familia": postura,
+                          "automatizacion_efectiva": postura or f["automatizacion"]})
+    activos = perfil.get("activos") or {}
+
+    def _deps(info):
+        d = (info or {}).get("depende_de") or []
+        return [d] if isinstance(d, str) else list(d)
+    con_dependientes = {d for info in activos.values() for d in _deps(info)}
+    gestion = perfil.get("ip_gestion")
+    activos_gestion = {n for n, i in activos.items() if gestion and (i or {}).get("ip") == gestion}
+    zonas = []
+    for zona, miembros in ((perfil.get("red") or {}).get("zonas") or {}).items():
+        disp = []
+        for a in (miembros or []):
+            info = activos.get(a) or {}
+            casc = impacto.afectados_en_cascada(a, perfil)
+            disp.append({
+                "activo": a, "criticidad": info.get("criticidad"),
+                "override": ((perfil.get("overrides_por_activo") or {}).get(a) or {}).get("automatizacion"),
+                "postura_efectiva": perfilm.postura_zona_activo(perfil, a),
+                "cascada": casc, "radio": len(casc),
+                "cascada_posiblemente_incompleta": not _deps(info) and a not in con_dependientes,
+            })
+        zonas.append({
+            "zona": zona,
+            "automatizacion": ((perfil.get("politicas_por_zona") or {}).get(zona) or {}).get(
+                "automatizacion") or "automatica_si_confianza",
+            "protegida": bool(set(miembros or []) & activos_gestion),
+            "dispositivos": disp})
+    return {"familias": familias_, "zonas": zonas}
 
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
