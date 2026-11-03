@@ -5,6 +5,7 @@ import {
 } from "@/api"
 import { Cargando, SinConexion, Vacio } from "@/components/bits"
 import { etiquetaClase, pasosRunbook } from "@/datos"
+import "./Politicas.css"
 
 type Valor = CambioPolitica["automatizacion"]
 type Pestana = "familias" | "zonas"
@@ -12,20 +13,32 @@ type Pestana = "familias" | "zonas"
 const AUTO = "automatica_si_confianza"
 const HUMANO = "humano_siempre"
 
+const ICON_INFO = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.5v.01" />
+  </svg>
+)
+const ICON_LOCK = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+    <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
+  </svg>
+)
+
+function variantDe(v: Valor) { return v === AUTO ? "auto" : v === HUMANO ? "humano" : "hereda" }
+
 // Control segmentado accesible: cada opción es un botón con nombre «<sujeto> <opción>».
 function Segmento({ sujeto, opciones, actual, deshabilitado, onElegir }: {
   sujeto: string; opciones: { etq: string; valor: Valor }[]; actual: Valor
   deshabilitado?: boolean; onElegir: (v: Valor) => void
 }) {
   return (
-    <span role="group" aria-label={sujeto} className="inline-flex overflow-hidden rounded border border-border">
+    <span role="group" aria-label={sujeto} className="pol-seg">
       {opciones.map((o) => {
         const activo = o.valor === actual
         return (
           <button key={o.etq} type="button" disabled={deshabilitado} aria-pressed={activo}
             aria-label={`${sujeto} ${o.etq}`} onClick={() => onElegir(o.valor)}
-            className={`px-2 py-0.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
-              activo ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>
+            className={`pol-seg-btn ${activo ? `is-active v-${variantDe(o.valor)}` : ""}`}>
             {o.etq}
           </button>
         )
@@ -40,6 +53,7 @@ const HEREDA = [{ etq: "HEREDA", valor: null as Valor }, ...AUTO_HUMANO]
 function aValor(a?: string | null): Valor {
   return a === HUMANO || a === "requiere_humano" ? HUMANO : a === AUTO || a === "automatica_si_confianza" ? AUTO : null
 }
+function radioClase(n: number) { return n === 0 ? "z0" : n <= 2 ? "z1" : "z2" }
 
 type Sel = { tipo: "familia"; f: PoliticaFamilia } | { tipo: "activo"; d: DispositivoPolitica; zona: string }
 
@@ -47,33 +61,53 @@ function Detalle({ sel }: { sel: Sel }) {
   if (sel.tipo === "familia") {
     const f = sel.f
     const pasos = pasosRunbook(f.clase_tipica)
+    const enrutada = f.nivel === "triar_y_enrutar"
     return (
-      <div className="space-y-1 text-xs">
-        <div className="font-medium">Detalle · {f.familia} <span className="font-normal text-muted-foreground">({etiquetaClase(f.clase_tipica)})</span></div>
-        <div>Acción: <span className="font-mono">{f.accion ?? "—"}</span></div>
-        <div>Impacto: <span className="font-mono">{f.impacto ?? "—"}</span></div>
-        {f.nivel === "triar_y_enrutar" && <div>Se tría y enruta a {f.ruta ?? "—"} (no contiene).</div>}
-        {f.recomendacion?.respuesta && <div>Respuesta recomendada: {f.recomendacion.respuesta}{f.recomendacion.nota ? ` — ${f.recomendacion.nota}` : ""}</div>}
-        {f.vetos.length > 0 && <ul className="list-disc pl-4 text-muted-foreground">{f.vetos.map((v, i) => <li key={i}>{v}</li>)}</ul>}
-        {pasos.length > 0 && <ol className="list-decimal pl-4">{pasos.map((p, i) => <li key={i}>{p}</li>)}</ol>}
+      <div className="pol-detail">
+        <div className="pol-detail-head">
+          <div className="dk">familia · {etiquetaClase(f.clase_tipica)}</div>
+          <div className="dt">{f.accion ?? "— sin contención —"}</div>
+        </div>
+        <div className="pol-detail-body">
+          <div className="row"><span className="k">Familia</span><span>{f.familia}</span></div>
+          <div className="row"><span className="k">Impacto</span><span className="mono">{f.impacto ?? "—"}</span></div>
+          {enrutada && <div className="pol-block routed"><span className="bl">Enrutada</span>Se tría y enruta a {f.ruta ?? "—"} (no contiene automáticamente).</div>}
+          {f.recomendacion?.respuesta && (
+            <div className="row"><span className="k">Recomendación</span><span>{f.recomendacion.respuesta}{f.recomendacion.nota ? ` — ${f.recomendacion.nota}` : ""}</span></div>
+          )}
+          {f.vetos.length > 0 && <div className="pol-block crit"><span className="bl">Vetos / condiciones</span><ul>{f.vetos.map((v, i) => <li key={i}>{v}</li>)}</ul></div>}
+          {pasos.length > 0 && <div><div className="k" style={{ marginBottom: 6 }}>Runbook</div><ol>{pasos.map((p, i) => <li key={i}>{p}</li>)}</ol></div>}
+        </div>
       </div>
     )
   }
   const d = sel.d
+  const n = d.cascada.length
   return (
-    <div className="space-y-1 text-xs">
-      <div className="font-medium">Detalle · {d.activo} <span className="font-normal text-muted-foreground">(zona {sel.zona})</span></div>
-      <div>Criticidad: {d.criticidad ?? "—"} · radio de impacto: {d.radio}</div>
-      <div>Postura efectiva: {d.postura_efectiva ?? "—"}</div>
-      <div>Cascada (depende de este activo): {d.cascada.length ? d.cascada.join(", ") : "ninguno"}
-        {d.cascada_posiblemente_incompleta && " (posiblemente incompleta)"}</div>
+    <div className="pol-detail">
+      <div className="pol-detail-head">
+        <div className="dk">zona {sel.zona} <span className={`pol-sev ${d.criticidad ?? "na"}`}>{d.criticidad ?? "—"}</span></div>
+        <div className="dt">{d.activo}</div>
+      </div>
+      <div className="pol-detail-body">
+        <div className="row"><span className="k">Postura efectiva</span><span className="mono">{d.postura_efectiva ?? "hereda"}</span></div>
+        <div className="row"><span className="k">Radio</span><span className="mono num">{d.radio}</span></div>
+        {n > 0 ? (
+          <div className="pol-block crit"><span className="bl">Si lo aíslas, caen {n}</span>{d.cascada.join(", ")}
+            {d.cascada_posiblemente_incompleta && " · cascada posiblemente incompleta"}</div>
+        ) : (
+          <div className="pol-block"><span className="bl">Radio de impacto</span>Según el inventario, aislarlo no arrastra otros activos.
+            {d.cascada_posiblemente_incompleta && " (cascada posiblemente incompleta — dependencias sin declarar)"}</div>
+        )}
+      </div>
     </div>
   )
 }
 
-// Vista «Políticas»: editor del playbook. Dos pestañas (por familia / por zona y dispositivo). Los
-// cambios se envían a POST /api/politica (fail-closed en el servidor; exige token de operador) y las
-// acciones destructivas quedan bloqueadas por el freno duro del catálogo. El sondeo refresca el estado.
+// Vista «Políticas»: editor del playbook, con el tema de consola del mockup (Politicas.css, scopeado a
+// .pol). Dos pestañas (por familia / por zona y dispositivo). Los cambios van a POST /api/politica
+// (fail-closed; exige token de operador) y las acciones destructivas quedan bloqueadas por el freno
+// duro del catálogo. El sondeo refresca el estado y poda el valor optimista al confirmarlo.
 export function Politicas() {
   const t = useSondeo(getPolitica)
   const [pestana, setPestana] = useState<Pestana>("familias")
@@ -124,77 +158,151 @@ export function Politicas() {
     return k in local ? local[k] : base
   }
 
+  // Resumen dinámico (como el mockup): por familias auto/humano/enrutadas; por zonas zonas/overrides/críticos.
+  let resumen
+  if (pestana === "familias") {
+    let a = 0, hu = 0, r = 0
+    for (const f of est.familias) {
+      if (f.accion == null) r++
+      else if (val("familia", f.familia, aValor(f.automatizacion_efectiva ?? f.automatizacion)) === AUTO
+        && f.automatizacion !== "nunca_automatica" && f.automatizacion_efectiva !== "nunca_automatica") a++
+      else hu++
+    }
+    resumen = (
+      <div className="pol-summary">
+        <span className="pol-s"><span className="pol-dot ok" /><b className="num">{a}</b> automáticas</span>
+        <span className="pol-s"><span className="pol-dot warn" /><b className="num">{hu}</b> requieren humano</span>
+        <span className="pol-s"><span className="pol-dot routed" /><b className="num">{r}</b> enrutadas</span>
+      </div>
+    )
+  } else {
+    const devs = est.zonas.flatMap((z) => z.dispositivos)
+    const ov = devs.filter((d) => val("activo", d.activo, aValor(d.override)) !== null).length
+    const cr = devs.filter((d) => d.criticidad === "critica").length
+    resumen = (
+      <div className="pol-summary">
+        <span className="pol-s"><b className="num">{est.zonas.length}</b> zonas</span>
+        <span className="pol-s"><span className="pol-dot warn" /><b className="num">{ov}</b> overrides</span>
+        <span className="pol-s"><span className="pol-dot crit" /><b className="num">{cr}</b> críticos</span>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-3">
-      <div role="tablist" className="flex gap-1 border-b border-border">
+    <div className="pol">
+      <div className="pol-head">
+        <h2 className="pol-title">Políticas de respuesta</h2>
+        {resumen}
+      </div>
+
+      <div role="tablist" className="pol-tabs">
         {([["familias", "Por tipo de ataque"], ["zonas", "Por zona y dispositivo"]] as const).map(([id, n]) => (
-          <button key={id} role="tab" aria-selected={pestana === id} onClick={() => { setPestana(id); setSel(null) }}
-            className={`px-3 py-1.5 text-sm ${pestana === id ? "border-b-2 border-primary font-medium" : "text-muted-foreground hover:text-foreground"}`}>
+          <button key={id} role="tab" aria-selected={pestana === id} onClick={() => { setPestana(id); setSel(null) }} className="pol-tab">
             {n}
           </button>
         ))}
       </div>
-      <p className="rounded border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        {pestana === "familias"
-          ? <>La decisión efectiva <strong>también depende de la zona</strong> del activo afectado: una zona o un dispositivo en HUMANO prevalece sobre AUTO aquí.</>
-          : <>La decisión efectiva <strong>también depende de la familia</strong> de ataque: una familia en HUMANO o «nunca automática» prevalece sobre AUTO aquí.</>}
-      </p>
-      {aviso && <p role="alert" className="rounded border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">{aviso}</p>}
 
-      {pestana === "familias" ? (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {est.familias.map((f) => {
-            const nunca = f.automatizacion === "nunca_automatica" || f.automatizacion_efectiva === "nunca_automatica"
-            const sinAccion = f.accion == null
-            const bloqueada = nunca || sinAccion
-            return (
-              <li key={f.familia} className="flex flex-wrap items-center gap-3 px-3 py-2">
-                <span className="min-w-40 font-medium">{f.familia}</span>
-                <span className="font-mono text-xs text-muted-foreground">{f.accion ?? "—"}</span>
-                <Segmento sujeto={f.familia} opciones={AUTO_HUMANO} deshabilitado={bloqueada}
-                  actual={val("familia", f.familia, aValor(f.automatizacion_efectiva ?? f.automatizacion))}
-                  onElegir={(v) => cambiar({ dimension: "familia", clave: f.familia, automatizacion: v })} />
-                {nunca && <span className="text-xs text-rose-700 dark:text-rose-300">freno duro / nunca automática</span>}
-                {!nunca && sinAccion && <span className="text-xs text-muted-foreground">se tría y enruta</span>}
-                <button type="button" aria-label={`Detalle ${f.familia}`} onClick={() => setSel({ tipo: "familia", f })}
-                  className="ml-auto text-xs text-muted-foreground hover:underline">detalle</button>
-              </li>
-            )
-          })}
-        </ul>
-      ) : (
-        <div className="space-y-3">
-          {est.zonas.map((z: ZonaPolitica) => (
-            <div key={z.zona} className="rounded-lg border border-border bg-card">
-              <div className="flex flex-wrap items-center gap-3 px-3 py-2">
-                <span className="font-medium">{z.zona}</span>
-                {z.protegida
-                  ? <span className="text-xs text-muted-foreground">protegido · no_cortar_gestion</span>
-                  : <Segmento sujeto={`zona ${z.zona}`} opciones={AUTO_HUMANO}
-                      actual={val("zona", z.zona, aValor(z.automatizacion))}
-                      onElegir={(v) => cambiar({ dimension: "zona", clave: z.zona, automatizacion: v })} />}
-              </div>
-              {z.dispositivos.length > 0 && (
-                <ul className="divide-y divide-border border-t border-border">
-                  {z.dispositivos.map((d) => (
-                    <li key={d.activo} className="flex flex-wrap items-center gap-3 px-3 py-1.5 pl-6">
-                      <span className="min-w-32 text-sm">{d.activo}</span>
-                      <span className="text-xs text-muted-foreground">criticidad {d.criticidad ?? "—"} · radio {d.radio}
-                        {d.cascada.length > 0 && ` · cascada: ${d.cascada.join(", ")}`}</span>
-                      {!z.protegida && <Segmento sujeto={d.activo} opciones={HEREDA}
-                        actual={val("activo", d.activo, aValor(d.override))}
-                        onElegir={(v) => cambiar({ dimension: "activo", clave: d.activo, automatizacion: v })} />}
-                      <button type="button" aria-label={`Detalle ${d.activo}`} onClick={() => setSel({ tipo: "activo", d, zona: z.zona })}
-                        className="ml-auto text-xs text-muted-foreground hover:underline">detalle</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+      <div className="pol-note">
+        {ICON_INFO}
+        <span>
+          {pestana === "familias"
+            ? <>La decisión efectiva <strong>también depende de la zona</strong> del activo afectado: una zona o un dispositivo en HUMANO prevalece sobre AUTO aquí.</>
+            : <>La decisión efectiva <strong>también depende de la familia</strong> de ataque: una familia en HUMANO o «nunca automática» prevalece sobre AUTO aquí.</>}
+        </span>
+      </div>
+
+      {aviso && <p role="alert" className="pol-alert">{aviso}</p>}
+
+      <div className="pol-grid">
+        <section aria-label="Lista">
+          <div className="pol-section-label">
+            {pestana === "familias" ? "Tipo de ataque · automatización" : "Zona → dispositivo · postura de respuesta"}
+          </div>
+
+          {pestana === "familias" ? (
+            <ul className="pol-rows">
+              {est.familias.map((f) => {
+                const nunca = f.automatizacion === "nunca_automatica" || f.automatizacion_efectiva === "nunca_automatica"
+                const sinAccion = f.accion == null
+                const bloqueada = nunca || sinAccion
+                const ef = val("familia", f.familia, aValor(f.automatizacion_efectiva ?? f.automatizacion))
+                const stripe = sinAccion ? "routed" : nunca ? "crit" : ef === AUTO ? "ok" : "warn"
+                return (
+                  <li key={f.familia} className="pol-row">
+                    <span className={`pol-stripe ${stripe}`} />
+                    <div className="pol-main">
+                      <div className="pol-fam">{f.familia}</div>
+                      <div className="pol-sub">{etiquetaClase(f.clase_tipica)} <span className="arw">→</span> {f.accion ?? "—"}</div>
+                      <div className="pol-chips">
+                        {f.impacto === "localizado" && <span className="pol-chip loc">localizado</span>}
+                        {f.impacto === "alcanza_servicio" && <span className="pol-chip serv">alcanza servicio</span>}
+                      </div>
+                    </div>
+                    <div className="pol-ctl">
+                      {sinAccion
+                        ? <span className="pol-tag-routed">se tría y enruta</span>
+                        : <Segmento sujeto={f.familia} opciones={AUTO_HUMANO} deshabilitado={bloqueada} actual={ef}
+                            onElegir={(v) => cambiar({ dimension: "familia", clave: f.familia, automatizacion: v })} />}
+                      {nunca && <span className="pol-lock">{ICON_LOCK} freno duro / nunca automática</span>}
+                      <button type="button" aria-label={`Detalle ${f.familia}`} className="pol-detalle-btn" onClick={() => setSel({ tipo: "familia", f })}>detalle</button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <div>
+              {est.zonas.map((z: ZonaPolitica) => (
+                <div key={z.zona} className="pol-zone">
+                  <div className="pol-zone-head">
+                    <span className="zn">{z.zona}</span>
+                    <span className="zc">{z.dispositivos.length} dispositivo{z.dispositivos.length === 1 ? "" : "s"}</span>
+                    <span className="zctl">
+                      {z.protegida
+                        ? <span className="pol-tag-routed">protegido · no_cortar_gestion</span>
+                        : <><span className="zl">postura de zona</span>
+                            <Segmento sujeto={`zona ${z.zona}`} opciones={AUTO_HUMANO} actual={val("zona", z.zona, aValor(z.automatizacion))}
+                              onElegir={(v) => cambiar({ dimension: "zona", clave: z.zona, automatizacion: v })} /></>}
+                    </span>
+                  </div>
+                  {z.dispositivos.length > 0 && (
+                    <div className="pol-zone-devs">
+                      <ul className="pol-rows">
+                        {z.dispositivos.map((d) => {
+                          const n = d.cascada.length
+                          const stripe = z.protegida ? "routed" : n === 0 ? "ok" : n >= 3 ? "crit" : "warn"
+                          return (
+                            <li key={d.activo} className="pol-row">
+                              <span className={`pol-stripe ${stripe}`} />
+                              <div className="pol-main">
+                                <div className="pol-fam">{d.activo} <span className={`pol-sev ${d.criticidad ?? "na"}`}>{d.criticidad ?? "—"}</span></div>
+                                <div className="pol-sub">radio {d.radio}{d.cascada.length > 0 && <> <span className="arw">·</span> cascada: {d.cascada.join(", ")}</>}</div>
+                              </div>
+                              <div className="pol-ctl">
+                                {!z.protegida && <Segmento sujeto={d.activo} opciones={HEREDA} actual={val("activo", d.activo, aValor(d.override))}
+                                  onElegir={(v) => cambiar({ dimension: "activo", clave: d.activo, automatizacion: v })} />}
+                                {n > 0
+                                  ? <span className={`pol-radio ${radioClase(n)}`}>{n}<span className="pol-radio-lbl"> en cascada</span></span>
+                                  : null}
+                                <button type="button" aria-label={`Detalle ${d.activo}`} className="pol-detalle-btn" onClick={() => setSel({ tipo: "activo", d, zona: z.zona })}>detalle</button>
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-      {sel && <div className="rounded-lg border border-border bg-card p-3"><Detalle sel={sel} /></div>}
+          )}
+        </section>
+
+        {sel
+          ? <div className="pol-detail-col"><Detalle sel={sel} /></div>
+          : <div className="pol-detail-col pol-detail-empty">Selecciona una fila para ver su detalle.</div>}
+      </div>
     </div>
   )
 }
