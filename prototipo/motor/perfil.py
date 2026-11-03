@@ -206,7 +206,28 @@ def _aplicar_actor(res, perfil, det):
         return _res("degrada" if res["resultado"] == "degrada" else "veta", res["accion_final"], True)
     return res
 
-def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, hallazgos=None):
+def zona_de(perfil, activo):
+    """Zona de red (`red.zonas`) a la que pertenece el activo, o None si no está en ninguna."""
+    for zona, activos in ((perfil.get("red") or {}).get("zonas") or {}).items():
+        if activo in (activos or []):
+            return zona
+    return None
+
+def postura_familia(perfil, familia):
+    """Postura de automatización declarada para la familia de ataque, o None."""
+    return ((perfil.get("automatizacion_por_familia") or {}).get(familia) or {}).get("automatizacion")
+
+def postura_zona_activo(perfil, activo):
+    """Postura por dispositivo (gana) o, si no la hay, por la zona del activo; None si ninguna."""
+    ov = ((perfil.get("overrides_por_activo") or {}).get(activo) or {}).get("automatizacion")
+    if ov:
+        return ov
+    zona = zona_de(perfil, activo)
+    if zona is None:
+        return None
+    return ((perfil.get("politicas_por_zona") or {}).get(zona) or {}).get("automatizacion")
+
+def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, hallazgos=None, familia=None):
     """permite / degrada / veta. El resultado lleva `impacto`: el impacto DETERMINADO de la acción
     final (a quién bloquea y qué servicios detiene, `impacto.determinar`). Quien no lo use sigue
     funcionando igual. La conciencia de actores vive aquí (C5) para que ningún punto de decisión
@@ -329,4 +350,10 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         if actores.es_tercero_confiable(destino, perfil):
             det = {**det, "motivo": (f"{det.get('motivo') or ''} · destino en terceros_confiables: "
                    "cortar el egreso tiraría un servicio de negocio, revisar con cuidado").strip()}
+    # Compuertas de postura (política editable): por familia de ataque y por zona/dispositivo. SOLO
+    # degradan auto -> humano (conservan la acción); nunca suben a auto. Los vetos duros de arriba ya
+    # devolvieron antes y mandan sobre esta compuerta.
+    if (final.get("accion_final") and not final.get("requiere_humano")
+            and "humano_siempre" in (postura_familia(perfil, familia), postura_zona_activo(perfil, activo))):
+        final = {**final, "requiere_humano": True}
     return {**final, "impacto": det}
