@@ -1774,3 +1774,101 @@ class TestPoliticaEstado(unittest.TestCase):
         est = tablero.politica_estado(self.catalogo, self.perfil)
         self.assertIs(self._disp(est, "atm")["cascada_posiblemente_incompleta"], True)
         self.assertIs(self._disp(est, "hsm")["cascada_posiblemente_incompleta"], False)
+
+
+class TestPostPolitica(unittest.TestCase):
+    """POST /api/politica: fail-closed (403 sin operador real), validación (400), aplica en vivo + auditoría."""
+    CAT = {"BLOQUEAR_IP": {"reversion": "definida", "impacto": "bajo"},
+           "AISLAR_NODO": {"reversion": "definida", "impacto": "alto", "nunca_automatica": True}}
+    PERFIL = {"ip_gestion": "10.0.0.1",
+              "activos": {"srv": {"ip": "10.0.0.5", "criticidad": "media"}},
+              "red": {"zonas": {"Core": ["srv"]}}}
+
+    def _srv(self, operadores=None):
+        import copy
+        d = tempfile.mkdtemp()
+        self.ov, self.au = os.path.join(d, "overlay.yml"), os.path.join(d, "audit.jsonl")
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), os.path.join(d, "t.jsonl"), puerto=0,
+                                     estaticos=tempfile.mkdtemp(), perfil=copy.deepcopy(self.PERFIL),
+                                     catalogo=self.CAT, operadores=operadores,
+                                     ruta_overlay=self.ov, ruta_auditoria=self.au)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv
+
+    def _req(self, srv, metodo, ruta, obj=None, token=None):
+        c = http.client.HTTPConnection("127.0.0.1", srv.server_address[1], timeout=5)
+        h = {"Content-Type": "application/json"}
+        if token:
+            h["Authorization"] = f"Bearer {token}"
+        c.request(metodo, ruta, json.dumps(obj) if obj is not None else None, h)
+        r = c.getresponse(); cuerpo = r.read(); c.close()
+        return r.status, json.loads(cuerpo)
+
+    def _fam(self, srv, fam):
+        _, est = self._req(srv, "GET", "/api/politica", token="tok")
+        return next(f for f in est["familias"] if f["familia"] == fam)
+
+    OK = {"dimension": "familia", "clave": "reconocimiento", "automatizacion": "humano_siempre"}
+
+    def test_post_sin_operador_es_403(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TRIAJE_POLITICA_ABIERTA", None)
+            srv = self._srv()
+            self.assertEqual(self._req(srv, "POST", "/api/politica", {**self.OK, "operador": "x"})[0], 403)
+        self.assertFalse(os.path.exists(self.ov))
+
+    def test_post_token_no_mapeado_es_403(self):
+        srv = self._srv({"tok": "ana"})
+        self.assertIn(self._req(srv, "POST", "/api/politica", self.OK, token="otro")[0], (401, 403))
+        self.assertFalse(os.path.exists(self.ov))
+
+    def test_post_familia_destructiva_auto_400(self):
+        srv = self._srv({"tok": "ana"})
+        st, _ = self._req(srv, "POST", "/api/politica", {"dimension": "familia", "clave": "malware",
+                          "automatizacion": "automatica_si_confianza"}, token="tok")
+        self.assertEqual(st, 400)
+        self.assertFalse(os.path.exists(self.ov))
+
+    def test_post_clave_desconocida_400(self):
+        srv = self._srv({"tok": "ana"})
+        for dim in ("familia", "zona", "activo"):
+            st, _ = self._req(srv, "POST", "/api/politica", {"dimension": dim, "clave": "no-existe",
+                              "automatizacion": "humano_siempre"}, token="tok")
+            self.assertEqual(st, 400, dim)
+        st, _ = self._req(srv, "POST", "/api/politica", {**self.OK, "automatizacion": "automatica"}, token="tok")
+        self.assertEqual(st, 400)
+
+    def test_post_aplica_y_get_lo_refleja(self):
+        srv = self._srv({"tok": "ana"})
+        st, _ = self._req(srv, "POST", "/api/politica", {**self.OK, "operador": "falso"}, token="tok")
+        self.assertEqual(st, 200)
+        f = self._fam(srv, "reconocimiento")
+        self.assertEqual(f["postura_familia"], "humano_siempre")
+        self.assertEqual(f["automatizacion_efectiva"], "humano_siempre")
+        self.assertTrue(os.path.exists(self.ov))
+        with open(self.au, encoding="utf-8") as fh:
+            linea = json.loads(fh.readline())
+        self.assertEqual(linea["operador"], "ana")     # el del token, no el del cuerpo
+        # volver a heredar (null) se propaga
+        st, _ = self._req(srv, "POST", "/api/politica", {**self.OK, "automatizacion": None}, token="tok")
+        self.assertEqual(st, 200)
+        self.assertIsNone(self._fam(srv, "reconocimiento")["postura_familia"])
+
+    def test_optin_de_laboratorio_sin_mapa(self):
+        with mock.patch.dict(os.environ, {"TRIAJE_POLITICA_ABIERTA": "1"}):
+            srv = self._srv()
+            self.assertEqual(self._req(srv, "POST", "/api/politica", {**self.OK, "operador": "lab"})[0], 200)
+
+    def test_post_overlay_invalido_no_aplica(self):
+        # validar se evalúa sobre el candidato ANTES de aplicar: si falla, 400 y nada cambia.
+        srv = self._srv({"tok": "ana"})
+        antes = srv.perfil
+        # validar ve el candidato (con overlay) con un aviso que el perfil base no tiene
+        falla = lambda p: ["aviso nuevo"] if "automatizacion_por_familia" in p else []
+        with mock.patch("prototipo.motor.perfil.validar", side_effect=falla):
+            st, _ = self._req(srv, "POST", "/api/politica", self.OK, token="tok")
+        self.assertEqual(st, 400)
+        self.assertIs(srv.perfil, antes)
+        self.assertFalse(os.path.exists(self.ov))
+        self.assertFalse(os.path.exists(self.au))

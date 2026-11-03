@@ -955,6 +955,48 @@ class _Manejador(BaseHTTPRequestHandler):
             print(f"[aviso] tablero: error interno en {self.path}: {type(e).__name__}: {e}", file=sys.stderr)
             return self._responder({"error": "error interno"}, 500)
 
+    def _post_politica(self, s, cuerpo, operador):
+        """POST /api/politica. FAIL-CLOSED: solo un operador identificado (mapa token->nombre) puede
+        cambiar la postura; sin mapa, 403 salvo opt-in de laboratorio TRIAJE_POLITICA_ABIERTA=1. Las
+        posturas solo DEGRADAN (nunca elevan la automatización de una acción nunca_automatica)."""
+        from prototipo.motor import perfil as perfilm
+        from prototipo.servicio import politica_store as ps
+        if not getattr(s, "ruta_overlay", None):
+            return self._responder({"error": "edición de políticas no configurada"}, 503)
+        hay_mapa = bool(getattr(s, "operadores", None))
+        if not operador or not (hay_mapa or os.environ.get("TRIAJE_POLITICA_ABIERTA") == "1"):
+            return self._responder({"error": "operador no identificado"}, 403)
+        if not isinstance(cuerpo, dict):
+            return self._responder({"error": "cuerpo invalido"}, 400)
+        dim, clave, valor = cuerpo.get("dimension"), cuerpo.get("clave"), cuerpo.get("automatizacion")
+        if dim not in ps.DIMENSIONES or not isinstance(clave, str):
+            return self._responder({"error": "dimension/clave invalidas"}, 400)
+        if valor not in ("automatica_si_confianza", "humano_siempre", None):
+            return self._responder({"error": "automatizacion invalida"}, 400)
+        base = s._perfil_base
+        conocidas = {"familia": set(familias.registro()),
+                     "zona": set(((base.get("red") or {}).get("zonas") or {})),
+                     "activo": set(base.get("activos") or {})}[dim]
+        if clave not in conocidas:
+            return self._responder({"error": f"{dim} desconocida"}, 400)
+        if dim == "familia" and valor == "automatica_si_confianza":
+            fila = next((f for f in politica_resumen(s.catalogo, base) if f["familia"] == clave), None)
+            if fila and fila["automatizacion"] == "nunca_automatica":
+                return self._responder({"error": "familia con acción nunca_automatica: no admite automatización"}, 400)
+        with s._politica_lock:
+            overlay_ant = ps.cargar_overlay(s.ruta_overlay)
+            overlay = ps.aplicar_cambio(overlay_ant, dim, clave, valor)
+            candidato = perfilm.fusionar_politicas(base, overlay)
+            nuevos = [a for a in perfilm.validar(candidato) if a not in perfilm.validar(base)]
+            if nuevos:
+                return self._responder({"error": "política invalida", "avisos": nuevos}, 400)
+            antes = ((overlay_ant.get(ps.DIMENSIONES[dim]) or {}).get(clave) or {}).get("automatizacion")
+            ps.guardar_overlay(s.ruta_overlay, overlay)
+            s.perfil = candidato
+            if getattr(s, "ruta_auditoria", None):
+                ps.registrar_auditoria(s.ruta_auditoria, operador, dim, clave, antes, valor)
+        return self._responder({"ok": True, "dimension": dim, "clave": clave, "automatizacion": valor})
+
     def do_POST(self):
         # Guardia de seguridad ANTES de resolver nada (el POST ejecuta una contención real): Host del
         # propio tablero (anti-rebinding) y Origin de confianza (anti-CSRF entre-sitios).
@@ -967,7 +1009,7 @@ class _Manejador(BaseHTTPRequestHandler):
         try:
             s = self.server
             ruta = self.path.split("?", 1)[0]
-            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso", "/api/watchlist"):
+            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso", "/api/watchlist", "/api/politica"):
                 return self._responder({"error": "no encontrado"}, 404)
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -980,6 +1022,8 @@ class _Manejador(BaseHTTPRequestHandler):
             cuerpo = json.loads(self.rfile.read(n) or b"{}")
             operador = resolver_operador(getattr(s, "operadores", None),
                                          self.headers.get("Authorization"), cuerpo)
+            if ruta == "/api/politica":   # edita la postura de automatización (overlay operativo, fail-closed)
+                return self._post_politica(s, cuerpo, operador)
             if ruta == "/api/pausa":      # kill switch (#8): fija la pausa global de la automatización
                 return self._responder({"pausada": s.estado.pausar(bool(cuerpo.get("pausar")),
                                                                    operador=operador)})
@@ -1186,7 +1230,8 @@ def politica_estado(catalogo, perfil):
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,
                    puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
                    async_web=False, perfil=None, catalogo=None, latido=None, ejecutor=None,
-                   token=None, operadores=None, watchlist_ruta=None):
+                   token=None, operadores=None, watchlist_ruta=None,
+                   ruta_overlay=None, ruta_auditoria=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
     fichero_en_contenedor}. `async_web` activa la cola de aprobación no bloqueante. `token` (opcional,
     #6): si se da, toda la API exige 'Authorization: Bearer <token>'; `operadores` (token->nombre, #8)
@@ -1199,7 +1244,15 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.estaticos = estaticos or _DIR_ESTATICOS
     srv.salud_ejecutar = salud_ejecutar
     srv.async_web = async_web
-    srv.perfil = perfil or {"activos": activos or {}, "topologia": topologia or {}}
+    srv._perfil_base = perfil or {"activos": activos or {}, "topologia": topologia or {}}
+    srv.ruta_overlay, srv.ruta_auditoria = ruta_overlay, ruta_auditoria
+    srv._politica_lock = threading.Lock()
+    if ruta_overlay:   # copia operativa de políticas (separada del perfil canónico, que no se toca)
+        from prototipo.motor import perfil as perfilm
+        from prototipo.servicio import politica_store
+        srv.perfil = perfilm.fusionar_politicas(srv._perfil_base, politica_store.cargar_overlay(ruta_overlay))
+    else:
+        srv.perfil = srv._perfil_base
     srv.catalogo = catalogo or {}        # para reconstruir las contenciones activas (#4)
     srv.latido = latido                  # salud del propio daemon para /healthz (#5)
     srv.ejecutor = ejecutor              # el ejecutor del daemon, para el des-bloqueo en masa (#8)
