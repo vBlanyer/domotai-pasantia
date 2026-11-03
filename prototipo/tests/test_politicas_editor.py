@@ -70,10 +70,6 @@ class TestTriajePasaFamilia(unittest.TestCase):
         self.assertTrue(r["requiere_humano"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestFusionYValidacion(unittest.TestCase):
     def test_fusionar_no_muta_y_aplica_overlay(self):
         base = {"ip_gestion": "10.0.0.1"}
@@ -97,3 +93,39 @@ class TestFusionYValidacion(unittest.TestCase):
         av = perfil.validar(p)
         self.assertTrue(any("NoExiste" in a for a in av))
         self.assertTrue(any("fantasma" in a for a in av))
+
+
+class TestArranqueOverlay(unittest.TestCase):
+    def _canonico(self, d):
+        import yaml
+        ruta = os.path.join(d, "canon.yml")
+        with open(ruta, "w", encoding="utf-8") as f:
+            yaml.safe_dump({"ip_gestion": "10.0.0.1"}, f)
+        ov = os.path.join(d, "ov.yml")
+        with open(ov, "w", encoding="utf-8") as f:
+            yaml.safe_dump({"politicas_por_zona": {"Core": {"automatizacion": "humano_siempre"}}}, f)
+        return ruta, ov
+
+    def test_arranque_fusiona_overlay(self):
+        import tempfile
+        from prototipo.servicio import tablero
+        with tempfile.TemporaryDirectory() as d:
+            ruta, ov = self._canonico(d)
+            srv = tablero.crear_servidor(tablero.EstadoTablero(), os.path.join(d, "t.jsonl"),
+                                         puerto=0, perfil=perfil.cargar(ruta), ruta_overlay=ov,
+                                         ruta_auditoria=os.path.join(d, "a.jsonl"))
+            try:
+                self.assertIn("politicas_por_zona", srv.perfil)
+                self.assertNotIn("politicas_por_zona", perfil.cargar(ruta))
+            finally:
+                srv.server_close()
+
+    def test_evaluacion_no_ve_overlay(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            ruta, _ = self._canonico(d)
+            self.assertNotIn("politicas_por_zona", perfil.cargar(ruta))
+
+
+if __name__ == "__main__":
+    unittest.main()

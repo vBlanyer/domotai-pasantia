@@ -606,7 +606,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
              resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
-             latido=None, actividad=None):
+             latido=None, actividad=None, perfil_fn=None):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -645,6 +645,9 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                     # Fichero ya cerrado en el apagado (un hilo del agente aprobado justo al salir):
                     # ese registro se pierde, pero la cadena no se corrompe (falla antes de escribir).
                     pass
+    # `perfil_fn`: el perfil VIVO (el del servidor, que el editor de políticas reemplaza al editar).
+    # Se lee al decidir cada incidente; sin él, el perfil estático de siempre.
+    perfil_fn = perfil_fn or (lambda: perfil)
     memoria = memoria if memoria is not None else MemoriaDecisiones(perfil)
     _resumen_lock = threading.Lock()
     def al_resolver(r, alerta):
@@ -704,7 +707,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         try:
             try:
                 d = _procesar_incidente(
-                    inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
+                    inc, hallazgos, perfil_fn(), perfil_nombre, catalogo, ejecutor, justificar_fn,
                     id_decision, cadena, esc, lee, mitigar_fn=mitigar_fn,
                     encolar=encolar, escribir_traza=escribir_traza, diferir_escalada=diferir_escalada,
                     pausa=pausa)
@@ -1082,7 +1085,10 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
             operadores = {}      # un JSON válido pero de otra forma ([..]/42) tampoco debe colarse
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
-                                      catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)
+                                      catalogo=catalogo, latido=Latido(),
+                                      # overlay operativo de políticas (editor del visor); perfil= es el canónico
+                                      ruta_overlay=os.path.join(os.path.dirname(cfg["salida"]) or ".", "politica-operativa.yml"),
+                                      ruta_auditoria=os.path.join(os.path.dirname(cfg["salida"]) or ".", "politica-auditoria.jsonl"),   # salud del daemon (/healthz, #5)
                                       ejecutor=ejecutor,                     # des-bloqueo en masa (#8)
                                       token=token, operadores=operadores,    # auth de la consola (#6/#8)
                                       # watchlist/IoC local junto a la salida (anotación del analista)
@@ -1236,7 +1242,8 @@ def main(argv):
                      nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
                      estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
                      lector_incidente=lector_incidente, memoria=memoria,
-                     latido=(servidor.latido if servidor else None), actividad=actividad)
+                     latido=(servidor.latido if servidor else None), actividad=actividad,
+                     perfil_fn=((lambda: servidor.perfil) if servidor else None))
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))
