@@ -20,7 +20,7 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
     accion, params = politica.proponer(clas["clase"], alerta)
     impacto = catalogo[accion]["impacto"] if accion else "ninguno"
     filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),
-                             alerta.get("servicio"), clas["confianza"], hallazgos=hallazgos)
+                             alerta.get("servicio"), clas["confianza"], hallazgos=hallazgos, familia=alerta.get("familia"))
     # Escalada de un no_soportada GRAVE (opt-in del perfil, RF-13): un desconocido de SEVERIDAD alta no
     # debe quedar solo en el log. Si el perfil fija `continuidad.revisar_no_soportada_nivel` y el nivel
     # Wazuh lo alcanza, se marca para REVISIÓN humana (resultado 'revisar'), SIN acción (no hay nada que

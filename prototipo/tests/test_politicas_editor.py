@@ -54,5 +54,21 @@ class TestCompuertasPostura(unittest.TestCase):
         self.assertEqual(perfil.postura_familia(p, "x"), "humano_siempre")
 
 
+class TestTriajePasaFamilia(unittest.TestCase):
+    def test_triaje_pasa_familia_a_filtrar(self):
+        import json, yaml
+        from prototipo.motor import triaje
+        fx = os.path.join(RAIZ, "tests", "fixtures")
+        alerta = json.load(open(os.path.join(fx, "alerta_vp.json"), encoding="utf-8"))
+        hall = json.load(open(os.path.join(fx, "hallazgos.json"), encoding="utf-8"))
+        base = yaml.safe_load(open(os.path.join(fx, "perfil.yml"), encoding="utf-8"))
+        alerta["familia"] = "reconocimiento"
+        sin = triaje.procesar(alerta, hall, base, "p", CAT, id_decision="d1", timestamp="t")
+        self.assertFalse(sin["requiere_humano"])   # sin la clave: automatica
+        p = {**base, "automatizacion_por_familia": {"reconocimiento": {"automatizacion": "humano_siempre"}}}
+        r = triaje.procesar(alerta, hall, p, "p", CAT, id_decision="d1", timestamp="t")
+        self.assertTrue(r["requiere_humano"])
+
+
 if __name__ == "__main__":
     unittest.main()
