@@ -22,9 +22,9 @@ function Kpi({ valor, etiqueta, tono, onClick }: { valor: string; etiqueta: stri
       <div className="mt-1 text-sm text-muted-foreground">{etiqueta}</div>
     </>
   )
-  const caja = "min-w-0 rounded-xl border border-border bg-card px-5 py-4 shadow-sm"
+  const caja = "min-w-0 rounded-xl border border-border bg-card px-5 py-4 text-center shadow-sm"
   // C6: el KPI que señala trabajo pendiente lleva directamente a la vista donde se resuelve.
-  if (onClick) return <button onClick={onClick} className={`${caja} text-left transition-colors hover:bg-muted/50`}>{cuerpo}</button>
+  if (onClick) return <button onClick={onClick} className={`${caja} transition-colors hover:bg-muted/50`}>{cuerpo}</button>
   return <div className={caja}>{cuerpo}</div>
 }
 

@@ -128,7 +128,7 @@ export function RiesgoBadge({ r }: { r: { nivel: string; etiqueta: string; facto
 // ejecutivo»). `break-inside-avoid` para que no se partan al imprimir a PDF.
 export function Kpi({ valor, etiqueta, aviso = false }: { valor: string; etiqueta: string; aviso?: boolean }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-5 py-4 shadow-sm">
+    <div className="rounded-xl border border-border bg-card px-5 py-4 text-center shadow-sm">
       <div className={`font-heading text-3xl font-semibold tabular-nums ${aviso ? "text-[color:#b5730b] dark:text-amber-400" : ""}`}>{valor}</div>
       <div className="mt-1 text-sm text-muted-foreground">{etiqueta}</div>
     </div>
