@@ -316,9 +316,41 @@ export const PoliticaFamiliaSchema = z.object({
   recomendacion: z.object({ respuesta: z.string(), accion_sugerida: z.string().nullable().optional(),
     ruta: z.string().nullable().optional(), servicio: z.string().nullable().optional(),
     nota: z.string().nullable().optional() }).nullable().optional(),
+  postura_familia: z.string().nullable().optional(),
+  automatizacion_efectiva: z.string(),
 })
 export type PoliticaFamilia = z.infer<typeof PoliticaFamiliaSchema>
-export const getPolitica = () => pedirLista("/api/politica", PoliticaFamiliaSchema)
+export const DispositivoPoliticaSchema = z.object({
+  activo: z.string(), criticidad: z.string().nullable().optional(), override: z.string().nullable().optional(),
+  postura_efectiva: z.string().nullable().optional(), cascada: z.array(z.string()), radio: z.number(),
+  cascada_posiblemente_incompleta: z.boolean(),
+})
+export type DispositivoPolitica = z.infer<typeof DispositivoPoliticaSchema>
+export const ZonaPoliticaSchema = z.object({
+  zona: z.string(), automatizacion: z.string(), protegida: z.boolean(),
+  dispositivos: z.array(DispositivoPoliticaSchema),
+})
+export type ZonaPolitica = z.infer<typeof ZonaPoliticaSchema>
+export const PoliticaEstadoSchema = z.object({
+  familias: z.array(PoliticaFamiliaSchema), zonas: z.array(ZonaPoliticaSchema),
+})
+export type PoliticaEstado = z.infer<typeof PoliticaEstadoSchema>
+export const getPolitica = () => pedir("/api/politica", PoliticaEstadoSchema)
+
+export type CambioPolitica = {
+  dimension: "familia" | "zona" | "activo"; clave: string
+  automatizacion: "automatica_si_confianza" | "humano_siempre" | null
+}
+// POST /api/politica (fail-closed en el servidor). Lanza si el servidor rechaza o no hay red.
+export async function actualizarPolitica(cambio: CambioPolitica, token?: string): Promise<void> {
+  const base = { "Content-Type": "application/json" }
+  const r = await fetch(BASE + "/api/politica", {
+    method: "POST",
+    headers: token ? { ...base, Authorization: `Bearer ${token}` } : cabeceras(base),
+    body: JSON.stringify(cambio),
+  })
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+}
 export const getPausa = () => pedir("/api/pausa", z.object({ pausada: z.boolean() }))
 
 // Nombre del operador que aprueba (no repudio): se guarda por navegador y viaja en /api/aprobar.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { getConsola, revertirTodo, revertirUna, SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getCaso, getPendientes, ahoraServidor, recordando, listaConocida } from "./api"
+import { getConsola, revertirTodo, revertirUna, SaludSchema, PendienteSchema, DecisionSchema, DetalleSchema, controlesDePendiente, parsearPendiente, baseApi, aprobar, getTrazaDetalle, RedSchema, getSalud, getTrazas, getCaso, getPendientes, ahoraServidor, recordando, listaConocida, PoliticaEstadoSchema, getPolitica, actualizarPolitica } from "./api"
 
 describe("DecisionSchema", () => {
   it("acepta tipo/alertas_suprimidas nulos (una decisión normal los trae null)", () => {
@@ -334,5 +334,44 @@ describe("getConsola", () => {
     const r = await getConsola(5)
     expect(f.mock.calls[0][0]).toMatch(/\/api\/consola\?desde=5$/)
     expect(r).toMatchObject({ hasta: 7 })
+  })
+})
+
+describe("política (objeto)", () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const muestra = {
+    familias: [{
+      familia: "fuerza_bruta", clase_tipica: "vp_intento_acceso", accion: "BLOQUEAR_IP", impacto: "localizado",
+      automatizacion: "automatica_si_confianza", mitre: ["T1110"], nivel: null, ruta: null, vetos: [],
+      recomendacion: null, postura_familia: null, automatizacion_efectiva: "automatica_si_confianza",
+    }],
+    zonas: [{
+      zona: "dmz", automatizacion: "humano_siempre", protegida: false,
+      dispositivos: [{ activo: "srv1", criticidad: "alta", override: null, postura_efectiva: "humano_siempre",
+        cascada: ["srv2"], radio: 1, cascada_posiblemente_incompleta: false }],
+    }],
+  }
+  it("el schema acepta el objeto {familias, zonas} y conserva los campos nuevos", () => {
+    const p = PoliticaEstadoSchema.parse(muestra)
+    expect(p.familias[0].automatizacion_efectiva).toBe("automatica_si_confianza")
+    expect(p.zonas[0].dispositivos[0].radio).toBe(1)
+  })
+  it("getPolitica pide el objeto", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => muestra }))
+    const r = await getPolitica()
+    expect("error" in r).toBe(false)
+  })
+  it("actualizarPolitica hace POST con el cuerpo y el token", async () => {
+    const f = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal("fetch", f)
+    await actualizarPolitica({ dimension: "zona", clave: "dmz", automatizacion: null }, "tok")
+    expect(f.mock.calls[0][0]).toMatch(/\/api\/politica$/)
+    expect(f.mock.calls[0][1].method).toBe("POST")
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ dimension: "zona", clave: "dmz", automatizacion: null })
+    expect(f.mock.calls[0][1].headers.Authorization).toBe("Bearer tok")
+  })
+  it("actualizarPolitica rechaza si el servidor responde error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 400 }))
+    await expect(actualizarPolitica({ dimension: "familia", clave: "x", automatizacion: "humano_siempre" })).rejects.toThrow()
   })
 })

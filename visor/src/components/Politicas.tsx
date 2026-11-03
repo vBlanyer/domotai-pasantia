@@ -1,4 +1,4 @@
-import { useSondeo, getPolitica, type PoliticaFamilia } from "@/api"
+import { useSondeo, getPolitica, type PoliticaEstado, type PoliticaFamilia } from "@/api"
 import { Cargando, SinConexion, Vacio } from "@/components/bits"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { etiquetaClase, pasosRunbook } from "@/datos"
@@ -20,7 +20,7 @@ export function Politicas() {
   if (!t) return <Cargando />
   const fallo = "error" in t ? t : null
   if (fallo && !fallo.datos) return <SinConexion causa={fallo.causa} />
-  const filas: PoliticaFamilia[] = fallo ? (fallo.datos ?? []) : (t as PoliticaFamilia[])
+  const filas: PoliticaFamilia[] = fallo ? [] : (t as PoliticaEstado).familias
   if (filas.length === 0) return <Vacio>Sin políticas que mostrar.</Vacio>
   return (
     <div className="space-y-3">

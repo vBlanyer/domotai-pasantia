@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 
-const h = vi.hoisted(() => ({ pol: [] as unknown[] }))
+const h = vi.hoisted(() => ({ pol: {} as unknown }))
 vi.mock("@/api", async (orig) => ({ ...(await orig<typeof import("@/api")>()), useSondeo: () => h.pol }))
 import { Politicas } from "./Politicas"
 
@@ -16,7 +16,7 @@ const F = [
 
 describe("Politicas", () => {
   it("muestra, por familia, la acción, la automatización legible y los vetos", () => {
-    h.pol = F
+    h.pol = { familias: F, zonas: [] }
     render(<Politicas />)
     expect(screen.getByText("acceso_credenciales")).toBeInTheDocument()
     expect(screen.getByText("integridad_fichero")).toBeInTheDocument()
@@ -28,7 +28,7 @@ describe("Politicas", () => {
   })
 
   it("vacío lo dice", () => {
-    h.pol = []
+    h.pol = { familias: [], zonas: [] }
     render(<Politicas />)
     expect(screen.getByText(/Sin políticas que mostrar/)).toBeInTheDocument()
   })
