@@ -2,7 +2,7 @@ import { useState } from "react"
 import type { Decision, NodoRed, WatchEntrada } from "@/api"
 import { ESTADO_VISUAL } from "@/components/MapaRed"
 import { Prioridad, RiesgoBadge } from "@/components/bits"
-import { Donut, Tendencia, type Segmento } from "./charts"
+import { Tendencia, type Segmento } from "./charts"
 import { etiquetaClase, colorClase, agruparPorDia, atacantesDe, agruparPorSubred, riesgoEquipo, enWatchlist } from "@/datos"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK } from "@/theme"
 import { useTema } from "@/tema"
@@ -47,6 +47,7 @@ export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDe
   }, {})
   const segClase: Segmento[] = Object.keys(porClase).sort()
     .map((c) => ({ name: etiquetaClase(c), value: porClase[c], fill: colorClase(c, CAT) }))
+    .sort((x, y) => y.value - x.value)   // barras: la clase más frecuente arriba
   // El total del donut es la suma de sus porciones (eventos con clase), para que el centro cuadre
   // con las porciones aunque algún evento venga sin clase.
   const totalClasificado = segClase.reduce((s, x) => s + x.value, 0)
@@ -68,19 +69,33 @@ export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDe
           <RiesgoBadge r={riesgoEquipo(nodo, eventos)} />
         </div>
       </div>
-      <div className="flex flex-wrap gap-1.5 text-xs">
-        <span className="rounded bg-rose-500/15 px-1.5 py-0.5">{a.objetivo} recibidos</span>
-        <span className="rounded bg-slate-500/15 px-1.5 py-0.5">{a.origen} originados</span>
-        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5">{a.contuvo_aqui} contenidos aquí</span>
-        <span className="rounded bg-amber-400/20 px-1.5 py-0.5">{a.pendientes} pendientes</span>
-        <span className="rounded px-1.5 py-0.5 text-muted-foreground">último: {hora(a.ultima)}</span>
-      </div>
+      {/* las cifras del equipo, en una fila que se lee de un vistazo (los conteos los da `actividad`) */}
+      <dl className="grid grid-cols-4 overflow-hidden rounded-md border border-border">
+        {([["recibidos", a.objetivo, a.objetivo ? "text-critico" : ""], ["originados", a.origen, ""],
+           ["contenidos aquí", a.contuvo_aqui, a.contuvo_aqui ? "text-ok" : ""], ["pendientes", a.pendientes, a.pendientes ? "text-aviso" : ""]] as const).map(([k, v, cls]) => (
+          <div key={k} className="border-r border-border px-1 py-1.5 text-center last:border-r-0">
+            <dd className={`text-lg font-semibold leading-tight tabular-nums ${cls}`}>{v}</dd>
+            <dt className="text-[10px] text-muted-foreground">{k}</dt>
+          </div>
+        ))}
+      </dl>
+      <div className="text-xs text-muted-foreground">último: {hora(a.ultima)}</div>
       {total > 0 && (
         <div className="space-y-3 border-t border-border pt-2">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <div className="mb-1 text-xs text-muted-foreground">Por clase</div>
-              <Donut data={segClase} total={totalClasificado} unidad="eventos" />
+              <div className="mb-1 text-xs text-muted-foreground">Por clase · {totalClasificado} eventos</div>
+              {/* barras con cifra: se leen en 360 px mejor que una dona */}
+              <ul aria-label="Por clase" className="space-y-1">
+                {segClase.map((s) => (
+                  <li key={s.name} className="grid grid-cols-[10px_1fr_28px] items-center gap-1.5 text-[11px]">
+                    <span className="size-2.5 rounded-[3px]" style={{ background: s.fill }} />
+                    <span className="flex items-center gap-1.5"><span className="truncate text-muted-foreground">{s.name}</span>
+                      <span className="h-1.5 flex-1 rounded-sm bg-muted"><span className="block h-full rounded-r-sm" style={{ width: `${Math.round((s.value / (segClase[0]?.value || 1)) * 100)}%`, background: s.fill }} /></span></span>
+                    <span className="text-right font-medium tabular-nums">{s.value}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
             <div>
               <div className="mb-1 text-xs text-muted-foreground">Actividad por día</div>
@@ -147,7 +162,7 @@ export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDe
             </tbody>
           </table>
           {atacantes.length > TOP_ATACANTES && (
-            <button onClick={onVerDecisiones} className="text-xs text-sky-600 hover:underline dark:text-sky-400">
+            <button onClick={onVerDecisiones} className="text-xs text-info hover:underline">
               Ver los {atacantes.length} orígenes en Decisiones →
             </button>
           )}
@@ -177,7 +192,7 @@ export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDe
           ))}
         </ul>
       </details>
-      <button onClick={onVerDecisiones} className="text-sm text-sky-600 hover:underline dark:text-sky-400">Ver en Decisiones →</button>
+      <button onClick={onVerDecisiones} className="text-sm text-info hover:underline">Ver en Decisiones →</button>
     </div>
   )
 }

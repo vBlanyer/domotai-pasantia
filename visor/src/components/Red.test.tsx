@@ -38,7 +38,7 @@ describe("Red", () => {
     render(<Red onVerDecisiones={() => {}} />)
     fireEvent.click(screen.getByRole("button", { name: /web-banking/ }))
     expect(screen.getByText("banca en línea")).toBeInTheDocument()
-    expect(screen.getByText(/2 recibidos/)).toBeInTheDocument()
+    expect(screen.getByText("recibidos").previousElementSibling).toHaveTextContent("2")
     // la IP aparece en la tabla de atacantes y en la lista de eventos: basta con que esté
     expect(screen.getAllByText("198.51.100.10").length).toBeGreaterThan(0)
     expect(screen.getByText(/contenida en fw-core/)).toBeInTheDocument()

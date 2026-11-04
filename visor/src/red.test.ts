@@ -46,3 +46,88 @@ describe("disposicion", () => {
     expect(d.ancho).toBeGreaterThan(0)
   })
 })
+
+// ---- árbol: carril, ramas plegables, orígenes y cascada ----------------------------------------
+import { origenesDe, cascadaDe } from "./red"
+import type { Decision } from "./api"
+
+describe("disposicion en árbol", () => {
+  it("los externos van al carril de arriba y el tronco empieza debajo, centrado", () => {
+    const d = disposicion(BANCO)
+    expect(d.carril).not.toBeNull()
+    expect(d.nodos["internet"].y).toBeLessThan(d.carril!.y + d.carril!.h)
+    expect(d.nodos["fw-edge"].y).toBeGreaterThan(d.carril!.y + d.carril!.h)
+    expect(d.nodos["fw-core"].x).toBe(d.ancho / 2)
+  })
+  it("cada zona es una rama con sus hojas colgando en columna bajo la píldora", () => {
+    const d = disposicion(BANCO)
+    const dmz = d.ramas.find((r) => r.nombre === "DMZ")!
+    expect(dmz.plegada).toBe(false)
+    expect(dmz.hojas.map((h) => h.nombre)).toEqual(["web-banking", "api-movil"])
+    expect(d.nodos["web-banking"].y).toBeGreaterThan(dmz.y + dmz.h_pildora)
+    expect(d.nodos["web-banking"].x).toBe(d.nodos["api-movil"].x)
+    expect(dmz.espinaX).toBeLessThan(d.nodos["web-banking"].x - DIM.hojaAncho / 2)
+  })
+  it("una rama plegada no coloca sus hojas y ocupa solo la píldora", () => {
+    const d = disposicion(BANCO, { plegadas: new Set(["DMZ"]) })
+    const dmz = d.ramas.find((r) => r.nombre === "DMZ")!
+    expect(dmz.plegada).toBe(true)
+    expect(dmz.hojas).toEqual([])
+    expect(d.nodos["web-banking"]).toBeUndefined()
+    expect(dmz.h).toBe(dmz.h_pildora)
+    expect(d.alto).toBeLessThan(disposicion(BANCO).alto)
+  })
+  it("el bus une las ramas y cuelga del último nodo del tronco", () => {
+    const d = disposicion(BANCO)
+    expect(d.bus).not.toBeNull()
+    expect(d.bus!.y).toBeGreaterThan(d.nodos["fw-core"].y)
+    expect(d.bus!.y).toBeLessThan(d.ramas[0].y)
+    expect(d.bus!.x1).toBeLessThan(d.bus!.x2)
+  })
+  it("sin externos ni orígenes no hay carril", () => {
+    const red: Red = { ...BANCO, nodos: BANCO.nodos.filter((n) => n.tipo !== "externo"), enlaces: [] }
+    expect(disposicion(red).carril).toBeNull()
+    expect(disposicion(red, { carril: true }).carril).not.toBeNull()
+  })
+})
+
+const dec = (x: Partial<Decision>): Decision => x as Decision
+const T: Decision[] = [
+  dec({ origen_ip: "203.0.113.7", activo: "web-banking", relaciones: { "web-banking": ["objetivo"], "fw-core": ["contuvo_aqui"] }, enriquecimiento_origen: { geo: { codigo: "RU", pais: "Rusia" }, alcance: "externo" } as never }),
+  dec({ origen_ip: "203.0.113.7", activo: "web-banking", relaciones: { "web-banking": ["objetivo"] } }),
+  dec({ origen_ip: "203.0.113.7", activo: "api-movil", relaciones: { "api-movil": ["objetivo"] } }),
+  dec({ origen_ip: "198.51.100.23", activo: "api-movil", relaciones: { "api-movil": ["objetivo"] } }),
+  dec({ origen_ip: "192.0.2.55", activo: "ssh-bastion", relaciones: { "ssh-bastion": ["objetivo"] } }),
+  dec({ origen_ip: "10.0.40.12", activo: "ssh-bastion", relaciones: { "ssh-bastion": ["objetivo"] } }),
+  dec({ tipo: "actividad_suprimida", origen_ip: "203.0.113.7", alertas_suprimidas: 14 }),   // sistema: no cuenta
+  dec({ tipo: "actividad_propia", activo: "fw-core" }),
+]
+
+describe("origenesDe: los orígenes que más atacan, para el carril", () => {
+  it("ordena por ataques, trae país y objetivos, y pliega el resto", () => {
+    const o = origenesDe(T, 2)
+    expect(o.total).toBe(4)
+    expect(o.top.map((x) => [x.ip, x.n])).toEqual([["203.0.113.7", 3], ["198.51.100.23", 1]])
+    expect(o.top[0].codigo).toBe("RU")
+    expect(o.top[0].objetivos).toEqual({ "web-banking": 2, "api-movil": 1 })
+    expect(o.resto).toBe(2)
+  })
+  it("sin trazas, nada", () => {
+    expect(origenesDe([], 4)).toEqual({ top: [], resto: 0, total: 0 })
+  })
+})
+
+describe("cascadaDe: qué arrastra un equipo caído, siguiendo las dependencias", () => {
+  const red: Red = {
+    nodos: [nodo("db-core"), nodo("api-movil"), nodo("web-banking"), nodo("smb-files")].map((n, i) =>
+      i === 0 ? { ...n, salud: "caido", actividad: { ...n.actividad, estado: "caido" } } : n),
+    enlaces: [], zonas: [],
+    dependencias: [["api-movil", "db-core"], ["web-banking", "db-core"], ["smb-files", "web-banking"]],
+  }
+  it("del caído a cada dependiente, también transitivo, sin repetir", () => {
+    expect(cascadaDe(red).sort()).toEqual([["db-core", "api-movil"], ["db-core", "smb-files"], ["db-core", "web-banking"]].sort())
+  })
+  it("sin caídos no hay cascada", () => {
+    expect(cascadaDe({ ...red, nodos: red.nodos.map((n) => ({ ...n, salud: null, actividad: { ...n.actividad, estado: "sin_actividad" } })) })).toEqual([])
+  })
+})

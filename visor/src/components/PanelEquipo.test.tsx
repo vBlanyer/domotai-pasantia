@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen, fireEvent, within } from "@testing-library/react"
 
 // Las gráficas se stubean (como en Metricas.test) para asertar los DATOS derivados, no Recharts.
 vi.mock("./charts", () => ({
@@ -23,20 +23,20 @@ const eventos = [
 describe("PanelEquipo — datos por dispositivo", () => {
   it("no duplica los conteos: una sola fila (actividad) y el último visto, sin fila 'en la ventana'", () => {
     render(<PanelEquipo nodo={nodo} eventos={eventos} onVerDecisiones={() => {}} />)
-    expect(screen.getByText(/3 recibidos/)).toBeInTheDocument()       // la fila de actividad (autoritativa)
+    expect(screen.getByText("recibidos").previousElementSibling).toHaveTextContent("3")   // la fila de cifras (autoritativa)
     expect(screen.getByText(/último:/)).toBeInTheDocument()
     expect(screen.queryByText(/en la ventana/)).not.toBeInTheDocument()   // sin la fila redundante
   })
 
-  it("deriva el donut por clase (2 clases) y la tendencia por día (2 días)", () => {
+  it("deriva las barras por clase (2 clases) y la tendencia por día (2 días)", () => {
     render(<PanelEquipo nodo={nodo} eventos={eventos} onVerDecisiones={() => {}} />)
-    expect(screen.getByTestId("donut")).toHaveTextContent("2")
+    expect(within(screen.getByRole("list", { name: "Por clase" })).getAllByRole("listitem")).toHaveLength(2)
     expect(screen.getByTestId("tend")).toHaveTextContent("2")
   })
 
   it("sin eventos no pinta gráficas", () => {
     render(<PanelEquipo nodo={nodo} eventos={[]} onVerDecisiones={() => {}} />)
-    expect(screen.queryByTestId("donut")).not.toBeInTheDocument()
+    expect(screen.queryByRole("list", { name: "Por clase" })).not.toBeInTheDocument()
     expect(screen.getByText(/Sin eventos/)).toBeInTheDocument()
   })
 })
