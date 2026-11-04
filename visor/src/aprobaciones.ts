@@ -2,7 +2,7 @@
 // la cola, a dónde salta el inspector tras decidir, memoria del origen y «si apruebas» en una frase.
 import { parsearPendiente, type Decision, type Pendiente } from "@/api"
 import { msDesde } from "@/alertas"
-import { etiquetaClase, nivelPrioridad, ubicacionLabelDe } from "@/datos"
+import { etiquetaClase, nivelPrioridad, ubicacionLabelDe, quienDecidio } from "@/datos"
 import { campanaDe } from "@/trazas"
 
 export const SLA_MS = 15 * 60_000          // umbral de SLA del analista (= sla_umbral_seg del daemon)
@@ -62,7 +62,6 @@ export function siguienteTras(orden: string[], actual: string, resueltas: Set<st
 }
 
 const SISTEMA = new Set(["actividad_suprimida", "actividad_propia", "reversion", "error", "actualizacion_caso"])
-const VERBO: Record<string, string> = { aprobar: "aprobó", rechazar: "rechazó", reclasificar: "reclasificó" }
 
 // Lo que ya pasó con un origen según la traza: decisiones con hora, lo más reciente primero.
 export function historialOrigen(trazas: Decision[], ip: string | null | undefined, max = 5) {
@@ -74,14 +73,15 @@ export function historialOrigen(trazas: Decision[], ip: string | null | undefine
     .map((d) => ({
       ts: d.timestamp!,
       texto: [d.activo, d.clase ? etiquetaClase(d.clase) : null].filter(Boolean).join(" · ") + (d.accion_final ? ` → ${d.accion_final}` : ""),
-      quien: d.veredicto_humano ? `${VERBO[d.veredicto_humano] ?? d.veredicto_humano} ${d.veredicto_por ?? "el analista"}` : "automática",
+      quien: quienDecidio(d) ?? "automática",
       desenlace: d.contencion ?? null,
     }))
 }
 
+// Cuántas resolvió hoy el operador, por el día de SU decisión (no el de la alerta, que pudo llegar ayer).
 export function resueltasHoyPor(trazas: Decision[], operador: string, hoy: string): number {
   if (!operador) return 0
-  return trazas.filter((d) => d.veredicto_humano && d.veredicto_por === operador && (d.timestamp ?? "").startsWith(hoy)).length
+  return trazas.filter((d) => d.veredicto_humano && d.veredicto_por === operador && (d.decidido_en ?? d.timestamp ?? "").startsWith(hoy)).length
 }
 
 // «Si apruebas», en una frase: qué se ejecuta, contra qué, su consecuencia y la cascada (si la hay y

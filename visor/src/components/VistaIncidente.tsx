@@ -1,3 +1,4 @@
+import { quienDecidio } from "@/datos"
 import { useEffect, useState } from "react"
 import { ArrowLeft } from "lucide-react"
 import { useSondeo, getRed, getTrazaDetalle, type Decision, type Detalle } from "@/api"
@@ -89,7 +90,11 @@ export function VistaIncidente({ decision, onVolver }: { decision: Decision; onV
             </dd>
             <dt className="text-muted-foreground">Activo</dt><dd>{decision.activo ?? "—"}</dd>
             <dt className="text-muted-foreground">Acción</dt>
-            <dd>{decision.accion_final ?? "—"}{decision.veredicto_humano ? ` (${decision.veredicto_humano})` : ""}</dd>
+            <dd>{decision.accion_final ?? "—"}</dd>
+            {decision.veredicto_humano && <>
+              <dt className="text-muted-foreground">Decisión humana</dt>
+              <dd>{quienDecidio(decision)}{decision.decidido_en ? ` a las ${new Date(decision.decidido_en).toLocaleTimeString("es")}` : ""}</dd>
+            </>}
           </dl>
 
           {cascada.length > 0 && (

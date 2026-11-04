@@ -1,10 +1,14 @@
-import { useState, useEffect, useMemo, useRef, type ComponentType } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback, type ComponentType } from "react"
 import {
   Moon, Sun, Menu, Bell, BellOff, Pause, PanelLeftClose, PanelLeftOpen,
   LayoutDashboard, SquareTerminal, ListChecks, Shield, List, TriangleAlert, Network, MapPin, Eye, ScrollText,
   ChartBar, SlidersHorizontal, Activity, KeyRound,
 } from "lucide-react"
-import { useSondeo, getSalud, getPendientes, getPausa, getContenciones, getTrazas, tokenActual, fijarToken, listaConocida, type Pendiente } from "@/api"
+import {
+  useSondeo, getSalud, getPendientes, getPausa, getContenciones, getTrazas, tokenActual, listaConocida, comprobarSesion,
+  iniciarSesion, cerrarSesion, sesionActual, operadorActual, EVENTO_NO_AUTORIZADO, type Pendiente, type Sesion, type ModoSesion,
+} from "@/api"
+import { Acceso, Reautenticar, ChipSesion, BandaAbierta, type Motivo, type Entrada as EntradaSesion } from "@/components/Acceso"
 import { campanasDe, estadoDeCasos, claveDeCampana } from "@/datos"
 import { cn } from "@/lib/utils"
 import { tituloConPendientes, nuevosPendientes, textoAviso } from "@/alertas"
@@ -135,7 +139,8 @@ function Contador({ n, compacto }: { n: number; compacto: boolean }) {
   )
 }
 
-export default function App() {
+// La consola, ya dentro: menú, cabecera con la sesión y las vistas.
+function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion; onCerrarSesion: () => void; onCambiarNombre: () => void }) {
   const [vista, setVista] = useState<Vista>("panel")
   const [equipo, setEquipo] = useState<string | null>(null)
   const [textoDec, setTextoDec] = useState("")        // filtro de Decisiones sembrado al pivotar (p. ej. una IP)
@@ -144,7 +149,6 @@ export default function App() {
   const [aprobSel, setAprobSel] = useState<string | null>(null)   // pendiente abierta al llegar (desde el Panel)
   const [incidenteSel, setIncidenteSel] = useState<{ clave: string; cidr: string } | null>(null)   // detalle de incidente
   const [incidente, setIncidente] = useState<Decision | null>(null)
-  const [token, setToken] = useState(tokenActual())   // auth opcional de la consola (#6); vacío = abierta
   const [menu, setMenu] = useState(false)             // drawer de navegación en móvil (< md)
   const [plegado, setPlegado] = useState(leerPlegado) // menú plegado a iconos (escritorio)
   const compacto = plegado && !menu                   // el drawer móvil nunca va plegado
@@ -258,6 +262,7 @@ export default function App() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {sesion.modo === "abierta" && <BandaAbierta />}
         <header className="flex flex-wrap items-center justify-between gap-y-2 border-b border-border bg-card px-4 py-4 md:px-8 print:hidden">
           <div className="flex items-center gap-2">
             <button
@@ -269,12 +274,6 @@ export default function App() {
             <h1 className="font-heading text-lg font-semibold">{titulo}</h1>
           </div>
           <div className="flex items-center gap-2 text-sm md:gap-4">
-            <input
-              type="password" value={token} placeholder="token"
-              onChange={(e) => { setToken(e.target.value); fijarToken(e.target.value) }}
-              title="Token de la consola (solo si el daemon exige autenticación; en blanco = abierta)"
-              className="w-24 rounded-md border border-border bg-transparent px-2 py-1 text-xs text-muted-foreground"
-            />
             <span className="flex items-center gap-2">
               <Punto estado={conectado ? "ok" : "caido"} />
               <span className="hidden text-muted-foreground sm:inline">{conectado ? "datos en vivo" : "sin conexión con el daemon"}</span>
@@ -300,6 +299,7 @@ export default function App() {
             >
               {oscuro ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
+            <ChipSesion sesion={sesion} nombre={operadorActual()} onCerrar={onCerrarSesion} onCambiarNombre={onCambiarNombre} />
           </div>
         </header>
         <main className="flex-1 overflow-auto px-4 py-6 md:px-8 print:overflow-visible print:p-0">
@@ -352,5 +352,65 @@ export default function App() {
         </main>
       </div>
     </div>
+  )
+}
+
+// ---- puerta de acceso ----------------------------------------------------------------------------
+// Al arrancar se pregunta a /api/sesion con el token de la pestaña (si lo hay). Nada de la consola se
+// monta (ni sondea) hasta entrar. Dentro, un 401 de cualquier sondeo abre «volver a entrar» encima de la
+// vista, sin desmontarla.
+type Fase =
+  | { f: "comprobando" }
+  | { f: "acceso"; motivo?: Motivo; segundos?: number }
+  | { f: "nombre"; modo: Exclude<ModoSesion, "identificado"> }
+  | { f: "dentro" }
+
+export default function App() {
+  const [fase, setFase] = useState<Fase>({ f: "comprobando" })
+  const [reentrar, setReentrar] = useState(false)
+  const [generacion, setGeneracion] = useState(0)     // remonta la consola si cambia quién firma
+  const dentro = fase.f === "dentro"
+
+  const entrar = useCallback(({ modo, operador }: EntradaSesion) => {
+    const antes = sesionActual()?.operador
+    iniciarSesion(modo, operador)
+    setReentrar(false)
+    if (antes !== undefined && antes !== (sesionActual()?.operador ?? "")) setGeneracion((g) => g + 1)
+    setFase(modo !== "identificado" && !operadorActual().trim() ? { f: "nombre", modo } : { f: "dentro" })
+  }, [])
+
+  useEffect(() => {
+    let vivo = true
+    const token = tokenActual()
+    comprobarSesion(token).then((r) => {
+      if (!vivo) return
+      if (r.tipo === "ok") return entrar({ modo: !r.requiereToken ? "abierta" : r.operador ? "identificado" : "compartido", operador: r.operador })
+      if (r.tipo === "rechazado") return setFase({ f: "acceso", motivo: token ? "caducado" : undefined })
+      if (r.tipo === "bloqueado") return setFase({ f: "acceso", motivo: "bloqueado", segundos: r.segundos })
+      setFase({ f: "acceso", motivo: "sin_red" })
+    })
+    return () => { vivo = false }
+  }, [entrar])
+
+  useEffect(() => {
+    if (!dentro) return
+    const pedir = () => setReentrar(true)
+    window.addEventListener(EVENTO_NO_AUTORIZADO, pedir)
+    return () => window.removeEventListener(EVENTO_NO_AUTORIZADO, pedir)
+  }, [dentro])
+
+  const salir = () => { cerrarSesion(); setReentrar(false); setFase({ f: "acceso" }) }
+  const sesion = sesionActual()
+
+  if (fase.f === "comprobando") return <div className="h-dvh bg-[#0d1117]" aria-busy="true" />
+  if (fase.f === "acceso") return <Acceso motivo={fase.motivo} segundos={fase.segundos} onEntrar={entrar} />
+  if (fase.f === "nombre") return <Acceso pedirNombre={fase.modo} onEntrar={entrar} onNombre={() => { setGeneracion((g) => g + 1); setFase({ f: "dentro" }) }} />
+  if (!sesion) return <Acceso onEntrar={entrar} />
+  return (
+    <>
+      <Interfaz key={generacion} sesion={sesion} onCerrarSesion={salir}
+        onCambiarNombre={() => setFase({ f: "nombre", modo: sesion.modo === "compartido" ? "compartido" : "abierta" })} />
+      {reentrar && <Reautenticar onEntrar={entrar} onSalir={salir} />}
+    </>
   )
 }

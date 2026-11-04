@@ -375,3 +375,36 @@ describe("política (objeto)", () => {
     await expect(actualizarPolitica({ dimension: "familia", clave: "x", automatizacion: "humano_siempre" })).rejects.toThrow()
   })
 })
+
+describe("sesión de la consola", () => {
+  it("comprobarSesion distingue abierta, identificado, rechazado, bloqueo y daemon antiguo", async () => {
+    const { comprobarSesion } = await import("./api")
+    const resp = (status: number, body: unknown = {}, cab: Record<string, string> = {}) =>
+      ({ status, ok: status < 400, headers: new Headers(cab), json: async () => body }) as Response
+    const f = vi.spyOn(globalThis, "fetch")
+    f.mockResolvedValueOnce(resp(200, { requiere_token: false, operador: null }))
+    expect(await comprobarSesion("")).toEqual({ tipo: "ok", requiereToken: false, operador: null })
+    f.mockResolvedValueOnce(resp(200, { requiere_token: true, operador: "ana" }))
+    expect(await comprobarSesion("t")).toEqual({ tipo: "ok", requiereToken: true, operador: "ana" })
+    expect(f.mock.calls[1][1]).toEqual({ headers: { Authorization: "Bearer t" } })
+    f.mockResolvedValueOnce(resp(401))
+    expect(await comprobarSesion("t")).toEqual({ tipo: "rechazado" })
+    f.mockResolvedValueOnce(resp(429, {}, { "Retry-After": "17" }))
+    expect(await comprobarSesion("t")).toEqual({ tipo: "bloqueado", segundos: 17 })
+    f.mockResolvedValueOnce(resp(404))
+    expect(await comprobarSesion("t")).toEqual({ tipo: "ok", requiereToken: true, operador: null })
+    f.mockRejectedValueOnce(new TypeError("fetch failed"))
+    expect(await comprobarSesion("t")).toEqual({ tipo: "sin_red" })
+    f.mockRestore()
+  })
+
+  it("con token por persona firma el nombre del daemon, no el escrito a mano", async () => {
+    const { iniciarSesion, cerrarSesion, operadorActual, fijarOperador, operadorVerificado } = await import("./api")
+    fijarOperador("escrito")
+    iniciarSesion("identificado", "ana")
+    expect(operadorActual()).toBe("ana"); expect(operadorVerificado()).toBe(true)
+    iniciarSesion("compartido", null)
+    expect(operadorActual()).toBe("escrito"); expect(operadorVerificado()).toBe(false)
+    cerrarSesion(); fijarOperador("")
+  })
+})

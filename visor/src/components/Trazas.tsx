@@ -4,7 +4,7 @@ import { useSondeo, getTrazas, getVerificacion, type Decision } from "@/api"
 import { Button } from "@/components/ui/button"
 import { Cargando, SinConexion, Vacio, Punto, BarraFiltros, DatosCongelados } from "./bits"
 import { OrigenBadges } from "./OrigenBadges"
-import { filtrarDecisiones, clasesDe, claveDe, ventanaDe, paginar, etiquetaClase, campanasDe, TAM_PAGINA, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, ventanaDe, paginar, etiquetaClase, campanasDe, TAM_PAGINA, type Filtro, quienDecidio } from "@/datos"
 import {
   CHIPS, tipoDe, filtrarTipo, hashCorto, horaLocal, claveDia, etiquetaDia, describirSistema, marcaDe, pruebaDe, campanaDe,
   type Chip, type TipoFila, type Marca,
@@ -17,7 +17,6 @@ import { cn } from "@/lib/utils"
 type Cadena = { ok: boolean; roto: number | null; motivo?: string; en: number; conexion: boolean } | null
 const CADA_MS = 30000   // A5: verificar recorre TODO el fichero; cada 30 s basta (como en el Panel)
 
-const VERBO: Record<string, string> = { aprobar: "aprobó", rechazar: "rechazó", reclasificar: "reclasificó" }
 const NODO: Record<TipoFila, string> = {
   decision: "border-primary bg-primary", humano: "border-aviso bg-aviso", sistema: "border-enrutado bg-card", error: "border-critico bg-critico",
 }
@@ -37,7 +36,7 @@ function Pildora({ tono, children }: { tono: "auto" | "hum" | "sys" | "rev" | "e
 function PildoraDecision({ r, tipo }: { r: Decision; tipo: TipoFila }) {
   if (tipo === "error") return <Pildora tono="err">error</Pildora>
   if (tipo === "sistema") return r.tipo === "reversion" ? <Pildora tono="rev">{r.exito ? "aplicada" : "falló"}</Pildora> : <Pildora tono="sys">sistema</Pildora>
-  if (tipo === "humano") return <Pildora tono="hum">{r.veredicto_humano ? `${VERBO[r.veredicto_humano] ?? r.veredicto_humano} ${r.veredicto_por ?? "el analista"}` : "pendiente de humano"}</Pildora>
+  if (tipo === "humano") return <Pildora tono="hum">{quienDecidio(r) ?? "pendiente de humano"}</Pildora>
   return <Pildora tono="auto">automática</Pildora>
 }
 
@@ -115,7 +114,8 @@ function Inspector({ r, i, anterior, cadena, revertidaPor, revierte, enCampana, 
             <KV k="Clase"><span className="font-mono text-xs">{r.clase ?? "—"}</span>{r.confianza != null && <> · confianza <b className="font-semibold">{r.confianza}</b></>}{r.prioridad != null && <> · prioridad P{r.prioridad}</>}</KV>
             <KV k="Acción"><b className="font-semibold">{r.accion_final ?? "—"}</b>{r.dispositivo && <> en {r.dispositivo}</>}{r.impacto && <> · impacto {r.impacto}</>}
               {r.accion_propuesta && r.accion_propuesta !== r.accion_final && <span className="text-muted-foreground"> · propuesta: {r.accion_propuesta}</span>}</KV>
-            <KV k="Decidió">{tipo === "humano" ? (r.veredicto_humano ? `${VERBO[r.veredicto_humano] ?? r.veredicto_humano} ${r.veredicto_por ?? "el analista"}` : "pendiente de humano") : "automática"}
+            <KV k="Decidió">{tipo === "humano" ? (quienDecidio(r) ?? "pendiente de humano") : "automática"}
+              {tipo === "humano" && r.decidido_en && <span className="text-muted-foreground"> · {new Date(r.decidido_en).toLocaleTimeString("es")}</span>}
               {r.resultado_filtro && <span className="text-muted-foreground"> · filtro del perfil: {r.resultado_filtro}</span>}</KV>
             {r.tecnica_mitre?.length ? <KV k="ATT&CK"><span className="inline-flex flex-wrap gap-1">{r.tecnica_mitre.map((t) => <span key={t} className="rounded bg-muted px-1.5 font-mono text-[10px]">{t}</span>)}</span></KV> : null}
             {r.motivo && <KV k="Motivo">{r.motivo}</KV>}

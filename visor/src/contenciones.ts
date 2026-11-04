@@ -1,3 +1,4 @@
+import { quienDecidio } from "@/datos"
 // Lógica pura de «Contenciones activas»: lo que la vista cuenta de cada contención cruzándola con la
 // traza (país, clase, quién decidió, si sigue parando intentos), el resumen, el orden y la agrupación.
 import type { Contencion, Decision } from "@/api"
@@ -5,7 +6,6 @@ import type { Contencion, Decision } from "@/api"
 // Una contención sin actividad desde hace tanto es candidata a revisarse. Propuesta: acordar el umbral.
 export const UMBRAL_VIEJA_MS = 7 * 24 * 3600_000
 
-const VERBO: Record<string, string> = { aprobar: "aprobó", rechazar: "rechazó", reclasificar: "reclasificó" }
 const ms = (iso?: string | null) => { const t = iso ? Date.parse(iso) : NaN; return Number.isNaN(t) ? null : t }
 
 // ¿Cuenta como «intento» del origen? Las decisiones y las supresiones (que agrupan N alertas).
@@ -40,7 +40,7 @@ export function enriquecer(cs: Contencion[], trazas: Decision[], ahora: number):
       pais: decision?.enriquecimiento_origen?.geo?.pais ?? null, alcance: decision?.enriquecimiento_origen?.alcance ?? null,
       clase: decision?.clase ?? null, confianza: decision?.confianza ?? null,
       decidio: c.via_escalada ? "vía escalada"
-        : decision?.veredicto_humano ? `${VERBO[decision.veredicto_humano] ?? decision.veredicto_humano} ${decision.veredicto_por ?? "el analista"}`
+        : decision?.veredicto_humano ? quienDecidio(decision)!
         : decision ? "automática" : "—",
       enBorde: !!c.nodo && c.nodo !== c.activo,
       edadMs, vieja: edadMs >= UMBRAL_VIEJA_MS, intentos, ultimoIntento,

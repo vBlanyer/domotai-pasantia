@@ -17,11 +17,13 @@ lectura/aprobación de la consola.
 |---------|----------|----------|
 | **Host** | La cabecera `Host` debe ser localhost (anti DNS-rebinding) | `403 host no permitido` |
 | **Token** (opcional, #6) | Si el daemon arrancó con `TRIAJE_CONSOLA_TOKEN` (o tokens de operador), `/api/*` exige `Authorization: Bearer <token>` | `401 no autorizado` |
+| **Límite de intentos** | Tras 5 tokens **distintos** fallidos en 60 s desde el mismo origen, 30 s sin evaluar ningún token suyo (ni el bueno). Repetir el mismo token caducado (el sondeo del visor) no cuenta; una petición sin cabecera tampoco | `429` con `Retry-After` y `{error, reintentar_en}` |
 | **Origin** (solo POST, anti-CSRF) | Un POST con `Origin` de un sitio ajeno se rechaza; sin `Origin` (curl) se permite | `403` |
 | **CORS** | Se refleja el `Origin` solo si es localhost (nunca `*`): una web de terceros no puede leer la API | — |
 | **Tope de cuerpo** (POST) | `Content-Length` acotado; uno negativo se rechaza | `413` |
 
-Los **estáticos** (el visor) no exigen token, para que la SPA cargue y pida el token al operador. El
+Los **estáticos** (el visor) no exigen token, para que la SPA cargue y pida el token al operador en
+su **pantalla de acceso** (no pinta ningún dato del cliente antes de autenticar). El
 **operador** de un POST sale del token (autoritativo, no repudio) o, en su defecto, del campo
 `operador` del cuerpo.
 
@@ -30,11 +32,12 @@ Los **estáticos** (el visor) no exigen token, para que la SPA cargue y pida el 
 | Ruta | Parámetros | Devuelve |
 |------|-----------|----------|
 | `GET /healthz` | — | Salud del **propio MDR**: `{ok, alertas, lazo_quietud_s, ingesta_silencio_s}`. `ok=false` si el lazo lleva demasiado tiempo sin iterar (colgado). Distinto de `/api/salud`. |
+| `GET /api/sesion` | — | Pantalla de acceso: `{requiere_token, operador}`. `operador` es el nombre que el mapa de operadores asocia al token presentado, o `null` (token compartido o consola abierta). Sin token válido, `401` como el resto de `/api/*`. |
 | `GET /api/salud` | — | Salud de los **servicios del cliente** (por servicio + dependencias). |
 | `GET /api/red` | — | Mapa de la red con la actividad por equipo (`{nodos, zonas, enlaces}`). |
 | `GET /api/decisiones` | — | Las últimas 50 decisiones (resumen por fila). Cada fila incluye `enriquecimiento_origen` de la IP atacante: `{alcance (interno/externo/…), inventariado, clasificacion_ip (publica/privada/documentacion/loopback), tercero_confiable, legitimo, geolocalizable, geo, asn}`. Reusa el actor del motor + `ipaddress`; `geo` y `asn` son **offline** (tablas de muestra `corpus/geoip-muestra.json` y `corpus/asn-muestra.json`; `asn = {asn, org}` solo para IP pública en la tabla, si no `null`). |
 | `GET /api/pendientes` | — | La **cola de aprobación** (array), ordenada por severidad. Cada ítem: `{id, tipo, prompt, lineas, severidad, suprimidas, paso, accion_final, activo, origen_ip, enriquecimiento_origen, encolado_en}`. `enriquecimiento_origen` (mismo shape que en `/api/decisiones`) permite mostrar la ubicación y filtrar la cola por país en el visor. |
-| `GET /api/trazas` | `limite` (opc.) | La cola de la traza encadenada (últimos N registros, decisiones + reversiones + actualizaciones de caso…). |
+| `GET /api/trazas` | `limite` (opc.) | La cola de la traza encadenada (últimos N registros, decisiones + reversiones + actualizaciones de caso…). Cada decisión con veredicto humano lleva `veredicto_por` (quién decidió; `null` = sin nombre registrado), `decidido_en` y `espera_humana_s` (segundos en cola hasta el veredicto). Los mismos campos van en `/api/decisiones`. |
 | `GET /api/traza/<id>` | `indice` (opc.) | El **detalle completo** de una decisión (justificación, ejecución, verificación, escalada, pasajes del RAG, impacto determinado). `404` si no existe. |
 | `GET /api/caso/<id>` | — | El **ciclo de caso** de una decisión, plegado sobre el fichero completo: `{estado, asignado, notas[], actualizado_en?}`. Sin actualizaciones: `{estado:"nuevo", asignado:null, notas:[]}` (el caso no «rejuvenece» al salir de la ventana de `/api/trazas`). El `<id>` es `id_decision` (`sN`/`dN`) para un caso por decisión, o la clave de incidente **`inc:<prefijo/24>`** (p. ej. `inc:203.0.113`) para un caso a **nivel incidente** (misma API; el prefijo `inc:` lo separa). |
 | `GET /api/rdns` | `ip` | **DNS inverso (PTR)** de una IP pública, bajo demanda: `{ip, rdns: str|null}`. **OPT-IN y apagado por defecto**: sin `TRIAJE_RDNS` activo devuelve siempre `rdns:null` sin tocar la red (una consulta DNS es egreso, contra RNF-01); solo IP pública (si no, `rdns:null`); `ip` no válida → `400`. Se pide desde el perfil del atacante, nunca en el sondeo. |
@@ -44,7 +47,7 @@ Los **estáticos** (el visor) no exigen token, para que la SPA cargue y pida el 
 | `GET /api/contenciones` | — | Las contenciones **activas** ahora mismo (array). |
 | `GET /api/pausa` | — | Estado del *kill switch*: `{pausada: bool}`. |
 | `GET /api/politica` | — | **Playbook estático por familia** (solo lectura): `[{familia, clase_tipica, accion, impacto, automatizacion (automatica/automatica_si_confianza/requiere_humano/nunca_automatica), mitre[], nivel, ruta, vetos[], recomendacion}]`, derivado de `catalogo`+`perfil` reutilizando el clasificador y la regla de continuidad del motor. Los matices por actor/IP se refinan en runtime (frontera honesta). |
-| `GET /api/metricas` | `desde`, `hasta` (YYYY-MM-DD, opc.) | Métricas: `{total, fp, tasa_fp, auto, escalado_humano, tasa_override, mttr_seg, por_clase, veredictos, por_dia, top_activos, mitre, desde, hasta}` + **tiempos de respuesta / SLA**: `{mttr_mediano_seg, sla_umbral_seg (def. 900, env TRIAJE_SLA_SEG), sla_resueltos, sla_dentro, sla_incumplidos, sla_pct}` + **ranking por amenaza y ubicación** (resumen ejecutivo): `{por_familia:[{familia,n}], por_pais:[{pais,n}]}` (`por_pais` vía geolocalización **offline**; sin IP/geo → "Sin geolocalizar"). Con periodo agrega **todo** el histórico (para el informe); sin él, la ejecución actual. |
+| `GET /api/metricas` | `desde`, `hasta` (YYYY-MM-DD, opc.) | Métricas: `{total, fp, tasa_fp, auto, escalado_humano, tasa_override, mttr_seg, por_clase, veredictos, por_dia, top_activos, mitre, desde, hasta}` + **tiempos de respuesta / SLA**: `{mttr_mediano_seg, sla_umbral_seg (def. 900, env TRIAJE_SLA_SEG), sla_resueltos, sla_dentro, sla_incumplidos, sla_pct}` + **ranking por amenaza y ubicación** (resumen ejecutivo): `{por_familia:[{familia,n}], por_pais:[{pais,n}]}` (`por_pais` vía geolocalización **offline**; sin IP/geo → "Sin geolocalizar"). Con periodo agrega **todo** el histórico (para el informe); sin él, la ejecución actual. Incluye `por_analista`: `[{analista, aprobar, rechazar, reclasificar, total, mediana_seg, fuera_sla}]`, las sin nombre (`analista: null`) al final. |
 
 ## Endpoints de acción (POST)
 

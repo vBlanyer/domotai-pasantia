@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, type ReactNode } from "react"
 import { TriangleAlert, Clock, ChevronDown, ChevronRight } from "lucide-react"
-import { useSondeo, getPendientes, getTrazas, aprobar, actualizarCaso, parsearPendiente, operadorActual, fijarOperador, ahoraServidor, type Pendiente, type Opcion, type Decision } from "@/api"
+import { useSondeo, getPendientes, getTrazas, aprobar, actualizarCaso, parsearPendiente, operadorActual, operadorVerificado, ahoraServidor, type Pendiente, type Opcion, type Decision } from "@/api"
 import { edadTexto, msDesde } from "@/alertas"
 import { etiquetaClase, ubicacionLabelDe, nivelPrioridad, paginar, TAM_PAGINA } from "@/datos"
 import { SLA_MS, ordenarPor, agruparPor, ORDENES, AGRUPACIONES, type Orden, type Agrupacion, saludCola, siguienteTras, historialOrigen, resueltasHoyPor, efectoAprobar } from "@/aprobaciones"
@@ -275,15 +275,14 @@ function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicac
   )
 }
 
+// Quién firma lo que se decide aquí: lo fija la sesión (token por persona, o el nombre dado al entrar).
 function BarraOperador() {
-  const [nombre, setNombre] = useState(operadorActual())
+  const yo = operadorActual().trim()
   return (
-    <label className="flex items-center gap-2 text-sm text-muted-foreground">
-      <span>Operador:</span>
-      <input value={nombre} placeholder="tu nombre (queda en la traza)"
-        onChange={(e) => { setNombre(e.target.value); fijarOperador(e.target.value) }}
-        className="w-56 rounded-md border border-border bg-card px-2 py-1 text-foreground" />
-    </label>
+    <p className="text-sm text-muted-foreground">
+      Firmas como <b className="font-medium text-foreground">{yo || "sin nombre"}</b>
+      <span className="text-xs"> · {operadorVerificado() ? "verificado por tu token" : "nombre sin verificar"}</span>
+    </p>
   )
 }
 

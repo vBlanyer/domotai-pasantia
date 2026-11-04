@@ -510,6 +510,43 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(v["roto_en"], 1)
 
 
+class TestQuienDecidio(unittest.TestCase):
+    REGS = [
+        {"id_decision": "s1", "veredicto_humano": "aprobar", "veredicto_por": "ana", "recibido_en": 100.0, "resuelto_en": 124.4},
+        {"id_decision": "s2", "veredicto_humano": "rechazar", "veredicto_por": "ana", "recibido_en": 100.0, "resuelto_en": 1100.0},
+        {"id_decision": "s3", "veredicto_humano": "aprobar", "veredicto_por": "leo", "recibido_en": 100.0, "resuelto_en": 160.0},
+        {"id_decision": "s4", "veredicto_humano": "aprobar", "recibido_en": 100.0, "resuelto_en": 130.0},
+        {"id_decision": "s5", "requiere_humano": False},
+    ]
+
+    def test_el_resumen_lleva_quien_decidio_y_cuanto_espero(self):
+        r = tablero._resumen_traza(self.REGS[0])
+        self.assertEqual((r["veredicto_por"], r["espera_humana_s"]), ("ana", 24.4))
+        r = tablero._resumen_traza(self.REGS[4])
+        self.assertEqual((r["veredicto_por"], r["espera_humana_s"]), (None, None))
+
+    def test_metricas_por_analista(self):
+        filas = tablero.metricas(self.REGS)["por_analista"]
+        self.assertEqual([f["analista"] for f in filas], ["ana", "leo", None])     # sin nombre, al final
+        self.assertEqual(filas[0], {"analista": "ana", "aprobar": 1, "rechazar": 1, "reclasificar": 0, "total": 2,
+                                    "mediana_seg": 512.2, "fuera_sla": 1})
+        self.assertEqual(filas[2]["mediana_seg"], 30.0)
+
+
+class TestIntentos(unittest.TestCase):
+    def test_ventana_y_fin_del_bloqueo(self):
+        t = [0.0]
+        i = tablero.Intentos(maximo=2, ventana_s=10, bloqueo_s=5, reloj=lambda: t[0])
+        self.assertFalse(i.fallo("o", "a"))
+        t[0] = 11                                         # el primer fallo ya salió de la ventana
+        self.assertFalse(i.fallo("o", "b"))
+        self.assertTrue(i.fallo("o", "c"))                # dos distintos dentro de la ventana
+        self.assertEqual(i.restante("o"), 5)
+        self.assertEqual(i.restante("otro"), 0)           # por origen
+        t[0] = 16.5
+        self.assertEqual(i.restante("o"), 0)
+
+
 class TestAuth(unittest.TestCase):
     # V1.1 #6/#8: auth OPCIONAL de la consola. Sin token -> abierto (como hoy). Con token -> Bearer exacto.
     def test_sin_token_configurado_todo_pasa(self):
@@ -581,6 +618,52 @@ class TestServidor(unittest.TestCase):
         self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer tok-ana"})[0], 200)
         self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer tok-leo"})[0], 200)
         self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer nadie"})[0], 401)
+
+    def test_sesion_dice_si_exige_token_y_quien_firma(self):
+        # pantalla de acceso del visor: consola abierta, token por persona y token compartido
+        _, puerto = self._servidor()
+        st, c = self._get(puerto, "/api/sesion")
+        self.assertEqual((st, json.loads(c)), (200, {"requiere_token": False, "operador": None}))
+        _, puerto = self._servidor(token="compartido", operadores={"tok-ana": "ana"})
+        self.assertEqual(self._get(puerto, "/api/sesion")[0], 401)
+        st, c = self._get_h(puerto, "/api/sesion", {"Authorization": "Bearer tok-ana"})
+        self.assertEqual((st, json.loads(c)), (200, {"requiere_token": True, "operador": "ana"}))
+        st, c = self._get_h(puerto, "/api/sesion", {"Authorization": "Bearer compartido"})
+        self.assertEqual(json.loads(c), {"requiere_token": True, "operador": None})
+
+    def test_tokens_distintos_fallidos_bloquean_el_origen(self):
+        srv, puerto = self._servidor(operadores={"tok-ana": "ana"})
+        srv.intentos = tablero.Intentos(maximo=3, ventana_s=60, bloqueo_s=30)
+        mal = lambda t: self._get_h(puerto, "/api/sesion", {"Authorization": f"Bearer {t}"})
+        self.assertEqual(mal("a")[0], 401)
+        self.assertEqual(mal("b")[0], 401)
+        st, _ = mal("c")                                                   # el tercero distinto bloquea
+        self.assertEqual(st, 429)
+        c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)
+        c.request("GET", "/api/sesion", headers={"Authorization": "Bearer tok-ana"}); r = c.getresponse(); r.read(); c.close()
+        self.assertEqual(r.status, 429)                                     # durante el bloqueo ni el bueno se evalúa
+        self.assertTrue(1 <= int(r.getheader("Retry-After")) <= 30)
+        self.assertEqual(self._get(puerto, "/healthz")[0], 200)             # la salud sigue respondiendo
+
+    def test_el_mismo_token_caducado_repetido_no_bloquea(self):
+        # el visor sondea varias rutas a la vez con el token viejo: eso no es adivinar
+        srv, puerto = self._servidor(operadores={"tok-ana": "ana"})
+        srv.intentos = tablero.Intentos(maximo=3)
+        for _ in range(10):
+            self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer viejo"})[0], 401)
+        self.assertEqual(self._get_h(puerto, "/api/pendientes", {"Authorization": "Bearer tok-ana"})[0], 200)
+
+    def test_sin_cabecera_no_cuenta_como_intento(self):
+        srv, puerto = self._servidor(token="s")
+        srv.intentos = tablero.Intentos(maximo=1)
+        for _ in range(3):
+            self.assertEqual(self._get(puerto, "/api/sesion")[0], 401)
+        self.assertEqual(self._get_h(puerto, "/api/sesion", {"Authorization": "Bearer s"})[0], 200)
+
+    def test_consola_abierta_nunca_bloquea(self):
+        srv, puerto = self._servidor()
+        srv.intentos = tablero.Intentos(maximo=1)
+        self.assertEqual(self._get_h(puerto, "/api/sesion", {"Authorization": "Bearer lo-que-sea"})[0], 200)
 
     def _get(self, puerto, ruta):
         c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=3)

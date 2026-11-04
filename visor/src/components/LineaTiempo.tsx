@@ -1,4 +1,4 @@
-import { cronologiaDe, etiquetaClase, type EventoCronologia } from "@/datos"
+import { cronologiaDe, etiquetaClase, type EventoCronologia, quienDecidio } from "@/datos"
 import { Prioridad } from "@/components/bits"
 import type { Decision } from "@/api"
 
@@ -40,7 +40,7 @@ export function LineaTiempo({ regs, max }: { regs: Decision[]; max?: number }) {
                   <span>{etiquetaClase(e.clase ?? "")}</span>
                   {e.origen_ip && <span className="text-muted-foreground">{e.origen_ip} → {e.activo ?? "—"}</span>}
                   {e.accion && <span className="rounded bg-muted px-1.5 py-0.5 font-mono">{e.accion}</span>}
-                  {e.veredicto_humano && <span className="text-muted-foreground">· {e.veredicto_humano}</span>}
+                  {e.veredicto_humano && <span className="font-medium text-violeta">· {quienDecidio(e)}</span>}
                 </>
               )}
               {e.tipo === "reversion" && (

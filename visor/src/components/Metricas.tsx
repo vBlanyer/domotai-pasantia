@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react"
-import { getMetricas, type Metricas as Datos, type Fallo } from "@/api"
+import { getMetricas, type Metricas as Datos, type Fallo, type FilaAnalista } from "@/api"
 import { Donut, Tendencia, Barras, type Segmento } from "./charts"
 import { MatrizAttack } from "./MatrizAttack"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK, semantico, type Semantico } from "@/theme"
 import { useTema } from "@/tema"
 import { Cargando, SinConexion, Vacio, Kpi, Tarjeta } from "./bits"
-import { etiquetaClase, colorClase } from "@/datos"
+import { etiquetaClase, colorClase, SIN_NOMBRE } from "@/datos"
 import { rangoDe, etiquetaPeriodo, type Preset } from "@/informe"
 import { GeneradorInforme } from "./GeneradorInforme"
 
@@ -23,6 +23,30 @@ const VEREDICTO = (S: Semantico) => ({
 type Seleccion = "vivo" | Preset | "rango"
 
 const pct = (x: number) => `${Math.round(x * 100)}%`
+const segundos = (x: number | null) => (x == null ? "—" : x < 120 ? `${Math.round(x)} s` : `${Math.round(x / 60)} min`)
+
+// Quién decidió en la cola humana del periodo: veredictos, respuesta mediana y fuera de SLA por analista.
+function TablaAnalistas({ filas }: { filas: FilaAnalista[] }) {
+  if (!filas.length) return <p className="py-6 text-center text-sm text-muted-foreground">ninguna decisión pasó por un analista</p>
+  const th = "px-3 py-1.5 text-xs font-medium text-muted-foreground"
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm tabular-nums">
+        <thead><tr className="border-b border-border text-left">
+          <th className={th}>Analista</th><th className={`${th} text-right`}>Aprobadas</th><th className={`${th} text-right`}>Rechazadas</th>
+          <th className={`${th} text-right`}>Reclasificadas</th><th className={`${th} text-right`}>Respuesta mediana</th><th className={`${th} text-right`}>Fuera de SLA</th>
+        </tr></thead>
+        <tbody>{filas.map((f) => (
+          <tr key={f.analista ?? "—"} className="border-b border-border last:border-0">
+            <td className="px-3 py-1.5">{f.analista ?? <span className="italic text-muted-foreground">{SIN_NOMBRE}</span>}</td>
+            <td className="px-3 py-1.5 text-right">{f.aprobar}</td><td className="px-3 py-1.5 text-right">{f.rechazar}</td>
+            <td className="px-3 py-1.5 text-right">{f.reclasificar}</td><td className="px-3 py-1.5 text-right">{segundos(f.mediana_seg)}</td>
+            <td className={`px-3 py-1.5 text-right ${f.fuera_sla ? "font-medium text-critico" : ""}`}>{f.fuera_sla}</td>
+          </tr>))}</tbody>
+      </table>
+    </div>
+  )
+}
 
 export function Metricas() {
   const oscuro = useTema().oscuro
@@ -162,6 +186,11 @@ export function Metricas() {
                     : <p className="py-10 text-center text-sm text-muted-foreground">sin datos</p>}
                 </Tarjeta>
               </div>
+              {m.por_analista && (     // un daemon anterior no lo trae: mejor no decir «ninguna» en falso
+                <Tarjeta titulo="Decisiones por analista">
+                  <TablaAnalistas filas={m.por_analista} />
+                </Tarjeta>
+              )}
               <Tarjeta titulo="Cobertura MITRE ATT&CK (por familia)">
                 {m.mitre.length
                   ? <MatrizAttack tecnicas={m.mitre} />

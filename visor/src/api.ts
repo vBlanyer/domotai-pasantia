@@ -54,6 +54,7 @@ export const DecisionSchema = z.object({
   aviso: z.string().nullable().optional(),               // señal de vigilancia 'low-and-slow' (asesora)
   resultado_filtro: z.string().nullable().optional(), veredicto_humano: z.string().nullable().optional(),
   veredicto_por: z.string().nullable().optional(),       // no repudio: quién aprobó
+  espera_humana_s: z.number().nullable().optional(),     // segundos en cola hasta el veredicto
   clase_reclasificada: z.string().nullable().optional(),
   // posición en la cadena completa: identidad de la fila (los id_decision se repiten)
   indice: z.number().nullable().optional(),
@@ -179,6 +180,12 @@ export const PendienteSchema = z.object({
 export const VerificacionSchema = z.object({
   ok: z.boolean(), roto_en: z.number().nullable().optional(), motivo: z.string().optional(),
 })
+// Decisiones humanas por analista (analista null = sin nombre registrado, al final).
+export const FilaAnalistaSchema = z.object({
+  analista: z.string().nullable(), aprobar: z.number(), rechazar: z.number(), reclasificar: z.number(),
+  total: z.number(), mediana_seg: z.number().nullable(), fuera_sla: z.number(),
+})
+export type FilaAnalista = z.infer<typeof FilaAnalistaSchema>
 export const MetricasSchema = z.object({
   total: z.number(), fp: z.number(), tasa_fp: z.number(),
   auto: z.number(), pct_auto: z.number(), suprimidas: z.number(),
@@ -198,6 +205,7 @@ export const MetricasSchema = z.object({
   // ranking por familia de amenaza y por país de origen (resumen ejecutivo; opcionales: daemons viejos no los traen)
   por_familia: z.array(z.object({ familia: z.string(), n: z.number() })).optional(),
   por_pais: z.array(z.object({ pais: z.string(), n: z.number() })).optional(),
+  por_analista: z.array(FilaAnalistaSchema).optional(),
   // periodo del informe (null = todo el histórico)
   desde: z.string().nullable().optional(), hasta: z.string().nullable().optional(),
 })
@@ -240,7 +248,8 @@ async function pedirCrudo(ruta: string): Promise<{ json: unknown } | Fallo> {
         desfaseServidorMs = t - Date.now()
       }
     }
-    if (r.status === 401 || r.status === 403) return { error: `HTTP ${r.status}`, causa: "auth" }
+    if (r.status === 401 || r.status === 429) avisarNoAutorizado()   // la consola pide volver a entrar
+    if (r.status === 401 || r.status === 403 || r.status === 429) return { error: `HTTP ${r.status}`, causa: "auth" }
     if (!r.ok) return { error: `HTTP ${r.status}`, causa: "http" }   // 404 del detalle, 500…
     return { json: await r.json() }
   } catch (e) {
@@ -376,24 +385,76 @@ export async function actualizarPolitica(cambio: CambioPolitica, token?: string)
 }
 export const getPausa = () => pedir("/api/pausa", z.object({ pausada: z.boolean() }))
 
-// Nombre del operador que aprueba (no repudio): se guarda por navegador y viaja en /api/aprobar.
+// ---- sesión de la consola ---------------------------------------------------------------------
+// Tres modos, según lo que diga /api/sesion al entrar:
+//  · identificado: token por persona (TRIAJE_CONSOLA_OPERADORES); el nombre lo da el daemon y firma.
+//  · compartido: token común (TRIAJE_CONSOLA_TOKEN); el nombre lo escribe el analista, sin verificar.
+//  · abierta: el daemon no exige token (laboratorio); nombre escrito, sin verificar.
+export type ModoSesion = "abierta" | "identificado" | "compartido"
+export type Sesion = { modo: ModoSesion; operador: string; desde: number }
+let sesion: Sesion | null = null
+export const sesionActual = () => sesion
+export function iniciarSesion(modo: ModoSesion, operadorDelToken?: string | null): void {
+  sesion = { modo, operador: modo === "identificado" ? (operadorDelToken ?? "") : "", desde: Date.now() }
+}
+export function cerrarSesion(): void { sesion = null; fijarToken("", false) }
+export const operadorVerificado = () => sesion?.modo === "identificado" && !!sesion.operador
+
+// Nombre del operador que firma (no repudio). Con token por persona manda el del daemon; si no, el que
+// escribió el analista (se recuerda por navegador) y viaja en el cuerpo de cada acción.
 const OPERADOR_KEY = "mdr.operador"
 export function operadorActual(): string {
+  if (operadorVerificado()) return sesion!.operador
   try { return localStorage.getItem(OPERADOR_KEY) || "" } catch { return "" }
 }
 export function fijarOperador(nombre: string): void {
   try { localStorage.setItem(OPERADOR_KEY, nombre) } catch { /* modo privado: solo esta sesión */ }
 }
 
-// Token opcional de la consola (#6): si el daemon arranca con TRIAJE_CONSOLA_TOKEN, la API exige
-// 'Authorization: Bearer <token>'. Se guarda por sesión (más sensible que el nombre del operador).
-// Sin token guardado no se manda cabecera y una consola abierta funciona igual que siempre.
+// Token de la consola (#6/#8): viaja como 'Authorization: Bearer <token>'. Por defecto se guarda en la
+// pestaña (sessionStorage: se borra al cerrarla); sin «mantener la sesión» vive solo en memoria y una
+// recarga vuelve a pedirlo. Nunca va a localStorage ni al disco.
 const TOKEN_KEY = "mdr.token"
+let tokenMemoria = ""
 export function tokenActual(): string {
-  try { return sessionStorage.getItem(TOKEN_KEY) || "" } catch { return "" }
+  try { return sessionStorage.getItem(TOKEN_KEY) || tokenMemoria } catch { return tokenMemoria }
 }
-export function fijarToken(t: string): void {
-  try { sessionStorage.setItem(TOKEN_KEY, t) } catch { /* modo privado */ }
+export function fijarToken(t: string, recordar = true): void {
+  tokenMemoria = t
+  try {
+    if (t && recordar) sessionStorage.setItem(TOKEN_KEY, t)
+    else sessionStorage.removeItem(TOKEN_KEY)
+  } catch { /* modo privado: queda en memoria */ }
+}
+
+// Un 401/429 de cualquier sondeo avisa a la consola (una vez por tanda) para que pida volver a entrar.
+export const EVENTO_NO_AUTORIZADO = "mdr:no-autorizado"
+function avisarNoAutorizado(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(EVENTO_NO_AUTORIZADO))
+}
+
+export type ResultadoSesion =
+  | { tipo: "ok"; requiereToken: boolean; operador: string | null }
+  | { tipo: "rechazado" } | { tipo: "bloqueado"; segundos: number } | { tipo: "sin_red" }
+
+// Prueba un token contra /api/sesion SIN guardarlo: la pantalla de acceso solo lo guarda si vale.
+export async function comprobarSesion(token: string): Promise<ResultadoSesion> {
+  try {
+    const r = await fetch(BASE + "/api/sesion", { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    if (r.status === 429) {
+      let seg = Number(r.headers?.get?.("retry-after"))
+      if (!seg) { try { seg = Number((await r.json()).reintentar_en) } catch { seg = 0 } }
+      return { tipo: "bloqueado", segundos: Math.max(1, Math.round(seg || 30)) }
+    }
+    if (r.status === 401 || r.status === 403) return { tipo: "rechazado" }
+    // un daemon anterior sin /api/sesion responde 404 DESPUÉS de pasar la auth: el token vale
+    if (r.status === 404) return { tipo: "ok", requiereToken: !!token, operador: null }
+    if (!r.ok) return { tipo: "sin_red" }
+    const j = await r.json()
+    return { tipo: "ok", requiereToken: !!j?.requiere_token, operador: typeof j?.operador === "string" && j.operador ? j.operador : null }
+  } catch {
+    return { tipo: "sin_red" }
+  }
 }
 function cabeceras(base: Record<string, string> = {}): Record<string, string> {
   const t = tokenActual()

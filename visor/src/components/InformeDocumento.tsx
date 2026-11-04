@@ -1,7 +1,7 @@
 import { Fragment, useEffect, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import type { Metricas } from "@/api"
-import { etiquetaClase } from "@/datos"
+import { etiquetaClase, quienDecidio, SIN_NOMBRE } from "@/datos"
 import { resumenRedactado, recomendaciones } from "@/informe"
 import { ESTADO_CASO } from "@/components/PanelCaso"
 import type { DatosInforme } from "@/informeDatos"
@@ -15,7 +15,7 @@ const num = (x?: number | null) => (x == null ? "—" : x.toLocaleString("es"))
 const pc = (x?: number | null) => (x == null ? "—" : `${(Math.round(x * 1000) / 10).toLocaleString("es")} %`)
 // segundos legibles: hasta 2 min en segundos, hasta 2 h en minutos, luego en horas
 const seg = (x?: number | null) => x == null ? "—" : x < 120 ? `${Math.round(x)} s` : x < 7200 ? `${Math.round(x / 60)} min` : `${(Math.round(x / 360) / 10).toLocaleString("es")} h`
-const MAX_FILAS = 12, MAX_DETALLE = 30
+const MAX_FILAS = 12, MAX_DETALLE = 30, MAX_ANALISTAS = 6   // acotadas: cada sección cabe en su hoja A4
 
 function Pagina({ seccion, n, total, d, children }: { seccion: string; n: number; total: number; d: DatosInforme; children: ReactNode }) {
   return (
@@ -131,6 +131,14 @@ export function InformeDocumento({ d }: { d: DatosInforme }) {
       <table><thead><tr><th>Veredicto</th><th className="n">Nº</th><th className="n">%</th></tr></thead>
         <tbody>{([["aprobar", "Aprobadas"], ["rechazar", "Rechazadas"], ["reclasificar", "Reclasificadas"]] as const).map(([k, t]) => (
           <tr key={k}><td>{t}</td><td className="n">{num(m.veredictos[k] ?? 0)}</td><td className="n">{pc(humanas ? (m.veredictos[k] ?? 0) / humanas : 0)}</td></tr>))}</tbody></table>
+      {(m.por_analista ?? []).length > 0 && <>
+        <h3>Por analista</h3>
+        <table><thead><tr><th>Analista</th><th className="n">Aprob.</th><th className="n">Rechaz.</th><th className="n">Reclasif.</th><th className="n">Resp. mediana</th><th className="n">Fuera de SLA</th></tr></thead>
+          <tbody>{(m.por_analista ?? []).slice(0, MAX_ANALISTAS).map((f) => (
+            <tr key={f.analista ?? "—"}><td>{f.analista ?? <i className="sub">{SIN_NOMBRE}</i>}</td><td className="n">{num(f.aprobar)}</td><td className="n">{num(f.rechazar)}</td>
+              <td className="n">{num(f.reclasificar)}</td><td className="n">{seg(f.mediana_seg)}</td><td className="n">{num(f.fuera_sla)}</td></tr>))}</tbody></table>
+        {(m.por_analista ?? []).length > MAX_ANALISTAS && <p className="sub">… y {(m.por_analista ?? []).length - MAX_ANALISTAS} analistas más.</p>}
+      </>}
       <h3>Contenciones que fallaron</h3>
       {d.fallidas.length ? <p>{d.fallidas.map((f) => <span key={f.activo}><span className="etq mal">{f.n}</span> en {f.activo}. </span>)}Conviene revisar la conectividad del conector con esos equipos.</p>
         : <p className="sub">Ninguna contención falló en el periodo.</p>}</>}
@@ -143,7 +151,7 @@ export function InformeDocumento({ d }: { d: DatosInforme }) {
       <tbody>{d.decisiones.slice(0, MAX_DETALLE).map((x, i) => (
         <tr key={`${x.id_decision}-${i}`}><td className="mono">{(x.timestamp ?? "").slice(0, 16).replace("T", " ")}</td><td>{x.activo ?? "—"}</td>
           <td>{x.clase ? etiquetaClase(x.clase) : "—"}</td><td className="mono">{x.accion_final ?? "—"}</td>
-          <td>{x.veredicto_humano ? `${x.veredicto_humano} · ${x.veredicto_por ?? "analista"}` : "automática"}</td></tr>))}</tbody></table>
+          <td>{quienDecidio(x) ?? "automática"}</td></tr>))}</tbody></table>
     {d.decisiones.length > MAX_DETALLE && <p className="sub">Se muestran {MAX_DETALLE} de {num(d.decisiones.length)}; el registro completo está en la traza.</p>}
   </> })
 

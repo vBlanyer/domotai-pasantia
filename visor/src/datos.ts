@@ -3,6 +3,22 @@ import type { Decision, Detalle } from "@/api"
 // Etiquetas legibles de las clases del motor — ÚNICA fuente (A1: vivían triplicadas en Dashboard,
 // Métricas y Aprobaciones, y dos copias no conocían exfiltración/malware). El orden es canónico y
 // fijo: también ancla el color de cada clase en las donas (colorClase).
+// Quién decidió en la cola humana (no repudio). El nombre llega con el veredicto; las decisiones antiguas
+// sin nombre lo dicen claro en vez de un «el analista» que parece saberse.
+export const VERBO_VEREDICTO: Record<string, string> = { aprobar: "aprobó", rechazar: "rechazó", reclasificar: "reclasificó" }
+export const SIN_NOMBRE = "sin nombre registrado"
+export function quienDecidio(d: { veredicto_humano?: string | null; veredicto_por?: string | null }): string | null {
+  const v = d.veredicto_humano
+  if (!v) return null
+  const verbo = VERBO_VEREDICTO[v] ?? v
+  return d.veredicto_por ? `${verbo} ${d.veredicto_por}` : `${verbo} · ${SIN_NOMBRE}`
+}
+// «24 s después de llegar a la cola» / «4 min …»: lo que esperó la decisión hasta el veredicto.
+export function esperaTexto(seg?: number | null): string | null {
+  if (seg == null) return null
+  return `${seg < 120 ? `${Math.round(seg)} s` : `${Math.round(seg / 60)} min`} después de llegar a la cola`
+}
+
 export const ETIQUETA_CLASE: Record<string, string> = {
   vp_intento_acceso: "Intento de acceso",
   vp_reconocimiento: "Reconocimiento",
@@ -266,7 +282,7 @@ export function agruparPorDia(ds: Decision[]): { dia: string; n: number }[] {
 export type EventoCronologia = {
   clave: string; ts: string | null; tipo: "decision" | "reversion" | "caso"
   clase?: string | null; prioridad?: number | null; origen_ip?: string | null; activo?: string | null
-  accion?: string | null; veredicto_humano?: string | null; nota?: string | null; operador?: string | null
+  accion?: string | null; veredicto_humano?: string | null; veredicto_por?: string | null; nota?: string | null; operador?: string | null
 }
 
 export function cronologiaDe(regs: Decision[]): EventoCronologia[] {
@@ -283,7 +299,7 @@ export function cronologiaDe(regs: Decision[]): EventoCronologia[] {
     } else if (esDecision(d)) {
       eventos.push({ clave, ts: d.timestamp ?? null, tipo: "decision",
         clase: d.clase, prioridad: d.prioridad, origen_ip: d.origen_ip, activo: d.activo,
-        accion: d.accion_final ?? d.contencion, veredicto_humano: d.veredicto_humano })
+        accion: d.accion_final ?? d.contencion, veredicto_humano: d.veredicto_humano, veredicto_por: d.veredicto_por })
     }
     // actividad_suprimida / actividad_propia / error -> ruido, se ignoran
   })

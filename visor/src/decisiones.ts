@@ -2,12 +2,13 @@
 // desenlace y el recorrido de la decisión en seis pasos (alerta → clasificación → propuesta → política
 // → analista → ejecución). La vista Trazas es la de la integridad; esta, la de cómo razonó el motor.
 import type { Decision, Detalle } from "@/api"
-import { contencionDe, etiquetaClase, filtroLegible, type EstadoContencion } from "@/datos"
+import { contencionDe, etiquetaClase, filtroLegible, type EstadoContencion, quienDecidio, esperaTexto, VERBO_VEREDICTO } from "@/datos"
+
+const horaLocal = (iso?: string | null) => (iso ? new Date(iso).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : null)
 
 export type Tono = "ok" | "aviso" | "critico" | "neutro" | "violeta"
 export type Desenlace = { id: string; texto: string; tono: Tono; degradada: boolean }
 
-const VERBO: Record<string, string> = { aprobar: "aprobó", rechazar: "rechazó", reclasificar: "reclasificó" }
 const esDecision = (d: Decision) => !d.tipo || d.tipo === "decision"
 
 export function desenlaceDe(d: Decision): Desenlace {
@@ -44,13 +45,15 @@ export function resumenDecisiones(ds: Decision[]) {
   }
 }
 
-export type FiltroDecision = "todas" | "contenidas" | "pendientes" | "frenadas" | "corregidas" | "fallidas" | "falsos"
+export type FiltroDecision = "todas" | "contenidas" | "pendientes" | "frenadas" | "corregidas" | "fallidas" | "falsos" | "decididas_por_mi"
 export const FILTROS_DECISION: { id: FiltroDecision; nombre: string }[] = [
   { id: "todas", nombre: "Todas" }, { id: "contenidas", nombre: "Contenidas" }, { id: "pendientes", nombre: "Pendientes" },
   { id: "frenadas", nombre: "Frenadas por la política" }, { id: "corregidas", nombre: "Corregidas por el analista" },
   { id: "fallidas", nombre: "Fallidas" }, { id: "falsos", nombre: "Falsos positivos" },
+  { id: "decididas_por_mi", nombre: "Decididas por mí" },
 ]
-export function pasaFiltro(d: Decision, f: FiltroDecision): boolean {
+// `yo`: el operador de la sesión, para «Decididas por mí» (las que firmó con su veredicto).
+export function pasaFiltro(d: Decision, f: FiltroDecision, yo = ""): boolean {
   if (f === "todas") return true
   if (!esDecision(d)) return false
   switch (f) {
@@ -60,6 +63,7 @@ export function pasaFiltro(d: Decision, f: FiltroDecision): boolean {
     case "corregidas": return d.veredicto_humano === "rechazar" || d.veredicto_humano === "reclasificar"
     case "fallidas": return d.contencion === "fallida"
     case "falsos": return (d.clase ?? "").startsWith("fp_") || (d.clase_reclasificada ?? "").startsWith("fp_")
+    case "decididas_por_mi": return !!yo && !!d.veredicto_humano && d.veredicto_por === yo
   }
 }
 
@@ -101,8 +105,9 @@ export function pasosDe(d: Decision, det: Detalle | null): Paso[] {
       etiqueta: filtro ?? undefined,
       texto: filtroLegible({ resultado_filtro: filtro, accion_final: final, requiere_humano: humano, veredicto_humano: veredicto }) ?? "sin acción que filtrar" },
     veredicto
-      ? { titulo: "Analista", estado: "humano", etiqueta: `${VERBO[veredicto] ?? veredicto} ${d.veredicto_por ?? "el analista"}`.trim(),
-          texto: veredicto === "reclasificar" && d.clase_reclasificada ? `corrigió la clase a ${etiquetaClase(d.clase_reclasificada)}` : `${VERBO[veredicto] ?? veredicto} la propuesta` }
+      ? { titulo: "Analista", estado: "humano", etiqueta: quienDecidio(d) ?? undefined,
+          texto: [veredicto === "reclasificar" && d.clase_reclasificada ? `corrigió la clase a ${etiquetaClase(d.clase_reclasificada)}` : `${VERBO_VEREDICTO[veredicto] ?? veredicto} la propuesta`,
+            horaLocal(d.decidido_en), esperaTexto(d.espera_humana_s)].filter(Boolean).join(" · ") }
       : humano
         ? { titulo: "Analista", estado: "aviso", etiqueta: "pendiente", texto: "espera la decisión de un analista (ver Aprobaciones)" }
         : { titulo: "Analista", estado: "neutro", etiqueta: "no hizo falta", texto: "la política permitía decidir sin humano" },

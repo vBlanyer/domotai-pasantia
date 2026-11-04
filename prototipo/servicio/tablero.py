@@ -5,6 +5,7 @@ llegan desde el perfil. Contiene el estado compartido y la costura de aprobacion
 lectores de datos (Task 2) y el servidor HTTP (Task 3).
 """
 import glob
+import hashlib
 import hmac
 import itertools
 import json
@@ -325,6 +326,14 @@ def estado_salud(muestra, dependencias=None):
     return {"t": muestra.get("t"), "servicios": servicios, "caidos": caidos, "total": len(estados)}
 
 
+def _espera_humana(reg):
+    """Segundos entre que la decisión llegó a la cola y el veredicto del analista, o None."""
+    ini, fin = reg.get("recibido_en"), reg.get("resuelto_en")
+    if isinstance(ini, (int, float)) and isinstance(fin, (int, float)) and reg.get("veredicto_humano"):
+        return round(max(0.0, fin - ini), 1)
+    return None
+
+
 def _resumen_traza(reg, ips=None, externos=(), perfil=None):
     imp = reg.get("impacto_determinado") or {}
     est = reg.get("justificacion_estructurada") or {}
@@ -339,6 +348,10 @@ def _resumen_traza(reg, ips=None, externos=(), perfil=None):
             "resultado_filtro": reg.get("resultado_filtro"),
             "recomendacion": reg.get("recomendacion"),   # respuesta dirigida recomendada (asesora)
             "veredicto_humano": reg.get("veredicto_humano"),
+            # quién decidió (no repudio; el nombre que llegó con el veredicto, verificado o no por token)
+            # y cuánto esperó en la cola hasta su decisión
+            "veredicto_por": reg.get("veredicto_por"),
+            "espera_humana_s": _espera_humana(reg),
             "clase_reclasificada": reg.get("clase_reclasificada"),
             "impacto": reg.get("impacto") or imp.get("nivel"), "motivo": imp.get("motivo"),
             # activos que caerían en cascada por la acción: se marca en la fila (aviso de seguridad)
@@ -530,6 +543,7 @@ def metricas(regs, desde=None, hasta=None):
     por_familia, por_pais, _geo = {}, {}, {}   # ranking por familia de amenaza y por país (geo OFFLINE)
     fp = auto = 0
     tiempos = []
+    analistas = {}      # quién decidió en la cola humana: veredictos y tiempos por analista
     reg_familias = familias.registro()
     for r in dec:
         c = r.get("clase") or "otra"
@@ -541,6 +555,11 @@ def metricas(regs, desde=None, hasta=None):
         v = r.get("veredicto_humano")
         if v:
             veredictos[v] = veredictos.get(v, 0) + 1
+            fila = analistas.setdefault(r.get("veredicto_por") or None, {"veredictos": {}, "tiempos": []})
+            fila["veredictos"][v] = fila["veredictos"].get(v, 0) + 1
+            espera = _espera_humana(r)
+            if espera is not None:
+                fila["tiempos"].append(espera)
         dia = (r.get("timestamp") or "")[:10]
         if dia:
             por_dia[dia] = por_dia.get(dia, 0) + 1
@@ -594,8 +613,22 @@ def metricas(regs, desde=None, hasta=None):
         "por_dia": [{"dia": d[5:], "n": n} for d, n in sorted(por_dia.items())],
         "top_activos": ranking(activos, "nombre"), "mitre": ranking(mitre, "tecnica"),
         "por_familia": ranking(por_familia, "familia"), "por_pais": ranking(por_pais, "pais"),
+        "por_analista": _por_analista(analistas),
         "desde": desde, "hasta": hasta,
     }
+
+
+def _por_analista(analistas):
+    """Filas por analista (más decisiones primero; las sin nombre registrado al final, con analista None):
+    veredictos, total, respuesta mediana y cuántas pasaron el SLA."""
+    filas = []
+    for nombre, f in analistas.items():
+        v, t = f["veredictos"], f["tiempos"]
+        filas.append({"analista": nombre, "aprobar": v.get("aprobar", 0), "rechazar": v.get("rechazar", 0),
+                      "reclasificar": v.get("reclasificar", 0), "total": sum(v.values()),
+                      "mediana_seg": round(_mediana(t), 1) if t else None,
+                      "fuera_sla": sum(1 for x in t if x > _SLA_SEG)})
+    return sorted(filas, key=lambda x: (x["analista"] is None, -x["total"], x["analista"] or ""))
 
 
 def _entero(path, nombre):
@@ -789,6 +822,47 @@ def autorizado(tokens_validos, cabecera_authorization):
     return any(hmac.compare_digest(pb, t.encode("utf-8")) for t in tokens)
 
 
+class Intentos:
+    """Límite de intentos de token por origen (pantalla de acceso). Cuenta TOKENS DISTINTOS fallidos en
+    una ventana, no peticiones: el visor sondea varias rutas con el mismo token caducado y eso no debe
+    bloquear; probar tokens a ciegas sí. Tras `maximo` distintos en `ventana_s`, el origen queda
+    bloqueado `bloqueo_s`: mientras dura no se evalúa ningún token suyo (ni el bueno), así el bloqueo
+    frena de verdad la prueba a ciegas. La consola liga a 127.0.0.1: el origen es casi siempre el
+    propio equipo, así que el bloqueo es corto. Solo guarda huellas truncadas de los tokens."""
+
+    def __init__(self, maximo=5, ventana_s=60.0, bloqueo_s=30.0, reloj=time.monotonic):
+        self.maximo, self.ventana_s, self.bloqueo_s, self._reloj = maximo, ventana_s, bloqueo_s, reloj
+        self._fallos = {}          # origen -> {huella: instante}
+        self._hasta = {}           # origen -> fin del bloqueo
+        self._lock = threading.Lock()
+
+    def restante(self, origen):
+        """Segundos de bloqueo que le quedan a `origen` (0 si no está bloqueado)."""
+        with self._lock:
+            fin = self._hasta.get(origen, 0.0)
+            ahora = self._reloj()
+            if fin <= ahora:
+                self._hasta.pop(origen, None)
+                return 0
+            return max(1, int(fin - ahora + 0.999))
+
+    def fallo(self, origen, token):
+        """Anota un token fallido; devuelve True si con él el origen queda bloqueado."""
+        huella = hashlib.sha256(token.encode("utf-8", "replace")).hexdigest()[:16]
+        with self._lock:
+            ahora = self._reloj()
+            vistos = {h: t for h, t in self._fallos.get(origen, {}).items() if ahora - t < self.ventana_s}
+            vistos[huella] = ahora
+            if len(self._fallos) > 1000 and origen not in self._fallos:   # tope de memoria
+                self._fallos.clear()
+            if len(vistos) >= self.maximo:
+                self._hasta[origen] = ahora + self.bloqueo_s
+                self._fallos.pop(origen, None)
+                return True
+            self._fallos[origen] = vistos
+            return False
+
+
 def operador_de(operadores, cabecera_authorization):
     """El operador que identifica el token presentado (no repudio, #8), o None. `operadores` mapea
     token->nombre: un token por persona da atribución real; el token compartido simple no mapea."""
@@ -826,6 +900,41 @@ class _Manejador(BaseHTTPRequestHandler):
         claves = list(ops.keys()) if isinstance(ops, dict) else []
         return autorizado([getattr(s, "token", None), *claves], self.headers.get("Authorization"))
 
+    def _requiere_token(self):
+        s = self.server
+        return bool(getattr(s, "token", None) or getattr(s, "operadores", None))
+
+    def _rechazo_auth(self):
+        """None si la petición pasa la auth; si no, responde 401 (o 429 durante un bloqueo por intentos)
+        y devuelve True. Solo un token PRESENTADO y erróneo cuenta como intento: sin cabecera no se
+        está adivinando nada (es la primera carga de la SPA)."""
+        intentos = getattr(self.server, "intentos", None)
+        origen = self.client_address[0] if self.client_address else "?"
+        if intentos and self._requiere_token():
+            quedan = intentos.restante(origen)
+            if quedan:
+                return self._responder_bloqueo(quedan)
+        if self._auth_ok():
+            return None
+        presentado = _token_de(self.headers.get("Authorization"))
+        if intentos and presentado and intentos.fallo(origen, presentado):
+            print(f"[tablero] demasiados tokens fallidos desde {origen}: bloqueo de {int(intentos.bloqueo_s)} s",
+                  file=sys.stderr)
+            return self._responder_bloqueo(intentos.restante(origen))
+        self._responder({"error": "no autorizado"}, 401)
+        return True
+
+    def _responder_bloqueo(self, segundos):
+        cuerpo = json.dumps({"error": "demasiados intentos", "reintentar_en": segundos}).encode("utf-8")
+        self.send_response(429)
+        self._cors()
+        self.send_header("Retry-After", str(segundos))
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(cuerpo)))
+        self.end_headers()
+        self.wfile.write(cuerpo)
+        return True
+
     def _origen_ok(self):
         # Anti-CSRF para las acciones: un POST desde el navegador SIEMPRE trae Origin; si viene de un
         # sitio que no es localhost, es una web de terceros forzando una acción. Sin Origin = cliente
@@ -845,7 +954,7 @@ class _Manejador(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             # El visor ancla el SLA a la hora del daemon (cabecera Date): en dev (origen :5173) el
             # navegador solo deja leerla si se expone explícitamente.
-            self.send_header("Access-Control-Expose-Headers", "Date")
+            self.send_header("Access-Control-Expose-Headers", "Date, Retry-After")
 
     def do_OPTIONS(self):
         if not self._host_ok():
@@ -888,11 +997,15 @@ class _Manejador(BaseHTTPRequestHandler):
         if not self._host_ok():
             return self._responder({"error": "host no permitido"}, 403)
         # La API va protegida; los estáticos no, para que la SPA cargue y pida el token al operador.
-        if self.path.startswith("/api/") and not self._auth_ok():
-            return self._responder({"error": "no autorizado"}, 401)
+        if self.path.startswith("/api/") and self._rechazo_auth():
+            return
         s = self.server
         ruta = self.path.split("?", 1)[0]
         try:
+            if ruta == "/api/sesion":   # pantalla de acceso: si se exige token y quién firma con el presentado
+                return self._responder({"requiere_token": self._requiere_token(),
+                                        "operador": operador_de(getattr(s, "operadores", None),
+                                                                self.headers.get("Authorization"))})
             if ruta == "/api/pausa":   # estado del kill switch (#8)
                 return self._responder({"pausada": s.estado.pausada()})
             if ruta == "/healthz":    # salud del PROPIO daemon (#5), distinto de /api/salud (servicios del cliente)
@@ -1010,8 +1123,8 @@ class _Manejador(BaseHTTPRequestHandler):
             return self._responder({"error": "host no permitido"}, 403)
         if not self._origen_ok():
             return self._responder({"error": "origen no permitido"}, 403)
-        if not self._auth_ok():        # un POST ejecuta una contención real: exige auth si hay token
-            return self._responder({"error": "no autorizado"}, 401)
+        if self._rechazo_auth():       # un POST ejecuta una contención real: exige auth si hay token
+            return
         try:
             s = self.server
             ruta = self.path.split("?", 1)[0]
@@ -1279,5 +1392,6 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.ejecutor = ejecutor              # el ejecutor del daemon, para el des-bloqueo en masa (#8)
     srv.token = token                    # auth opcional de la consola (#6): None = abierta
     srv.operadores = operadores or {}    # token->operador para el no repudio (#8)
+    srv.intentos = Intentos()            # límite de tokens fallidos por origen (pantalla de acceso)
     srv.watchlist_ruta = watchlist_ruta  # watchlist/IoC local (anotación del analista; None = sin fichero)
     return srv

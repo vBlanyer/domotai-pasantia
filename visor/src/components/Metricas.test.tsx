@@ -38,6 +38,22 @@ describe("Métricas (vista unificada métricas + informe)", () => {
     expect(screen.getByRole("button", { name: /Vista previa del PDF/ })).toBeDisabled()   // en vivo no se exporta
   })
 
+  it("decisiones por analista, con las sin nombre al final; sin el dato (daemon anterior) no se pinta", async () => {
+    h.vivo = { ...base, por_analista: [
+      { analista: "Blanyer.Vielma", aprobar: 3, rechazar: 0, reclasificar: 0, total: 3, mediana_seg: 102, fuera_sla: 0 },
+      { analista: null, aprobar: 5, rechazar: 0, reclasificar: 0, total: 5, mediana_seg: 76, fuera_sla: 1 },
+    ] }
+    const { unmount } = render(<Metricas />)
+    expect(await screen.findByText("Decisiones por analista")).toBeInTheDocument()
+    expect(screen.getByText("Blanyer.Vielma").closest("tr")).toHaveTextContent("Blanyer.Vielma300102 s0")
+    expect(screen.getByText("sin nombre registrado")).toBeInTheDocument()
+    unmount()
+    h.vivo = { ...base }
+    render(<Metricas />)
+    await screen.findByText("En vivo · sesión actual")
+    expect(screen.queryByText("Decisiones por analista")).not.toBeInTheDocument()
+  })
+
   it("muestra los tiempos de respuesta y el SLA", async () => {
     h.vivo = { ...base }
     render(<Metricas />)

@@ -302,8 +302,8 @@ describe("Decisiones: mi cola (asignadas a mí)", () => {
   })
 })
 
-describe("Decisiones: «mi cola» se habilita al poner el nombre", () => {
-  it("sin operador la casilla está deshabilitada; al escribir el nombre se habilita y filtra", async () => {
+describe("Decisiones: «mi cola» usa el nombre de la sesión", () => {
+  it("sin operador la casilla está deshabilitada; con nombre de sesión se habilita y filtra", async () => {
     const { fijarOperador } = await import("@/api")
     fijarOperador("")
     h.decisiones = [
@@ -311,10 +311,12 @@ describe("Decisiones: «mi cola» se habilita al poner el nombre", () => {
       { indice: 2, id_decision: "s2", clase: "vp_intento_acceso", activo: "core-db", prioridad: 3 },
       { indice: 3, id_decision: "s1", tipo: "actualizacion_caso", asignado: "ana", estado: "en_revision" },
     ]
+    const { unmount } = render(<Decisiones />)
+    expect(screen.getByRole("checkbox", { name: /Solo mías/i })).toBeDisabled()
+    unmount()
+    fijarOperador("ana")                       // el nombre lo fija la pantalla de acceso, no un campo de la vista
     render(<Decisiones />)
-    const casilla = screen.getByRole("checkbox", { name: /Solo mías/i })
-    expect(casilla).toBeDisabled()
-    fireEvent.change(screen.getByPlaceholderText("tu nombre"), { target: { value: "ana" } })
+    expect(screen.queryByPlaceholderText("tu nombre")).not.toBeInTheDocument()
     expect(screen.getByRole("checkbox", { name: /Solo mías/i })).toBeEnabled()
     fireEvent.click(screen.getByRole("checkbox", { name: /Solo mías/i }))
     expect(screen.getByRole("button", { name: /ver detalle de web-banking/i })).toBeInTheDocument()

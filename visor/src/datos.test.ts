@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe, cronologiaDe, eventosDeEntidad, claveIncidenteDe } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe, cronologiaDe, eventosDeEntidad, claveIncidenteDe, quienDecidio, esperaTexto } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -538,5 +538,20 @@ describe("claveIncidenteDe", () => {
     expect(claveIncidenteDe("203.0.113.200")).toBe(claveIncidenteDe("203.0.113.9"))   // mismo /24 = mismo incidente
     expect(claveIncidenteDe("no-es-ip")).toBe("inc:no-es-ip")                          // fallback tolerante
     expect(claveIncidenteDe(null)).toBe("inc:")
+  })
+})
+
+describe("quién decidió", () => {
+  it("verbo y nombre; sin nombre lo dice claro; automática no tiene veredicto", () => {
+    expect(quienDecidio({ veredicto_humano: "aprobar", veredicto_por: "Blanyer.Vielma" })).toBe("aprobó Blanyer.Vielma")
+    expect(quienDecidio({ veredicto_humano: "rechazar" })).toBe("rechazó · sin nombre registrado")
+    expect(quienDecidio({})).toBeNull()
+    expect(esperaTexto(24.4)).toBe("24 s después de llegar a la cola")
+    expect(esperaTexto(258)).toBe("4 min después de llegar a la cola")
+    expect(esperaTexto(null)).toBeNull()
+  })
+  it("la cronología lleva quién aprobó", () => {
+    const ev = cronologiaDe([{ id_decision: "s1", timestamp: "2026-11-04T18:55:00Z", veredicto_humano: "aprobar", veredicto_por: "ana" } as Decision])
+    expect(ev[0]).toMatchObject({ veredicto_humano: "aprobar", veredicto_por: "ana" })
   })
 })

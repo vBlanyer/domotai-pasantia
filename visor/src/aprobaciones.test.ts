@@ -83,6 +83,15 @@ describe("historialOrigen y resueltasHoyPor", () => {
     expect(resueltasHoyPor(T, "Blanyer", "2026-11-04")).toBe(1)
     expect(resueltasHoyPor(T, "", "2026-11-04")).toBe(0)
   })
+  it("cuenta por el día de la decisión del analista, no por el de la alerta", () => {
+    const ayerResueltaHoy = dec({ timestamp: "2026-11-03T23:50:00Z", decidido_en: "2026-11-04T00:05:00Z", veredicto_humano: "aprobar", veredicto_por: "ana" })
+    const hoyResueltaAyer = dec({ timestamp: "2026-11-04T00:01:00Z", decidido_en: "2026-11-03T23:59:00Z", veredicto_humano: "aprobar", veredicto_por: "ana" })
+    expect(resueltasHoyPor([ayerResueltaHoy, hoyResueltaAyer], "ana", "2026-11-04")).toBe(1)
+  })
+  it("el historial del origen dice cuándo no hay nombre", () => {
+    const h = historialOrigen([dec({ timestamp: "2026-11-04T10:00:00Z", origen_ip: "10.0.0.9", veredicto_humano: "aprobar" })], "10.0.0.9")
+    expect(h[0].quien).toBe("aprobó · sin nombre registrado")
+  })
 })
 
 describe("efectoAprobar: qué pasa si apruebas, en una frase", () => {

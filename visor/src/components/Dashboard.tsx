@@ -4,7 +4,7 @@ import {
   LIMITE_TRAZAS_PANEL, listaConocida, operadorActual, actualizarCaso, ahoraServidor, type Pendiente, type Decision,
 } from "@/api"
 import { DatosCongelados } from "./bits"
-import { etiquetaClase } from "@/datos"
+import { etiquetaClase, SIN_NOMBRE } from "@/datos"
 import { edadTexto } from "@/alertas"
 import { resumenConectividad } from "@/conectividad"
 import { incidentesDe, type IncidenteVista } from "@/incidentes"
@@ -336,7 +336,8 @@ export function Dashboard({ conectado, ...s }: { conectado: boolean } & Saltos) 
                   <button type="button" onClick={s.onVerDecisiones && d.id_decision ? () => s.onVerDecisiones!(d.id_decision!) : undefined}
                     className="grid w-full grid-cols-[2.6rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-border py-1.5 text-left text-[13px] last:border-0 hover:bg-muted/40">
                     <span className="font-mono text-[11px] text-muted-foreground">{hora(d.timestamp)}</span>
-                    <span className="truncate"><span className="font-mono text-xs">{d.activo ?? "—"}</span> · {d.clase ? etiquetaClase(d.clase) : "—"}</span>
+                    <span className="truncate"><span className="font-mono text-xs">{d.activo ?? "—"}</span> · {d.clase ? etiquetaClase(d.clase) : "—"}
+                      {d.veredicto_humano && <span className="text-muted-foreground"> · {d.veredicto_por ?? SIN_NOMBRE}</span>}</span>
                     <span className={cn("rounded px-1.5 text-[11px] font-medium", PILDORA[des.tono])}>{des.texto}</span>
                   </button>
                 </li>

@@ -66,10 +66,24 @@ describe("pasosDe: el recorrido de la decisión en seis pasos", () => {
     expect(p[2]).toMatchObject({ estado: "aviso" })       // cascada
     expect(p[3]).toMatchObject({ estado: "critico", etiqueta: "veta" })
     expect(p[4]).toMatchObject({ estado: "humano", etiqueta: "reclasificó ana" })
+    const sinNombre = pasosDe(d({ requiere_humano: true, veredicto_humano: "aprobar", decidido_en: "2026-11-04T18:55:14Z", espera_humana_s: 24.4 }), null)
+    expect(sinNombre[4].etiqueta).toBe("aprobó · sin nombre registrado")
+    expect(sinNombre[4].texto).toMatch(/^aprobó la propuesta · \d{2}:\d{2}:\d{2} · 24 s después de llegar a la cola$/)
     expect(p[5].estado).toBe("neutro")
   })
   it("sin el detalle aún, usa lo que trae la lista", () => {
     const p = pasosDe(d({ contencion: "fallida", accion_final: "MATAR_CONEXION" }), null)
     expect(p[5]).toMatchObject({ estado: "critico", etiqueta: "fallida" })
+  })
+})
+
+describe("«Decididas por mí»", () => {
+  it("solo las que firmó el operador de la sesión con su veredicto", () => {
+    const mia = d({ veredicto_humano: "aprobar", veredicto_por: "ana" })
+    const otra = d({ veredicto_humano: "aprobar", veredicto_por: "leo" })
+    const auto = d({})
+    expect([mia, otra, auto].filter((x) => pasaFiltro(x, "decididas_por_mi", "ana"))).toEqual([mia])
+    expect(pasaFiltro(mia, "decididas_por_mi", "")).toBe(false)
+    expect(FILTROS_DECISION.some((f) => f.id === "decididas_por_mi")).toBe(true)
   })
 })

@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react"
 import { TriangleAlert } from "lucide-react"
-import { useSondeo, getDecisiones, getTrazaDetalle, operadorActual, fijarOperador, type Decision, type Detalle, type Pasaje } from "@/api"
+import { useSondeo, getDecisiones, getTrazaDetalle, operadorActual, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Cargando, SinConexion, Vacio, Prioridad, BarraFiltros, DatosCongelados } from "./bits"
-import { filtrarDecisiones, clasesDe, claveDe, contencionDe, ventanaDe, paginar, pasosRunbook, estadoDeCasos, etiquetaClase, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, contencionDe, ventanaDe, paginar, pasosRunbook, estadoDeCasos, etiquetaClase, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro, quienDecidio } from "@/datos"
 import { desenlaceDe, resumenDecisiones, pasaFiltro, pasosDe, FILTROS_DECISION, type FiltroDecision, type Paso, type Tono } from "@/decisiones"
 import { claveDia, etiquetaDia, horaLocal } from "@/trazas"
 import { Paginador } from "./Paginador"
@@ -232,8 +232,7 @@ function LineaSistema({ d }: { d: Decision }) {
 
 function LineaDecision({ d, activa, onAbrir }: { d: Decision; activa: boolean; onAbrir: () => void }) {
   const des = desenlaceDe(d)
-  const quien = d.veredicto_humano ? `${{ aprobar: "aprobó", rechazar: "rechazó", reclasificar: "reclasificó" }[d.veredicto_humano] ?? d.veredicto_humano} ${d.veredicto_por ?? "el analista"}`
-    : d.requiere_humano ? "espera a un analista" : "automática"
+  const quien = quienDecidio(d) ?? (d.requiere_humano ? "espera a un analista" : "automática")
   return (
     <button type="button" onClick={onAbrir} aria-current={activa} aria-label={`ver detalle de ${d.activo ?? d.id_decision ?? "la decisión"}`}
       className={cn("grid w-full grid-cols-[86px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-border px-3.5 py-2 text-left text-[13px] hover:bg-muted/50",
@@ -279,7 +278,6 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
   // Los registros de sistema (actividad propia, supresiones, reversiones, errores) tienen su sitio en
   // Trazas; aquí se ocultan por defecto para que se lean las decisiones.
   const [conSistema, setConSistema] = useState(false)
-  const [op, setOp] = useState(operadorActual())
   // Al cambiar filtro, equipo, desenlace o «mías» la lista cambia de tamaño: se vuelve a la primera página.
   useEffect(() => setPagina(1), [filtro.texto, filtro.clase, equipo, soloMias, desenlace, conSistema])
   const elegirTam = (t: number) => { setTam(t); setPagina(1) }
@@ -289,11 +287,12 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
   const ds = "error" in r ? r.datos : r
   if (!ds) return <SinConexion causa={fallo?.causa} />
   if (ds.length === 0) return <Vacio>Aún no hay decisiones. Lanza un ataque para verlas aquí.</Vacio>
-  const yo = op.trim()
+  const yo = operadorActual().trim()
   const casos = estadoDeCasos(ds)
   const base = filtrarDecisiones(ds, { ...filtro, equipo })
   const mias = soloMias && yo ? base.filter((x) => casos[x.id_decision ?? ""]?.asignado === yo) : base
-  const filtradas = mias.filter((x) => pasaFiltro(x, desenlace) && (conSistema || !x.tipo || x.tipo === "decision"))
+  const filtradas = mias.filter((x) => pasaFiltro(x, desenlace, yo) && (conSistema || !x.tipo || x.tipo === "decision"))
+  const decididasPorMi = yo ? base.filter((x) => pasaFiltro(x, "decididas_por_mi", yo)).length : 0
   const pag = paginar(filtradas, pagina, tam)
   const ventana = ventanaDe(ds)
   const res = resumenDecisiones(base)
@@ -317,18 +316,14 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <div role="group" aria-label="Filtrar por desenlace" className="flex flex-wrap gap-1">
-          {FILTROS_DECISION.map((f) => (
+          {FILTROS_DECISION.filter((f) => f.id !== "decididas_por_mi" || yo).map((f) => (
             <button key={f.id} aria-pressed={desenlace === f.id} onClick={() => setDesenlace(f.id)}
               className={cn("rounded-full border px-2.5 py-0.5 transition-colors", desenlace === f.id ? "border-primary/45 bg-primary/12 font-medium text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
-              {f.nombre}
+              {f.nombre}{f.id === "decididas_por_mi" ? ` · ${decididasPorMi}` : ""}
             </button>
           ))}
         </div>
         <span className="ml-auto flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-1.5 text-muted-foreground">Operador:
-            <input value={op} placeholder="tu nombre" onChange={(e) => { setOp(e.target.value); fijarOperador(e.target.value) }}
-              className="w-32 rounded-md border border-border bg-card px-2 py-1 text-foreground" />
-          </label>
           <label className="flex items-center gap-1.5 text-muted-foreground">
             <input type="checkbox" checked={conSistema} onChange={(e) => setConSistema(e.target.checked)} className="size-3.5 accent-[var(--primary)]" />
             Incluir registros del sistema

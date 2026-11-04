@@ -101,6 +101,21 @@ describe("Panel", () => {
     await waitFor(() => expect(h.caso).toHaveBeenCalledWith("inc:198.51.100", { asignado: "ana" }))
   })
 
+  it("las últimas decisiones dicen quién decidió las que pasaron por un analista", () => {
+    h.fuentes.set(getTrazasPanel, [
+      { tipo: "decision", id_decision: "d1", timestamp: hace(5), activo: "core-db", clase: "vp_intento_acceso", veredicto_humano: "aprobar", veredicto_por: "Blanyer.Vielma", contencion: "contenida" },
+      { tipo: "decision", id_decision: "d2", timestamp: hace(4), activo: "atm", clase: "vp_intento_acceso", veredicto_humano: "aprobar", contencion: "contenida" },
+      { tipo: "decision", id_decision: "d3", timestamp: hace(3), activo: "web-banking", clase: "vp_reconocimiento", contencion: "contenida" },
+    ])
+    render(<Dashboard conectado />)
+    const ultimas = screen.getByRole("region", { name: "Últimas decisiones" })
+    expect(within(ultimas).getByText(/Blanyer\.Vielma/)).toBeInTheDocument()
+    expect(within(ultimas).getByText(/sin nombre registrado/)).toBeInTheDocument()
+    const [automatica] = within(ultimas).getAllByRole("listitem")          // la más reciente: automática
+    expect(automatica).toHaveTextContent("web-banking")
+    expect(automatica).not.toHaveTextContent(/sin nombre|Vielma/)
+  })
+
   it("un fallo CON datos previos conserva las cifras y avisa, no vacía el panel (C2)", () => {
     h.fuentes.set(getMetricasHoy, { error: "x", causa: "red", datos: METRICAS, desde: Date.now() })
     h.fuentes.set(getPendientes, [])
