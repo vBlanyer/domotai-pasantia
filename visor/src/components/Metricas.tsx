@@ -16,7 +16,8 @@ const VEREDICTO = (S: Semantico) => ({
   reclasificar: { nombre: "Reclasificadas", fill: S.aviso },
 })
 
-// La vista une las antiguas «Métricas» (en vivo) e «Informe» (por periodo, exportable).
+// La vista une las antiguas «Métricas» (en vivo), «Informe» (por periodo, exportable) y «Resumen
+// ejecutivo» (fundido el 03/11: mismos datos y controles; sus dos rankings viven aquí).
 // Un único efecto decide la fuente: en vivo sondea cada 2 s sin periodo; un periodo hace una
 // sola consulta (sin poll de fondo).
 type Seleccion = "vivo" | Preset | "rango"
@@ -144,11 +145,25 @@ export function Metricas() {
                 </Tarjeta>
               </div>
 
-              <Tarjeta titulo="Activos más atacados">
-                {m.top_activos.length
-                  ? <Barras data={m.top_activos.map((a) => ({ nombre: a.nombre, n: a.n }))} />
-                  : <p className="py-10 text-center text-sm text-muted-foreground">sin datos</p>}
-              </Tarjeta>
+              {/* Rankings de magnitud: activos, familias y ubicaciones (estas dos venían del antiguo
+                  «Resumen ejecutivo», fundido aquí: una sola vista de informe). */}
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 print:grid-cols-3">
+                <Tarjeta titulo="Activos más atacados">
+                  {m.top_activos.length
+                    ? <Barras data={m.top_activos.map((a) => ({ nombre: a.nombre, n: a.n }))} />
+                    : <p className="py-10 text-center text-sm text-muted-foreground">sin datos</p>}
+                </Tarjeta>
+                <Tarjeta titulo="Amenazas por familia">
+                  {(m.por_familia ?? []).length
+                    ? <Barras data={(m.por_familia ?? []).map((f) => ({ nombre: f.familia, n: f.n }))} />
+                    : <p className="py-10 text-center text-sm text-muted-foreground">sin datos</p>}
+                </Tarjeta>
+                <Tarjeta titulo="Orígenes por ubicación">
+                  {(m.por_pais ?? []).length
+                    ? <Barras data={(m.por_pais ?? []).map((p) => ({ nombre: p.pais, n: p.n }))} />
+                    : <p className="py-10 text-center text-sm text-muted-foreground">sin datos</p>}
+                </Tarjeta>
+              </div>
               <Tarjeta titulo="Cobertura MITRE ATT&CK (por familia)">
                 {m.mitre.length
                   ? <MatrizAttack tecnicas={m.mitre} />
