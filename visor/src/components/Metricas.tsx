@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { Printer } from "lucide-react"
 import { getMetricas, type Metricas as Datos, type Fallo } from "@/api"
 import { Donut, Tendencia, Barras, type Segmento } from "./charts"
 import { MatrizAttack } from "./MatrizAttack"
@@ -8,6 +7,7 @@ import { useTema } from "@/tema"
 import { Cargando, SinConexion, Vacio, Kpi, Tarjeta } from "./bits"
 import { etiquetaClase, colorClase } from "@/datos"
 import { rangoDe, etiquetaPeriodo, type Preset } from "@/informe"
+import { GeneradorInforme } from "./GeneradorInforme"
 
 // Veredictos del analista con los colores de estado del modo activo (claro/oscuro).
 const VEREDICTO = (S: Semantico) => ({
@@ -81,11 +81,9 @@ export function Metricas() {
               className="rounded-md border border-border bg-card px-2 py-1" />
           </div>
         )}
-        <button onClick={() => window.print()}
-          className="ml-auto flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
-          <Printer className="size-4" /> Guardar PDF
-        </button>
       </div>
+
+      <GeneradorInforme m={m && !("error" in m) ? m : null} desde={rango.desde} hasta={rango.hasta} enVivo={enVivo} />
 
       {!m ? <Cargando /> : "error" in m ? <SinConexion causa={m.causa} /> : (
         <article className="space-y-5">
