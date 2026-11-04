@@ -10,11 +10,8 @@
   /* tintes de fondo del mockup (derivados de las tintas de arriba; el oscuro va en .dark .pol) */
   --pol-okbg: #e4f3e7; --pol-warnbg: #f6edd6; --pol-critbg: #f8e4df; --pol-routedbg: #e7edf4;
   --pol-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  /* columna sin caja: el fondo y el margen los pone la página, como en el resto de vistas */
   color: var(--pol-fg);
-  background: var(--pol-bg);
-  border: 1px solid var(--pol-border);
-  border-radius: 12px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -25,26 +22,20 @@
 .pol .mono { font-family: var(--pol-mono); }
 .pol .num { font-variant-numeric: tabular-nums; }
 
-/* cabecera + resumen */
-.pol-head { display: flex; align-items: baseline; gap: 10px 16px; flex-wrap: wrap; }
-.pol-title { font-size: 1.08rem; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
-.pol-summary { display: flex; gap: 16px; flex-wrap: wrap; margin-left: auto; }
+/* resumen (a la derecha de las pestañas) */
+.pol-summary { display: flex; gap: 16px; flex-wrap: wrap; margin-left: auto; align-self: center; }
 .pol-s { display: flex; align-items: center; gap: 7px; font-size: .8rem; color: var(--pol-muted); white-space: nowrap; }
 .pol-s b { font-family: var(--pol-mono); font-size: 1.02rem; color: var(--pol-fg); font-weight: 600; }
 .pol-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .pol-dot.ok { background: var(--pol-ok); } .pol-dot.warn { background: var(--pol-warn); }
 .pol-dot.routed { background: var(--pol-routed); } .pol-dot.crit { background: var(--pol-crit); }
 
-/* pestañas */
-.pol-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--pol-border); }
+/* fila de pestañas + resumen */
+.pol-tabs { display: flex; align-items: stretch; gap: 8px 16px; flex-wrap: wrap; border-bottom: 1px solid var(--pol-border); }
+.pol-tablist { display: flex; gap: 2px; }
 .pol-tab { font: inherit; font-size: .86rem; font-weight: 500; border: 0; background: transparent; color: var(--pol-muted); padding: 9px 2px; margin-right: 22px; cursor: pointer; border-bottom: 2px solid transparent; }
 .pol-tab[aria-selected="true"] { color: var(--pol-fg); border-bottom-color: var(--pol-accent); }
 .pol-tab:focus-visible { outline: 2px solid var(--pol-accent); outline-offset: 3px; border-radius: 3px; }
-
-/* nota de interferencia */
-.pol-note { display: flex; gap: 9px; align-items: flex-start; background: var(--pol-surface2); border: 1px solid var(--pol-border); border-left: 3px solid var(--pol-accent); border-radius: 0 9px 9px 0; padding: 9px 12px; font-size: .8rem; color: var(--pol-muted); }
-.pol-note svg { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--pol-accent); }
-.pol-note strong { color: var(--pol-fg); font-weight: 600; }
 
 /* aviso */
 .pol-alert { background: var(--pol-critbg); color: var(--pol-crit); border: 1px solid var(--pol-crit); border-radius: 9px; padding: 9px 13px; font-size: .8rem; }
@@ -52,7 +43,6 @@
 /* maquetación lista + detalle */
 .pol-grid { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
 @media (min-width: 820px) { .pol-grid { grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr); } .pol-detail { position: sticky; top: 12px; } }
-.pol-section-label { font-family: var(--pol-mono); font-size: .66rem; letter-spacing: .16em; text-transform: uppercase; color: var(--pol-faint); margin-bottom: 10px; }
 
 /* filas */
 .pol-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -126,4 +116,7 @@
 .pol-block.routed { border-left-color: var(--pol-routed); background: var(--pol-routedbg); }
 .pol-block .bl { font-family: var(--pol-mono); font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: var(--pol-muted); display: block; margin-bottom: 5px; }
 .pol-detail-body ul, .pol-detail-body ol { margin: 0; padding-left: 18px; color: var(--pol-muted); display: flex; flex-direction: column; gap: 3px; }
-.pol-detail-empty { border: 1px dashed var(--pol-border); border-radius: 13px; padding: 20px 16px; font-size: .8rem; color: var(--pol-faint); background: var(--pol-surface); }
+.pol-detail-empty { border: 1px dashed var(--pol-border); border-radius: 13px; padding: 20px 16px; font-size: .8rem; color: var(--pol-muted); background: var(--pol-surface); display: flex; flex-direction: column; gap: 10px; }
+.pol-detail-empty p { margin: 0; }
+.pol-detail-empty p:first-child { color: var(--pol-faint); }
+.pol-detail-empty strong { color: var(--pol-fg); font-weight: 600; }

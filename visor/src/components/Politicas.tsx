@@ -13,11 +13,6 @@ type Pestana = "familias" | "zonas"
 const AUTO = "automatica_si_confianza"
 const HUMANO = "humano_siempre"
 
-const ICON_INFO = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
-    <circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.5v.01" />
-  </svg>
-)
 const ICON_LOCK = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
     <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
@@ -190,35 +185,23 @@ export function Politicas() {
 
   return (
     <div className="pol">
-      <div className="pol-head">
-        <h2 className="pol-title">Políticas de respuesta</h2>
+      {/* Sin título propio (la cabecera de la app ya dice «Políticas de respuesta») ni caja alrededor:
+          la primera fila son las pestañas con el resumen a la derecha, como una barra de herramientas. */}
+      <div className="pol-tabs">
+        <div role="tablist" className="pol-tablist">
+          {([["familias", "Por tipo de ataque"], ["zonas", "Por zona y dispositivo"]] as const).map(([id, n]) => (
+            <button key={id} role="tab" aria-selected={pestana === id} onClick={() => { setPestana(id); setSel(null) }} className="pol-tab">
+              {n}
+            </button>
+          ))}
+        </div>
         {resumen}
-      </div>
-
-      <div role="tablist" className="pol-tabs">
-        {([["familias", "Por tipo de ataque"], ["zonas", "Por zona y dispositivo"]] as const).map(([id, n]) => (
-          <button key={id} role="tab" aria-selected={pestana === id} onClick={() => { setPestana(id); setSel(null) }} className="pol-tab">
-            {n}
-          </button>
-        ))}
-      </div>
-
-      <div className="pol-note">
-        {ICON_INFO}
-        <span>
-          {pestana === "familias"
-            ? <>La decisión efectiva <strong>también depende de la zona</strong> del activo afectado: una zona o un dispositivo en HUMANO prevalece sobre AUTO aquí.</>
-            : <>La decisión efectiva <strong>también depende de la familia</strong> de ataque: una familia en HUMANO o «nunca automática» prevalece sobre AUTO aquí.</>}
-        </span>
       </div>
 
       {aviso && <p role="alert" className="pol-alert">{aviso}</p>}
 
       <div className="pol-grid">
         <section aria-label="Lista">
-          <div className="pol-section-label">
-            {pestana === "familias" ? "Tipo de ataque · automatización" : "Zona → dispositivo · postura de respuesta"}
-          </div>
 
           {pestana === "familias" ? (
             <ul className="pol-rows">
@@ -301,7 +284,18 @@ export function Politicas() {
 
         {sel
           ? <div className="pol-detail-col"><Detalle sel={sel} /></div>
-          : <div className="pol-detail-col pol-detail-empty">Selecciona una fila para ver su detalle.</div>}
+          : (
+            // La explicación de la interferencia entre pestañas vive aquí, en el hueco del detalle: se ve
+            // mientras hay sitio y desaparece cuando el analista ya está mirando una fila.
+            <div className="pol-detail-col pol-detail-empty">
+              <p>Selecciona una fila para ver su detalle.</p>
+              <p>
+                {pestana === "familias"
+                  ? <>La decisión efectiva <strong>también depende de la zona</strong> del activo afectado: una zona o un dispositivo en HUMANO prevalece sobre AUTO aquí.</>
+                  : <>La decisión efectiva <strong>también depende de la familia</strong> de ataque: una familia en HUMANO o «nunca automática» prevalece sobre AUTO aquí.</>}
+              </p>
+            </div>
+          )}
       </div>
     </div>
   )
