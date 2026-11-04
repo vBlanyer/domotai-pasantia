@@ -169,6 +169,17 @@
     @apply font-sans;
   }
 }
+/* Tooltip del menú plegado: el nombre de la vista a la derecha del icono, al pasar o al enfocar. */
+.menu-tip::after {
+  content: attr(data-tip);
+  position: absolute; left: calc(100% + 10px); top: 50%; translate: 0 -50%;
+  background: var(--sidebar-foreground); color: var(--sidebar);
+  font-size: 12px; font-weight: 500; padding: 4px 8px; border-radius: 5px; white-space: nowrap;
+  pointer-events: none; opacity: 0; transition: opacity .12s; z-index: 50;
+}
+.menu-tip:hover::after, .menu-tip:focus-visible::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .menu-tip::after { transition: none; } }
+
 /* ------------------------------------------------------------------ Impresión --
    El informe ("Métricas e informe" -> Guardar PDF) usa window.print(). Sin esto se
    descolocaba: en tema oscuro imprimía fondo negro, los grids de 3 columnas no caben
