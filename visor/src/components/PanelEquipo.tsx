@@ -1,9 +1,9 @@
 import { useState } from "react"
 import type { Decision, NodoRed, WatchEntrada } from "@/api"
 import { ESTADO_VISUAL } from "@/components/MapaRed"
-import { Prioridad, RiesgoBadge } from "@/components/bits"
+import { RiesgoBadge } from "@/components/bits"
 import { Tendencia, type Segmento } from "./charts"
-import { etiquetaClase, colorClase, agruparPorDia, atacantesDe, agruparPorSubred, riesgoEquipo, enWatchlist } from "@/datos"
+import { etiquetaClase, colorClase, nivelPrioridad, agruparPorDia, atacantesDe, agruparPorSubred, riesgoEquipo, enWatchlist } from "@/datos"
 import { CATEGORICO_LIGHT, CATEGORICO_DARK } from "@/theme"
 import { useTema } from "@/tema"
 
@@ -24,6 +24,15 @@ const hora = (ts?: string | null) => {
   if (!ts) return "—"
   const t = new Date(ts)
   return isNaN(t.getTime()) ? ts : new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(t)
+}
+
+// Gravedad en corto («P4», con su color y el nombre completo al pasar el ratón): en la tabla
+// estrecha del panel, «P4 · crítica» empujaba las demás columnas.
+const TONO_GRAV = ["bg-muted text-muted-foreground", "bg-info/15 text-info", "bg-aviso/15 text-aviso", "bg-critico/15 text-critico"]
+function GravedadCorta({ n }: { n?: number | null }) {
+  const nivel = nivelPrioridad(n || null)
+  if (!nivel) return <span className="text-muted-foreground">—</span>
+  return <span title={nivel.etiqueta} className={`rounded px-1.5 py-px font-medium ${TONO_GRAV[nivel.n - 1]}`}>P{nivel.n}</span>
 }
 
 export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDecisiones, onVerOrigen, onVerAtacante }: {
@@ -82,16 +91,17 @@ export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDe
       <div className="text-xs text-muted-foreground">último: {hora(a.ultima)}</div>
       {total > 0 && (
         <div className="space-y-3 border-t border-border pt-2">
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* una debajo de otra: en el panel de 360 px, lado a lado no caben las cifras */}
+          <div className="space-y-3">
             <div>
               <div className="mb-1 text-xs text-muted-foreground">Por clase · {totalClasificado} eventos</div>
-              {/* barras con cifra: se leen en 360 px mejor que una dona */}
+              {/* barras con cifra: columnas fijas para el nombre, la barra y el número */}
               <ul aria-label="Por clase" className="space-y-1">
                 {segClase.map((s) => (
-                  <li key={s.name} className="grid grid-cols-[10px_1fr_28px] items-center gap-1.5 text-[11px]">
+                  <li key={s.name} className="grid grid-cols-[10px_minmax(0,8.5rem)_minmax(0,1fr)_2.25rem] items-center gap-2 text-[11.5px]">
                     <span className="size-2.5 rounded-[3px]" style={{ background: s.fill }} />
-                    <span className="flex items-center gap-1.5"><span className="truncate text-muted-foreground">{s.name}</span>
-                      <span className="h-1.5 flex-1 rounded-sm bg-muted"><span className="block h-full rounded-r-sm" style={{ width: `${Math.round((s.value / (segClase[0]?.value || 1)) * 100)}%`, background: s.fill }} /></span></span>
+                    <span className="truncate text-muted-foreground" title={s.name}>{s.name}</span>
+                    <span className="h-1.5 rounded-sm bg-muted"><span className="block h-full rounded-r-sm" style={{ width: `${Math.max(2, Math.round((s.value / (segClase[0]?.value || 1)) * 100))}%`, background: s.fill }} /></span>
                     <span className="text-right font-medium tabular-nums">{s.value}</span>
                   </li>
                 ))}
@@ -99,16 +109,19 @@ export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDe
             </div>
             <div>
               <div className="mb-1 text-xs text-muted-foreground">Actividad por día</div>
-              <Tendencia data={porDia} />
+              {/* con un solo día, una gráfica es un punto suelto: se dice la cifra */}
+              {porDia.length < 2
+                ? <p className="text-xs"><b className="font-semibold tabular-nums">{porDia[0]?.n ?? 0}</b> <span className="text-muted-foreground">eventos el {porDia[0]?.dia ?? "—"} (un solo día en la ventana)</span></p>
+                : <Tendencia data={porDia} />}
             </div>
           </div>
         </div>
       )}
       {atacantes.length > 0 && (
         <div className="space-y-1 border-t border-border pt-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="font-heading text-xs font-semibold">Atacantes de este equipo (correlación)</div>
-            <div className="flex gap-1.5 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <div className="font-heading text-xs font-semibold">Atacantes de este equipo</div>
+            <div className="flex gap-1.5 whitespace-nowrap text-xs">
               <button onClick={() => setModo("ip")}
                 className={modo === "ip" ? "font-semibold" : "text-muted-foreground hover:underline"}>por IP</button>
               <span className="text-muted-foreground">·</span>
@@ -118,10 +131,10 @@ export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDe
           </div>
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-left text-muted-foreground">
-                <th className="font-normal">{modo === "subred" ? "Bloque de origen" : "Origen"}</th>
-                <th className="font-normal">Gravedad</th><th className="font-normal">Ataques</th>
-                <th className="font-normal">También en</th>
+              <tr className="whitespace-nowrap text-left text-muted-foreground">
+                <th className="font-normal">{modo === "subred" ? "Bloque" : "Origen"}</th>
+                <th className="px-1.5 font-normal">Grav.</th><th className="px-1.5 text-right font-normal">Ataques</th>
+                <th className="pl-1.5 font-normal">También en</th>
               </tr>
             </thead>
             <tbody>
@@ -135,8 +148,8 @@ export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDe
                         : <span className="font-mono">{s.cidr}</span>}
                       <span className="ml-1 text-muted-foreground">· {s.ips} IP{s.ips === 1 ? "" : "s"}{s.alcance ? ` · ${s.alcance}` : ""}</span>
                     </td>
-                    <td><Prioridad n={s.prioridad || null} /></td>
-                    <td className="tabular-nums">×{s.n}</td>
+                    <td className="px-1.5"><GravedadCorta n={s.prioridad} /></td>
+                    <td className="px-1.5 text-right tabular-nums">×{s.n}</td>
                     <td className="text-muted-foreground">
                       {s.otrosEquipos.length ? <span title={s.otrosEquipos.join(", ")}>{s.otrosEquipos.length} equipo(s)</span> : "—"}
                     </td>
@@ -152,8 +165,8 @@ export function PanelEquipo({ nodo, eventos, todos = [], watchlist = [], onVerDe
                         : <span className="font-mono">{at.ip}</span>}
                       {at.alcance && <span className="ml-1 text-muted-foreground">· {at.alcance}</span>}
                     </td>
-                    <td><Prioridad n={at.prioridad || null} /></td>
-                    <td className="tabular-nums">×{at.n}</td>
+                    <td className="px-1.5"><GravedadCorta n={at.prioridad} /></td>
+                    <td className="px-1.5 text-right tabular-nums">×{at.n}</td>
                     <td className="text-muted-foreground">
                       {at.otrosEquipos.length ? <span title={at.otrosEquipos.join(", ")}>{at.otrosEquipos.length} equipo(s)</span> : "—"}
                     </td>
