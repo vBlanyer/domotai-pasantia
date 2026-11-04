@@ -125,6 +125,30 @@ class TestEstadoYLector(unittest.TestCase):
         self.assertIn("encolado_en", vista)                      # se serializa al visor
         self.assertNotIn("alerta", vista)                        # el contexto interno no
 
+    def test_vista_pendiente_expone_el_resumen_de_la_decision(self):
+        # La bandeja de Aprobaciones explica «por qué» (clase, confianza, ATT&CK, motivo) y anota la
+        # traza con el id de la decisión; la decisión completa (contexto interno) sigue sin salir.
+        e = tablero.EstadoTablero()
+        e.encolar_decision({"clave": None, "severidad": 3, "alerta": {"activo": "web", "origen_ip": "1.2.3.4"},
+                            "decision": {"id_decision": "d-7", "clase": "vp_fuerza_bruta", "confianza": 0.97,
+                                         "tecnica_mitre": ["T1110"], "impacto_determinado": {"motivo": "crítico"},
+                                         "justificacion_estructurada": {"secreto": "x"}}})
+        vista = tablero._vista_pendiente(e.decisiones_pendientes()[0])
+        self.assertEqual(vista["id_decision"], "d-7")
+        self.assertEqual(vista["clase"], "vp_fuerza_bruta")
+        self.assertEqual(vista["confianza"], 0.97)
+        self.assertEqual(vista["tecnica_mitre"], ["T1110"])
+        self.assertEqual(vista["motivo"], "crítico")
+        self.assertNotIn("decision", vista)
+        self.assertNotIn("justificacion_estructurada", vista)
+
+    def test_vista_pendiente_sin_decision_no_rompe(self):
+        e = tablero.EstadoTablero()
+        e.encolar_decision({"clave": None, "severidad": 1, "alerta": {"activo": "x"}})
+        vista = tablero._vista_pendiente(e.decisiones_pendientes()[0])
+        self.assertIsNone(vista["id_decision"])
+        self.assertIsNone(vista["clase"])
+
     def test_resolver_decision_pasa_el_paso_al_resolutor(self):
         e = tablero.EstadoTablero()
         vistos = []

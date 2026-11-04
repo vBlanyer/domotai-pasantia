@@ -37,6 +37,16 @@ def _orden_efectiva(reg):
     return None, False                                # ni aplicada en el activo ni contenida arriba
 
 
+def _render(plantilla, params):
+    """Plantilla del catálogo con los parámetros de la orden; None si no hay o le falta alguno."""
+    if not plantilla:
+        return None
+    try:
+        return plantilla.format(**params)
+    except (KeyError, IndexError, ValueError):
+        return None
+
+
 def activas(registros, catalogo):
     """Lista de contenciones activas reconstruidas de la traza, deduplicadas por (ip, nodo, accion_id)
     —un re-bloqueo conserva la entrada más reciente—; una reversión con éxito posterior la retira.
@@ -67,5 +77,7 @@ def activas(registros, catalogo):
             "ip": params.get("ip"), "usuario": params.get("usuario"), "servicio": params.get("servicio"),
             "activo": reg.get("activo"), "nodo": nodo, "accion_id": accion_id,
             "ts": reg.get("decidido_en") or reg.get("timestamp"), "via_escalada": via_escalada,
+            # la regla aplicada y la que la quita (para enseñarlas antes de revertir)
+            "regla": _render(acc.get("comando"), params), "reversion_cmd": _render(acc.get("reversion_cmd"), params),
         }
     return list(vivas.values())

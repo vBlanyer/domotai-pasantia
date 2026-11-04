@@ -123,5 +123,23 @@ class TestContencionesActivas(unittest.TestCase):
         self.assertEqual(len(contenciones.activas(regs, CAT)), 1)
 
 
+class TestReglaYReversion(unittest.TestCase):
+    """Cada contención activa lleva la regla aplicada y la que la quita, del catálogo con sus
+    parámetros: el visor las enseña antes de revertir (no tiene el catálogo)."""
+    CAT2 = {**CAT, "BLOQUEAR_IP": {**CAT["BLOQUEAR_IP"], "comando": "iptables -A INPUT -s {ip} -j DROP"}}
+
+    def test_regla_y_reversion_con_los_parametros(self):
+        [a] = contenciones.activas([_bloqueo("s1", "198.51.100.10", "api-movil")], self.CAT2)
+        self.assertEqual(a["regla"], "iptables -A INPUT -s 198.51.100.10 -j DROP")
+        self.assertEqual(a["reversion_cmd"], "iptables -D INPUT -s 198.51.100.10 -j DROP")
+
+    def test_sin_comando_o_con_parametro_que_falta_no_rompe(self):
+        [a] = contenciones.activas([_accion("s1", "FORZAR_CAMBIO_PASS", {"usuario": "admin"})], CAT)
+        self.assertIsNone(a["regla"])                                  # el catálogo de prueba no trae comando
+        self.assertEqual(a["reversion_cmd"], "passwd -u admin")
+        cat = {**CAT, "CERRAR_SERVICIO": {"reversion": "definida", "reversion_cmd": "service {servicio} {falta} start"}}
+        [b] = contenciones.activas([_accion("s2", "CERRAR_SERVICIO", {"servicio": "ftp"})], cat)
+        self.assertIsNone(b["reversion_cmd"])
+
 if __name__ == "__main__":
     unittest.main()

@@ -898,6 +898,12 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta == "/healthz":    # salud del PROPIO daemon (#5), distinto de /api/salud (servicios del cliente)
                 return self._responder(s.latido.estado() if s.latido
                                        else {"ok": True, "alertas": 0, "lazo_quietud_s": 0.0, "ingesta_silencio_s": None})
+            if ruta == "/api/conectividad":   # conectividad del conector con cada equipo (sin claves privadas)
+                from prototipo.servicio import conectividad_web
+                ops = getattr(s, "operadores", None)
+                quien = operador_de(ops, self.headers.get("Authorization")) if isinstance(ops, dict) and ops else (
+                    "consola" if os.environ.get("TRIAJE_CONECTIVIDAD_ABIERTA") == "1" else None)
+                return self._responder(conectividad_web.resumen(s, quien))
             if ruta == "/api/salud":
                 return self._responder(estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud),
                                                     s.dependencias))
@@ -1009,7 +1015,9 @@ class _Manejador(BaseHTTPRequestHandler):
         try:
             s = self.server
             ruta = self.path.split("?", 1)[0]
-            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso", "/api/watchlist", "/api/politica"):
+            if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso", "/api/watchlist", "/api/politica",
+                            "/api/conectividad", "/api/conectividad/probar", "/api/conectividad/leer-clave-host",
+                            "/api/conectividad/clave-host"):
                 return self._responder({"error": "no encontrado"}, 404)
             try:
                 n = int(self.headers.get("Content-Length") or 0)
@@ -1024,6 +1032,10 @@ class _Manejador(BaseHTTPRequestHandler):
                                          self.headers.get("Authorization"), cuerpo)
             if ruta == "/api/politica":   # edita la postura de automatización (overlay operativo, fail-closed)
                 return self._post_politica(s, cuerpo, operador)
+            if ruta.startswith("/api/conectividad"):   # ajustes del conector por equipo (fail-closed)
+                from prototipo.servicio import conectividad_web
+                codigo, resp = conectividad_web.post(s, ruta, cuerpo, operador)
+                return self._responder(resp, codigo)
             if ruta == "/api/pausa":      # kill switch (#8): fija la pausa global de la automatización
                 return self._responder({"pausada": s.estado.pausar(bool(cuerpo.get("pausar")),
                                                                    operador=operador)})
@@ -1128,7 +1140,13 @@ def _vista_pendiente(p, perfil=None):
     el enriquecimiento del origen (ubicación/alcance) para mostrarlo y filtrar por país en Aprobaciones."""
     alerta = p.get("alerta") or {}
     origen_ip = alerta.get("origen_ip")
+    dec = p.get("decision") or {}
+    # Resumen de la decisión para la bandeja (por qué lo propone el motor + id para anotar el caso);
+    # la decisión completa sigue siendo interna.
     return {**{k: v for k, v in p.items() if k not in _INTERNO_PENDIENTE},
+            "id_decision": dec.get("id_decision"), "clase": dec.get("clase"),
+            "confianza": dec.get("confianza"), "tecnica_mitre": dec.get("tecnica_mitre") or [],
+            "motivo": (dec.get("impacto_determinado") or {}).get("motivo"),
             "activo": alerta.get("activo"), "origen_ip": origen_ip,
             "enriquecimiento_origen": actores.enriquecer_origen(
                 origen_ip, perfil, (alerta.get("contexto") or {}).get("origen_legitimo")) if origen_ip else None}
@@ -1231,7 +1249,8 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
                    puerto=8787, salud_ejecutar=subprocess.run, activos=None, topologia=None,
                    async_web=False, perfil=None, catalogo=None, latido=None, ejecutor=None,
                    token=None, operadores=None, watchlist_ruta=None,
-                   ruta_overlay=None, ruta_auditoria=None):
+                   ruta_overlay=None, ruta_auditoria=None,
+                   ruta_conectividad=None, ruta_auditoria_conectividad=None):
     """ThreadingHTTPServer ligado SOLO a 127.0.0.1. `salud` es {} o {ruta} o {contenedor,
     fichero_en_contenedor}. `async_web` activa la cola de aprobación no bloqueante. `token` (opcional,
     #6): si se da, toda la API exige 'Authorization: Bearer <token>'; `operadores` (token->nombre, #8)
@@ -1246,6 +1265,8 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.async_web = async_web
     srv._perfil_base = perfil or {"activos": activos or {}, "topologia": topologia or {}}
     srv.ruta_overlay, srv.ruta_auditoria = ruta_overlay, ruta_auditoria
+    from prototipo.servicio import conectividad_web   # vista «Conectividad»: ajustes del conector por equipo
+    conectividad_web.instalar(srv, ruta_conectividad, ruta_auditoria_conectividad)
     srv._politica_lock = threading.Lock()
     if ruta_overlay:   # copia operativa de políticas (separada del perfil canónico, que no se toca)
         from prototipo.motor import perfil as perfilm

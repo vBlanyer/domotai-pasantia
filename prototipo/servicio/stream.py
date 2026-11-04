@@ -1083,12 +1083,18 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
             operadores = {}      # fail-safe: un JSON inválido no tumba el daemon ni abre la consola
         if not isinstance(operadores, dict):
             operadores = {}      # un JSON válido pero de otra forma ([..]/42) tampoco debe colarse
+    # Ajustes del conector editables desde la vista «Conectividad»: el conector los lee de este fichero
+    # (TRIAJE_CONECTIVIDAD) por encima de las variables de entorno. Si ya viene fijado, se respeta.
+    ruta_conectividad = os.environ.setdefault(
+        "TRIAJE_CONECTIVIDAD", os.path.join(os.path.dirname(cfg["salida"]) or ".", "conectividad-operativa.yml"))
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
                                       catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)
                                       # overlay operativo de políticas (editor del visor); perfil= es el canónico
                                       ruta_overlay=os.path.join(os.path.dirname(cfg["salida"]) or ".", "politica-operativa.yml"),
                                       ruta_auditoria=os.path.join(os.path.dirname(cfg["salida"]) or ".", "politica-auditoria.jsonl"),
+                                      ruta_conectividad=ruta_conectividad,
+                                      ruta_auditoria_conectividad=os.path.join(os.path.dirname(cfg["salida"]) or ".", "conectividad-auditoria.jsonl"),
                                       ejecutor=ejecutor,                     # des-bloqueo en masa (#8)
                                       token=token, operadores=operadores,    # auth de la consola (#6/#8)
                                       # watchlist/IoC local junto a la salida (anotación del analista)

@@ -1,0 +1,313 @@
+"""Conectividad del conector con cada equipo, editable desde la consola sin tocar código.
+
+Tres piezas, todas sin efectos salvo a través de un `correr(args, entrada=None) -> (rc, salida)`
+inyectable (el real ejecuta en el nodo de gestión o en el host, según el modo del conector):
+
+- AJUSTES operativos: usuario por defecto y, por equipo (clave = su IP), puerto y usuario. Viven en
+  un YAML aparte (como el overlay de Políticas) que el conector lee por encima de las variables de
+  entorno. Todo valor se valida al leer y al escribir: lo que no valida se ignora (fail-closed: un
+  fichero roto no inventa usuarios ni puertos).
+- PRUEBA de conexión: entrar y ejecutar un comando del catálogo (sudo permitido) y otro fuera de él
+  (sudo debe denegarlo). La salida de ssh se clasifica (clave del host cambiada, sin aprovisionar, sin
+  acceso…). La salida del comando prohibido NUNCA se devuelve.
+- CLAVE DEL HOST fijada (known_hosts): huellas fijadas, huella que presenta el equipo y aceptación de
+  una clave nueva SOLO si es la misma huella que el analista vio y confirmó.
+
+La clave PRIVADA no se lee ni se devuelve nunca: solo su huella y la clave pública.
+"""
+import ipaddress
+import os
+import re
+import tempfile
+
+import yaml
+
+_USUARIO = re.compile(r"^[a-z_][a-z0-9_-]{0,31}\Z")
+_VACIO = {"usuario_defecto": None, "equipos": {}}
+
+
+def validar_puerto(v):
+    """Puerto TCP 1..65535 (int o texto de dígitos); None = sin ajuste. ValueError si no vale."""
+    if v is None:
+        return None
+    if isinstance(v, bool) or not (isinstance(v, int) or (isinstance(v, str) and v.isdigit())):
+        raise ValueError("puerto inválido")
+    n = int(v)
+    if not 1 <= n <= 65535:
+        raise ValueError("puerto fuera de rango")
+    return n
+
+
+def validar_usuario(v):
+    """Nombre de usuario POSIX conservador (va en la línea de ssh): None = sin ajuste."""
+    if v is None:
+        return None
+    if not isinstance(v, str) or not _USUARIO.match(v):
+        raise ValueError("usuario inválido")
+    return v
+
+
+def _ip_ok(ip):
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+def cargar(ruta):
+    """Ajustes saneados: {"usuario_defecto": str|None, "equipos": {ip: {"nombre"?, "puerto"?, "usuario"?}}}."""
+    try:
+        with open(ruta, encoding="utf-8") as f:
+            bruto = yaml.safe_load(f) or {}
+    except (OSError, yaml.YAMLError):
+        return {"usuario_defecto": None, "equipos": {}}
+    if not isinstance(bruto, dict):
+        return {"usuario_defecto": None, "equipos": {}}
+    try:
+        defecto = validar_usuario(bruto.get("usuario_defecto"))
+    except ValueError:
+        defecto = None
+    equipos = {}
+    for ip, v in (bruto.get("equipos") or {}).items() if isinstance(bruto.get("equipos"), dict) else []:
+        if not _ip_ok(str(ip)) or not isinstance(v, dict):
+            continue
+        e = {}
+        if isinstance(v.get("nombre"), str):
+            e["nombre"] = v["nombre"]
+        for campo, validar in (("puerto", validar_puerto), ("usuario", validar_usuario)):
+            try:
+                val = validar(v.get(campo))
+            except ValueError:
+                val = None
+            if val is not None:
+                e[campo] = val
+        if "puerto" in e or "usuario" in e:
+            equipos[str(ip)] = e
+    return {"usuario_defecto": defecto, "equipos": equipos}
+
+
+def con_cambio(ajustes, ip, nombre, puerto, usuario):
+    """Ajustes nuevos con el puerto/usuario de `ip` (None = quitar ese ajuste). Valida."""
+    if not _ip_ok(ip):
+        raise ValueError("ip inválida")
+    puerto, usuario = validar_puerto(puerto), validar_usuario(usuario)
+    equipos = {k: dict(v) for k, v in (ajustes.get("equipos") or {}).items()}
+    e = {"nombre": nombre} if nombre else {}
+    if puerto is not None:
+        e["puerto"] = puerto
+    if usuario is not None:
+        e["usuario"] = usuario
+    if "puerto" in e or "usuario" in e:
+        equipos[ip] = e
+    else:
+        equipos.pop(ip, None)
+    return {"usuario_defecto": ajustes.get("usuario_defecto"), "equipos": equipos}
+
+
+def guardar(ruta, ajustes):
+    """Escritura atómica (temporal en el mismo directorio + os.replace), permisos 0600."""
+    directorio = os.path.dirname(os.path.abspath(ruta))
+    fd, tmp = tempfile.mkstemp(dir=directorio, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            yaml.safe_dump({"usuario_defecto": ajustes.get("usuario_defecto"), "equipos": ajustes.get("equipos") or {}},
+                           f, allow_unicode=True, sort_keys=True)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, ruta)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+    _cache.clear()
+
+
+_cache = {}
+
+
+def ajustes_de(ip, ruta=None):
+    """(usuario, puerto) para conectar con `ip`; None = lo que diga el conector por defecto. La ruta
+    es TRIAJE_CONECTIVIDAD (la fija el daemon); se relee solo si el fichero cambió."""
+    ruta = ruta or os.environ.get("TRIAJE_CONECTIVIDAD")
+    if not ruta:
+        return None, None
+    try:
+        mtime = os.stat(ruta).st_mtime_ns
+    except OSError:
+        return None, None
+    if _cache.get("clave") != (ruta, mtime):
+        _cache.update(clave=(ruta, mtime), datos=cargar(ruta))
+    a = _cache["datos"]
+    e = a["equipos"].get(ip) or {}
+    return e.get("usuario") or a.get("usuario_defecto"), e.get("puerto")
+
+
+# ---------------------------------------------------------------------------- prueba de conexión --
+# Un comando del catálogo (el listado que usan las verificaciones) y uno claramente fuera de él: el
+# mismo par que comprueba lab/scripts/aprovisionar-minimo-privilegio.sh al terminar.
+COMANDO_PERMITIDO = "iptables -L -n"
+COMANDO_PROHIBIDO = "cat /etc/shadow"
+
+
+def diagnosticar(rc, salida):
+    s = (salida or "").lower()
+    if rc == 0:
+        return "ok"
+    if "remote host identification has changed" in s:
+        return "host_cambiada"
+    if "host key verification failed" in s or "no " in s and "host key is known" in s:
+        return "sin_fijar"
+    if "permission denied (publickey" in s:
+        return "sin_clave"
+    if rc in (124, 127) or any(t in s for t in ("connection refused", "timed out", "no route to host",
+                                                  "could not resolve", "connection closed", "network is unreachable")):
+        return "sin_acceso"
+    return "fallo"
+
+
+_ESTADO = {"host_cambiada": "host_cambiada", "sin_fijar": "sin_aprovisionar", "sin_clave": "sin_aprovisionar",
+           "sin_acceso": "sin_acceso", "fallo": "fallo"}
+_TEXTO = {"host_cambiada": "la clave del host no coincide con la fijada",
+          "sin_fijar": "no hay clave del host fijada para este equipo",
+          "sin_clave": "el equipo no acepta la clave del conector",
+          "sin_acceso": "no se pudo conectar (puerto cerrado, sin ruta o sin respuesta)",
+          "fallo": "el comando del catálogo falló"}
+
+
+def probar(ejecutor, ip):
+    """Prueba de conexión con el `ejecutor` del conector. Devuelve {ok, estado, pasos}."""
+    pasos = []
+    rc, out = ejecutor(ip, COMANDO_PERMITIDO)
+    d = diagnosticar(rc, out)
+    if d != "ok":
+        pasos.append({"paso": "entra y ejecuta un comando del catálogo", "ok": False, "detalle": _TEXTO[d]})
+        return {"ok": False, "estado": _ESTADO[d], "pasos": pasos}
+    pasos.append({"paso": "entra y ejecuta un comando del catálogo", "ok": True,
+                  "detalle": "clave del host, entrada con la clave del conector y sudo del catálogo: correctos"})
+    rc2, out2 = ejecutor(ip, COMANDO_PROHIBIDO)
+    if rc2 == 0:
+        pasos.append({"paso": "sudo deniega lo que está fuera del catálogo", "ok": False,
+                      "detalle": "sudo permitió un comando fuera del catálogo: el privilegio no es el mínimo"})
+        return {"ok": False, "estado": "privilegio_de_mas", "pasos": pasos}
+    d2 = diagnosticar(rc2, out2)
+    if d2 in ("host_cambiada", "sin_fijar", "sin_clave", "sin_acceso"):
+        pasos.append({"paso": "sudo deniega lo que está fuera del catálogo", "ok": False, "detalle": _TEXTO[d2]})
+        return {"ok": False, "estado": _ESTADO[d2], "pasos": pasos}
+    pasos.append({"paso": "sudo deniega lo que está fuera del catálogo", "ok": True, "detalle": "denegado, como debe"})
+    return {"ok": True, "estado": "verificada", "pasos": pasos}
+
+
+# ------------------------------------------------------------------------------ clave del host --
+# Las huellas se calculan aquí (SHA256 del blob de la clave, en base64 sin relleno: lo mismo que
+# `ssh-keygen -l`), leyendo los ficheros con `cat`: el nodo de gestión no tiene por qué traer
+# ssh-keygen ni ssh-keyscan (el del banco solo tiene el cliente ssh).
+import base64
+import hashlib
+
+_TIPOS = {"ssh-ed25519": "ED25519", "ssh-rsa": "RSA", "ecdsa-sha2-nistp256": "ECDSA",
+          "ecdsa-sha2-nistp384": "ECDSA", "ecdsa-sha2-nistp521": "ECDSA", "ssh-dss": "DSA"}
+
+
+class HuellaDistinta(Exception):
+    """El equipo presenta otra huella que la que el analista confirmó: no se escribe nada."""
+
+
+def _huella_blob(b64):
+    try:
+        crudo = base64.b64decode(b64, validate=True)
+    except (ValueError, TypeError):
+        return None
+    return "SHA256:" + base64.b64encode(hashlib.sha256(crudo).digest()).decode().rstrip("=")
+
+
+def huella_de(linea):
+    """(huella, tipo) de una línea de clave pública («tipo base64 comentario») o de known_hosts
+    («hosts tipo base64»); (None, None) si no es una clave."""
+    campos = (linea or "").split()
+    for i, c in enumerate(campos):
+        if c in _TIPOS and i + 1 < len(campos):
+            h = _huella_blob(campos[i + 1])
+            return (h, _TIPOS[c]) if h else (None, None)
+    return None, None
+
+
+def _host_de(campo):
+    m = re.match(r"^\[([^\]]+)\]:\d+$", campo)
+    return m.group(1) if m else campo
+
+
+def claves_de_known_hosts(texto):
+    """{ip: [(tipo, huella)]} en el orden del fichero (sin hosts con hash ni marcadores)."""
+    r = {}
+    for linea in (texto or "").splitlines():
+        if not linea.strip() or linea.startswith(("#", "|", "@")):
+            continue
+        huella, tipo = huella_de(linea)
+        if not huella:
+            continue
+        for h in linea.split()[0].split(","):
+            r.setdefault(_host_de(h), []).append((tipo, huella))
+    return r
+
+
+def _preferida(claves):
+    """La huella a enseñar: la ed25519 si la hay; si no, la primera."""
+    return next((h for t, h in claves if t == "ED25519"), claves[0][1] if claves else None)
+
+
+def huellas_fijadas(texto):
+    """{ip: huella a enseñar} de un known_hosts."""
+    return {ip: _preferida(cs) for ip, cs in claves_de_known_hosts(texto).items()}
+
+
+def reemplazar_host(texto, ip, nuevas):
+    """known_hosts sin ninguna entrada de `ip` (con o sin puerto) y con las `nuevas` al final."""
+    quedan = []
+    for linea in (texto or "").splitlines():
+        hosts = linea.split(" ", 1)[0].split(",") if linea.strip() and not linea.startswith("#") else []
+        if any(_host_de(h) == ip for h in hosts):
+            continue
+        quedan.append(linea)
+    return "\n".join(quedan + list(nuevas)) + "\n"
+
+
+def _no_existe(rc, out):
+    return rc in (126, 127) or "not found" in (out or "").lower()
+
+
+def escanear(ip, puerto, correr):
+    """Líneas de known_hosts con la clave que presenta ahora el equipo. Con ssh-keyscan si existe; si
+    no, con el propio ssh aceptando la clave en un fichero temporal (no toca el known_hosts real)."""
+    if not _ip_ok(ip):
+        raise ValueError("ip inválida")
+    puerto = int(puerto or 22)
+    rc, out = correr(["ssh-keyscan", "-T", "5", "-p", str(puerto), "-t", "ed25519,rsa", ip])
+    if not _no_existe(rc, out):
+        return [l for l in (out or "").splitlines() if l.strip() and not l.startswith("#") and huella_de(l)[0]] if rc == 0 else []
+    tmp = f"/tmp/mdr-escaneo-{ip.replace(':', '_')}-{puerto}"
+    correr(["rm", "-f", tmp])
+    correr(["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", "-o", f"UserKnownHostsFile={tmp}",
+            "-o", "GlobalKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "-o", "PreferredAuthentications=none",
+            "-p", str(puerto), "-l", "mdr-escaneo", ip, "true"])
+    rc, out = correr(["cat", tmp])
+    correr(["rm", "-f", tmp])
+    return [l for l in (out or "").splitlines() if l.strip() and huella_de(l)[0]] if rc == 0 else []
+
+
+def huella_presentada(ip, puerto, correr):
+    """Huella (preferida) de la clave que presenta ahora el equipo, o None si no responde."""
+    lineas = escanear(ip, puerto, correr)
+    return _preferida([huella_de(l)[::-1] for l in lineas]) if lineas else None
+
+
+def aceptar_clave_host(ip, puerto, huella_confirmada, known_hosts, correr):
+    """Sustituye las claves fijadas de `ip` por las que presenta, SOLO si la huella que el analista vio
+    y confirmó está entre ellas (si cambió entre medias, HuellaDistinta y no se toca nada)."""
+    lineas = escanear(ip, puerto, correr)
+    if not lineas:
+        raise HuellaDistinta("el equipo no presentó ninguna clave")
+    if huella_confirmada not in {huella_de(l)[0] for l in lineas}:
+        raise HuellaDistinta("la huella que presenta el equipo no es la confirmada")
+    _, actual = correr(["cat", known_hosts])
+    correr(["tee", known_hosts], reemplazar_host(actual, ip, lineas))
+    return huella_confirmada

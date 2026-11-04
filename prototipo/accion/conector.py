@@ -151,7 +151,12 @@ SSH_USUARIO = os.environ.get("TRIAJE_SSH_USUARIO", "triaje")
 SSH_CLAVE = os.environ.get("TRIAJE_SSH_CLAVE", "/root/.ssh/triaje")
 SSH_KNOWN_HOSTS = os.environ.get("TRIAJE_SSH_KNOWN_HOSTS", "/root/.ssh/known_hosts_triaje")
 
-def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS):
+def _opt_puerto(puerto):
+    """`-p N` solo si hay un puerto distinto de 22 (validado como entero: va en la línea de ssh)."""
+    return [] if puerto is None or int(puerto) == 22 else ["-p", str(int(puerto))]
+
+
+def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS, puerto=None):
     """La linea que ejecuta el auditor. Separada del ejecutor para poder probar lo que importa sin
     laboratorio: que no viaje ninguna contrasena, que la clave del host se verifique contra un
     fichero conocido, que ssh no pueda quedarse preguntando (BatchMode) y que sudo falle en vez
@@ -161,15 +166,25 @@ def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
     # ('iptables -L -n | grep ip') se lo llevaria el grep y dejaria la verificacion siempre falsa.
     ssh = (f"ssh -n -i {clave} -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no "
            f"-o StrictHostKeyChecking=yes -o UserKnownHostsFile={known_hosts} -o ConnectTimeout=5 "
-           "-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa")
+           "-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa"
+           + "".join(f" {x}" for x in _opt_puerto(puerto)))
     remoto = f"sudo -S {comando}"
     return f"{ssh} {usuario}@{nodo_ip} \"{remoto}\""
 
-def ejecutor_ssh_clave(nodo_ip, comando):
-    return _ssh_en_auditor(comando_ssh_clave(nodo_ip, comando))
+def _ajustes(nodo_ip, usuario=None, puerto=None):
+    """Usuario y puerto para `nodo_ip`: los dados (prueba de unos ajustes candidatos), si no los de la
+    consola (accion/conectividad, TRIAJE_CONECTIVIDAD), si no los del entorno."""
+    from prototipo.accion import conectividad
+    u, p = conectividad.ajustes_de(nodo_ip)
+    return usuario or u or SSH_USUARIO, puerto if puerto is not None else p
 
 
-def _args_ssh_directo(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS):
+def ejecutor_ssh_clave(nodo_ip, comando, usuario=None, puerto=None):
+    u, p = _ajustes(nodo_ip, usuario, puerto)
+    return _ssh_en_auditor(comando_ssh_clave(nodo_ip, comando, usuario=u, puerto=p))
+
+
+def _args_ssh_directo(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS, puerto=None):
     """argv del SSH directo desde el HOST del daemon (modo `directo`): mismas opciones endurecidas
     que comando_ssh_clave, pero como lista (sin `sh -c`: nada que inyectar en un shell local).
     Aquí `clave` y `known_hosts` son rutas del HOST (TRIAJE_SSH_CLAVE/TRIAJE_SSH_KNOWN_HOSTS)."""
@@ -177,16 +192,17 @@ def _args_ssh_directo(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
             "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=yes",
             "-o", f"UserKnownHostsFile={known_hosts}", "-o", "ConnectTimeout=5",
             "-o", "HostKeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa",
-            f"{usuario}@{nodo_ip}", f"sudo -S {comando}"]
+            *_opt_puerto(puerto), f"{usuario}@{nodo_ip}", f"sudo -S {comando}"]
 
 
-def ejecutor_ssh_directo(nodo_ip, comando):
+def ejecutor_ssh_directo(nodo_ip, comando, usuario=None, puerto=None):
     """SSH directo desde el host del daemon, SIN `docker exec` a un nodo de gestión: para desplegar
     en una VM/bare-metal sin Docker (v2 adelantado; la demo portátil demostró que esta era la única
     dependencia de plataforma del camino de contención)."""
     import subprocess
     try:
-        cp = subprocess.run(_args_ssh_directo(nodo_ip, comando), capture_output=True, text=True,
+        u, p = _ajustes(nodo_ip, usuario, puerto)
+        cp = subprocess.run(_args_ssh_directo(nodo_ip, comando, usuario=u, puerto=p), capture_output=True, text=True,
                             timeout=PLAZO_SSH_S, env=_env_filtrado())
     except subprocess.TimeoutExpired:
         return (124, f"sin respuesta en {PLAZO_SSH_S} s")          # 124: el código de timeout(1)
@@ -230,6 +246,49 @@ def ejecutor_por_defecto(escribir=print):
              "ninguna contencion. Aprovisiona la clave (sh lab/scripts/aprovisionar-minimo-privilegio.sh) "
              "o, SOLO en el laboratorio, fija TRIAJE_SSH_MODO=password.")
     return _ejecutor_sin_configurar
+
+# ---------------------------------------------------------- consola de conectividad (visor) --
+def modo_actual():
+    """El modo que usará el conector, sin efectos ni avisos: «password» (laboratorio), «directo»
+    (desde el host), «clave» (vía nodo de gestión) o «sin_configurar» (fail-closed)."""
+    modo = os.environ.get("TRIAJE_SSH_MODO")
+    if modo == "password":
+        return "password"
+    if modo == "directo":
+        return "directo" if os.path.isfile(SSH_CLAVE) else "sin_configurar"
+    if modo == "clave" or _clave_aprovisionada():
+        return "clave"
+    return "sin_configurar"
+
+
+def ejecutor_con(modo, usuario=None, puerto=None):
+    """Ejecutor para PROBAR unos ajustes candidatos (antes de guardarlos). Solo en los modos con clave:
+    el de laboratorio no admite ajustes y sin configurar no ejecuta nada."""
+    if modo == "clave":
+        return lambda ip, cmd: ejecutor_ssh_clave(ip, cmd, usuario=usuario, puerto=puerto)
+    if modo == "directo":
+        return lambda ip, cmd: ejecutor_ssh_directo(ip, cmd, usuario=usuario, puerto=puerto)
+    return _ejecutor_sin_configurar
+
+
+def correr_donde_las_claves(modo):
+    """`correr(args, entrada=None) -> (rc, salida)` donde viven la clave y el known_hosts del conector:
+    en el nodo de gestión (modo clave, `docker exec -i`) o en el propio host (modo directo). Sin
+    shell: la lista de argumentos va tal cual."""
+    import subprocess
+
+    def correr(args, entrada=None):
+        argv = list(args) if modo == "directo" else ["docker", "exec", "-i", nodo_gestion(), *args]
+        try:
+            cp = subprocess.run(argv, input=entrada, capture_output=True, text=True, timeout=PLAZO_SSH_S,
+                                env=_env_filtrado())
+        except subprocess.TimeoutExpired:
+            return 124, f"sin respuesta en {PLAZO_SSH_S} s"
+        except OSError as e:
+            return 127, f"no se pudo lanzar: {e}"
+        return cp.returncode, cp.stdout + cp.stderr
+    return correr
+
 
 if __name__ == "__main__":
     sys.exit(_main(sys.argv))
