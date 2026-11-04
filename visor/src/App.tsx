@@ -141,6 +141,7 @@ export default function App() {
   const [textoDec, setTextoDec] = useState("")        // filtro de Decisiones sembrado al pivotar (p. ej. una IP)
   const [atacanteIp, setAtacanteIp] = useState<string | null>(null)   // perfil de atacante (drill-down)
   const [paisAprob, setPaisAprob] = useState("")      // filtro de Aprobaciones por ubicación (desde Ubicaciones)
+  const [aprobSel, setAprobSel] = useState<string | null>(null)   // pendiente abierta al llegar (desde el Panel)
   const [incidenteSel, setIncidenteSel] = useState<{ clave: string; cidr: string } | null>(null)   // detalle de incidente
   const [incidente, setIncidente] = useState<Decision | null>(null)
   const [token, setToken] = useState(tokenActual())   // auth opcional de la consola (#6); vacío = abierta
@@ -201,7 +202,7 @@ export default function App() {
                 return (
                   <button
                     key={n.id}
-                    onClick={() => { if (n.id === "aprobaciones") setPaisAprob(""); if (n.id === "incidentes") setIncidenteSel(null); setVista(n.id); setMenu(false) }}
+                    onClick={() => { if (n.id === "aprobaciones") { setPaisAprob(""); setAprobSel(null) } if (n.id === "incidentes") setIncidenteSel(null); setVista(n.id); setMenu(false) }}
                     aria-label={compacto ? n.nombre : undefined}
                     data-tip={compacto ? n.nombre : undefined}
                     className={cn(
@@ -310,15 +311,19 @@ export default function App() {
               )}
             </div>
           )}
-          {vista === "panel" && <Dashboard conectado={conectado} onVerAprobaciones={() => { setPaisAprob(""); setVista("aprobaciones") }} />}
+          {vista === "panel" && <Dashboard conectado={conectado}
+            onVerAprobaciones={(id) => { setPaisAprob(""); setAprobSel(id ?? null); setVista("aprobaciones") }}
+            onVerIncidente={(clave, cidr) => { setIncidenteSel({ clave, cidr }); setVista("incidentes") }}
+            onVerDecisiones={(texto) => { setEquipo(null); setTextoDec(texto); setVista("decisiones") }}
+            onVerSalud={() => setVista("salud")} onVerInforme={() => setVista("metricas")} onVerRed={() => setVista("red")} />}
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud onVerConectividad={() => setVista("conectividad")} />}
           {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }}
             onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }}
-            onVerAprobaciones={() => { setPaisAprob(""); setVista("aprobaciones") }} onVerSalud={() => setVista("salud")} />}
+            onVerAprobaciones={() => { setPaisAprob(""); setAprobSel(null); setVista("aprobaciones") }} onVerSalud={() => setVista("salud")} />}
           {vista === "ubicaciones" && <Ubicaciones
             onVerPais={(pais) => { setEquipo(null); setTextoDec(pais); setVista("decisiones") }}
-            onVerAprobaciones={(pais) => { setPaisAprob(pais); setVista("aprobaciones") }} />}
+            onVerAprobaciones={(pais) => { setPaisAprob(pais); setAprobSel(null); setVista("aprobaciones") }} />}
           {vista === "atacante" && atacanteIp && (
             <PerfilAtacante ip={atacanteIp} onVolver={() => setVista("red")}
               onVerDecisiones={(ip) => { setEquipo(null); setTextoDec(ip); setVista("decisiones") }} />
@@ -329,7 +334,7 @@ export default function App() {
               onVerTrazas={() => setVista("trazas")} onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }}
               onVerContenciones={() => setVista("contenciones")} />
           )}
-          {vista === "aprobaciones" && <Aprobaciones paisInicial={paisAprob} onQuitarPais={() => setPaisAprob("")} />}
+          {vista === "aprobaciones" && <Aprobaciones paisInicial={paisAprob} idInicial={aprobSel} onQuitarPais={() => setPaisAprob("")} />}
           {vista === "consola" && <Consola />}
           {vista === "trazas" && <Trazas onVerDecision={(id) => { setEquipo(null); setTextoDec(id); setVista("decisiones") }}
             onVerIncidente={(clave, cidr) => { setIncidenteSel({ clave, cidr }); setVista("incidentes") }} />}

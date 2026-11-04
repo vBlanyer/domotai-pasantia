@@ -287,8 +287,9 @@ function BarraOperador() {
   )
 }
 
-export function Aprobaciones({ paisInicial = "", onQuitarPais }: {
-  paisInicial?: string; onQuitarPais?: () => void
+export function Aprobaciones({ paisInicial = "", idInicial = null, onQuitarPais }: {
+  // idInicial: la pendiente que se abre en el inspector al llegar (p. ej. «Revisar» desde el Panel)
+  paisInicial?: string; idInicial?: string | null; onQuitarPais?: () => void
 } = {}) {
   const p = useSondeo(getPendientes)
   const tr = useSondeo(getTrazas, 10000)          // memoria del origen y ritmo del operador
@@ -306,7 +307,7 @@ export function Aprobaciones({ paisInicial = "", onQuitarPais }: {
   const [agrupacion, setAgrupacion] = useState<Agrupacion>(() => leerPreferencia("mdr.aprob.agrupar", AGRUPACIONES.map((a) => a.id), "ninguno"))
   const elegirOrden = (o: Orden) => { setOrden(o); setPagina(1); guardarPreferencia("mdr.aprob.orden", o) }
   const elegirAgrupacion = (a: Agrupacion) => { setAgrupacion(a); setPagina(1); guardarPreferencia("mdr.aprob.agrupar", a) }
-  const [actual, setActual] = useState<string | null>(null)
+  const [actual, setActual] = useState<string | null>(idInicial)
   const [estados, setEstados] = useState<Record<string, Estado>>({})     // por id:paso (un menú nuevo = limpio)
   const [resueltas, setResueltas] = useState<Set<string>>(new Set())
   const [plegados, setPlegados] = useState<Set<string>>(new Set())

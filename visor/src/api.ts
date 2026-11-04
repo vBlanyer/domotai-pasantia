@@ -317,6 +317,14 @@ export const getMetricas = (p?: { desde?: string; hasta?: string }) => {
   const qs = q.toString()
   return pedir(`/api/metricas${qs ? `?${qs}` : ""}`, MetricasSchema)
 }
+// Para el Panel: las métricas del día (UTC, como compara el daemon) y una ventana de trazas amplia
+// para la actividad de 24 h y la comparación con ayer (sin ese margen, la ventana corta no llega).
+export const LIMITE_TRAZAS_PANEL = 2000
+export const getTrazasPanel = () => getTrazas(LIMITE_TRAZAS_PANEL)
+export const getMetricasHoy = () => {
+  const d = new Date(ahoraServidor()).toISOString().slice(0, 10)
+  return getMetricas({ desde: d, hasta: d })
+}
 export const getRed = () => pedir("/api/red", RedSchema)
 export const getContenciones = () => pedir("/api/contenciones", z.array(ContencionSchema))
 
