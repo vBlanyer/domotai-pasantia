@@ -3,7 +3,8 @@ import { Printer } from "lucide-react"
 import { getMetricas, type Metricas as Datos, type Fallo } from "@/api"
 import { Donut, Barras } from "./charts"
 import { MatrizAttack } from "./MatrizAttack"
-import { ESTADO } from "@/theme"
+import { semantico } from "@/theme"
+import { useTema } from "@/tema"
 import { Cargando, SinConexion, Kpi, Tarjeta } from "./bits"
 import { rangoDe, etiquetaPeriodo, type Preset } from "@/informe"
 
@@ -18,6 +19,7 @@ export function ResumenEjecutivo() {
   const [sel, setSel] = useState<Seleccion>("mes")
   const [rango, setRango] = useState(() => rangoDe("mes", new Date()))
   const [m, setM] = useState<Datos | Fallo | undefined>()
+  const S = semantico(useTema().oscuro)
 
   useEffect(() => {
     let vivo = true
@@ -54,7 +56,7 @@ export function ResumenEjecutivo() {
           </div>
         )}
         <button onClick={() => window.print()}
-          className="ml-auto flex items-center gap-2 rounded-lg bg-[color:#1f6fd6] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[color:#1a5fba]">
+          className="ml-auto flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
           <Printer className="size-4" /> Guardar PDF
         </button>
       </div>
@@ -90,8 +92,8 @@ export function ResumenEjecutivo() {
             </Tarjeta>
             <Tarjeta titulo="Acciones tomadas">
               <Donut unidad="decisiones" total={m.total}
-                data={[{ name: "Contenidas en automático", value: m.auto, fill: ESTADO.good },
-                       { name: "A revisión humana", value: m.escalado_humano ?? (m.total - m.auto), fill: ESTADO.warning }]} />
+                data={[{ name: "Contenidas en automático", value: m.auto, fill: S.ok },
+                       { name: "A revisión humana", value: m.escalado_humano ?? (m.total - m.auto), fill: S.aviso }]} />
             </Tarjeta>
             <Tarjeta titulo="Cobertura ATT&CK">
               <MatrizAttack tecnicas={m.mitre} />

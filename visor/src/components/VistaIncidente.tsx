@@ -44,11 +44,11 @@ export function VistaIncidente({ decision, onVolver }: { decision: Decision; onV
     ? (red.nodos.find((n) => n.ip === decision.origen_ip)?.nombre ?? null) : null
   const mitre = decision.tecnica_mitre ?? det?.justificacion_estructurada?.tecnica_mitre ?? []
   const [desenlace, tono] = pendiente
-    ? ["Pendiente de aprobación", "text-amber-600 dark:text-amber-400"]
+    ? ["Pendiente de aprobación", "text-aviso"]
     : contuvo
-      ? [`Contenido en ${contuvo}`, "text-emerald-600 dark:text-emerald-400"]
+      ? [`Contenido en ${contuvo}`, "text-ok"]
       : decision.accion_final
-        ? ["Contención sin verificar", "text-rose-600 dark:text-rose-400"]
+        ? ["Contención sin verificar", "text-critico"]
         : ["Sin contención (clasificado)", "text-muted-foreground"]
 
   return (
@@ -93,8 +93,8 @@ export function VistaIncidente({ decision, onVolver }: { decision: Decision; onV
           </dl>
 
           {cascada.length > 0 && (
-            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
-              <b className="text-amber-600 dark:text-amber-400">⚠ Conciencia de impacto.</b>{" "}
+            <div className="rounded-md border border-aviso/40 bg-aviso/10 px-3 py-2 text-xs">
+              <b className="text-aviso">⚠ Conciencia de impacto.</b>{" "}
               Contener el origen dejaría sin servicio a {cascada.join(", ")} (dependen de él).
             </div>
           )}
@@ -111,7 +111,7 @@ export function VistaIncidente({ decision, onVolver }: { decision: Decision; onV
                 {mitre.map((t) => (
                   <a key={t} href={`https://attack.mitre.org/techniques/${t.replace(".", "/")}/`}
                      target="_blank" rel="noopener"
-                     className="rounded bg-sky-500/15 px-1.5 py-0.5 font-mono text-[10px] text-sky-600 hover:underline dark:text-sky-300">{t}</a>
+                     className="rounded bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info hover:underline">{t}</a>
                 ))}
               </div>
             </Campo>

@@ -9,9 +9,9 @@ import { TIERRA_PATHS } from "@/worldmap"
 // Las tres vistas del mapa: en curso (recibidos no contenidos), total (recibidos) y mitigados
 // (contenidos). total = en curso + mitigados. El filtro elige cuál dimensiona y numera los puntos.
 const METRICAS: { clave: MetricaUbicacion; etiqueta: string; color: string }[] = [
-  { clave: "enCurso",   etiqueta: "En curso",  color: "fill-rose-500/70 stroke-rose-600" },
-  { clave: "n",         etiqueta: "Total",     color: "fill-amber-500/70 stroke-amber-600" },
-  { clave: "mitigados", etiqueta: "Mitigados", color: "fill-emerald-500/70 stroke-emerald-600" },
+  { clave: "enCurso",   etiqueta: "En curso",  color: "fill-critico/70 stroke-critico" },
+  { clave: "n",         etiqueta: "Total",     color: "fill-aviso/70 stroke-aviso" },
+  { clave: "mitigados", etiqueta: "Mitigados", color: "fill-ok/70 stroke-ok" },
 ]
 
 // Vista «Ubicaciones»: origen de los ataques por ubicación. La geo es OFFLINE y aproximada (tabla de
@@ -71,7 +71,7 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
               : `Ningún país con ataques «${activa.etiqueta.toLowerCase()}» ahora mismo.`}
           </div>
         ) : (
-          <svg viewBox="0 0 360 180" className="h-auto w-full rounded bg-sky-500/5" role="img" aria-label="Mapamundi de orígenes de ataque">
+          <svg viewBox="0 0 360 180" className="h-auto w-full rounded bg-info/5" role="img" aria-label="Mapamundi de orígenes de ataque">
             {/* siluetas de tierra, al fondo */}
             <g className="fill-muted stroke-border" strokeWidth="0.2" strokeOpacity={0.5}>
               {TIERRA_PATHS.map((d, i) => <path key={i} d={d} />)}
@@ -106,9 +106,9 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
           style={{ left: hover.x + 12, top: hover.y + 12 }}>
           <div className="font-medium">{hover.p.nombre}{hover.p.codigo ? ` (${hover.p.codigo})` : ""}</div>
           <div className="mt-0.5 space-x-1.5">
-            <span className="text-rose-600 dark:text-rose-400">En curso {hover.p.enCurso}</span>
+            <span className="text-critico">En curso {hover.p.enCurso}</span>
             <span className="text-muted-foreground">· Total {hover.p.n}</span>
-            <span className="text-emerald-600 dark:text-emerald-400">· Mitigados {hover.p.mitigados}</span>
+            <span className="text-ok">· Mitigados {hover.p.mitigados}</span>
           </div>
           <div className="text-muted-foreground">{hover.p.ips} IP(s) distintas</div>
         </div>

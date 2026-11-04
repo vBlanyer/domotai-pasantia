@@ -11,8 +11,8 @@ const toastVariants = cva(
   {
     variants: {
       tono: {
-        success: "border-emerald-500/40",
-        error: "border-rose-500/50",
+        success: "border-ok/40",
+        error: "border-critico/50",
         info: "border-border",
       },
     },
@@ -21,7 +21,7 @@ const toastVariants = cva(
 )
 
 const ICONO = { success: CircleCheck, error: CircleAlert, info: Info }
-const COLOR_ICONO = { success: "text-emerald-500", error: "text-rose-500", info: "text-muted-foreground" }
+const COLOR_ICONO = { success: "text-ok", error: "text-critico", info: "text-muted-foreground" }
 
 function tonoDe(type?: string): Tono {
   return type === "success" || type === "error" ? type : "info"

@@ -10,9 +10,9 @@ const hora = (ts?: string | null) => {
 
 // Marcador por tipo de evento (detección vs respuesta).
 const ICONO: Record<EventoCronologia["tipo"], { s: string; cls: string }> = {
-  decision: { s: "●", cls: "text-rose-500" },
-  reversion: { s: "↩", cls: "text-sky-500" },
-  caso: { s: "☰", cls: "text-slate-400" },
+  decision: { s: "●", cls: "text-critico" },
+  reversion: { s: "↩", cls: "text-info" },
+  caso: { s: "☰", cls: "text-enrutado" },
 }
 
 // Línea de tiempo (attack story): la cronología de un incidente/atacante, mezclando la detección

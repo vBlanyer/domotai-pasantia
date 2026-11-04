@@ -2,9 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
-@import "@fontsource/roboto/400.css";
-@import "@fontsource/roboto/500.css";
-@import "@fontsource/roboto/700.css";
 
 /* Tailwind v4 usa la preferencia del sistema para `dark:` por defecto; la atamos a la
    clase .dark que alterna el interruptor, para que la variante siga al tema elegido. */
@@ -45,18 +42,33 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* Estados: text-ok, bg-critico/15, border-aviso/40, fill-enrutado… (+ X-foreground para rellenos sólidos) */
+  --color-ok: var(--ok);
+  --color-ok-foreground: var(--sobre-estado);
+  --color-aviso: var(--aviso);
+  --color-aviso-foreground: var(--sobre-estado);
+  --color-grave: var(--grave);
+  --color-grave-foreground: var(--sobre-estado);
+  --color-critico: var(--critico);
+  --color-critico-foreground: var(--sobre-estado);
+  --color-enrutado: var(--enrutado);
+  --color-enrutado-foreground: var(--sobre-estado);
+  --color-violeta: var(--violeta);
+  --color-violeta-foreground: var(--sobre-estado);
+  --color-info: var(--info);
+  --color-info-foreground: var(--primary-foreground);
   --font-sans: var(--font-sans);
   --font-heading: var(--font-heading);
 }
 
 @layer base {
   .theme {
-    --font-heading: 'Roboto', sans-serif;
+    --font-heading: 'Inter Variable', sans-serif;
     --font-sans: 'Inter Variable', sans-serif
   }
   :root {
     --font-sans: 'Inter Variable', system-ui, sans-serif;
-    --font-heading: 'Roboto', system-ui, sans-serif;
+    --font-heading: 'Inter Variable', system-ui, sans-serif;
   }
   /* Paleta «consola SOC» (clara). Solo valores de token: no cambia ninguna estructura. */
   :root {
@@ -66,7 +78,7 @@
     --card-foreground: #18212e;
     --popover: #ffffff;
     --popover-foreground: #18212e;
-    --primary: #0d8ea4;
+    --primary: #0b7a8c;   /* el cian del mockup (#0d8ea4) un paso más oscuro: AA como texto y como botón */
     --primary-foreground: #ffffff;
     --secondary: #eef2f7;
     --secondary-foreground: #18212e;
@@ -74,15 +86,27 @@
     --muted-foreground: #5a6776;
     --accent: #e5eaf1;
     --accent-foreground: #18212e;
-    --destructive: #bc3d28;
+    --destructive: var(--critico);
     --border: #d6dde7;
     --input: #d6dde7;
-    --ring: #0d8ea4;
+    --ring: #0b7a8c;
     --chart-1: #0d8ea4;
     --chart-2: #1a7f37;
     --chart-3: #8a6300;
     --chart-4: #bc3d28;
     --chart-5: #46566a;
+    /* Estados (los del mockup de Políticas): verde = auto/ok, ámbar = humano/aviso, naranja = grave,
+       rojo = freno duro/crítico, pizarra = enrutado; violeta = «otro» (LLM, ASN, dependencias);
+       info = informativo (ejecución, en revisión, enlaces de pivote), el mismo cian del primario.
+       theme.ts lleva ESTOS MISMOS hex para los gráficos (theme.test.ts lo vigila). */
+    --ok: #1a7f37;
+    --aviso: #8a6300;
+    --grave: #b04e12;
+    --critico: #bc3d28;
+    --enrutado: #46566a;
+    --violeta: #6f42c1;
+    --info: var(--primary);
+    --sobre-estado: #ffffff;   /* texto sobre un relleno sólido de estado */
     --radius: 0.75rem;
     --sidebar: #ffffff;
     --sidebar-foreground: #18212e;
@@ -93,8 +117,8 @@
     --sidebar-border: #d6dde7;
     --sidebar-ring: #0d8ea4
   }
-  /* Paleta «consola SOC» (oscura). */
-  .dark {
+  /* Paleta «consola SOC» (oscura). Solo en pantalla: al imprimir manda la clara, también en los estados. */
+  @media screen { .dark {
     --background: #0d1117;
     --foreground: #e6edf3;
     --card: #161b22;
@@ -109,7 +133,7 @@
     --muted-foreground: #8b98a9;
     --accent: #212a37;
     --accent-foreground: #e6edf3;
-    --destructive: #f0785f;
+    --destructive: var(--critico);
     --border: #2a3340;
     --input: #2a3340;
     --ring: #3cc6da;
@@ -118,6 +142,14 @@
     --chart-3: #e3a93c;
     --chart-4: #f0785f;
     --chart-5: #9fb0c3;
+    --ok: #3fb950;
+    --aviso: #e3a93c;
+    --grave: #ee8c4b;
+    --critico: #f0785f;
+    --enrutado: #9fb0c3;
+    --violeta: #a98bfa;
+    --info: var(--primary);
+    --sobre-estado: #0d1117;
     --sidebar: #161b22;
     --sidebar-foreground: #e6edf3;
     --sidebar-primary: #3cc6da;
@@ -126,7 +158,7 @@
     --sidebar-accent-foreground: #e6edf3;
     --sidebar-border: #2a3340;
     --sidebar-ring: #3cc6da
-  }
+  } }
   * {
     @apply border-border outline-ring/50;
   }

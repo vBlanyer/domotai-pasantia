@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 
 export const ESTADO_CASO: Record<string, { texto: string; clase: string }> = {
-  nuevo: { texto: "Nuevo", clase: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
-  en_revision: { texto: "En revisión", clase: "bg-sky-500/15 text-sky-700 dark:text-sky-300" },
-  resuelto: { texto: "Resuelto", clase: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
+  nuevo: { texto: "Nuevo", clase: "bg-aviso/15 text-aviso" },
+  en_revision: { texto: "En revisión", clase: "bg-info/15 text-info" },
+  resuelto: { texto: "Resuelto", clase: "bg-ok/15 text-ok" },
 }
 
 // Ciclo de vida del caso: estado, responsable y notas del analista. Cada cambio se añade a la traza

@@ -3,17 +3,18 @@ import { Printer } from "lucide-react"
 import { getMetricas, type Metricas as Datos, type Fallo } from "@/api"
 import { Donut, Tendencia, Barras, type Segmento } from "./charts"
 import { MatrizAttack } from "./MatrizAttack"
-import { CATEGORICO_LIGHT, CATEGORICO_DARK, ESTADO } from "@/theme"
+import { CATEGORICO_LIGHT, CATEGORICO_DARK, semantico, type Semantico } from "@/theme"
 import { useTema } from "@/tema"
 import { Cargando, SinConexion, Vacio, Kpi, Tarjeta } from "./bits"
 import { etiquetaClase, colorClase } from "@/datos"
 import { rangoDe, etiquetaPeriodo, type Preset } from "@/informe"
 
-const VEREDICTO = {
-  aprobar: { nombre: "Aprobadas", fill: ESTADO.good },
-  rechazar: { nombre: "Rechazadas", fill: ESTADO.critical },
-  reclasificar: { nombre: "Reclasificadas", fill: ESTADO.warning },
-} as const
+// Veredictos del analista con los colores de estado del modo activo (claro/oscuro).
+const VEREDICTO = (S: Semantico) => ({
+  aprobar: { nombre: "Aprobadas", fill: S.ok },
+  rechazar: { nombre: "Rechazadas", fill: S.critico },
+  reclasificar: { nombre: "Reclasificadas", fill: S.aviso },
+})
 
 // La vista une las antiguas «Métricas» (en vivo) e «Informe» (por periodo, exportable).
 // Un único efecto decide la fuente: en vivo sondea cada 2 s sin periodo; un periodo hace una
@@ -53,6 +54,7 @@ export function Metricas() {
 
   const enVivo = sel === "vivo"
   const CAT = oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
+  const veredictos = VEREDICTO(semantico(oscuro))
 
   return (
     <div className="space-y-5">
@@ -79,7 +81,7 @@ export function Metricas() {
           </div>
         )}
         <button onClick={() => window.print()}
-          className="ml-auto flex items-center gap-2 rounded-lg bg-[color:#1f6fd6] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[color:#1a5fba]">
+          className="ml-auto flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
           <Printer className="size-4" /> Guardar PDF
         </button>
       </div>
@@ -130,9 +132,9 @@ export function Metricas() {
                 <Tarjeta titulo="Veredictos humanos">
                   {m.total - m.auto > 0
                     ? <Donut total={m.total - m.auto} unidad="a humano"
-                        data={(Object.keys(VEREDICTO) as (keyof typeof VEREDICTO)[])
+                        data={(Object.keys(veredictos) as (keyof typeof veredictos)[])
                           .filter((v) => m.veredictos[v])
-                          .map((v) => ({ name: VEREDICTO[v].nombre, value: m.veredictos[v], fill: VEREDICTO[v].fill }))} />
+                          .map((v) => ({ name: veredictos[v].nombre, value: m.veredictos[v], fill: veredictos[v].fill }))} />
                     : <p className="py-14 text-center text-sm text-muted-foreground">todo se resolvió automáticamente</p>}
                 </Tarjeta>
                 <Tarjeta titulo="Decisiones por día">
@@ -153,7 +155,7 @@ export function Metricas() {
                   : <p className="py-10 text-center text-sm text-muted-foreground">sin técnicas registradas</p>}
               </Tarjeta>
 
-              <div className="break-inside-avoid rounded-lg border border-border border-l-4 border-l-[color:#1f6fd6] bg-muted/40 p-4 text-sm">
+              <div className="break-inside-avoid rounded-lg border border-border border-l-4 border-l-primary bg-muted/40 p-4 text-sm">
                 <h2 className="mb-1.5 text-sm font-medium text-muted-foreground">Resumen</h2>
                 <p>
                   {enVivo ? "En la sesión actual" : "En el periodo"} el MDR procesó <b>{m.total} decisiones</b> refinando

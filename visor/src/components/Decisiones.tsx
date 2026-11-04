@@ -27,11 +27,11 @@ function Aporte({ d }: { d: Decision }) {
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1">
       {esLLM(d.version_justificador)
-        ? <Pildora tono="bg-violet-500/15 text-violet-600 dark:text-violet-300">LLM</Pildora>
-        : <Pildora tono="bg-slate-500/15 text-slate-600 dark:text-slate-300">plantilla</Pildora>}
-      {d.con_rag && <Pildora tono="bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">RAG</Pildora>}
+        ? <Pildora tono="bg-violeta/15 text-violeta">LLM</Pildora>
+        : <Pildora tono="bg-enrutado/15 text-enrutado">plantilla</Pildora>}
+      {d.con_rag && <Pildora tono="bg-ok/15 text-ok">RAG</Pildora>}
       {mitre.map((t) => (
-        <span key={t} className="rounded bg-sky-500/15 px-1.5 py-0.5 font-mono text-[10px] text-sky-600 dark:text-sky-300">{t}</span>
+        <span key={t} className="rounded bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info">{t}</span>
       ))}
     </div>
   )
@@ -84,8 +84,8 @@ const FRASE: Record<EstadoContencion, (c: Contencion) => string> = {
 
 function BloqueContencion({ c }: { c: Contencion }) {
   const Icono = c.estado === "contenida" ? ShieldCheck : c.estado === "fallida" ? ShieldX : Shield
-  const tono = c.estado === "contenida" ? "text-emerald-600 dark:text-emerald-400"
-    : c.estado === "fallida" ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"
+  const tono = c.estado === "contenida" ? "text-ok"
+    : c.estado === "fallida" ? "text-critico" : "text-muted-foreground"
   const siNo = (b?: boolean) => (b ? "sí" : "no")
   return (
     <Campo etiqueta="Contención">
@@ -135,8 +135,8 @@ function Detalles({ id, indice, origen, origenIp, clase }: {
   return (
     <div className="space-y-4">
       {cascada.length > 0 && (
-        <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
+        <div className="rounded-md border border-critico/40 bg-critico/10 p-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-critico">
             <TriangleAlert className="size-4 shrink-0" /> Riesgo de cascada al aprobar
           </div>
           <p className="mt-1 text-sm">
@@ -171,7 +171,7 @@ function Detalles({ id, indice, origen, origenIp, clase }: {
           <Campo etiqueta="Técnicas MITRE ATT&CK">
             <div className="flex flex-wrap gap-1">
               {mitre.map((t) => (
-                <span key={t} className="rounded bg-sky-500/15 px-1.5 py-0.5 font-mono text-xs text-sky-600 dark:text-sky-300">{t}</span>
+                <span key={t} className="rounded bg-info/15 px-1.5 py-0.5 font-mono text-xs text-info">{t}</span>
               ))}
             </div>
           </Campo>
@@ -257,7 +257,7 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
     )
   if (d.tipo === "error")
     return (
-      <TableRow className="text-rose-600 dark:text-rose-400">
+      <TableRow className="text-critico">
         <TableCell colSpan={COLS} className={FILA_ANCHA}>
           ✗ {d.id_decision}: error al procesar el incidente de {d.origen_ip ?? "—"} → {d.activo ?? "—"}: {d.error}
         </TableCell>
@@ -291,12 +291,12 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
           <ClaseBadge clase={d.clase} />
           <Aporte d={d} />
           {d.cascada && d.cascada.length > 0 && (
-            <div className="mt-1.5 inline-flex items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+            <div className="mt-1.5 inline-flex items-center gap-1 rounded bg-critico/15 px-1.5 py-0.5 text-xs font-medium text-critico">
               <TriangleAlert className="size-3 shrink-0" /> tumba en cascada: {d.cascada.join(", ")}
             </div>
           )}
           {d.clase_reclasificada && (
-            <div className="mt-1.5 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+            <div className="mt-1.5 rounded bg-aviso/15 px-1.5 py-0.5 text-xs font-medium text-aviso">
               reclasificada: {d.clase} → {d.clase_reclasificada}
             </div>
           )}
@@ -308,23 +308,23 @@ export function FilaDecision({ d, abierto, onToggle, onVerIncidente }: {
               ? <s className="text-muted-foreground">{d.accion_propuesta}</s>
               : <span className="text-muted-foreground">—</span>)}
           {d.resultado_filtro === "degrada" && (
-            <> <Pildora tono="bg-amber-500/15 text-amber-700 dark:text-amber-300" title={`propuesta: ${d.accion_propuesta ?? "—"}`}>degradada</Pildora></>
+            <> <Pildora tono="bg-aviso/15 text-aviso" title={`propuesta: ${d.accion_propuesta ?? "—"}`}>degradada</Pildora></>
           )}
           {d.resultado_filtro === "veta" && !d.accion_final && (
-            <> <Pildora tono="bg-rose-500/15 text-rose-700 dark:text-rose-300">vetada</Pildora></>
+            <> <Pildora tono="bg-critico/15 text-critico">vetada</Pildora></>
           )}
           {d.recomendacion?.respuesta && d.recomendacion.respuesta !== "contener_origen" && (
-            <> <Pildora tono="bg-sky-500/15 text-sky-700 dark:text-sky-300" title={d.recomendacion.nota ?? undefined}>
+            <> <Pildora tono="bg-info/15 text-info" title={d.recomendacion.nota ?? undefined}>
               rec: {d.recomendacion.respuesta === "endurecer_servicio" ? "endurecer servicio" : d.recomendacion.respuesta}
             </Pildora></>
           )}
           {d.aviso && (
-            <> <Pildora tono="bg-slate-500/15 text-slate-600 dark:text-slate-300" title={d.aviso}>vigilar</Pildora></>
+            <> <Pildora tono="bg-enrutado/15 text-enrutado" title={d.aviso}>vigilar</Pildora></>
           )}
         </TableCell>
         <TableCell>
           {d.requiere_humano
-            ? <span className="text-amber-600 dark:text-amber-400">humano</span>
+            ? <span className="text-aviso">humano</span>
             : <span className="text-muted-foreground">auto</span>}
           {d.veredicto_humano && (
             <div className="text-xs text-muted-foreground">

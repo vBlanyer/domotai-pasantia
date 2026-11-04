@@ -119,20 +119,20 @@ function Tarjeta({ p, edadMs = 0, seleccionada, onSeleccion, onUbicacion }: {
   }
 
   return (
-    <div className={`overflow-hidden rounded-lg border ${viejo ? "border-rose-500/50 bg-rose-500/[0.05]" : "border-amber-500/40 bg-amber-500/[0.04]"}`}>
-      <div className={`flex flex-wrap items-center gap-2 border-b px-4 py-2.5 ${viejo ? "border-rose-500/25" : "border-amber-500/20"}`}>
+    <div className={`overflow-hidden rounded-lg border ${viejo ? "border-critico/50 bg-critico/5" : "border-aviso/40 bg-aviso/5"}`}>
+      <div className={`flex flex-wrap items-center gap-2 border-b px-4 py-2.5 ${viejo ? "border-critico/25" : "border-aviso/20"}`}>
         {onSeleccion && <input type="checkbox" aria-label="Seleccionar" checked={!!seleccionada}
           onChange={(e) => onSeleccion(e.target.checked)} className="size-4 accent-amber-600" />}
         <Punto estado="pendiente" />
-        <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Espera tu decisión</span>
+        <span className="text-sm font-medium text-aviso">Espera tu decisión</span>
         {!!p.severidad && <Prioridad n={p.severidad} />}
         {v.incidente && <span className="ml-1 truncate text-xs text-muted-foreground">· {v.incidente}</span>}
-        <span className={`ml-auto flex shrink-0 items-center gap-1 text-xs ${viejo ? "font-medium text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}
+        <span className={`ml-auto flex shrink-0 items-center gap-1 text-xs ${viejo ? "font-medium text-critico" : "text-muted-foreground"}`}
           title="Tiempo que lleva esperando tu decisión en esta sesión">
           <Clock className="size-3" /> pendiente {edadTexto(edadMs)}
         </span>
         {!!p.suprimidas && p.suprimidas > 0 && (
-          <span className="shrink-0 rounded bg-rose-500/15 px-1.5 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+          <span className="shrink-0 rounded bg-critico/15 px-1.5 py-0.5 text-xs font-medium text-critico">
             sigue atacando · +{p.suprimidas}
           </span>
         )}
@@ -158,7 +158,7 @@ function Tarjeta({ p, edadMs = 0, seleccionada, onSeleccion, onUbicacion }: {
 
         {v.consecuencia && (
           <div className={`flex items-start gap-2 rounded-md border p-2.5 text-sm ${
-            conCascada ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300" : "border-border bg-muted"
+            conCascada ? "border-critico/40 bg-critico/10 text-critico" : "border-border bg-muted"
           }`}>
             {conCascada && <TriangleAlert className="mt-0.5 size-4 shrink-0" />}
             <div><span className="font-medium">Consecuencia:</span> {v.consecuencia}</div>

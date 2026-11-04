@@ -1,11 +1,14 @@
 /* Tema «consola SOC» del mockup, SCOPEADO a .pol (no afecta al resto del visor).
-   Dos paletas (clara por defecto / oscura bajo .dark, el interruptor del visor).
+   Desde la unificación de paleta, cada --pol-* es un ALIAS del token global de index.css (que ya
+   trae claro y oscuro): aquí no se declara ningún color propio salvo los tintes de fondo del mockup.
    Semántico: verde=auto/ok, ámbar=humano/aviso, rojo=freno duro/cascada, pizarra=enrutada. */
 .pol {
-  --pol-bg: #f3f6fa; --pol-surface: #ffffff; --pol-surface2: #eef2f7; --pol-surface3: #e5eaf1;
-  --pol-border: #d6dde7; --pol-fg: #18212e; --pol-muted: #5a6776; --pol-faint: #8a97a6;
-  --pol-accent: #0d8ea4; --pol-ok: #1a7f37; --pol-okbg: #e4f3e7; --pol-warn: #8a6300; --pol-warnbg: #f6edd6;
-  --pol-crit: #bc3d28; --pol-critbg: #f8e4df; --pol-routed: #46566a; --pol-routedbg: #e7edf4;
+  --pol-bg: var(--background); --pol-surface: var(--card); --pol-surface2: var(--muted); --pol-surface3: var(--accent);
+  --pol-border: var(--border); --pol-fg: var(--foreground); --pol-muted: var(--muted-foreground);
+  --pol-faint: color-mix(in srgb, var(--muted-foreground) 65%, var(--background));
+  --pol-accent: var(--primary); --pol-ok: var(--ok); --pol-warn: var(--aviso); --pol-crit: var(--critico); --pol-routed: var(--enrutado);
+  /* tintes de fondo del mockup (derivados de las tintas de arriba; el oscuro va en .dark .pol) */
+  --pol-okbg: #e4f3e7; --pol-warnbg: #f6edd6; --pol-critbg: #f8e4df; --pol-routedbg: #e7edf4;
   --pol-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   color: var(--pol-fg);
   background: var(--pol-bg);
@@ -17,10 +20,7 @@
   gap: 14px;
 }
 .dark .pol {
-  --pol-bg: #0d1117; --pol-surface: #161b22; --pol-surface2: #1b222d; --pol-surface3: #212a37;
-  --pol-border: #2a3340; --pol-fg: #e6edf3; --pol-muted: #8b98a9; --pol-faint: #5d6a7a;
-  --pol-accent: #3cc6da; --pol-ok: #3fb950; --pol-okbg: #112b1a; --pol-warn: #e3a93c; --pol-warnbg: #2d2411;
-  --pol-crit: #f0785f; --pol-critbg: #2e1613; --pol-routed: #9fb0c3; --pol-routedbg: #1b2634;
+  --pol-okbg: #112b1a; --pol-warnbg: #2d2411; --pol-critbg: #2e1613; --pol-routedbg: #1b2634;
 }
 .pol .mono { font-family: var(--pol-mono); }
 .pol .num { font-variant-numeric: tabular-nums; }

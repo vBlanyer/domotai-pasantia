@@ -30,7 +30,7 @@ export function BarraFiltros({ f, set, clases, cuenta, equipo, onQuitarEquipo }:
 
 // Punto de estado: verde = ok, ambar = espera humano, rojo = caido/critico.
 export function Punto({ estado }: { estado: "ok" | "caido" | "pendiente" }) {
-  const color = estado === "ok" ? "bg-emerald-400" : estado === "pendiente" ? "bg-amber-400" : "bg-rose-400"
+  const color = estado === "ok" ? "bg-ok" : estado === "pendiente" ? "bg-aviso" : "bg-critico"
   return <span className={cn("inline-block size-2 shrink-0 rounded-full", color, estado !== "ok" && "animate-pulse")} />
 }
 
@@ -56,7 +56,7 @@ export function SinConexion({ causa }: { causa?: "auth" | "red" | "http" | "dato
     : <>Sin conexión con el daemon. Arráncalo con <code className="rounded bg-foreground/10 px-1 font-mono text-xs">--web</code> y
       esta vista se reconecta sola.</>
   return (
-    <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-6 text-sm text-rose-700 dark:text-rose-300">
+    <div className="rounded-lg border border-critico/30 bg-critico/5 p-6 text-sm text-critico">
       {cuerpo}
     </div>
   )
@@ -70,27 +70,28 @@ export function DatosCongelados({ fallo }: { fallo: { error?: string; causa?: "a
     : fallo.causa === "datos" ? "la última respuesta no validó"
     : "se perdió la conexión con el daemon"
   return (
-    <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+    <div className="rounded-md border border-aviso/40 bg-aviso/10 px-3 py-2 text-xs text-aviso">
       ⚠ {motivo} — mostrando los últimos datos recibidos{hora ? ` (${hora})` : ""}.
     </div>
   )
 }
 
-// Color de la clase de decision: la amenaza tira a rojo, el FP se apaga, lo enrutado a ambar.
+// Color de la clase de decision: la amenaza tira a rojo, el FP se apaga, lo enrutado va en pizarra.
 export function ClaseBadge({ clase }: { clase?: string | null }) {
   if (!clase) return <span className="text-muted-foreground">—</span>
+  if (clase === "amenaza_enrutada")
+    return <Badge variant="outline" className="border-enrutado/40 bg-enrutado/15 font-normal text-enrutado">{clase}</Badge>
   const v = clase.startsWith("vp_") ? "destructive"
-    : clase === "amenaza_enrutada" ? "default"
     : clase.startsWith("fp_") ? "secondary" : "outline"
   return <Badge variant={v as "destructive" | "default" | "secondary" | "outline"} className="font-normal">{clase}</Badge>
 }
 
 // Gravedad de la decisión (P1..P4) con su rótulo; el color refuerza, no sustituye al texto.
 const TONO_PRIORIDAD = [
-  "bg-slate-500/15 text-slate-600 dark:text-slate-300",
-  "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  "bg-enrutado/15 text-enrutado",
+  "bg-info/15 text-info",
+  "bg-aviso/15 text-aviso",
+  "bg-critico/15 text-critico",
 ]
 export function Prioridad({ n }: { n?: number | null }) {
   const nivel = nivelPrioridad(n)
@@ -109,9 +110,9 @@ export function Dato({ children, className }: { children: ReactNode; className?:
 
 const RIESGO_CLS: Record<string, string> = {
   bajo: "bg-muted text-muted-foreground",
-  medio: "bg-amber-400/20 text-amber-700 dark:text-amber-300",
-  alto: "bg-orange-500/20 text-orange-700 dark:text-orange-300",
-  critico: "bg-rose-500/20 text-rose-700 dark:text-rose-300",
+  medio: "bg-aviso/20 text-aviso",
+  alto: "bg-grave/20 text-grave",
+  critico: "bg-critico/20 text-critico",
 }
 
 // Insignia de riesgo por entidad: nivel + sus factores en el tooltip (asesor, explicable).
@@ -129,7 +130,7 @@ export function RiesgoBadge({ r }: { r: { nivel: string; etiqueta: string; facto
 export function Kpi({ valor, etiqueta, aviso = false }: { valor: string; etiqueta: string; aviso?: boolean }) {
   return (
     <div className="rounded-xl border border-border bg-card px-5 py-4 text-center shadow-sm">
-      <div className={`font-heading text-3xl font-semibold tabular-nums ${aviso ? "text-[color:#b5730b] dark:text-amber-400" : ""}`}>{valor}</div>
+      <div className={`font-heading text-3xl font-semibold tabular-nums ${aviso ? "text-aviso" : ""}`}>{valor}</div>
       <div className="mt-1 text-sm text-muted-foreground">{etiqueta}</div>
     </div>
   )

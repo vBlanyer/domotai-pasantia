@@ -5,10 +5,10 @@ import type { Decision } from "@/api"
 type Enr = NonNullable<Decision["enriquecimiento_origen"]>
 
 const ALCANCE: Record<string, { txt: string; cls: string }> = {
-  interno: { txt: "interno", cls: "bg-amber-400/20" },
-  externo: { txt: "externo", cls: "bg-rose-500/15" },
-  gestion: { txt: "gestión MDR", cls: "bg-slate-500/15" },
-  dispositivo_red: { txt: "dispositivo de red", cls: "bg-slate-500/15" },
+  interno: { txt: "interno", cls: "bg-aviso/20" },
+  externo: { txt: "externo", cls: "bg-critico/15" },
+  gestion: { txt: "gestión MDR", cls: "bg-enrutado/15" },
+  dispositivo_red: { txt: "dispositivo de red", cls: "bg-enrutado/15" },
 }
 const CLASE_IP: Record<string, string> = {
   publica: "IP pública", privada: "IP privada", documentacion: "IP de documentación",
@@ -25,10 +25,10 @@ export function OrigenBadges({ e }: { e?: Enr | null }) {
       <span className={`rounded px-1.5 py-0.5 ${al.cls}`}>{al.txt}</span>
       <span className="rounded bg-muted px-1.5 py-0.5">{CLASE_IP[e.clasificacion_ip] ?? e.clasificacion_ip}</span>
       {e.inventariado && <span className="rounded bg-muted px-1.5 py-0.5">inventariado</span>}
-      {e.tercero_confiable && <span className="rounded bg-sky-500/15 px-1.5 py-0.5">tercero de confianza</span>}
-      {e.legitimo && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5">origen legítimo</span>}
+      {e.tercero_confiable && <span className="rounded bg-info/15 px-1.5 py-0.5">tercero de confianza</span>}
+      {e.legitimo && <span className="rounded bg-ok/15 px-1.5 py-0.5">origen legítimo</span>}
       {e.asn && (
-        <span className="rounded bg-violet-500/15 px-1.5 py-0.5" title={e.asn.asn}>{e.asn.org}</span>
+        <span className="rounded bg-violeta/15 px-1.5 py-0.5" title={e.asn.asn}>{e.asn.org}</span>
       )}
       <span className="text-muted-foreground">· {geo}</span>
     </span>

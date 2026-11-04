@@ -49,7 +49,7 @@ export function PerfilAtacante({ ip, onVolver, onVerDecisiones }: {
       <div className="flex flex-wrap items-center gap-3">
         <Button size="sm" variant="secondary" onClick={onVolver}>← Volver</Button>
         <div className="font-heading text-base font-semibold font-mono">{ip}</div>
-        {marcada && <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-xs font-medium text-rose-700 dark:text-rose-300"
+        {marcada && <span className="rounded bg-critico/20 px-1.5 py-0.5 text-xs font-medium text-critico"
           title={marcada.nota ?? "en la watchlist"}>⚑ watchlist</span>}
         <RiesgoBadge r={riesgoAtacante(p)} />
         <OrigenBadges e={p.enriquecimiento} />

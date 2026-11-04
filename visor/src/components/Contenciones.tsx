@@ -40,8 +40,8 @@ export function Contenciones() {
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3">
         <button onClick={alternarPausa}
           className={`rounded-md px-4 py-2 text-sm font-medium ${pausada
-            ? "bg-emerald-600 text-white hover:bg-emerald-700"
-            : "bg-rose-600 text-white hover:bg-rose-700"}`}>
+            ? "bg-ok text-ok-foreground hover:bg-ok/90"
+            : "bg-critico text-critico-foreground hover:bg-critico/90"}`}>
           {pausada ? "Reanudar automatización" : "Pausar automatización"}
         </button>
         <span className="text-sm text-muted-foreground">
@@ -60,7 +60,7 @@ export function Contenciones() {
           ) : (
             <span className="flex items-center gap-2 text-sm">
               ¿Revertir {activas.length} contención(es)?
-              <button onClick={desbloquear} className="rounded-md bg-rose-600 px-3 py-1.5 font-medium text-white hover:bg-rose-700">Sí, revertir</button>
+              <button onClick={desbloquear} className="rounded-md bg-critico px-3 py-1.5 font-medium text-critico-foreground hover:bg-critico/90">Sí, revertir</button>
               <button onClick={() => setConfirmar(false)} className="rounded-md border border-border px-3 py-1.5 hover:bg-muted">No</button>
             </span>
           )}
@@ -106,7 +106,7 @@ export function Contenciones() {
                       <span className="flex items-center justify-end gap-1.5 text-xs">
                         ¿Revertir?
                         <button onClick={() => desbloquearUna(x.indice!)}
-                          className="rounded-md bg-rose-600 px-2 py-1 font-medium text-white hover:bg-rose-700">Sí</button>
+                          className="rounded-md bg-critico px-2 py-1 font-medium text-critico-foreground hover:bg-critico/90">Sí</button>
                         <button onClick={() => setConfirmarUna(null)}
                           className="rounded-md border border-border px-2 py-1 hover:bg-muted">No</button>
                       </span>

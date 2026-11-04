@@ -3,7 +3,7 @@ import { useSondeo, getSalud, getMetricas, getPendientes, getVerificacion } from
 import { SinConexion } from "./bits"
 import { etiquetaClase, colorClase } from "@/datos"
 import { Donut, Gauge, Tendencia, type Segmento } from "./charts"
-import { CATEGORICO_LIGHT, CATEGORICO_DARK, ESTADO } from "@/theme"
+import { CATEGORICO_LIGHT, CATEGORICO_DARK, semantico } from "@/theme"
 import { useTema } from "@/tema"
 
 function Tarjeta({ titulo, children, className = "" }: { titulo: string; children: ReactNode; className?: string }) {
@@ -33,14 +33,16 @@ function Check({ ok, children }: { ok: boolean; children: ReactNode }) {
     <li className="flex items-center justify-between py-2 text-sm">
       <span>{children}</span>
       {ok
-        ? <span className="font-semibold" style={{ color: ESTADO.good }}>✓</span>
-        : <span className="font-semibold" style={{ color: ESTADO.critical }}>✗</span>}
+        ? <span className="font-semibold text-ok">✓</span>
+        : <span className="font-semibold text-critico">✗</span>}
     </li>
   )
 }
 
 export function Dashboard({ conectado, onVerAprobaciones }: { conectado: boolean; onVerAprobaciones?: () => void }) {
-  const CAT = useTema().oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
+  const { oscuro } = useTema()
+  const CAT = oscuro ? CATEGORICO_DARK : CATEGORICO_LIGHT
+  const S = semantico(oscuro)
   const salud = useSondeo(getSalud)
   const metricas = useSondeo(getMetricas)
   const pend = useSondeo(getPendientes)
@@ -71,8 +73,8 @@ export function Dashboard({ conectado, onVerAprobaciones }: { conectado: boolean
   }))
 
   const saludSeg: Segmento[] = [
-    { name: "Operativos", value: sanos, fill: ESTADO.good },
-    { name: "Caídos", value: caidos, fill: ESTADO.critical },
+    { name: "Operativos", value: sanos, fill: S.ok },
+    { name: "Caídos", value: caidos, fill: S.critico },
   ]
 
   // Tendencia: decisiones por día (ya ordenadas y en MM-DD desde el backend).
@@ -85,9 +87,9 @@ export function Dashboard({ conectado, onVerAprobaciones }: { conectado: boolean
       {fallo && <SinConexion causa={fallo.causa} />}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi valor={conSalud ? `${sanos}/${total}` : "—"} etiqueta="servicios operativos"
-          tono={caidos ? "text-[color:#d03b3b]" : ""} />
+          tono={caidos ? "text-critico" : ""} />
         <Kpi valor={m ? String(m.total) : "—"} etiqueta="decisiones tomadas" />
-        <Kpi valor={nPend != null ? String(nPend) : "—"} etiqueta="esperando aprobación" tono={nPend ? "text-[color:#eda100]" : ""}
+        <Kpi valor={nPend != null ? String(nPend) : "—"} etiqueta="esperando aprobación" tono={nPend ? "text-aviso" : ""}
           onClick={onVerAprobaciones} />
         <Kpi valor={m ? String(m.suprimidas) : "—"} etiqueta="alertas suprimidas" />
       </div>
@@ -102,7 +104,7 @@ export function Dashboard({ conectado, onVerAprobaciones }: { conectado: boolean
             : <p className="py-14 text-center text-sm text-muted-foreground">{sinDatos ?? "aún no hay decisiones"}</p>}
         </Tarjeta>
         <Tarjeta titulo="Servicios monitoreados">
-          <Gauge pct={pctSanos} color={pctSanos >= 100 ? ESTADO.good : pctSanos >= 50 ? ESTADO.warning : ESTADO.critical}
+          <Gauge pct={pctSanos} color={pctSanos >= 100 ? S.ok : pctSanos >= 50 ? S.aviso : S.critico}
             etiqueta="operativos ahora" />
         </Tarjeta>
       </div>
