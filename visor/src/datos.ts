@@ -369,6 +369,9 @@ export function agruparPorSubred(
 // Campañas (attack story): agrupa TODOS los ataques recibidos (relación objetivo) por bloque de
 // origen /24, a través de todos los equipos. Una campaña que rota IPs contra varios activos se ve
 // como una sola fila: nº de IPs, ataques, a qué equipos pegó (con cuántas veces), gravedad y ventana.
+// Clave de caso de un incidente (campaña /24): `inc:<prefijo>` sin el punto final.
+export const claveDeCampana = (prefijo: string) => "inc:" + prefijo.replace(/\.$/, "")
+
 export function campanasDe(todos: Decision[]): {
   cidr: string; prefijo: string; ips: number; n: number; prioridad: number
   primera: string | null; ultima: string | null; alcance?: string; objetivos: { equipo: string; n: number }[]

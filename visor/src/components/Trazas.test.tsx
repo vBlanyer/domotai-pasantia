@@ -18,10 +18,10 @@ describe("Trazas", () => {
     h.trazas = [reg(500, "s501"), reg(501, "s502")]
     h.verif = { ok: false, roto_en: 501, motivo: "el hash no coincide" }
     render(<Trazas />)
-    expect(screen.getByText("501")).toBeInTheDocument()                 // # = índice global + 1
-    fireEvent.click(screen.getByRole("button", { name: "Verificar la cadena" }))
-    const alterado = await screen.findByText("alterado")
-    expect(alterado.closest("tr")).toHaveTextContent("s502")
+    expect(document.querySelector('[data-fila="501"]')).not.toBeNull()   // # = índice global + 1
+    fireEvent.click(screen.getByRole("button", { name: /Verificar ahora/ }))
+    const [alterado] = await screen.findAllByText("alterado")       // fila (el inspector lo repite)
+    expect(alterado.closest("[data-fila]")).toHaveAttribute("data-fila", "502")
   })
 
   it("registros con el mismo id no chocan sus claves", () => {
@@ -42,7 +42,7 @@ describe("Trazas", () => {
     h.trazas = [reg(500, "s501"), reg(501, "s502")]
     h.verif = { ok: false, roto_en: 3, motivo: "el hash no coincide" }
     render(<Trazas />)
-    fireEvent.click(screen.getByRole("button", { name: "Verificar la cadena" }))
+    fireEvent.click(screen.getByRole("button", { name: /Verificar ahora/ }))
     expect(await screen.findByText(/registro alterado \(#4\) queda fuera de los mostrados/)).toBeInTheDocument()
     expect(screen.queryByText("alterado")).not.toBeInTheDocument()
   })
@@ -51,26 +51,27 @@ describe("Trazas", () => {
     h.trazas = [{ ...reg(0, "r"), id_decision: null, tipo: "reversion", id_decision_revertida: "s3", exito: true, nodo: "web-banking" },
                 { ...reg(1, "s4"), tipo: "error", error: "OSError: docker" }]
     render(<Trazas />)
-    expect(screen.getByText(/reversión de s3/)).toBeInTheDocument()
-    expect(screen.getByText(/error al procesar/)).toBeInTheDocument()
+    expect(screen.getByText(/reversión de s3/i)).toBeInTheDocument()
+    expect(screen.getByText(/error al procesar/i)).toBeInTheDocument()
   })
 
   it("rotula la actividad propia del MDR en el registro", () => {
     h.trazas = [{ ...reg(0, "p1"), tipo: "actividad_propia", activo: "web-banking" }]
     render(<Trazas />)
-    expect(screen.getByText(/actividad propia del MDR/)).toBeInTheDocument()
+    expect(screen.getByText(/actividad propia del MDR/i)).toBeInTheDocument()
   })
 
   it("pagina la lista con el tamaño por defecto y «Siguiente» avanza", () => {
     h.trazas = Array.from({ length: 30 }, (_, i) => reg(100 + i, `s${100 + i}`))
     h.verif = {}
     render(<Trazas />)
-    expect(screen.getByText("s100")).toBeInTheDocument()          // página 1
-    expect(screen.queryByText("s129")).not.toBeInTheDocument()
+    const fila = (n: number) => document.querySelector(`[data-fila="${n}"]`)
+    expect(fila(101)).not.toBeNull()                                // página 1 (# = índice + 1)
+    expect(fila(130)).toBeNull()
     expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
-    expect(screen.getByText("s129")).toBeInTheDocument()          // página 2
-    expect(screen.queryByText("s100")).not.toBeInTheDocument()
+    expect(fila(130)).not.toBeNull()                                // página 2
+    expect(fila(101)).toBeNull()
   })
 
   it("permite elegir el tamaño de página (10/20/50)", () => {
@@ -80,10 +81,11 @@ describe("Trazas", () => {
     expect(screen.queryByRole("button", { name: "Siguiente" })).not.toBeInTheDocument()   // 15 ≤ 20: una página
     fireEvent.change(screen.getByLabelText("Filas por página"), { target: { value: "10" } })
     expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
-    expect(screen.getByText("s100")).toBeInTheDocument()
-    expect(screen.queryByText("s114")).not.toBeInTheDocument()
+    const fila = (n: number) => document.querySelector(`[data-fila="${n}"]`)
+    expect(fila(101)).not.toBeNull()
+    expect(fila(115)).toBeNull()
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
-    expect(screen.getByText("s114")).toBeInTheDocument()
+    expect(fila(115)).not.toBeNull()
   })
 
   it("sin exceso de filas no hay paginador", () => {

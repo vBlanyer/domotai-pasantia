@@ -1,6 +1,6 @@
 import { useSondeo, getTrazas, type Decision } from "@/api"
 import { Prioridad, Cargando, SinConexion, Vacio } from "@/components/bits"
-import { campanasDe, estadoDeCasos } from "@/datos"
+import { campanasDe, estadoDeCasos, claveDeCampana } from "@/datos"
 import { ESTADO_CASO } from "@/components/PanelCaso"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -9,9 +9,6 @@ const hora = (ts?: string | null) => {
   const t = new Date(ts)
   return isNaN(t.getTime()) ? ts : new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(t)
 }
-
-// La clave de incidente (caso a nivel campaña /24) a partir del prefijo de `campanasDe` ("203.0.113.").
-const claveDeCampana = (prefijo: string) => "inc:" + prefijo.replace(/\.$/, "")
 
 // Vista «Incidentes»: trabaja por INCIDENTE (= una campaña de origen /24, colapsa las IPs rotadas en
 // una historia de ataque) en vez de por alerta suelta. Cada incidente tiene su propio estado de caso
