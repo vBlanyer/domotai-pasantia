@@ -9,6 +9,12 @@ export function baseApi(env: { VITE_API?: string; DEV?: boolean }): string {
 const BASE = baseApi(import.meta.env)
 
 export const ServicioSchema = z.object({ nombre: z.string(), estado: z.string(), depende_de: z.array(z.string()) })
+// Salud del PROPIO daemon (/healthz, #5; fuera de /api/, sin token): lazo vivo, silencio de la ingesta
+// y alertas procesadas. `desde` falta cuando el daemon corre sin latido.
+export const LatidoSchema = z.object({
+  ok: z.boolean(), desde: z.string().nullable().optional(),
+  lazo_quietud_s: z.number(), ingesta_silencio_s: z.number().nullable(), alertas: z.number(),
+})
 export const SaludSchema = z.union([
   z.object({ sin_datos: z.literal(true) }),
   z.object({ t: z.string().nullable(), servicios: z.array(ServicioSchema), caidos: z.number(), total: z.number() }),
@@ -191,6 +197,8 @@ export const MetricasSchema = z.object({
 })
 
 export type Salud = z.infer<typeof SaludSchema>
+export type Servicio = z.infer<typeof ServicioSchema>
+export type Latido = z.infer<typeof LatidoSchema>
 export type Decision = z.infer<typeof DecisionSchema>
 export type Detalle = z.infer<typeof DetalleSchema>
 export type Pasaje = z.infer<typeof PasajeSchema>
@@ -258,6 +266,7 @@ async function pedirLista<T>(ruta: string, elemento: z.ZodType<T>): Promise<T[] 
 }
 
 export const getSalud = () => pedir("/api/salud", SaludSchema)
+export const getLatido = () => pedir("/healthz", LatidoSchema)
 export const getDecisiones = () => pedirLista("/api/decisiones", DecisionSchema)
 export const getPendientes = () => pedirLista("/api/pendientes", PendienteSchema)
 export const getTrazas = (limite?: number) =>
