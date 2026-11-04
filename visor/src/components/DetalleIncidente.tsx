@@ -24,7 +24,9 @@ function Kpi({ etiqueta, children }: { etiqueta: string; children: React.ReactNo
 // Detalle de un INCIDENTE (campaña /24): sus decisiones en una línea de tiempo (detección + respuesta)
 // y el caso a NIVEL INCIDENTE (estado/responsable/notas), reutilizando `PanelCaso` con la clave
 // `inc:<prefijo>`. Drill-down (no en el menú). Cero backend: reusa /api/trazas y /api/caso.
-export function DetalleIncidente({ clave, cidr, onVolver }: { clave: string; cidr: string; onVolver: () => void }) {
+// `onVerDecisiones` recibe el prefijo del bloque ("203.0.113.") para abrir Decisiones filtradas por él (lo
+// que antes hacía la vista «Campañas», fundida aquí: un incidente ES una campaña /24).
+export function DetalleIncidente({ clave, cidr, onVolver, onVerDecisiones }: { clave: string; cidr: string; onVolver: () => void; onVerDecisiones?: (prefijo: string) => void }) {
   const t = useSondeo(getTrazas)
   if (!t) return <Cargando />
   const fallo = "error" in t ? t : null
@@ -39,6 +41,9 @@ export function DetalleIncidente({ clave, cidr, onVolver }: { clave: string; cid
         <div className="font-heading text-base font-semibold font-mono">{cidr}</div>
         {camp && <Prioridad n={camp.prioridad || null} />}
         {camp?.alcance && <span className="text-xs text-muted-foreground">· {camp.alcance}</span>}
+        {camp && onVerDecisiones && (
+          <button onClick={() => onVerDecisiones(camp.prefijo)} className="ml-auto text-xs font-medium text-info hover:underline">Ver las decisiones del bloque →</button>
+        )}
       </div>
       {camp && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
