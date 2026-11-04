@@ -18,8 +18,10 @@ const ICONO: Record<EventoCronologia["tipo"], { s: string; cls: string }> = {
 // Línea de tiempo (attack story): la cronología de un incidente/atacante, mezclando la detección
 // (decisiones) con la respuesta (reversión de contención, hitos del ciclo de caso). Deriva del feed
 // (`cronologiaDe`), sin backend.
-export function LineaTiempo({ regs }: { regs: Decision[] }) {
-  const eventos = cronologiaDe(regs)
+// `max`: solo las N más recientes, la última arriba (vista compacta del caso); sin él, todo en orden.
+export function LineaTiempo({ regs, max }: { regs: Decision[]; max?: number }) {
+  const todos = cronologiaDe(regs)
+  const eventos = max ? todos.slice(-max).reverse() : todos
   if (eventos.length === 0) {
     return <div className="py-4 text-center text-sm text-muted-foreground">Sin eventos en la ventana.</div>
   }

@@ -3,7 +3,8 @@ import { useSondeo, getTrazas, type Decision } from "@/api"
 import { Prioridad, Cargando, SinConexion, Vacio } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ubicacionesDe, type MetricaUbicacion } from "@/datos"
+import { ubicacionesDe, type MetricaUbicacion, paginar, TAM_PAGINA } from "@/datos"
+import { Paginador } from "@/components/Paginador"
 import { TIERRA_PATHS } from "@/worldmap"
 
 // Las tres vistas del mapa: en curso (recibidos no contenidos), total (recibidos) y mitigados
@@ -29,6 +30,9 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
   const t = useSondeo(getTrazas)
   const [metrica, setMetrica] = useState<MetricaUbicacion>("enCurso")
   const [hover, setHover] = useState<null | { x: number; y: number; p: Ubi }>(null)
+  const [pagina, setPagina] = useState(1)
+  const [tam, setTam] = useState(TAM_PAGINA)
+  const elegirTam = (t: number) => { setTam(t); setPagina(1) }
   if (!t) return <Cargando />
   const fallo = "error" in t ? t : null
   if (fallo && !fallo.datos) return <SinConexion causa={fallo.causa} />
@@ -36,6 +40,7 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
   const ubis = ubicacionesDe(regs)
   if (ubis.length === 0) return <Vacio>Sin orígenes de ataque todavía.</Vacio>
   const paises = ubis.filter((u) => u.lat != null && u.lon != null)
+  const pag = paginar(ubis, pagina, tam)
   const activa = METRICAS.find((m) => m.clave === metrica)!
   // puntos del mapa: solo donde la métrica elegida > 0, dimensionados y numerados por ella
   const visibles = paises.map((p) => ({ ...p, v: p[metrica] })).filter((p) => p.v > 0)
@@ -130,7 +135,7 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ubis.map((u) => (
+            {pag.filas.map((u) => (
               <TableRow key={u.clave}
                 className={esNavegable(u) ? "cursor-pointer" : "hover:bg-transparent"}
                 onClick={esNavegable(u) ? () => irA(u) : undefined}
@@ -146,6 +151,7 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
           </TableBody>
         </Table>
       </div>
+      <Paginador pagina={pag.pagina} paginas={pag.paginas} total={pag.total} tam={tam} onPagina={setPagina} onTam={elegirTam} />
     </div>
   )
 }

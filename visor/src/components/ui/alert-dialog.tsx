@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button"
 // apresurado no confirme; confirmar ejecuta `onConfirm` y cierra.
 export function AlertDialog({
   open, onOpenChange, title, description, children, confirmLabel, cancelLabel = "Cancelar",
-  onConfirm, destructive = true,
+  onConfirm, destructive = true, confirmDisabled = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -17,6 +17,7 @@ export function AlertDialog({
   cancelLabel?: string
   onConfirm: () => void
   destructive?: boolean
+  confirmDisabled?: boolean      // p. ej. hasta que se escriba el número a confirmar
 }) {
   const cancelar = useRef<HTMLButtonElement>(null)
   return (
@@ -36,7 +37,7 @@ export function AlertDialog({
             <AlertDialogPrimitive.Close ref={cancelar} className={buttonVariants({ variant: "outline" })}>
               {cancelLabel}
             </AlertDialogPrimitive.Close>
-            <button type="button" className={buttonVariants({ variant: destructive ? "destructive" : "default" })}
+            <button type="button" disabled={confirmDisabled} className={buttonVariants({ variant: destructive ? "destructive" : "default" })}
               onClick={() => { onConfirm(); onOpenChange(false) }}>
               {confirmLabel}
             </button>

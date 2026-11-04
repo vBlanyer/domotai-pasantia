@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, type ComponentType } from "react"
 import {
   Moon, Sun, Menu, Bell, BellOff, Pause, PanelLeftClose, PanelLeftOpen,
   LayoutDashboard, SquareTerminal, ListChecks, Shield, List, TriangleAlert, Network, MapPin, Eye, ScrollText,
-  ChartBar, SlidersHorizontal, Activity,
+  ChartBar, SlidersHorizontal, Activity, KeyRound,
 } from "lucide-react"
 import { useSondeo, getSalud, getPendientes, getPausa, getContenciones, getTrazas, tokenActual, fijarToken, listaConocida, type Pendiente } from "@/api"
 import { campanasDe, estadoDeCasos, claveDeCampana } from "@/datos"
@@ -22,13 +22,13 @@ import { Consola } from "@/components/Consola"
 import { Trazas } from "@/components/Trazas"
 import { Contenciones } from "@/components/Contenciones"
 import { Politicas } from "@/components/Politicas"
+import { Conectividad } from "@/components/Conectividad"
 import { Incidentes } from "@/components/Incidentes"
-import { DetalleIncidente } from "@/components/DetalleIncidente"
 import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "ubicaciones" | "incidentes" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "detalle_incidente" | "incidente" | "atacante"
+type Vista = "panel" | "metricas" | "salud" | "red" | "ubicaciones" | "incidentes" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "conectividad" | "incidente" | "atacante"
 
 // Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
 // navegador no lo permite, se ignora en silencio.
@@ -108,6 +108,7 @@ const NAV: { grupo: string | null; vistas: Entrada[] }[] = [
   ] },
   { grupo: "Configurar", vistas: [
     { id: "politicas", nombre: "Políticas de respuesta", icono: SlidersHorizontal },
+    { id: "conectividad", nombre: "Conectividad", icono: KeyRound },
     { id: "salud", nombre: "Estado de servicios", icono: Activity },
   ] },
 ]
@@ -170,11 +171,11 @@ export default function App() {
   useAvisoPendientes(pendConocidos, avisos)
   const titulo = vista === "incidente" ? "Incidente"
     : vista === "atacante" ? "Perfil de atacante"
-    : vista === "detalle_incidente" ? "Detalle del incidente"
     : VISTAS.find((n) => n.id === vista)!.nombre
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground print:bg-white">
+    <div className="flex h-dvh overflow-hidden bg-background text-foreground print:h-auto print:overflow-visible print:bg-white">
+      {/* Altura de pantalla exacta: el <main> es quien hace scroll, así los inspectores y barras «sticky» se quedan a la vista. */}
       {menu && (
         <div className="fixed inset-0 z-30 bg-black/40 md:hidden print:hidden" onClick={() => setMenu(false)} />
       )}
@@ -200,7 +201,7 @@ export default function App() {
                 return (
                   <button
                     key={n.id}
-                    onClick={() => { if (n.id === "aprobaciones") setPaisAprob(""); setVista(n.id); setMenu(false) }}
+                    onClick={() => { if (n.id === "aprobaciones") setPaisAprob(""); if (n.id === "incidentes") setIncidenteSel(null); setVista(n.id); setMenu(false) }}
                     aria-label={compacto ? n.nombre : undefined}
                     data-tip={compacto ? n.nombre : undefined}
                     className={cn(
@@ -255,7 +256,7 @@ export default function App() {
         )}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center justify-between gap-y-2 border-b border-border bg-card px-4 py-4 md:px-8 print:hidden">
           <div className="flex items-center gap-2">
             <button
@@ -311,7 +312,7 @@ export default function App() {
           )}
           {vista === "panel" && <Dashboard conectado={conectado} onVerAprobaciones={() => { setPaisAprob(""); setVista("aprobaciones") }} />}
           {vista === "metricas" && <Metricas />}
-          {vista === "salud" && <Salud />}
+          {vista === "salud" && <Salud onVerConectividad={() => setVista("conectividad")} />}
           {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }}
             onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }}
             onVerAprobaciones={() => { setPaisAprob(""); setVista("aprobaciones") }} onVerSalud={() => setVista("salud")} />}
@@ -324,21 +325,22 @@ export default function App() {
           )}
           {vista === "decisiones" && (
             <Decisiones equipo={equipo} textoInicial={textoDec} onQuitarEquipo={() => setEquipo(null)}
-              onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }} />
+              onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }}
+              onVerTrazas={() => setVista("trazas")} onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }}
+              onVerContenciones={() => setVista("contenciones")} />
           )}
           {vista === "aprobaciones" && <Aprobaciones paisInicial={paisAprob} onQuitarPais={() => setPaisAprob("")} />}
           {vista === "consola" && <Consola />}
           {vista === "trazas" && <Trazas onVerDecision={(id) => { setEquipo(null); setTextoDec(id); setVista("decisiones") }}
-            onVerIncidente={(clave, cidr) => { setIncidenteSel({ clave, cidr }); setVista("detalle_incidente") }} />}
+            onVerIncidente={(clave, cidr) => { setIncidenteSel({ clave, cidr }); setVista("incidentes") }} />}
           {vista === "contenciones" && <Contenciones />}
           {vista === "watchlist" && <Watchlist />}
           {vista === "politicas" && <Politicas />}
-          {vista === "incidentes" && <Incidentes
-            onVerIncidente={(clave, cidr) => { setIncidenteSel({ clave, cidr }); setVista("detalle_incidente") }} />}
-          {vista === "detalle_incidente" && incidenteSel && (
-            <DetalleIncidente clave={incidenteSel.clave} cidr={incidenteSel.cidr} onVolver={() => setVista("incidentes")}
-              onVerDecisiones={(prefijo) => { setEquipo(null); setTextoDec(prefijo); setVista("decisiones") }} />
-          )}
+          {vista === "conectividad" && <Conectividad />}
+          {vista === "incidentes" && <Incidentes claveInicial={incidenteSel?.clave ?? null}
+            onVerDecisiones={(prefijo) => { setEquipo(null); setTextoDec(prefijo); setVista("decisiones") }}
+            onVerRed={() => setVista("red")} onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }}
+            onVerContenciones={() => setVista("contenciones")} />}
           {vista === "incidente" && incidente && (
             <VistaIncidente decision={incidente} onVolver={() => setVista("decisiones")} />
           )}

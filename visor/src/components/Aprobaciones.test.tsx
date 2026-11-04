@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { Toaster } from "@/components/ui/toast"
 import type { Pendiente } from "@/api"
 
 // Capa de datos simulada: la cola que "devuelve" el sondeo y el POST de aprobar.
-const h = vi.hoisted(() => ({ pendientes: [] as unknown[], aprobar: vi.fn() }))
+const h = vi.hoisted(() => ({ pendientes: [] as unknown[], aprobar: vi.fn(), caso: vi.fn(async () => true) }))
 vi.mock("@/api", async (orig) => ({
   ...(await orig<typeof import("@/api")>()),
   useSondeo: () => h.pendientes,
   aprobar: h.aprobar,
+  actualizarCaso: h.caso,
 }))
 import { Aprobaciones } from "./Aprobaciones"
 
@@ -22,6 +23,8 @@ const tarjeta = (over: Partial<Pendiente> = {}): Pendiente => ({
 })
 const vista = () => <Toaster><Aprobaciones /></Toaster>
 const boton = (nombre: string) => screen.getByRole("button", { name: nombre })
+// ids de las pendientes que la bandeja muestra en esta página
+const enBandeja = () => [...document.querySelectorAll("[data-pendiente]")].map((e) => e.getAttribute("data-pendiente"))
 
 describe("Aprobaciones", () => {
   beforeEach(() => { h.aprobar.mockReset(); h.pendientes = [tarjeta()] })
@@ -157,7 +160,7 @@ describe("Aprobaciones en bloque", () => {
     render(vista())
     const checks = screen.getAllByRole("checkbox", { name: "Seleccionar" })
     fireEvent.click(checks[0]); fireEvent.click(checks[1])
-    fireEvent.click(boton("Rechazar seleccionadas"))
+    fireEvent.click(boton("Rechazar las 2"))
     await waitFor(() => expect(h.aprobar).toHaveBeenCalledTimes(2))
     expect(h.aprobar).toHaveBeenCalledWith("7", "2", 0)        // rechazar = opción 2 del menú
     expect(h.aprobar).toHaveBeenCalledWith("8", "2", 0)
@@ -186,10 +189,10 @@ describe("Aprobaciones — ubicación y filtro por ubicación", () => {
       tarjeta({ id: "8", origen_ip: "5.45.0.1", enriquecimiento_origen: ENR_RU }),
     ]
     render(<Toaster><Aprobaciones /></Toaster>)
-    expect(screen.getByText("8.8.8.8")).toBeInTheDocument()
-    expect(screen.getByText("5.45.0.1")).toBeInTheDocument()
+    expect(enBandeja().sort()).toEqual(["7", "8"])
     fireEvent.change(screen.getByLabelText("Filtrar por ubicación"), { target: { value: "Rusia" } })
-    expect(screen.getByText("5.45.0.1")).toBeInTheDocument()
+    expect(enBandeja()).toEqual(["8"])
+    expect(screen.getByText("5.45.0.1")).toBeInTheDocument()                    // el inspector pasa a la que queda
     expect(screen.queryByText("8.8.8.8")).not.toBeInTheDocument()
   })
 
@@ -199,9 +202,9 @@ describe("Aprobaciones — ubicación y filtro por ubicación", () => {
       tarjeta({ id: "8", origen_ip: "5.45.0.1", enriquecimiento_origen: ENR_RU }),
     ]
     render(<Toaster><Aprobaciones /></Toaster>)
+    fireEvent.click(screen.getByRole("button", { name: /5\.45\.0\.1/ }))        // abre la de Rusia en el inspector
     fireEvent.click(screen.getByText(/📍 Rusia · filtrar/))
-    expect(screen.getByText("5.45.0.1")).toBeInTheDocument()
-    expect(screen.queryByText("8.8.8.8")).not.toBeInTheDocument()
+    expect(enBandeja()).toEqual(["8"])
   })
 
   it("con paisInicial solo deja las de esa ubicación; el selector refleja el valor", () => {
@@ -221,5 +224,88 @@ describe("Aprobaciones — ubicación y filtro por ubicación", () => {
     render(<Toaster><Aprobaciones paisInicial="Estados Unidos" onQuitarPais={onQuitarPais} /></Toaster>)
     fireEvent.click(screen.getByText(/quitar/))
     expect(onQuitarPais).toHaveBeenCalled()
+  })
+
+  it("pagina la cola a 20 tarjetas por página y «Siguiente» avanza", () => {
+    h.pendientes = Array.from({ length: 25 }, (_, i) => tarjeta({ id: String(i + 1) }))
+    render(vista())
+    expect(enBandeja()).toHaveLength(20)
+    expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+    expect(enBandeja()).toHaveLength(5)
+  })
+})
+
+describe("Aprobaciones — bandeja e inspector", () => {
+  beforeEach(() => { h.aprobar.mockReset(); h.caso.mockClear(); localStorage.clear() })
+  const ahora = Date.now()
+  const hace = (min: number) => new Date(ahora - min * 60_000).toISOString()
+
+  it("por defecto llega por tiempo: la más reciente primero, sin agrupar", () => {
+    h.pendientes = [tarjeta({ id: "1", encolado_en: hace(30), origen_ip: "203.0.113.7" }),
+                    tarjeta({ id: "2", encolado_en: hace(1), origen_ip: "203.0.113.8" })]
+    render(vista())
+    expect(enBandeja()).toEqual(["2", "1"])
+    expect(screen.queryByText(/pendientes de la misma campaña/)).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Ordenar la cola"), { target: { value: "antigua" } })
+    expect(enBandeja()).toEqual(["1", "2"])
+  })
+
+  it("ordena por urgencia: la fuera de SLA primero, y el inspector abre la más urgente", () => {
+    h.pendientes = [tarjeta({ id: "1", severidad: 4, encolado_en: hace(1), origen_ip: "1.1.1.1" }),
+                    tarjeta({ id: "2", severidad: 2, encolado_en: hace(30), origen_ip: "2.2.2.2" })]
+    render(vista())
+    fireEvent.change(screen.getByLabelText("Ordenar la cola"), { target: { value: "urgencia" } })
+    expect(enBandeja()).toEqual(["2", "1"])
+    expect(within(screen.getByRole("region", { name: "Decisión" })).getByText(/fuera de SLA/)).toBeInTheDocument()
+    expect(within(screen.getByRole("region", { name: "Decisión" })).getByText("2.2.2.2")).toBeInTheDocument()
+  })
+
+  it("con el teclado: A aprueba la del inspector; J pasa a la siguiente", () => {
+    h.aprobar.mockResolvedValue("ok")
+    h.pendientes = [tarjeta({ id: "1", origen_ip: "1.1.1.1" }), tarjeta({ id: "2", origen_ip: "2.2.2.2" })]
+    render(vista())
+    fireEvent.keyDown(window, { key: "j" })
+    fireEvent.keyDown(window, { key: "a" })
+    expect(h.aprobar).toHaveBeenCalledWith("2", "1", 0)
+  })
+
+  it("al decidir salta a la siguiente y la nota va al caso de la decisión", async () => {
+    h.aprobar.mockResolvedValue("ok")
+    h.pendientes = [tarjeta({ id: "1", id_decision: "d-1", origen_ip: "1.1.1.1" }), tarjeta({ id: "2", origen_ip: "2.2.2.2" })]
+    render(vista())
+    fireEvent.change(screen.getByLabelText("Nota para la traza"), { target: { value: "IP de un cliente conocido" } })
+    fireEvent.click(boton("Rechazar"))
+    await waitFor(() => expect(h.caso).toHaveBeenCalledWith("d-1", { nota: "IP de un cliente conocido" }))
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "Decisión" })).getByText("2.2.2.2")).toBeInTheDocument())   // el inspector avanzó
+  })
+
+  it("agrupa por campaña /24 y «seleccionar las N» marca el grupo entero", () => {
+    h.pendientes = [tarjeta({ id: "1", origen_ip: "203.0.113.7" }), tarjeta({ id: "2", origen_ip: "203.0.113.88" }),
+                    tarjeta({ id: "3", origen_ip: "198.51.100.2" })]
+    render(vista())
+    fireEvent.change(screen.getByLabelText("Agrupar la cola"), { target: { value: "campana" } })
+    expect(screen.getByText(/203\.0\.113\.0\/24 · 2 pendientes/)).toBeInTheDocument()
+    fireEvent.click(screen.getByText("seleccionar las 2"))
+    expect(screen.getByText("2 seleccionadas")).toBeInTheDocument()
+  })
+
+  it("el filtro «Críticas» deja solo las de gravedad máxima", () => {
+    h.pendientes = [tarjeta({ id: "1", severidad: 4 }), tarjeta({ id: "2", severidad: 2 })]
+    render(vista())
+    fireEvent.click(screen.getByRole("button", { name: /Críticas/ }))
+    expect(enBandeja()).toEqual(["1"])
+  })
+
+  it("agrupa por país y recuerda la elección", () => {
+    h.pendientes = [tarjeta({ id: "7", origen_ip: "8.8.8.8", enriquecimiento_origen: ENR_US }),
+                    tarjeta({ id: "8", origen_ip: "5.45.0.1", enriquecimiento_origen: ENR_RU })]
+    const { unmount } = render(vista())
+    fireEvent.change(screen.getByLabelText("Agrupar la cola"), { target: { value: "pais" } })
+    expect(screen.getByText(/^Rusia · 1 pendiente/)).toBeInTheDocument()
+    unmount()
+    render(vista())
+    expect((screen.getByLabelText("Agrupar la cola") as HTMLSelectElement).value).toBe("pais")
+    localStorage.clear()
   })
 })

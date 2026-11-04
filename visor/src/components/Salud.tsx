@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
-import { useSondeo, getSalud, getLatido, ahoraServidor } from "@/api"
+import { useSondeo, getSalud, getLatido, getConectividad, ahoraServidor } from "@/api"
+import { resumenConectividad } from "@/conectividad"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Punto, Cargando, SinConexion, Vacio } from "./bits"
 import { clasificar, edadMuestraMs, MUESTRA_VIEJA_MS, type Fila } from "@/salud"
@@ -55,7 +56,26 @@ function Relacion({ f }: { f: Fila }) {
   return <>—</>
 }
 
-export function Salud() {
+// Enlace a «Conectividad»: si el conector puede entrar a los equipos. Es otra pregunta que la de esta
+// vista (si los servicios funcionan), así que va como una línea con su cifra, no como otra tabla.
+function LineaConector({ onVer }: { onVer?: () => void }) {
+  const c = useSondeo(getConectividad, 30000)
+  if (!c || "error" in c) return null
+  const r = resumenConectividad(c.equipos)
+  const problemas = r.hostCambiada + r.sinAprovisionar
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border bg-card px-4 py-2.5 text-sm">
+      <span className="font-medium">Conector</span>
+      <span className="text-muted-foreground">
+        {r.verificadas} de {r.contenibles} equipos verificados{r.sinProbar ? ` · ${r.sinProbar} sin probar` : ""}
+        {problemas ? <span className="font-medium text-critico"> · {problemas} con problemas</span> : null}
+      </span>
+      {onVer && <button onClick={onVer} className="ml-auto text-xs font-medium text-info hover:underline">Ver conectividad →</button>}
+    </div>
+  )
+}
+
+export function Salud({ onVerConectividad }: { onVerConectividad?: () => void } = {}) {
   const s = useSondeo(getSalud)
   // El sondeo no re-renderiza si la muestra no cambia (monitor muerto = muestra congelada), así que
   // la edad «hace X» y el aviso de muestra vieja necesitan su propio tic.
@@ -74,6 +94,7 @@ export function Salud() {
   return (
     <div className="space-y-4">
       <FranjaMdr />
+      <LineaConector onVer={onVerConectividad} />
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 border-b px-4 py-3 text-sm",
           vieja ? "border-aviso/40 bg-aviso/10" : "border-border")}>

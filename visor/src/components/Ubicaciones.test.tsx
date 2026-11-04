@@ -67,4 +67,17 @@ describe("Ubicaciones", () => {
     expect(screen.getByText(/Total 2/)).toBeInTheDocument()
     expect(screen.getByText(/Mitigados 1/)).toBeInTheDocument()
   })
+
+  it("pagina la tabla de ubicaciones a 20 por página y «Siguiente» avanza", () => {
+    h.trazas = Array.from({ length: 25 }, (_, i) => ({
+      indice: i + 1, origen_ip: `8.8.${i}.8`, prioridad: 2, relaciones: { "web-banking": ["objetivo"] },
+      enriquecimiento_origen: { clasificacion_ip: "publica", geo: { pais: `País ${i + 1}`, codigo: `P${i + 1}`, lat: 10 + i, lon: 10 + i } },
+    }))
+    render(<Ubicaciones />)
+    const filas = () => screen.getByRole("table").querySelectorAll("tbody tr").length
+    expect(filas()).toBe(20)
+    expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+    expect(filas()).toBe(5)
+  })
 })

@@ -152,6 +152,8 @@ export const ContencionSchema = z.object({
   servicio: z.string().nullable().optional(), activo: z.string().nullable(),
   nodo: z.string().nullable(), accion_id: z.string(), ts: z.string().nullable(),
   via_escalada: z.boolean().optional(),
+  // la regla aplicada y la que la quita, del catálogo con sus parámetros (se enseñan antes de revertir)
+  regla: z.string().nullable().optional(), reversion_cmd: z.string().nullable().optional(),
 })
 export type Contencion = z.infer<typeof ContencionSchema>
 export const PendienteSchema = z.object({
@@ -169,6 +171,10 @@ export const PendienteSchema = z.object({
   enriquecimiento_origen: EnriquecimientoOrigenSchema.nullable().optional(),
   // hora de encolado (ISO, del servidor): el SLA del analista en el visor («lleva esperando X»)
   encolado_en: z.string().nullable().optional(),
+  // resumen de la decisión (por qué lo propone el motor) e id para anotar el caso con la nota del analista
+  id_decision: z.string().nullable().optional(), clase: z.string().nullable().optional(),
+  confianza: z.number().nullable().optional(), tecnica_mitre: z.array(z.string()).nullable().optional(),
+  motivo: z.string().nullable().optional(),
 })
 export const VerificacionSchema = z.object({
   ok: z.boolean(), roto_en: z.number().nullable().optional(), motivo: z.string().optional(),
@@ -418,6 +424,57 @@ export async function actualizarCaso(
     return false
   }
 }
+
+// Conectividad del conector con cada equipo (vista «Conectividad»). La clave privada no viaja nunca:
+// solo su huella y la clave pública. Editar exige operador identificado (403 si no).
+const PruebaSchema = z.object({
+  ok: z.boolean(), estado: z.string(), en: z.string().nullable().optional(),
+  puerto: z.number().nullable().optional(), usuario: z.string().nullable().optional(),
+  pasos: z.array(z.object({ paso: z.string(), ok: z.boolean(), detalle: z.string() })),
+})
+export const ConectividadSchema = z.object({
+  modo: z.string(), nodo_gestion: z.string().nullable().optional(),
+  editable: z.boolean(), motivo_no_editable: z.string().nullable().optional(),
+  usuario_defecto: z.string().nullable().optional(), usuario_entorno: z.string(),
+  ruta_clave: z.string(), known_hosts: z.string(),
+  clave: z.object({ huella: z.string(), tipo: z.string().nullable().optional(), publica: z.string().nullable().optional() }).nullable(),
+  equipos: z.array(z.object({
+    nombre: z.string(), ip: z.string(), zona: z.string().nullable().optional(), tipo: z.string().nullable().optional(),
+    funcion: z.string().nullable().optional(), protegido: z.boolean(), puerto: z.number(), usuario: z.string(),
+    ajustado: z.boolean(), huella_fijada: z.string().nullable().optional(), ultima_prueba: PruebaSchema.nullable().optional(),
+  })),
+  cambios: z.array(z.object({
+    operador: z.string().nullable().optional(), dimension: z.string(), clave: z.string(),
+    antes: z.unknown().optional(), despues: z.unknown().optional(), timestamp: z.string(),
+  })),
+})
+export type Conectividad = z.infer<typeof ConectividadSchema>
+export type EquipoConectividad = Conectividad["equipos"][number]
+export type PruebaConexion = z.infer<typeof PruebaSchema>
+export const getConectividad = () => pedir("/api/conectividad", ConectividadSchema)
+
+// POST de conectividad: devuelve el código y el cuerpo (409 lleva la prueba que impidió guardar).
+async function postConectividad(ruta: string, cuerpo: object): Promise<{ status: number; datos: Record<string, unknown> }> {
+  try {
+    const operador = operadorActual()
+    const r = await fetch(BASE + ruta, {
+      method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ ...cuerpo, ...(operador ? { operador } : {}) }),
+    })
+    let datos: Record<string, unknown> = {}
+    try { datos = await r.json() } catch { /* cuerpo vacío */ }
+    return { status: r.status, datos }
+  } catch {
+    return { status: 0, datos: { error: "sin conexión con el daemon" } }
+  }
+}
+export const probarConexion = (equipo: string, ajuste: { puerto?: number | null; usuario?: string | null } = {}) =>
+  postConectividad("/api/conectividad/probar", { equipo, ...ajuste })
+export const guardarConexion = (equipo: string, ajuste: { puerto?: number | null; usuario?: string | null }) =>
+  postConectividad("/api/conectividad", { equipo, ...ajuste })
+export const guardarUsuarioDefecto = (usuario_defecto: string | null) => postConectividad("/api/conectividad", { usuario_defecto })
+export const leerClaveHost = (equipo: string) => postConectividad("/api/conectividad/leer-clave-host", { equipo })
+export const aceptarClaveHost = (equipo: string, huella: string) => postConectividad("/api/conectividad/clave-host", { equipo, huella })
 
 // Kill switch (#8): pausa global de la automatización y des-bloqueo en masa.
 export async function setPausa(pausar: boolean): Promise<boolean> {

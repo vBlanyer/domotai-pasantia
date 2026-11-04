@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen, fireEvent, within } from "@testing-library/react"
 import type { Decision } from "@/api"
 
 // El detalle se pide a /api/traza/<id>: aquí lo sirve un doble.
@@ -9,11 +9,11 @@ vi.mock("@/api", async (orig) => ({
   getTrazaDetalle: async (...a: unknown[]) => { h.pedidos.push(a); return h.detalle },
   useSondeo: () => h.decisiones,
 }))
-import { FilaDecision, Decisiones } from "./Decisiones"
+import { InspectorDecision, Decisiones } from "./Decisiones"
 
-const fila = (d: Decision) => render(
-  <table><tbody><FilaDecision d={d} abierto onToggle={() => {}} /></tbody></table>,
-)
+// El detalle de una decisión vive en el inspector (antes, en la fila desplegada).
+const fila = (d: Decision) => render(<InspectorDecision d={d} />)
+const boton = (activo: string) => screen.getByRole("button", { name: new RegExp(`ver detalle de ${activo}`, "i") })
 
 describe("Detalle de una decisión", () => {
   it("muestra dónde quedó contenida y desde dónde escaló", async () => {
@@ -24,9 +24,7 @@ describe("Detalle de una decisión", () => {
       escalada: { resultado: "mitigado", escalado: true, dispositivo_ejecutor: "gateway" },
     }
     fila({ id_decision: "s1", clase: "vp_intento_acceso" })
-    expect(await screen.findByText("Contención")).toBeInTheDocument()
-    expect(screen.getByText(/Contenida en gateway/)).toBeInTheDocument()
-    expect(screen.getByText(/escaló desde objetivo-vuln/)).toBeInTheDocument()
+    expect(await screen.findByText(/Contenida en gateway · escaló desde objetivo-vuln/)).toBeInTheDocument()
   })
 
   it("tras escalar muestra la orden efectiva y el intento fallido por separado", async () => {
@@ -95,70 +93,82 @@ describe("Detalle de una decisión", () => {
       resultado_filtro: "permite", orden: null }
     fila({ id_decision: "s4", clase: "vp_intento_acceso" })
     expect(await screen.findByText("automática")).toBeInTheDocument()
-    expect(screen.queryByText(/→/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/BLOQUEAR_IP → /)).not.toBeInTheDocument()
   })
 })
 
-describe("Fila de la tabla de decisiones", () => {
-  const cerrada = (d: Decision) => render(
-    <table><tbody><FilaDecision d={d} abierto={false} onToggle={() => {}} /></tbody></table>,
-  )
+describe("Lista de decisiones", () => {
+  beforeEach(() => { h.detalle = {} })
+  const lista = (ds: Decision[], sistema = false) => {
+    h.decisiones = ds
+    const r = render(<Decisiones />)
+    if (sistema) fireEvent.click(screen.getByRole("checkbox", { name: /Incluir registros del sistema/ }))
+    return r
+  }
 
   it("muestra la prioridad y el desenlace de una reclasificación", () => {
-    cerrada({ id_decision: "s1", prioridad: 4, clase: "vp_intento_acceso", requiere_humano: true,
-      veredicto_humano: "reclasificar", clase_reclasificada: "fp_actividad_legitima" })
+    lista([{ id_decision: "s1", prioridad: 4, clase: "vp_intento_acceso", requiere_humano: true,
+      veredicto_humano: "reclasificar", clase_reclasificada: "fp_actividad_legitima" }])
     expect(screen.getByText("P4 · crítica")).toBeInTheDocument()
     expect(screen.getByText("reclasificada: vp_intento_acceso → fp_actividad_legitima")).toBeInTheDocument()
-    expect(screen.getByText("reclasificada")).toBeInTheDocument()
+    expect(screen.getAllByText("reclasificada").length).toBeGreaterThan(0)
   })
 
   it("marca una acción degradada por el perfil", () => {
-    cerrada({ id_decision: "s2", resultado_filtro: "degrada", accion_propuesta: "AISLAR_NODO", accion_final: "BLOQUEAR_IP" })
-    expect(screen.getByText("BLOQUEAR_IP")).toBeInTheDocument()
-    expect(screen.getByText("degradada")).toHaveAttribute("title", "propuesta: AISLAR_NODO")
-  })
-
-  it("el detalle y las filas de texto largo parten líneas: no desbordan la tabla en horizontal", async () => {
-    // TableCell es whitespace-nowrap (columnas cortas); el texto largo tiene que poder partirse.
-    h.detalle = { id_decision: "s9", justificacion: "una justificación larga ".repeat(30) }
-    const { container } = fila({ id_decision: "s9", clase: "vp_intento_acceso" })
-    await screen.findByText(/una justificación larga/)
-    const detalle = container.querySelector("td[colspan]") as HTMLElement
-    expect(detalle.className).toContain("whitespace-normal")
-    cerrada({ tipo: "error", id_decision: "s5", activo: "a", origen_ip: "1.1.1.1", error: "x ".repeat(80) })
-    const celdas = Array.from(document.querySelectorAll("td[colspan]")) as HTMLElement[]
-    expect(celdas.every((c) => c.className.includes("whitespace-normal"))).toBe(true)
+    lista([{ id_decision: "s2", activo: "x", resultado_filtro: "degrada", accion_propuesta: "AISLAR_NODO", accion_final: "BLOQUEAR_IP" }])
+    expect(within(boton("x")).getByText("BLOQUEAR_IP")).toBeInTheDocument()
+    expect(within(boton("x")).getByText("degradada")).toHaveAttribute("title", "propuesta: AISLAR_NODO")
   })
 
   it("una reversión se pinta como tal: qué decisión deshizo, dónde y si se aplicó", () => {
-    cerrada({ tipo: "reversion", id_decision_revertida: "s3", exito: true, nodo: "web-banking" })
+    lista([{ tipo: "reversion", id_decision_revertida: "s3", exito: true, nodo: "web-banking" },
+           { tipo: "reversion", id_decision_revertida: "s4", exito: false, nodo: "fw-core" }], true)
     expect(screen.getByText(/reversión de s3 en web-banking: aplicada/)).toBeInTheDocument()
-    cerrada({ tipo: "reversion", id_decision_revertida: "s4", exito: false, nodo: "fw-core" })
     expect(screen.getByText(/reversión de s4 en fw-core: falló/)).toBeInTheDocument()
   })
 
   it("un error al procesar un incidente se pinta como tal", () => {
-    cerrada({ id_decision: "s5", tipo: "error", activo: "web-banking", origen_ip: "1.1.1.1", error: "OSError: docker" })
+    lista([{ id_decision: "s5", tipo: "error", activo: "web-banking", origen_ip: "1.1.1.1", error: "OSError: docker" }], true)
     expect(screen.getByText(/error al procesar el incidente de 1.1.1.1 → web-banking: OSError: docker/)).toBeInTheDocument()
   })
 
   it("la actividad propia del MDR se pinta como tal, no como decisión", () => {
-    cerrada({ id_decision: "p1", tipo: "actividad_propia", activo: "web-banking" })
+    lista([{ id_decision: "p1", tipo: "actividad_propia", activo: "web-banking" }], true)
     expect(screen.getByText(/actividad propia del MDR en web-banking/)).toBeInTheDocument()
-    expect(screen.queryByText("—")).not.toBeInTheDocument()
+    expect(screen.queryByRole("region", { name: "Decisión" })).not.toBeInTheDocument()
   })
 
   it("marca una acción vetada (sin acción final)", () => {
-    cerrada({ id_decision: "s3", resultado_filtro: "veta", accion_propuesta: "AISLAR_NODO", accion_final: null })
-    expect(screen.getByText("AISLAR_NODO")).toBeInTheDocument()
-    expect(screen.getByText("vetada")).toBeInTheDocument()
+    lista([{ id_decision: "s3", activo: "x", resultado_filtro: "veta", accion_propuesta: "AISLAR_NODO", accion_final: null }])
+    expect(within(boton("x")).getByText("AISLAR_NODO")).toBeInTheDocument()
+    expect(within(boton("x")).getByText("vetada")).toBeInTheDocument()
   })
 
-  it("la tabla tiene columna de prioridad", () => {
-    h.decisiones = [{ id_decision: "s1", prioridad: 3, clase: "vp_intento_acceso" }]
+  it("el inspector cuenta la decisión en seis pasos", async () => {
+    h.detalle = { id_decision: "s1", justificacion: "x", accion_propuesta: "BLOQUEAR_IP", accion_final: "BLOQUEAR_IP", resultado_filtro: "permite",
+      orden: { accion_id: "BLOQUEAR_IP", nodo_objetivo: "fw-core" }, ejecucion: { exito: true }, verificacion: { verificado: true } }
+    h.decisiones = [{ indice: 1, id_decision: "s1", activo: "web-banking", clase: "vp_intento_acceso", confianza: 0.9, contencion: "contenida" }]
     render(<Decisiones />)
-    expect(screen.getByRole("columnheader", { name: "Prioridad" })).toBeInTheDocument()
-    expect(screen.getByText("P3 · alta")).toBeInTheDocument()
+    const pasos = within(await screen.findByRole("list", { name: "Cómo se decidió" })).getAllByRole("listitem")
+    expect(pasos.map((p) => p.textContent?.split(/\s/)[0] ?? "")).toHaveLength(6)
+    expect(await screen.findByText("Contenida en fw-core")).toBeInTheDocument()
+  })
+
+  it("los registros de sistema se ocultan por defecto", () => {
+    lista([{ id_decision: "s1", activo: "a1", contencion: "contenida" }, { id_decision: "p1", tipo: "actividad_propia", activo: "web-banking" }])
+    expect(screen.queryByText(/actividad propia del MDR/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("checkbox", { name: /Incluir registros del sistema/ }))
+    expect(screen.getByText(/actividad propia del MDR/)).toBeInTheDocument()
+  })
+
+  it("las cifras y los filtros por desenlace dejan solo lo suyo", () => {
+    lista([{ indice: 1, id_decision: "s1", activo: "a1", contencion: "contenida" },
+           { indice: 2, id_decision: "s2", activo: "a2", contencion: "fallida" }])
+    fireEvent.click(screen.getByRole("button", { name: /^Fallidas$/ }))
+    expect(screen.queryByRole("button", { name: /ver detalle de a1/i })).not.toBeInTheDocument()
+    expect(boton("a2")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /^Contención fallida/ }))     // la cifra activa lo quita
+    expect(boton("a1")).toBeInTheDocument()
   })
 })
 
@@ -170,7 +180,7 @@ describe("Identidad de las filas", () => {
     h.decisiones = [{ indice: 4, id_decision: "s1", activo: "a1", clase: "vp_intento_acceso" },
                     { indice: 9, id_decision: "s1", activo: "a2", clase: "vp_intento_acceso" }]
     render(<Decisiones />)
-    fireEvent.click(screen.getByText("a1"))
+    fireEvent.click(boton("a1"))
     expect(await screen.findAllByText("Justificación")).toHaveLength(1)
     expect(err.mock.calls.some((c) => String(c[0]).includes("same key"))).toBe(false)
     err.mockRestore()
@@ -179,12 +189,11 @@ describe("Identidad de las filas", () => {
   it("la fila abierta sigue en su decisión cuando la ventana se desliza", async () => {
     h.decisiones = [{ indice: 1, id_decision: "s1", activo: "a1" }, { indice: 2, id_decision: "s2", activo: "a2" }]
     const { rerender } = render(<Decisiones />)
-    fireEvent.click(screen.getByText("a2"))
+    fireEvent.click(boton("a2"))
     await screen.findByText("Justificación")
     h.decisiones = [{ indice: 2, id_decision: "s2", activo: "a2" }, { indice: 3, id_decision: "s3", activo: "a3" }]
     rerender(<Decisiones />)
-    const detalle = screen.getByText("Justificación").closest("tr")!
-    expect(detalle.previousElementSibling).toHaveTextContent("a2")
+    expect(boton("a2")).toHaveAttribute("aria-current", "true")
   })
 })
 
@@ -192,7 +201,7 @@ describe("Detalle de un registro con id repetido", () => {
   it("pide el detalle por el índice de la fila, no solo por el id", async () => {
     h.pedidos = []
     h.detalle = { id_decision: "s1", justificacion: "x", orden: null }
-    render(<table><tbody><FilaDecision d={{ id_decision: "s1", indice: 4 }} abierto onToggle={() => {}} /></tbody></table>)
+    render(<InspectorDecision d={{ id_decision: "s1", indice: 4 }} />)
     await screen.findByText("Justificación")
     expect(h.pedidos[0]).toEqual(["s1", 4])
   })
@@ -209,22 +218,16 @@ describe("Detalle de un registro con id repetido", () => {
   })
 })
 
-// C3 de la auditoría: el detalle solo se abría con ratón. Un botón real dentro de la primera celda
-// da teclado y foco SIN romper la semántica de tabla para lectores de pantalla.
-describe("FilaDecision accesible por teclado", () => {
-  const D: Decision = { id_decision: "s1", clase: "vp_intento_acceso", activo: "srv", prioridad: 2 }
-
-  it("hay un botón de detalle enfocable en la fila y activa el toggle una sola vez", () => {
-    const onToggle = vi.fn()
-    render(<table><tbody><FilaDecision d={D} abierto={false} onToggle={onToggle} /></tbody></table>)
-    const boton = screen.getByRole("button", { name: /ver detalle de srv/i })
-    fireEvent.click(boton)                              // un <button> nativo ya responde a Enter/Espacio
-    expect(onToggle).toHaveBeenCalledTimes(1)           // stopPropagation: la fila no lo duplica
-  })
-
-  it("declara si está expandida (aria-expanded)", () => {
-    render(<table><tbody><FilaDecision d={D} abierto onToggle={() => {}} /></tbody></table>)
-    expect(screen.getByRole("button", { name: /ver detalle de srv/i })).toHaveAttribute("aria-expanded", "true")
+// C3 de la auditoría: cada decisión se abre con un botón real (teclado y foco).
+describe("Lista accesible por teclado", () => {
+  it("cada decisión es un botón enfocable y declara cuál está abierta", () => {
+    h.decisiones = [{ indice: 1, id_decision: "s1", clase: "vp_intento_acceso", activo: "srv", prioridad: 2 },
+                    { indice: 2, id_decision: "s2", clase: "vp_intento_acceso", activo: "otro", prioridad: 2 }]
+    render(<Decisiones />)
+    expect(boton("srv")).toHaveAttribute("aria-current", "true")          // la primera, abierta por defecto
+    fireEvent.click(boton("otro"))
+    expect(boton("otro")).toHaveAttribute("aria-current", "true")
+    expect(boton("srv")).toHaveAttribute("aria-current", "false")
   })
 })
 
@@ -251,11 +254,10 @@ describe("Decisiones paginadas", () => {
 describe("Detalle: enriquecimiento del origen", () => {
   it("muestra el alcance y «sin geolocalización» del origen de la fila", async () => {
     h.detalle = { id_decision: "s1", justificacion: "x" }
-    render(<table><tbody><FilaDecision d={{ id_decision: "s1", clase: "vp_intento_acceso", activo: "web-banking",
+    render(<InspectorDecision d={{ id_decision: "s1", clase: "vp_intento_acceso", activo: "web-banking",
       origen_ip: "198.51.100.10",
       enriquecimiento_origen: { alcance: "externo", inventariado: false, clasificacion_ip: "documentacion",
-        tercero_confiable: false, legitimo: false, geolocalizable: false, geo: null } }}
-      abierto onToggle={() => {}} /></tbody></table>)
+        tercero_confiable: false, legitimo: false, geolocalizable: false, geo: null } }} />)
     expect(await screen.findByText("Origen")).toBeInTheDocument()
     expect(screen.getByText("externo")).toBeInTheDocument()
     expect(screen.getByText(/sin geolocalización/)).toBeInTheDocument()
@@ -277,8 +279,7 @@ describe("Decisiones: filtro sembrado por navegación", () => {
 describe("Detalle: runbook de la familia", () => {
   it("muestra los pasos recomendados de respuesta de la clase", async () => {
     h.detalle = { id_decision: "s1", justificacion: "x" }
-    render(<table><tbody><FilaDecision d={{ id_decision: "s1", clase: "vp_exfiltracion", activo: "web-banking" }}
-      abierto onToggle={() => {}} /></tbody></table>)
+    render(<InspectorDecision d={{ id_decision: "s1", clase: "vp_exfiltracion", activo: "web-banking" }} />)
     expect(await screen.findByText(/Respuesta recomendada \(runbook\)/)).toBeInTheDocument()
     expect(screen.getByText(/Bloquea el destino malicioso/)).toBeInTheDocument()
   })

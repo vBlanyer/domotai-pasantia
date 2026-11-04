@@ -4,7 +4,7 @@ import type { Red, Decision, NodoRed } from "@/api"
 export const DIM = {
   nodoAncho: 118, nodoAlto: 26, pasoCadena: 50, zonaHueco: 14, porFila: 4, margen: 16,
   // árbol: carril de orígenes, ramas (zonas) en fila y hojas (equipos) colgando de cada rama
-  carrilAlto: 46, ramaAncho: 136, ramaAlto: 26, hojaAncho: 120, hojaAlto: 30, pasoHoja: 40,
+  carrilAlto: 56, carrilFila: 35, ramaAncho: 136, ramaAlto: 26, hojaAncho: 120, hojaAlto: 30, pasoHoja: 40,
   colAncho: 180, espina: 16, hojaDesplaz: 24, huecoRamaHoja: 19, huecoBus: 24,
   // compatibilidad con quien lea cajas de zona
   zonaAncho: 180, zonaCabecera: 26, zonaMargen: 19, pasoZona: 40,
@@ -59,7 +59,7 @@ export function disposicion(red: Red, opciones: { plegadas?: Set<string>; carril
   let y = DIM.margen
   const carril = externos.length > 0 || opciones.carril ? { y, h: DIM.carrilAlto } : null
   if (carril) {
-    externos.forEach((n, j) => { nodos[n] = { x: DIM.margen + 10 + DIM.nodoAncho / 2 + j * (DIM.nodoAncho + 10), y: y + DIM.carrilAlto / 2 } })
+    externos.forEach((n, j) => { nodos[n] = { x: DIM.margen + 10 + DIM.nodoAncho / 2 + j * (DIM.nodoAncho + 10), y: y + DIM.carrilFila } })
     y += DIM.carrilAlto + DIM.zonaHueco
   }
   const tronco: string[] = []
