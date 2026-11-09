@@ -84,7 +84,33 @@ def validar(perfil):
     if nr is not None and not (isinstance(nr, int) and not isinstance(nr, bool) and nr > 0):
         avisos.append(f"continuidad.revisar_no_soportada_nivel debe ser un entero positivo: {nr!r}")
     avisos.extend(_avisos_posturas(perfil, activos))
+    avisos.extend(avisos_topologia(perfil))
     return avisos
+
+
+def avisos_topologia(perfil):
+    """Lo que un cambio a medias en la red deja roto en la cadena de contención y no se ve en otro sitio:
+    un `gateway` que apunta a un equipo que ya no está en la topología (la escalada se corta ahí, sin
+    llegar al perímetro) y un equipo a contener que sigue en la topología pero ya no en `activos`
+    (se borró a medias: el mapa lo sigue pintando y el MDR sigue conteniendo en él)."""
+    perfil = perfil or {}
+    topo = perfil.get("topologia")
+    activos = perfil.get("activos") if isinstance(perfil.get("activos"), dict) else {}
+    if not isinstance(topo, dict):
+        return []
+    out = []
+    for nombre, t in topo.items():
+        if not isinstance(t, dict):
+            continue
+        gw = t.get("gateway")
+        if gw is not None and not isinstance(topo.get(gw), dict):
+            out.append(f"topologia.{nombre}: su gateway {gw} no está en la topología; la escalada desde "
+                       f"{nombre} salta a los cortafuegos perimetrales y su cuarentena (AISLAR_NODO) no se "
+                       f"puede ejecutar hasta que lo corrijas")
+        if t.get("rol") == "host_victima" and nombre not in activos:
+            out.append(f"topologia.{nombre}: está en la topología pero no en activos (¿borrado a medias?); "
+                       f"se sigue pintando y conteniendo en él")
+    return out
 
 _POSTURAS = ("automatica_si_confianza", "humano_siempre")
 _DIMENSIONES_POLITICA = ("automatizacion_por_familia", "politicas_por_zona", "overrides_por_activo")

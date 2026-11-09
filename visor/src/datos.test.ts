@@ -85,6 +85,13 @@ describe("contencionDe", () => {
     const ok = contencionDe({ orden, ejecucion: { exito: true }, verificacion: { verificado: true } } as Detalle)
     expect(ok.causa).toBeUndefined()
   })
+  it("anota el salto de respaldo cuando la cadena se cortaba en un gateway que ya no existe", () => {
+    const c = contencionDe({ orden, ejecucion: { exito: false }, verificacion: { verificado: false },
+      escalada: { resultado: "mitigado", escalado: true, dispositivo_ejecutor: "fw-edge", orden_efectiva: { accion_id: "BLOQUEAR_IP_FIREWALL" },
+        pasos: [{ tipo: "respaldo", dispositivo: "fw-core", observacion: "el gateway fw-core no existe en el perfil: se sigue a los cortafuegos perimetrales" }] } } as Detalle)
+    expect(c).toMatchObject({ estado: "contenida", dispositivo: "fw-edge" })
+    expect(c.respaldo).toMatch(/gateway fw-core no existe/)
+  })
   it("texto de la causa y si la orden llegó a ejecutarse", () => {
     expect(textoCausa({ clase: "F2", descripcion: "equipo sin aprovisionar", accion: "dalo de alta" }, "atm")).toBe("atm: equipo sin aprovisionar — dalo de alta")
     expect(seEjecuto({ clase: "F8" })).toBe(true)

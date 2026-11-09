@@ -134,6 +134,7 @@ export type Contencion = {
   intento?: { nodo?: string; ejecutada: boolean; verificada: boolean }
   causa?: CausaFallo          // por qué no quedó contenida en el activo
   fallosEscalada?: { dispositivo: string; causa: CausaFallo }[]   // los saltos de la escalada que fallaron
+  respaldo?: string        // la cadena se cortaba en un gateway que ya no existe: se siguió al perímetro
 }
 
 // La causa en lenguaje claro: lo que puede ser un ataque lo dice primero; F3 y F8 traen su propia
@@ -177,9 +178,11 @@ export function contencionDe(det: Detalle): Contencion {
       : base
     const fallosEscalada = (esc.pasos ?? []).filter((p) => p.causa)
       .map((p) => ({ dispositivo: p.dispositivo ?? "—", causa: p.causa! }))
+    const respaldo = (esc.pasos ?? []).find((p) => p.tipo === "respaldo")?.observacion ?? undefined
     return { ...arriba, estado, escalada: !!esc.escalado, intento,
       dispositivo: esc.dispositivo_ejecutor ?? undefined, desde: orden.nodo_objetivo ?? undefined,
-      ...(det.causa_fallo ? { causa: det.causa_fallo } : {}), ...(fallosEscalada.length ? { fallosEscalada } : {}) }
+      ...(det.causa_fallo ? { causa: det.causa_fallo } : {}), ...(fallosEscalada.length ? { fallosEscalada } : {}),
+      ...(respaldo ? { respaldo } : {}) }
   }
   return { ...base, estado: "fallida", escalada: false }  // sin topología a la que escalar
 }

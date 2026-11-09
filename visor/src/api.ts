@@ -99,7 +99,7 @@ const PlanSchema = z.object({
   // cada salto (acción o verificación) y, si falló, por qué
   pasos: z.array(z.object({
     tipo: z.string().nullable().optional(), dispositivo: z.string().nullable().optional(),
-    causa: CausaSchema.nullable().optional(),
+    causa: CausaSchema.nullable().optional(), observacion: z.string().nullable().optional(),
   }).passthrough()).nullable().optional(),
 }).passthrough()
 export const DetalleSchema = z.object({

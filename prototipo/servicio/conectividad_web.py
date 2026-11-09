@@ -535,7 +535,8 @@ def _post_quitar(srv, cuerpo, operador):
         if not previo:
             return 400, {"error": "ese equipo no tiene nada en el inventario operativo"}
         if previo.get("nuevo") and previo.get("estado") == "activo":
-            return 409, {"error": "un equipo ya dado de alta no se borra desde aquí: quita su papel o dalo de baja en el perfil"}
+            return 409, {"error": "un equipo ya dado de alta no se borra desde aquí: quita su papel, o bórralo de "
+                                  f"{os.path.basename(srv.ruta_inventario or 'inventario-operativo.yml')} y reinicia el daemon"}
         del inventario["equipos"][nombre]
         inv.guardar(srv.ruta_inventario, inventario)
         _auditar(srv, operador, "inventario", nombre, previo, None)

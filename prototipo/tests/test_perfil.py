@@ -580,6 +580,16 @@ class TestValidar(unittest.TestCase):
         self.assertTrue(any("rafaga" in a or "ráfaga" in a for a in avisos))
         self.assertTrue(all(isinstance(a, str) for a in avisos))
 
+    def test_borrar_un_equipo_a_medias_se_avisa_al_arrancar(self):
+        # borrar fw-core del banco pero dejar el gateway de los hosts apuntando a él corta la escalada
+        p = yaml.safe_load(open(os.path.join("prototipo", "perfiles", "bancario.yml"), encoding="utf-8"))
+        del p["topologia"]["fw-core"]
+        avisos = perfil.validar(p)
+        self.assertTrue(any("topologia.web-banking: su gateway fw-core no está en la topología" in a for a in avisos), avisos)
+        p = yaml.safe_load(open(os.path.join("prototipo", "perfiles", "bancario.yml"), encoding="utf-8"))
+        del p["activos"]["atm"]                       # sigue en topologia: se seguiría conteniendo en él
+        self.assertTrue(any("topologia.atm: está en la topología pero no en activos" in a for a in perfil.validar(p)))
+
     def test_activos_o_topologia_mal_formados_avisan_sin_romper(self):
         self.assertTrue(perfil.validar({"activos": [], "topologia": "x", "ip_gestion": "10.0.0.1"}))
         self.assertEqual(perfil.validar(None), perfil.validar({}))   # None tolerado

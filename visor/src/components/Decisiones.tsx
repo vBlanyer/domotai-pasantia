@@ -125,6 +125,7 @@ export function InspectorDecision({ d, onVerIncidente, onVerTrazas, onVerAtacant
         {c.comando && <p className="font-mono text-muted-foreground [overflow-wrap:anywhere]">{c.comando}</p>}
         {c.causa && <LineaCausa causa={c.causa} equipo={c.intento?.nodo ?? detalle?.orden?.nodo_objetivo} prefijo={c.intento ? "intento en" : undefined} />}
         {!c.causa && c.intento && <p className="text-muted-foreground">{`intento en ${c.intento.nodo ?? "el activo"}: ${c.intento.ejecutada ? "se ejecutó pero no se verificó" : "no respondió"}`}</p>}
+        {c.respaldo && <p className="rounded border border-aviso/40 bg-aviso/10 px-2 py-1 text-foreground">Salto de respaldo: {c.respaldo}. Corrige el perfil.</p>}
         {c.fallosEscalada?.map((f, i) => <LineaCausa key={`${f.dispositivo}-${i}`} causa={f.causa} equipo={f.dispositivo} prefijo="escalada en" />)}
       </div>
     ) : null,

@@ -336,10 +336,29 @@ def alcance_en(topo, dispositivo):
                   if n != dispositivo and isinstance(v, dict) and v.get("rol")
                   and dispositivo in cadena_de_contencion(topo, n))
 
+def _perimetrales(topo):
+    return sorted(k for k, v in topo.items() if isinstance(v, dict) and v.get("rol") == "firewall_perimetral")
+
+
+def gateway_ausente(topo, activo):
+    """El primer `gateway` de la cadena de `activo` que no está en la topología (un cortafuegos borrado
+    del perfil a medias), o None si la cadena está entera."""
+    visto, actual = set(), activo
+    while actual and actual not in visto:
+        visto.add(actual)
+        nodo = topo.get(actual)
+        if not isinstance(nodo, dict):
+            return actual if actual != activo else None
+        actual = nodo.get("gateway")
+    return None
+
+
 def cadena_de_contencion(topo, activo):
     """Orden en que se intenta contener: el activo afectado y, tras el, aquel al que apunta su
     `gateway`, y asi hasta el perimetro. Si el activo no esta en la topologia, se contiene al
-    menos en los cortafuegos perimetrales."""
+    menos en los cortafuegos perimetrales. Si la cadena se corta en un `gateway` que ya no existe
+    (perfil a medias), sigue con los perimetrales que falten: ante la duda, lo mas grave; con la
+    cadena entera no cambia nada."""
     orden, visto, actual = [], set(), activo
     while actual and actual not in visto:
         visto.add(actual)
@@ -350,8 +369,9 @@ def cadena_de_contencion(topo, activo):
             orden.append(actual)
         actual = nodo.get("gateway")
     if not orden:
-        orden = sorted(k for k, v in topo.items()
-                       if isinstance(v, dict) and v.get("rol") == "firewall_perimetral")
+        orden = _perimetrales(topo)
+    elif gateway_ausente(topo, activo):
+        orden += [k for k in _perimetrales(topo) if k not in orden]
     return orden
 
 def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, autonomo=False,
@@ -375,6 +395,10 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
     ip_gestion, ip = topo.get("ip_gestion"), alerta.get("origen_ip")
     pasos, reversiones, tocados = [], [], []
     cadena = cadena_de_contencion(topo, alerta.get("activo"))
+    ausente = gateway_ausente(topo, alerta.get("activo"))
+    if ausente and desde in (None, alerta.get("activo")):     # al reanudar no se repite
+        pasos.append({"tipo": "respaldo", "dispositivo": ausente,
+                      "observacion": f"el gateway {ausente} no existe en el perfil: se sigue a los cortafuegos perimetrales"})
     if desde in cadena:
         cadena = cadena[cadena.index(desde) + 1:]
         tocados.append(desde)     # el lazo ya lo intento: cuenta para decir que hubo escalada

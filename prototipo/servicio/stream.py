@@ -401,10 +401,12 @@ _RESULTADO_ESCALADA = {"fallido": "fallida", "cancelado_por_humano": "cancelada 
 def _lineas_escalada(idd, esc):
     """La escalada: dónde contuvo o, si no, en qué equipos falló y por qué (nunca «None: None»)."""
     v = validacion.texto_terminal
+    pasos = [p for p in (esc.get("pasos") or []) if isinstance(p, dict)]
+    # perfil a medias: la cadena se cortaba en un gateway que ya no existe y se sigue al perímetro
+    respaldo = [f"⇪ {idd} {v(p.get('observacion'))}" for p in pasos if p.get("tipo") == "respaldo"]
     if esc.get("resultado") == "mitigado":
         efectiva = (esc.get("orden_efectiva") or {}).get("accion_id")
-        return [f"⇪ {idd} escalada: contenida en {v(esc.get('dispositivo_ejecutor'))} con {efectiva}"]
-    pasos = [p for p in (esc.get("pasos") or []) if isinstance(p, dict)]
+        return respaldo + [f"⇪ {idd} escalada: contenida en {v(esc.get('dispositivo_ejecutor'))} con {efectiva}"]
     con_causa = [p for p in pasos if p.get("causa")]
     if con_causa:
         motivo = "; ".join(f"{v(p.get('dispositivo'))} ({p['causa'].get('descripcion')})" for p in con_causa)
@@ -413,7 +415,7 @@ def _lineas_escalada(idd, esc):
     else:
         motivo = "ningún salto la confirmó"
     resultado = _RESULTADO_ESCALADA.get(esc.get("resultado"), v(esc.get("resultado")))
-    lineas = [f"⇪ {idd} escalada {resultado}: {motivo}"]
+    lineas = respaldo + [f"⇪ {idd} escalada {resultado}: {motivo}"]
     # lo que puede ser un ataque, en su propia línea (empieza por «POSIBLE ATAQUE»)
     lineas += [f"⇪ {idd} {v(fallos.texto(p['causa'], p.get('dispositivo')))}" for p in con_causa if p["causa"].get("posible_ataque")]
     return lineas

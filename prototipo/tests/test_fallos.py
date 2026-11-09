@@ -448,3 +448,43 @@ class TestAccionNoEjecutable(unittest.TestCase):
     def test_con_una_prueba_vieja_se_intenta_como_siempre(self):
         _, ips = self._cortar(self._hace(30), {"TRIAJE_ACCION_NO_EJECUTABLE": "1"})
         self.assertIn("192.168.1.30", ips)
+
+
+class TestCadenaRota(unittest.TestCase):
+    """Un cortafuegos borrado del perfil a medias deja un gateway colgando: la escalada ya no se corta
+    en el activo, sigue a los perimetrales (ante la duda, lo más grave). Con la cadena entera, como antes."""
+    def _perfil(self, gateway):
+        p = tl.TestEscaladaPorDefecto._perfil_con_topologia(None)
+        p["topologia"] = {**p["topologia"], "objetivo-vuln": {**p["topologia"]["objetivo-vuln"], "gateway": gateway}}
+        return p
+
+    def setUp(self):
+        reloj = mock.patch.object(conector, "ahora_iso", return_value="2026-11-09T00:00:00.000+00:00")
+        reloj.start()
+        self.addCleanup(reloj.stop)
+
+    def test_cadena(self):
+        from prototipo.explicacion import agente_mitigacion as ag
+        topo = ag.resolver_topologia(self._perfil("fw-borrado"))
+        self.assertEqual(ag.gateway_ausente(topo, "objetivo-vuln"), "fw-borrado")
+        self.assertEqual(ag.cadena_de_contencion(topo, "objetivo-vuln"), ["objetivo-vuln", "gateway"])
+        entera = ag.resolver_topologia(self._perfil("gateway"))
+        self.assertIsNone(ag.gateway_ausente(entera, "objetivo-vuln"))
+        self.assertEqual(ag.cadena_de_contencion(entera, "objetivo-vuln"), ["objetivo-vuln", "gateway"])
+
+    def test_el_host_cae_y_se_contiene_en_el_perimetro(self):
+        from prototipo.servicio import stream, tablero
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil("fw-borrado"), "prueba", CAT,
+                               tl.TestEscaladaPorDefecto.HostCaido(), "d1", "t", leer=lambda *_: "s")
+        self.assertEqual(tablero.contencion_de(r), ("contenida", "gateway"))
+        self.assertEqual(r["escalada"]["pasos"][0]["tipo"], "respaldo")
+        lineas = stream._lineas_escalada("d1", r["escalada"])
+        self.assertEqual(lineas[0], "⇪ d1 el gateway fw-borrado no existe en el perfil: se sigue a los cortafuegos perimetrales")
+        self.assertIn("contenida en gateway", lineas[-1])
+
+    def test_con_la_cadena_entera_la_escalada_es_la_de_siempre(self):
+        r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self._perfil("gateway"), "prueba", CAT,
+                               tl.TestEscaladaPorDefecto.HostCaido(), "d1", "t", leer=lambda *_: "s")
+        self.assertFalse(any(p.get("tipo") == "respaldo" for p in r["escalada"]["pasos"]))
+        self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "gateway")
+
