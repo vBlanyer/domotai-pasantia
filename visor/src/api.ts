@@ -498,8 +498,16 @@ export async function actualizarCaso(
 // solo su huella y la clave pública. Editar exige operador identificado (403 si no).
 const PruebaSchema = z.object({
   ok: z.boolean(), estado: z.string(), en: z.string().nullable().optional(),
-  puerto: z.number().nullable().optional(), usuario: z.string().nullable().optional(),
+  puerto: z.number().nullable().optional(), usuario: z.string().nullable().optional(), por: z.string().nullable().optional(),
   pasos: z.array(z.object({ paso: z.string(), ok: z.boolean(), detalle: z.string() })),
+  // deriva del sudoers: lo que sudo permite de verdad frente a lo que espera el papel del equipo
+  reglas: z.object({ estado: z.string(), sobran: z.array(z.string()), faltan: z.array(z.string()) }).nullable().optional(),
+})
+const RotacionSchema = z.object({
+  iniciada_por: z.string().nullable().optional(), en: z.string().nullable().optional(), huella_nueva: z.string().nullable().optional(),
+  equipos: z.record(z.string(), z.object({
+    anadida: z.boolean().optional(), probada: z.boolean().optional(), retirada: z.boolean().optional(), error: z.string().nullable().optional(),
+  })),
 })
 export const ConectividadSchema = z.object({
   modo: z.string(), nodo_gestion: z.string().nullable().optional(),
@@ -511,7 +519,17 @@ export const ConectividadSchema = z.object({
     nombre: z.string(), ip: z.string(), zona: z.string().nullable().optional(), tipo: z.string().nullable().optional(),
     funcion: z.string().nullable().optional(), protegido: z.boolean(), puerto: z.number(), usuario: z.string(),
     ajustado: z.boolean(), huella_fijada: z.string().nullable().optional(), ultima_prueba: PruebaSchema.nullable().optional(),
+    // inventario operativo: papel y reglas del equipo, y si es un alta pendiente o hecha desde la consola
+    papel: z.string().nullable().optional(), acciones: z.array(z.string()).nullable().optional(),
+    servicios: z.array(z.string()).optional(), cuentas: z.array(z.string()).optional(),
+    alta: z.string().nullable().optional(), criticidad: z.string().nullable().optional(),
+    depende_de: z.array(z.string()).optional(), interfaz: z.string().nullable().optional(),
   })),
+  permisos: z.object({ probar: z.boolean(), editar: z.boolean(), motivo: z.string().nullable().optional() }).optional(),
+  papeles: z.array(z.object({ id: z.string(), nombre: z.string(), descripcion: z.string(), acciones: z.array(z.string()) })).optional(),
+  acciones: z.array(z.object({ id: z.string(), comando: z.string(), nunca_automatica: z.boolean(), lista: z.string().nullable().optional() })).optional(),
+  zonas: z.array(z.string()).optional(), activos: z.array(z.string()).optional(), criticidades: z.array(z.string()).optional(),
+  rotacion: RotacionSchema.nullable().optional(),
   cambios: z.array(z.object({
     operador: z.string().nullable().optional(), dimension: z.string(), clave: z.string(),
     antes: z.unknown().optional(), despues: z.unknown().optional(), timestamp: z.string(),
@@ -544,6 +562,22 @@ export const guardarConexion = (equipo: string, ajuste: { puerto?: number | null
 export const guardarUsuarioDefecto = (usuario_defecto: string | null) => postConectividad("/api/conectividad", { usuario_defecto })
 export const leerClaveHost = (equipo: string) => postConectividad("/api/conectividad/leer-clave-host", { equipo })
 export const aceptarClaveHost = (equipo: string, huella: string) => postConectividad("/api/conectividad/clave-host", { equipo, huella })
+// Inventario operativo: alta de un equipo nuevo (queda pendiente) o papel y reglas de uno existente.
+export type DatosInventario = {
+  nombre: string; ip?: string; zona?: string; funcion?: string; criticidad?: string; depende_de?: string[]; interfaz?: string | null
+  papel: string; acciones: string[]; servicios: string[]; cuentas: string[]
+}
+// Probar con los ajustes guardados del equipo (sin proponer otros): «Probar todos».
+export const probarEquipo = (equipo: string) => postConectividad("/api/conectividad/probar", { equipo })
+export const guardarInventario = (datos: DatosInventario) => postConectividad("/api/conectividad/inventario", datos)
+export const quitarInventario = (nombre: string) => postConectividad("/api/conectividad/inventario/quitar", { nombre })
+export const darDeAlta = (equipo: string, huella: string) => postConectividad("/api/conectividad/alta", { equipo, huella })
+export const rotarClave = (accion: "iniciar" | "preparar" | "retirar" | "finalizar" | "cancelar") =>
+  postConectividad("/api/conectividad/rotacion", { accion })
+export type FormatoPaquete = "script" | "ansible" | "sudoers"
+export const getPaquete = (equipo: string, formato: FormatoPaquete) =>
+  pedir(`/api/conectividad/paquete?equipo=${encodeURIComponent(equipo)}&formato=${formato}`,
+    z.object({ nombre: z.string(), contenido: z.string(), formato: z.string() }))
 
 // Kill switch (#8): pausa global de la automatización y des-bloqueo en masa.
 export async function setPausa(pausar: boolean): Promise<boolean> {

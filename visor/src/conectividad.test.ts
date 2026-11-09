@@ -31,3 +31,22 @@ describe("resumenConectividad", () => {
     expect(MODOS.map((m) => m.id)).toEqual(["clave", "directo", "password"])
   })
 })
+
+describe("alta pendiente, antigüedad de la prueba, reglas y franja", () => {
+  const AHORA = Date.parse("2026-11-04T12:00:00Z")
+  it("un alta pendiente no cuenta como contenible y una prueba de hace días avisa", async () => {
+    const { estadoEquipo, resumenConectividad, reglasDe, franjaPermisos } = await import("./conectividad")
+    expect(estadoEquipo(eq({ alta: "pendiente" }), AHORA).texto).toBe("alta pendiente")
+    expect(resumenConectividad([eq({ alta: "pendiente" }), eq({})]).contenibles).toBe(1)
+    const vieja = { ...prueba("verificada"), en: "2026-11-01T12:00:00Z" }
+    expect(estadoEquipo(eq({ ultima_prueba: vieja }), AHORA)).toMatchObject({ id: "verificada_vieja", texto: "hace 3 días", tono: "aviso" })
+    const reciente = { ...prueba("verificada"), en: "2026-11-04T10:00:00Z", por: "ana" }
+    expect(estadoEquipo(eq({ ultima_prueba: reciente }), AHORA).sub).toBe("hace 2 h · ana")
+    expect(reglasDe(eq({ ultima_prueba: { ...prueba("privilegio_de_mas"), reglas: { estado: "sobran", sobran: ["cat *"], faltan: [] } } })).tono).toBe("critico")
+    expect(reglasDe(eq({ ultima_prueba: { ...prueba("verificada"), reglas: { estado: "faltan", sobran: [], faltan: ["a", "b"] } } })).sub).toBe("faltan 2")
+    expect(franjaPermisos(true, null, "identificado", "ana").titulo).toBe("Firmas como ana, verificado por tu token.")
+    expect(franjaPermisos(true, null, "abierta", "leo").texto).toContain("sin verificar (leo)")
+    expect(franjaPermisos(false, "probar y cambiar exigen un operador identificado por su token", "compartido", "").titulo).toBe("Con el token compartido.")
+    expect(franjaPermisos(false, "el conector está en modo laboratorio o sin configurar: probar y cambiar no aplicarían", "identificado", "ana").titulo).toBe("Solo lectura.")
+  })
+})

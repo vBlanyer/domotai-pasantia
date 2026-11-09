@@ -1,5 +1,5 @@
 // Lógica pura de la vista «Conectividad»: el estado que se enseña de cada equipo y el resumen.
-import type { EquipoConectividad } from "@/api"
+import type { EquipoConectividad, ModoSesion } from "@/api"
 
 export type Tono = "ok" | "aviso" | "critico" | "neutro"
 export type EstadoEquipo = { id: string; texto: string; sub: string; tono: Tono }
@@ -19,21 +19,74 @@ const POR_PRUEBA: Record<string, Omit<EstadoEquipo, "id">> = {
   fallo: { texto: "fallo", sub: "el comando del catálogo falló", tono: "critico" },
 }
 
-export function estadoEquipo(e: EquipoConectividad): EstadoEquipo {
+export const DIA_MS = 24 * 3600_000
+
+// «hace 2 h» / «hace 3 días» desde la hora de la prueba.
+export function edadTexto(iso: string | null | undefined, ahora: number): string | null {
+  const t = iso ? Date.parse(iso) : NaN
+  if (Number.isNaN(t)) return null
+  const min = Math.max(0, Math.round((ahora - t) / 60_000))
+  if (min < 1) return "hace un momento"
+  if (min < 60) return `hace ${min} min`
+  const h = Math.round(min / 60)
+  return h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`
+}
+
+export function estadoEquipo(e: EquipoConectividad, ahora = Date.now()): EstadoEquipo {
   if (e.protegido) return { id: "protegido", texto: "no se contiene", sub: "protegido: canal de gestión del MDR", tono: "neutro" }
+  if (e.alta === "pendiente") return { id: "alta_pendiente", texto: "alta pendiente", sub: "esperando el paquete en el equipo", tono: "neutro" }
   const p = e.ultima_prueba
-  if (p) return { id: p.estado, ...(POR_PRUEBA[p.estado] ?? POR_PRUEBA.fallo) }
+  if (p) {
+    const base = { id: p.estado, ...(POR_PRUEBA[p.estado] ?? POR_PRUEBA.fallo) }
+    const edad = edadTexto(p.en, ahora)
+    const vieja = p.en ? ahora - Date.parse(p.en) > DIA_MS : false
+    if (p.estado === "verificada" && vieja) return { ...base, id: "verificada_vieja", texto: edad ?? "verificada", sub: "conviene volver a probar", tono: "aviso" }
+    return { ...base, sub: [edad, p.por].filter(Boolean).join(" · ") || base.sub }
+  }
   if (!e.huella_fijada) return { id: "sin_aprovisionar", texto: "sin aprovisionar", sub: "clave del host sin fijar", tono: "aviso" }
-  return { id: "sin_probar", texto: "sin probar", sub: "aún no se ha probado en esta sesión", tono: "neutro" }
+  return { id: "sin_probar", texto: "sin probar", sub: "aún no se ha probado", tono: "neutro" }
 }
 
 export function resumenConectividad(equipos: EquipoConectividad[]) {
-  const est = equipos.filter((e) => !e.protegido).map(estadoEquipo)
+  const est = equipos.filter((e) => !e.protegido && e.alta !== "pendiente").map((e) => estadoEquipo(e))
   return {
     contenibles: est.length,
-    verificadas: est.filter((e) => e.id === "verificada").length,
+    verificadas: est.filter((e) => e.id === "verificada" || e.id === "verificada_vieja").length,
     hostCambiada: est.filter((e) => e.id === "host_cambiada").length,
     sinAprovisionar: est.filter((e) => e.id === "sin_aprovisionar").length,
     sinProbar: est.filter((e) => e.id === "sin_probar").length,
   }
+}
+
+
+// Lo que permite el sudoers del equipo frente a su papel (de la última prueba).
+export function reglasDe(e: EquipoConectividad): { texto: string; sub: string; tono: Tono } {
+  const r = e.ultima_prueba?.reglas
+  if (e.protegido || e.alta === "pendiente") return { texto: "—", sub: "", tono: "neutro" }
+  if (!r) return { texto: "sin comprobar", sub: "", tono: "neutro" }
+  if (r.estado === "coinciden") return { texto: "coinciden", sub: "", tono: "ok" }
+  if (r.estado === "sobran") return { texto: "no coinciden", sub: "sudo permite de más", tono: "critico" }
+  if (r.estado === "faltan") return { texto: "incompletas", sub: `faltan ${r.faltan.length}`, tono: "aviso" }
+  return { texto: "sin comprobar", sub: "sudo pide contraseña para listar", tono: "neutro" }
+}
+
+export const papelTexto = (e: EquipoConectividad, papeles: { id: string; nombre: string }[] = []) =>
+  e.papel ? (papeles.find((p) => p.id === e.papel)?.nombre ?? e.papel) : null
+
+// La franja de arriba: qué puede hacer esta sesión en la vista, en una frase.
+export function franjaPermisos(puede: boolean, motivo: string | null | undefined, modo: ModoSesion | null, nombre: string):
+  { tono: "ok" | "aviso"; titulo: string; texto: string } {
+  if (puede && modo === "identificado")
+    return { tono: "ok", titulo: `Firmas como ${nombre}, verificado por tu token.`,
+      texto: "Puedes ver, probar, dar de alta equipos, cambiar puerto y usuario, aceptar claves del host y rotar la clave del conector. Cada acción queda registrada con tu nombre." }
+  if (puede)
+    return { tono: "aviso", titulo: "Consola abierta, opción de laboratorio activa.",
+      texto: `Puedes hacerlo todo, firmado con un nombre sin verificar${nombre ? ` (${nombre})` : ""}. Solo para el laboratorio.` }
+  if (motivo && !motivo.includes("operador"))
+    return { tono: "aviso", titulo: "Solo lectura.", texto: `Puedes ver la configuración: ${motivo}.` }
+  if (modo === "compartido")
+    return { tono: "aviso", titulo: "Con el token compartido.", texto: "Puedes ver la configuración. Probar, dar de alta y cambiar ajustes exige entrar con tu token de operador." }
+  if (modo === "abierta")
+    return { tono: "aviso", titulo: "Consola abierta.", texto: "Puedes ver la configuración. Probar y cambiar exige un token de operador, o arrancar el laboratorio con la opción de conectividad abierta: TRIAJE_CONECTIVIDAD_ABIERTA=1 sh reiniciar.sh" }
+  return { tono: "aviso", titulo: "Solo lectura.", texto: "Puedes ver la configuración. Probar y cambiar exige tu token de operador." }
 }

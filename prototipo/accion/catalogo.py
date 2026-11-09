@@ -56,6 +56,59 @@ def comandos_privilegiados(catalogo):
                 anadir(clave)
     return salida
 
+# ------------------------------------------------------------------ papel de cada equipo --
+# Qué acciones del catálogo le aplican a un equipo según su papel. Es el punto de partida que propone
+# la consola al dar de alta un equipo; el operador puede quitar o añadir acciones del catálogo. El
+# sudoers del equipo y lo que el motor puede ordenarle salen de esa lista (no del catálogo entero).
+_OBSERVAR = ["OBS_CONEXIONES", "OBS_PROCESOS", "OBS_ESCUCHA", "OBS_CONFIG", "OBS_CAPTURA"]
+PAPELES = {
+    "servidor": {"nombre": "Servidor",
+                 "descripcion": "Observar, bloquear IP y puerto, cortar conexiones, limitar banda, parar servicios y bloquear cuentas de su lista.",
+                 "acciones": _OBSERVAR + ["BLOQUEAR_IP", "BLOQUEAR_PUERTO", "MATAR_CONEXION", "LIMITAR_BANDA",
+                                          "CERRAR_SERVICIO", "FORZAR_CAMBIO_PASS"]},
+    "cortafuegos": {"nombre": "Cortafuegos o borde",
+                    "descripcion": "Observar, bloquear en tránsito, bloquear destinos y aislar nodos.",
+                    "acciones": _OBSERVAR + ["BLOQUEAR_IP", "BLOQUEAR_IP_FIREWALL", "BLOQUEAR_DESTINO", "AISLAR_NODO",
+                                             "BLOQUEAR_PUERTO"]},
+    "puesto": {"nombre": "Puesto",
+               "descripcion": "Observar, cortar conexiones y bloquear cuentas de su lista.",
+               "acciones": _OBSERVAR + ["BLOQUEAR_IP", "MATAR_CONEXION", "FORZAR_CAMBIO_PASS"]},
+}
+# Acciones cuyo objetivo es un nombre (servicio/cuenta): sin lista declarada, el equipo NO las admite
+# (nunca «cualquier servicio» ni «cualquier cuenta», incluida root).
+ACCION_CON_LISTA = {"CERRAR_SERVICIO": ("service", "servicios"), "FORZAR_CAMBIO_PASS": ("passwd", "cuentas")}
+
+
+def acciones_efectivas(acciones, servicios=(), cuentas=()):
+    """Las acciones que de verdad admite el equipo: las elegidas, menos las de lista sin lista."""
+    listas = {"servicios": list(servicios or []), "cuentas": list(cuentas or [])}
+    return [a for a in acciones if a not in ACCION_CON_LISTA or listas[ACCION_CON_LISTA[a][1]]]
+
+
+def reglas(catalogo, allowlist=None):
+    """[(binario, argumentos)] que el sudoers permite: los comandos privilegiados del catálogo con el
+    comodín de los binarios de `allowlist` expandido a sus valores. Es lo que `sudoers` escribe y lo
+    que la prueba de conexión compara con lo que el equipo permite de verdad (deriva)."""
+    allowlist = allowlist or {}
+    out = []
+    for binario, args in comandos_privilegiados(catalogo):
+        valores = [v for v in (allowlist.get(binario) or []) if _VALOR_SEGURO.match(str(v))]
+        if valores and args.count("*") == 1:
+            out.extend((binario, args.replace("*", v)) for v in valores)
+        else:
+            out.append((binario, args))
+    return out
+
+
+def reglas_de_equipo(catalogo, acciones=None, servicios=(), cuentas=()):
+    """Reglas del sudoers de un equipo según su papel. `acciones=None` = equipo sin papel declarado:
+    el catálogo entero (el comportamiento heredado del laboratorio)."""
+    if acciones is None:
+        return reglas(catalogo)
+    sub = {k: v for k, v in catalogo.items() if k in set(acciones_efectivas(acciones, servicios, cuentas))}
+    return reglas(sub, {"service": list(servicios or []), "passwd": list(cuentas or [])})
+
+
 def sudoers(catalogo, usuario, rutas, allowlist=None):
     """Texto de sudoers para `usuario`: NOPASSWD solo sobre los comandos del catalogo, con la
     ruta absoluta de cada binario en `rutas`. Devuelve (texto, faltan).
@@ -65,18 +118,12 @@ def sudoers(catalogo, usuario, rutas, allowlist=None):
     emite una linea por valor declarado (`service nginx stop`, ...). Sin allowlist para un binario,
     se mantiene el `*` (comportamiento por defecto). Solo acota comandos con UN comodin (los
     objetivos tipo servicio/cuenta); `{ip}`/`{puerto}` son arbitrarios por naturaleza y siguen `*`."""
-    allowlist = allowlist or {}
     lineas, faltan = [], []
-    for binario, args in comandos_privilegiados(catalogo):
+    for binario, args in reglas(catalogo, allowlist):
         ruta = rutas.get(binario)
         if not ruta:
             if binario not in faltan:
                 faltan.append(binario)
-            continue
-        valores = [v for v in (allowlist.get(binario) or []) if _VALOR_SEGURO.match(str(v))]
-        if valores and args.count("*") == 1:
-            for v in valores:
-                lineas.append(f"{usuario} ALL=(root) NOPASSWD: {ruta} {args.replace('*', v)}".rstrip())
             continue
         lineas.append(f"{usuario} ALL=(root) NOPASSWD: {ruta} {args}".rstrip())
     cabecera = ("# Generado desde prototipo/catalogo.yml: la frontera de privilegio del conector es\n"

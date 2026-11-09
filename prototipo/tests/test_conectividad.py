@@ -83,7 +83,7 @@ class TestProbar(unittest.TestCase):
         r = cx.probar(ej, "10.0.0.1")
         self.assertEqual(r["estado"], "verificada")
         self.assertTrue(r["ok"])
-        self.assertEqual(vistos, ["iptables -L -n", "cat /etc/shadow"])
+        self.assertEqual(vistos, ["iptables -L -n", "true"])        # testigo inocuo: no lee nada del equipo
         self.assertEqual([p["ok"] for p in r["pasos"]], [True, True])
 
     def test_privilegio_de_mas(self):
@@ -135,6 +135,8 @@ class TestHuellas(unittest.TestCase):
             llamadas.append((args, entrada))
             if args[0] == "ssh-keyscan":
                 return (0, f"10.0.0.1 {presenta}\n") if con_keyscan else (127, "exec: ssh-keyscan: not found")
+            if args[:1] == ["mktemp"]:
+                return 0, "/tmp/mdr-escaneo.Ab3dE9xQ\n"
             if args[:1] == ["cat"] and args[1].startswith("/tmp/mdr-escaneo"):
                 return 0, f"10.0.0.1 {presenta}\n"
             if args[:1] == ["cat"]:
@@ -151,15 +153,29 @@ class TestHuellas(unittest.TestCase):
         self.assertFalse(any(a[:1] == ["tee"] for a, _ in llamadas))      # no escribió nada
         self.assertEqual(cx.aceptar_clave_host("10.0.0.1", 22, F3, "/kh", correr), F3)
         self.assertEqual([e for a, e in llamadas if a[:1] == ["tee"]], [f"10.0.0.2 {K2}\n10.0.0.1 {K3}\n"])
+        # atómico: escribe a un temporal, guarda copia del anterior y lo renombra encima
+        self.assertEqual([a for a, _ in llamadas if a[:1] in (["tee"], ["cp"], ["mv"])][-3:],
+                         [["tee", "/kh.mdr"], ["cp", "-p", "/kh", "/kh.anterior"], ["mv", "/kh.mdr", "/kh"]])
 
     def test_sin_ssh_keyscan_usa_ssh_hacia_un_fichero_temporal(self):
         correr, llamadas = self._correr(K3, con_keyscan=False)
         self.assertEqual(cx.huella_presentada("10.0.0.1", 2222, correr), F3)
         ssh = next(a for a, _ in llamadas if a[0] == "ssh")
         self.assertIn("StrictHostKeyChecking=accept-new", ssh)
-        self.assertIn("UserKnownHostsFile=/tmp/mdr-escaneo-10.0.0.1-2222", ssh)
+        # directorio de nombre aleatorio (mktemp -d), no un nombre predecible en /tmp; se borra entero
+        self.assertIn(["mktemp", "-d", "/tmp/mdr-escaneo.XXXXXXXX"], [a for a, _ in llamadas])
+        self.assertIn("UserKnownHostsFile=/tmp/mdr-escaneo.Ab3dE9xQ/known_hosts", ssh)
         self.assertEqual(ssh[ssh.index("-p") + 1], "2222")
-        self.assertIn(["rm", "-f", "/tmp/mdr-escaneo-10.0.0.1-2222"], [a for a, _ in llamadas])
+        self.assertIn(["rm", "-rf", "/tmp/mdr-escaneo.Ab3dE9xQ"], [a for a, _ in llamadas])
+
+    def test_sin_mktemp_valido_no_escanea(self):
+        def correr(args, entrada=None):
+            if args[0] == "ssh-keyscan":
+                return 127, "not found"
+            if args[0] == "mktemp":
+                return 0, "/tmp/../etc\n"          # salida rara: no se usa como ruta
+            raise AssertionError(f"no debía correr {args}")
+        self.assertEqual(cx.escanear("10.0.0.1", 22, correr), [])
 
     def test_ip_invalida(self):
         with self.assertRaises(ValueError):
@@ -204,3 +220,87 @@ class TestConectorUsaLosAjustes(unittest.TestCase):
     def test_ejecutor_con_en_laboratorio_no_ejecuta(self):
         rc, salida = self.cn.ejecutor_con("password")("10.0.0.1", "iptables -L -n")
         self.assertEqual(rc, 126)
+
+
+class TestDerivaPaqueteRotacion(unittest.TestCase):
+    SUDO_L = """User triaje may run the following commands on web-banking:
+    (root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP
+    (root) NOPASSWD: /usr/sbin/service * stop, /bin/cat *
+"""
+
+    def test_lee_sudo_l_y_compara_con_el_papel(self):
+        enc = cx.reglas_de_sudo_l(self.SUDO_L)
+        self.assertEqual(enc, [("iptables", "-A INPUT -s * -j DROP"), ("service", "* stop"), ("cat", "*")])
+        cmp = cx.comparar_reglas([("iptables", "-A INPUT -s * -j DROP"), ("service", "tomcat stop")], enc)
+        self.assertEqual(cmp, {"estado": "sobran", "sobran": ["cat *", "service * stop"], "faltan": ["service tomcat stop"]})
+        self.assertEqual(cx.comparar_reglas([("iptables", "-A INPUT -s * -j DROP")], enc[:1])["estado"], "coinciden")
+
+    def test_la_prueba_marca_privilegio_de_mas_si_sobran_reglas(self):
+        ejec = lambda ip, cmd: (0, "ok") if cmd == "iptables -L -n" else (1, "Sorry, user triaje is not allowed")
+        listar = lambda ip, cmd: (0, self.SUDO_L)
+        r = cx.probar(ejec, "10.0.0.1", listar=listar, esperadas=[("iptables", "-A INPUT -s * -j DROP")])
+        self.assertEqual((r["ok"], r["estado"], r["reglas"]["estado"]), (False, "privilegio_de_mas", "sobran"))
+        r = cx.probar(ejec, "10.0.0.1", listar=lambda ip, c: (0, self.SUDO_L.splitlines()[0] + "\n    (root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP"),
+                      esperadas=[("iptables", "-A INPUT -s * -j DROP"), ("tc", "qdisc show dev *")])
+        self.assertEqual((r["ok"], r["reglas"]["estado"], r["reglas"]["faltan"]), (True, "faltan", ["tc qdisc show dev *"]))
+
+    def test_las_pruebas_sobreviven_en_disco(self):
+        import tempfile
+        ruta = os.path.join(tempfile.mkdtemp(), "p.json")
+        cx.guardar_pruebas(ruta, {"10.0.0.1": {"ok": True, "estado": "verificada"}, "no-ip": {}})
+        self.assertEqual(cx.cargar_pruebas(ruta), {"10.0.0.1": {"ok": True, "estado": "verificada"}})
+        self.assertEqual(oct(os.stat(ruta).st_mode & 0o777), "0o600")
+
+    def test_comandos_de_rotacion_solo_con_claves_limpias(self):
+        k = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample mdr-conector"
+        self.assertIn("echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample mdr-conector' >> ~/.ssh/authorized_keys", cx.cmd_anadir_clave(k))
+        self.assertNotIn("$", cx.cmd_anadir_clave(k))
+        for mala in ("ssh-rsa AAAA'; rm -rf ~ #", "ssh-rsa AAAA $(id)", "otra cosa"):
+            with self.assertRaises(ValueError):
+                cx.cmd_anadir_clave(mala)
+        q = cx.cmd_quitar_clave("VIEJA", "NUEVA")
+        self.assertTrue(q.startswith("grep -qF 'NUEVA' ~/.ssh/authorized_keys && "))   # nunca deja el equipo sin clave
+        with self.assertRaises(ValueError):
+            cx.cmd_quitar_clave("x'; reboot", "NUEVA")
+
+    def test_paquete_de_alta(self):
+        eq = {"nombre": "pagos-qr", "ip": "10.30.0.20", "papel": "servidor", "servicios": ["nginx"], "cuentas": ["appqr"]}
+        pub = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample mdr-conector"
+        reglas = [("service", "nginx stop"), ("iptables", "-A INPUT -s * -j DROP")]
+        nombre, sh = cx.paquete("script", eq, "triaje", pub, reglas, "04/11/2026")
+        self.assertEqual(nombre, "alta-pagos-qr.sh")
+        self.assertIn("regla 'service' 'nginx stop'", sh)
+        self.assertIn("visudo -cf", sh)
+        self.assertIn("mdr-sudoers-anterior", sh)                 # aparta (con copia) el sudoers viejo del MDR
+        self.assertNotIn("PRIVATE", sh)
+        nombre, sud = cx.paquete("sudoers", eq, "triaje", pub, reglas, "hoy")
+        self.assertIn("triaje ALL=(root) NOPASSWD: /usr/sbin/service nginx stop", sud)
+        nombre, yml = cx.paquete("ansible", eq, "triaje", pub, reglas, "hoy")
+        self.assertEqual(nombre, "alta-pagos-qr.yml")
+        self.assertIn("validate: visudo -cf %s", yml)
+        with self.assertRaises(ValueError):
+            cx.paquete("script", eq, "triaje", "no es una clave", reglas, "hoy")
+
+
+class TestConectorSinSudoYRotacion(unittest.TestCase):
+    def test_sin_sudo_y_con_claves_dadas(self):
+        from prototipo.accion import conector
+        linea = conector.comando_ssh_clave("10.0.0.1", "sudo -S -l", sudo=False, claves=["/k.nueva"])
+        self.assertIn("-i /k.nueva -o IdentitiesOnly=yes", linea)
+        self.assertTrue(linea.endswith('triaje@10.0.0.1 "sudo -S -l"'))
+        self.assertTrue(conector.comando_ssh_clave("10.0.0.1", "iptables -L -n").endswith('"sudo -S iptables -L -n"'))
+        args = conector._args_ssh_directo("10.0.0.1", "true", sudo=False, claves=["/a", "/b"])
+        self.assertEqual(args[1:6], ["-n", "-i", "/a", "-i", "/b"])
+        self.assertEqual(args[-1], "true")
+
+    def test_con_rotacion_en_curso_ofrece_las_dos_claves(self):
+        from unittest import mock
+        from prototipo.accion import conector
+        d = tempfile.mkdtemp()
+        ajustes = os.path.join(d, "conectividad-operativa.yml")
+        with mock.patch.dict(os.environ, {"TRIAJE_CONECTIVIDAD": ajustes}):
+            self.assertNotIn(".nueva", conector.comando_ssh_clave("10.0.0.1", "true"))
+            cx.guardar_rotacion(cx.ruta_rotacion(), {"estado": "en_curso", "equipos": {}})
+            self.assertIn(f"-i {conector.SSH_CLAVE} -i {conector.SSH_CLAVE}.nueva", conector.comando_ssh_clave("10.0.0.1", "true"))
+            cx.guardar_rotacion(cx.ruta_rotacion(), None)
+            self.assertNotIn(".nueva", conector.comando_ssh_clave("10.0.0.1", "true"))

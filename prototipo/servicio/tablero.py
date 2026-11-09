@@ -1017,6 +1017,13 @@ class _Manejador(BaseHTTPRequestHandler):
                 quien = operador_de(ops, self.headers.get("Authorization")) if isinstance(ops, dict) and ops else (
                     "consola" if os.environ.get("TRIAJE_CONECTIVIDAD_ABIERTA") == "1" else None)
                 return self._responder(conectividad_web.resumen(s, quien))
+            if ruta == "/api/conectividad/paquete":   # paquete de alta de un equipo (solo la clave PÚBLICA)
+                from prototipo.servicio import conectividad_web
+                q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                ops = getattr(s, "operadores", None)
+                quien = operador_de(ops, self.headers.get("Authorization")) if isinstance(ops, dict) and ops else None
+                codigo, resp = conectividad_web.paquete(s, (q.get("equipo") or [""])[0], (q.get("formato") or ["script"])[0], quien)
+                return self._responder(resp, codigo)
             if ruta == "/api/salud":
                 return self._responder(estado_salud(leer_salud(ejecutar=s.salud_ejecutar, **s.salud),
                                                     s.dependencias))
@@ -1130,7 +1137,8 @@ class _Manejador(BaseHTTPRequestHandler):
             ruta = self.path.split("?", 1)[0]
             if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso", "/api/watchlist", "/api/politica",
                             "/api/conectividad", "/api/conectividad/probar", "/api/conectividad/leer-clave-host",
-                            "/api/conectividad/clave-host"):
+                            "/api/conectividad/clave-host", "/api/conectividad/inventario",
+                            "/api/conectividad/inventario/quitar", "/api/conectividad/alta", "/api/conectividad/rotacion"):
                 return self._responder({"error": "no encontrado"}, 404)
             try:
                 n = int(self.headers.get("Content-Length") or 0)

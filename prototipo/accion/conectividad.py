@@ -146,7 +146,10 @@ def ajustes_de(ip, ruta=None):
 # Un comando del catálogo (el listado que usan las verificaciones) y uno claramente fuera de él: el
 # mismo par que comprueba lab/scripts/aprovisionar-minimo-privilegio.sh al terminar.
 COMANDO_PERMITIDO = "iptables -L -n"
-COMANDO_PROHIBIDO = "cat /etc/shadow"
+# Testigo de «sudo deniega lo que está fuera del catálogo»: un comando que NO está en ningún sudoers
+# generado y que no lee ni cambia nada. Si sudo lo permite, el privilegio no es el mínimo; si se
+# ejecutara, no pasaría ningún dato del equipo por la memoria del daemon (antes era `cat /etc/shadow`).
+COMANDO_PROHIBIDO = "true"
 
 
 def diagnosticar(rc, salida):
@@ -174,10 +177,14 @@ _TEXTO = {"host_cambiada": "la clave del host no coincide con la fijada",
           "fallo": "el comando del catálogo falló"}
 
 
-def probar(ejecutor, ip):
-    """Prueba de conexión con el `ejecutor` del conector. Devuelve {ok, estado, pasos}."""
+def probar(ejecutor, ip, permitido=None, listar=None, esperadas=None):
+    """Prueba de conexión con el `ejecutor` del conector. Devuelve {ok, estado, pasos[, reglas]}.
+
+    Con `listar` (un ejecutor SIN sudo) y `esperadas` (las reglas del papel del equipo), añade la
+    comprobación de deriva: lo que sudo permite de verdad frente a lo esperado. Sobrar algo es
+    privilegio de más; faltar algo solo avisa (binario no instalado o regla quitada a mano)."""
     pasos = []
-    rc, out = ejecutor(ip, COMANDO_PERMITIDO)
+    rc, out = ejecutor(ip, permitido or COMANDO_PERMITIDO)
     d = diagnosticar(rc, out)
     if d != "ok":
         pasos.append({"paso": "entra y ejecuta un comando del catálogo", "ok": False, "detalle": _TEXTO[d]})
@@ -194,7 +201,242 @@ def probar(ejecutor, ip):
         pasos.append({"paso": "sudo deniega lo que está fuera del catálogo", "ok": False, "detalle": _TEXTO[d2]})
         return {"ok": False, "estado": _ESTADO[d2], "pasos": pasos}
     pasos.append({"paso": "sudo deniega lo que está fuera del catálogo", "ok": True, "detalle": "denegado, como debe"})
-    return {"ok": True, "estado": "verificada", "pasos": pasos}
+    if listar is None or esperadas is None:
+        return {"ok": True, "estado": "verificada", "pasos": pasos}
+    rc3, out3 = listar(ip, "sudo -S -l")
+    if rc3 != 0:
+        pasos.append({"paso": "lo que sudo permite coincide con su papel", "ok": True,
+                      "detalle": "no se pudo listar (sudo pide contraseña para listar): sin comprobar"})
+        return {"ok": True, "estado": "verificada", "pasos": pasos, "reglas": {"estado": "sin_comprobar", "sobran": [], "faltan": []}}
+    cmp = comparar_reglas(esperadas, reglas_de_sudo_l(out3))
+    if cmp["sobran"]:
+        pasos.append({"paso": "lo que sudo permite coincide con su papel", "ok": False,
+                      "detalle": f"sudo permite {len(cmp['sobran'])} regla(s) que su papel no incluye"})
+        return {"ok": False, "estado": "privilegio_de_mas", "pasos": pasos, "reglas": cmp}
+    pasos.append({"paso": "lo que sudo permite coincide con su papel", "ok": True,
+                  "detalle": (f"{len(esperadas) - len(cmp['faltan'])} de {len(esperadas)} reglas presentes; "
+                              f"faltan {len(cmp['faltan'])} (binario no instalado o regla quitada)") if cmp["faltan"]
+                  else f"{len(esperadas)} reglas esperadas, {len(esperadas)} encontradas"})
+    return {"ok": True, "estado": "verificada", "pasos": pasos, "reglas": cmp}
+
+
+# --------------------------------------------------------------------- deriva del sudoers --
+def _norm(binario, args):
+    return (os.path.basename(binario), " ".join((args or "").split()))
+
+
+def reglas_de_sudo_l(texto):
+    """[(binario, args)] de la salida de `sudo -l` del usuario del conector (solo reglas NOPASSWD como
+    root; el binario por su nombre, sin ruta, para comparar con el catálogo)."""
+    out = []
+    for linea in (texto or "").splitlines():
+        if "NOPASSWD:" not in linea:
+            continue
+        for cmd in linea.split("NOPASSWD:", 1)[1].split(","):
+            partes = cmd.strip().split(None, 1)
+            if partes:
+                out.append(_norm(partes[0], partes[1] if len(partes) > 1 else ""))
+    return out
+
+
+def comparar_reglas(esperadas, encontradas):
+    """{"estado": coinciden|sobran|faltan, "sobran": [...], "faltan": [...]} con las reglas como texto."""
+    esp = {_norm(b, a) for b, a in esperadas}
+    enc = set(encontradas)
+    texto = lambda r: f"{r[0]} {r[1]}".strip()
+    sobran = sorted(texto(r) for r in enc - esp)
+    faltan = sorted(texto(r) for r in esp - enc)
+    return {"estado": "sobran" if sobran else "faltan" if faltan else "coinciden", "sobran": sobran, "faltan": faltan}
+
+
+# ------------------------------------------------------------ última prueba, en disco --
+def _escribir_json(ruta, datos):
+    import json
+    directorio = os.path.dirname(os.path.abspath(ruta))
+    fd, tmp = tempfile.mkstemp(dir=directorio, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(datos, f, ensure_ascii=False, sort_keys=True)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, ruta)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def _leer_json(ruta):
+    import json
+    try:
+        with open(ruta, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def cargar_pruebas(ruta):
+    """{ip: última prueba} guardadas (sobreviven al reinicio del daemon)."""
+    return {k: v for k, v in _leer_json(ruta).items() if _ip_ok(k) and isinstance(v, dict)} if ruta else {}
+
+
+def guardar_pruebas(ruta, pruebas):
+    if ruta:
+        _escribir_json(ruta, pruebas)
+
+
+# ------------------------------------------------------- rotación de la clave del conector --
+# Tres fases sin credenciales de administrador: el usuario del conector es dueño de su propio
+# authorized_keys en cada equipo. Mientras dura, el conector ofrece las DOS claves (la actual y la
+# nueva), así ningún equipo pierde el acceso a medias.
+_CLAVE_PUBLICA = re.compile(r"^(ssh-ed25519|ssh-rsa) [A-Za-z0-9+/]+={0,3}( [A-Za-z0-9._@-]{1,64})?\Z")
+
+
+def clave_publica_valida(linea):
+    """La línea de clave pública, limpia, si es segura para escribirla en un comando remoto; si no, None."""
+    linea = (linea or "").strip()
+    return linea if _CLAVE_PUBLICA.match(linea) else None
+
+
+def cuerpo_clave(linea):
+    campos = (linea or "").split()
+    return campos[1] if len(campos) > 1 else None
+
+
+def cmd_anadir_clave(publica):
+    """Comando remoto (como el usuario del conector, sin sudo) que añade `publica` a su authorized_keys
+    si no está. Sin `$`: va dentro de comillas dobles en la línea del nodo de gestión."""
+    k = clave_publica_valida(publica)
+    if not k:
+        raise ValueError("clave pública inválida")
+    return (f"mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && "
+            f"(grep -qF '{cuerpo_clave(k)}' ~/.ssh/authorized_keys || echo '{k}' >> ~/.ssh/authorized_keys) && "
+            f"chmod 600 ~/.ssh/authorized_keys")
+
+
+def cmd_quitar_clave(cuerpo_viejo, cuerpo_nuevo):
+    """Quita la clave vieja SOLO si la nueva ya está (nunca deja el equipo sin ninguna)."""
+    for c in (cuerpo_viejo, cuerpo_nuevo):
+        if not c or not re.match(r"^[A-Za-z0-9+/]+={0,3}\Z", c):
+            raise ValueError("clave inválida")
+    return (f"grep -qF '{cuerpo_nuevo}' ~/.ssh/authorized_keys && "
+            f"grep -vF '{cuerpo_viejo}' ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.mdr && "
+            f"mv ~/.ssh/authorized_keys.mdr ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys")
+
+
+def ruta_rotacion(ruta_ajustes=None):
+    ruta_ajustes = ruta_ajustes or os.environ.get("TRIAJE_CONECTIVIDAD")
+    return os.path.join(os.path.dirname(os.path.abspath(ruta_ajustes)), "conectividad-rotacion.json") if ruta_ajustes else None
+
+
+def cargar_rotacion(ruta=None):
+    """Estado de la rotación en curso, o None."""
+    ruta = ruta or ruta_rotacion()
+    d = _leer_json(ruta) if ruta else {}
+    return d if d.get("estado") == "en_curso" else None
+
+
+def guardar_rotacion(ruta, estado):
+    if estado is None:
+        try:
+            os.unlink(ruta)
+        except OSError:
+            pass
+    else:
+        _escribir_json(ruta, estado)
+
+
+# ------------------------------------------------------------------ paquete de alta --
+RUTAS_TIPICAS = {"iptables": "/usr/sbin/iptables", "ss": "/usr/bin/ss", "ps": "/usr/bin/ps", "ip": "/usr/sbin/ip",
+                 "timeout": "/usr/bin/timeout", "tc": "/usr/sbin/tc", "service": "/usr/sbin/service",
+                 "passwd": "/usr/bin/passwd", "reboot": "/usr/sbin/reboot", "ping": "/usr/bin/ping",
+                 "restaurar": "/usr/local/sbin/restaurar"}
+
+
+def _sq(texto):
+    """Comillas simples de shell (los valores ya vienen validados; esto es el cinturón)."""
+    return "'" + str(texto).replace("'", "'\\''") + "'"
+
+
+def paquete(formato, equipo, usuario, publica, reglas, generado):
+    """Paquete de alta de un equipo: «script» (sh idempotente que resuelve las rutas en el propio
+    equipo), «ansible» o «sudoers» (rutas típicas de Debian/Ubuntu). Solo lleva la clave PÚBLICA.
+    Devuelve (nombre_fichero, contenido)."""
+    if not _USUARIO.match(usuario or ""):
+        raise ValueError("usuario inválido")
+    k = clave_publica_valida(publica)
+    if not k:
+        raise ValueError("clave pública del conector no disponible")
+    nombre = equipo["nombre"]
+    papel = equipo.get("papel") or "sin papel (catálogo completo)"
+    listas = " · ".join(x for x in (f"servicios: {', '.join(equipo.get('servicios') or [])}" if equipo.get("servicios") else "",
+                                    f"cuentas: {', '.join(equipo.get('cuentas') or [])}" if equipo.get("cuentas") else "") if x)
+    cab = f"Alta de {nombre} en el MDR · generado el {generado}"
+    if formato == "sudoers":
+        lineas = [f"# {cab}", f"# Papel: {papel}{' · ' + listas if listas else ''}",
+                  "# Rutas típicas de Debian/Ubuntu: compruébalas en el equipo (command -v) antes de instalarlo.",
+                  *[f"{usuario} ALL=(root) NOPASSWD: {RUTAS_TIPICAS.get(b, '/usr/bin/' + b)} {a}".rstrip() for b, a in reglas]]
+        return f"mdr-{usuario}.sudoers", "\n".join(lineas) + "\n"
+    if formato == "ansible":
+        sud = "\n".join(f"          {usuario} ALL=(root) NOPASSWD: {RUTAS_TIPICAS.get(b, '/usr/bin/' + b)} {a}".rstrip() for b, a in reglas)
+        return f"alta-{nombre}.yml", (
+            f"# {cab}\n# Papel: {papel}{' · ' + listas if listas else ''}. Rutas típicas de Debian/Ubuntu: revísalas.\n"
+            f"- name: Alta de {nombre} en el MDR\n  hosts: {nombre}\n  become: true\n  tasks:\n"
+            f"    - name: Usuario del conector, sin contraseña (solo clave)\n"
+            f"      ansible.builtin.user: {{ name: {usuario}, shell: /bin/sh, password: '*' }}\n"
+            f"    - name: Clave pública del conector\n"
+            f"      ansible.posix.authorized_key: {{ user: {usuario}, key: \"{k}\" }}\n"
+            f"    - name: Sudo limitado a su papel\n"
+            f"      ansible.builtin.copy:\n        dest: /etc/sudoers.d/mdr-{usuario}\n        mode: \"0440\"\n"
+            f"        validate: visudo -cf %s\n        content: |\n          # Generado por el MDR. No editar a mano.\n{sud}\n"
+            f"    - name: Huella de la clave del host (dictala en la plataforma)\n"
+            f"      ansible.builtin.command: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub\n      changed_when: false\n")
+    if formato != "script":
+        raise ValueError("formato desconocido")
+    reglas_sh = "\n".join(f"regla {_sq(b)} {_sq(a)}" for b, a in reglas)
+    return f"alta-{nombre}.sh", f"""#!/bin/sh
+# {cab}
+# Papel: {papel}{' · ' + listas if listas else ''}
+# Ejecútalo UNA vez como root en {nombre} ({equipo.get('ip')}). Es idempotente y no contiene ningún secreto:
+# solo la clave PÚBLICA del conector. Al final imprime la huella de la clave del host para la plataforma.
+set -eu
+U={usuario}
+# Portable (Debian/Ubuntu, RHEL y equipos mínimos con BusyBox): useradd o adduser, usermod o la línea
+# del shadow, y el directorio del usuario leído de /etc/passwd.
+if ! id "$U" >/dev/null 2>&1; then
+  if command -v useradd >/dev/null 2>&1; then useradd -m -s /bin/sh "$U"; else adduser -D -s /bin/sh "$U"; fi
+fi
+# sin contraseña válida ('*'), no bloqueada ('!'): OpenSSH sin PAM rechaza una cuenta bloqueada aunque la clave valga
+if command -v usermod >/dev/null 2>&1; then usermod -p '*' "$U"; else sed -i "s/^$U:[^:]*:/$U:*:/" /etc/shadow; fi
+H=$(awk -F: -v u="$U" '$1 == u {{ print $6 }}' /etc/passwd)
+install -d -m 700 -o "$U" -g "$U" "$H/.ssh"
+K={_sq(k)}
+touch "$H/.ssh/authorized_keys"
+grep -qxF "$K" "$H/.ssh/authorized_keys" || echo "$K" >> "$H/.ssh/authorized_keys"
+chown "$U:$U" "$H/.ssh/authorized_keys"; chmod 600 "$H/.ssh/authorized_keys"
+T=$(mktemp)
+regla() {{
+  b=$(command -v "$1" 2>/dev/null || true)
+  if [ -n "$b" ]; then echo "$U ALL=(root) NOPASSWD: $b $2" >> "$T"
+  else echo "  aviso: $1 no está instalado; se omite la regla «$1 $2»" >&2; fi
+}}
+echo "# Generado por el MDR para {nombre}. No editar a mano: se regenera desde la plataforma." > "$T"
+{reglas_sh}
+visudo -cf "$T" >/dev/null
+# Sustituye cualquier sudoers anterior que generó el MDR (este paquete o el aprovisionamiento del
+# laboratorio): sudo suma todos los ficheros, y uno viejo dejaría permitido lo que el papel ya quitó.
+# Se aparta con copia en /root, no se borra.
+for f in /etc/sudoers.d/*; do
+  [ -f "$f" ] && [ "$f" != "/etc/sudoers.d/mdr-$U" ] || continue
+  if grep -q '^# Generado \\(desde prototipo/catalogo.yml\\|por el MDR\\)' "$f"; then
+    mv "$f" "/root/mdr-sudoers-anterior.$(basename "$f")"; echo "  sudoers anterior del MDR apartado: $f"
+  fi
+done
+install -m 440 -o root -g root "$T" /etc/sudoers.d/mdr-$U
+rm -f "$T"
+echo "Alta lista. Huella de la clave del host (compárala en la plataforma):"
+for f in /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_rsa_key.pub; do [ -f "$f" ] && ssh-keygen -lf "$f" || true; done
+"""
 
 
 # ------------------------------------------------------------------------------ clave del host --
@@ -284,13 +526,18 @@ def escanear(ip, puerto, correr):
     rc, out = correr(["ssh-keyscan", "-T", "5", "-p", str(puerto), "-t", "ed25519,rsa", ip])
     if not _no_existe(rc, out):
         return [l for l in (out or "").splitlines() if l.strip() and not l.startswith("#") and huella_de(l)[0]] if rc == 0 else []
-    tmp = f"/tmp/mdr-escaneo-{ip.replace(':', '_')}-{puerto}"
-    correr(["rm", "-f", tmp])
+    # Directorio temporal de nombre aleatorio y solo del conector (mktemp -d, 0700): un nombre fijo en
+    # un /tmp compartido admitiría que otro proceso del nodo lo anticipara con un enlace simbólico.
+    rc_d, d = correr(["mktemp", "-d", "/tmp/mdr-escaneo.XXXXXXXX"])
+    directorio = (d or "").strip().splitlines()[-1] if rc_d == 0 and (d or "").strip() else ""
+    if not re.match(r"^/tmp/mdr-escaneo\.[A-Za-z0-9]{6,}\Z", directorio):
+        return []
+    tmp = f"{directorio}/known_hosts"
     correr(["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", "-o", f"UserKnownHostsFile={tmp}",
             "-o", "GlobalKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "-o", "PreferredAuthentications=none",
             "-p", str(puerto), "-l", "mdr-escaneo", ip, "true"])
     rc, out = correr(["cat", tmp])
-    correr(["rm", "-f", tmp])
+    correr(["rm", "-rf", directorio])
     return [l for l in (out or "").splitlines() if l.strip() and huella_de(l)[0]] if rc == 0 else []
 
 
@@ -309,5 +556,13 @@ def aceptar_clave_host(ip, puerto, huella_confirmada, known_hosts, correr):
     if huella_confirmada not in {huella_de(l)[0] for l in lineas}:
         raise HuellaDistinta("la huella que presenta el equipo no es la confirmada")
     _, actual = correr(["cat", known_hosts])
-    correr(["tee", known_hosts], reemplazar_host(actual, ip, lineas))
+    # Escritura atómica: temporal + copia del anterior + rename. Un corte a mitad no deja el known_hosts
+    # truncado (con él, el conector no entraría a ningún equipo).
+    rc, _ = correr(["tee", known_hosts + ".mdr"], reemplazar_host(actual, ip, lineas))
+    if rc != 0:
+        raise HuellaDistinta("no se pudo escribir el known_hosts del conector")
+    correr(["cp", "-p", known_hosts, known_hosts + ".anterior"])
+    rc, _ = correr(["mv", known_hosts + ".mdr", known_hosts])
+    if rc != 0:
+        raise HuellaDistinta("no se pudo sustituir el known_hosts del conector")
     return huella_confirmada

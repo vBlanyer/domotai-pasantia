@@ -126,6 +126,28 @@ def fusionar_politicas(perfil, overlay):
         out[dim] = merged
     return out
 
+_EN_EL_BORDE = {"AISLAR_NODO", "BLOQUEAR_DESTINO"}   # se ejecutan en el cortafuegos de borde del activo
+
+
+def papel_deniega(perfil, accion, activo, params=None):
+    """Motivo por el que el papel del equipo de ejecución no admite `accion`, o None si la admite o el
+    equipo no declara papel (comportamiento de siempre)."""
+    papeles = (perfil or {}).get("papeles_equipo") or {}
+    if not papeles:
+        return None
+    nodo = ejecutor_aislamiento(perfil, activo)[0] if accion in _EN_EL_BORDE else activo
+    pe = papeles.get(nodo)
+    if not pe:
+        return None
+    if accion not in (pe.get("acciones") or []):
+        return f"el papel de {nodo} no incluye {accion}: su sudoers la denegaría"
+    if accion == "CERRAR_SERVICIO" and (params or {}).get("servicio") not in (pe.get("servicios") or []):
+        return f"{nodo} no admite parar el servicio {(params or {}).get('servicio') or '(sin servicio)'}: no está en su lista"
+    if accion == "FORZAR_CAMBIO_PASS" and (params or {}).get("usuario") not in (pe.get("cuentas") or []):
+        return f"{nodo} no admite bloquear la cuenta {(params or {}).get('usuario') or '(sin cuenta)'}: no está en su lista"
+    return None
+
+
 def criticidad_de(perfil, activo):
     return perfil.get("activos", {}).get(activo, {}).get("criticidad", "media")
 
@@ -391,6 +413,14 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         if actores.es_tercero_confiable(destino, perfil):
             det = {**det, "motivo": (f"{det.get('motivo') or ''} · destino en terceros_confiables: "
                    "cortar el egreso tiraría un servicio de negocio, revisar con cuidado").strip()}
+    # Papel del equipo (inventario operativo de la consola): si el equipo DONDE SE EJECUTA la acción
+    # declara su papel y la acción no está en él —o el servicio/la cuenta no está en su lista—, su
+    # sudoers la denegaría: veto duro con el motivo, en vez de una contención que fallaría al ejecutarse.
+    # Un equipo sin papel declarado (el perfil canónico) no cambia nada.
+    if final.get("accion_final"):
+        motivo = papel_deniega(perfil, final["accion_final"], activo, params)
+        if motivo:
+            return {**_res("veta", None, True), "impacto": {**det, "motivo": motivo}}
     # Compuertas de postura (política editable): por familia de ataque y por zona/dispositivo. SOLO
     # degradan auto -> humano (conservan la acción); nunca suben a auto. Los vetos duros de arriba ya
     # devolvieron antes y mandan sobre esta compuerta.

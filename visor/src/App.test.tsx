@@ -13,13 +13,14 @@ import { Toaster } from "@/components/ui/toast"
 const App = () => <Toaster><AppReal /></Toaster>
 import { fijarToken, fijarOperador, EVENTO_NO_AUTORIZADO, cerrarSesion, tokenActual } from "@/api"
 
+// Montar la consola entera tarda bajo carga (suite en paralelo): las esperas llevan margen.
 describe("puerta de acceso", () => {
   beforeEach(() => { cerrarSesion(); sessionStorage.clear(); fijarOperador("") })
 
   it("con token exigido y sin token, solo la pantalla de acceso", async () => {
     h.respuesta = { tipo: "rechazado" }
     render(<App />)
-    expect(await screen.findByRole("heading", { name: "Entrar a la consola" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Entrar a la consola" }, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument()
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()        // sin token no hay «rechazado» que explicar
   })
@@ -35,7 +36,7 @@ describe("puerta de acceso", () => {
     fijarOperador("leo")
     h.respuesta = { tipo: "ok", requiereToken: false, operador: null }
     render(<App />)
-    expect(await screen.findByText("Consola abierta.")).toBeInTheDocument()
+    expect(await screen.findByText("Consola abierta.", undefined, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Sesión de leo" })).toBeInTheDocument()
   })
 
@@ -43,10 +44,10 @@ describe("puerta de acceso", () => {
     fijarToken("tok-ana")
     h.respuesta = { tipo: "ok", requiereToken: true, operador: "ana" }
     render(<App />)
-    expect(await screen.findByRole("button", { name: "Sesión de ana" })).toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "Sesión de ana" }, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.queryByText("Consola abierta.")).not.toBeInTheDocument()
     act(() => { window.dispatchEvent(new Event(EVENTO_NO_AUTORIZADO)) })
-    expect(screen.getByRole("dialog", { name: "Volver a entrar" })).toBeInTheDocument()
+    expect(await screen.findByRole("dialog", { name: "Volver a entrar" })).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Salir a la pantalla de acceso" }))
     expect(screen.getByRole("heading", { name: "Entrar a la consola" })).toBeInTheDocument()
     expect(tokenActual()).toBe("")

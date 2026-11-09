@@ -1,7 +1,8 @@
 # ⚠ Vista «Conectividad»: pendiente de revisión de seguridad
 
-> **Estado (4 nov 2026):** integrada y funcionando, **sin commit**, y **no apta para producción** hasta
-> cerrar los puntos de este documento. Se mantiene por ahora para el laboratorio.
+> **Estado (4 nov 2026):** integrada y funcionando, con alta de equipos, papeles, deriva del sudoers y
+> rotación de la clave validados en vivo contra el laboratorio. **No apta para producción** hasta cerrar los
+> puntos abiertos de este documento.
 >
 > Es la vista más delicada del visor: gestiona cómo el MDR entra por SSH a los equipos del cliente.
 > Un error aquí puede filtrar datos de la red o permitir que alguien redirija o bloquee el conector.
@@ -12,12 +13,21 @@ Vista del grupo **Configurar** del visor que permite, sin tocar código:
 
 - ver el modo del conector, la huella de su clave y la clave del host fijada de cada equipo;
 - cambiar el **puerto** y el **usuario** SSH de cada equipo, y el **usuario por defecto**;
-- **probar** la conexión a un equipo, comprobando que el sudo del catálogo funciona y que todo lo demás se deniega;
-- **aceptar una clave del host nueva** cuando un equipo la cambia.
+- **probar** la conexión a un equipo: entra, ejecuta un comando del catálogo, comprueba que sudo deniega
+  un testigo inocuo (`true`) y compara lo que sudo permite con el **papel** del equipo (deriva);
+- **aceptar una clave del host nueva** cuando un equipo la cambia;
+- **dar de alta un equipo** (asistente en cuatro pasos: inventario, papel y reglas, paquete de alta que
+  ejecuta el administrador del cliente, y verificar la huella y probar). El MDR no ve nunca una
+  credencial de administrador;
+- declarar el **papel y las reglas** de un equipo existente y generar su **paquete de corrección**;
+- **rotar la clave del conector** en tres fases (añadir y probar la nueva, retirar la vieja, finalizar),
+  con cancelación mientras no se haya retirado la vieja en ningún equipo.
 
-Los ajustes se guardan en `conectividad-operativa.yml`, junto a la salida del daemon, y el conector los
-lee por encima de las variables de entorno (`TRIAJE_CONECTIVIDAD`). Cada cambio queda en
-`conectividad-auditoria.jsonl`.
+Ficheros que escribe el daemon, junto a la salida: `conectividad-operativa.yml` (ajustes, el conector los
+lee por encima del entorno vía `TRIAJE_CONECTIVIDAD`), `inventario-operativo.yml` (equipos dados de alta y
+papeles, fusionado en el perfil vivo: el motor lo ve), `conectividad-pruebas.json` (última prueba de cada
+equipo), `conectividad-rotacion.json` (rotación en curso) y `conectividad-auditoria.jsonl` (cada prueba,
+lectura y cambio, con el operador).
 
 ## Ficheros
 
@@ -28,42 +38,75 @@ lee por encima de las variables de entorno (`TRIAJE_CONECTIVIDAD`). Cada cambio 
 | API web | `prototipo/servicio/conectividad_web.py` y las rutas `/api/conectividad*` en `prototipo/servicio/tablero.py` |
 | Ruta del fichero de ajustes | `prototipo/servicio/stream.py` (fija `TRIAJE_CONECTIVIDAD`) |
 | Visor | `visor/src/components/Conectividad.tsx`, `visor/src/conectividad.ts`, funciones en `visor/src/api.ts` |
-| Tests | `prototipo/tests/test_conectividad.py`, `prototipo/tests/test_conectividad_web.py`, `visor/src/components/Conectividad.test.tsx`, `visor/src/conectividad.test.ts` |
+| Inventario operativo y papeles | `prototipo/servicio/inventario_store.py`; papeles del catálogo en `prototipo/accion/catalogo.py` (`PAPELES`, `reglas_de_equipo`) |
+| Veto por papel en el motor | `prototipo/motor/perfil.py` (`papel_deniega`, dentro de `filtrar`; sin papel declarado no cambia nada) |
+| Asistente de alta y rotación | `visor/src/components/AltaEquipo.tsx`, `visor/src/components/RotacionClave.tsx`, `visor/src/components/ConectividadUi.tsx` |
+| Tests | `prototipo/tests/test_conectividad.py`, `prototipo/tests/test_conectividad_web.py`, `prototipo/tests/test_perfil.py` (papel), `visor/src/components/Conectividad.test.tsx`, `visor/src/conectividad.test.ts` |
 
 ## Protecciones que ya tiene
 
-- **La clave privada no se lee ni se devuelve nunca.** Solo se leen la clave pública (`.pub`) y el known_hosts.
-- **Editar exige un operador identificado** por el mapa de tokens (`TRIAJE_CONSOLA_OPERADORES`). Sin mapa, la vista es de solo lectura salvo con el opt-in de laboratorio `TRIAJE_CONECTIVIDAD_ABIERTA=1`.
-- **Un ajuste solo se guarda si la prueba de conexión con ese ajuste pasa.**
-- **Una clave del host nueva solo se acepta** si su huella es exactamente la que el analista vio y confirmó. Si cambió entre la lectura y la confirmación, no se escribe nada.
-- **Entradas validadas antes de llegar a ssh.** La IP pasa por `ipaddress`, el puerto tiene que ser un entero entre 1 y 65535 y el usuario debe cumplir `^[a-z_][a-z0-9_-]{0,31}$`. Los comandos se lanzan como lista de argumentos, sin shell.
-- **El modo del conector es de solo lectura** y el modo contraseña de laboratorio no admite ajustes.
-- **El equipo de `ip_gestion` (canal de gestión del MDR) está protegido**: no se configura desde aquí.
-- **El daemon escucha solo en 127.0.0.1** y los POST pasan el control anti-CSRF de `Origin`.
-- **El fichero de ajustes se escribe de forma atómica con permisos 0600.**
+- **La clave privada no se lee ni se devuelve nunca.** Solo la pública (`.pub`) y el known_hosts. El paquete
+  de alta lleva solo la clave **pública** del conector.
+- **Probar, leer la clave del host, editar, dar de alta y rotar exigen un operador identificado** por el mapa
+  de tokens (`TRIAJE_CONSOLA_OPERADORES`). Sin mapa, nada de eso salvo con el opt-in de laboratorio
+  `TRIAJE_CONECTIVIDAD_ABIERTA=1`. Ver la configuración basta con haber entrado en la consola. La vista dice
+  en una franja qué puede hacer cada sesión, y cada acción bloqueada lleva candado y motivo.
+- **Freno por equipo:** una prueba o lectura de la clave del mismo equipo como mucho cada 10 s (429).
+- **Cada prueba, lectura y cambio queda registrado** con el operador.
+- **Testigo inocuo:** la prueba comprueba la denegación con `true`, que no lee nada (antes `cat /etc/shadow`).
+- **Temporal aleatorio:** la lectura sin `ssh-keyscan` usa `mktemp -d` y lo borra entero.
+- **known_hosts atómico:** se escribe a un temporal, se guarda copia del anterior y se renombra.
+- **La última prueba sobrevive al reinicio** y la vista enseña su antigüedad; si cambia el papel del equipo, se olvida.
+- **Un ajuste solo se guarda si la prueba con ese ajuste pasa.**
+- **Una clave del host nueva solo se acepta** si su huella es exactamente la que el analista vio y confirmó.
+- **Un alta solo se completa** con la clave del host fijada (la huella que imprimió el propio equipo al
+  ejecutar el paquete) y la prueba completa en verde. Hasta entonces el equipo es «pendiente» y el motor no lo ve.
+- **El papel acota al motor:** si el equipo de ejecución declara papel y la acción no está en él (o el
+  servicio o la cuenta no está en su lista), el filtro la veta con el motivo. Sin papel, nada cambia.
+- **El paquete sustituye el sudoers anterior del MDR** (apartado con copia en `/root`), porque sudo suma ficheros.
+- **Rotación sin dejar a nadie fuera:** mientras dura, el conector ofrece las dos claves; la vieja solo se
+  retira donde la nueva ya entra, y no se finaliza mientras quede algún equipo con solo la vieja.
+- **Entradas validadas antes de llegar a ssh**, comandos sin shell local, claves públicas validadas por
+  patrón antes de ir en un comando remoto.
+- **El modo del conector es de solo lectura**, el modo contraseña de laboratorio no admite nada de esto, y
+  **el canal de gestión del MDR (`ip_gestion`) está protegido.**
+- **El daemon escucha solo en 127.0.0.1**, los POST pasan el control anti-CSRF de `Origin`, y los ficheros se
+  escriben de forma atómica con permisos 0600.
 
 ## Lo que hay que revisar antes de producción
 
-Ordenado por gravedad.
+Cerrados el 4 nov 2026: probar y leer exigen operador con freno por equipo (antes punto 2), testigo inocuo
+(3), temporal aleatorio (4), known_hosts atómico (6) y última prueba persistente (9). El punto 1 queda
+**decidido**: ver la configuración exige haber entrado; con la consola abierta el daemon no puede saber
+quién lee, igual que el resto de la API.
 
-1. **El GET es legible sin token cuando la consola está abierta.** `GET /api/conectividad` devuelve IPs, usuarios, puertos, rutas de clave, huellas de host y la clave pública del conector. No son secretos, pero son un mapa de reconocimiento de la red. Decidir si este endpoint debe exigir token **siempre**, aunque el resto de la consola esté abierta.
-2. **Probar y leer la clave del host no exigen operador.** Cualquiera con acceso a la consola puede lanzar conexiones SSH a todos los equipos a voluntad. Valorar exigir operador también aquí y poner un límite de frecuencia por equipo.
-3. **El comando prohibido de la prueba es `cat /etc/shadow`.** Si un equipo está mal aprovisionado y sudo lo permite, el contenido de `/etc/shadow` pasa por la memoria del daemon. No se devuelve ni se registra, pero el diseño debería evitarlo. Cambiarlo por un comando fuera del catálogo que **no lea nada sensible**, por ejemplo `sudo -n true` o `sudo -n id`, comprobando que sigue siendo un buen testigo de «sudo deniega lo que no está en el catálogo».
-4. **Fichero temporal con nombre predecible.** Si el nodo de gestión no tiene `ssh-keyscan`, la lectura de la clave del host escribe en `/tmp/mdr-escaneo-<ip>-<puerto>` dentro de ese nodo. En un `/tmp` compartido eso admite un ataque por enlace simbólico. Usar `mktemp` en un directorio propio con permisos 0700, o instalar `ssh-keyscan` en el nodo y quitar el recurso.
-5. **El registro de auditoría no está encadenado.** `conectividad-auditoria.jsonl` es un JSONL simple, igual que el de Políticas, y no entra en la cadena de hashes de la traza. Un cambio de clave del host o de usuario debería quedar en la traza firmada.
-6. **La escritura del known_hosts no es atómica.** Se hace con `tee` sobre el fichero real en el nodo de gestión. Un corte a mitad dejaría el known_hosts truncado y el conector sin entrar a ningún equipo. Escribir a un temporal y renombrar, y guardar una copia del anterior.
-7. **El bloqueo es solo dentro del proceso.** Dos daemons, o una edición a mano del fichero mientras la vista guarda, pueden pisarse. Añadir un bloqueo de fichero o una comprobación de versión.
-8. **`TRIAJE_CONECTIVIDAD` decide qué fichero lee el conector.** Si alguien controla el entorno del daemon puede apuntarlo a otro fichero. Es el mismo modelo de confianza que el resto de variables `TRIAJE_*`, pero conviene documentarlo y validar que la ruta está dentro del directorio de salida.
-9. **La última prueba vive solo en memoria.** Se pierde al reiniciar y la vista vuelve a «sin probar». No es un riesgo, pero puede inducir a error tras un reinicio.
-10. **No hay forma de apagar la vista sin tocar código.** Añadir una variable, por ejemplo `TRIAJE_CONECTIVIDAD_DESACTIVADA=1`, que oculte la entrada del menú y responda 404 en las rutas.
+Siguen abiertos, por gravedad:
+
+1. **El registro de auditoría no está encadenado.** `conectividad-auditoria.jsonl` no entra en la cadena de
+   hashes de la traza. Un alta, un cambio de clave del host o una rotación deberían quedar en la traza firmada.
+2. **El bloqueo es solo dentro del proceso.** Dos daemons, o una edición a mano de los ficheros mientras la
+   vista guarda, pueden pisarse. Añadir un bloqueo de fichero o una comprobación de versión.
+3. **`TRIAJE_CONECTIVIDAD` decide qué ficheros lee el conector** (ajustes y rotación). Si alguien controla el
+   entorno del daemon puede apuntarlo a otro sitio. Documentarlo y validar que la ruta está dentro del
+   directorio de salida.
+4. **No hay forma de apagar la vista sin tocar código.** Añadir, por ejemplo, `TRIAJE_CONECTIVIDAD_DESACTIVADA=1`.
+5. **La rotación escribe en los equipos** (el `authorized_keys` del propio conector, sin sudo). Es una
+   capacidad nueva del conector: revisar con el cliente si la acepta, o si prefiere rotar con su gestión de
+   configuración a partir del paquete.
+6. **Las reglas «que faltan» no distinguen** un binario no instalado de una regla quitada a mano. Hoy es solo
+   un aviso; con un inventario de binarios por equipo podría afinarse.
 
 ## Cómo dejarla de solo lectura ahora mismo
 
-Con el código actual, basta con **no** definir `TRIAJE_CONECTIVIDAD_ABIERTA` y **no** tener operadores
-con token. Así nadie puede guardar ni aceptar claves. Ojo: probar, leer la clave del host y el GET siguen
-disponibles, como se explica en los puntos 1 y 2.
+Basta con **no** definir `TRIAJE_CONECTIVIDAD_ABIERTA` y **no** tener operadores con token: nadie puede
+probar, leer claves, dar de alta, rotar ni cambiar nada. Solo se ve la configuración.
 
 ## Observación del laboratorio
+
+Al validar (4 nov 2026), **web-banking no acepta SSH desde el nodo de gestión**: tiene en su cortafuegos
+`-A INPUT -s 10.100.0.10/32 -p tcp --dport 22 -j DROP` y `-A INPUT -i eth0 -p tcp -j DROP`. Es estado del
+laboratorio (no lo puso esta vista) y deja al conector sin poder contener en ese equipo. No se tocó.
+
 
 El daemon que corre en `:8787` arrancó sin `TRIAJE_SSH_MODO` y con el nodo de gestión por defecto, así que
 la vista lo muestra como **«sin configurar»**: hoy no ejecutaría ninguna contención real. La validación en
@@ -86,6 +129,7 @@ Y una prueba en vivo de solo lectura contra el laboratorio: `POST /api/conectivi
 
 ## Referencias
 
-- Mockup aprobado: https://claude.ai/artifact/9YauiBV2KXPEygzMYXz2sd
+- Mockup aprobado (vista): https://claude.ai/artifact/9YauiBV2KXPEygzMYXz2sd
+- Mockup aprobado (alta de equipos, papeles, deriva y rotación): https://claude.ai/artifact/9Zw1ppJBNYBSoFpsr1GpMj
 - Aprovisionamiento del mínimo privilegio: `lab/scripts/aprovisionar-minimo-privilegio.sh`
 - Patrón que sigue (overlay + auditoría + fail-closed): editor de Políticas, `POST /api/politica`

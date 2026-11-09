@@ -37,21 +37,34 @@ class _Falso:
         if args[:1] == ["tee"]:
             self.escrito = entrada
             return 0, entrada
+        if args[0] in ("cp", "mv", "rm", "ssh-keygen"):
+            self.ficheros.append(args)
+            return 0, ""
         return 1, "?"
 
-    def ejecutor_con(self, modo, usuario=None, puerto=None):
+    ficheros = None
+    sudo_l = None                # salida de `sudo -l` del usuario del conector (None = pide contraseña)
+
+    def ejecutor_con(self, modo, usuario=None, puerto=None, sudo=True, claves=None):
         def ej(ip, cmd):
-            self.vistos.append((ip, usuario, puerto, cmd))
+            self.vistos.append((ip, usuario, puerto, cmd) if sudo and not claves else (ip, usuario, puerto, cmd, sudo, tuple(claves or ())))
+            if not sudo:
+                if cmd == "sudo -S -l":
+                    return (0, self.sudo_l) if self.sudo_l else (1, "sudo: a password is required")
+                return 0, ""
+            if claves:
+                return 0, "ok"
             cola = self.ssh.setdefault(ip, [(0, "ok"), (1, "denegado")])
             return cola.pop(0) if len(cola) > 1 else cola[0]
         return ej
 
 
-class TestConectividadWeb(unittest.TestCase):
+class _Base(unittest.TestCase):
     def _srv(self, operadores=None, modo="clave"):
         d = tempfile.mkdtemp()
         self.ruta, self.au = os.path.join(d, "conectividad.yml"), os.path.join(d, "conectividad-auditoria.jsonl")
         self.f = _Falso()
+        self.f.ficheros = []
         srv = tablero.crear_servidor(tablero.EstadoTablero(), os.path.join(d, "t.jsonl"), puerto=0,
                                      estaticos=tempfile.mkdtemp(), perfil=json.loads(json.dumps(PERFIL)),
                                      operadores=operadores, ruta_conectividad=self.ruta,
@@ -75,6 +88,7 @@ class TestConectividadWeb(unittest.TestCase):
     def _eq(self, est, nombre):
         return next(e for e in est["equipos"] if e["nombre"] == nombre)
 
+class TestConectividadWeb(_Base):
     def test_resumen(self):
         srv = self._srv({"tok": "ana"})
         st, est = self._req(srv, "GET", "/api/conectividad", token="tok")
@@ -154,6 +168,123 @@ class TestConectividadWeb(unittest.TestCase):
         self.assertEqual(self.f.escrito, f"10.0.0.1 {K2}\n10.0.20.10 {NUEVA_DB}\n")
         with open(self.au) as f:
             self.assertEqual(json.loads(f.read().splitlines()[-1])["dimension"], "clave_host")
+
+
+class TestPermisosAltaYRotacion(_Base):
+    """Probar exige operador; freno por equipo; auditoría; pruebas en disco; alta en dos tiempos; rotación."""
+    CAT = None
+
+    def _srv_cat(self, **kw):
+        from prototipo.accion import catalogo
+        srv = self._srv(**kw)
+        srv.catalogo = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
+        return srv
+
+    def test_probar_y_leer_exigen_operador(self):
+        srv = self._srv()                                   # sin mapa de operadores ni opt-in
+        _, est = self._req(srv, "GET", "/api/conectividad")
+        self.assertEqual(est["permisos"], {"probar": False, "editar": False, "motivo": "probar y cambiar exigen un operador identificado por su token"})
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core", "operador": "x"})[0], 403)
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/leer-clave-host", {"equipo": "db-core"})[0], 403)
+        self.assertEqual(self.f.vistos, [])                 # no se abrió ninguna conexión
+
+    def test_freno_por_equipo_auditoria_y_prueba_en_disco(self):
+        srv = self._srv({"tok": "ana"})
+        st, r = self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
+        self.assertEqual((st, r["estado"], r["por"]), (200, "verificada", "ana"))
+        st, r = self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
+        self.assertEqual(st, 429)
+        self.assertTrue(1 <= r["reintentar_en"] <= 10)
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "fw-core"}, token="tok")[0], 200)
+        with open(self.au) as f:
+            ult = json.loads(f.read().splitlines()[-1])
+        self.assertEqual((ult["dimension"], ult["clave"], ult["operador"]), ("prueba", "fw-core", "ana"))
+        self.assertIn("10.0.20.10", cx.cargar_pruebas(srv.ruta_pruebas))          # sobrevive al reinicio
+
+    def test_deriva_del_sudoers(self):
+        srv = self._srv_cat(operadores={"tok": "ana"})
+        self.f.sudo_l = "    (root) NOPASSWD: /sbin/iptables -L -n, /bin/cat *"
+        st, r = self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
+        self.assertEqual((r["estado"], r["reglas"]["estado"]), ("privilegio_de_mas", "sobran"))
+        self.assertIn("cat *", r["reglas"]["sobran"])
+
+    def test_alta_de_un_equipo_nuevo(self):
+        srv = self._srv_cat(operadores={"tok": "ana"})
+        datos = {"nombre": "pagos-qr", "ip": "10.0.20.20", "zona": "Servidores", "funcion": "Pagos QR", "criticidad": "alta",
+                 "depende_de": ["db-core"], "papel": "servidor", "servicios": ["nginx"], "cuentas": ["appqr"]}
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/inventario", {**datos, "cuentas": ["root"]}, token="tok")[0], 400)
+        st, r = self._req(srv, "POST", "/api/conectividad/inventario", datos, token="tok")
+        self.assertEqual((st, r["alta"]), (200, "pendiente"))
+        _, est = self._req(srv, "GET", "/api/conectividad", token="tok")
+        self.assertEqual((self._eq(est, "pagos-qr")["alta"], self._eq(est, "pagos-qr")["papel"]), ("pendiente", "servidor"))
+        self.assertNotIn("pagos-qr", srv.perfil.get("activos") or {})            # pendiente: el motor aún no lo ve
+        st, p = self._req(srv, "GET", "/api/conectividad/paquete?equipo=pagos-qr&formato=script", token="tok")
+        self.assertEqual((st, p["nombre"]), (200, "alta-pagos-qr.sh"))
+        self.assertIn("regla 'service' 'nginx stop'", p["contenido"])
+        self.assertIn(PUB, p["contenido"])
+        # sin clave del host fijada no hay alta
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/alta", {"equipo": "pagos-qr", "huella": F1}, token="tok")[0], 409)
+        global KNOWN
+        antes, KNOWN = KNOWN, KNOWN + f"10.0.20.20 {K1}\n"
+        try:
+            self.f.sudo_l = None
+            st, r = self._req(srv, "POST", "/api/conectividad/alta", {"equipo": "pagos-qr", "huella": F1}, token="tok")
+        finally:
+            KNOWN = antes
+        self.assertEqual((st, r["alta"]), (200, "activo"))
+        self.assertEqual(srv.perfil["activos"]["pagos-qr"]["criticidad"], "alta")    # ya en el motor
+        self.assertIn("pagos-qr", srv.perfil["red"]["zonas"]["Servidores"])
+        self.assertEqual(srv.perfil["papeles_equipo"]["pagos-qr"]["servicios"], ["nginx"])
+
+    def test_papel_de_un_equipo_existente_y_quitarlo(self):
+        srv = self._srv_cat(operadores={"tok": "ana"})
+        self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
+        self.assertIn("10.0.20.10", srv.conectividad_pruebas)
+        st, _ = self._req(srv, "POST", "/api/conectividad/inventario", {"nombre": "db-core", "papel": "puesto"}, token="tok")
+        self.assertEqual(st, 200)
+        self.assertNotIn("10.0.20.10", srv.conectividad_pruebas)          # comparaba con otras reglas: se olvida
+        self.assertEqual(srv.perfil["papeles_equipo"]["db-core"]["papel"], "puesto")
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/inventario", {"nombre": "monitor", "papel": "puesto"}, token="tok")[0], 400)
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/inventario/quitar", {"nombre": "db-core"}, token="tok")[0], 200)
+        self.assertNotIn("papeles_equipo", srv.perfil)
+
+    def test_rotacion_en_tres_fases(self):
+        srv = self._srv_cat(operadores={"tok": "ana"})
+        pub_nueva = K3 + " mdr-conector"
+        original = self.f.correr
+        def correr(args, entrada=None):
+            if args[:1] == ["cat"] and args[1].endswith(".nueva.pub"):
+                return 0, pub_nueva + "\n"
+            return original(args, entrada)
+        srv.conectividad_correr = lambda m: correr
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "preparar"}, token="tok")[0], 409)
+        st, r = self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "iniciar"}, token="tok")
+        self.assertEqual((st, r["rotacion"]["huella_nueva"]), (200, F3))
+        self.assertTrue(any(a[0] == "ssh-keygen" for a in self.f.ficheros))
+        st, r = self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "finalizar"}, token="tok")
+        self.assertEqual(st, 409)                                        # aún no se retiró la vieja en ningún equipo
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "preparar"}, token="tok")[0], 200)
+        anadir = [v for v in self.f.vistos if len(v) > 4 and v[4] is False and "authorized_keys" in v[3]]
+        self.assertTrue(anadir and all(K3.split()[1] in v[3] for v in anadir))
+        st, r = self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "retirar"}, token="tok")
+        self.assertTrue(all(f.get("retirada") for f in r["rotacion"]["equipos"].values()))
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "cancelar"}, token="tok")[0], 409)
+        st, r = self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "finalizar"}, token="tok")
+        self.assertEqual((st, r["rotacion"]), (200, None))
+        movidos = [a for a in self.f.ficheros if a[0] == "mv"]
+        self.assertEqual(movidos[-2][2:], [movidos[-2][2], movidos[-2][3]])
+        self.assertTrue(movidos[-2][2].endswith(".nueva") and not movidos[-2][3].endswith(".nueva"))
+
+    def test_cancelar_quita_la_nueva(self):
+        srv = self._srv_cat(operadores={"tok": "ana"})
+        original = self.f.correr
+        srv.conectividad_correr = lambda m: (lambda a, e=None: (0, K3 + " mdr-conector\n") if a[:1] == ["cat"] and a[1].endswith(".nueva.pub") else original(a, e))
+        self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "iniciar"}, token="tok")
+        self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "preparar"}, token="tok")
+        st, r = self._req(srv, "POST", "/api/conectividad/rotacion", {"accion": "cancelar"}, token="tok")
+        self.assertEqual((st, r["rotacion"]), (200, None))
+        quitar = [v for v in self.f.vistos if len(v) > 4 and v[3].startswith("grep -qF")]
+        self.assertTrue(quitar)
 
 
 if __name__ == "__main__":

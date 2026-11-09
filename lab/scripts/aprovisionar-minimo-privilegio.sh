@@ -76,10 +76,10 @@ if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S $IPT -L -n'" >/dev/nul
 else
   echo "   ERROR: el comando del catalogo no se pudo ejecutar"; exit 1
 fi
-if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S cat /etc/shadow'" >/dev/null 2>&1; then
+if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S true'" >/dev/null 2>&1; then
   echo "   ERROR: un comando FUERA del catalogo se ejecuto: el sudoers no restringe"; exit 1
 else
-  echo "   denegado (fuera del catalogo): cat /etc/shadow   OK"
+  echo "   denegado (fuera del catalogo): true   OK"
 fi
 if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S $IPT -F'" >/dev/null 2>&1; then
   echo "   ERROR: 'iptables -F' (mismo binario, otros argumentos) se ejecuto"; exit 1

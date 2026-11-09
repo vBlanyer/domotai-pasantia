@@ -613,3 +613,38 @@ class TestValidarServicios(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPapelDelEquipo(unittest.TestCase):
+    """El papel del equipo (inventario operativo) veta lo que su sudoers denegaría; sin papel, nada cambia."""
+
+    def test_sin_papel_declarado_nada_cambia(self):
+        p = perfil_fx()
+        self.assertIsNone(perfil.papel_deniega(p, "BLOQUEAR_IP", "objetivo-vuln"))
+        self.assertEqual(perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)["resultado"], "permite")
+
+    def test_accion_fuera_del_papel_se_veta_con_motivo(self):
+        p = perfil_fx()
+        p["papeles_equipo"] = {"objetivo-vuln": {"papel": "puesto", "acciones": ["MATAR_CONEXION"], "servicios": [], "cuentas": []}}
+        r = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual((r["resultado"], r["accion_final"], r["requiere_humano"]), ("veta", None, True))
+        self.assertIn("no incluye BLOQUEAR_IP", r["impacto"]["motivo"])
+
+    def test_servicio_y_cuenta_fuera_de_su_lista(self):
+        p = perfil_fx()
+        p["papeles_equipo"] = {"objetivo-vuln": {"papel": "servidor", "acciones": ["CERRAR_SERVICIO", "FORZAR_CAMBIO_PASS"],
+                                                 "servicios": ["nginx"], "cuentas": ["appqr"]}}
+        self.assertIsNone(perfil.papel_deniega(p, "CERRAR_SERVICIO", "objetivo-vuln", {"servicio": "nginx"}))
+        self.assertIn("vsftpd", perfil.papel_deniega(p, "CERRAR_SERVICIO", "objetivo-vuln", {"servicio": "vsftpd"}))
+        self.assertIsNone(perfil.papel_deniega(p, "FORZAR_CAMBIO_PASS", "objetivo-vuln", {"usuario": "appqr"}))
+        self.assertIn("root", perfil.papel_deniega(p, "FORZAR_CAMBIO_PASS", "objetivo-vuln", {"usuario": "root"}))
+
+    def test_las_acciones_del_borde_miran_el_papel_del_cortafuegos(self):
+        p = {"activos": {"web": {"ip": "10.0.0.5"}},
+             "topologia": {"web": {"rol": "host_victima", "ip": "10.0.0.5", "gateway": "fw"},
+                           "fw": {"rol": "firewall_perimetral", "ip": "10.0.0.1"}},
+             "papeles_equipo": {"web": {"papel": "servidor", "acciones": ["BLOQUEAR_IP"]},
+                                "fw": {"papel": "cortafuegos", "acciones": ["BLOQUEAR_IP_FIREWALL"]}}}
+        self.assertIn("el papel de fw no incluye AISLAR_NODO", perfil.papel_deniega(p, "AISLAR_NODO", "web"))
+        p["papeles_equipo"]["fw"]["acciones"].append("AISLAR_NODO")
+        self.assertIsNone(perfil.papel_deniega(p, "AISLAR_NODO", "web"))

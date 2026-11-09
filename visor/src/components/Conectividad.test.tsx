@@ -5,12 +5,16 @@ import { Toaster } from "@/components/ui/toast"
 const h = vi.hoisted(() => ({
   datos: {} as unknown,
   probar: vi.fn(), guardar: vi.fn(), defecto: vi.fn(), leer: vi.fn(), aceptar: vi.fn(),
+  inventario: vi.fn(), alta: vi.fn(), paquete: vi.fn(), rotar: vi.fn(), probarEquipo: vi.fn(),
+  sesion: { modo: "identificado", operador: "ana", desde: 0 } as unknown,
 }))
 vi.mock("@/api", async (orig) => ({
   ...(await orig<typeof import("@/api")>()),
   getConectividad: async () => h.datos,
   probarConexion: h.probar, guardarConexion: h.guardar, guardarUsuarioDefecto: h.defecto,
   leerClaveHost: h.leer, aceptarClaveHost: h.aceptar,
+  guardarInventario: h.inventario, darDeAlta: h.alta, getPaquete: h.paquete, rotarClave: h.rotar, probarEquipo: h.probarEquipo,
+  sesionActual: () => h.sesion, operadorActual: () => "ana",
 }))
 import { Conectividad } from "./Conectividad"
 
@@ -24,31 +28,45 @@ const base = (x: object = {}) => ({
   clave: { huella: "SHA256:CONECTOR", tipo: "ED25519", publica: "ssh-ed25519 AAAA conector" },
   equipos: [equipo({}), equipo({ nombre: "db-core", ip: "10.0.20.10", huella_fijada: "SHA256:DBVIEJA", ultima_prueba: { ok: false, estado: "host_cambiada", pasos: [] } }),
             equipo({ nombre: "monitor", ip: "10.0.30.3", protegido: true })],
-  cambios: [], ...x,
+  cambios: [], permisos: { probar: true, editar: true, motivo: null },
+  papeles: [{ id: "servidor", nombre: "Servidor", descripcion: "Observar, bloquear…", acciones: ["OBS_CONEXIONES", "BLOQUEAR_IP", "CERRAR_SERVICIO"] },
+            { id: "puesto", nombre: "Puesto", descripcion: "Observar y cortar…", acciones: ["OBS_CONEXIONES", "MATAR_CONEXION"] }],
+  acciones: [{ id: "OBS_CONEXIONES", comando: "ss -tunap", nunca_automatica: false, lista: null },
+             { id: "BLOQUEAR_IP", comando: "iptables -A INPUT -s {ip} -j DROP", nunca_automatica: false, lista: null },
+             { id: "MATAR_CONEXION", comando: "ss -K dst {ip}", nunca_automatica: false, lista: null },
+             { id: "CERRAR_SERVICIO", comando: "service {servicio} stop", nunca_automatica: false, lista: "servicios" }],
+  zonas: ["Borde", "Servidores"], activos: ["fw-core", "db-core"], criticidades: ["baja", "media", "alta"], rotacion: null, ...x,
 })
 const vista = () => <Toaster><Conectividad /></Toaster>
 const region = () => within(screen.getByRole("region", { name: "Equipo" }))
 
 describe("Conectividad", () => {
-  beforeEach(() => { for (const f of [h.probar, h.guardar, h.defecto, h.leer, h.aceptar]) f.mockReset(); h.datos = base() })
+  beforeEach(() => {
+    for (const f of [h.probar, h.guardar, h.defecto, h.leer, h.aceptar, h.inventario, h.alta, h.paquete, h.rotar, h.probarEquipo]) f.mockReset()
+    h.datos = base(); h.sesion = { modo: "identificado", operador: "ana", desde: 0 }
+  })
 
   it("enseña el conector, su huella, el resumen y cada equipo; nunca una clave privada", async () => {
     render(vista())
     expect(await screen.findByText("SHA256:CONECTOR")).toBeInTheDocument()
-    expect(screen.getByText("Clave · vía nodo de gestión")).toHaveAttribute("aria-current", "true")
-    expect(screen.getByText("no se contiene")).toBeInTheDocument()                    // monitor protegido
+    expect(screen.getByText("Clave · vía nodo de gestión").tagName).toBe("B")              // el modo es información, no un selector
+    expect(screen.getByRole("status")).toHaveTextContent("Firmas como ana, verificado por tu token.")
+    expect(screen.getByText(/Canal de gestión del MDR: no se contiene/)).toBeInTheDocument()   // monitor protegido
     expect(screen.getByText("bloqueada")).toBeInTheDocument()                          // db-core
     expect(region().getByText("fw-core")).toBeInTheDocument()                          // el primero contenible
     expect(document.body.textContent).not.toMatch(/PRIVATE KEY/)
   })
 
   it("sin operador es solo lectura y dice por qué", async () => {
-    h.datos = base({ editable: false, motivo_no_editable: "solo lectura: editar exige un operador identificado por su token" })
+    h.sesion = { modo: "abierta", operador: "", desde: 0 }
+    h.datos = base({ editable: false, permisos: { probar: false, editar: false, motivo: "probar y cambiar exigen un operador identificado por su token" } })
     render(vista())
     await screen.findByText("SHA256:CONECTOR")
+    expect(screen.getByRole("status")).toHaveTextContent("Consola abierta. Puedes ver la configuración. Probar y cambiar exige un token de operador")
     expect(screen.getByLabelText("Puerto")).toBeDisabled()
-    expect(screen.queryByRole("button", { name: "Probar y guardar" })).not.toBeInTheDocument()
-    expect(screen.getAllByText(/editar exige un operador/).length).toBeGreaterThan(0)
+    for (const b of ["Probar y guardar", "Probar sin guardar", "+ Añadir equipo", "Probar todos", "Volver a leer del equipo"])
+      expect(screen.queryByRole("button", { name: b })).not.toBeInTheDocument()
+    expect(screen.getByText(/Probar y cambiar ajustes · exige tu token de operador/)).toBeInTheDocument()   // candado con motivo
   })
 
   it("«Probar y guardar» manda el ajuste y, si la prueba falla, enseña por qué y no guarda", async () => {
@@ -70,6 +88,62 @@ describe("Conectividad", () => {
     fireEvent.click(screen.getByRole("button", { name: "Probar sin guardar" }))
     expect(await screen.findByText("sudo deniega lo que está fuera del catálogo")).toBeInTheDocument()
     expect(h.probar).toHaveBeenCalledWith("fw-core", { puerto: null, usuario: null })
+  })
+
+  it("la deriva del sudoers se enseña con lo que sobra y lo que falta", async () => {
+    h.datos = base({ equipos: [equipo({ papel: "puesto", ultima_prueba: { ok: false, estado: "privilegio_de_mas", pasos: [],
+      reglas: { estado: "sobran", sobran: ["cat *"], faltan: ["ss -K dst *"] } } })] })
+    render(vista())
+    await screen.findByText("SHA256:CONECTOR")
+    expect(screen.getAllByText("no coinciden").length).toBeGreaterThan(0)
+    expect(region().getByText("+ cat *")).toBeInTheDocument()
+    expect(region().getByText("− ss -K dst *")).toBeInTheDocument()
+    expect(region().getByRole("button", { name: "Generar paquete de corrección" })).toBeInTheDocument()
+  })
+
+  it("añadir un equipo: inventario, papel, paquete y alta con la huella confirmada", async () => {
+    h.inventario.mockResolvedValue({ status: 200, datos: { equipo: "pagos-qr", alta: "pendiente" } })
+    h.paquete.mockResolvedValue({ nombre: "alta-pagos-qr.sh", contenido: "#!/bin/sh\nregla 'service' 'nginx stop'", formato: "script" })
+    h.leer.mockResolvedValue({ status: 200, datos: { fijada: null, presentada: "SHA256:QRNUEVA", coincide: false } })
+    h.aceptar.mockResolvedValue({ status: 200, datos: { huella: "SHA256:QRNUEVA" } })
+    h.alta.mockResolvedValue({ status: 200, datos: { alta: "activo", prueba: PRUEBA_OK } })
+    render(vista())
+    await screen.findByText("SHA256:CONECTOR")
+    fireEvent.click(screen.getByRole("button", { name: "+ Añadir equipo" }))
+    const capa = within(screen.getByRole("dialog", { name: "Añadir equipo" }))
+    fireEvent.change(capa.getByLabelText("Nombre"), { target: { value: "pagos-qr" } })
+    fireEvent.change(capa.getByLabelText("IP"), { target: { value: "10.0.20.20" } })
+    fireEvent.click(capa.getByRole("button", { name: "Siguiente: papel y reglas" }))
+    fireEvent.change(capa.getByLabelText("Servicios que se pueden parar"), { target: { value: "nginx" } })
+    fireEvent.click(capa.getByRole("button", { name: "Generar el paquete de alta" }))
+    await waitFor(() => expect(h.inventario).toHaveBeenCalledWith(expect.objectContaining({
+      nombre: "pagos-qr", ip: "10.0.20.20", zona: "Borde", papel: "servidor", servicios: ["nginx"],
+      acciones: ["OBS_CONEXIONES", "BLOQUEAR_IP", "CERRAR_SERVICIO"] })))
+    expect(await capa.findByText(/regla 'service' 'nginx stop'/)).toBeInTheDocument()
+    fireEvent.click(capa.getByRole("button", { name: "Ya está ejecutado" }))
+    fireEvent.click(capa.getByRole("button", { name: "Leer la clave del equipo" }))
+    expect(await capa.findByText("SHA256:QRNUEVA")).toBeInTheDocument()
+    expect(capa.getByRole("button", { name: "Dar de alta pagos-qr" })).toBeDisabled()       // sin confirmar la huella, no
+    fireEvent.click(capa.getByRole("checkbox", { name: "Coincide con la que imprimió el equipo" }))
+    fireEvent.click(capa.getByRole("button", { name: "Dar de alta pagos-qr" }))
+    await waitFor(() => expect(h.alta).toHaveBeenCalledWith("pagos-qr", "SHA256:QRNUEVA"))
+    expect(h.aceptar).toHaveBeenCalledWith("pagos-qr", "SHA256:QRNUEVA")
+  })
+
+  it("la rotación se inicia y la retirada de la vieja pide confirmación", async () => {
+    h.rotar.mockResolvedValue({ status: 200, datos: {} })
+    h.datos = base({ rotacion: { iniciada_por: "ana", en: "2026-11-04T10:00:00Z", huella_nueva: "SHA256:NUEVA",
+      equipos: { "fw-core": { anadida: true, probada: true }, "db-core": { anadida: false, error: "no se pudo añadir la clave nueva" } } } })
+    render(vista())
+    await screen.findByText("SHA256:CONECTOR")
+    fireEvent.click(screen.getByRole("button", { name: "Rotación de la clave en curso…" }))
+    const capa = within(screen.getByRole("dialog", { name: "Rotar la clave del conector" }))
+    expect(capa.getByText("no se pudo añadir la clave nueva")).toBeInTheDocument()
+    expect(capa.getByRole("button", { name: "Finalizar" })).toBeDisabled()
+    fireEvent.click(capa.getByRole("button", { name: "Retirar la clave vieja en 1 equipo…" }))
+    expect(h.rotar).not.toHaveBeenCalled()
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Retirar la clave vieja" }))
+    await waitFor(() => expect(h.rotar).toHaveBeenCalledWith("retirar"))
   })
 
   it("una clave del host cambiada se lee, se compara y solo se acepta confirmando", async () => {

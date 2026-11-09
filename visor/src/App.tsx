@@ -392,12 +392,13 @@ export default function App() {
     return () => { vivo = false }
   }, [entrar])
 
+  // La escucha se instala UNA vez al arrancar (no al entrar): si se instalara al entrar, un 401 que
+  // llegue justo en ese momento se perdería. El aviso solo se enseña estando dentro, y entrar lo limpia.
   useEffect(() => {
-    if (!dentro) return
     const pedir = () => setReentrar(true)
     window.addEventListener(EVENTO_NO_AUTORIZADO, pedir)
     return () => window.removeEventListener(EVENTO_NO_AUTORIZADO, pedir)
-  }, [dentro])
+  }, [])
 
   const salir = () => { cerrarSesion(); setReentrar(false); setFase({ f: "acceso" }) }
   const sesion = sesionActual()
@@ -410,7 +411,7 @@ export default function App() {
     <>
       <Interfaz key={generacion} sesion={sesion} onCerrarSesion={salir}
         onCambiarNombre={() => setFase({ f: "nombre", modo: sesion.modo === "compartido" ? "compartido" : "abierta" })} />
-      {reentrar && <Reautenticar onEntrar={entrar} onSalir={salir} />}
+      {dentro && reentrar && <Reautenticar onEntrar={entrar} onSalir={salir} />}
     </>
   )
 }

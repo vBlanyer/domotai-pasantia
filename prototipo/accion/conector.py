@@ -156,7 +156,17 @@ def _opt_puerto(puerto):
     return [] if puerto is None or int(puerto) == 22 else ["-p", str(int(puerto))]
 
 
-def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS, puerto=None):
+def _claves(claves=None, clave=SSH_CLAVE):
+    """Claves que ofrece el conector: las dadas, o la actual más la nueva si hay una rotación en curso
+    (así ningún equipo pierde el acceso a medias: unos ya tienen la nueva, otros aún la vieja)."""
+    if claves:
+        return list(claves)
+    from prototipo.accion import conectividad
+    return [clave, clave + ".nueva"] if clave == SSH_CLAVE and conectividad.cargar_rotacion() else [clave]
+
+
+def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS, puerto=None,
+                      sudo=True, claves=None):
     """La linea que ejecuta el auditor. Separada del ejecutor para poder probar lo que importa sin
     laboratorio: que no viaje ninguna contrasena, que la clave del host se verifique contra un
     fichero conocido, que ssh no pueda quedarse preguntando (BatchMode) y que sudo falle en vez
@@ -164,11 +174,14 @@ def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
     # ssh -n cierra la entrada de TODA la sesion: asi sudo -S encuentra EOF y falla en vez de
     # esperar, sin pegar un '</dev/null' al comando, que en una verificacion con tuberia
     # ('iptables -L -n | grep ip') se lo llevaria el grep y dejaria la verificacion siempre falsa.
-    ssh = (f"ssh -n -i {clave} -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no "
+    ids = " ".join(f"-i {c}" for c in _claves(claves, clave))
+    ssh = (f"ssh -n {ids} -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no "
            f"-o StrictHostKeyChecking=yes -o UserKnownHostsFile={known_hosts} -o ConnectTimeout=5 "
            "-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa"
            + "".join(f" {x}" for x in _opt_puerto(puerto)))
-    remoto = f"sudo -S {comando}"
+    # sin sudo: lo que el usuario del conector hace con su propia cuenta (listar sus permisos con
+    # `sudo -l`, o mantener su authorized_keys al rotar la clave). Nunca un comando del catálogo.
+    remoto = f"sudo -S {comando}" if sudo else comando
     return f"{ssh} {usuario}@{nodo_ip} \"{remoto}\""
 
 def _ajustes(nodo_ip, usuario=None, puerto=None):
@@ -179,30 +192,33 @@ def _ajustes(nodo_ip, usuario=None, puerto=None):
     return usuario or u or SSH_USUARIO, puerto if puerto is not None else p
 
 
-def ejecutor_ssh_clave(nodo_ip, comando, usuario=None, puerto=None):
+def ejecutor_ssh_clave(nodo_ip, comando, usuario=None, puerto=None, sudo=True, claves=None):
     u, p = _ajustes(nodo_ip, usuario, puerto)
-    return _ssh_en_auditor(comando_ssh_clave(nodo_ip, comando, usuario=u, puerto=p))
+    return _ssh_en_auditor(comando_ssh_clave(nodo_ip, comando, usuario=u, puerto=p, sudo=sudo, claves=claves))
 
 
-def _args_ssh_directo(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS, puerto=None):
+def _args_ssh_directo(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS, puerto=None,
+                      sudo=True, claves=None):
     """argv del SSH directo desde el HOST del daemon (modo `directo`): mismas opciones endurecidas
     que comando_ssh_clave, pero como lista (sin `sh -c`: nada que inyectar en un shell local).
     Aquí `clave` y `known_hosts` son rutas del HOST (TRIAJE_SSH_CLAVE/TRIAJE_SSH_KNOWN_HOSTS)."""
-    return ["ssh", "-n", "-i", clave, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes",
+    ids = [x for c in _claves(claves, clave) for x in ("-i", c)]
+    return ["ssh", "-n", *ids, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes",
             "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=yes",
             "-o", f"UserKnownHostsFile={known_hosts}", "-o", "ConnectTimeout=5",
             "-o", "HostKeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa",
-            *_opt_puerto(puerto), f"{usuario}@{nodo_ip}", f"sudo -S {comando}"]
+            *_opt_puerto(puerto), f"{usuario}@{nodo_ip}", f"sudo -S {comando}" if sudo else comando]
 
 
-def ejecutor_ssh_directo(nodo_ip, comando, usuario=None, puerto=None):
+def ejecutor_ssh_directo(nodo_ip, comando, usuario=None, puerto=None, sudo=True, claves=None):
     """SSH directo desde el host del daemon, SIN `docker exec` a un nodo de gestión: para desplegar
     en una VM/bare-metal sin Docker (v2 adelantado; la demo portátil demostró que esta era la única
     dependencia de plataforma del camino de contención)."""
     import subprocess
     try:
         u, p = _ajustes(nodo_ip, usuario, puerto)
-        cp = subprocess.run(_args_ssh_directo(nodo_ip, comando, usuario=u, puerto=p), capture_output=True, text=True,
+        cp = subprocess.run(_args_ssh_directo(nodo_ip, comando, usuario=u, puerto=p, sudo=sudo, claves=claves),
+                            capture_output=True, text=True,
                             timeout=PLAZO_SSH_S, env=_env_filtrado())
     except subprocess.TimeoutExpired:
         return (124, f"sin respuesta en {PLAZO_SSH_S} s")          # 124: el código de timeout(1)
@@ -261,13 +277,14 @@ def modo_actual():
     return "sin_configurar"
 
 
-def ejecutor_con(modo, usuario=None, puerto=None):
+def ejecutor_con(modo, usuario=None, puerto=None, sudo=True, claves=None):
     """Ejecutor para PROBAR unos ajustes candidatos (antes de guardarlos). Solo en los modos con clave:
-    el de laboratorio no admite ajustes y sin configurar no ejecuta nada."""
+    el de laboratorio no admite ajustes y sin configurar no ejecuta nada. `sudo=False` para lo que el
+    usuario del conector hace con su propia cuenta; `claves` para entrar con una clave concreta (rotación)."""
     if modo == "clave":
-        return lambda ip, cmd: ejecutor_ssh_clave(ip, cmd, usuario=usuario, puerto=puerto)
+        return lambda ip, cmd: ejecutor_ssh_clave(ip, cmd, usuario=usuario, puerto=puerto, sudo=sudo, claves=claves)
     if modo == "directo":
-        return lambda ip, cmd: ejecutor_ssh_directo(ip, cmd, usuario=usuario, puerto=puerto)
+        return lambda ip, cmd: ejecutor_ssh_directo(ip, cmd, usuario=usuario, puerto=puerto, sudo=sudo, claves=claves)
     return _ejecutor_sin_configurar
 
 
