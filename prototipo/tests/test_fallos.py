@@ -269,3 +269,126 @@ class TestPresentacion(unittest.TestCase):
         self.assertEqual((c["clase"], c["dispositivo"]), ("F8", "fw-core"))
         self.assertEqual(tablero.causa_de({**reg, "escalada": None})["dispositivo"], "atm")
         self.assertIsNone(tablero.causa_de({"orden": {"nodo_objetivo": "atm"}}))
+
+
+class _Contador:
+    """Ejecutor de prueba: el activo (192.168.1.30) responde según `activo(cmd)`; el resto contiene bien.
+    Anota cada llamada para comparar la secuencia con y sin interruptores."""
+    def __init__(self, activo):
+        self.activo, self.llamadas, self.aplicado = activo, [], set()
+
+    def __call__(self, ip, cmd):
+        self.llamadas.append((ip, cmd))
+        if ip == "192.168.1.30":
+            return self.activo(cmd)
+        if "grep" in cmd:
+            return (0, "DROP") if ip in self.aplicado else (1, "")
+        self.aplicado.add(ip)
+        return (0, "")
+
+
+_F3 = "@@@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @@@\nHost key verification failed."
+ACTIVOS = {
+    "F3": lambda c: (255, _F3),
+    "F5": lambda c: (255, "ssh: connect to host 192.168.1.30 port 22: Connection refused"),
+    "F6": lambda c: (1, "sudo: a password is required"),
+    "F7": lambda c: (1, "") if "grep" in c else (1, "iptables: Bad rule (does a matching rule exist in that chain?)."),
+    "F8": lambda c: (1, "") if "grep" in c else (0, ""),
+}
+INTERRUPTORES = {"TRIAJE_FALLO_RAPIDO": "1", "TRIAJE_PRECHECK_APROVISIONADO": "1", "TRIAJE_ESCALADA_SOLO_APROVISIONADOS": "1"}
+
+
+class TestInterruptores(unittest.TestCase):
+    """Fase 4: los recortes no cambian qué se contiene; solo ahorran conexiones que no podían servir."""
+    perfil = tl.TestEscaladaPorDefecto._perfil_con_topologia(None)
+
+    def setUp(self):
+        reloj = mock.patch.object(conector, "ahora_iso", return_value="2026-11-09T00:00:00.000+00:00")
+        reloj.start()
+        self.addCleanup(reloj.stop)
+        self.addCleanup(fallos.configurar_contexto, None)
+
+    def _correr(self, activo, entorno, ctx=lambda ip, acc: {"aprovisionado": True}):
+        from prototipo.servicio import tablero
+        fallos.configurar_contexto(ctx)
+        ej = _Contador(activo)
+        with mock.patch.dict(os.environ, entorno):
+            r = lazo.procesar_lazo(j("alerta_vp.json"), j("hallazgos.json"), self.perfil, "prueba", CAT, ej, "d1", "t",
+                                   leer=lambda *_: "s")
+        return r, ej.llamadas, tablero.contencion_de(r)
+
+    def test_apagados_por_defecto(self):
+        for k in INTERRUPTORES:
+            self.assertFalse(fallos.interruptor(k))
+
+    def test_las_mismas_contenciones_con_y_sin_interruptores(self):
+        for clase, activo in ACTIVOS.items():
+            with self.subTest(clase):
+                r0, ll0, c0 = self._correr(activo, {})
+                r1, ll1, c1 = self._correr(activo, INTERRUPTORES)
+                self.assertEqual(c0, c1)                                    # mismo desenlace y dónde
+                self.assertEqual(r0["causa_fallo"]["clase"], r1["causa_fallo"]["clase"])
+                self.assertEqual(r0["causa_fallo"]["posible_ataque"], r1["causa_fallo"]["posible_ataque"])
+                self.assertEqual(r0["escalada"]["resultado"], r1["escalada"]["resultado"])
+                self.assertLessEqual(len(ll1), len(ll0))
+
+    def test_F6_F7_F8_exactamente_igual_llamada_a_llamada(self):
+        for clase in ("F6", "F7", "F8"):
+            with self.subTest(clase):
+                r0, ll0, _ = self._correr(ACTIVOS[clase], {})
+                r1, ll1, _ = self._correr(ACTIVOS[clase], INTERRUPTORES)
+                self.assertEqual(ll0, ll1)
+                self.assertEqual(_sin_causa(r0), _sin_causa(r1))
+
+    def test_fallo_rapido_ahorra_las_conexiones_que_no_entran(self):
+        for clase in ("F3", "F5"):
+            with self.subTest(clase):
+                _, ll0, _ = self._correr(ACTIVOS[clase], {})
+                r1, ll1, _ = self._correr(ACTIVOS[clase], {"TRIAJE_FALLO_RAPIDO": "1"})
+                al_activo = lambda ll: [c for ip, c in ll if ip == "192.168.1.30"]
+                self.assertEqual(len(al_activo(ll0)), 4)                     # pre-check, ejecutar, re-verificar, confirmar...
+                self.assertEqual(len(al_activo(ll1)), 1)                     # ...frente a una sola
+                self.assertTrue(r1["ejecucion"]["sin_entrar"])
+                self.assertEqual(r1["escalada"]["resultado"], "mitigado")    # la escalada sigue igual
+
+    def test_precheck_no_intenta_lo_que_la_consola_sabe_sin_aprovisionar(self):
+        sin = lambda ip, acc: {"aprovisionado": ip != "192.168.1.30"}
+        r, ll, c = self._correr(ACTIVOS["F5"], {"TRIAJE_PRECHECK_APROVISIONADO": "1"}, ctx=sin)
+        self.assertFalse([1 for ip, _ in ll if ip == "192.168.1.30"])        # ni una conexión al activo
+        self.assertEqual((r["causa_fallo"]["clase"], r["ejecucion"]["omitido"]), ("F2", "sin_aprovisionar"))
+        self.assertEqual(c, ("contenida", "gateway"))                        # escaló y contuvo
+        # sin saberlo (consola sin datos) se intenta como siempre: solo F2 sabido de antemano
+        _, ll, _ = self._correr(ACTIVOS["F5"], {"TRIAJE_PRECHECK_APROVISIONADO": "1"}, ctx=lambda ip, acc: {})
+        self.assertTrue([1 for ip, _ in ll if ip == "192.168.1.30"])
+
+    def test_escalada_salta_destinos_sin_aprovisionar_y_no_cierra_en_silencio(self):
+        from prototipo.servicio import stream
+        sin_gw = lambda ip, acc: {"aprovisionado": ip != "192.168.1.1"}
+        r, ll, c = self._correr(ACTIVOS["F5"], {"TRIAJE_ESCALADA_SOLO_APROVISIONADOS": "1"}, ctx=sin_gw)
+        self.assertFalse([1 for ip, _ in ll if ip == "192.168.1.1"])         # no se intentó el cortafuegos
+        self.assertEqual(c, ("fallida", None))                               # sin destinos: fallida, al analista
+        paso = r["escalada"]["pasos"][0]
+        self.assertEqual((paso["tipo"], paso["causa"]["clase"]), ("omitido", "F2"))
+        self.assertIn("salto omitido: gateway sin aprovisionar", paso["observacion"])
+        self.assertIn("gateway (equipo sin aprovisionar)", stream._lineas_escalada("d1", r["escalada"])[0])
+
+    def test_fallo_rapido_en_una_accion_transitoria(self):
+        # MATAR_CONEXION no tiene pre-check: la primera llamada ya es la acción; si no entra, no se re-verifica
+        orden = {"decision_id": "d", "accion_id": "MATAR_CONEXION", "nodo_objetivo": "x", "nodo_ip": "192.168.1.30",
+                 "params": {"ip": "203.0.113.9"}}
+        for entorno, n in (({}, 2), ({"TRIAJE_FALLO_RAPIDO": "1"}, 1)):
+            ej = _Contador(ACTIVOS["F5"])
+            with mock.patch.dict(os.environ, entorno):
+                r = conector.ejecutar_orden(orden, CAT, ej, "t")
+            self.assertEqual((len(ej.llamadas), r["exito"]), (n, False))
+        ej = _Contador(ACTIVOS["F6"])                     # sudo deniega: SÍ entró, sigue la secuencia completa
+        with mock.patch.dict(os.environ, {"TRIAJE_FALLO_RAPIDO": "1"}):
+            conector.ejecutar_orden(orden, CAT, ej, "t")
+        self.assertEqual(len(ej.llamadas), 2)
+
+    def test_la_consola_no_imprime_None_sin_comando(self):
+        from prototipo.servicio import stream
+        r, _, _ = self._correr(ACTIVOS["F5"], {"TRIAJE_FALLO_RAPIDO": "1"})
+        lineas = stream._lineas_ejecucion(r)
+        self.assertTrue(lineas[0].endswith(": no se llegó a entrar en el equipo"), lineas[0])
+        self.assertFalse(any("None" in l for l in lineas), lineas)

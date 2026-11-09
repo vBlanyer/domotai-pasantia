@@ -345,8 +345,11 @@ def _lineas_ejecucion(d):
     ej, orden = d.get("ejecucion") or {}, d.get("orden") or {}
     if ej:
         v = validacion.texto_terminal
+        comando = ej.get("comando_ejecutado")
+        hecho = (v(comando) if comando else "no se intentó" if ej.get("omitido")
+                 else "no se llegó a entrar en el equipo" if ej.get("sin_entrar") else "sin comando")
         lineas.append(f"▶ {idd} {orden.get('accion_id')} en {v(orden.get('nodo_objetivo'))} "
-                      f"({orden.get('nodo_ip')}): {v(ej.get('comando_ejecutado'))}")
+                      f"({orden.get('nodo_ip')}): {hecho}")
         if ej.get("idempotente"):
             lineas.append(f"· {idd} ya estaba aplicada (idempotente): no se repitió")
         verif, causa = d.get("verificacion") or {}, d.get("causa_fallo")

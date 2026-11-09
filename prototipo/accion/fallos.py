@@ -15,6 +15,7 @@ Los patrones salen de salidas capturadas en el laboratorio (lab/banco/fallos.py 
 prototipo/tests/fixtures/fallos_conector.json), no de la documentación. El conector antepone LC_ALL=C
 al comando remoto para que sudo no traduzca sus mensajes.
 """
+import os
 import re
 
 # clase -> (descripción corta, qué hacer, posible ataque siempre)
@@ -65,7 +66,9 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
         return None
     rc, salida = ej.get("codigo_salida"), ej.get("salida") or ""
     clase = None
-    if rc == -1 and "rechazado" in salida:
+    if ej.get("omitido") == "sin_aprovisionar":
+        clase = "F2"            # no se intentó: la consola sabe que el equipo no tiene su clave del host fijada
+    elif rc == -1 and "rechazado" in salida:
         clase = "F1"
     elif rc == 126 and "sin configurar" in salida:
         clase = "F9"
@@ -98,6 +101,22 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
     evidencia = next((l for l in lineas if any(re.search(p, l, re.I) for p in pats)), lineas[-1] if lineas else "")
     return {"clase": clase, "descripcion": descripcion, "accion": accion,
             "posible_ataque": ataque or regresion, "regresion": regresion, "evidencia": evidencia[:300]}
+
+
+def interruptor(nombre):
+    """Los recortes de la fase 4 van con su variable, apagados por defecto hasta validarlos."""
+    return os.environ.get(nombre) == "1"
+
+
+def no_entro(rc, salida):
+    """La conexión no llegó a entrar en el equipo (F2..F5) o el conector no tiene clave (F9): ahí no pudo
+    cambiar nada, así que repetir contra el mismo equipo solo cuesta tiempo. F6 (sudo deniega) SÍ entró
+    y sigue la secuencia completa, igual que F7 y F8."""
+    if rc == 0:
+        return False
+    if rc == 126 and "sin configurar" in (salida or ""):
+        return True
+    return patron(salida) in ("F2", "F3", "F4", "F5")
 
 
 def se_ejecuto(causa):

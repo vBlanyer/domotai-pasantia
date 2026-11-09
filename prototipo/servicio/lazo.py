@@ -98,8 +98,18 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
     if o is None:
         return {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
                 "orden": None, "ejecucion": None, "verificacion": None}
-    ejecucion = conector.ejecutar_orden(o, catalogo, ejecutor, timestamp)
-    verif = verificacion.confirmar(o, catalogo, ejecutor)
+    # TRIAJE_PRECHECK_APROVISIONADO (fase 4): solo si la consola SABE que el equipo no tiene su clave del
+    # host fijada (F2 de antemano) no se intenta. Un equipo con huella que falla se sigue intentando.
+    if fallos.interruptor("TRIAJE_PRECHECK_APROVISIONADO") and \
+            fallos.contexto(o.get("nodo_ip"), o.get("accion_id")).get("aprovisionado") is False:
+        ejecucion = conector.resultado_omitido(o, "el equipo no tiene su clave del host fijada", timestamp)
+    else:
+        ejecucion = conector.ejecutar_orden(o, catalogo, ejecutor, timestamp)
+    if ejecucion.get("omitido") or ejecucion.get("sin_entrar"):
+        # no se entró en el equipo: verificar ahí sería otra conexión que tampoco entra
+        verif = {"verificado": False, "evidencia": "sin verificar: no se llegó a entrar en el equipo"}
+    else:
+        verif = verificacion.confirmar(o, catalogo, ejecutor)
     # Por qué no quedó contenida (fase 1 del plan de fallos): SOLO se anota, no cambia nada de lo que
     # sigue. Sin fallo no se añade el campo (los registros de una contención correcta no cambian).
     causa = None if (ejecucion.get("exito") and verif.get("verificado")) else fallos.clasificar_fallo(

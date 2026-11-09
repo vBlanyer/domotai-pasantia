@@ -1,6 +1,8 @@
 """El conector: traduce la orden a un comando del catálogo y lo ejecuta por el ejecutor inyectado."""
 import ipaddress, json, os, re, sys
 
+from prototipo.accion import fallos
+
 _SEGURO = re.compile(r'^[A-Za-z0-9._:-]+\Z')   # IPs, puertos, nombres de servicio: sin metacaracteres de shell
 
 # Secretos del propio MDR que el subproceso (docker/ssh) NO necesita: se filtran de su entorno para no
@@ -57,6 +59,13 @@ def _resultado(orden, comando, rc, salida, exito, idempotente, timestamp):
     }
 
 
+def resultado_omitido(orden, motivo, timestamp):
+    """Registro de ejecución de una orden que NO se intentó (TRIAJE_PRECHECK_APROVISIONADO): ninguna
+    conexión salió; `omitido` dice por qué."""
+    return {**_resultado(orden, None, None, f"no se intentó: {motivo}", False, False, timestamp),
+            "omitido": "sin_aprovisionar"}
+
+
 def ahora_iso():
     """Hora de pared en ISO 8601 UTC (con zona), para los campos «…_en» de la traza."""
     import datetime
@@ -75,13 +84,20 @@ def ejecutar_orden(orden, catalogo, ejecutor, timestamp):
     #    verificación significa "el estado indeseado aún existe" (la conexión sigue viva), no
     #    "ya se aplicó la acción" -> nunca se salta la ejecución por idempotencia.
     transitoria = acc.get("reversion") == "transitoria"
+    # TRIAJE_FALLO_RAPIDO (fase 4 del plan de fallos): si la conexión ni entró en el equipo, las demás
+    # llamadas a ESE equipo no pueden cambiar nada; se corta aquí (la escalada sigue igual).
+    rapido = fallos.interruptor("TRIAJE_FALLO_RAPIDO")
     if not transitoria:
         rc_v, out_v = ejecutor(orden["nodo_ip"], cmd_verif)
         if rc_v == 0:
             return _resultado(orden, None, rc_v, out_v, True, True, timestamp)
+        if rapido and fallos.no_entro(rc_v, out_v):
+            return {**_resultado(orden, None, rc_v, out_v, False, False, timestamp), "sin_entrar": True}
     # 2. Ejecutar y volver a verificar para confirmar el efecto.
     cmd = render_comando(catalogo, orden["accion_id"], orden["params"])
     rc, out = ejecutor(orden["nodo_ip"], cmd)
+    if rapido and fallos.no_entro(rc, out):
+        return {**_resultado(orden, cmd, rc, out, False, False, timestamp), "sin_entrar": True}
     rc_v2, out_v2 = ejecutor(orden["nodo_ip"], cmd_verif)
     # El sentido de la verificación depende del tipo de acción. Persistente (regla de iptables): rc0 =
     # el estado DESEADO está presente = aplicada. Transitoria (MATAR_CONEXION): el listado (`ss -tunap`)

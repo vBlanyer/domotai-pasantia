@@ -206,6 +206,17 @@ python3 -m prototipo.servicio.stream <fuente> <perfil> <hallazgos> [flags]
 | `--una-vez` | Procesa un fichero FINITO hasta el final y sale (para pruebas/demos/reproceso puntual), en vez de seguirlo como `tail -f`. |
 | `--escuchar host:puerto` · `--permitir IP,…` · `--tls-cert/-clave` · `--tls-ca` | Recepción de alertas por red (SIEM remoto) con lista blanca (obligatoria fuera de loopback) y TLS opcional; con `--tls-ca`, mTLS (exige cert de cliente). Ver [deploy/README.md](deploy/README.md). |
 
+### Recortes ante fallos de contención (apagados por defecto)
+
+Fase 4 de [PLAN-MANEJO-FALLOS-CONTENCION.md](PLAN-MANEJO-FALLOS-CONTENCION.md). Cada uno se enciende con
+`=1` al arrancar el daemon. No cambian qué se contiene: solo ahorran conexiones que no podían servir.
+
+| Variable | Efecto |
+|---|---|
+| `TRIAJE_FALLO_RAPIDO` | Si la primera conexión ni entra en el equipo (clave del host desconocida o cambiada, clave del conector rechazada, inalcanzable, conector sin clave), no se repite contra ese equipo; la escalada sigue igual. |
+| `TRIAJE_PRECHECK_APROVISIONADO` | No intenta en un equipo que la consola sabe sin clave del host fijada: queda como fallo «equipo sin aprovisionar» y, si la acción es sobre el origen, escala. |
+| `TRIAJE_ESCALADA_SOLO_APROVISIONADOS` | Salta los destinos de escalada sin clave del host fijada y lo anota («salto omitido»); sin destinos, la contención queda fallida, a la vista del analista. |
+
 ### Probar `--con-llm` y `--agente` con Claude Code (solo pruebas)
 
 Si el portátil no mueve el modelo local, `lab/scripts/llm_claude.py` ocupa el puerto del

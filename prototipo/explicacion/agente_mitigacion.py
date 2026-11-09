@@ -379,7 +379,16 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
         cadena = cadena[cadena.index(desde) + 1:]
         tocados.append(desde)     # el lazo ya lo intento: cuenta para decir que hubo escalada
     anterior = desde
+    solo_aprovisionados = fallos.interruptor("TRIAJE_ESCALADA_SOLO_APROVISIONADOS")
     for dispositivo in cadena:
+        # TRIAJE_ESCALADA_SOLO_APROVISIONADOS (fase 4): un destino que la consola SABE sin clave del host
+        # fijada se salta y queda anotado; si no queda ninguno, la escalada acaba «fallido» (al analista).
+        if solo_aprovisionados and fallos.contexto((topo.get(dispositivo) or {}).get("ip")).get("aprovisionado") is False:
+            pasos.append({"tipo": "omitido", "dispositivo": dispositivo,
+                          "observacion": f"salto omitido: {dispositivo} sin aprovisionar",
+                          "causa": fallos.clasificar_fallo({"exito": False, "omitido": "sin_aprovisionar"},
+                                                           contexto={"aprovisionado": False})})
+            continue
         try:
             obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, "bloquear_ip",
                                                     ip, ip_gestion, decision_id or alerta.get("id_alerta", ""),

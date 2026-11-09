@@ -377,3 +377,24 @@ del laboratorio para no interferir con él.
   en la pasada completa del laboratorio (pendiente de la fase 0).
 - Límite conocido: el estado operativo vive en memoria. Al reiniciar el daemon se pierde, y lo
   vuelve a poner la siguiente contención fallida.
+
+### Fase 4: hecho (interruptores apagados)
+
+- `TRIAJE_FALLO_RAPIDO`: lo implementa `conector.ejecutar_orden` con `fallos.no_entro`. Si la conexión
+  ni entró (F2..F5, F9), se corta, y el lazo no hace la cuarta verificación. F6 sí entró, así que
+  sigue la secuencia completa. Vale también para las acciones transitorias, que no tienen pre-check.
+- `TRIAJE_PRECHECK_APROVISIONADO`: solo actúa si la consola dice `aprovisionado: False`; con contexto
+  vacío se intenta como siempre. Se registra `omitido: sin_aprovisionar` con causa F2.
+- `TRIAJE_ESCALADA_SOLO_APROVISIONADOS`: añade un paso `omitido` con causa F2 y la escalada sigue.
+  Sin destinos, acaba «fallido».
+- La consola ya no imprime «None» cuando no hubo comando: dice «no se llegó a entrar en el equipo» o
+  «no se intentó». Esto también arregla el caso idempotente.
+- Matriz (`TestInterruptores`, con contexto «todo aprovisionado»):
+  - F3, F5, F6, F7 y F8 dan el mismo desenlace, la misma causa y la misma escalada con y sin
+    interruptores.
+  - F6, F7 y F8 son idénticos llamada a llamada.
+  - F3 y F5 pasan de 4 conexiones al activo a 1.
+- Variables documentadas en el RUNBOOK (§4).
+- **Pendiente:** validarlos en la pasada completa del laboratorio. Después se encienden por defecto
+  en un commit aparte.
+
