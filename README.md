@@ -108,8 +108,9 @@ El mapa completo, carpeta a carpeta, está en **[`STRUCTURE.md`](STRUCTURE.md)**
   en [`documentacion/04-fase4-diseno-de-arquitectura/`](documentacion/04-fase4-diseno-de-arquitectura/).
 - **[`docs/pruebas/`](docs/pruebas/)** — guías de prueba y evidencia por escenario.
 - **[`RUNBOOK.md`](RUNBOOK.md)** — cómo operar el sistema completo paso a paso.
-- **Manual del analista** — uso diario de la consola web:
-  [`documentacion/07-fase7-documentacion-e-informe-final/manual-del-analista.md`](documentacion/07-fase7-documentacion-e-informe-final/manual-del-analista.md).
+- **Manual de usuario** — puesta en marcha, cada vista de la consola web, Conectividad, Políticas y
+  el perfil de la red:
+  [`documentacion/07-fase7-documentacion-e-informe-final/manual-de-usuario.md`](documentacion/07-fase7-documentacion-e-informe-final/manual-de-usuario.md).
 - **Referencia de API** — endpoints HTTP del daemon (`/api/*`, `/healthz`):
   [`documentacion/07-fase7-documentacion-e-informe-final/referencia-api.md`](documentacion/07-fase7-documentacion-e-informe-final/referencia-api.md).
 - **[`CHANGELOG.md`](CHANGELOG.md)** — qué cambió en cada versión (v1.0, v1.1 y posteriores).

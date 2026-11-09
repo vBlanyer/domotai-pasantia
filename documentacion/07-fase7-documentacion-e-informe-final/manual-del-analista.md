@@ -1,3 +1,6 @@
+> **Sustituido** el 09/11/2026 por [`manual-de-usuario.md`](manual-de-usuario.md). Se conserva como
+> registro: describe la consola del 26/10 y ya no está al día (SLA, acceso por token, Conectividad…).
+
 # Manual del analista — consola web del MDR
 
 **Para quién es.** Para el analista de seguridad (SOC) que trabaja con el sistema ya en marcha:

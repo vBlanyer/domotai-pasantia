@@ -116,7 +116,8 @@ Si el mismo ataque sigue llegando mientras esperas, la tarjeta lo marca (`sigue 
 Aprobar ejecuta la contención real (`iptables`) por el conector y escribe la traza en ese momento (la traza
 queda en **orden de finalización**). Es local (`127.0.0.1`), valida `Host` y `Origin` (anti DNS-rebinding
 y anti-CSRF: un POST de aprobación solo se acepta desde el propio origen localhost, y CORS no es `*`) y
-**aún sin login** (el inicio de sesión lo añade la empresa; la validación de Host/Origin ya es nuestra). En modo
+tiene **acceso opcional por token**: con `TRIAJE_CONSOLA_TOKEN` (compartido) o `TRIAJE_CONSOLA_OPERADORES` (uno por
+analista) pide token al entrar; sin ellos queda abierta, como en el laboratorio (ver el manual de usuario, §3). En modo
 `--agente` el agente ReAct decide la estrategia (**contiene primero en el equipo atacado** y escala al
 cortafuegos solo si ese salto falla) y **respeta el filtro del perfil igual que el modo determinista**: aplica
 en automático lo que el perfil permite (p. ej. bloquear a un atacante externo en el host atacado) y **pregunta

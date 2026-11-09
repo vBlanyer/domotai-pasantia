@@ -105,13 +105,19 @@ configuración queda en producción?». Cada comando y cada salida esperada que 
 11/09/2026 sobre el laboratorio en un ensayo completo del modo tiempo real (servidores residentes,
 mínimo privilegio, ataque real, traza encadenada, reversión desde la traza).
 
-## El manual del analista
+## El manual de usuario
 
-Y, para el otro público —el **analista de seguridad** que usa la consola web ya en marcha—, el
-**[`manual-del-analista.md`](manual-del-analista.md)**: las vistas de la consola, el flujo de trabajo
-(leer una decisión pendiente, aprobar / rechazar / reclasificar, seguir el incidente y llevar su
-caso), el *kill switch* y los límites honestos del sistema. Complementa la guía de operación (que es
-de administrador), no la repite.
+Para quienes usan el sistema, el **[`manual-de-usuario.md`](manual-de-usuario.md)** (09/11/2026):
+
+- la puesta en marcha y el acceso por token;
+- cada vista de la consola: Panel, Aprobaciones, Consola, Contenciones, Decisiones, Incidentes, Red,
+  Ubicaciones, Watchlist, Trazas e Informe en PDF;
+- la configuración: Políticas, Conectividad (alta de equipos sin scripts, clave del host, rotación) y
+  el perfil de la red;
+- la referencia: familias, causas de fallo F1–F10, variables, ficheros y problemas comunes.
+
+Sustituye al antiguo [`manual-del-analista.md`](manual-del-analista.md), del 26/10, que se conserva
+como registro. La guía de operación sigue siendo la referencia para producción.
 
 ## La referencia de API
 
