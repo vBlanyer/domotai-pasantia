@@ -83,6 +83,9 @@ class TestReglasDeGravedad(unittest.TestCase):
         r = fallos.clasificar_fallo(_ej(1, "sudo: a password is required"), contexto={"regla_falta": "ss -K dst 1.2.3.4"})
         self.assertEqual((r["clase"], r["descripcion"]), ("F6", "acción no ejecutable en este equipo"))
         self.assertIn("ss -K dst 1.2.3.4", r["accion"])
+        # aun con el equipo verificado: la prueba ya sabía que faltaba, no es una regresión
+        r = fallos.clasificar_fallo(_ej(1, "sudo: a password is required"), contexto={"regla_falta": "ss -K dst *", "verificado": True})
+        self.assertFalse(r["regresion"] or r["posible_ataque"])
 
     def test_lo_que_no_se_reconoce_es_F10_o_F7_nunca_configuracion(self):
         self.assertEqual(fallos.clasificar_fallo(_ej(255, "kex_exchange_identification: algo raro"))["clase"], "F10")
@@ -392,3 +395,56 @@ class TestInterruptores(unittest.TestCase):
         lineas = stream._lineas_ejecucion(r)
         self.assertTrue(lineas[0].endswith(": no se llegó a entrar en el equipo"), lineas[0])
         self.assertFalse(any("None" in l for l in lineas), lineas)
+
+
+class TestAccionNoEjecutable(unittest.TestCase):
+    """Fase 6: con una prueba vigente de < 24 h que dice que falta la regla de la acción, no se intenta;
+    se escala (sobre el origen) o queda fallida con el motivo. El motor no cambia."""
+    perfil = tl.TestEscaladaPorDefecto._perfil_con_topologia(None)
+
+    def setUp(self):
+        reloj = mock.patch.object(conector, "ahora_iso", return_value="2026-11-09T00:00:00.000+00:00")
+        reloj.start()
+        self.addCleanup(reloj.stop)
+        self.addCleanup(fallos.configurar_contexto, None)
+
+    @staticmethod
+    def _hace(h):
+        from datetime import datetime, timedelta, timezone
+        return (datetime.now(timezone.utc) - timedelta(hours=h)).isoformat(timespec="milliseconds")
+
+    def test_solo_con_una_prueba_reciente(self):
+        self.assertEqual(fallos.regla_que_falta({"regla_falta": "ss -K dst *", "prueba_en": self._hace(1)}), "ss -K dst *")
+        self.assertIsNone(fallos.regla_que_falta({"regla_falta": "ss -K dst *", "prueba_en": self._hace(25)}))
+        self.assertIsNone(fallos.regla_que_falta({"regla_falta": "ss -K dst *"}))
+        self.assertIsNone(fallos.regla_que_falta({"prueba_en": self._hace(1)}))
+
+    def _cortar(self, prueba_en, entorno):
+        fallos.configurar_contexto(lambda ip, acc: {"aprovisionado": True, "verificado": True, "prueba_en": prueba_en,
+                                                    **({"regla_falta": "ss -K dst *"} if ip == "192.168.1.30" else {})})
+        a = {**j("alerta_vp.json"), "familia": "acceso_consumado"}
+        ej = _Contador(ACTIVOS["F6"])          # en el equipo, sudo deniega `ss` (binario ausente)
+        with mock.patch.dict(os.environ, entorno):
+            r = lazo.procesar_lazo(a, j("hallazgos.json"), self.perfil, "prueba", CAT, ej, "d1", "t", leer=lambda *_: "s")
+        return r, [ip for ip, _ in ej.llamadas]
+
+    def test_cortar_conexion_sin_ss_escala_directo(self):
+        from prototipo.servicio import tablero
+        r0, ips0 = self._cortar(self._hace(1), {})
+        r1, ips1 = self._cortar(self._hace(1), {"TRIAJE_ACCION_NO_EJECUTABLE": "1"})
+        self.assertIn("192.168.1.30", ips0)                     # hoy: se intenta y sudo pide contraseña
+        self.assertNotIn("192.168.1.30", ips1)                  # ahora: ni se intenta
+        self.assertEqual(r1["orden"]["accion_id"], "MATAR_CONEXION")
+        self.assertEqual(r1["ejecucion"]["omitido"], "no_ejecutable")
+        c = r1["causa_fallo"]
+        self.assertEqual((c["clase"], c["descripcion"]), ("F6", "acción no ejecutable en este equipo"))
+        self.assertIn("ss -K dst *", c["accion"])
+        self.assertFalse(c["regresion"] or c["posible_ataque"])  # la prueba ya lo sabía: deriva, no regresión
+        self.assertEqual(tablero.contencion_de(r1), ("contenida", "gateway"))
+        self.assertEqual(tablero.contencion_de(r0), tablero.contencion_de(r1))   # se contiene igual (escalada)
+        motor = ("clase", "accion_propuesta", "accion_final", "resultado_filtro", "requiere_humano", "confianza", "prioridad")
+        self.assertEqual({k: r0.get(k) for k in motor}, {k: r1.get(k) for k in motor})   # el motor no cambia
+
+    def test_con_una_prueba_vieja_se_intenta_como_siempre(self):
+        _, ips = self._cortar(self._hace(30), {"TRIAJE_ACCION_NO_EJECUTABLE": "1"})
+        self.assertIn("192.168.1.30", ips)

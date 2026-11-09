@@ -430,3 +430,19 @@ del laboratorio para no interferir con él.
   memoria se cierra en menos de 60 s.
 - Límite conocido: la memoria vive en el proceso del daemon y se pierde al reiniciarlo.
 
+### Fase 6: hecho (interruptor `TRIAJE_ACCION_NO_EJECUTABLE` apagado)
+
+- `fallos.regla_que_falta(ctx)` devuelve la regla solo si la última prueba es **vigente** (lo
+  garantiza `contexto_equipo`) y tiene menos de 24 h. Sin prueba, con una vieja o sin fecha, devuelve
+  None y se intenta como siempre.
+- En el lazo, que es la capa de ejecución, se registra `omitido: no_ejecutable` con la regla. Con
+  ello la causa es F6, «acción no ejecutable en este equipo — falta en su sudoers: …». La acción
+  escala si es sobre el origen; si no, queda fallida a la vista del analista. El motor no cambia:
+  la prueba compara clase, propuesta, acción final, filtro, humano, confianza y prioridad.
+- Corrección de la fase 1: una F6 cuya regla ya faltaba en la prueba vigente **no** es regresión. El
+  equipo no la tenía al verificarse: es la deriva que Conectividad ya enseña.
+- Alcance: solo la orden directa al activo. Los saltos de la escalada no se filtran por reglas, porque
+  su acción la elige la herramienta según el papel del dispositivo. Sus fallos F6 siguen clasificados.
+- **Pendiente:** validación en el banco (cortar conexión en web-banking, cuyo nodo no tiene `ss`).
+  Después se encienden los interruptores por defecto en un commit aparte.
+

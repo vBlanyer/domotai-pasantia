@@ -106,14 +106,24 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
     if sin_acceso:
         ejecucion = conector.resultado_omitido(o, f"el MDR no tiene acceso al equipo desde {sin_acceso['desde']}",
                                                timestamp, omitido="sin_acceso", clase_memoria=sin_acceso.get("clase"))
-    elif fallos.interruptor("TRIAJE_PRECHECK_APROVISIONADO") and \
-            fallos.contexto(o.get("nodo_ip"), o.get("accion_id")).get("aprovisionado") is False:
-        ejecucion = conector.resultado_omitido(o, "el equipo no tiene su clave del host fijada", timestamp)
     else:
-        ejecucion = conector.ejecutar_orden(o, catalogo, ejecutor, timestamp)
+        precheck = fallos.interruptor("TRIAJE_PRECHECK_APROVISIONADO")
+        no_ejecutable = fallos.interruptor("TRIAJE_ACCION_NO_EJECUTABLE")
+        ctx = fallos.contexto(o.get("nodo_ip"), o.get("accion_id")) if (precheck or no_ejecutable) else {}
+        # TRIAJE_ACCION_NO_EJECUTABLE (fase 6): la última prueba vigente (< 24 h) dice que el sudoers del
+        # equipo no tiene la regla de ESTA acción: no se intenta. El motor no cambia (su decisión consta igual).
+        regla = fallos.regla_que_falta(ctx) if no_ejecutable else None
+        if precheck and ctx.get("aprovisionado") is False:
+            ejecucion = conector.resultado_omitido(o, "el equipo no tiene su clave del host fijada", timestamp)
+        elif regla:
+            ejecucion = conector.resultado_omitido(o, f"falta en su sudoers: {regla}", timestamp,
+                                                   omitido="no_ejecutable", regla_falta=regla)
+        else:
+            ejecucion = conector.ejecutar_orden(o, catalogo, ejecutor, timestamp)
     if ejecucion.get("omitido") or ejecucion.get("sin_entrar"):
-        # no se entró en el equipo: verificar ahí sería otra conexión que tampoco entra
-        verif = {"verificado": False, "evidencia": "sin verificar: no se llegó a entrar en el equipo"}
+        # no se intentó o no se entró en el equipo: verificar ahí sería otra conexión inútil
+        verif = {"verificado": False, "evidencia": "sin verificar: " + (
+            "no se intentó en el equipo" if ejecucion.get("omitido") else "no se llegó a entrar en el equipo")}
     else:
         verif = verificacion.confirmar(o, catalogo, ejecutor)
     # Por qué no quedó contenida (fase 1 del plan de fallos): SOLO se anota, no cambia nada de lo que

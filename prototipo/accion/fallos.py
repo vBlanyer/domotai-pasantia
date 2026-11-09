@@ -68,6 +68,9 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
     clase = None
     if ej.get("omitido") == "sin_aprovisionar":
         clase = "F2"            # no se intentó: la consola sabe que el equipo no tiene su clave del host fijada
+    elif ej.get("omitido") == "no_ejecutable":
+        clase = "F6"            # la última prueba vigente dice que falta la regla de esta acción en el sudoers
+        ctx = {**ctx, "regla_falta": ctx.get("regla_falta") or ej.get("regla_falta")}
     elif ej.get("omitido") == "sin_acceso":
         clase = ej.get("clase_memoria") if ej.get("clase_memoria") in ("F4", "F5") else "F5"   # memoria de fallos
     elif rc == -1 and "rechazado" in salida:
@@ -87,7 +90,9 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
                 clase = "F7"
             else:
                 clase = "F10"
-    regresion = bool(ctx.get("verificado")) and clase in _REGRESION
+    # F6 con la regla que falta según la última prueba vigente NO es regresión: el equipo ya no la tenía
+    # cuando se verificó (es la deriva que Conectividad enseña), no algo que dejó de funcionar.
+    regresion = bool(ctx.get("verificado")) and clase in _REGRESION and not (clase == "F6" and ctx.get("regla_falta"))
     descripcion, accion, ataque = CLASES[clase]
     if clase == "F6" and ctx.get("regla_falta"):
         descripcion, accion = "acción no ejecutable en este equipo", f"falta en su sudoers: {ctx['regla_falta']} (binario no instalado o fuera de su papel)"
@@ -119,6 +124,23 @@ def no_entro(rc, salida):
     if rc == 126 and "sin configurar" in (salida or ""):
         return True
     return patron(salida) in ("F2", "F3", "F4", "F5")
+
+
+def regla_que_falta(ctx, ahora=None, max_edad_s=24 * 3600):
+    """Fase 6: la regla del sudoers que falta para la acción, si lo dice la última prueba VIGENTE (misma
+    clave del conector y del host) de menos de 24 h. Sin prueba, vieja o sin fecha: None (se intenta)."""
+    from datetime import datetime, timezone
+    regla, en = (ctx or {}).get("regla_falta"), (ctx or {}).get("prueba_en")
+    if not regla or not en:
+        return None
+    try:
+        t = datetime.fromisoformat(en)
+    except (TypeError, ValueError):
+        return None
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    edad = ((ahora or datetime.now(timezone.utc)) - t).total_seconds()
+    return regla if 0 <= edad < max_edad_s else None
 
 
 def se_ejecuto(causa):
