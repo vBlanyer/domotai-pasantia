@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { clasificar, edadMuestraMs, MUESTRA_VIEJA_MS } from "./salud"
+import { clasificar, edadMuestraMs, MUESTRA_VIEJA_MS, alertaMenuSalud } from "./salud"
+import type { EquipoConectividad } from "./api"
 
 // Escenario del mockup: ocho servicios, db-core caída, web-banking y api-movil dependen de ella.
 const S = [
@@ -73,5 +74,23 @@ describe("edadMuestraMs: cuánto hace de la muestra del monitor (contra la hora 
   })
   it("el umbral de muestra vieja es un minuto", () => {
     expect(MUESTRA_VIEJA_MS).toBe(60_000)
+  })
+})
+
+describe("alertaMenuSalud (icono del menú)", () => {
+  const eq = (x: object) => ({ nombre: "atm", ip: "10.0.0.9", protegido: false, puerto: 22, usuario: "triaje", ajustado: false,
+    huella_fijada: "SHA256:A", ultima_prueba: { ok: true, estado: "verificada", pasos: [] }, ...x }) as EquipoConectividad
+  it("todo en orden o sin datos: sin alerta", () => {
+    expect(alertaMenuSalud({ caidos: 0 }, { modo: "clave", equipos: [eq({})] })).toBeNull()
+    expect(alertaMenuSalud(null, null)).toBeNull()
+  })
+  it("servicios caídos y equipos con problemas de configuración, con el motivo", () => {
+    expect(alertaMenuSalud({ caidos: 1 }, null)).toBe("1 servicio caído")
+    expect(alertaMenuSalud({ caidos: 0 }, { modo: "clave", equipos: [eq({ huella_fijada: null, ultima_prueba: null }), eq({}),
+      eq({ operativo: { clase: "F5", descripcion: "equipo inalcanzable" } })] })).toBe("2 equipos con problemas de conexión o configuración")
+    expect(alertaMenuSalud({ caidos: 2 }, { modo: "sin_configurar", equipos: [] })).toBe("2 servicios caídos · conector sin configurar")
+  })
+  it("los protegidos y las altas pendientes no cuentan", () => {
+    expect(alertaMenuSalud(null, { modo: "clave", equipos: [eq({ protegido: true, huella_fijada: null }), eq({ alta: "pendiente", huella_fijada: null })] })).toBeNull()
   })
 })

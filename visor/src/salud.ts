@@ -1,6 +1,7 @@
 // Lógica pura de la vista «Estado de servicios»: clasifica el inventario del monitor por lo que
 // importa al analista (qué está caído, qué arrastra, qué sigue en pie) y mide la frescura de la muestra.
-import type { Servicio } from "@/api"
+import type { EquipoConectividad, Servicio } from "@/api"
+import { resumenConectividad } from "@/conectividad"
 
 export type EstadoFila = "caido" | "degradado" | "ok"
 export type Fila = {
@@ -62,4 +63,24 @@ export function edadMuestraMs(t: string | null | undefined, ahoraMs: number): nu
   const ms = Date.parse(t)
   if (Number.isNaN(ms)) return null
   return Math.max(0, ahoraMs - ms)
+}
+
+// El icono de «Estado de servicios» en el menú: rojo si hay un servicio caído o algún equipo con un
+// problema de conexión o configuración (clave del host cambiada, sin aprovisionar, contención fallida,
+// sin acceso) o el conector sin configurar. Las mismas cuentas que el indicador «Conector» del Panel.
+// `motivo` va al tooltip; null = todo en orden o aún no se sabe.
+export function alertaMenuSalud(
+  servicios: { caidos: number } | null,
+  conector: { modo: string; equipos: EquipoConectividad[] } | null,
+): string | null {
+  const motivos: string[] = []
+  if (servicios && servicios.caidos > 0)
+    motivos.push(servicios.caidos === 1 ? "1 servicio caído" : `${servicios.caidos} servicios caídos`)
+  if (conector?.modo === "sin_configurar") motivos.push("conector sin configurar")
+  else if (conector) {
+    const r = resumenConectividad(conector.equipos)
+    const n = r.hostCambiada + r.sinAprovisionar + r.conFallos
+    if (n > 0) motivos.push(n === 1 ? "1 equipo con problemas de conexión o configuración" : `${n} equipos con problemas de conexión o configuración`)
+  }
+  return motivos.length ? motivos.join(" · ") : null
 }

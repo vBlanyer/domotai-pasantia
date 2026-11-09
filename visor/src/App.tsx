@@ -5,7 +5,7 @@ import {
   ChartBar, SlidersHorizontal, Activity, KeyRound,
 } from "lucide-react"
 import {
-  useSondeo, getSalud, getPendientes, getPausa, getContenciones, getTrazas, tokenActual, listaConocida, comprobarSesion,
+  useSondeo, getSalud, getPendientes, getPausa, getContenciones, getTrazas, getConectividad, tokenActual, listaConocida, comprobarSesion,
   iniciarSesion, cerrarSesion, sesionActual, operadorActual, EVENTO_NO_AUTORIZADO, type Pendiente, type Sesion, type ModoSesion,
 } from "@/api"
 import { Acceso, Reautenticar, ChipSesion, BandaAbierta, type Motivo, type Entrada as EntradaSesion } from "@/components/Acceso"
@@ -30,6 +30,7 @@ import { Conectividad } from "@/components/Conectividad"
 import { Incidentes } from "@/components/Incidentes"
 import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
+import { alertaMenuSalud } from "@/salud"
 import type { Decision } from "@/api"
 
 type Vista = "panel" | "metricas" | "salud" | "red" | "ubicaciones" | "incidentes" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "conectividad" | "incidente" | "atacante"
@@ -170,6 +171,11 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
   const nInc = useMemo(() => (regs ? incidentesAbiertos(regs) : 0), [regs])
   const pausada = !!(pausa && !("error" in pausa) && pausa.pausada)
   const conectado = salud !== undefined && !("error" in salud)
+  // El icono de «Estado de servicios» se pone rojo con un servicio caído o un equipo con problemas de
+  // conexión o configuración (cada 30 s, como el Panel: cada lectura abre unas pocas llamadas al conector).
+  const conect = useSondeo(getConectividad, 30000)
+  const alertaSalud = alertaMenuSalud(salud && "servicios" in salud ? salud : null,
+    conect && !("error" in conect) ? conect : null)
   const pendConocidos = listaConocida(pend)   // en un fallo, los últimos buenos (no re-notificar todo)
   const nPend = pendConocidos?.length ?? 0
   const [avisos, setAvisos] = useState(leerAvisos)
@@ -207,8 +213,9 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
                   <button
                     key={n.id}
                     onClick={() => { if (n.id === "aprobaciones") { setPaisAprob(""); setAprobSel(null) } if (n.id === "incidentes") setIncidenteSel(null); setVista(n.id); setMenu(false) }}
-                    aria-label={compacto ? n.nombre : undefined}
-                    data-tip={compacto ? n.nombre : undefined}
+                    aria-label={compacto ? (n.id === "salud" && alertaSalud ? `${n.nombre}: ${alertaSalud}` : n.nombre) : undefined}
+                    data-tip={compacto ? (n.id === "salud" && alertaSalud ? `${n.nombre}: ${alertaSalud}` : n.nombre) : undefined}
+                    title={!compacto && n.id === "salud" && alertaSalud ? alertaSalud : undefined}
                     className={cn(
                       "relative mb-0.5 flex w-full items-center rounded-md text-sm transition-colors",
                       compacto ? "menu-tip justify-center py-1.5" : "gap-2.5 px-3 py-1.5",
@@ -218,7 +225,7 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
                       activo && (compacto ? "before:-left-2" : "before:-left-3"),
                     )}
                   >
-                    <Icono className={cn("size-4 shrink-0", activo ? "text-sidebar-primary" : "text-muted-foreground")} />
+                    <Icono className={cn("size-4 shrink-0", n.id === "salud" && alertaSalud ? "text-critico" : activo ? "text-sidebar-primary" : "text-muted-foreground")} />
                     {!compacto && <span className="flex-1 text-left">{n.nombre}</span>}
                     {n.id === "consola" && conectado && (
                       <span title="feed en vivo" className={cn("size-1.5 shrink-0 rounded-full bg-ok motion-safe:animate-pulse", compacto && "absolute right-2 top-1.5")} />

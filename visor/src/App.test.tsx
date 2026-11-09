@@ -1,21 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, act } from "@testing-library/react"
+import { render, screen, fireEvent, act, within } from "@testing-library/react"
 
 // La puerta de acceso: nada de la consola se monta hasta entrar; dentro, un 401 pide volver a entrar.
-const h = vi.hoisted(() => ({ respuesta: null as unknown }))
+const h = vi.hoisted(() => ({ respuesta: null as unknown, fuentes: new Map<unknown, unknown>() }))
 vi.mock("@/api", async (orig) => ({
   ...(await orig<typeof import("@/api")>()),
   comprobarSesion: vi.fn(async () => h.respuesta),
-  useSondeo: () => undefined,
+  useSondeo: (fn: unknown) => h.fuentes.get(fn),
 }))
 import AppReal from "./App"
 import { Toaster } from "@/components/ui/toast"
 const App = () => <Toaster><AppReal /></Toaster>
-import { fijarToken, fijarOperador, EVENTO_NO_AUTORIZADO, cerrarSesion, tokenActual } from "@/api"
+import { fijarToken, fijarOperador, EVENTO_NO_AUTORIZADO, cerrarSesion, tokenActual, getSalud, getConectividad } from "@/api"
 
 // Montar la consola entera tarda bajo carga (suite en paralelo): las esperas llevan margen.
 describe("puerta de acceso", () => {
-  beforeEach(() => { cerrarSesion(); sessionStorage.clear(); fijarOperador("") })
+  beforeEach(() => { cerrarSesion(); sessionStorage.clear(); fijarOperador(""); h.fuentes.clear() })
 
   it("con token exigido y sin token, solo la pantalla de acceso", async () => {
     h.respuesta = { tipo: "rechazado" }
@@ -53,3 +53,32 @@ describe("puerta de acceso", () => {
     expect(tokenActual()).toBe("")
   })
 })
+
+describe("menú: icono de «Estado de servicios»", () => {
+  beforeEach(() => { cerrarSesion(); sessionStorage.clear(); fijarOperador("ana"); h.fuentes.clear() })
+  const entrar = async () => {
+    h.respuesta = { tipo: "ok", requiereToken: false, operador: null }
+    render(<App />)
+    const nav = await screen.findByRole("navigation", undefined, { timeout: 5000 })
+    return within(nav).getByRole("button", { name: "Estado de servicios" })
+  }
+
+  it("se pone rojo con equipos con problemas de configuración y dice por qué", { timeout: 15000 }, async () => {
+    h.fuentes.set(getSalud, { t: null, total: 7, caidos: 0, servicios: [] })
+    h.fuentes.set(getConectividad, { modo: "clave", equipos: [
+      { nombre: "atm", ip: "10.210.0.10", protegido: false, puerto: 22, usuario: "triaje", ajustado: false, huella_fijada: null, ultima_prueba: null },
+    ] })
+    const boton = await entrar()
+    expect(boton).toHaveAttribute("title", "1 equipo con problemas de conexión o configuración")
+    expect(boton.querySelector("svg")).toHaveClass("text-critico")
+  })
+
+  it("con todo en orden, el color de siempre", { timeout: 15000 }, async () => {
+    h.fuentes.set(getSalud, { t: null, total: 7, caidos: 0, servicios: [] })
+    h.fuentes.set(getConectividad, { modo: "clave", equipos: [] })
+    const boton = await entrar()
+    expect(boton).not.toHaveAttribute("title")
+    expect(boton.querySelector("svg")).not.toHaveClass("text-critico")
+  })
+})
+
