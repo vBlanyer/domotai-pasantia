@@ -8,26 +8,53 @@ Son plantillas: ajústalas a las rutas y al usuario del cliente.
 |---|---|
 | `arrancar-mdr.sh` | Wrapper del *pipe* `tail -F alerts.json \| python3 -m prototipo.servicio.stream … --web --salida <fijo>` (systemd no hace *pipes*). Lee las variables del `EnvironmentFile`. |
 | `mdr-triaje.service` | Unidad systemd: `Restart=always` (resiliencia: reinicia aunque el daemon salga 0 tras un EOF de la fuente) + endurecimiento básico. |
-| `triaje.env.ejemplo` | Ejemplo de `EnvironmentFile` (fuente, perfil, `--salida` fijo, conector SSH, HMAC). |
+| `triaje.env.ejemplo` | Ejemplo de `EnvironmentFile` (fuente, perfil, `--salida` fijo, conector SSH, HMAC, salud). |
+| `perfil.ejemplo.yml` | Perfil de cliente genérico y comentado, para entregar al cliente (sin nada del laboratorio). |
+| `../bin/mdr` | Herramienta de administración: `validar-perfil`, `validar-alertas`, `escanear` (postura con Nmap), `instalar-geoip` / `instalar-asn` (bases DB-IP Lite), `verificar-traza`, `podar-trazas`. |
+
+## Preparar el paquete (proveedor)
+
+El cliente recibe un paquete ya construido; no necesita Node.js ni el repositorio. Se prepara desde la
+raíz del repositorio:
+
+```sh
+cd visor && npm ci && npm run build && cd ..
+tar -czf mdr-<version>.tar.gz --exclude='prototipo/tests' --exclude='__pycache__' \
+    prototipo bin deploy visor/dist
+```
+
+Lleva el software (`prototipo/`), la herramienta de administración `bin/mdr`, las plantillas de
+`deploy/` (unidad, `triaje.env.ejemplo`, `perfil.ejemplo.yml`) y la consola construida. Los perfiles
+de `prototipo/perfiles/` son del laboratorio: al cliente se le entrega `deploy/perfil.ejemplo.yml`.
 
 ## Instalar
 
+El procedimiento completo, paso a paso y para quien instala en el cliente, está en el
+[manual de producción](../documentacion/07-fase7-documentacion-e-informe-final/manual-de-produccion.md).
+En resumen:
+
 ```sh
-sudo useradd --system --home /opt/mdr triaje
-sudo cp -r <repo> /opt/mdr && sudo chown -R triaje:triaje /opt/mdr
-sudo install -D -m 0600 deploy/triaje.env.ejemplo /etc/mdr/triaje.env   # y editarlo
-sudo cp deploy/mdr-triaje.service /etc/systemd/system/
+sudo useradd --system --home-dir /var/lib/mdr --no-create-home --shell /usr/sbin/nologin triaje
+sudo mkdir -p /opt/mdr && sudo tar -xzf mdr-<version>.tar.gz -C /opt/mdr   # software: de root, solo lectura
+sudo install -D -m 0600 /opt/mdr/deploy/triaje.env.ejemplo /etc/mdr/triaje.env   # y editarlo
+sudo cp /opt/mdr/deploy/mdr-triaje.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now mdr-triaje
 journalctl -u mdr-triaje -f          # ver el arranque y el feed
 ```
 
-`--salida` debe ser una **ruta fija** (p. ej. `run/trazas-<cliente>.jsonl`): al reiniciar, el daemon
-retoma de ahí su estado (supresión + contenciones activas, #4).
+- **El código es de root** y el servicio no puede modificarlo. Lo que escribe (traza, ficheros
+  operativos, clave del conector) va a `/var/lib/mdr`, que crea la unidad (`StateDirectory=mdr`).
+- **`/etc/mdr/triaje.env`: comentarios solo en su propia línea.** systemd no quita un comentario al
+  final de la línea: `X=valor   # nota` deja en `X` el texto completo, comentario incluido.
+- `TRIAJE_SALIDA` debe ser una **ruta fija** (p. ej. `/var/lib/mdr/trazas-<cliente>.jsonl`): al
+  reiniciar, el daemon retoma de ahí su estado (supresión + contenciones activas, #4).
 
 ## Recibir del SIEM por red (alternativa a `tail`)
 
 Si el SIEM está en otra máquina y reenvía las alertas por TCP (en vez de compartir el `alerts.json`), el
-daemon puede escuchar directamente, sin el *pipe* del wrapper:
+daemon puede escuchar directamente, sin el *pipe* del wrapper. Con la unidad systemd basta con fijar
+`TRIAJE_ESCUCHAR`, `TRIAJE_PERMITIR` y, si hay TLS, `TRIAJE_TLS_CERT`/`TRIAJE_TLS_CLAVE`/`TRIAJE_TLS_CA` en
+`/etc/mdr/triaje.env`: `arrancar-mdr.sh` pasa entonces al receptor. A mano sería:
 
 ```sh
 python3 -m prototipo.servicio.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web --salida "$TRIAJE_SALIDA" \
@@ -75,15 +102,15 @@ La autenticación/TLS del visor las pone la empresa delante (no hay login; ver l
 
 ## Retención de la traza
 
-Para que `run/` no crezca sin límite, una tarea de mantenimiento **offline** poda los ficheros de traza
+Para que el directorio de trazas no crezca sin límite, una tarea de mantenimiento **offline** poda los ficheros de traza
 antiguos (nunca el que el daemon escribe, nunca uno con la cadena de hashes rota):
 
 ```sh
 # simulación (no borra):
 python3 -m prototipo.servicio.retener_trazas run --max 30
 # aplicar (p. ej. cron semanal): conserva los 30 más recientes y nunca el fichero vivo
-0 4 * * 0  cd /opt/mdr && . /etc/mdr/triaje.env && \
-  python3 -m prototipo.servicio.retener_trazas run --max 30 --excepto "$TRIAJE_SALIDA" --aplicar
+# /etc/cron.d/mdr-retencion (corre como root, que es quien puede leer /etc/mdr/triaje.env)
+0 4 * * 0  root  /opt/mdr/bin/mdr podar-trazas /var/lib/mdr --max 30 --excepto /var/lib/mdr/trazas-cliente.jsonl --aplicar
 ```
 
 - También admite `--max-dias D` (poda lo más viejo que D días).
@@ -91,6 +118,7 @@ python3 -m prototipo.servicio.retener_trazas run --max 30
   más fiable que inferir el activo por fecha.
 - Verifica la cadena de cada fichero antes de borrarlo; si **no verifica**, lo conserva y avisa. Si la traza
   va firmada con HMAC, **el cron debe correr con el mismo `TRIAJE_TRAZA_CLAVE`** que el daemon (por eso el
-  ejemplo hace `. /etc/mdr/triaje.env`); sin la clave, ningún fichero verifica y no se poda nada (sale un
+  `bin/mdr` carga `/etc/mdr/triaje.env` con `set -a`, que exporta las variables: un `.` a secas las deja
+  sin exportar y Python no las ve); sin la clave, ningún fichero verifica y no se poda nada (sale un
   aviso, no borra por las dudas).
 

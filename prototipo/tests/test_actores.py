@@ -1,5 +1,6 @@
 import unittest
 from prototipo.motor import actores
+from prototipo.tests.geo_prueba import con_base_geo
 
 PERFIL = {
     "ip_gestion": "172.20.20.4",
@@ -151,9 +152,10 @@ class TestEnriquecerOrigen(unittest.TestCase):
         self.assertTrue(e["legitimo"])
 
     def test_una_ip_publica_en_la_tabla_se_geolocaliza(self):
+        con_base_geo(self)
         e = actores.enriquecer_origen("8.8.8.8", self.PERFIL)
         self.assertTrue(e["geolocalizable"])
-        self.assertEqual((e["geo"] or {}).get("codigo"), "US")   # geo offline de la tabla de muestra
+        self.assertEqual((e["geo"] or {}).get("codigo"), "US")   # geo offline de la base de prueba
 
     def test_una_publica_fuera_de_la_tabla_es_geolocalizable_sin_geo(self):
         e = actores.enriquecer_origen("193.0.14.129", self.PERFIL)
@@ -165,8 +167,9 @@ class TestEnriquecerOrigen(unittest.TestCase):
 
 
 class TestGeolocalizar(unittest.TestCase):
-    """Geolocalización OFFLINE con la tabla de muestra (sin dependencias ni egreso). Solo IPs públicas."""
+    """Geolocalización OFFLINE con la base de TRIAJE_GEOIP (sin egreso). Solo IPs públicas."""
     def test_ip_publica_en_la_tabla_da_pais(self):
+        con_base_geo(self)
         g = actores.geolocalizar("8.8.8.8")
         self.assertIsNotNone(g)
         self.assertEqual(g["codigo"], "US")
@@ -183,6 +186,7 @@ class TestGeolocalizar(unittest.TestCase):
 class TestAsnYRdns(unittest.TestCase):
     """ASN offline (tabla de muestra, sin egreso) y rDNS OPT-IN (apagado por defecto: sin egreso)."""
     def test_asn_de_ip_publica_en_la_tabla(self):
+        con_base_geo(self)
         a = actores.asn_de("8.8.8.8")
         self.assertEqual(a["asn"], "AS15169")
         self.assertIn("Google", a["org"])
@@ -192,6 +196,7 @@ class TestAsnYRdns(unittest.TestCase):
         self.assertIsNone(actores.asn_de("198.51.100.10"))
 
     def test_enriquecer_incluye_asn(self):
+        con_base_geo(self)
         e = actores.enriquecer_origen("8.8.8.8", {})
         self.assertEqual((e["asn"] or {}).get("asn"), "AS15169")
 

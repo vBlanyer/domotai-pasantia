@@ -13,7 +13,7 @@ describe("Ubicaciones", () => {
     ]
     render(<Ubicaciones />)
     expect(screen.getAllByText(/Estados Unidos/).length).toBeGreaterThan(0)   // en el mapa y en la tabla
-    expect(screen.getByText(/Laboratorio/)).toBeInTheDocument()
+    expect(screen.getByText(/Documentación \(IPs de ejemplo\)/)).toBeInTheDocument()
     expect(document.querySelector("svg circle")).toBeTruthy()      // un país en el mapa
     expect(document.querySelectorAll("svg path").length).toBeGreaterThan(20)   // siluetas de tierra (mapamundi)
   })
@@ -79,5 +79,16 @@ describe("Ubicaciones", () => {
     expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
     expect(filas()).toBe(5)
+  })
+
+  it("sin base de geolocalización lo avisa (la atribución de DB-IP va al pie del menú)", () => {
+    h.trazas = [{ indice: 1, origen_ip: "45.1.2.3", relaciones: { web01: ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: null, geo_base: false } }]
+    const { unmount } = render(<Ubicaciones />)
+    expect(screen.getByText(/No hay base de geolocalización/)).toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "IP Geolocation by DB-IP" })).toBeNull()
+    unmount()
+    h.trazas = [{ indice: 1, origen_ip: "8.8.8.8", relaciones: { web01: ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo_base: true, geo: { pais: "Estados Unidos", codigo: "US", lat: 37, lon: -95, fuente: "dbip" } } }]
+    render(<Ubicaciones />)
+    expect(screen.queryByText(/No hay base de geolocalización/)).toBeNull()
   })
 })

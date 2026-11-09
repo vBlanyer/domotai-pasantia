@@ -26,11 +26,16 @@ def _entero(v):
 
 
 def resolver_activo(cruda):
-    # En Containerlab todo entra como agent.id 000: el activo se deduce del
-    # hostname que decodifica Wazuh, no del id de agente (RF-16).
-    pre = cruda.get("predecoder", {})
+    # El equipo es el host de la línea syslog si la hay (RF-16: lo que llega por syslog al manager
+    # entra como agent.id 000, así que el id no sirve). Sin ella —FIM, rootcheck o eventos de
+    # Windows de un agente real, cuya location es la fuente ('syscheck')— es el agente que la generó.
+    # El agente 000 es el propio manager: nunca es el equipo atacado.
+    pre = cruda.get("predecoder") or {}
     if pre.get("hostname"):
         return pre["hostname"]
+    agente = cruda.get("agent") or {}
+    if isinstance(agente, dict) and agente.get("name") and str(agente.get("id", "000")) != "000":
+        return agente["name"]
     return cruda.get("location", "desconocido")
 
 def servicio_de(cruda):

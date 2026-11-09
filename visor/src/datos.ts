@@ -599,9 +599,11 @@ function ubicacionDe(d: ConOrigen): { clave: string; nombre: string; lat?: numbe
   if (e?.geo?.pais) return { clave: e.geo.codigo ?? e.geo.pais, nombre: e.geo.pais, lat: (e.geo as { lat?: number }).lat, lon: (e.geo as { lon?: number }).lon, codigo: e.geo.codigo }
   switch (e?.clasificacion_ip) {
     case "privada": return { clave: "interna", nombre: "Red interna" }
-    case "documentacion": return { clave: "lab", nombre: "Laboratorio / documentación" }
+    case "documentacion": return { clave: "lab", nombre: "Documentación (IPs de ejemplo)" }
     case "loopback": return { clave: "loopback", nombre: "Loopback" }
-    case "publica": return { clave: "sin-geo", nombre: "Pública (sin geolocalizar)" }
+    case "publica": return e.geo_base === false
+      ? { clave: "sin-base", nombre: "Pública (sin base de geolocalización)" }
+      : { clave: "sin-geo", nombre: "Pública (sin geolocalizar)" }
     default: return { clave: "desconocida", nombre: "Desconocida" }
   }
 }
@@ -609,6 +611,19 @@ function ubicacionDe(d: ConOrigen): { clave: string; nombre: string; lat?: numbe
 // Las tres métricas por ubicación: total (recibidos), mitigados (contención «contenida») y en curso
 // (recibidos aún NO contenidos = total − mitigados; partición limpia: total = mitigados + enCurso).
 export type MetricaUbicacion = "enCurso" | "n" | "mitigados"
+
+// Cómo está la geolocalización del MDR, según las decisiones: si falta la base (lo dice el registro
+// más reciente que lo sabe; las trazas antiguas no lo traen) y si algún país u organización (ASN) vino
+// de DB-IP, cuya licencia (CC BY 4.0) exige enlazar su atribución donde se muestran sus resultados.
+export function estadoGeo(todos: ConOrigen[]): { sinBase: boolean; dbip: boolean } {
+  let sinBase = false
+  for (let i = todos.length - 1; i >= 0; i--) {
+    const b = todos[i].enriquecimiento_origen?.geo_base
+    if (b !== undefined) { sinBase = b === false; break }
+  }
+  return { sinBase, dbip: todos.some((d) => d.enriquecimiento_origen?.geo?.fuente === "dbip"
+    || d.enriquecimiento_origen?.asn?.fuente === "dbip") }
+}
 
 export function ubicacionesDe(todos: Decision[]): {
   clave: string; nombre: string; lat?: number | null; lon?: number | null; codigo?: string | null

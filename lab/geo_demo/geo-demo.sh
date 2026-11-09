@@ -22,6 +22,8 @@ HALLAZGOS="$HERE/lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json"
 SALIDA="$HERE/run/trazas-geo-demo.jsonl"
 PUERTO="${PUERTO:-8787}"
 mkdir -p "$HERE/run"
+export TRIAJE_GEOIP="$HERE/lab/geo_demo/geoip-muestra.csv"   # base de muestra de la demo (14 bloques)
+export TRIAJE_ASN="$HERE/lab/geo_demo/asn-muestra.csv"       # ASN de muestra de la demo
 : > "$SALIDA"   # arranca de cero: la demo no arrastra trazas de corridas anteriores
 
 echo "== Demo de geolocalización (escenario sintético) =="

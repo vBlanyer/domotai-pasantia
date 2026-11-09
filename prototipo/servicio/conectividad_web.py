@@ -118,9 +118,16 @@ def _puede_editar(srv, operador):
     return bool(operador) and (hay_mapa or os.environ.get("TRIAJE_CONECTIVIDAD_ABIERTA") == "1")
 
 
+def _motivo_no_editable(modo):
+    """Por qué no se puede probar ni cambiar nada en Conectividad con este modo del conector."""
+    if modo == "password":
+        return "el conector está en modo contraseña (pruebas): probar y cambiar no aplicarían"
+    return "el conector aún no tiene clave: genérala primero con «Generar la clave del conector»"
+
+
 def _permisos(srv, operador, modo):
     if modo not in _MODOS_EDITABLES:
-        return False, "el conector está en modo laboratorio o sin configurar: probar y cambiar no aplicarían"
+        return False, _motivo_no_editable(modo)
     if not srv.ruta_conectividad:
         return False, "el daemon no tiene fichero de ajustes del conector"
     if not _puede_editar(srv, operador):
@@ -576,7 +583,7 @@ def paquete(srv, equipo, formato, operador):
     """GET /api/conectividad/paquete: el paquete de alta (o de corrección) de un equipo."""
     modo = srv.conectividad_modo()
     if modo not in _MODOS_EDITABLES:
-        return 409, {"error": "el conector está en modo laboratorio o sin configurar"}
+        return 409, {"error": _motivo_no_editable(modo)}
     e = _equipo(srv, equipo)
     if not e or e["protegido"]:
         return 400, {"error": "equipo desconocido o protegido"}

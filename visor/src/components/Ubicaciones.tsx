@@ -3,7 +3,7 @@ import { useSondeo, getTrazas, type Decision } from "@/api"
 import { Prioridad, Cargando, SinConexion, Vacio } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ubicacionesDe, type MetricaUbicacion, paginar, TAM_PAGINA } from "@/datos"
+import { ubicacionesDe, estadoGeo, type MetricaUbicacion, paginar, TAM_PAGINA } from "@/datos"
 import { Paginador } from "@/components/Paginador"
 import { TIERRA_PATHS } from "@/worldmap"
 
@@ -38,6 +38,7 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
   if (fallo && !fallo.datos) return <SinConexion causa={fallo.causa} />
   const regs: Decision[] = fallo ? (fallo.datos ?? []) : (t as Decision[])
   const ubis = ubicacionesDe(regs)
+  const geo = estadoGeo(regs)
   if (ubis.length === 0) return <Vacio>Sin orígenes de ataque todavía.</Vacio>
   const paises = ubis.filter((u) => u.lat != null && u.lon != null)
   const pag = paginar(ubis, pagina, tam)
@@ -54,9 +55,16 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Origen de los ataques por ubicación. La geolocalización es <b>offline y aproximada</b> (tabla de muestra,
-        sin egreso); las IPs de <b>laboratorio/documentación</b> e <b>internas</b> no se geolocalizan y van en la tabla.
+        Origen de los ataques por ubicación. La geolocalización es <b>offline y por país</b>, con la base que tenga
+        instalada el MDR (sin egreso); las IPs de <b>documentación</b> (de ejemplo) e <b>internas</b> no se geolocalizan
+        y van en la tabla.
       </p>
+      {geo.sinBase && (
+        <p className="rounded-md border border-aviso/40 bg-aviso/10 px-3 py-2 text-xs">
+          <b>No hay base de geolocalización</b> en el MDR: los orígenes públicos salen sin país. La administración la
+          instala con <code>mdr instalar-geoip</code>.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {METRICAS.map((m) => (
           <Button key={m.clave} size="sm" variant={m.clave === metrica ? "default" : "secondary"}
@@ -72,7 +80,7 @@ export function Ubicaciones({ onVerPais, onVerAprobaciones }: {
         {visibles.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
             {paises.length === 0
-              ? "Sin orígenes geolocalizables (todos son de laboratorio o internos)."
+              ? "Sin orígenes geolocalizables (todos son de documentación, internos o fuera de la tabla)."
               : `Ningún país con ataques «${activa.etiqueta.toLowerCase()}» ahora mismo.`}
           </div>
         ) : (

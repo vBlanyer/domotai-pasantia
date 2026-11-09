@@ -1,7 +1,8 @@
 """Demo de GEOLOCALIZACIÓN observable (sin contenedores).
 
 Genera una campaña SINTÉTICA de ataques con IPs de origen PÚBLICAS repartidas por varios países
-—tomadas de la MISMA tabla de muestra que usa el enriquecimiento (`prototipo/corpus/geoip-muestra.json`)—
+—tomadas de su tabla de muestra (`lab/geo_demo/geoip-muestra.json`, la misma que `geoip-muestra.csv`,
+la base TRIAJE_GEOIP con la que arranca la demo)—
 y las inyecta por el PIPELINE REAL (normalizador Wazuh → motor → traza → visor), de modo que la vista
 «Ubicaciones» del tablero se encienda con marcadores por país y cada decisión muestre país + ASN + rDNS.
 

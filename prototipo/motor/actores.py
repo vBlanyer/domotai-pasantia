@@ -8,6 +8,7 @@ idéntico al de antes de existir este módulo).
 """
 import ipaddress
 import os
+from prototipo.motor import geoip
 
 POLITICA_POR_DEFECTO = "humano_siempre"          # C1: bloquear lo propio exige humano
 POLITICAS = ("humano_siempre", "automatica_si_confianza")
@@ -122,7 +123,7 @@ def es_tercero_confiable(ip, perfil):
 
 # Enriquecimiento de la IP de ORIGEN para el visor (RF-17/RF-19, additivo: no cambia ninguna
 # decisión ni el texto del motivo). Reusa el actor que el motor ya calcula y clasifica la IP por su
-# propio rango con la stdlib; la geolocalización es un seam OFFLINE opcional (hoy None).
+# propio rango con la stdlib; la geolocalización es OFFLINE, con la base de TRIAJE_GEOIP (motor/geoip).
 _ALCANCE = {"activo_interno": "interno", "desconocido": "externo",
             "gestion": "gestion", "dispositivo_red": "dispositivo_red"}
 # Rangos de documentación/ejemplo (RFC 5737 IPv4, RFC 3849 IPv6): de laboratorio, NO geolocalizan.
@@ -146,56 +147,14 @@ def clasificar_ip(ip):
     return "publica" if d.is_global else "privada"
 
 
-_GEOIP = None
-
-
-def _tabla_geoip():
-    """Tabla de geolocalización OFFLINE (sin dependencias ni egreso): una MUESTRA curada de bloques
-    públicos conocidos → país. Es un seed demostrable, sustituible por una base real (p. ej. GeoLite2)
-    en producción. Se carga una vez; si falta o está corrupta, queda vacía (geo = None)."""
-    global _GEOIP
-    if _GEOIP is None:
-        import json
-        ruta = os.path.join(os.path.dirname(os.path.dirname(__file__)), "corpus", "geoip-muestra.json")
-        try:
-            with open(ruta, encoding="utf-8") as f:
-                _GEOIP = [e for e in json.load(f) if isinstance(e, dict) and e.get("cidr")]
-        except (OSError, ValueError):
-            _GEOIP = []
-    return _GEOIP
-
-
-_ASN = None
-
-
-def _tabla_asn():
-    """Tabla ASN OFFLINE (muestra curada de bloques públicos → {asn, org}), como la de geo: sin
-    dependencias ni egreso, sustituible por un dataset real (p. ej. GeoLite2-ASN) en producción."""
-    global _ASN
-    if _ASN is None:
-        import json
-        ruta = os.path.join(os.path.dirname(os.path.dirname(__file__)), "corpus", "asn-muestra.json")
-        try:
-            with open(ruta, encoding="utf-8") as f:
-                _ASN = [e for e in json.load(f) if isinstance(e, dict) and e.get("cidr")]
-        except (OSError, ValueError):
-            _ASN = []
-    return _ASN
-
-
 def asn_de(ip):
-    """{asn, org} de una IP PÚBLICA que caiga en un bloque conocido (tabla offline), o None. Las
-    privadas/documentación/loopback no tienen ASN de Internet."""
+    """{asn, org, fuente} de una IP PÚBLICA según la base de TRIAJE_ASN (motor/geoip), o None si no
+    hay base o no está. Las privadas/documentación/loopback no tienen ASN de Internet."""
     if clasificar_ip(ip) != "publica":
         return None
-    direccion = ipaddress.ip_address(_canon(ip))
-    for e in _tabla_asn():
-        try:
-            if direccion in ipaddress.ip_network(e["cidr"]):
-                return {"asn": e.get("asn"), "org": e.get("org")}
-        except ValueError:
-            continue
-    return None
+    b = geoip.base("asn")
+    v = b.buscar(_canon(ip)) if b else None
+    return {"asn": v[0], "org": v[1], "fuente": b.fuente} if v else None
 
 
 _RDNS_CACHE = {}
@@ -235,20 +194,16 @@ def rdns(ip, resolutor=None):
 
 
 def geolocalizar(ip):
-    """Geolocalización OFFLINE (stdlib + tabla de muestra, sin egreso): {pais, codigo, lat, lon} para
-    una IP PÚBLICA que caiga en un bloque conocido; None en otro caso. Las privadas, de documentación
-    y loopback nunca geolocalizan (no son direcciones de Internet)."""
+    """Geolocalización OFFLINE (sin egreso): {pais, codigo, lat, lon, fuente} para una IP PÚBLICA que
+    esté en la base de TRIAJE_GEOIP (motor/geoip); None si no hay base o no está. Las privadas, de
+    documentación y loopback nunca geolocalizan (no son direcciones de Internet)."""
     if clasificar_ip(ip) != "publica":
         return None
-    c = _canon(ip)
-    direccion = ipaddress.ip_address(c)
-    for e in _tabla_geoip():
-        try:
-            if direccion in ipaddress.ip_network(e["cidr"]):
-                return {"pais": e.get("pais"), "codigo": e.get("codigo"), "lat": e.get("lat"), "lon": e.get("lon")}
-        except ValueError:
-            continue
-    return None
+    b = geoip.base()
+    codigo = b.buscar(_canon(ip)) if b else None
+    if not codigo:
+        return None
+    return {**geoip.pais(codigo), "fuente": b.fuente}
 
 
 def enriquecer_origen(ip, perfil, legitimo=None):
@@ -272,7 +227,8 @@ def enriquecer_origen(ip, perfil, legitimo=None):
         "legitimo": bool(legitimo),
         "geolocalizable": clase == "publica",
         "geo": geolocalizar(ip),
-        "asn": asn_de(ip),           # offline (tabla de muestra); None si no es pública o no está
+        "geo_base": geoip.base() is not None,   # sin base, «sin país» no significa «desconocido»
+        "asn": asn_de(ip),           # offline (base de TRIAJE_ASN); None si no es pública, no hay base o no está
     }
 
 

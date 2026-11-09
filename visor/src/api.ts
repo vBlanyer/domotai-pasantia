@@ -34,8 +34,10 @@ export const EnriquecimientoOrigenSchema = z.object({
   clasificacion_ip: z.string(), tercero_confiable: z.boolean(), legitimo: z.boolean(),
   geolocalizable: z.boolean(),
   geo: z.object({ pais: z.string().nullable().optional(), ciudad: z.string().nullable().optional(),
-    codigo: z.string().nullable().optional(), lat: z.number().nullable().optional(), lon: z.number().nullable().optional() }).nullable().optional(),
-  asn: z.object({ asn: z.string(), org: z.string() }).nullable().optional(),
+    codigo: z.string().nullable().optional(), lat: z.number().nullable().optional(), lon: z.number().nullable().optional(),
+    fuente: z.string().nullable().optional() }).nullable().optional(),
+  geo_base: z.boolean().optional(),      // ¿había base de geolocalización (TRIAJE_GEOIP)? Ausente en trazas antiguas
+  asn: z.object({ asn: z.string(), org: z.string(), fuente: z.string().nullable().optional() }).nullable().optional(),
 })
 // Por qué no quedó contenida (prototipo/accion/fallos.py): F1..F10, qué hacer y si puede ser un ataque.
 export const CausaSchema = z.object({

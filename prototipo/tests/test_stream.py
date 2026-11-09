@@ -1647,3 +1647,68 @@ class TestLineasInicio(unittest.TestCase):
         self.assertIn(os.path.basename(cfg["perfil"]), lineas[0])
         self.assertIn("simulado (--sin-lab)", lineas[0])
         self.assertIn("SIN firma HMAC", lineas[1])
+
+
+class TestFuenteDeSalud(unittest.TestCase):
+    """De dónde lee Estado de servicios la salud de los servicios del cliente."""
+
+    def test_con_TRIAJE_SALUD_lee_ese_fichero_local(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"TRIAJE_SALUD": "/var/lib/mdr/salud.jsonl"}):
+            self.assertEqual(stream.fuente_salud(), {"ruta": "/var/lib/mdr/salud.jsonl"})
+
+    def test_TRIAJE_SALUD_CONTENEDOR_lee_dentro_del_contenedor(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"TRIAJE_SALUD_CONTENEDOR": "monitor:/var/log/salud.jsonl"}):
+            os.environ.pop("TRIAJE_SALUD", None)
+            self.assertEqual(stream.fuente_salud(),
+                             {"contenedor": "monitor", "fichero_en_contenedor": "/var/log/salud.jsonl"})
+
+    def test_sin_fuente_no_intenta_nada_y_la_vista_dice_sin_datos(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TRIAJE_SALUD", None)
+            os.environ.pop("TRIAJE_SALUD_CONTENEDOR", None)
+            self.assertEqual(stream.fuente_salud(), {})
+            llamadas = []
+            muestra = tablero.leer_salud(ejecutar=lambda *a, **k: llamadas.append(a), **stream.fuente_salud())
+            self.assertIsNone(muestra)
+            self.assertEqual(llamadas, [])          # ni docker ni nada: no hay fuente
+            self.assertEqual(tablero.estado_salud(muestra), {"sin_datos": True})
+
+
+class TestLineaGeoip(unittest.TestCase):
+    def tearDown(self):
+        from prototipo.motor import geoip
+        geoip.reiniciar()
+
+    def _lineas(self, entorno):
+        from unittest import mock
+        from prototipo.motor import geoip
+        with mock.patch.dict(os.environ, entorno, clear=False):
+            for v in ("TRIAJE_GEOIP", "TRIAJE_ASN"):
+                if v not in entorno:
+                    os.environ.pop(v, None)
+            geoip.reiniciar()
+            return stream.lineas_geoip()
+
+    def test_sin_bases_avisa_de_las_dos(self):
+        pais, asn = self._lineas({})
+        self.assertIn("sin base (TRIAJE_GEOIP)", pais)
+        self.assertIn("sin base (TRIAJE_ASN)", asn)
+
+    def test_con_base_dice_cuantos_rangos(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as f:
+            f.write("8.8.8.0,8.8.8.255,US\n1.0.0.0,1.0.0.255,AU\n")
+        self.addCleanup(os.unlink, f.name)
+        with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as g:
+            g.write('8.8.8.0,8.8.8.255,15169,"Google LLC"\n')
+        self.addCleanup(os.unlink, g.name)
+        pais, asn = self._lineas({"TRIAJE_GEOIP": f.name, "TRIAJE_ASN": g.name})
+        self.assertIn("· 2 rangos", pais)
+        self.assertIn("[inicio] ASN:", asn)
+        self.assertIn("· 1 rangos", asn)
+
+    def test_base_ilegible_avisa_con_el_motivo(self):
+        pais, _ = self._lineas({"TRIAJE_GEOIP": "/no/existe.csv"})
+        self.assertIn("no se pudo cargar la base", pais)

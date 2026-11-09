@@ -133,18 +133,18 @@ def justificar(alerta, contexto, clase):
     # del prompt del LLM ni inyecten instrucciones. La decisión NO depende de este texto (RF-05).
     act, svc = _sanear(alerta.get("activo")), _sanear(alerta.get("servicio"))
     if postura is None:
-        veredicto = "el auditor no tiene postura del activo (contexto incompleto)"
+        veredicto = "no hay escaneo de postura del activo (contexto incompleto)"
     elif postura.get("expuesto"):
-        veredicto = f"el auditor confirma que {svc} está expuesto en {act}"
+        veredicto = f"el escaneo de postura confirma que {svc} está expuesto en {act}"
         otros = resumen_otros_expuestos(postura, alerta.get("servicio"))
         if otros:
             veredicto += f" (el activo también expone: {otros})"
     else:
-        veredicto = f"el auditor no confirma exposición de {svc} en {act}"
+        veredicto = f"el escaneo de postura no confirma exposición de {svc} en {act}"
     mitre = ", ".join(alerta.get("mitre", []) or ["s/téc."])
     umbral = contexto.get("umbral_rafaga")
     if umbral and (contexto.get("rafaga") or 0) >= umbral:
         veredicto += f"; ráfaga de {contexto['rafaga']} alertas del mismo origen en un minuto"
     return (f"Alerta {alerta.get('regla_id')} (técnica {mitre}) desde {alerta.get('origen_ip')} "
             f"contra {act} ({svc}). {veredicto}. "
-            f"Clasificada como {clase}. [justificación de plantilla — baseline, no modelo]")
+            f"Clasificada como {clase}. [justificación de plantilla]")

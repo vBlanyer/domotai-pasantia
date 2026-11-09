@@ -1119,7 +1119,33 @@ def lineas_avisos_red(perfil):
     from prototipo.servicio import tablero
     return [f"[aviso] perfil, sección red: {a}" for a in tablero.estado_red(perfil, [])["avisos"]]
 
-_SALUD_DEF = {"contenedor": "clab-banco-mdr-siem", "fichero_en_contenedor": "/var/log/banco/salud.jsonl"}
+def fuente_salud():
+    """De dónde lee Estado de servicios la salud de los servicios del cliente: el fichero JSONL local
+    de TRIAJE_SALUD (una línea {"t": …, "estados": {servicio: "ok"|…}} por muestra, la escribe el
+    monitor del cliente) o, con TRIAJE_SALUD_CONTENEDOR=<contenedor>:<ruta>, ese fichero dentro de un
+    contenedor (el monitor del laboratorio). Sin ninguna, no hay fuente: «sin datos»."""
+    ruta = os.environ.get("TRIAJE_SALUD")
+    if ruta:
+        return {"ruta": ruta}
+    cont, _, fichero = (os.environ.get("TRIAJE_SALUD_CONTENEDOR") or "").partition(":")
+    if cont and fichero:
+        return {"contenedor": cont, "fichero_en_contenedor": fichero}
+    return {}
+
+def lineas_geoip():
+    """Carga las bases de IPs (país: TRIAJE_GEOIP; ASN: TRIAJE_ASN) y dice cómo quedaron, para el arranque."""
+    from prototipo.motor import geoip
+    lineas = []
+    for tipo, nombre, falta in (("pais", "geolocalización", "sin país"), ("asn", "ASN", "sin organización")):
+        e = geoip.estado(tipo)
+        if e["configurada"]:
+            lineas.append(f"[inicio] {nombre}: {os.path.basename(e['ruta'])} · {e['rangos']:,} rangos".replace(",", "."))
+        elif e["error"]:
+            lineas.append(f"[aviso] {nombre}: no se pudo cargar la base ({e['error']}); los orígenes salen {falta}")
+        else:
+            lineas.append(f"[aviso] {nombre}: sin base ({geoip.VARIABLE[tipo]}); los orígenes salen {falta}")
+    return lineas
+
 
 def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
     """Arma el tablero para --web: EstadoTablero, el servidor (ligado a 127.0.0.1, SIN arrancar el
@@ -1147,7 +1173,7 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
     # (TRIAJE_CONECTIVIDAD) por encima de las variables de entorno. Si ya viene fijado, se respeta.
     ruta_conectividad = os.environ.setdefault(
         "TRIAJE_CONECTIVIDAD", os.path.join(os.path.dirname(cfg["salida"]) or ".", "conectividad-operativa.yml"))
-    servidor = tablero.crear_servidor(estado, cfg["salida"], salud=_SALUD_DEF, dependencias=deps,
+    servidor = tablero.crear_servidor(estado, cfg["salida"], salud=fuente_salud(), dependencias=deps,
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
                                       catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)
                                       # overlay operativo de políticas (editor del visor); perfil= es el canónico
@@ -1287,6 +1313,12 @@ def main(argv):
         print(f"[web] tablero en http://127.0.0.1:{servidor.server_address[1]}")
         for linea in _lineas_inicio(cfg, ejecutor):   # el contexto del banner, también en el feed
             estado.anotar_linea(linea)
+
+        def _cargar_geo():                              # ~5 s por base completa: sin bloquear el arranque
+            for linea in lineas_geoip():
+                print(linea)
+                estado.anotar_linea(linea)
+        threading.Thread(target=_cargar_geo, daemon=True).start()
     else:
         escribir_fn, leer_fn = print, _leer_interactivo()   # comportamiento actual (terminal)
     if fallos.interruptor("TRIAJE_MEMORIA_FALLOS"):        # fase 5 del plan de fallos

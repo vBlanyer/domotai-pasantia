@@ -312,7 +312,9 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(pf, {"acceso_credenciales": 2, "integridad_fichero": 1})
 
     def test_metricas_incluye_por_pais_offline(self):
-        # geolocaliza OFFLINE (tabla de muestra, sin egreso): IP pública conocida -> su país;
+        from prototipo.tests.geo_prueba import con_base_geo
+        con_base_geo(self)
+        # geolocaliza OFFLINE (base de TRIAJE_GEOIP, sin egreso): IP pública conocida -> su país;
         # privada/sin IP -> "Sin geolocalizar".
         regs = [
             {"clase": "vp_intento_acceso", "origen_ip": "8.8.8.8", "contexto": {"familia": "acceso_credenciales"}},
@@ -1411,6 +1413,8 @@ class TestVistaRed(unittest.TestCase):
         self.assertNotIn("alerta", v)
 
     def test_la_vista_de_pendientes_incluye_la_ubicacion_del_origen(self):
+        from prototipo.tests.geo_prueba import con_base_geo
+        con_base_geo(self)
         # para mostrar y filtrar por ubicación en Aprobaciones: el pendiente lleva el enriquecimiento
         v = tablero._vista_pendiente({"id": "1", "alerta": {"activo": "web-banking", "origen_ip": "8.8.8.8"}},
                                      perfil={})

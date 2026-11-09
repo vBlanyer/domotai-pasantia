@@ -1,0 +1,76 @@
+#!/bin/sh
+# Herramientas de administración del MDR. Uso: mdr <orden> [argumentos]   (mdr ayuda)
+# Carga la configuración del servicio (/etc/mdr/triaje.env, o la de MDR_ENV) si se puede leer, para
+# usar la misma clave de la traza y las mismas rutas que el servicio.
+set -eu
+
+RAIZ=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+ENTORNO="${MDR_ENV:-/etc/mdr/triaje.env}"
+if [ -r "$ENTORNO" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$ENTORNO"
+  set +a
+fi
+export PYTHONPATH="$RAIZ${PYTHONPATH:+:$PYTHONPATH}" PYTHONDONTWRITEBYTECODE=1
+
+ayuda() {
+  cat <<'EOF'
+Uso: mdr <orden> [argumentos]
+
+  validar-perfil [perfil.yml]      Revisa el perfil del cliente (por defecto, el de TRIAJE_PERFIL).
+  validar-alertas <muestra.json>   Cuenta qué alertas de una muestra del SIEM sabe tratar el MDR.
+  escanear [--puertos 22,443] [--equipos a,b]
+                                   Escanea con Nmap los equipos del perfil y escribe la postura
+                                   (TRIAJE_HALLAZGOS). Requiere autorización del cliente.
+  instalar-geoip <fichero.csv.gz>  Valida la base de países descargada (DB-IP Lite) y la instala
+                                   en TRIAJE_GEOIP.
+  instalar-asn <fichero.csv.gz>    Lo mismo con la base de ASN (DB-IP ASN Lite), en TRIAJE_ASN.
+  verificar-traza [traza.jsonl]    Comprueba que la traza no se ha alterado (por defecto, TRIAJE_SALIDA).
+  podar-trazas <directorio> --max N | --max-dias D [--excepto <traza>] [--aplicar]
+                                   Borra las trazas antiguas (sin --aplicar, solo dice qué borraría).
+  ayuda                            Esta ayuda.
+EOF
+}
+
+orden="${1:-ayuda}"
+[ "$#" -gt 0 ] && shift
+case "$orden" in
+  validar-perfil)
+    perfil="${1:-${TRIAJE_PERFIL:-}}"
+    [ -n "$perfil" ] || { echo "mdr: indica el perfil (o fija TRIAJE_PERFIL)" >&2; exit 2; }
+    exec python3 -c 'import sys
+from prototipo.motor import perfil as p
+from prototipo.servicio import stream
+perfil = p.cargar(sys.argv[1])
+avisos = list(p.validar(perfil))
+avisos += ["mapa de la red: " + l.split("sección red: ", 1)[-1] for l in stream.lineas_avisos_red(perfil)
+           if l.split("sección red: ", 1)[-1] not in avisos]
+print("\n".join(avisos) if avisos else "perfil sin avisos")
+sys.exit(1 if avisos else 0)' "$perfil" ;;
+  validar-alertas)
+    [ "$#" -ge 1 ] || { echo "mdr: indica la muestra de alertas (JSON, una por línea)" >&2; exit 2; }
+    exec python3 -m prototipo.herramientas.validar_reglas "$@" ;;
+  escanear)
+    perfil="${TRIAJE_PERFIL:-}"; salida="${TRIAJE_HALLAZGOS:-}"
+    [ -n "$perfil" ] && [ -n "$salida" ] || { echo "mdr: fija TRIAJE_PERFIL y TRIAJE_HALLAZGOS (o ejecuta con sudo)" >&2; exit 2; }
+    exec python3 -m prototipo.herramientas.escanear_postura "$perfil" "$salida" "$@" ;;
+  instalar-geoip)
+    [ "$#" -eq 1 ] || { echo "mdr: indica el fichero descargado (dbip-country-lite-AAAA-MM.csv.gz)" >&2; exit 2; }
+    [ -n "${TRIAJE_GEOIP:-}" ] || { echo "mdr: fija TRIAJE_GEOIP (o ejecuta con sudo)" >&2; exit 2; }
+    exec python3 -m prototipo.herramientas.instalar_geoip "$1" "$TRIAJE_GEOIP" ;;
+  instalar-asn)
+    [ "$#" -eq 1 ] || { echo "mdr: indica el fichero descargado (dbip-asn-lite-AAAA-MM.csv.gz)" >&2; exit 2; }
+    [ -n "${TRIAJE_ASN:-}" ] || { echo "mdr: fija TRIAJE_ASN (o ejecuta con sudo)" >&2; exit 2; }
+    exec python3 -m prototipo.herramientas.instalar_geoip --asn "$1" "$TRIAJE_ASN" ;;
+  verificar-traza)
+    traza="${1:-${TRIAJE_SALIDA:-}}"
+    [ -n "$traza" ] || { echo "mdr: indica la traza (o fija TRIAJE_SALIDA)" >&2; exit 2; }
+    exec python3 -m prototipo.servicio.traza --verificar "$traza" ;;
+  podar-trazas)
+    exec python3 -m prototipo.servicio.retener_trazas "$@" ;;
+  ayuda|-h|--help)
+    ayuda ;;
+  *)
+    echo "mdr: orden desconocida: $orden" >&2; ayuda >&2; exit 2 ;;
+esac

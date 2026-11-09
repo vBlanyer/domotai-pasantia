@@ -10,6 +10,22 @@ from prototipo.entrada import adaptador_wazuh
 from prototipo.motor import actores
 
 
+def setUpModule():
+    # La demo geolocaliza con su propia base (la misma que exporta geo-demo.sh): el pipeline real.
+    from unittest import mock
+    from prototipo.motor import geoip
+    global _PARCHE
+    _PARCHE = mock.patch.dict(os.environ, {"TRIAJE_GEOIP": generador.BASE_GEOIP, "TRIAJE_ASN": generador.BASE_ASN})
+    _PARCHE.start()
+    geoip.reiniciar()
+
+
+def tearDownModule():
+    from prototipo.motor import geoip
+    _PARCHE.stop()
+    geoip.reiniciar()
+
+
 def _normalizar(cruda):
     """La misma normalización que hace el daemon (stream) sobre la fuente Wazuh."""
     return adaptador_wazuh.normalizar_alerta(cruda, "geo-demo")

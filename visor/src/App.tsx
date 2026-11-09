@@ -9,7 +9,7 @@ import {
   iniciarSesion, cerrarSesion, sesionActual, operadorActual, EVENTO_NO_AUTORIZADO, type Pendiente, type Sesion, type ModoSesion,
 } from "@/api"
 import { Acceso, Reautenticar, ChipSesion, BandaAbierta, type Motivo, type Entrada as EntradaSesion } from "@/components/Acceso"
-import { campanasDe, estadoDeCasos, claveDeCampana } from "@/datos"
+import { campanasDe, estadoDeCasos, claveDeCampana, estadoGeo } from "@/datos"
 import { cn } from "@/lib/utils"
 import { tituloConPendientes, nuevosPendientes, textoAviso } from "@/alertas"
 import { useTema } from "@/tema"
@@ -177,6 +177,9 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
   const alertaSalud = alertaMenuSalud(salud && "servicios" in salud ? salud : null,
     conect && !("error" in conect) ? conect : null)
   const pendConocidos = listaConocida(pend)   // en un fallo, los últimos buenos (no re-notificar todo)
+  // La licencia de DB-IP Lite (CC BY 4.0) exige su enlace donde se ven sus datos (país u organización
+  // de la IP atacante, en casi todas las vistas): va al pie del menú mientras haya alguno en pantalla.
+  const atribucionDbip = useMemo(() => estadoGeo([...(regs ?? []), ...(pendConocidos ?? [])]).dbip, [regs, pendConocidos])
   const nPend = pendConocidos?.length ?? 0
   const [avisos, setAvisos] = useState(leerAvisos)
   useAvisoPendientes(pendConocidos, avisos)
@@ -247,6 +250,8 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
           <div className="flex flex-col items-center gap-3 border-t border-sidebar-border py-3">
             <Punto estado={conectado ? "ok" : "caido"} />
             {pausada && <Pause className="size-3.5 text-aviso" aria-label="Automatización en pausa" />}
+            {atribucionDbip && <a href="https://db-ip.com" target="_blank" rel="noreferrer" title="IP Geolocation by DB-IP" aria-label="IP Geolocation by DB-IP"
+              className="text-[9px] text-muted-foreground underline">DB-IP</a>}
             <button onClick={alternarPlegado} aria-label="Desplegar el menú" title="Desplegar el menú"
               className="grid size-6 place-items-center rounded border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground">
               <PanelLeftOpen className="size-3.5" />
@@ -264,6 +269,8 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
               </button>
             </div>
             {pausada && <div className="flex items-center gap-1.5 text-aviso"><Pause className="size-3.5" />Automatización en pausa</div>}
+            {atribucionDbip && <a href="https://db-ip.com" target="_blank" rel="noreferrer"
+              className="text-[11px] text-muted-foreground underline">IP Geolocation by DB-IP</a>}
           </div>
         )}
       </aside>

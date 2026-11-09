@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe, cronologiaDe, eventosDeEntidad, claveIncidenteDe, quienDecidio, esperaTexto, textoCausa, seEjecuto } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe, estadoGeo, cronologiaDe, eventosDeEntidad, claveIncidenteDe, quienDecidio, esperaTexto, textoCausa, seEjecuto } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -491,8 +491,18 @@ describe("ubicacionesDe", () => {
     const porClave = Object.fromEntries(u.map((x) => [x.clave, x]))
     expect(porClave["US"]).toMatchObject({ nombre: "Estados Unidos", n: 1, codigo: "US" })
     expect(porClave["US"].lat).toBe(37)
-    expect(porClave["lab"].nombre).toBe("Laboratorio / documentación")
+    expect(porClave["lab"].nombre).toBe("Documentación (IPs de ejemplo)")
     expect(porClave["interna"].nombre).toBe("Red interna")
+  })
+
+  it("sin base de geolocalización, una pública no es «sin geolocalizar»: es «sin base»", () => {
+    const t = [
+      { origen_ip: "45.1.2.3", relaciones: { web01: ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: null, geo_base: false } },
+      { origen_ip: "45.1.2.4", relaciones: { web01: ["objetivo"] }, enriquecimiento_origen: { clasificacion_ip: "publica", geo: null, geo_base: true } },
+    ] as unknown as Decision[]
+    const porClave = Object.fromEntries(ubicacionesDe(t).map((x) => [x.clave, x]))
+    expect(porClave["sin-base"].nombre).toBe("Pública (sin base de geolocalización)")
+    expect(porClave["sin-geo"].nombre).toBe("Pública (sin geolocalizar)")
   })
 
   it("parte el total en mitigados (contenida) y en curso (el resto)", () => {
@@ -580,5 +590,15 @@ describe("quién decidió", () => {
   it("la cronología lleva quién aprobó", () => {
     const ev = cronologiaDe([{ id_decision: "s1", timestamp: "2026-11-04T18:55:00Z", veredicto_humano: "aprobar", veredicto_por: "ana" } as Decision])
     expect(ev[0]).toMatchObject({ veredicto_humano: "aprobar", veredicto_por: "ana" })
+  })
+})
+
+describe("estadoGeo", () => {
+  const con = (geo_base: boolean | undefined, fuente?: string) =>
+    ({ origen_ip: "45.1.2.3", enriquecimiento_origen: { clasificacion_ip: "publica", geo_base, geo: fuente ? { pais: "X", codigo: "X", fuente } : null } })
+  it("la base la dice el registro más reciente que lo sabe; la atribución, cualquier país de DB-IP", () => {
+    expect(estadoGeo([con(false), con(true, "dbip")] as unknown as Decision[])).toEqual({ sinBase: false, dbip: true })
+    expect(estadoGeo([con(true, "csv"), con(false)] as unknown as Decision[])).toEqual({ sinBase: true, dbip: false })
+    expect(estadoGeo([con(undefined)] as unknown as Decision[])).toEqual({ sinBase: false, dbip: false })   // trazas antiguas
   })
 })

@@ -5,6 +5,7 @@ de varios países. Funciones PURAS (la E/S está en `emitir`); el motor no se to
 """
 import ipaddress
 import json
+import os
 import random
 import sys
 import time
@@ -26,13 +27,19 @@ _GRUPOS = {
     "explotacion_conocida": (["exploit"],                 "5710",  12, ["T1190"], "suricata", "intento de explotación de vulnerabilidad conocida"),
 }
 FAMILIAS = list(_GRUPOS)
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+TABLA_MUESTRA = os.path.join(_AQUI, "geoip-muestra.json")
+BASE_GEOIP = os.path.join(_AQUI, "geoip-muestra.csv")     # TRIAJE_GEOIP de la demo y del laboratorio
+BASE_ASN = os.path.join(_AQUI, "asn-muestra.csv")         # TRIAJE_ASN de la demo y del laboratorio
 
 
 def pool_publico(tabla=None):
-    """IPs públicas de muestra, una por bloque de la MISMA tabla que usa el enriquecimiento
-    (`corpus/geoip-muestra.json`): `[(ip, pais, codigo), …]`. La IP es un host DENTRO del CIDR
+    """IPs públicas de muestra, una por bloque de la tabla de la demo (`geoip-muestra.json`, la misma
+    que `geoip-muestra.csv`, que es la base TRIAJE_GEOIP de la demo): `[(ip, pais, codigo), …]`. La IP es un host DENTRO del CIDR
     (el desplazamiento se acota al tamaño del bloque, así un /30 o /32 no se sale del rango)."""
-    tabla = actores._tabla_geoip() if tabla is None else tabla
+    if tabla is None:
+        with open(TABLA_MUESTRA, encoding="utf-8") as f:
+            tabla = json.load(f)
     pool = []
     for e in tabla:
         try:

@@ -34,6 +34,25 @@ class TestNormalizarWazuh(unittest.TestCase):
         self.assertNotEqual(reg["activo"], "000")
 
 
+class TestActivoDeAgenteReal(unittest.TestCase):
+    """En un cliente con agentes Wazuh, las alertas que no vienen de una línea syslog (FIM, rootcheck,
+    eventos de Windows) no traen predecoder.hostname y su location es la fuente ('syscheck'): el
+    equipo es el agente que la generó."""
+
+    def test_fim_de_un_agente_usa_el_nombre_del_agente(self):
+        cruda = {"agent": {"id": "003", "name": "web01"}, "location": "syscheck"}
+        self.assertEqual(adaptador_wazuh.resolver_activo(cruda), "web01")
+
+    def test_el_hostname_de_la_linea_syslog_sigue_mandando(self):
+        cruda = {"agent": {"id": "003", "name": "web01"}, "predecoder": {"hostname": "web01-lan"},
+                 "location": "/var/log/auth.log"}
+        self.assertEqual(adaptador_wazuh.resolver_activo(cruda), "web01-lan")
+
+    def test_el_agente_000_es_el_propio_manager_y_no_cuenta(self):
+        cruda = {"agent": {"id": "000", "name": "wazuh-manager"}, "location": "172.20.20.2"}
+        self.assertEqual(adaptador_wazuh.resolver_activo(cruda), "172.20.20.2")
+
+
 class TestTolerancia(unittest.TestCase):
     def test_campos_ausentes_no_rompe_ni_infiere(self):
         # RNF-07: tolera campos ausentes, no lanza, no inventa

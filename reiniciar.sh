@@ -35,6 +35,9 @@ fi
 docker exec "$WAZUH" pkill -f "tail -n0 -F /var/ossec/logs/alerts/alerts.json" 2>/dev/null || true
 
 export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
+export TRIAJE_SALUD_CONTENEDOR=clab-banco-mdr-siem:/var/log/banco/salud.jsonl   # Estado de servicios: el monitor del banco
+export TRIAJE_GEOIP="${TRIAJE_GEOIP:-lab/geo_demo/geoip-muestra.csv}"   # geolocalización: base de muestra del laboratorio
+export TRIAJE_ASN="${TRIAJE_ASN:-lab/geo_demo/asn-muestra.csv}"         # ASN: base de muestra del laboratorio
 echo "→ relanzando daemon --web (traza: ${SALIDA})"
 echo "  Abre http://127.0.0.1:8787  ·  Ctrl+C para detener"
 docker exec "$WAZUH" sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \

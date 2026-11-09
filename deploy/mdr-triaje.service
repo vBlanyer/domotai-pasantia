@@ -1,6 +1,5 @@
 [Unit]
 Description=MDR de triaje (refina las alertas del SIEM del cliente y contiene por SSH)
-Documentation=file:///opt/mdr/documentacion/04-fase4-diseno-de-arquitectura/integracion-en-produccion.md
 After=network-online.target
 Wants=network-online.target
 
@@ -12,11 +11,10 @@ WorkingDirectory=/opt/mdr
 EnvironmentFile=/etc/mdr/triaje.env
 ExecStart=/opt/mdr/deploy/arrancar-mdr.sh
 
-# Resiliencia (#5): se reinicia SIEMPRE que el daemon termina, no solo ante error. Es un daemon
-# perpetuo: si la fuente (tail) muere, python3 recibe EOF y sale 0, y `on-failure` NO lo reiniciaría
-# (quedaría parado en silencio); `always` sí. Un `systemctl stop` explícito no dispara reinicio.
-# Al reiniciar retoma su estado de la traza (#4). El healthcheck /healthz lo sondea un monitor local
-# (el daemon liga solo a 127.0.0.1); ver deploy/README.md.
+# Se reinicia SIEMPRE que el servicio termina, no solo ante error: si la fuente de alertas se corta,
+# el proceso sale limpio y `on-failure` lo dejaría parado en silencio. Un `systemctl stop` explícito
+# no dispara reinicio. Al reiniciar, el MDR retoma de la traza las contenciones activas. La salud se
+# consulta en http://127.0.0.1:8787/healthz desde el propio equipo.
 Restart=always
 RestartSec=5
 
@@ -26,6 +24,13 @@ RestartSec=5
 NoNewPrivileges=true
 ProtectSystem=full
 PrivateTmp=true
+UMask=0077
+
+# Estado escribible del servicio: /var/lib/mdr, propiedad de triaje y solo suyo. Ahí viven la traza,
+# los ficheros operativos (políticas, inventario, Conectividad) y la clave del conector. El código en
+# /opt/mdr es de root y el servicio no puede modificarlo; /etc queda en solo lectura (ProtectSystem).
+StateDirectory=mdr
+StateDirectoryMode=0700
 
 [Install]
 WantedBy=multi-user.target

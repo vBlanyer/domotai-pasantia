@@ -1,0 +1,87 @@
+# Perfil del cliente: todo lo que el MDR sabe de la red que protege. Copiar a /etc/mdr/perfil.yml,
+# adaptarlo y comprobarlo con `mdr validar-perfil`. El servicio solo lo lee al arrancar: tras cada
+# cambio, `systemctl restart mdr-triaje`.
+#
+# Este ejemplo describe una empresa con una DMZ (web y correo), una red interna (aplicación y base de
+# datos) y dos cortafuegos: fw-dmz delante de los servidores y fw-borde hacia internet. Las IPs son de
+# ejemplo: sustitúyelas por las reales.
+version: v0
+
+# --- Inventario --------------------------------------------------------------------------------
+# Un equipo por entrada. El NOMBRE debe ser el nombre de host con el que el equipo aparece en las
+# alertas del SIEM. criticidad: baja | media | alta | critica. servicios_prestados: los puertos que
+# el equipo ofrece a propósito. depende_de: los equipos sin los que este deja de funcionar; el MDR lo
+# usa para no aislar algo que arrastre servicios sin que lo apruebe un analista.
+activos:
+  web01:    { ip: 192.0.2.10,   funcion: "portal web de clientes",      criticidad: alta,    servicios_prestados: [443, 80], depende_de: [app01] }
+  correo01: { ip: 192.0.2.20,   funcion: "servidor de correo",          criticidad: media,   servicios_prestados: [25, 587, 993] }
+  app01:    { ip: 10.20.0.10,   funcion: "servidor de aplicaciones",    criticidad: alta,    servicios_prestados: [8443], depende_de: [db01] }
+  db01:     { ip: 10.20.0.20,   funcion: "base de datos principal",     criticidad: critica, servicios_prestados: [5432] }
+  mdr:      { ip: 10.99.0.10,   funcion: "equipo MDR (plano de gestión)", criticidad: critica, servicios_prestados: [] }
+
+# Redes propias del cliente: una IP de aquí que no esté en el inventario también es un equipo interno.
+redes_internas: ["10.0.0.0/8", "192.0.2.0/24"]
+
+# --- Quién no es un atacante --------------------------------------------------------------------
+# Orígenes cuya actividad es legítima (administración, escáner autorizado). IP exacta.
+origenes_legitimos: ["10.99.0.10"]
+# Terceros de confianza (pasarela de pago, proveedor crítico): un ataque aparente desde ellos se trata
+# como amenaza, pero nunca se bloquea sin un analista. IP exacta o red.
+terceros_confiables: []
+# Plano de gestión: ninguna contención lo corta nunca.
+ip_gestion: 10.99.0.10
+
+# Cuántas alertas del mismo origen en la ventana bastan para tratarlo como ataque aunque sea legítimo
+# (un equipo propio comprometido o una IP suplantada).
+rafaga: { umbral: 9, ventana_s: 60 }
+
+# --- Qué se automatiza ---------------------------------------------------------------------------
+# Para empezar, TODO espera a un analista (humano_siempre). La automatización se abre después, nivel a
+# nivel: automatica | automatica_si_confianza | humano_siempre.
+continuidad:
+  impacto_ninguno:            humano_siempre
+  impacto_localizado:         humano_siempre
+  impacto_alcanza_servicio:   humano_siempre
+  reversibilidad_obligatoria: true      # solo acciones que se pueden deshacer y comprobar
+  no_cortar_gestion:          true      # nunca el plano de gestión
+  umbral_confianza:           0.9       # confianza mínima para cualquier automatismo
+  actores:                              # bloquear un equipo propio o de red exige analista
+    activo_interno:           humano_siempre
+    dispositivo_red:          humano_siempre
+
+# Servicios que nunca se tocan de forma automática, aunque el resto se automatice.
+excepciones:
+  - { servicio: 5432, activo: db01, regla: nunca_automatica }
+
+# --- Cadena de contención ------------------------------------------------------------------------
+# Dónde se contiene: cada servidor (host_victima) con su cortafuegos (gateway), y cada cortafuegos con
+# el siguiente hacia internet. El último no lleva gateway. Los equipos más críticos (aquí db01) no se
+# listan: una contención sobre ellos sube directamente al cortafuegos, sin tocar el equipo.
+topologia:
+  web01:    { rol: host_victima,        ip: 192.0.2.10, gateway: fw-dmz }
+  correo01: { rol: host_victima,        ip: 192.0.2.20, gateway: fw-dmz }
+  app01:    { rol: host_victima,        ip: 10.20.0.10, gateway: fw-dmz }
+  fw-dmz:   { rol: firewall_perimetral, ip: 10.0.0.2,   gateway: fw-borde }
+  fw-borde: { rol: firewall_perimetral, ip: 10.0.0.1 }
+
+# Adónde se envía lo que el MDR no contiene, sino que deriva a otro equipo (por ejemplo, los ataques a
+# aplicaciones web, al equipo de seguridad de aplicaciones).
+rutas:
+  appsec: cola-appsec
+
+# --- Mapa de la red (solo para la vista Red; no cambia la contención) ------------------------------
+red:
+  nodos:
+    internet: { tipo: externo }
+  enlaces:
+    fw-borde: internet
+    fw-dmz: fw-borde
+    web01: fw-dmz
+    correo01: fw-dmz
+    app01: fw-dmz
+    db01: fw-dmz
+    mdr: fw-borde
+  zonas:
+    DMZ:     [web01, correo01]
+    Interna: [app01, db01]
+    Gestión: [mdr]
