@@ -21,6 +21,13 @@ NODOS = {
     "atm":            {"ip": "10.210.0.10", "gw": "10.210.0.1"},
 }
 
+# Equipos POR DAR DE ALTA desde la consola (vista Conectividad, «Añadir equipo»): existen en la
+# topologia, con IP y sshd, pero NO en el perfil ni en NODOS: ni `aprovisionar` ni el monitor los
+# tocan. Son el «equipo nuevo que llega a la red» del plan PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md.
+POR_DAR_DE_ALTA = {
+    "pagos-qr":       {"ip": "10.70.0.10",  "gw": "10.70.0.1"},
+}
+
 # Servicios HTTP nominales (el puerto imita el del servicio real) y de quien dependen DE VERDAD.
 SERVICIOS = {
     "core-db":        {"puertos": [1521],     "depende": []},

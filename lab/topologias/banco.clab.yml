@@ -61,6 +61,7 @@ topology:
         - ip addr add 10.100.0.1/24 dev eth8
         - ip addr add 10.200.0.1/24 dev eth9
         - ip addr add 10.210.0.1/24 dev eth10
+        - ip addr add 10.70.0.1/24 dev eth11      # pagos-qr: equipo por dar de alta desde la consola
         - ip route add 198.51.100.0/24 via 10.0.0.254
 
     sw-soc:
@@ -92,6 +93,11 @@ topology:
     atm:
       exec: ["ip addr add 10.210.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.210.0.1", "ip route add 198.51.100.0/24 via 10.210.0.1"]
 
+    pagos-qr:
+      # Equipo NUEVO: no esta en el perfil ni lo aprovisiona el script. Se da de alta desde la vista
+      # Conectividad (PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md). Ver lab/banco/red.py POR_DAR_DE_ALTA.
+      exec: ["ip addr add 10.70.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.70.0.1", "ip route add 198.51.100.0/24 via 10.70.0.1"]
+
   links:
     - endpoints: ["internet:eth1", "fw-edge:eth1"]
     - endpoints: ["fw-edge:eth2", "fw-core:eth1"]
@@ -106,3 +112,4 @@ topology:
     - endpoints: ["sw-soc:eth3", "auditor:eth1"]
     - endpoints: ["fw-core:eth9", "taquilla:eth1"]
     - endpoints: ["fw-core:eth10", "atm:eth1"]
+    - endpoints: ["fw-core:eth11", "pagos-qr:eth1"]

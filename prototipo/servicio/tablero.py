@@ -1138,7 +1138,8 @@ class _Manejador(BaseHTTPRequestHandler):
             if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso", "/api/watchlist", "/api/politica",
                             "/api/conectividad", "/api/conectividad/probar", "/api/conectividad/leer-clave-host",
                             "/api/conectividad/clave-host", "/api/conectividad/inventario",
-                            "/api/conectividad/inventario/quitar", "/api/conectividad/alta", "/api/conectividad/rotacion"):
+                            "/api/conectividad/inventario/quitar", "/api/conectividad/alta", "/api/conectividad/rotacion",
+                            "/api/conectividad/clave-conector"):
                 return self._responder({"error": "no encontrado"}, 404)
             try:
                 n = int(self.headers.get("Content-Length") or 0)

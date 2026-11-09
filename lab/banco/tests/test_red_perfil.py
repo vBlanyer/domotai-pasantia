@@ -15,6 +15,10 @@ class TestRedDelBancoCoincideConElLaboratorio(unittest.TestCase):
         r = red.red_de(perfilm.cargar(os.path.join(RAIZ, "prototipo", "perfiles", "bancario.yml")))
         self.assertEqual(r["avisos"], [])
 
+        # Los equipos por dar de alta desde la consola existen en el lab y NO en el perfil, a propósito.
+        from lab.banco.red import POR_DAR_DE_ALTA
+        clab["topology"]["links"] = [l for l in clab["topology"]["links"]
+                                     if not {e.split(":")[0] for e in l["endpoints"]} & set(POR_DAR_DE_ALTA)]
         # Verificar que cada enlace del lab está en el perfil (en un sentido u otro)
         for enlace in clab["topology"]["links"]:
             a, b = (e.split(":")[0] for e in enlace["endpoints"])

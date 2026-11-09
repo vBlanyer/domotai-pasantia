@@ -332,6 +332,21 @@ class TestEjecutorDirecto(unittest.TestCase):
             rc, salida = ej("192.168.1.30", "iptables -L -n")
         self.assertEqual(rc, 126)                              # el ejecutor que rechaza, no ssh
 
+    def test_sin_clave_se_rearma_al_aparecer_la_clave_sin_reiniciar(self):
+        # La clave se genera desde la vista Conectividad con el daemon ya en marcha: el ejecutor que
+        # rechazaba pasa a contener en cuanto la clave existe, sin caer nunca a la del laboratorio.
+        from unittest import mock
+        os.environ.pop("TRIAJE_SSH_MODO", None)
+        with mock.patch.object(conector, "_clave_aprovisionada", return_value=False):
+            ej = conector.ejecutor_por_defecto(escribir=lambda *a: None)
+            self.assertEqual(ej("1.2.3.4", "iptables -L -n")[0], 126)
+        with mock.patch.object(conector, "_clave_aprovisionada", return_value=True), \
+             mock.patch.object(conector, "ejecutor_ssh_clave", return_value=(0, "ok")) as clave, \
+             mock.patch.object(conector, "ejecutor_ssh_lab") as lab:
+            self.assertEqual(ej("1.2.3.4", "iptables -L -n"), (0, "ok"))
+        clave.assert_called_once_with("1.2.3.4", "iptables -L -n")
+        lab.assert_not_called()
+
     def test_modo_directo_con_clave_usa_el_ejecutor_directo(self):
         import tempfile
         from unittest import mock

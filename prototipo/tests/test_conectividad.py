@@ -157,6 +157,18 @@ class TestHuellas(unittest.TestCase):
         self.assertEqual([a for a, _ in llamadas if a[:1] in (["tee"], ["cp"], ["mv"])][-3:],
                          [["tee", "/kh.mdr"], ["cp", "-p", "/kh", "/kh.anterior"], ["mv", "/kh.mdr", "/kh"]])
 
+    def test_la_primera_clave_fijada_no_arrastra_el_error_de_cat(self):
+        llamadas = []
+        def correr(args, entrada=None):
+            llamadas.append((args, entrada))
+            if args[0] == "ssh-keyscan":
+                return 0, f"10.0.0.1 {K3}\n"
+            if args[:1] == ["cat"]:
+                return 1, "cat: can't open '/kh': No such file or directory"
+            return 0, entrada or ""
+        self.assertEqual(cx.aceptar_clave_host("10.0.0.1", 22, F3, "/kh", correr), F3)
+        self.assertEqual([e for a, e in llamadas if a[:1] == ["tee"]], [f"10.0.0.1 {K3}\n"])
+
     def test_sin_ssh_keyscan_usa_ssh_hacia_un_fichero_temporal(self):
         correr, llamadas = self._correr(K3, con_keyscan=False)
         self.assertEqual(cx.huella_presentada("10.0.0.1", 2222, correr), F3)
@@ -272,6 +284,9 @@ class TestDerivaPaqueteRotacion(unittest.TestCase):
         self.assertIn("regla 'service' 'nginx stop'", sh)
         self.assertIn("visudo -cf", sh)
         self.assertIn("mdr-sudoers-anterior", sh)                 # aparta (con copia) el sudoers viejo del MDR
+        self.assertIn('grep -c "^$U[[:space:]]" "$f"', sh)          # también uno añadido a mano, si solo es del conector
+        self.assertIn("revísalo a mano", sh)                          # uno que mezcla otros usuarios no se toca
+        self.assertIn("# >>> conector-triaje", sh)                    # el bloque clásico en /etc/sudoers
         self.assertNotIn("PRIVATE", sh)
         nombre, sud = cx.paquete("sudoers", eq, "triaje", pub, reglas, "hoy")
         self.assertIn("triaje ALL=(root) NOPASSWD: /usr/sbin/service nginx stop", sud)

@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toast"
 const h = vi.hoisted(() => ({
   datos: {} as unknown,
   probar: vi.fn(), guardar: vi.fn(), defecto: vi.fn(), leer: vi.fn(), aceptar: vi.fn(),
-  inventario: vi.fn(), alta: vi.fn(), paquete: vi.fn(), rotar: vi.fn(), probarEquipo: vi.fn(),
+  inventario: vi.fn(), alta: vi.fn(), paquete: vi.fn(), rotar: vi.fn(), probarEquipo: vi.fn(), generar: vi.fn(),
   sesion: { modo: "identificado", operador: "ana", desde: 0 } as unknown,
 }))
 vi.mock("@/api", async (orig) => ({
@@ -14,6 +14,7 @@ vi.mock("@/api", async (orig) => ({
   probarConexion: h.probar, guardarConexion: h.guardar, guardarUsuarioDefecto: h.defecto,
   leerClaveHost: h.leer, aceptarClaveHost: h.aceptar,
   guardarInventario: h.inventario, darDeAlta: h.alta, getPaquete: h.paquete, rotarClave: h.rotar, probarEquipo: h.probarEquipo,
+  generarClaveConector: h.generar,
   sesionActual: () => h.sesion, operadorActual: () => "ana",
 }))
 import { Conectividad } from "./Conectividad"
@@ -42,7 +43,7 @@ const region = () => within(screen.getByRole("region", { name: "Equipo" }))
 
 describe("Conectividad", () => {
   beforeEach(() => {
-    for (const f of [h.probar, h.guardar, h.defecto, h.leer, h.aceptar, h.inventario, h.alta, h.paquete, h.rotar, h.probarEquipo]) f.mockReset()
+    for (const f of [h.probar, h.guardar, h.defecto, h.leer, h.aceptar, h.inventario, h.alta, h.paquete, h.rotar, h.probarEquipo, h.generar]) f.mockReset()
     h.datos = base(); h.sesion = { modo: "identificado", operador: "ana", desde: 0 }
   })
 
@@ -128,6 +129,46 @@ describe("Conectividad", () => {
     fireEvent.click(capa.getByRole("button", { name: "Dar de alta pagos-qr" }))
     await waitFor(() => expect(h.alta).toHaveBeenCalledWith("pagos-qr", "SHA256:QRNUEVA"))
     expect(h.aceptar).toHaveBeenCalledWith("pagos-qr", "SHA256:QRNUEVA")
+  })
+
+  it("sin clave del conector lo dice y se genera desde la vista", async () => {
+    h.generar.mockResolvedValue({ status: 200, datos: { clave: { huella: "SHA256:NUEVA" } } })
+    h.datos = base({ modo: "sin_configurar", clave: null, falta_clave: true,
+      permisos: { probar: false, editar: false, generar_clave: true, motivo: "falta la clave del conector: genérala para empezar" } })
+    render(vista())
+    expect(await screen.findByText("No hay clave del conector: sin ella no entra en ningún equipo ni contiene.")).toBeInTheDocument()
+    expect(screen.getByRole("status")).toHaveTextContent("Falta la clave del conector.")
+    fireEvent.click(screen.getByRole("radio", { name: /RSA 3072/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Generar la clave del conector" }))
+    await waitFor(() => expect(h.generar).toHaveBeenCalledWith("rsa"))
+  })
+
+  it("la primera clave del host se fija sin el aviso de «cambiada» y solo confirmando la huella", async () => {
+    h.leer.mockResolvedValue({ status: 200, datos: { fijada: null, presentada: "SHA256:PRIMERA", coincide: false } })
+    h.aceptar.mockResolvedValue({ status: 200, datos: { huella: "SHA256:PRIMERA" } })
+    h.datos = base({ equipos: [equipo({ huella_fijada: null })] })
+    render(vista())
+    await screen.findByText("SHA256:CONECTOR")
+    fireEvent.click(region().getByRole("button", { name: "Leer la clave del equipo" }))
+    expect(await region().findByText("SHA256:PRIMERA")).toBeInTheDocument()
+    expect(region().queryByText(/presenta una clave distinta de la fijada/)).not.toBeInTheDocument()
+    expect(region().getByRole("button", { name: "Fijar esta clave" })).toBeDisabled()
+    fireEvent.click(region().getByRole("checkbox", { name: "Coincide con la que imprimió el equipo" }))
+    fireEvent.click(region().getByRole("button", { name: "Fijar esta clave" }))
+    await waitFor(() => expect(h.aceptar).toHaveBeenCalledWith("fw-core", "SHA256:PRIMERA"))
+  })
+
+  it("el asistente manda «cualquier cuenta salvo las del sistema»", async () => {
+    h.inventario.mockResolvedValue({ status: 200, datos: { equipo: "fw-core", alta: null } })
+    h.paquete.mockResolvedValue({ nombre: "alta-fw-core.sh", contenido: "#!/bin/sh", formato: "script" })
+    render(vista())
+    await screen.findByText("SHA256:CONECTOR")
+    fireEvent.click(region().getByRole("button", { name: "Editar" }))
+    const capa = within(screen.getByRole("dialog"))
+    fireEvent.click(capa.getByRole("checkbox", { name: /Cualquier cuenta salvo las del sistema/ }))
+    expect(capa.getByLabelText("Cuentas que se pueden bloquear")).toBeDisabled()
+    fireEvent.click(capa.getByRole("button", { name: "Guardar y generar el paquete de corrección" }))
+    await waitFor(() => expect(h.inventario).toHaveBeenCalledWith(expect.objectContaining({ nombre: "fw-core", cuentas_cualquiera: true, cuentas: [] })))
   })
 
   it("la rotación se inicia y la retirada de la vieja pide confirmación", async () => {

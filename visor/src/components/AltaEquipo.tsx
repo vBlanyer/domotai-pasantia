@@ -47,6 +47,7 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
   const [elegidas, setElegidas] = useState<Set<string>>(() => new Set(equipo?.acciones ?? papeles.find((p) => p.id === (equipo?.papel ?? "servidor"))?.acciones ?? []))
   const [servicios, setServicios] = useState((equipo?.servicios ?? []).join(", "))
   const [cuentas, setCuentas] = useState((equipo?.cuentas ?? []).join(", "))
+  const [cualquiera, setCualquiera] = useState(!!equipo?.cuentas_cualquiera)
   const [formato, setFormato] = useState<FormatoPaquete>("script")
   const [paquete, setPaquete] = useState<{ nombre: string; contenido: string } | null>(null)
   const [host, setHost] = useState<{ presentada?: string | null; fijada?: string | null } | null>(null)
@@ -75,7 +76,7 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
   async function guardarReglas() {
     setOcupado(true); setError(null)
     const r = await guardarInventario({
-      nombre, papel, acciones: [...elegidas], servicios: lista(servicios), cuentas: lista(cuentas),
+      nombre, papel, acciones: [...elegidas], servicios: lista(servicios), cuentas: cualquiera ? [] : lista(cuentas), cuentas_cualquiera: cualquiera,
       ...(nuevo ? { ip, zona, funcion, criticidad, depende_de: depende, interfaz: interfaz.trim() || null } : {}),
     })
     setOcupado(false)
@@ -176,8 +177,13 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
             <div className="grid gap-3 sm:grid-cols-2">
               <Etiqueta id="al-serv" texto="Servicios que se pueden parar" ayuda={sinLista("servicios").length && !lista(servicios).length ? "Sin lista no se podrá parar ninguno: nunca «cualquier servicio»." : "Separados por comas."}>
                 <input id="al-serv" className={cn(campo, "font-mono")} value={servicios} placeholder="nginx" onChange={(e) => setServicios(e.target.value)} /></Etiqueta>
-              <Etiqueta id="al-cuentas" texto="Cuentas que se pueden bloquear" ayuda="Nunca root ni las cuentas del sistema.">
-                <input id="al-cuentas" className={cn(campo, "font-mono")} value={cuentas} placeholder="appqr" onChange={(e) => setCuentas(e.target.value)} /></Etiqueta>
+              <Etiqueta id="al-cuentas" texto="Cuentas que se pueden bloquear" ayuda={cualquiera
+                ? "El sudoers admite cualquier cuenta; el motor nunca bloquea root ni las cuentas del sistema."
+                : "Nunca root ni las cuentas del sistema."}>
+                <input id="al-cuentas" className={cn(campo, "font-mono disabled:bg-muted")} value={cualquiera ? "" : cuentas} disabled={cualquiera}
+                  placeholder={cualquiera ? "cualquiera salvo las del sistema" : "appqr"} onChange={(e) => setCuentas(e.target.value)} />
+                <label className="flex items-center gap-2 text-[12px]"><input type="checkbox" className="size-4 accent-primary" checked={cualquiera} onChange={(e) => setCualquiera(e.target.checked)} />
+                  Cualquier cuenta salvo las del sistema (para las que crea el atacante)</label></Etiqueta>
             </div>
             <div className="flex justify-between">
               {!existente ? <Boton onClick={() => setPaso(1)}>Atrás</Boton> : <span />}

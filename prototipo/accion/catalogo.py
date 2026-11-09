@@ -79,9 +79,11 @@ PAPELES = {
 ACCION_CON_LISTA = {"CERRAR_SERVICIO": ("service", "servicios"), "FORZAR_CAMBIO_PASS": ("passwd", "cuentas")}
 
 
-def acciones_efectivas(acciones, servicios=(), cuentas=()):
-    """Las acciones que de verdad admite el equipo: las elegidas, menos las de lista sin lista."""
-    listas = {"servicios": list(servicios or []), "cuentas": list(cuentas or [])}
+def acciones_efectivas(acciones, servicios=(), cuentas=(), cuentas_cualquiera=False):
+    """Las acciones que de verdad admite el equipo: las elegidas, menos las de lista sin lista.
+    `cuentas_cualquiera`: el bloqueo de cuentas admite cualquier cuenta (salvo las del sistema, que
+    veta el motor), para las que crea el atacante y no se conocen de antemano."""
+    listas = {"servicios": list(servicios or []), "cuentas": ["*"] if cuentas_cualquiera else list(cuentas or [])}
     return [a for a in acciones if a not in ACCION_CON_LISTA or listas[ACCION_CON_LISTA[a][1]]]
 
 
@@ -100,13 +102,15 @@ def reglas(catalogo, allowlist=None):
     return out
 
 
-def reglas_de_equipo(catalogo, acciones=None, servicios=(), cuentas=()):
+def reglas_de_equipo(catalogo, acciones=None, servicios=(), cuentas=(), cuentas_cualquiera=False):
     """Reglas del sudoers de un equipo según su papel. `acciones=None` = equipo sin papel declarado:
-    el catálogo entero (el comportamiento heredado del laboratorio)."""
+    el catálogo entero (el comportamiento heredado del laboratorio). Con `cuentas_cualquiera` el
+    sudoers de `passwd` conserva el comodín (como el aprovisionamiento clásico): la frontera «salvo las
+    cuentas del sistema» la pone el filtro del motor, no sudo."""
     if acciones is None:
         return reglas(catalogo)
-    sub = {k: v for k, v in catalogo.items() if k in set(acciones_efectivas(acciones, servicios, cuentas))}
-    return reglas(sub, {"service": list(servicios or []), "passwd": list(cuentas or [])})
+    sub = {k: v for k, v in catalogo.items() if k in set(acciones_efectivas(acciones, servicios, cuentas, cuentas_cualquiera))}
+    return reglas(sub, {"service": list(servicios or []), "passwd": [] if cuentas_cualquiera else list(cuentas or [])})
 
 
 def sudoers(catalogo, usuario, rutas, allowlist=None):

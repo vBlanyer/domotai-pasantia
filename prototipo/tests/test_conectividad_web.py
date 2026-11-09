@@ -183,7 +183,8 @@ class TestPermisosAltaYRotacion(_Base):
     def test_probar_y_leer_exigen_operador(self):
         srv = self._srv()                                   # sin mapa de operadores ni opt-in
         _, est = self._req(srv, "GET", "/api/conectividad")
-        self.assertEqual(est["permisos"], {"probar": False, "editar": False, "motivo": "probar y cambiar exigen un operador identificado por su token"})
+        self.assertEqual(est["permisos"], {"probar": False, "editar": False, "generar_clave": False,
+                                           "motivo": "probar y cambiar exigen un operador identificado por su token"})
         self.assertEqual(self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core", "operador": "x"})[0], 403)
         self.assertEqual(self._req(srv, "POST", "/api/conectividad/leer-clave-host", {"equipo": "db-core"})[0], 403)
         self.assertEqual(self.f.vistos, [])                 # no se abrió ninguna conexión
@@ -285,6 +286,83 @@ class TestPermisosAltaYRotacion(_Base):
         self.assertEqual((st, r["rotacion"]), (200, None))
         quitar = [v for v in self.f.vistos if len(v) > 4 and v[3].startswith("grep -qF")]
         self.assertTrue(quitar)
+
+
+class TestClaveDesdeCeroYEstadoViejo(_Base):
+    """G1/G7: generar la clave del conector desde la vista; G8: lo viejo no se presenta como vigente; G4."""
+
+    def _sin_clave(self, srv):
+        estado = {"clave": None}
+        original = self.f.correr
+        def correr(args, entrada=None):
+            if args[:1] == ["cat"] and args[1].endswith("triaje.pub"):
+                return (0, estado["clave"] + "\n") if estado["clave"] else (1, "cat: no such file")
+            if args[0] == "ssh-keygen":
+                estado["clave"] = K2 + " mdr-conector"
+                self.f.ficheros.append(args)
+                return 0, ""
+            if args[0] in ("mkdir", "chmod", "true", "test"):
+                self.f.ficheros.append(args)
+                return 0, ""
+            return original(args, entrada)
+        srv.conectividad_correr = lambda m: correr
+        return estado
+
+    def test_sin_clave_la_vista_lo_dice_y_se_genera_una_vez(self):
+        srv = self._srv({"tok": "ana"}, modo="sin_configurar")
+        self._sin_clave(srv)
+        _, est = self._req(srv, "GET", "/api/conectividad", token="tok")
+        self.assertTrue(est["falta_clave"])
+        self.assertTrue(est["permisos"]["generar_clave"])
+        self.assertFalse(est["permisos"]["probar"])
+        self.assertIn("falta la clave del conector", est["permisos"]["motivo"])
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/clave-conector", {"tipo": "dsa"}, token="tok")[0], 400)
+        st, r = self._req(srv, "POST", "/api/conectividad/clave-conector", {"tipo": "ed25519"}, token="tok")
+        self.assertEqual((st, r["clave"]["huella"]), (200, F2))
+        keygen = next(a for a in self.f.ficheros if a[0] == "ssh-keygen")
+        self.assertEqual(keygen[keygen.index("-t") + 1], "ed25519")
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/clave-conector", {}, token="tok")[0], 409)   # ya hay: rotación
+        with open(self.au) as f:
+            self.assertEqual(json.loads(f.read().splitlines()[-1])["dimension"], "clave_conector")
+
+    def test_generar_la_clave_exige_operador(self):
+        srv = self._srv(modo="sin_configurar")
+        self._sin_clave(srv)
+        self.assertEqual(self._req(srv, "POST", "/api/conectividad/clave-conector", {"operador": "x"})[0], 403)
+        self.assertFalse(any(a[0] == "ssh-keygen" for a in self.f.ficheros))
+
+    def test_una_prueba_con_otra_clave_del_conector_deja_de_valer(self):
+        srv = self._srv({"tok": "ana"})
+        self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
+        _, est = self._req(srv, "GET", "/api/conectividad", token="tok")
+        self.assertEqual(self._eq(est, "db-core")["ultima_prueba"]["estado"], "verificada")
+        srv.conectividad_pruebas["10.0.20.10"]["clave_conector"] = "SHA256:otra-clave"   # laboratorio recreado
+        _, est = self._req(srv, "GET", "/api/conectividad", token="tok")
+        self.assertIsNone(self._eq(est, "db-core")["ultima_prueba"])
+
+    def test_una_rotacion_sin_par_nuevo_se_descarta(self):
+        srv = self._srv({"tok": "ana"})
+        cx.guardar_rotacion(srv.ruta_rotacion, {"estado": "en_curso", "equipos": {}, "publica_actual": PUB, "publica_nueva": PUB})
+        _, est = self._req(srv, "GET", "/api/conectividad", token="tok")      # el doble responde «no existe» a test -f
+        self.assertIsNone(est["rotacion"])
+        self.assertIsNone(cx.cargar_rotacion(srv.ruta_rotacion))
+
+    def test_cualquier_cuenta_salvo_las_del_sistema(self):
+        from prototipo.accion import catalogo
+        srv = self._srv({"tok": "ana"})
+        srv.catalogo = catalogo.cargar_catalogo(os.path.join(os.path.dirname(__file__), "..", "catalogo.yml"))
+        st, _ = self._req(srv, "POST", "/api/conectividad/inventario",
+                          {"nombre": "db-core", "papel": "servidor", "cuentas_cualquiera": True, "cuentas": ["ignorada"]}, token="tok")
+        self.assertEqual(st, 200)
+        pe = srv.perfil["papeles_equipo"]["db-core"]
+        self.assertEqual((pe["cuentas_cualquiera"], pe["cuentas"]), (True, []))
+        self.assertIn("FORZAR_CAMBIO_PASS", pe["acciones"])
+        from prototipo.motor import perfil as perfilm
+        self.assertIsNone(perfilm.papel_deniega(srv.perfil, "FORZAR_CAMBIO_PASS", "db-core", {"usuario": "backdoor"}))
+        self.assertIn("cuenta del sistema", perfilm.papel_deniega(srv.perfil, "FORZAR_CAMBIO_PASS", "db-core", {"usuario": "root"}))
+        _, p = self._req(srv, "GET", "/api/conectividad/paquete?equipo=db-core&formato=sudoers", token="tok")
+        self.assertIn("passwd -l *", p["contenido"])                                   # comodín, como el clásico
+        self.assertIn("cuentas: cualquiera salvo las del sistema", p["contenido"])
 
 
 if __name__ == "__main__":

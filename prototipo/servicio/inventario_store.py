@@ -20,8 +20,7 @@ from prototipo.accion import catalogo as catalogom
 _NOMBRE = re.compile(r"^[a-z0-9][a-z0-9-]{1,30}\Z")
 _INTERFAZ = re.compile(r"^[a-z][a-z0-9._-]{0,14}\Z")
 CRITICIDADES = ("baja", "media", "alta")
-# Cuentas del sistema que el conector nunca podrá bloquear, aunque se pidan.
-_CUENTAS_PROHIBIDAS = {"root", "daemon", "bin", "sys", "sync", "sshd", "nobody", "triaje"}
+from prototipo.motor.perfil import CUENTAS_DEL_SISTEMA as _CUENTAS_PROHIBIDAS   # nunca en una lista de cuentas
 _VACIO = {"equipos": {}}
 
 
@@ -81,7 +80,9 @@ def validar_reglas(catalogo, datos):
     cuentas = _lista(datos.get("cuentas"), "cuentas")
     if set(cuentas) & _CUENTAS_PROHIBIDAS:
         raise ValueError("cuentas: no se admiten cuentas del sistema ni la del conector")
-    return {"papel": papel, "acciones": [a for a in catalogo if a in set(acciones)], "servicios": servicios, "cuentas": cuentas}
+    cualquiera = datos.get("cuentas_cualquiera") is True
+    return {"papel": papel, "acciones": [a for a in catalogo if a in set(acciones)], "servicios": servicios,
+            "cuentas": [] if cualquiera else cuentas, "cuentas_cualquiera": cualquiera}
 
 
 def _nombres_e_ips(perfil, inventario):
@@ -172,9 +173,11 @@ def fusionar(perfil, inventario):
             if vt:
                 out.setdefault("topologia", {})[n] = {"rol": "host_victima", "ip": e["ip"], "gateway": vt["gateway"]}
         if e.get("papel") in catalogom.PAPELES:
+            cualquiera = e.get("cuentas_cualquiera") is True
             papeles[n] = {"papel": e["papel"],
-                          "acciones": catalogom.acciones_efectivas(e.get("acciones") or [], e.get("servicios"), e.get("cuentas")),
-                          "servicios": list(e.get("servicios") or []), "cuentas": list(e.get("cuentas") or [])}
+                          "acciones": catalogom.acciones_efectivas(e.get("acciones") or [], e.get("servicios"), e.get("cuentas"), cualquiera),
+                          "servicios": list(e.get("servicios") or []), "cuentas": list(e.get("cuentas") or []),
+                          "cuentas_cualquiera": cualquiera}
     if papeles:
         out["papeles_equipo"] = papeles
     return out

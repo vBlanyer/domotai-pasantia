@@ -88,7 +88,28 @@ def _equipos(srv):
 
 def _reglas_vista(i):
     return {"papel": i.get("papel"), "acciones": i.get("acciones"), "servicios": i.get("servicios") or [],
-            "cuentas": i.get("cuentas") or []}
+            "cuentas": i.get("cuentas") or [], "cuentas_cualquiera": i.get("cuentas_cualquiera") is True}
+
+
+def _destino_claves(modo):
+    """Dónde viven (o vivirán) la clave y el known_hosts del conector: el modo con clave en uso o, si el
+    daemon arrancó sin clave («sin_configurar»), el que pide TRIAJE_SSH_MODO (directo = este host) o el
+    nodo de gestión. En modo laboratorio (contraseña) no hay clave que gestionar."""
+    if modo in _MODOS_EDITABLES:
+        return modo
+    if modo == "sin_configurar":
+        return "directo" if os.environ.get("TRIAJE_SSH_MODO") == "directo" else "clave"
+    return None
+
+
+def _clave_conector(srv, modo):
+    """{huella, tipo, publica} de la clave PÚBLICA del conector, o None si aún no existe."""
+    destino = _destino_claves(modo)
+    if not destino:
+        return None
+    rc, pub = srv.conectividad_correr(destino)(["cat", conector.SSH_CLAVE + ".pub"])
+    huella, tipo = cx.huella_de(pub) if rc == 0 else (None, None)
+    return {"huella": huella, "tipo": tipo, "publica": pub.strip()} if huella else None
 
 
 def _puede_editar(srv, operador):
@@ -131,7 +152,8 @@ def _esperadas(srv, e):
     if not cat:
         return None
     if e.get("papel"):
-        return catalogom.reglas_de_equipo(cat, e.get("acciones") or [], e.get("servicios"), e.get("cuentas"))
+        return catalogom.reglas_de_equipo(cat, e.get("acciones") or [], e.get("servicios"), e.get("cuentas"),
+                                          e.get("cuentas_cualquiera") is True)
     return catalogom.reglas_de_equipo(cat, None)
 
 
@@ -153,31 +175,43 @@ def _rotacion_vista(srv):
             "equipos": r.get("equipos") or {}}
 
 
+def _vigente(prueba, clave, fijada):
+    """Una prueba solo vale con la MISMA clave del conector y la MISMA clave del host con las que se hizo:
+    tras recrear el laboratorio, rotar la clave o aceptar otra del host, la vieja ya no dice nada."""
+    return bool(prueba) and prueba.get("clave_conector") == (clave or {}).get("huella") and prueba.get("huella_host") == fijada
+
+
 def resumen(srv, operador):
     modo = srv.conectividad_modo()
     ajustes = cx.cargar(srv.ruta_conectividad) if srv.ruta_conectividad else {"usuario_defecto": None, "equipos": {}}
-    clave, huellas = None, {}
-    if modo in _MODOS_EDITABLES:
-        correr = srv.conectividad_correr(modo)
-        rc, pub = correr(["cat", conector.SSH_CLAVE + ".pub"])     # la PÚBLICA: la privada no se lee nunca
-        huella, tipo = cx.huella_de(pub) if rc == 0 else (None, None)
-        if huella:
-            clave = {"huella": huella, "tipo": tipo, "publica": pub.strip()}
+    clave, huellas = _clave_conector(srv, modo), {}        # la PÚBLICA: la privada no se lee nunca
+    destino = _destino_claves(modo)
+    alcanzable = False
+    if destino:
+        correr = srv.conectividad_correr(destino)
         rc3, kh = correr(["cat", conector.SSH_KNOWN_HOSTS])
         huellas = cx.huellas_fijadas(kh) if rc3 == 0 else {}
+        alcanzable = modo in _MODOS_EDITABLES or correr(["true"])[0] == 0
+        _limpiar_rotacion_huerfana(srv, correr, operador)
     defecto = ajustes.get("usuario_defecto")
     equipos = []
     for e in _equipos(srv):
         aj = ajustes["equipos"].get(e["ip"]) or {}
         equipos.append({**e, "puerto": aj.get("puerto") or 22, "usuario": aj.get("usuario") or defecto or conector.SSH_USUARIO,
                         "ajustado": bool(aj), "huella_fijada": huellas.get(e["ip"]),
-                        "ultima_prueba": srv.conectividad_pruebas.get(e["ip"])})
+                        "ultima_prueba": (lambda p: p if _vigente(p, clave, huellas.get(e["ip"])) else None)(
+                            srv.conectividad_pruebas.get(e["ip"]))})
     puede, motivo = _permisos(srv, operador, modo)
+    falta_clave = clave is None and alcanzable
+    if falta_clave:
+        puede, motivo = False, "falta la clave del conector: genérala para empezar"
     cat = _catalogo(srv)
     perfil = srv.perfil or {}
     return {"modo": modo, "nodo_gestion": conector.nodo_gestion() if modo == "clave" else None,
             "editable": puede, "motivo_no_editable": motivo,
-            "permisos": {"probar": puede, "editar": puede, "motivo": motivo},
+            "permisos": {"probar": puede, "editar": puede, "motivo": motivo,
+                         "generar_clave": falta_clave and _puede_editar(srv, operador) and bool(srv.ruta_conectividad)},
+            "falta_clave": falta_clave,
             "usuario_defecto": defecto, "usuario_entorno": conector.SSH_USUARIO,
             "ruta_clave": conector.SSH_CLAVE, "known_hosts": conector.SSH_KNOWN_HOSTS,
             "clave": clave, "equipos": equipos, "cambios": _cambios(srv),
@@ -218,7 +252,11 @@ def _probar(srv, modo, e, usuario, puerto, operador=None):
     listar = srv.conectividad_ejecutor(modo, usuario=efectivo, puerto=puerto or 22, sudo=False) if esperadas else None
     r = cx.probar(srv.conectividad_ejecutor(modo, usuario=efectivo, puerto=puerto or 22), e["ip"],
                   permitido=_permitido(esperadas), listar=listar, esperadas=esperadas)
-    r = {**r, "en": ahora_iso(), "puerto": puerto or 22, "usuario": efectivo, "por": operador}
+    # con qué claves se hizo: si cambian (laboratorio recreado, rotación, otra clave del host), deja de valer
+    rc, kh = srv.conectividad_correr(modo)(["cat", conector.SSH_KNOWN_HOSTS])
+    r = {**r, "en": ahora_iso(), "puerto": puerto or 22, "usuario": efectivo, "por": operador,
+         "clave_conector": ((_clave_conector(srv, modo) or {}).get("huella")),
+         "huella_host": (cx.huellas_fijadas(kh) if rc == 0 else {}).get(e["ip"])}
     with _lock:
         srv.conectividad_pruebas[e["ip"]] = r
         try:
@@ -248,6 +286,8 @@ def post(srv, ruta, cuerpo, operador):
     if not isinstance(cuerpo, dict):
         return 400, {"error": "cuerpo invalido"}
     modo = srv.conectividad_modo()
+    if ruta == "/api/conectividad/clave-conector":
+        return _post_clave_conector(srv, modo, cuerpo, operador)
     puede, motivo = _permisos(srv, operador, modo)
     if not puede:
         # FAIL-CLOSED: sin operador identificado ni opt-in no se abre ninguna conexión ni se cambia nada
@@ -343,6 +383,45 @@ def post(srv, ruta, cuerpo, operador):
         cx.guardar(srv.ruta_conectividad, nuevos)
         _auditar(srv, operador, "equipo", e["nombre"], antes, nuevos["equipos"].get(e["ip"]))
     return 200, {"guardado": True, "prueba": prueba}
+
+
+# --------------------------------------------------------- clave del conector, desde cero --
+def _post_clave_conector(srv, modo, cuerpo, operador):
+    """Genera el par de claves del conector cuando NO hay ninguno (un despliegue nuevo, sin el script de
+    aprovisionamiento). Si ya hay clave, se cambia con la rotación (que no deja a ningún equipo fuera).
+    La privada se crea y se queda donde vive el conector; aquí solo vuelve la pública."""
+    if not _puede_editar(srv, operador):
+        return 403, {"error": "generar la clave exige un operador identificado por su token"}
+    destino = _destino_claves(modo)
+    if not destino or not srv.ruta_conectividad:
+        return 409, {"error": "el conector está en modo laboratorio (contraseña): no usa clave"}
+    if _clave_conector(srv, modo):
+        return 409, {"error": "el conector ya tiene clave: para cambiarla, usa la rotación"}
+    tipo = cuerpo.get("tipo") or "ed25519"
+    if tipo not in ("ed25519", "rsa"):
+        return 400, {"error": "tipo: ed25519 o rsa"}
+    correr = srv.conectividad_correr(destino)
+    import posixpath
+    directorio = posixpath.dirname(conector.SSH_CLAVE)
+    correr(["mkdir", "-p", directorio])
+    correr(["chmod", "700", directorio])
+    correr(["rm", "-f", conector.SSH_CLAVE, conector.SSH_CLAVE + ".pub"])     # restos sin pareja (la pública falta)
+    args = ["-t", "ed25519"] if tipo == "ed25519" else ["-t", "rsa", "-b", "3072"]
+    rc, salida = correr(["ssh-keygen", "-q", *args, "-N", "", "-C", "mdr-conector", "-f", conector.SSH_CLAVE])
+    nueva = _clave_conector(srv, modo if modo in _MODOS_EDITABLES else destino)
+    if rc != 0 or not nueva:
+        return 500, {"error": "no se pudo generar la clave donde vive el conector (¿falta ssh-keygen en el nodo de gestión?)"}
+    _auditar(srv, operador, "clave_conector", "generar", None, nueva["huella"])
+    return 200, {"clave": nueva}
+
+
+def _limpiar_rotacion_huerfana(srv, correr, operador):
+    """Una rotación en curso cuyo par nuevo ya no existe (laboratorio recreado) se descarta."""
+    if not getattr(srv, "ruta_rotacion", None) or not cx.cargar_rotacion(srv.ruta_rotacion):
+        return
+    if correr(["test", "-f", conector.SSH_CLAVE + ".nueva"])[0] != 0:
+        cx.guardar_rotacion(srv.ruta_rotacion, None)
+        _auditar(srv, operador, "rotacion", "abandonada", None, "el par nuevo ya no existe")
 
 
 # ---------------------------------------------------------------- inventario y alta --
@@ -446,7 +525,8 @@ def paquete(srv, equipo, formato, operador):
     ajustes = cx.cargar(srv.ruta_conectividad) if srv.ruta_conectividad else {"usuario_defecto": None, "equipos": {}}
     usuario = (ajustes["equipos"].get(e["ip"]) or {}).get("usuario") or ajustes.get("usuario_defecto") or conector.SSH_USUARIO
     cat = _catalogo(srv)
-    reglas = catalogom.reglas_de_equipo(cat, e.get("acciones") if e.get("papel") else None, e.get("servicios"), e.get("cuentas"))
+    reglas = catalogom.reglas_de_equipo(cat, e.get("acciones") if e.get("papel") else None, e.get("servicios"), e.get("cuentas"),
+                                        e.get("cuentas_cualquiera") is True)
     generado = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC") + (f" por {operador}" if operador else "")
     try:
         nombre, contenido = cx.paquete(formato, e, usuario, pub if rc == 0 else "", reglas, generado)

@@ -521,11 +521,13 @@ export const ConectividadSchema = z.object({
     ajustado: z.boolean(), huella_fijada: z.string().nullable().optional(), ultima_prueba: PruebaSchema.nullable().optional(),
     // inventario operativo: papel y reglas del equipo, y si es un alta pendiente o hecha desde la consola
     papel: z.string().nullable().optional(), acciones: z.array(z.string()).nullable().optional(),
-    servicios: z.array(z.string()).optional(), cuentas: z.array(z.string()).optional(),
+    servicios: z.array(z.string()).optional(), cuentas: z.array(z.string()).optional(), cuentas_cualquiera: z.boolean().optional(),
     alta: z.string().nullable().optional(), criticidad: z.string().nullable().optional(),
     depende_de: z.array(z.string()).optional(), interfaz: z.string().nullable().optional(),
   })),
-  permisos: z.object({ probar: z.boolean(), editar: z.boolean(), motivo: z.string().nullable().optional() }).optional(),
+  permisos: z.object({ probar: z.boolean(), editar: z.boolean(), motivo: z.string().nullable().optional(),
+    generar_clave: z.boolean().optional() }).optional(),
+  falta_clave: z.boolean().optional(),
   papeles: z.array(z.object({ id: z.string(), nombre: z.string(), descripcion: z.string(), acciones: z.array(z.string()) })).optional(),
   acciones: z.array(z.object({ id: z.string(), comando: z.string(), nunca_automatica: z.boolean(), lista: z.string().nullable().optional() })).optional(),
   zonas: z.array(z.string()).optional(), activos: z.array(z.string()).optional(), criticidades: z.array(z.string()).optional(),
@@ -565,8 +567,10 @@ export const aceptarClaveHost = (equipo: string, huella: string) => postConectiv
 // Inventario operativo: alta de un equipo nuevo (queda pendiente) o papel y reglas de uno existente.
 export type DatosInventario = {
   nombre: string; ip?: string; zona?: string; funcion?: string; criticidad?: string; depende_de?: string[]; interfaz?: string | null
-  papel: string; acciones: string[]; servicios: string[]; cuentas: string[]
+  papel: string; acciones: string[]; servicios: string[]; cuentas: string[]; cuentas_cualquiera?: boolean
 }
+// Genera el par de claves del conector cuando aún no hay ninguno (despliegue nuevo, sin el script).
+export const generarClaveConector = (tipo: "ed25519" | "rsa") => postConectividad("/api/conectividad/clave-conector", { tipo })
 // Probar con los ajustes guardados del equipo (sin proponer otros): «Probar todos».
 export const probarEquipo = (equipo: string) => postConectividad("/api/conectividad/probar", { equipo })
 export const guardarInventario = (datos: DatosInventario) => postConectividad("/api/conectividad/inventario", datos)

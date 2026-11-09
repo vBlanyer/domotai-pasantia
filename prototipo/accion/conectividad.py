@@ -370,7 +370,8 @@ def paquete(formato, equipo, usuario, publica, reglas, generado):
     nombre = equipo["nombre"]
     papel = equipo.get("papel") or "sin papel (catálogo completo)"
     listas = " · ".join(x for x in (f"servicios: {', '.join(equipo.get('servicios') or [])}" if equipo.get("servicios") else "",
-                                    f"cuentas: {', '.join(equipo.get('cuentas') or [])}" if equipo.get("cuentas") else "") if x)
+                                    "cuentas: cualquiera salvo las del sistema" if equipo.get("cuentas_cualquiera")
+                                    else f"cuentas: {', '.join(equipo.get('cuentas') or [])}" if equipo.get("cuentas") else "") if x)
     cab = f"Alta de {nombre} en el MDR · generado el {generado}"
     if formato == "sudoers":
         lineas = [f"# {cab}", f"# Papel: {papel}{' · ' + listas if listas else ''}",
@@ -423,15 +424,26 @@ regla() {{
 echo "# Generado por el MDR para {nombre}. No editar a mano: se regenera desde la plataforma." > "$T"
 {reglas_sh}
 visudo -cf "$T" >/dev/null
-# Sustituye cualquier sudoers anterior que generó el MDR (este paquete o el aprovisionamiento del
-# laboratorio): sudo suma todos los ficheros, y uno viejo dejaría permitido lo que el papel ya quitó.
-# Se aparta con copia en /root, no se borra.
+# Sustituye cualquier sudoers anterior que da permisos SOLO al usuario del conector (el de este paquete,
+# el del aprovisionamiento del laboratorio o uno añadido a mano): sudo suma todos los ficheros, y uno
+# viejo dejaría permitido lo que el papel ya quitó. Se aparta con copia en /root, no se borra. Un fichero
+# que mezcla reglas de otros usuarios no se toca: solo se avisa.
 for f in /etc/sudoers.d/*; do
   [ -f "$f" ] && [ "$f" != "/etc/sudoers.d/mdr-$U" ] || continue
-  if grep -q '^# Generado \\(desde prototipo/catalogo.yml\\|por el MDR\\)' "$f"; then
-    mv "$f" "/root/mdr-sudoers-anterior.$(basename "$f")"; echo "  sudoers anterior del MDR apartado: $f"
+  tiene=$(grep -c "^$U[[:space:]]" "$f" || true)
+  otras=$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$f" | grep -vc "^$U[[:space:]]" || true)
+  if [ "$tiene" -gt 0 ] && [ "$otras" -eq 0 ]; then
+    mv "$f" "/root/mdr-sudoers-anterior.$(basename "$f")"; echo "  sudoers anterior apartado (copia en /root): $f"
+  elif [ "$tiene" -gt 0 ]; then
+    echo "  aviso: $f da permisos a $U junto a reglas de otros usuarios; revísalo a mano" >&2
   fi
 done
+# Equipos antiguos (sudo sin sudoers.d): el aprovisionamiento clásico deja un bloque entre marcas en /etc/sudoers.
+if grep -q '^# >>> conector-triaje' /etc/sudoers 2>/dev/null; then
+  cp -p /etc/sudoers /root/mdr-sudoers-anterior.sudoers
+  sed -i '/^# >>> conector-triaje/,/^# <<< conector-triaje/d' /etc/sudoers && visudo -c >/dev/null
+  echo "  bloque anterior del conector quitado de /etc/sudoers (copia en /root)"
+fi
 install -m 440 -o root -g root "$T" /etc/sudoers.d/mdr-$U
 rm -f "$T"
 echo "Alta lista. Huella de la clave del host (compárala en la plataforma):"
@@ -555,7 +567,8 @@ def aceptar_clave_host(ip, puerto, huella_confirmada, known_hosts, correr):
         raise HuellaDistinta("el equipo no presentó ninguna clave")
     if huella_confirmada not in {huella_de(l)[0] for l in lineas}:
         raise HuellaDistinta("la huella que presenta el equipo no es la confirmada")
-    _, actual = correr(["cat", known_hosts])
+    rc0, actual = correr(["cat", known_hosts])
+    actual = actual if rc0 == 0 else ""   # primera clave fijada: aún no hay fichero (y la salida es el error de cat)
     # Escritura atómica: temporal + copia del anterior + rename. Un corte a mitad no deja el known_hosts
     # truncado (con él, el conector no entraría a ningún equipo).
     rc, _ = correr(["tee", known_hosts + ".mdr"], reemplazar_host(actual, ip, lineas))

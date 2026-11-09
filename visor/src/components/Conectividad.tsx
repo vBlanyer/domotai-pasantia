@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { RefreshCw } from "lucide-react"
 import {
   getConectividad, probarConexion, probarEquipo, guardarConexion, guardarUsuarioDefecto, leerClaveHost, aceptarClaveHost,
-  quitarInventario, sesionActual, operadorActual,
+  quitarInventario, sesionActual, operadorActual, generarClaveConector,
   type Conectividad as Datos, type EquipoConectividad, type PruebaConexion, type Fallo,
 } from "@/api"
 import { estadoEquipo, resumenConectividad, reglasDe, papelTexto, franjaPermisos, MODOS, type Tono } from "@/conectividad"
@@ -47,6 +47,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
   const [host, setHost] = useState<{ fijada?: string | null; presentada?: string | null; coincide?: boolean } | null>(null)
   const [confirmar, setConfirmar] = useState(false)
   const [quitar, setQuitar] = useState(false)
+  const [coincide, setCoincide] = useState(false)
   const defecto = d.usuario_defecto ?? d.usuario_entorno
   const puertoNum = /^\d+$/.test(puerto) ? Number(puerto) : NaN
   const puertoOk = puertoNum >= 1 && puertoNum <= 65535
@@ -54,6 +55,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
   const ajuste = { puerto: puertoOk && puertoNum !== 22 ? puertoNum : null, usuario: usuario.trim() || null }
   const editable = puede && !e.protegido
   const pendiente = e.alta === "pendiente"
+  const sinFijar = !e.huella_fijada && !e.protegido && !pendiente     // primera vez: fijar, no «cambiada»
 
   const aviso = (titulo: string, r: { status: number; datos: Record<string, unknown> }) =>
     toast({ type: "error", title: titulo, description: String(r.datos.error ?? `HTTP ${r.status}`) })
@@ -123,7 +125,23 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
         </Seccion>
       )}
 
-      {(est.id === "host_cambiada" || (host && host.presentada && !host.coincide && !pendiente)) && (
+      {sinFijar && (
+        <Seccion titulo="Fijar la clave del host">
+          <div className="space-y-2 rounded-md border border-aviso/40 bg-aviso/10 px-3 py-2.5 text-[13px]">
+            <p>El conector solo entra en un equipo cuya clave del host está fijada. Léela del equipo y compárala con la huella que imprimió su paquete de alta al ejecutarse en el equipo.</p>
+            {!puede ? <Bloqueado accion="Fijar la clave del host" motivo={MOTIVO_CORTO} />
+              : !host ? <Boton onClick={leer} disabled={ocupado !== null}>{ocupado === "leer" ? "Leyendo…" : "Leer la clave del equipo"}</Boton>
+              : !host.presentada ? <p className="text-critico">El equipo no respondió: comprueba que sshd está en marcha y que la red llega.</p>
+              : <>
+                <p className="rounded border border-border bg-card px-2 py-1.5 font-mono text-xs [overflow-wrap:anywhere]">{host.presentada}</p>
+                <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={coincide} onChange={(x) => setCoincide(x.target.checked)} />Coincide con la que imprimió el equipo</label>
+                <Boton tono="pri" onClick={aceptar} disabled={!coincide || ocupado !== null}>{ocupado === "aceptar" ? "Fijando…" : "Fijar esta clave"}</Boton>
+              </>}
+          </div>
+        </Seccion>
+      )}
+
+      {(est.id === "host_cambiada" || (host && host.presentada && !host.coincide && !pendiente && !!e.huella_fijada)) && (
         <Seccion titulo="Clave del host cambiada">
           <div className="space-y-2 rounded-md border border-critico/40 bg-critico/10 px-3 py-2.5 text-[13px]">
             <p><b className="text-critico">El equipo presenta una clave distinta de la fijada.</b> Puede ser una reinstalación legítima o alguien suplantando al equipo: compruébala por otro canal antes de aceptarla. Mientras tanto el conector no entra.</p>
@@ -143,7 +161,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
       {!e.protegido && !pendiente && (
         <Seccion titulo="Papel y reglas" extra={puede ? <Boton className="h-6 px-2 text-xs" onClick={() => onAsistente({ equipo: e, paso: 2 })}>Editar</Boton> : null}>
           <p className="text-[13px]">{e.papel
-            ? <><b className="font-medium">{papelTexto(e, d.papeles)}</b>{e.servicios?.length ? ` · servicios: ${e.servicios.join(", ")}` : ""}{e.cuentas?.length ? ` · cuentas: ${e.cuentas.join(", ")}` : ""}</>
+            ? <><b className="font-medium">{papelTexto(e, d.papeles)}</b>{e.servicios?.length ? ` · servicios: ${e.servicios.join(", ")}` : ""}{e.cuentas_cualquiera ? " · cuentas: cualquiera salvo las del sistema" : e.cuentas?.length ? ` · cuentas: ${e.cuentas.join(", ")}` : ""}</>
             : <span className="text-muted-foreground">Sin papel declarado: su sudoers es el catálogo entero. Declara su papel para reducirlo a lo que necesita.</span>}</p>
           <p className="mt-1.5 flex items-center gap-1.5 text-xs"><span className={cn("size-2 rounded-full", PUNTO[reg.tono])} /><span className={TEXTO[reg.tono]}>Reglas en el equipo: {reg.texto}</span>{reg.sub && <span className="text-muted-foreground">· {reg.sub}</span>}</p>
           {reglas && (reglas.sobran.length > 0 || reglas.faltan.length > 0) && (
@@ -175,11 +193,11 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
         </Seccion>
       )}
 
-      <Seccion titulo="Clave del host fijada" extra={!e.protegido && (puede ? <Boton className="h-6 px-2 text-xs" onClick={leer} disabled={ocupado !== null}>Volver a leer del equipo</Boton> : null)}>
+      {!sinFijar && <Seccion titulo="Clave del host fijada" extra={!e.protegido && e.huella_fijada && (puede ? <Boton className="h-6 px-2 text-xs" onClick={leer} disabled={ocupado !== null}>Volver a leer del equipo</Boton> : null)}>
         <p className="font-mono text-xs [overflow-wrap:anywhere]">{e.huella_fijada ?? <span className="font-sans text-aviso">sin fijar{pendiente ? ": se fija al verificar el alta" : ": dalo de alta desde «Añadir equipo» o ejecuta su paquete"}</span>}</p>
         {host?.coincide && <p className="mt-1 text-xs text-ok">El equipo presenta la misma clave que la fijada.</p>}
         <p className="mt-1 text-xs text-muted-foreground">El conector rechaza la conexión si el equipo presenta otra clave. Cambiarla exige confirmarla aquí.</p>
-      </Seccion>
+      </Seccion>}
 
       {!pendiente && (
         <Seccion titulo="Prueba de conexión" extra={prueba?.en ? <span>{fecha(prueba.en)} · {prueba.usuario}@:{prueba.puerto}{prueba.por ? ` · ${prueba.por}` : ""}</span> : null}>
@@ -236,6 +254,8 @@ export function Conectividad() {
   const [asistente, setAsistente] = useState<Asistente>(null)
   const [rotar, setRotar] = useState(false)
   const [probando, setProbando] = useState<string | null>(null)
+  const [tipoClave, setTipoClave] = useState<"ed25519" | "rsa">("ed25519")
+  const [generando, setGenerando] = useState(false)
   const recargar = () => setVersion((v) => v + 1)
   useEffect(() => {
     let vivo = true
@@ -251,7 +271,7 @@ export function Conectividad() {
   const puede = d.permisos?.probar ?? d.editable
   const motivo = d.permisos?.motivo ?? d.motivo_no_editable
   const sesion = sesionActual()
-  const franja = franjaPermisos(puede, motivo, sesion?.modo ?? null, operadorActual())
+  const franja = franjaPermisos(puede, motivo, sesion?.modo ?? null, operadorActual(), !!d.permisos?.generar_clave)
   const elegido = d.equipos.find((e) => e.nombre === sel) ?? d.equipos.find((e) => !e.protegido) ?? d.equipos[0]
   const valorDefecto = defecto ?? d.usuario_defecto ?? ""
   const modoNombre = MODOS.find((m) => m.id === d.modo)?.nombre ?? (d.modo === "sin_configurar" ? "sin configurar" : d.modo)
@@ -264,6 +284,14 @@ export function Conectividad() {
     const res = await guardarUsuarioDefecto(valorDefecto.trim() || null)
     if (res.status === 200) { toast({ type: "success", title: "Usuario por defecto guardado" }); setDefecto(null) }
     else toast({ type: "error", title: "No se guardó", description: String(res.datos.error ?? `HTTP ${res.status}`) })
+    recargar()
+  }
+  async function generar() {
+    setGenerando(true)
+    const res = await generarClaveConector(tipoClave)
+    setGenerando(false)
+    if (res.status === 200) toast({ type: "success", title: "Clave del conector generada", description: "Copia su clave pública o sigue con el papel y el paquete de cada equipo." })
+    else toast({ type: "error", title: "No se generó", description: String(res.datos.error ?? `HTTP ${res.status}`) })
     recargar()
   }
   async function probarTodos() {
@@ -301,7 +329,19 @@ export function Conectividad() {
           <div className="space-y-1.5 border-b border-border px-4 py-3 lg:border-b-0 lg:border-r">
             <div className="text-[11px] text-muted-foreground">Clave del conector{d.clave?.tipo ? ` (${d.clave.tipo.toLowerCase()})` : ""}</div>
             {d.clave ? <p className="font-mono text-xs [overflow-wrap:anywhere]">{d.clave.huella}</p>
-              : <p className="text-xs text-muted-foreground">{d.modo === "sin_configurar" ? <span className="font-medium text-critico">Sin configurar: no se ejecuta ninguna contención hasta aprovisionar la clave.</span> : "No disponible en este modo."}</p>}
+              : d.falta_clave ? (
+                <div className="space-y-2 text-xs">
+                  <p className="font-medium text-critico">No hay clave del conector: sin ella no entra en ningún equipo ni contiene.</p>
+                  {d.permisos?.generar_clave ? <>
+                    <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Tipo de clave">
+                      <label className="flex items-center gap-1.5"><input type="radio" name="tipo-clave" className="accent-primary" checked={tipoClave === "ed25519"} onChange={() => setTipoClave("ed25519")} />ed25519 (recomendada)</label>
+                      <label className="flex items-center gap-1.5"><input type="radio" name="tipo-clave" className="accent-primary" checked={tipoClave === "rsa"} onChange={() => setTipoClave("rsa")} />RSA 3072 (equipos con OpenSSH antiguo)</label>
+                    </div>
+                    <Boton tono="pri" onClick={generar} disabled={generando}>{generando ? "Generando…" : "Generar la clave del conector"}</Boton>
+                    <p className="text-muted-foreground">La privada se crea y se queda donde vive el conector{d.nodo_gestion ? <> (<span className="font-mono">{d.nodo_gestion}</span>)</> : ""}; aquí solo llega la pública.</p>
+                  </> : <Bloqueado accion="Generar la clave" motivo={MOTIVO_CORTO} />}
+                </div>)
+              : <p className="text-xs text-muted-foreground">{d.modo === "sin_configurar" ? <span className="font-medium text-critico">Sin configurar: no se alcanza el nodo de gestión ({d.nodo_gestion ?? "TRIAJE_NODO_GESTION"}).</span> : "No disponible en este modo."}</p>}
             <div className="flex flex-wrap items-center gap-1.5">
               <Boton className="h-6 px-2 text-xs" onClick={copiar} disabled={!d.clave?.publica}>Copiar clave pública</Boton>
               <span className="text-xs text-muted-foreground">vive en <span className="font-mono">{d.ruta_clave}</span>{d.rotacion ? " · hay una rotación en curso" : ""}</span>
@@ -352,7 +392,7 @@ export function Conectividad() {
                       <span className="block text-[11.5px] text-muted-foreground">{[e.ip, e.zona].filter(Boolean).join(" · ")}</span></td>
                     {e.protegido ? <td colSpan={4} className="px-3 py-2 text-xs text-muted-foreground">Canal de gestión del MDR: no se contiene ni se configura desde aquí.</td> : <>
                       <td className="px-3 py-2">{papelTexto(e, d.papeles) ?? <span className="text-muted-foreground">sin papel</span>}
-                        {(e.servicios?.length || e.cuentas?.length) ? <span className="block text-[11.5px] text-muted-foreground">{[...(e.servicios ?? []), ...(e.cuentas ?? []).map((c) => `cuenta ${c}`)].join(" · ")}</span> : null}</td>
+                        {(e.servicios?.length || e.cuentas?.length || e.cuentas_cualquiera) ? <span className="block text-[11.5px] text-muted-foreground">{[...(e.servicios ?? []), ...(e.cuentas_cualquiera ? ["cualquier cuenta"] : (e.cuentas ?? []).map((c) => `cuenta ${c}`))].join(" · ")}</span> : null}</td>
                       <td className="px-3 py-2"><span className={cn("inline-flex items-center gap-1.5 font-medium whitespace-nowrap", TEXTO[est.tono])}>
                         <span className={cn("size-2 rounded-full", PUNTO[est.tono])} />{est.texto}</span>
                         <span className="block text-[11.5px] text-muted-foreground">{est.sub}</span></td>

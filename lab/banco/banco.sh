@@ -42,7 +42,8 @@ case "${1:-up}" in
     W=$(docker inspect clab-red-cliente-wazuh --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
     [ -n "$W" ] || { echo "Wazuh sin IP"; exit 1; }
     echo "== 3. sshd, servicios y reenviadores =="
-    for n in web-banking api-movil swift-alliance middleware core-db hsm atm taquilla fw-core fw-edge mdr-siem auditor; do
+    # pagos-qr: equipo nuevo por dar de alta desde la consola (sshd si; ni servicio ni aprovisionamiento)
+    for n in web-banking api-movil swift-alliance middleware core-db hsm atm taquilla fw-core fw-edge mdr-siem auditor pagos-qr; do
       docker exec $P-$n sh -c 'pgrep -x sshd >/dev/null || /usr/sbin/sshd -E /var/log/banco/sshd.log; touch /var/log/banco/access.log /var/log/banco/auth.log'
       # I2: sshd y los servicios HTTP escuchan en 0.0.0.0, es decir tambien en eth0 (gestion),
       # que no pasa por ningun cortafuegos del banco. Sin esta regla, alguien con acceso a la

@@ -240,6 +240,18 @@ def _ejecutor_sin_configurar(nodo_ip, comando):
     return (126, "conector sin configurar: aprovisiona el minimo privilegio "
                  "(sh lab/scripts/aprovisionar-minimo-privilegio.sh) o fija TRIAJE_SSH_MODO")
 
+def _ejecutor_rearmable(nodo_ip, comando):
+    """Ejecutor FAIL-CLOSED que se REARMA: mientras no haya clave rechaza como `_ejecutor_sin_configurar`;
+    en cuanto la clave del conector existe (p. ej. generada desde la vista Conectividad, sin reiniciar el
+    daemon), delega en el ejecutor con clave. Nunca cae a la contraseña del laboratorio."""
+    modo = modo_actual()
+    if modo == "clave":
+        return ejecutor_ssh_clave(nodo_ip, comando)
+    if modo == "directo":
+        return ejecutor_ssh_directo(nodo_ip, comando)
+    return _ejecutor_sin_configurar(nodo_ip, comando)
+
+
 def ejecutor_por_defecto(escribir=print):
     """TRIAJE_SSH_MODO=clave|password decide; si no, la clave SI está aprovisionada en el auditor.
     FAIL-CLOSED: sin clave y sin modo explícito NO se cae a la contraseña del laboratorio (msfadmin)
@@ -253,15 +265,16 @@ def ejecutor_por_defecto(escribir=print):
         # degrada a otro modo — se rechaza, igual que el resto de configuraciones a medias.
         if not os.path.isfile(SSH_CLAVE):
             escribir(f"[ERROR] TRIAJE_SSH_MODO=directo sin clave en {SSH_CLAVE} (ruta del HOST): "
-                     "no se ejecutara ninguna contencion. Fija TRIAJE_SSH_CLAVE/TRIAJE_SSH_KNOWN_HOSTS.")
-            return _ejecutor_sin_configurar
+                     "no se ejecutara ninguna contencion hasta que exista (genérala desde la vista "
+                     "Conectividad o fija TRIAJE_SSH_CLAVE/TRIAJE_SSH_KNOWN_HOSTS).")
+            return _ejecutor_rearmable
         return ejecutor_ssh_directo
     if modo == "clave" or _clave_aprovisionada():
         return ejecutor_ssh_clave
     escribir("[ERROR] conector sin clave de minimo privilegio y sin TRIAJE_SSH_MODO: no se ejecutara "
-             "ninguna contencion. Aprovisiona la clave (sh lab/scripts/aprovisionar-minimo-privilegio.sh) "
-             "o, SOLO en el laboratorio, fija TRIAJE_SSH_MODO=password.")
-    return _ejecutor_sin_configurar
+             "ninguna contencion hasta que exista. Generala desde la vista Conectividad (o aprovisiona con "
+             "sh lab/scripts/aprovisionar-minimo-privilegio.sh); SOLO en el laboratorio cabe TRIAJE_SSH_MODO=password.")
+    return _ejecutor_rearmable
 
 # ---------------------------------------------------------- consola de conectividad (visor) --
 def modo_actual():

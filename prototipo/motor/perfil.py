@@ -127,6 +127,11 @@ def fusionar_politicas(perfil, overlay):
     return out
 
 _EN_EL_BORDE = {"AISLAR_NODO", "BLOQUEAR_DESTINO"}   # se ejecutan en el cortafuegos de borde del activo
+# Cuentas que el MDR no bloquea nunca, aunque el papel del equipo admita «cualquier cuenta»: bloquear
+# root o una cuenta de servicio tumba el equipo; la del conector le dejaría sin poder responder.
+CUENTAS_DEL_SISTEMA = frozenset({"root", "daemon", "bin", "sys", "sync", "sshd", "nobody", "games", "man", "lp",
+                                 "mail", "news", "uucp", "proxy", "www-data", "backup", "list", "irc", "operator",
+                                 "postgres", "mysql", "triaje"})
 
 
 def papel_deniega(perfil, accion, activo, params=None):
@@ -143,8 +148,13 @@ def papel_deniega(perfil, accion, activo, params=None):
         return f"el papel de {nodo} no incluye {accion}: su sudoers la denegaría"
     if accion == "CERRAR_SERVICIO" and (params or {}).get("servicio") not in (pe.get("servicios") or []):
         return f"{nodo} no admite parar el servicio {(params or {}).get('servicio') or '(sin servicio)'}: no está en su lista"
-    if accion == "FORZAR_CAMBIO_PASS" and (params or {}).get("usuario") not in (pe.get("cuentas") or []):
-        return f"{nodo} no admite bloquear la cuenta {(params or {}).get('usuario') or '(sin cuenta)'}: no está en su lista"
+    if accion == "FORZAR_CAMBIO_PASS":
+        usuario = (params or {}).get("usuario")
+        if pe.get("cuentas_cualquiera"):
+            if not usuario or usuario in CUENTAS_DEL_SISTEMA:
+                return f"no se bloquea la cuenta {usuario or '(sin cuenta)'} en {nodo}: es una cuenta del sistema"
+        elif usuario not in (pe.get("cuentas") or []):
+            return f"{nodo} no admite bloquear la cuenta {usuario or '(sin cuenta)'}: no está en su lista"
     return None
 
 

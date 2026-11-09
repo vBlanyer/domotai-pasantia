@@ -20,6 +20,9 @@ Vista del grupo **Configurar** del visor que permite, sin tocar código:
   ejecuta el administrador del cliente, y verificar la huella y probar). El MDR no ve nunca una
   credencial de administrador;
 - declarar el **papel y las reglas** de un equipo existente y generar su **paquete de corrección**;
+- **generar la clave del conector** cuando no hay ninguna (despliegue nuevo, sin el script); si el daemon
+  arrancó sin clave, el conector la toma en cuanto existe, sin reiniciar y sin caer nunca a la contraseña;
+- **fijar la clave del host por primera vez**, comparando la huella que imprime el paquete en el equipo;
 - **rotar la clave del conector** en tres fases (añadir y probar la nueva, retirar la vieja, finalizar),
   con cancelación mientras no se haya retirado la vieja en ningún equipo.
 
@@ -61,6 +64,9 @@ lectura y cambio, con el operador).
 - **Una clave del host nueva solo se acepta** si su huella es exactamente la que el analista vio y confirmó.
 - **Un alta solo se completa** con la clave del host fijada (la huella que imprimió el propio equipo al
   ejecutar el paquete) y la prueba completa en verde. Hasta entonces el equipo es «pendiente» y el motor no lo ve.
+- **Bloqueo de cuentas «cualquiera salvo las del sistema»:** para las cuentas que crea el atacante. OJO:
+  con esta opción el sudoers de `passwd` lleva el comodín (como el aprovisionamiento clásico) y la frontera
+  «salvo root y las cuentas de servicio» la pone el **motor**, no sudo. Con la lista cerrada, la pone sudo.
 - **El papel acota al motor:** si el equipo de ejecución declara papel y la acción no está en él (o el
   servicio o la cuenta no está en su lista), el filtro la veta con el motivo. Sin papel, nada cambia.
 - **El paquete sustituye el sudoers anterior del MDR** (apartado con copia en `/root`), porque sudo suma ficheros.
@@ -93,7 +99,10 @@ Siguen abiertos, por gravedad:
 5. **La rotación escribe en los equipos** (el `authorized_keys` del propio conector, sin sudo). Es una
    capacidad nueva del conector: revisar con el cliente si la acepta, o si prefiere rotar con su gestión de
    configuración a partir del paquete.
-6. **Las reglas «que faltan» no distinguen** un binario no instalado de una regla quitada a mano. Hoy es solo
+6. **«Cualquier cuenta» deja la frontera de cuentas en el motor.** Con esa opción, un conector comprometido
+   podría bloquear root vía sudo. Valorar una lista de exclusión en el sudoers (con sus límites conocidos) o
+   restringirla a equipos donde el riesgo se acepte por escrito.
+7. **Las reglas «que faltan» no distinguen** un binario no instalado de una regla quitada a mano. Hoy es solo
    un aviso; con un inventario de binarios por equipo podría afinarse.
 
 ## Cómo dejarla de solo lectura ahora mismo
@@ -103,9 +112,14 @@ probar, leer claves, dar de alta, rotar ni cambiar nada. Solo se ve la configura
 
 ## Observación del laboratorio
 
-Al validar (4 nov 2026), **web-banking no acepta SSH desde el nodo de gestión**: tiene en su cortafuegos
-`-A INPUT -s 10.100.0.10/32 -p tcp --dport 22 -j DROP` y `-A INPUT -i eth0 -p tcp -j DROP`. Es estado del
-laboratorio (no lo puso esta vista) y deja al conector sin poder contener en ese equipo. No se tocó.
+La regla de web-banking que descarta el SSH del nodo de gestión (`-A INPUT -s 10.100.0.10/32 -p tcp --dport 22
+-j DROP`) la pone **a propósito** el caso E1 del banco («la víctima no responde al MDR»), incluido en la tanda
+de ataques, para forzar la escalada a fw-core. `sh lab/banco/banco.sh restaurar` la quita.
+
+El 9 nov 2026 se validó el plan [PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md](PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md)
+de punta a punta: banco recién desplegado sin `aprovisionar`, clave generada desde la vista, 12 equipos
+verificados (incluido el equipo nuevo `pagos-qr`, dado de alta desde la vista), contenciones reales y rotación
+completa.
 
 
 El daemon que corre en `:8787` arrancó sin `TRIAJE_SSH_MODO` y con el nodo de gestión por defecto, así que

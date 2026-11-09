@@ -32,6 +32,17 @@ class TestTopologia(unittest.TestCase):
         self.assertIn("10.100.0.1/24", execs)
         self.assertIn("10.0.0.1/24", execs)
 
+    def test_el_equipo_por_dar_de_alta_esta_en_la_red_pero_no_en_el_perfil(self):
+        import os as _os
+        perfil = yaml.safe_load(open(_os.path.join(RAIZ, "prototipo", "perfiles", "bancario.yml"), encoding="utf-8"))
+        fw = " ".join(self.nodos["fw-core"]["exec"])
+        for nombre, n in red.POR_DAR_DE_ALTA.items():
+            self.assertIn(nombre, self.nodos)
+            self.assertIn(f"{n['ip']}/24", " ".join(self.nodos[nombre]["exec"]))
+            self.assertIn(f"{n['gw']}/24", fw)                               # fw-core es su puerta
+            self.assertNotIn(nombre, perfil.get("activos") or {})          # lo da de alta la consola
+            self.assertNotIn(nombre, red.NODOS)                            # ni el monitor ni `aprovisionar`
+
     def test_internet_borra_la_ruta_por_defecto_del_contenedor_y_bloquea_la_salida(self):
         # C1: containerlab conecta 'internet' a la red de gestion de Docker (NAT), que le da
         # una ruta por defecto real (eth0) y por tanto salida a Internet de verdad. 'docker

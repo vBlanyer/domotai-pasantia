@@ -74,7 +74,7 @@ export const papelTexto = (e: EquipoConectividad, papeles: { id: string; nombre:
   e.papel ? (papeles.find((p) => p.id === e.papel)?.nombre ?? e.papel) : null
 
 // La franja de arriba: qué puede hacer esta sesión en la vista, en una frase.
-export function franjaPermisos(puede: boolean, motivo: string | null | undefined, modo: ModoSesion | null, nombre: string):
+export function franjaPermisos(puede: boolean, motivo: string | null | undefined, modo: ModoSesion | null, nombre: string, puedeGenerar = false):
   { tono: "ok" | "aviso"; titulo: string; texto: string } {
   if (puede && modo === "identificado")
     return { tono: "ok", titulo: `Firmas como ${nombre}, verificado por tu token.`,
@@ -82,6 +82,10 @@ export function franjaPermisos(puede: boolean, motivo: string | null | undefined
   if (puede)
     return { tono: "aviso", titulo: "Consola abierta, opción de laboratorio activa.",
       texto: `Puedes hacerlo todo, firmado con un nombre sin verificar${nombre ? ` (${nombre})` : ""}. Solo para el laboratorio.` }
+  if (motivo?.startsWith("falta la clave del conector"))
+    return { tono: "aviso", titulo: "Falta la clave del conector.",
+      texto: puedeGenerar ? "Genérala aquí abajo para empezar: sin ella el MDR no puede entrar en ningún equipo ni contener."
+        : "Sin ella el MDR no puede entrar en ningún equipo. Generarla exige tu token de operador, o la opción de conectividad abierta del laboratorio." }
   if (motivo && !motivo.includes("operador"))
     return { tono: "aviso", titulo: "Solo lectura.", texto: `Puedes ver la configuración: ${motivo}.` }
   if (modo === "compartido")
