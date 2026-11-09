@@ -107,7 +107,8 @@ mínimo privilegio, ataque real, traza encadenada, reversión desde la traza).
 
 ## El manual de usuario
 
-Para quienes usan el sistema, el **[`manual-de-usuario.md`](manual-de-usuario.md)** (09/11/2026):
+Para quienes usan el sistema, el **[`manual-de-usuario.md`](manual-de-usuario.md)** (09/11/2026; también en
+[PDF](manual-de-usuario.pdf), que se regenera con [`generar-pdf/`](generar-pdf/)):
 
 - la puesta en marcha y el acceso por token;
 - cada vista de la consola: Panel, Aprobaciones, Consola, Contenciones, Decisiones, Incidentes, Red,
