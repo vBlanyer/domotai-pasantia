@@ -77,6 +77,13 @@ def red_de(perfil):
                          "servicios_prestados": servicios, "depende_de": depende,
                          "tipo": _tipo(info.get("tipo"), rol, funcion, servicios), "zona": None}
 
+    from prototipo.motor import perfil as perfilm   # la cadena de contención rota también se ve en el mapa
+    avisos.extend(perfilm.avisos_topologia(perfil))
+    for nombre, n in nodos.items():           # el mapa no la dibuja: que no desaparezca en silencio
+        for d in n["depende_de"]:
+            if d not in nodos:
+                avisos.append(f"{nombre}: depende_de un equipo desconocido ({d}), no se dibuja")
+
     crudos = (dict(seccion.get("enlaces") or {}) if "enlaces" in seccion
               else {n: t["gateway"] for n, t in topologia.items() if t.get("gateway")})
     enlaces = {}

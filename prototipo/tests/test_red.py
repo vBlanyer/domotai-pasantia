@@ -117,6 +117,21 @@ class TestRedMalFormada(unittest.TestCase):
         self.assertEqual(r["nodos"]["c"]["servicios_prestados"], [80, "ssh"])
         self.assertIn("a", r["nodos"])
 
+    def test_la_cadena_de_contencion_rota_se_avisa_en_el_mapa(self):
+        # borrar un cortafuegos intermedio deja colgando el gateway de los hosts: la escalada se corta ahí
+        perfil = {"activos": {"web": {"ip": "10.0.0.5"}},
+                  "topologia": {"web": {"rol": "host_victima", "ip": "10.0.0.5", "gateway": "fw-borrado"},
+                                "fantasma": {"rol": "host_victima", "ip": "10.0.0.6"}}}
+        avisos = red.red_de(perfil)["avisos"]
+        self.assertTrue(any("topologia.web: su gateway fw-borrado no está en la topología" in a for a in avisos), avisos)
+        self.assertTrue(any("topologia.fantasma: está en la topología pero no en activos" in a for a in avisos), avisos)
+
+    def test_una_dependencia_a_un_equipo_desconocido_se_avisa(self):
+        # el mapa no puede dibujarla; antes desaparecía sin decir nada
+        r = red.red_de({"activos": {"app": {"depende_de": ["fantasma", "db"]}, "db": {}}})
+        self.assertIn("app: depende_de un equipo desconocido (fantasma), no se dibuja", r["avisos"])
+        self.assertEqual(r["nodos"]["app"]["depende_de"], ["fantasma", "db"])     # el dato no se toca
+
     def test_depende_de_con_entradas_no_hashables(self):
         from prototipo.servicio import tablero
         seccion = {"nodos": {"internet": {"tipo": "externo", "depende_de": [["b"], {"x": 1}, "web-banking"]}}}

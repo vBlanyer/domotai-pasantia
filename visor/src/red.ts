@@ -15,14 +15,20 @@ export type Rama = {
   x: number; y: number; w: number; h: number       // caja completa (píldora + hojas); x = borde izquierdo
   cx: number; h_pildora: number; espinaX: number
   hojas: { nombre: string; x: number; y: number }[]  // centros
+  yDesde: number | null    // de dónde baja su conector: el bus de su cortafuegos o la rama de encima
+  desde: string | null     // el cortafuegos (nodo del tronco) del que cuelga
 }
+// Bus de un cortafuegos: la barra horizontal de la que cuelgan sus zonas.
+export type Bus = { desde: string; y: number; x1: number; x2: number }
 export type Disposicion = {
   nodos: Record<string, { x: number; y: number }>   // centros de los nodos VISIBLES
   zonas: { nombre: string; x: number; y: number; w: number; h: number }[]
   ramas: Rama[]
   carril: { y: number; h: number } | null
-  bus: { y: number; x1: number; x2: number } | null
+  bus: { y: number; x1: number; x2: number } | null  // el primero de `buses` (compatibilidad)
+  buses: Bus[]
   tronco: string[]                                   // de arriba abajo
+  troncoPadre: Record<string, string | null>         // de qué nodo del tronco cuelga cada uno
   ancho: number
   alto: number
 }
@@ -92,7 +98,8 @@ export function disposicion(red: Red, opciones: { plegadas?: Set<string>; carril
         for (const h of hojas) nodos[h.nombre] = { x: h.x, y: h.y }
         const h = DIM.ramaAlto + (plegada ? 0 : DIM.huecoRamaHoja + z.nodos.length * DIM.pasoHoja)
         ramas.push({ nombre: z.nombre, nodos: z.nodos, plegada, x: x0 + j * DIM.colAncho, y, w: DIM.colAncho, h,
-          cx, h_pildora: DIM.ramaAlto, espinaX: x0 + j * DIM.colAncho + DIM.espina, hojas })
+          cx, h_pildora: DIM.ramaAlto, espinaX: x0 + j * DIM.colAncho + DIM.espina, hojas, yDesde: null,
+          desde: tronco.length ? tronco[tronco.length - 1] : null })
         zonas.push({ nombre: z.nombre, x: x0 + j * DIM.colAncho, y, w: DIM.colAncho, h })
         altoFila = Math.max(altoFila, h)
       })
@@ -100,8 +107,114 @@ export function disposicion(red: Red, opciones: { plegadas?: Set<string>; carril
     }
     const primera = ramas.slice(0, filas[0].length)
     bus = tronco.length ? { y: busY, x1: primera[0].cx, x2: primera[primera.length - 1].cx } : null
+    ramas.forEach((r, i) => { const arriba = i >= DIM.porFila ? ramas[i - DIM.porFila] : null; r.yDesde = arriba ? arriba.y + arriba.h : bus ? bus.y : null })
   }
-  return { nodos, zonas, ramas, carril, bus, tronco, ancho, alto: y + DIM.margen }
+  const troncoPadre: Record<string, string | null> = Object.fromEntries(tronco.map((n, i) => [n, i > 0 ? tronco[i - 1] : null]))
+  const base = { nodos, zonas, ramas, carril, bus, buses: bus ? [{ desde: tronco[tronco.length - 1], ...bus }] : [], tronco, troncoPadre, ancho, alto: y + DIM.margen }
+  return ramificada(red, base, { troncal, niveles, nivelesOrdenados, plegadas, padre }) ?? base
+}
+
+// Red ramificada (más de un cortafuegos con zonas, o zonas que no cuelgan del último del tronco): cada
+// zona cuelga del cortafuegos al que la llevan sus `enlaces`, en un bloque bajo él. Las filas de zonas de
+// todos los bloques empiezan a la misma altura. En una red en cadena devuelve null y manda la
+// disposición de siempre (el banco de hoy se ve igual).
+function ramificada(red: Red, base: Disposicion, c: {
+  troncal: string[]; niveles: Map<number, string[]>; nivelesOrdenados: number[]; plegadas: Set<string>; padre: Map<string, string>
+}): Disposicion | null {
+  const { troncal, plegadas, padre } = c
+  if (!troncal.length || !red.zonas.length) return null
+  const esTroncal = new Set(troncal)
+  const ultimo = base.tronco[base.tronco.length - 1]
+  // de qué nodo del tronco cuelga una zona: subiendo por los enlaces de sus miembros; el más votado
+  const padreDeZona = (z: Red["zonas"][number]) => {
+    const votos = new Map<string, number>()
+    for (const m of z.nodos) {
+      let p = padre.get(m), pasos = 0
+      while (p && !esTroncal.has(p) && pasos++ < 32) p = padre.get(p)
+      if (p && esTroncal.has(p)) votos.set(p, (votos.get(p) ?? 0) + 1)
+    }
+    return [...votos.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ultimo
+  }
+  const grupos = new Map<string, Red["zonas"]>()
+  for (const z of red.zonas) { const p = padreDeZona(z); grupos.set(p, [...(grupos.get(p) ?? []), z]) }
+  if (grupos.size === 1 && grupos.has(ultimo)) return null      // en cadena: como siempre
+
+  // bloques, de izquierda a derecha en el orden de las zonas
+  const HUECO_BLOQUE = 40
+  const bloques = [...grupos.entries()].map(([desde, zs]) => ({ desde, zs, w: Math.min(zs.length, DIM.porFila) * DIM.colAncho }))
+  const anchoBloques = bloques.reduce((a, b) => a + b.w, 0) + (bloques.length - 1) * HUECO_BLOQUE
+  const anchoTroncal = Math.max(0, ...[...c.niveles.values()].map((ns) => ns.length)) * (DIM.nodoAncho + DIM.zonaHueco)
+  const ancho = Math.max(base.ancho, Math.max(320, anchoTroncal, anchoBloques) + 2 * DIM.margen)
+  const nodos: Disposicion["nodos"] = {}
+  for (const [n, p] of Object.entries(base.nodos)) if (!red.zonas.some((z) => z.nodos.includes(n))) nodos[n] = { ...p, x: p.x + (ancho - base.ancho) / 2 }
+  const externos = new Set(red.nodos.filter((n) => n.tipo === "externo").map((n) => n.nombre))
+  for (const n of externos) if (base.nodos[n]) nodos[n] = base.nodos[n]          // el carril no se mueve
+
+  // tronco: cada nodo cuelga de su enlace si es del tronco; si no, del anterior en el orden de siempre
+  const troncoPadre: Record<string, string | null> = {}
+  base.tronco.forEach((n, i) => { const p = padre.get(n); troncoPadre[n] = p && esTroncal.has(p) ? p : i > 0 ? base.tronco[i - 1] : null })
+
+  let y = Math.max(...base.tronco.map((n) => base.nodos[n].y)) + DIM.nodoAlto / 2
+  const busY = y + DIM.huecoBus
+  y = busY + 14
+  const ramas: Rama[] = [], zonas: Disposicion["zonas"] = [], buses: Bus[] = []
+  const centro = new Map<string, number>()
+  let xb = ancho / 2 - anchoBloques / 2, alto = y
+  for (const b of bloques) {
+    let yf = y
+    for (let i = 0; i < b.zs.length; i += DIM.porFila) {
+      const fila = b.zs.slice(i, i + DIM.porFila)
+      const x0 = xb + (b.w - fila.length * DIM.colAncho) / 2
+      let altoFila = 0
+      fila.forEach((z, j) => {
+        const cx = x0 + j * DIM.colAncho + DIM.colAncho / 2
+        const plegada = plegadas.has(z.nombre)
+        const hojas = plegada ? [] : z.nodos.map((n, k) => ({
+          nombre: n, x: x0 + j * DIM.colAncho + DIM.hojaDesplaz + DIM.hojaAncho / 2,
+          y: yf + DIM.ramaAlto + DIM.huecoRamaHoja + DIM.hojaAlto / 2 + k * DIM.pasoHoja,
+        }))
+        for (const h of hojas) nodos[h.nombre] = { x: h.x, y: h.y }
+        const h = DIM.ramaAlto + (plegada ? 0 : DIM.huecoRamaHoja + z.nodos.length * DIM.pasoHoja)
+        const arriba = i > 0 ? ramas[ramas.length - DIM.porFila] : null
+        ramas.push({ nombre: z.nombre, nodos: z.nodos, plegada, x: x0 + j * DIM.colAncho, y: yf, w: DIM.colAncho, h, cx,
+          h_pildora: DIM.ramaAlto, espinaX: x0 + j * DIM.colAncho + DIM.espina, hojas, yDesde: arriba ? arriba.y + arriba.h : busY, desde: b.desde })
+        zonas.push({ nombre: z.nombre, x: x0 + j * DIM.colAncho, y: yf, w: DIM.colAncho, h })
+        altoFila = Math.max(altoFila, h)
+      })
+      yf += altoFila + DIM.zonaHueco
+    }
+    alto = Math.max(alto, yf)
+    centro.set(b.desde, xb + b.w / 2)
+    xb += b.w + HUECO_BLOQUE
+  }
+  // x del tronco: sobre su bloque; sin bloque, en medio de sus hijos del tronco; si no, donde estaba
+  const hijos = (n: string) => base.tronco.filter((h) => troncoPadre[h] === n)
+  const xDe = (n: string, visto = new Set<string>()): number => {
+    if (centro.has(n)) return centro.get(n)!
+    const hs = hijos(n).filter((h) => !visto.has(h))
+    if (hs.length) { visto.add(n); return hs.reduce((a, h) => a + xDe(h, visto), 0) / hs.length }
+    return nodos[n].x
+  }
+  for (const n of base.tronco) nodos[n] = { x: xDe(n), y: base.nodos[n].y }
+  for (const b of bloques) {
+    const propias = ramas.filter((r) => r.desde === b.desde && r.yDesde === busY)
+    const px = nodos[b.desde].x
+    buses.push({ desde: b.desde, y: busY, x1: Math.min(px, ...propias.map((r) => r.cx)), x2: Math.max(px, ...propias.map((r) => r.cx)) })
+  }
+  return { nodos, zonas, ramas, carril: base.carril, bus: buses[0] ?? null, buses, tronco: base.tronco, troncoPadre, ancho, alto: alto + DIM.margen }
+}
+
+// Trazo de una dependencia entre dos equipos (centros `a` y `b`, anchos `wa` y `wb`). En columnas
+// distintas, una curva de borde a borde. En la MISMA columna (dos equipos de una zona), un arco por la
+// derecha, en el hueco de la columna: de borde a borde atravesaría las cajas y quedaría tapado.
+export function trazoDependencia(a: { x: number; y: number }, b: { x: number; y: number }, wa: number, wb: number): string {
+  if (Math.abs(a.x - b.x) < 1) {
+    const x = a.x + wa / 2, comba = 10 + Math.min(20, Math.abs(b.y - a.y) / 8)
+    return `M${x},${a.y} C${x + comba},${a.y} ${x + comba},${b.y} ${x},${b.y}`
+  }
+  const [ini, fin] = a.x <= b.x ? [{ x: a.x + wa / 2, y: a.y }, { x: b.x - wb / 2, y: b.y }] : [{ x: a.x - wa / 2, y: a.y }, { x: b.x + wb / 2, y: b.y }]
+  const mx = (ini.x + fin.x) / 2
+  return `M${ini.x},${ini.y} C${mx},${ini.y} ${mx},${fin.y} ${fin.x},${fin.y}`
 }
 
 // Lo que un registro de la traza cuenta de «quién atacó a quién»: el origen y los equipos que fueron

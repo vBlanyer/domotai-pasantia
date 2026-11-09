@@ -48,7 +48,7 @@ describe("disposicion", () => {
 })
 
 // ---- árbol: carril, ramas plegables, orígenes y cascada ----------------------------------------
-import { origenesDe, cascadaDe } from "./red"
+import { origenesDe, cascadaDe, trazoDependencia } from "./red"
 import type { Decision } from "./api"
 
 describe("disposicion en árbol", () => {
@@ -129,5 +129,62 @@ describe("cascadaDe: qué arrastra un equipo caído, siguiendo las dependencias"
   })
   it("sin caídos no hay cascada", () => {
     expect(cascadaDe({ ...red, nodos: red.nodos.map((n) => ({ ...n, salud: null, actividad: { ...n.actividad, estado: "sin_actividad" } })) })).toEqual([])
+  })
+})
+
+describe("trazoDependencia", () => {
+  it("en la misma columna, un arco por la derecha que no atraviesa las cajas", () => {
+    const d = trazoDependencia({ x: 100, y: 50 }, { x: 100, y: 130 }, 120, 120)
+    expect(d).toBe("M160,50 C180,50 180,130 160,130")      // borde derecho (100 + 60), comba 10 + 80/8
+    expect(trazoDependencia({ x: 100, y: 50 }, { x: 100, y: 900 }, 120, 120)).toContain("C190,50")   // comba máxima 30
+  })
+  it("en columnas distintas, de borde a borde", () => {
+    expect(trazoDependencia({ x: 100, y: 50 }, { x: 300, y: 90 }, 120, 120)).toBe("M160,50 C200,50 200,90 240,90")
+    expect(trazoDependencia({ x: 300, y: 90 }, { x: 100, y: 50 }, 120, 120)).toBe("M240,90 C200,90 200,50 160,50")
+  })
+})
+
+
+describe("disposicion con una red ramificada", () => {
+  // el banco con Tiendas detrás de su propio cortafuegos, que cuelga de fw-core
+  const TIENDAS: Red = {
+    ...BANCO,
+    nodos: [...BANCO.nodos, nodo("fw-tiendas", "cortafuegos"), nodo("pos-1", "puesto", "Tiendas"), nodo("pos-2", "puesto", "Tiendas")],
+    enlaces: [...BANCO.enlaces, ["fw-tiendas", "fw-core"], ["pos-1", "fw-tiendas"], ["pos-2", "fw-tiendas"]],
+    zonas: [...BANCO.zonas, { nombre: "Tiendas", nodos: ["pos-1", "pos-2"] }],
+  }
+
+  it("en cadena se dispone igual que siempre", () => {
+    const d = disposicion(BANCO)
+    expect(d.buses).toEqual([{ desde: "fw-core", ...d.bus! }])
+    expect(d.troncoPadre).toEqual({ "fw-edge": null, "fw-core": "fw-edge" })
+    expect(d.ramas.every((r) => r.desde === "fw-core")).toBe(true)
+  })
+
+  it("cada zona cuelga de su cortafuegos real, con un bus por cortafuegos", () => {
+    const d = disposicion(TIENDAS)
+    expect(Object.fromEntries(d.ramas.map((r) => [r.nombre, r.desde]))).toEqual({ DMZ: "fw-core", Core: "fw-core", SOC: "fw-core", Tiendas: "fw-tiendas" })
+    expect(d.buses.map((b) => b.desde)).toEqual(["fw-core", "fw-tiendas"])
+    expect(d.troncoPadre["fw-tiendas"]).toBe("fw-core")
+    const tiendas = d.ramas.find((r) => r.nombre === "Tiendas")!
+    expect(d.nodos["fw-tiendas"].x).toBeCloseTo(tiendas.cx)                       // encima de su zona
+    expect(Math.abs(d.nodos["fw-core"].x - tiendas.cx)).toBeGreaterThan(DIM.colAncho) // y no encima de ella
+    expect(new Set(d.ramas.map((r) => r.y)).size).toBe(1)                         // las filas empiezan a la par
+  })
+
+  it("nada se solapa ni se sale del lienzo", () => {
+    const d = disposicion(TIENDAS)
+    const ps = Object.entries(d.nodos)
+    for (const [n, p] of ps) {
+      expect(p.x - DIM.nodoAncho / 2, n).toBeGreaterThanOrEqual(0)
+      expect(p.x + DIM.nodoAncho / 2, n).toBeLessThanOrEqual(d.ancho)
+    }
+    for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++)
+      expect(Math.abs(ps[i][1].x - ps[j][1].x) >= DIM.nodoAncho - 2 || Math.abs(ps[i][1].y - ps[j][1].y) >= DIM.hojaAlto - 2, `${ps[i][0]}/${ps[j][0]}`).toBe(true)
+  })
+
+  it("una zona sin enlaces cuelga del último cortafuegos, como siempre", () => {
+    const d = disposicion({ ...TIENDAS, zonas: [...TIENDAS.zonas, { nombre: "Suelta", nodos: [] }] })
+    expect(d.ramas.find((r) => r.nombre === "Suelta")!.desde).toBe("fw-tiendas")
   })
 })

@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from "react"
 import type { Red } from "@/api"
-import { disposicion, cascadaDe, resumenRama, DIM, type Origen } from "@/red"
+import { disposicion, cascadaDe, resumenRama, trazoDependencia, DIM, type Origen } from "@/red"
 import { cn } from "@/lib/utils"
 
 // Estado del nodo -> texto (se anuncia y se lee), icono y color. Nunca solo el color.
@@ -85,20 +85,19 @@ export function MapaRed({ red, seleccionado, onSeleccionar, dependencias, ataque
       )}
 
       {/* conectores del árbol: debajo de todo lo demás */}
-      {d.tronco.map((n, i) => {
+      {d.tronco.map((n) => {
         const p = d.nodos[n]
-        const anterior = i > 0 ? d.nodos[d.tronco[i - 1]] : null
+        const padreT = d.troncoPadre[n]
+        const anterior = padreT ? d.nodos[padreT] : null
         const y0 = anterior ? anterior.y + DIM.hojaAlto / 2 : d.carril ? d.carril.y + d.carril.h : null
         return y0 != null && <path key={`tr-${n}`} d={`M${anterior?.x ?? p.x},${y0} V${anterior ? (y0 + p.y - DIM.hojaAlto / 2) / 2 : p.y - DIM.hojaAlto / 2} H${p.x} V${p.y - DIM.hojaAlto / 2}`} className="fill-none stroke-border" strokeWidth={1.4} />
       })}
-      {d.bus && (() => {
-        const ultimo = d.nodos[d.tronco[d.tronco.length - 1]]
-        return <path d={`M${ultimo.x},${ultimo.y + DIM.hojaAlto / 2} V${d.bus.y} M${d.bus.x1},${d.bus.y} H${d.bus.x2}`} className="fill-none stroke-border" strokeWidth={1.4} />
-      })()}
-      {d.ramas.map((r, i) => {
-        const fila = Math.floor(i / DIM.porFila)
-        const arriba = fila > 0 ? d.ramas[i - DIM.porFila] : null
-        const yDesde = arriba ? arriba.y + arriba.h : d.bus ? d.bus.y : null
+      {d.buses.map((b) => {
+        const de = d.nodos[b.desde]
+        return de && <path key={`bus-${b.desde}`} d={`M${de.x},${de.y + DIM.hojaAlto / 2} V${b.y} M${b.x1},${b.y} H${b.x2}`} className="fill-none stroke-border" strokeWidth={1.4} />
+      })}
+      {d.ramas.map((r) => {
+        const yDesde = r.yDesde
         const relevante = !zonaSel || zonaSel === r.nombre
         return (
           <g key={`rama-c-${r.nombre}`} className={cn("transition-opacity", dim(relevante))}>
@@ -116,9 +115,7 @@ export function MapaRed({ red, seleccionado, onSeleccionar, dependencias, ataque
         const a = pos(n), b = pos(dep)
         if (!a || !b) return null
         const relevante = n === seleccionado || dep === seleccionado
-        const [ini, fin] = a.x <= b.x ? [{ x: a.x + anchoDe(n) / 2, y: a.y }, { x: b.x - anchoDe(dep) / 2, y: b.y }] : [{ x: a.x - anchoDe(n) / 2, y: a.y }, { x: b.x + anchoDe(dep) / 2, y: b.y }]
-        const mx = (ini.x + fin.x) / 2
-        return <path key={`dep-${n}-${dep}`} data-dependencia d={`M${ini.x},${ini.y} C${mx},${ini.y} ${mx},${fin.y} ${fin.x},${fin.y}`}
+        return <path key={`dep-${n}-${dep}`} data-dependencia d={trazoDependencia(a, b, anchoDe(n), anchoDe(dep))}
           className={cn("fill-none stroke-violeta transition-opacity", dim(relevante))} strokeDasharray="4 3" strokeWidth={1.2} />
       })}
       {cascadas.map(([c, n]) => {
