@@ -2,7 +2,7 @@
 import json, os, sys, yaml
 from prototipo.entrada import ingesta
 from prototipo.motor import triaje, orden as ordenm, perfil as perfilm, analisis
-from prototipo.accion import conector, verificacion, catalogo as catm
+from prototipo.accion import conector, verificacion, fallos, catalogo as catm
 from prototipo.servicio import traza, validacion
 
 def decidir_incidente(alerta, hallazgos, perfil, perfil_nombre, catalogo, id_decision, timestamp,
@@ -100,13 +100,17 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
                 "orden": None, "ejecucion": None, "verificacion": None}
     ejecucion = conector.ejecutar_orden(o, catalogo, ejecutor, timestamp)
     verif = verificacion.confirmar(o, catalogo, ejecutor)
+    # Por qué no quedó contenida (fase 1 del plan de fallos): SOLO se anota, no cambia nada de lo que
+    # sigue. Sin fallo no se añade el campo (los registros de una contención correcta no cambian).
+    causa = None if (ejecucion.get("exito") and verif.get("verificado")) else fallos.clasificar_fallo(
+        ejecucion, verif, fallos.contexto(o.get("nodo_ip"), o.get("accion_id")))
     # Escalada por defecto (requisito del tutor industrial): si el paso en el activo no se pudo
     # ejecutar o no se verifica y el perfil describe una topologia, se sigue la cadena de
     # contencion hacia el perimetro, con el filtro del perfil en cada salto. Sin topologia no hay
     # a donde escalar y la traza lo deja como esta: exito=False, verificado=False.
     escalada = None
     parcial = {**decision, "veredicto_humano": veredicto, "clase_reclasificada": clase_reclasificada,
-               "orden": o, "ejecucion": ejecucion, "verificacion": verif}
+               "orden": o, "ejecucion": ejecucion, "verificacion": verif, **({"causa_fallo": causa} if causa else {})}
     # La escalada sube por la cadena de contención bloqueando el ORIGEN (su IP): solo tiene sentido para
     # acciones sobre el origen. Una acción sobre CUENTA (FORZAR_CAMBIO_PASS) o sobre NODO (AISLAR_NODO:
     # cuarentena del host, sin IP atacante) que falla NO se escala a bloquear una IP —sería una respuesta

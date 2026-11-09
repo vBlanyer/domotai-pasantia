@@ -347,6 +347,27 @@ class TestClaveDesdeCeroYEstadoViejo(_Base):
         self.assertIsNone(est["rotacion"])
         self.assertIsNone(cx.cargar_rotacion(srv.ruta_rotacion))
 
+    def test_contexto_para_clasificar_un_fallo(self):
+        # lo que la consola le dice al clasificador de fallos (accion/fallos): solo lectura, sin ssh
+        from prototipo.servicio import conectividad_web as cw
+        srv = TestPermisosAltaYRotacion._srv_cat(self, operadores={"tok": "ana"})
+        self.assertEqual(cw.contexto_equipo(srv, "10.0.20.10"), {"aprovisionado": True, "verificado": False, "prueba_en": None})
+        self.assertFalse(cw.contexto_equipo(srv, "10.0.20.99")["aprovisionado"])      # sin huella fijada
+        self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
+        vistos = len(self.f.vistos)
+        ctx = cw.contexto_equipo(srv, "10.0.20.10", "BLOQUEAR_IP")
+        self.assertTrue(ctx["verificado"] and ctx["prueba_en"])
+        self.assertNotIn("regla_falta", ctx)
+        self.assertEqual(len(self.f.vistos), vistos)                    # no abre ninguna conexión al equipo
+        self.f.sudo_l = "    (root) NOPASSWD: /sbin/iptables -L -n"     # el sudoers no tiene la regla de bloquear
+        srv.conectividad_ultimo.clear()
+        self.f.ssh["10.0.20.10"] = [(0, "ok"), (1, "denegado")]
+        self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
+        ctx = cw.contexto_equipo(srv, "10.0.20.10", "BLOQUEAR_IP")
+        self.assertTrue(ctx["regla_falta"].startswith("iptables "))
+        self.assertEqual(cw.contexto_equipo(srv, "10.0.20.10", "NO_EXISTE").get("regla_falta"), None)
+        self.assertEqual(cw.contexto_equipo(self._srv(modo="laboratorio"), "10.0.20.10"), {})   # sin claves que mirar
+
     def test_cualquier_cuenta_salvo_las_del_sistema(self):
         from prototipo.accion import catalogo
         srv = self._srv({"tok": "ana"})

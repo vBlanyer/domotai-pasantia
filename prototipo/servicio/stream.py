@@ -1099,6 +1099,11 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
                                       token=token, operadores=operadores,    # auth de la consola (#6/#8)
                                       # watchlist/IoC local junto a la salida (anotación del analista)
                                       watchlist_ruta=os.path.join(os.path.dirname(cfg["salida"]) or ".", "watchlist.json"))
+    # Lo que la consola sabe de cada equipo (aprovisionado, verificado, reglas que faltan) para clasificar
+    # por qué falló una contención (accion/fallos). Solo informa: no decide nada.
+    from prototipo.accion import fallos
+    from prototipo.servicio import conectividad_web
+    fallos.configurar_contexto(lambda ip, accion_id: conectividad_web.contexto_equipo(servidor, ip, accion_id))
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",

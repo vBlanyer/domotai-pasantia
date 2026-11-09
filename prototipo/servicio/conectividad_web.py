@@ -181,6 +181,31 @@ def _vigente(prueba, clave, fijada):
     return bool(prueba) and prueba.get("clave_conector") == (clave or {}).get("huella") and prueba.get("huella_host") == fijada
 
 
+def contexto_equipo(srv, ip, accion_id=None):
+    """Lo que la consola sabe de un equipo para clasificar un fallo de contención (accion/fallos):
+    si tiene su clave del host fijada, si estaba verificado con las claves actuales (regresión) y, si su
+    última prueba vigente lo dice, qué regla de la acción falta en su sudoers. Solo lectura."""
+    modo = srv.conectividad_modo()
+    destino = _destino_claves(modo)
+    if not destino or not ip:
+        return {}
+    rc, kh = srv.conectividad_correr(destino)(["cat", conector.SSH_KNOWN_HOSTS])
+    huellas = cx.huellas_fijadas(kh) if rc == 0 else {}
+    prueba = srv.conectividad_pruebas.get(ip)
+    vigente = _vigente(prueba, _clave_conector(srv, modo), huellas.get(ip))
+    ctx = {"aprovisionado": ip in huellas, "verificado": bool(vigente and prueba.get("estado") == "verificada"),
+           "prueba_en": prueba.get("en") if vigente else None}
+    cat = _catalogo(srv)
+    if vigente and accion_id in cat:
+        faltan = set((prueba.get("reglas") or {}).get("faltan") or [])
+        texto = lambda r: f"{r[0]} {r[1]}".strip()
+        falta = next((texto(cx._norm(b, a)) for b, a in catalogom.reglas({accion_id: cat[accion_id]})
+                      if texto(cx._norm(b, a)) in faltan), None)
+        if falta:
+            ctx["regla_falta"] = falta
+    return ctx
+
+
 def resumen(srv, operador):
     modo = srv.conectividad_modo()
     ajustes = cx.cargar(srv.ruta_conectividad) if srv.ruta_conectividad else {"usuario_defecto": None, "equipos": {}}

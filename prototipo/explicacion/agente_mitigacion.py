@@ -28,7 +28,7 @@ pendiente.
 """
 import json, re
 from prototipo.motor import actores, impacto, politica
-from prototipo.accion import conector
+from prototipo.accion import conector, fallos
 from prototipo.explicacion import rag
 from prototipo.motor import perfil as perfilm
 
@@ -397,7 +397,12 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
                 e.pasos, e.reversiones = list(pasos), list(reversiones)
             raise
         anterior = dispositivo
-        pasos.append({"tipo": "accion", "dispositivo": dispositivo, "observacion": obs})
+        paso = {"tipo": "accion", "dispositivo": dispositivo, "observacion": obs}
+        res = (reg or {}).get("resultado")
+        if res and not res.get("exito"):      # por qué falló este salto (solo se anota: no cambia la cadena)
+            o = reg.get("orden") or {}
+            paso["causa"] = fallos.clasificar_fallo(res, None, fallos.contexto(o.get("nodo_ip"), o.get("accion_id")))
+        pasos.append(paso)
         if reg is None or reg.get("vetado"):  # no aplicable o vetado por el perfil: siguiente salto
             continue
         tocados.append(dispositivo)
@@ -407,7 +412,11 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
             return _plan(pasos, reversiones, None, tocados, "cancelado_por_humano", False)
         if reg.get("exito"):
             veredicto = herramienta_verificar_mitigacion(topo, catalogo, ejecutor, dispositivo, ip)
-            pasos.append({"tipo": "verificacion", "dispositivo": dispositivo, "observacion": veredicto})
+            paso_v = {"tipo": "verificacion", "dispositivo": dispositivo, "observacion": veredicto}
+            if veredicto != "bloqueado":      # se aplicó en el salto y la verificación no la encuentra
+                paso_v["causa"] = fallos.clasificar_fallo({"exito": True, "codigo_salida": 0, "salida": ""},
+                                                          {"verificado": False})
+            pasos.append(paso_v)
             if veredicto == "bloqueado":
                 return _plan(pasos, reversiones, dispositivo, tocados, "mitigado", False,
                              extra={"orden_efectiva": reg.get("orden"),

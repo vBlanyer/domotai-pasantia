@@ -181,7 +181,9 @@ def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
            + "".join(f" {x}" for x in _opt_puerto(puerto)))
     # sin sudo: lo que el usuario del conector hace con su propia cuenta (listar sus permisos con
     # `sudo -l`, o mantener su authorized_keys al rotar la clave). Nunca un comando del catálogo.
-    remoto = f"sudo -S {comando}" if sudo else comando
+    # LC_ALL=C: sudo y el comando responden en inglés, sea cual sea el idioma del equipo, para que la
+    # clasificación del fallo (accion/fallos) no dependa de él. No cambia lo que el sudoers permite.
+    remoto = f"LC_ALL=C sudo -S {comando}" if sudo else comando
     return f"{ssh} {usuario}@{nodo_ip} \"{remoto}\""
 
 def _ajustes(nodo_ip, usuario=None, puerto=None):
@@ -207,7 +209,7 @@ def _args_ssh_directo(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
             "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=yes",
             "-o", f"UserKnownHostsFile={known_hosts}", "-o", "ConnectTimeout=5",
             "-o", "HostKeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa",
-            *_opt_puerto(puerto), f"{usuario}@{nodo_ip}", f"sudo -S {comando}" if sudo else comando]
+            *_opt_puerto(puerto), f"{usuario}@{nodo_ip}", f"LC_ALL=C sudo -S {comando}" if sudo else comando]
 
 
 def ejecutor_ssh_directo(nodo_ip, comando, usuario=None, puerto=None, sudo=True, claves=None):

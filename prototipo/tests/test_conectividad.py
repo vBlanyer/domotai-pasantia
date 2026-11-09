@@ -303,7 +303,7 @@ class TestConectorSinSudoYRotacion(unittest.TestCase):
         linea = conector.comando_ssh_clave("10.0.0.1", "sudo -S -l", sudo=False, claves=["/k.nueva"])
         self.assertIn("-i /k.nueva -o IdentitiesOnly=yes", linea)
         self.assertTrue(linea.endswith('triaje@10.0.0.1 "sudo -S -l"'))
-        self.assertTrue(conector.comando_ssh_clave("10.0.0.1", "iptables -L -n").endswith('"sudo -S iptables -L -n"'))
+        self.assertTrue(conector.comando_ssh_clave("10.0.0.1", "iptables -L -n").endswith('"LC_ALL=C sudo -S iptables -L -n"'))
         args = conector._args_ssh_directo("10.0.0.1", "true", sudo=False, claves=["/a", "/b"])
         self.assertEqual(args[1:6], ["-n", "-i", "/a", "-i", "/b"])
         self.assertEqual(args[-1], "true")

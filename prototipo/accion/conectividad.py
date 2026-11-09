@@ -22,6 +22,8 @@ import tempfile
 
 import yaml
 
+from prototipo.accion import fallos
+
 _USUARIO = re.compile(r"^[a-z_][a-z0-9_-]{0,31}\Z")
 _VACIO = {"usuario_defecto": None, "equipos": {}}
 
@@ -152,20 +154,18 @@ COMANDO_PERMITIDO = "iptables -L -n"
 COMANDO_PROHIBIDO = "true"
 
 
+_DIAGNOSTICO = {"F3": "host_cambiada", "F2": "sin_fijar", "F4": "sin_clave", "F5": "sin_acceso"}
+
+
 def diagnosticar(rc, salida):
-    s = (salida or "").lower()
+    """Diagnóstico de la prueba de conexión con los MISMOS patrones que clasifican los fallos de
+    contención (accion/fallos): un solo sitio que mantener."""
     if rc == 0:
         return "ok"
-    if "remote host identification has changed" in s:
-        return "host_cambiada"
-    if "host key verification failed" in s or "no " in s and "host key is known" in s:
-        return "sin_fijar"
-    if "permission denied (publickey" in s:
-        return "sin_clave"
-    if rc in (124, 127) or any(t in s for t in ("connection refused", "timed out", "no route to host",
-                                                  "could not resolve", "connection closed", "network is unreachable")):
-        return "sin_acceso"
-    return "fallo"
+    d = _DIAGNOSTICO.get(fallos.patron(salida))
+    if d:
+        return d
+    return "sin_acceso" if rc in (124, 127) else "fallo"
 
 
 _ESTADO = {"host_cambiada": "host_cambiada", "sin_fijar": "sin_aprovisionar", "sin_clave": "sin_aprovisionar",

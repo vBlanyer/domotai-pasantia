@@ -261,3 +261,81 @@ Además, en cada fase: Python, visor, banco (157) y **evaluación (63) idéntico
 - Cambiar las decisiones del motor o sus cifras.
 - Los puntos de seguridad de la vista Conectividad
   ([CONECTIVIDAD-PENDIENTE-REVISION.md](CONECTIVIDAD-PENDIENTE-REVISION.md)).
+
+---
+
+## Anexo A · Línea base y avance
+
+### Fase 0: salidas reales capturadas (9/11/2026)
+
+`python3 -m lab.banco.fallos capturar api-movil` no toca ningún equipo: cambia solo lo que usa el conector
+(un known_hosts o una clave temporales en `/tmp` del nodo de gestión, un puerto cerrado, una IP sin
+equipo, una orden que sudo permite pero falla). Guarda la salida en
+`prototipo/tests/fixtures/fallos_conector.json` (OpenSSH 9.7p1, sudo 1.9.15).
+
+| Caso | rc | Última línea de la salida real | Clase |
+|---|---|---|---|
+| ok / ok con `LC_ALL=C` | 0 | (listado de iptables) | — |
+| Verificación sin la regla (`grep` sin coincidencias) | 1 | (vacía) | no es fallo de ejecución: F8 si se ejecutó |
+| known_hosts sin la clave del equipo | 255 | `Host key verification failed.` (antes: `No ED25519 host key is known for …`) | F2 |
+| pagos-qr sin dar de alta | 255 | ídem | F2 |
+| known_hosts con otra clave para el equipo | 255 | `Host key verification failed.` (antes: `REMOTE HOST IDENTIFICATION HAS CHANGED!`) | F3 |
+| Clave que el equipo no conoce | 255 | `Permission denied (publickey,password,keyboard-interactive).` | F4 |
+| Puerto sin sshd | 255 | `Connection refused` | F5 |
+| IP sin equipo | 255 | `Host is unreachable` | F5 |
+| Red sin ruta | 255 | `Operation timed out` | F5 |
+| Binario ausente (`ss`) | 1 | `sudo: a password is required` | F6 |
+| Comando fuera del sudoers (con y sin `LC_ALL=C`) | 1 | `sudo: a password is required` | F6 |
+| Reversión de una regla que no existe | 1 | `iptables: Bad rule (does a matching rule exist in that chain?).` | F7 |
+| Daemon sin clave | 126 | `conector sin configurar: …` (sintética: la produce el propio conector) | F9 |
+
+Lo que confirma la captura:
+- La última línea de F2 y F3 es **la misma**. Solo las anteriores las distinguen; por eso F3 se reconoce
+  primero y, con la huella fijada en la consola, una F2 sube a F3.
+- Binario ausente y comando fuera del sudoers dan **la misma** salida. Solo la última prueba de
+  Conectividad (la regla que falta en el sudoers) los separa.
+- Con `NOPASSWD`, sudo no pregunta: «a password is required» significa «no está en el sudoers».
+
+### Fase 0: comportamiento actual (antes de la fase 1)
+
+| Clase | Contención | Escalada | Tiempo | Consola |
+|---|---|---|---|---|
+| F1 | No sale | No | Inmediato | «orden no ejecutable» |
+| F2, F3, F4 | Fallida (rc 255) | Sí, si es sobre el origen | ~1 s por salto | «✗ NO verificada» y «⇪ … el activo no respondió» |
+| F5 rechazada | Fallida (rc 255) | Sí | ~1 s por salto | ídem |
+| F5 sin respuesta | Fallida (rc 255) | Sí | 5 s de espera por SSH, hasta 4 SSH por salto: **16 a 70 s** medidos | ídem |
+| F6, F7 | Fallida (rc 1) | Sí | ~1 s por salto | ídem |
+| F8 | Fallida (rc 0, sin verificar) | Sí | ~1 s por salto | ídem |
+| F9 | Fallida (rc 126) | Sí, y falla igual | Inmediato | ídem |
+| Escalada sin destino | — | «→ None: None (fallido)» | — | bug de texto (fase 2) |
+
+Medido en el sistema en marcha el 9/11 (laboratorio a medio aprovisionar y caso E1 del banco activo):
+33 contenciones fallidas, de 3 a 308 s cada una. Todas se mostraron igual en la consola,
+fuera cual fuese la causa.
+
+**Pendiente de la fase 0:** la pasada completa con los casos que SÍ modifican un equipo
+(`python3 -m lab.banco.fallos provocar|deshacer e1|sshd|sin-clave|clave-host|contramedida EQUIPO`),
+con el daemon en marcha y `banco.sh test` al deshacer. No se hizo durante el aprovisionamiento manual
+del laboratorio para no interferir con él.
+
+### Fase 1: hecho
+
+- `prototipo/accion/fallos.py`: `clasificar_fallo` (pura) y `patron`, la única lista de patrones.
+  `conectividad.diagnosticar` la usa también, así que la prueba de conexión y las contenciones
+  diagnostican igual.
+- Campos añadidos, sin cambiar ninguno existente:
+  - `causa_fallo` en el registro de la contención, **solo** si no quedó contenida.
+  - `causa` en cada paso de la escalada que falló.
+  - `causa` en cada verificación negativa de la escalada.
+- Contexto de la consola: `conectividad_web.contexto_equipo`, de solo lectura y sin SSH al equipo.
+  Da si el equipo tiene la huella fijada, si está verificado con las claves actuales (regresión) y qué
+  regla de la acción falta en el sudoers. Lo engancha el daemon al arrancar. Sin consola (pruebas, lote),
+  el contexto queda vacío y la clasificación es la más conservadora.
+- `LC_ALL=C` delante de `sudo -S` en el comando remoto: capturado con y sin él, con salida idéntica.
+  No cambia lo que permite el sudoers.
+- Pruebas (`prototipo/tests/test_fallos.py`):
+  - Las salidas reales dan su clase en el 100 % de los casos.
+  - Prueba de no interferencia en cinco escenarios: host caído que escala y contiene, todo caído,
+    contramedida, regresión y contención correcta. Los registros con y sin clasificador son
+    idénticos salvo `causa_fallo` y `causa`.
+- Evaluación 63 y banco 157 sin cambios.

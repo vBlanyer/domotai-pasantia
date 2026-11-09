@@ -188,7 +188,7 @@ class TestEjecutorClave(unittest.TestCase):
         # lo llevaba el grep y dejaba la verificacion siempre falsa (medido en vivo).
         linea = conector.comando_ssh_clave("10.0.0.1", "iptables -L -n | grep 1.2.3.4")
         self.assertIn("ssh -n ", linea)
-        self.assertIn('"sudo -S iptables -L -n | grep 1.2.3.4"', linea)
+        self.assertIn('"LC_ALL=C sudo -S iptables -L -n | grep 1.2.3.4"', linea)
         self.assertNotIn("</dev/null", linea)
         self.assertNotIn("echo", linea)
 
@@ -303,7 +303,7 @@ class TestEjecutorDirecto(unittest.TestCase):
         self.assertIn("BatchMode=yes", args)
         self.assertIn("StrictHostKeyChecking=yes", args)
         self.assertTrue(any(a.startswith("UserKnownHostsFile=") for a in args))
-        self.assertEqual(args[-1], "sudo -S iptables -L -n")
+        self.assertEqual(args[-1], "LC_ALL=C sudo -S iptables -L -n")
         self.assertEqual(args[-2], f"{conector.SSH_USUARIO}@192.168.1.30")
 
     def test_ejecuta_con_entorno_filtrado_y_plazo(self):
