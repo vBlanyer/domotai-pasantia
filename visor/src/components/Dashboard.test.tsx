@@ -54,6 +54,25 @@ describe("Panel", () => {
     expect(within(linea).getByText("6/7")).toBeInTheDocument()
   })
 
+  it("«Te toca»: una tarea por equipo sin acceso y los posibles ataques en rojo, nunca como configuración", () => {
+    h.fuentes.set(getPendientes, [])
+    h.fuentes.set(getConectividad, { modo: "clave", equipos: [
+      { nombre: "web-banking", ip: "10.10.0.10", protegido: false, puerto: 22, usuario: "triaje", ajustado: false,
+        sin_acceso: { clase: "F5", desde: hace(5), fallos: 4, regresion: true } },
+    ] })
+    h.fuentes.set(getTrazasPanel, [
+      { id_decision: "d9", timestamp: hace(3), activo: "fw-core", clase: "vp_intento_acceso", contencion: "contenida", accion_final: "BLOQUEAR_IP",
+        causa: { clase: "F3", descripcion: "la clave del host cambió", accion: "posible suplantación del equipo: compruébalo por otro canal", posible_ataque: true, dispositivo: "fw-core" } },
+    ])
+    render(<Dashboard conectado />)
+    const toca = screen.getByRole("region", { name: "Te toca" })
+    expect(within(toca).getByText(/El MDR no tiene acceso a/)).toBeInTheDocument()
+    expect(within(toca).getByText(/4 fallos · las contenciones escalan directamente/)).toBeInTheDocument()
+    expect(within(toca).getByText(/la clave del host cambió/)).toBeInTheDocument()
+    expect(within(toca).getAllByText(/Posible ataque/).length).toBe(2)
+    expect(within(toca).queryByText(/revisar el conector/)).not.toBeInTheDocument()
+  })
+
   it("si no se pudo leer la cola, no se da por vacía", () => {
     h.fuentes.set(getMetricasHoy, METRICAS)
     h.fuentes.set(getPendientes, ERROR)

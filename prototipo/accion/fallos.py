@@ -68,6 +68,8 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
     clase = None
     if ej.get("omitido") == "sin_aprovisionar":
         clase = "F2"            # no se intentó: la consola sabe que el equipo no tiene su clave del host fijada
+    elif ej.get("omitido") == "sin_acceso":
+        clase = ej.get("clase_memoria") if ej.get("clase_memoria") in ("F4", "F5") else "F5"   # memoria de fallos
     elif rc == -1 and "rechazado" in salida:
         clase = "F1"
     elif rc == 126 and "sin configurar" in salida:
@@ -168,9 +170,26 @@ def configurar_observador(fn):
 
 
 def observar(ip, causa):
-    if _observador is None or not ip:
+    if not ip:
+        return
+    if interruptor("TRIAJE_MEMORIA_FALLOS"):
+        try:
+            from prototipo.accion import memoria_fallos
+            memoria_fallos.registrar(ip, causa)
+        except Exception:
+            pass
+    if _observador is None:
         return
     try:
         _observador(ip, causa)
     except Exception:
         pass
+
+
+def sin_acceso(ip):
+    """Con TRIAJE_MEMORIA_FALLOS, {clase, desde, …} si la memoria dice que el MDR no tiene acceso a `ip`
+    (3 fallos F4/F5 seguidos): no se intenta ahí. Si no, None y se intenta como siempre."""
+    if not ip or not interruptor("TRIAJE_MEMORIA_FALLOS"):
+        return None
+    from prototipo.accion import memoria_fallos
+    return memoria_fallos.abierta(ip)

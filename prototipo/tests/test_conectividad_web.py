@@ -391,6 +391,24 @@ class TestClaveDesdeCeroYEstadoViejo(_Base):
         self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")   # y una prueba correcta
         self.assertNotIn("10.0.20.10", srv.conectividad_operativo)
 
+    def test_memoria_de_fallos_en_la_vista_y_sondeo_sin_sudo(self):
+        from prototipo.accion import memoria_fallos as mem
+        from prototipo.servicio import conectividad_web as cw
+        mem.reiniciar()
+        self.addCleanup(mem.reiniciar)
+        srv = self._srv({"tok": "ana"})
+        for t in range(3):
+            mem.registrar("10.0.20.10", {"clase": "F5"}, ahora=t)
+        with mock.patch.dict(os.environ, {"TRIAJE_MEMORIA_FALLOS": "1"}):
+            _, est = self._req(srv, "GET", "/api/conectividad", token="tok")
+        self.assertEqual(self._eq(est, "db-core")["sin_acceso"]["clase"], "F5")
+        self.assertIsNone(self._eq(est, "fw-core")["sin_acceso"])
+        _, est = self._req(srv, "GET", "/api/conectividad", token="tok")          # interruptor apagado: nada
+        self.assertIsNone(self._eq(est, "db-core")["sin_acceso"])
+        self.assertEqual(cw.sondear_acceso(srv, "10.0.20.10"), (0, ""))
+        self.assertEqual(self.f.vistos[-1][3:5], ("true", False))                 # sin sudo, comando inocuo
+        self.assertIsNone(cw.sondear_acceso(self._srv(modo="password"), "10.0.20.10"))
+
     def test_cualquier_cuenta_salvo_las_del_sistema(self):
         from prototipo.accion import catalogo
         srv = self._srv({"tok": "ana"})

@@ -35,9 +35,19 @@ export function edadTexto(iso: string | null | undefined, ahora: number): string
   return h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`
 }
 
+// «hh:mm» local de una hora ISO.
+export const horaCorta = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+
 export function avisoOperativo(e: EquipoConectividad, ahora = Date.now()): AvisoOperativo | undefined {
+  if (e.protegido) return undefined
+  const sa = e.sin_acceso
+  if (sa) {                     // memoria de fallos: manda sobre el último fallo suelto
+    const ataque = !!sa.regresion
+    return { texto: "sin acceso", tono: "critico", ataque,
+      sub: [`el MDR no entra desde las ${horaCorta(sa.desde)}`, sa.fallos ? `${sa.fallos} fallos` : null, "se reprueba cada 60 s"].filter(Boolean).join(" · ") }
+  }
   const o = e.operativo
-  if (!o || e.protegido) return undefined
+  if (!o) return undefined
   const ataque = !!o.posible_ataque
   return { texto: ataque ? "posible ataque" : "la última contención falló", tono: "critico", ataque,
     sub: [o.descripcion ?? o.clase, edadTexto(o.en, ahora)].filter(Boolean).join(" · ") }
@@ -70,7 +80,7 @@ export function resumenConectividad(equipos: EquipoConectividad[]) {
     contenibles: est.length,
     // con una contención fallida encima, la prueba verde ya no basta para contarlo como verificado
     verificadas: est.filter((e) => (e.id === "verificada" || e.id === "verificada_vieja") && !e.aviso).length,
-    conFallos: est.filter((e) => e.aviso).length,
+    conFallos: est.filter((e) => e.aviso).length,         // fallo reciente o sin acceso (memoria de fallos)
     hostCambiada: est.filter((e) => e.id === "host_cambiada").length,
     sinAprovisionar: est.filter((e) => e.id === "sin_aprovisionar").length,
     sinProbar: est.filter((e) => e.id === "sin_probar").length,

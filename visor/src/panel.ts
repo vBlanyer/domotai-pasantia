@@ -116,6 +116,15 @@ export function fallidasRecientes(regs: Decision[], ahora: number, n = 2): Falli
   return [...por.values()].sort((a, b) => Number(b.ataque) - Number(a.ataque) || ts(b.d) - ts(a.d)).slice(0, n)
 }
 
+// Equipos a los que el MDR perdió el acceso (memoria de fallos): UNA tarea por equipo, que se actualiza.
+// Si el equipo estaba verificado, es una regresión: posible ataque (alguien pudo cortar al SOC).
+export type SinAcceso = { nombre: string; desde: string; fallos: number; ataque: boolean }
+export function sinAccesoDe(equipos: { nombre: string; protegido: boolean; sin_acceso?: { desde: string; fallos?: number | null; regresion?: boolean | null } | null }[]): SinAcceso[] {
+  return equipos.filter((e) => !e.protegido && e.sin_acceso)
+    .map((e) => ({ nombre: e.nombre, desde: e.sin_acceso!.desde, fallos: e.sin_acceso!.fallos ?? 0, ataque: !!e.sin_acceso!.regresion }))
+    .sort((a, b) => Number(b.ataque) - Number(a.ataque) || a.desde.localeCompare(b.desde))
+}
+
 // ---- actividad -----------------------------------------------------------------------------------
 export type Hora = { inicio: number; auto: number; humano: number; descartadas: number }
 const esFp = (d: Decision) => (d.clase ?? "").startsWith("fp_")

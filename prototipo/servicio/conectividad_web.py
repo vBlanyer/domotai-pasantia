@@ -21,7 +21,7 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from prototipo.accion import catalogo as catalogom, conectividad as cx, conector
+from prototipo.accion import catalogo as catalogom, conectividad as cx, conector, fallos
 from prototipo.servicio import inventario_store as inv, politica_store
 
 _MODOS_EDITABLES = ("clave", "directo")
@@ -197,6 +197,19 @@ def registrar_operativo(srv, ip, causa):
             srv.conectividad_operativo[ip] = {**{k: causa.get(k) for k in _CAMPOS_OPERATIVO}, "en": ahora_iso()}
 
 
+def sondear_acceso(srv, ip):
+    """Sondeo inocuo de la memoria de fallos (fase 5): entra por SSH SIN sudo y ejecuta `true`, con el
+    usuario y el puerto del equipo. Sin sudo no deja fallos de sudo en el registro del equipo (que el SIEM
+    vería). None si el conector no está en un modo con clave (entonces se usa el ejecutor del lazo)."""
+    modo = srv.conectividad_modo()
+    if modo not in _MODOS_EDITABLES:
+        return None
+    ajustes = cx.cargar(srv.ruta_conectividad) if srv.ruta_conectividad else {"usuario_defecto": None, "equipos": {}}
+    aj = ajustes["equipos"].get(ip) or {}
+    usuario = aj.get("usuario") or ajustes.get("usuario_defecto") or conector.SSH_USUARIO
+    return srv.conectividad_ejecutor(modo, usuario=usuario, puerto=aj.get("puerto") or 22, sudo=False)(ip, "true")
+
+
 def contexto_equipo(srv, ip, accion_id=None):
     """Lo que la consola sabe de un equipo para clasificar un fallo de contención (accion/fallos):
     si tiene su clave del host fijada, si estaba verificado con las claves actuales (regresión) y, si su
@@ -242,7 +255,8 @@ def resumen(srv, operador):
                         "ajustado": bool(aj), "huella_fijada": huellas.get(e["ip"]),
                         "ultima_prueba": (lambda p: p if _vigente(p, clave, huellas.get(e["ip"])) else None)(
                             srv.conectividad_pruebas.get(e["ip"])),
-                        "operativo": srv.conectividad_operativo.get(e["ip"])})
+                        "operativo": srv.conectividad_operativo.get(e["ip"]),
+                        "sin_acceso": fallos.sin_acceso(e["ip"])})
     puede, motivo = _permisos(srv, operador, modo)
     falta_clave = clave is None and alcanzable
     if falta_clave:

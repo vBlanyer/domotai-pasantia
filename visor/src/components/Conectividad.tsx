@@ -113,8 +113,9 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
       </div>
       {est.aviso && (
         <div role="alert" className="border-b border-critico/30 bg-critico/5 px-4 py-2 text-xs text-critico">
-          <p className="font-semibold">{est.aviso.ataque ? "Posible ataque" : "La última contención en este equipo falló"}</p>
-          <p>{[est.aviso.sub, e.operativo?.accion].filter(Boolean).join(" · ")}.{prueba ? " La prueba de conexión es anterior: vuelve a probar para confirmarlo." : ""}</p>
+          <p className="font-semibold">{e.sin_acceso ? `${est.aviso.ataque ? "Posible ataque: " : ""}el MDR no tiene acceso a este equipo`
+            : est.aviso.ataque ? "Posible ataque" : "La última contención en este equipo falló"}</p>
+          <p>{[est.aviso.sub, e.sin_acceso ? "las contenciones escalan directamente" : e.operativo?.accion].filter(Boolean).join(" · ")}.{prueba ? " La prueba de conexión es anterior: vuelve a probar para confirmarlo." : ""}</p>
         </div>
       )}
 

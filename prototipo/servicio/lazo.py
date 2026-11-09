@@ -100,7 +100,13 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
                 "orden": None, "ejecucion": None, "verificacion": None}
     # TRIAJE_PRECHECK_APROVISIONADO (fase 4): solo si la consola SABE que el equipo no tiene su clave del
     # host fijada (F2 de antemano) no se intenta. Un equipo con huella que falla se sigue intentando.
-    if fallos.interruptor("TRIAJE_PRECHECK_APROVISIONADO") and \
+    # TRIAJE_MEMORIA_FALLOS (fase 5): tras 3 fallos F4/F5 seguidos no se intenta en el equipo (se escala
+    # desde el principio o queda fallida a la vista del analista) hasta que el sondeo recupere el acceso.
+    sin_acceso = fallos.sin_acceso(o.get("nodo_ip"))
+    if sin_acceso:
+        ejecucion = conector.resultado_omitido(o, f"el MDR no tiene acceso al equipo desde {sin_acceso['desde']}",
+                                               timestamp, omitido="sin_acceso", clase_memoria=sin_acceso.get("clase"))
+    elif fallos.interruptor("TRIAJE_PRECHECK_APROVISIONADO") and \
             fallos.contexto(o.get("nodo_ip"), o.get("accion_id")).get("aprovisionado") is False:
         ejecucion = conector.resultado_omitido(o, "el equipo no tiene su clave del host fijada", timestamp)
     else:

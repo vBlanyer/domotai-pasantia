@@ -216,6 +216,7 @@ Fase 4 de [PLAN-MANEJO-FALLOS-CONTENCION.md](PLAN-MANEJO-FALLOS-CONTENCION.md). 
 | `TRIAJE_FALLO_RAPIDO` | Si la primera conexión ni entra en el equipo (clave del host desconocida o cambiada, clave del conector rechazada, inalcanzable, conector sin clave), no se repite contra ese equipo; la escalada sigue igual. |
 | `TRIAJE_PRECHECK_APROVISIONADO` | No intenta en un equipo que la consola sabe sin clave del host fijada: queda como fallo «equipo sin aprovisionar» y, si la acción es sobre el origen, escala. |
 | `TRIAJE_ESCALADA_SOLO_APROVISIONADOS` | Salta los destinos de escalada sin clave del host fijada y lo anota («salto omitido»); sin destinos, la contención queda fallida, a la vista del analista. |
+| `TRIAJE_MEMORIA_FALLOS` | Tras 3 fallos seguidos de acceso a un equipo (inalcanzable o clave rechazada) en 5 min, deja de intentar ahí: se escala directo o queda fallida, con UNA alerta «el MDR no tiene acceso a X» en «Te toca» y Conectividad; se reprueba cada 60 s (SSH sin sudo, `true`) y se cierra al primer acceso. Nunca por clave del host cambiada, sudo ni contramedida. |
 
 ### Probar `--con-llm` y `--agente` con Claude Code (solo pruebas)
 

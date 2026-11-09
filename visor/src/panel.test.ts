@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import type { Decision, Pendiente } from "@/api"
 import {
-  saludPlataforma, urgentes, conActividadDeCola, textoSla, colaResumen, incidentesSinResponsable, fallidasRecientes,
+  saludPlataforma, urgentes, conActividadDeCola, textoSla, colaResumen, incidentesSinResponsable, fallidasRecientes, sinAccesoDe,
   actividadPorHora, llegadasUltimaHora, comparaConAyer, variacion, atacadoEn24h, ultimasDecisiones,
 } from "./panel"
 import type { IncidenteVista } from "@/incidentes"
@@ -75,6 +75,18 @@ describe("lo que le toca al analista", () => {
       dec({ activo: "core", contencion: "contenida", timestamp: iso(1 * H) }),                // sin causa: no entra
     ], AHORA)
     expect(r.map((x) => [x.ataque, x.causa?.clase])).toEqual([[true, "F3"], [false, "F2"]])
+  })
+})
+
+describe("sin acceso (memoria de fallos)", () => {
+  it("una tarea por equipo, los posibles ataques primero, nunca los protegidos", () => {
+    const r = sinAccesoDe([
+      { nombre: "atm", protegido: false, sin_acceso: { desde: "2026-11-09T10:00:00Z", fallos: 3, regresion: false } },
+      { nombre: "web", protegido: false, sin_acceso: { desde: "2026-11-09T11:00:00Z", fallos: 5, regresion: true } },
+      { nombre: "mon", protegido: true, sin_acceso: { desde: "2026-11-09T09:00:00Z", fallos: 9 } },
+      { nombre: "db", protegido: false, sin_acceso: null },
+    ])
+    expect(r.map((x) => [x.nombre, x.ataque])).toEqual([["web", true], ["atm", false]])
   })
 })
 

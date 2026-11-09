@@ -32,6 +32,13 @@ describe("estado operativo (fase 3 del plan de fallos)", () => {
     const est = estadoEquipo(eq({ ultima_prueba: prueba("verificada"), operativo: { ...f5, clase: "F3", descripcion: "la clave del host cambió", posible_ataque: true } }))
     expect(est.aviso).toMatchObject({ texto: "posible ataque", ataque: true })
   })
+  it("sin acceso (memoria de fallos) manda sobre el fallo suelto y la regresión es posible ataque", () => {
+    const sa = { clase: "F5", desde: "2026-11-09T10:00:00Z", fallos: 4, regresion: false }
+    const est = estadoEquipo(eq({ ultima_prueba: prueba("verificada"), operativo: f5, sin_acceso: sa }))
+    expect(est.aviso).toMatchObject({ texto: "sin acceso", ataque: false })
+    expect(est.aviso?.sub).toMatch(/el MDR no entra desde las .* · 4 fallos · se reprueba cada 60 s/)
+    expect(estadoEquipo(eq({ sin_acceso: { ...sa, regresion: true } })).aviso?.ataque).toBe(true)
+  })
   it("con el aviso deja de contar como verificado", () => {
     const r = resumenConectividad([eq({ ultima_prueba: prueba("verificada"), operativo: f5 }), eq({ ultima_prueba: prueba("verificada") })])
     expect(r).toMatchObject({ verificadas: 1, conFallos: 1 })

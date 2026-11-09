@@ -539,6 +539,11 @@ export const ConectividadSchema = z.object({
       clase: z.string(), descripcion: z.string().nullable().optional(), accion: z.string().nullable().optional(),
       posible_ataque: z.boolean().nullable().optional(), regresion: z.boolean().nullable().optional(), en: z.string().nullable().optional(),
     }).nullable().optional(),
+    // memoria de fallos (fase 5): el MDR perdió el acceso; las contenciones escalan directo y se reprueba
+    sin_acceso: z.object({
+      clase: z.string(), desde: z.string(), fallos: z.number().nullable().optional(),
+      regresion: z.boolean().nullable().optional(), ultimo_sondeo: z.string().nullable().optional(),
+    }).nullable().optional(),
     // inventario operativo: papel y reglas del equipo, y si es un alta pendiente o hecha desde la consola
     papel: z.string().nullable().optional(), acciones: z.array(z.string()).nullable().optional(),
     servicios: z.array(z.string()).optional(), cuentas: z.array(z.string()).optional(), cuentas_cualquiera: z.boolean().optional(),

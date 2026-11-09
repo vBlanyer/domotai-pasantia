@@ -370,6 +370,30 @@ def _lineas_ejecucion(d):
     return lineas
 
 
+def un_sondeo_memoria(ejecutor, sondear=None, ahora=None):
+    """Fase 5: reprueba los equipos a los que el MDR perdió el acceso (memoria de fallos abierta) con un
+    comando inocuo; al primer acceso se cierra. `sondear(ip)` es el de la consola (SSH sin sudo, `true`);
+    sin consola, el listado de las verificaciones con el ejecutor del lazo. Ante una respuesta que no se
+    reconoce como «no entró», se cierra: volver a intentar como siempre es lo seguro."""
+    from prototipo.accion import memoria_fallos
+    for ip in memoria_fallos.por_sondear(ahora):
+        try:
+            r = sondear(ip) if sondear else None
+            rc, out = r if r is not None else ejecutor(ip, "iptables -L -n")
+        except Exception as e:
+            rc, out = 255, f"sin respuesta en 0 s ({type(e).__name__})"
+        memoria_fallos.sondeo(ip, not fallos.no_entro(rc, out), ahora)
+
+
+def _bucle_sondeo_memoria(ejecutor, sondear, pausa=15):
+    while True:
+        time.sleep(pausa)
+        try:
+            un_sondeo_memoria(ejecutor, sondear)
+        except Exception as e:
+            print(f"[aviso] sondeo de la memoria de fallos: {type(e).__name__}: {e}")
+
+
 _RESULTADO_ESCALADA = {"fallido": "fallida", "cancelado_por_humano": "cancelada por el analista",
                        "degradado": "degradada"}
 
@@ -1263,6 +1287,13 @@ def main(argv):
             estado.anotar_linea(linea)
     else:
         escribir_fn, leer_fn = print, _leer_interactivo()   # comportamiento actual (terminal)
+    if fallos.interruptor("TRIAJE_MEMORIA_FALLOS"):        # fase 5 del plan de fallos
+        from prototipo.accion import memoria_fallos
+        from prototipo.servicio import conectividad_web
+        memoria_fallos.configurar_aviso((lambda t, e=estado: (print(t), e.anotar_linea(t))) if cfg["web"] else print)
+        sondear = (lambda ip, s=servidor: conectividad_web.sondear_acceso(s, ip)) if servidor else None
+        threading.Thread(target=_bucle_sondeo_memoria, args=(actividad.envolver(ejecutor), sondear), daemon=True).start()
+        print("[inicio] memoria de fallos activa: 3 fallos seguidos de acceso a un equipo → se escala directo y se reprueba cada 60 s")
     try:
         os.makedirs(os.path.dirname(cfg["salida"]) or ".", exist_ok=True)  # crea run/ (u otro dir de --salida)
         # Se retoma la cadena del fichero si ya existe: el ultimo hash escrito es el primer

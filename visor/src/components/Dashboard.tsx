@@ -6,12 +6,12 @@ import {
 import { DatosCongelados } from "./bits"
 import { etiquetaClase, SIN_NOMBRE, textoCausa } from "@/datos"
 import { edadTexto } from "@/alertas"
-import { resumenConectividad } from "@/conectividad"
+import { resumenConectividad, horaCorta } from "@/conectividad"
 import { incidentesDe, type IncidenteVista } from "@/incidentes"
 import { desenlaceDe, type Tono as TonoDesenlace } from "@/decisiones"
 import {
   saludPlataforma, urgentes, conActividadDeCola, textoSla, colaResumen, incidentesSinResponsable, fallidasRecientes, actividadPorHora,
-  cobertura, comparaConAyer, llegadasUltimaHora, variacion, atacadoEn24h, ultimasDecisiones, type Tono, type Hora, type Urgente, type Fallida,
+  cobertura, comparaConAyer, llegadasUltimaHora, variacion, atacadoEn24h, ultimasDecisiones, type Tono, type Hora, type Urgente, type Fallida, sinAccesoDe, type SinAcceso,
 } from "@/panel"
 import { useToast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
@@ -104,8 +104,8 @@ function FilaAprobacion({ u, primera, onAbrir }: { u: Urgente; primera: boolean;
   )
 }
 
-function TeToca({ pend, ahora, incidentes, fallidas, s }: {
-  pend: Pendiente[] | null; ahora: number; incidentes: IncidenteVista[]; fallidas: Fallida[]; s: Saltos
+function TeToca({ pend, ahora, incidentes, fallidas, sinAcceso, s }: {
+  pend: Pendiente[] | null; ahora: number; incidentes: IncidenteVista[]; fallidas: Fallida[]; sinAcceso: SinAcceso[]; s: Saltos
 }) {
   const toast = useToast()
   const yo = operadorActual().trim()
@@ -119,7 +119,7 @@ function TeToca({ pend, ahora, incidentes, fallidas, s }: {
       toast({ type: "success", title: "Caso asignado", description: `${e.cidr} queda a nombre de ${yo}.` })
     } else toast({ type: "error", title: "No se pudo asignar", description: "El daemon no anotó el cambio." })
   }
-  const nada = pend !== null && !urg.length && !sinDueno.length && !fallidas.length
+  const nada = pend !== null && !urg.length && !sinDueno.length && !fallidas.length && !sinAcceso.length
   return (
     <Bloque titulo="Te toca" extra={<Enlace onClick={s.onVerAprobaciones && (() => s.onVerAprobaciones!())}>Ir a Aprobaciones</Enlace>}>
       <ul>
@@ -127,7 +127,15 @@ function TeToca({ pend, ahora, incidentes, fallidas, s }: {
         {nada && <li className="border-t border-border px-4 py-8 text-center text-sm text-muted-foreground">Nada pendiente ahora mismo.</li>}
         {urg.length > 0 && <Grupo>Aprobaciones más urgentes · por tiempo que queda de SLA</Grupo>}
         {urg.map((u, i) => <FilaAprobacion key={u.p.id} u={u} primera={i === 0} onAbrir={s.onVerAprobaciones} />)}
-        {(sinDueno.length > 0 || fallidas.length > 0) && <Grupo>Incidentes y contención</Grupo>}
+        {(sinDueno.length > 0 || fallidas.length > 0 || sinAcceso.length > 0) && <Grupo>Incidentes y contención</Grupo>}
+        {sinAcceso.map((x) => (
+          <Tarea key={`sa-${x.nombre}`} tono="bg-critico" letra={x.ataque ? "!" : "S"}
+            claseLetra={x.ataque ? "bg-critico/15 text-critico" : "bg-enrutado/15 text-enrutado"}
+            l1={<span className={x.ataque ? "text-critico" : undefined}>{x.ataque && <b className="font-semibold">Posible ataque: </b>}El MDR no tiene acceso a <span className="font-mono text-[13px]">{x.nombre}</span> desde las {horaCorta(x.desde)}</span>}
+            l2={`${x.fallos} ${x.fallos === 1 ? "fallo" : "fallos"} · las contenciones escalan directamente · se reprueba cada 60 s${x.ataque ? " · funcionaba: compruébalo antes de reaprovisionar" : ""}`}>
+            {null}
+          </Tarea>
+        ))}
         {sinDueno.map((e) => (
           <Tarea key={e.clave} tono={e.activo ? "bg-critico" : "bg-aviso"} letra="I" claseLetra="bg-critico/15 text-critico"
             l1={<>Campaña <span className="font-mono text-[13px]">{e.cidr}</span> sin responsable</>}
@@ -286,7 +294,8 @@ export function Dashboard({ conectado, ...s }: { conectado: boolean } & Saltos) 
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <TeToca pend={pend} ahora={ahora} incidentes={incidentes} fallidas={fallidasRecientes(regs, ahora)} s={s} />
+        <TeToca pend={pend} ahora={ahora} incidentes={incidentes} fallidas={fallidasRecientes(regs, ahora)}
+          sinAcceso={conect && !("error" in conect) ? sinAccesoDe(conect.equipos) : []} s={s} />
         <Bloque titulo="Actividad · últimas 24 h" extra={<span className="text-xs text-muted-foreground">por hora</span>}>
           <div className="px-4 pb-4">
             <Horas horas={horas} />

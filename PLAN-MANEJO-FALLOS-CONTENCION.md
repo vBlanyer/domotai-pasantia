@@ -398,3 +398,35 @@ del laboratorio para no interferir con él.
 - **Pendiente:** validarlos en la pasada completa del laboratorio. Después se encienden por defecto
   en un commit aparte.
 
+### Fase 5: hecho (interruptor `TRIAJE_MEMORIA_FALLOS` apagado)
+
+- `prototipo/accion/memoria_fallos.py`:
+  - Solo cuenta F4 y F5. La abren 3 fallos seguidos del mismo equipo en 5 minutos.
+  - Otra clase o un éxito cortan la racha. F2, F3, F6, F7, F8 y F10 no la abren nunca (probado).
+  - Abierta, una nueva contención solo aumenta su contador de fallos: el aviso no se repite.
+- Mientras está abierta:
+  - El lazo no intenta en el equipo: `omitido: sin_acceso`, con la clase de la memoria. Escala desde
+    el principio, o queda fallida a la vista del analista.
+  - La escalada salta los destinos con la memoria abierta.
+  - La causa conserva el contexto de la consola: en un equipo verificado sigue siendo regresión, es
+    decir, **posible ataque**.
+- Aviso único:
+  - En la consola, `[aviso] el MDR no tiene acceso a X desde las hh:mm` al abrir y «recupera el
+    acceso» al cerrar.
+  - En Conectividad, «sin acceso», que manda sobre el último fallo suelto.
+  - En «Te toca», una tarea por equipo, en rojo si es regresión.
+- Sondeo: un hilo cada 15 s revisa los equipos con 60 s sin probar.
+  - Con la consola, entra por SSH **sin sudo** y ejecuta `true`, con el usuario y el puerto del
+    equipo. Así no deja fallos de sudo en su registro, que el SIEM vería.
+  - Sin consola, usa el listado de las verificaciones.
+  - Si la respuesta no se reconoce como «no entró», la memoria se cierra: volver a intentar como
+    siempre es lo seguro.
+- Pruebas (`test_memoria_fallos.py`, más Conectividad y Panel):
+  - Caso E1: las tres primeras contenciones se intentan como hoy; desde la cuarta no se toca el
+    activo y la escalada contiene igual.
+  - Con F3 y la memoria activa se sigue intentando y avisando como crítico.
+  - Sin el interruptor, todo como hoy.
+- **Pendiente:** validación en el laboratorio. Hay que comprobar que tras `banco.sh restaurar` la
+  memoria se cierra en menos de 60 s.
+- Límite conocido: la memoria vive en el proceso del daemon y se pierde al reiniciarlo.
+

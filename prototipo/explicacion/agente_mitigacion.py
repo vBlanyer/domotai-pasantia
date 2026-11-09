@@ -389,6 +389,14 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
                           "causa": fallos.clasificar_fallo({"exito": False, "omitido": "sin_aprovisionar"},
                                                            contexto={"aprovisionado": False})})
             continue
+        memoria = fallos.sin_acceso((topo.get(dispositivo) or {}).get("ip"))     # fase 5: sin acceso, se salta
+        if memoria:
+            o_ip = (topo.get(dispositivo) or {}).get("ip")
+            pasos.append({"tipo": "omitido", "dispositivo": dispositivo,
+                          "observacion": f"salto omitido: el MDR no tiene acceso a {dispositivo} desde {memoria['desde']}",
+                          "causa": fallos.clasificar_fallo({"exito": False, "omitido": "sin_acceso", "clase_memoria": memoria.get("clase")},
+                                                           contexto=fallos.contexto(o_ip))})
+            continue
         try:
             obs, reg = herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, "bloquear_ip",
                                                     ip, ip_gestion, decision_id or alerta.get("id_alerta", ""),
