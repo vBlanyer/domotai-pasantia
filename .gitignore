@@ -54,3 +54,6 @@ prototipo/corpus/fuentes/*.json
 visor/node_modules
 visor/dist
 .superpowers/
+
+# paquetes generados por deploy/empaquetar.sh
+/dist/

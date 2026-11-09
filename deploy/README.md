@@ -10,44 +10,43 @@ Son plantillas: ajústalas a las rutas y al usuario del cliente.
 | `mdr-triaje.service` | Unidad systemd: `Restart=always` (resiliencia: reinicia aunque el daemon salga 0 tras un EOF de la fuente) + endurecimiento básico. |
 | `triaje.env.ejemplo` | Ejemplo de `EnvironmentFile` (fuente, perfil, `--salida` fijo, conector SSH, HMAC, salud). |
 | `perfil.ejemplo.yml` | Perfil de cliente genérico y comentado, para entregar al cliente (sin nada del laboratorio). |
-| `../bin/mdr` | Herramienta de administración: `validar-perfil`, `validar-alertas`, `escanear` (postura con Nmap), `instalar-geoip` / `instalar-asn` (bases DB-IP Lite), `verificar-traza`, `podar-trazas`. |
+| `instalar.sh` | Instala, actualiza o desinstala en el equipo del cliente (va en la raíz del paquete). |
+| `empaquetar.sh` | Genera el paquete del cliente (proveedor). |
+| `../bin/mdr` | Herramienta de administración: `configurar`, `estado`, `analista`, `validar-perfil`, `validar-alertas`, `escanear` (postura con Nmap), `instalar-geoip` / `instalar-asn` (bases DB-IP Lite), `verificar-traza`, `podar-trazas`. |
 
 ## Preparar el paquete (proveedor)
 
-El cliente recibe un paquete ya construido; no necesita Node.js ni el repositorio. Se prepara desde la
-raíz del repositorio:
+El cliente recibe un paquete ya construido; no necesita Node.js ni el repositorio. Desde la raíz:
 
 ```sh
-cd visor && npm ci && npm run build && cd ..
-tar -czf mdr-<version>.tar.gz --exclude='prototipo/tests' --exclude='__pycache__' \
-    prototipo bin deploy visor/dist
+sh deploy/empaquetar.sh 1.8          # construye la consola y deja dist/mdr-1.8.tar.gz
 ```
 
-Lleva el software (`prototipo/`), la herramienta de administración `bin/mdr`, las plantillas de
-`deploy/` (unidad, `triaje.env.ejemplo`, `perfil.ejemplo.yml`) y la consola construida. Los perfiles
-de `prototipo/perfiles/` son del laboratorio: al cliente se le entrega `deploy/perfil.ejemplo.yml`.
+El paquete es un directorio `mdr-1.8/` con el programa (sin tests ni perfiles del laboratorio), la
+herramienta `bin/mdr`, las plantillas de `deploy/`, la consola construida, `instalar.sh` y `VERSION`.
 
-## Instalar
+## Instalar (cliente)
 
-El procedimiento completo, paso a paso y para quien instala en el cliente, está en el
+El procedimiento completo está en el
 [manual de producción](../documentacion/07-fase7-documentacion-e-informe-final/manual-de-produccion.md).
 En resumen:
 
 ```sh
-sudo useradd --system --home-dir /var/lib/mdr --no-create-home --shell /usr/sbin/nologin triaje
-sudo mkdir -p /opt/mdr && sudo tar -xzf mdr-<version>.tar.gz -C /opt/mdr   # software: de root, solo lectura
-sudo install -D -m 0600 /opt/mdr/deploy/triaje.env.ejemplo /etc/mdr/triaje.env   # y editarlo
-sudo cp /opt/mdr/deploy/mdr-triaje.service /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now mdr-triaje
-journalctl -u mdr-triaje -f          # ver el arranque y el feed
+tar -xzf mdr-1.8.tar.gz && cd mdr-1.8
+sudo ./instalar.sh                          # usuario, /opt/mdr, /etc/mdr, /var/lib/mdr, servicio, /usr/bin/mdr
+sudo mdr configurar                         # perfil, alertas del SIEM, bases de DB-IP; escribe triaje.env y arranca
+sudo mdr analista alta ana --clave-ssh ana.pub
+sudo mdr estado                             # comprueba todo y dice qué falta
 ```
 
+- `instalar.sh` también actualiza (guarda la versión anterior en `/opt/mdr.anterior`) y desinstala
+  (`--desinstalar [--purgar]`; la traza de `/var/lib/mdr` no se borra nunca). Nunca pisa la
+  configuración ni el estado.
 - **El código es de root** y el servicio no puede modificarlo. Lo que escribe (traza, ficheros
-  operativos, clave del conector) va a `/var/lib/mdr`, que crea la unidad (`StateDirectory=mdr`).
-- **`/etc/mdr/triaje.env`: comentarios solo en su propia línea.** systemd no quita un comentario al
-  final de la línea: `X=valor   # nota` deja en `X` el texto completo, comentario incluido.
-- `TRIAJE_SALIDA` debe ser una **ruta fija** (p. ej. `/var/lib/mdr/trazas-<cliente>.jsonl`): al
-  reiniciar, el daemon retoma de ahí su estado (supresión + contenciones activas, #4).
+  operativos, clave del conector) va a `/var/lib/mdr` (`StateDirectory=mdr`).
+- **`/etc/mdr/triaje.env` lo escriben `mdr configurar` y `mdr analista`** (`prototipo/herramientas/
+  entorno.py`): systemd no quita un comentario al final de la línea, así que a mano los comentarios
+  van en su propia línea.
 
 ## Recibir del SIEM por red (alternativa a `tail`)
 

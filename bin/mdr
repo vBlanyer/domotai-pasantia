@@ -4,7 +4,9 @@
 # usar la misma clave de la traza y las mismas rutas que el servicio.
 set -eu
 
-RAIZ=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+# Resolver el enlace: instalar.sh deja /usr/bin/mdr -> /opt/mdr/bin/mdr.
+YO=$(readlink -f -- "$0" 2>/dev/null || echo "$0")
+RAIZ=$(CDPATH= cd -- "$(dirname -- "$YO")/.." && pwd)
 ENTORNO="${MDR_ENV:-/etc/mdr/triaje.env}"
 if [ -r "$ENTORNO" ]; then
   set -a
@@ -18,6 +20,10 @@ ayuda() {
   cat <<'EOF'
 Uso: mdr <orden> [argumentos]
 
+  configurar                       Asistente: perfil, alertas del SIEM, bases de DB-IP; arranca.
+  estado                           Comprueba la instalación y dice qué falta.
+  analista alta <nombre> [--clave-ssh <fichero.pub>] | baja <nombre> | lista
+                                   Tokens de la consola y cuentas limitadas al túnel.
   validar-perfil [perfil.yml]      Revisa el perfil del cliente (por defecto, el de TRIAJE_PERFIL).
   validar-alertas <muestra.json>   Cuenta qué alertas de una muestra del SIEM sabe tratar el MDR.
   escanear [--puertos 22,443] [--equipos a,b]
@@ -36,6 +42,12 @@ EOF
 orden="${1:-ayuda}"
 [ "$#" -gt 0 ] && shift
 case "$orden" in
+  configurar)
+    exec python3 -m prototipo.herramientas.configurar ;;
+  estado)
+    exec python3 -m prototipo.herramientas.estado_instalacion ;;
+  analista)
+    exec python3 -m prototipo.herramientas.analistas "$@" ;;
   validar-perfil)
     perfil="${1:-${TRIAJE_PERFIL:-}}"
     [ -n "$perfil" ] || { echo "mdr: indica el perfil (o fija TRIAJE_PERFIL)" >&2; exit 2; }

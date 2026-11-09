@@ -68,9 +68,9 @@ Este manual tiene tres lectores:
 | Mantener | Administración de sistemas | Registro, vigilancia, copias, actualizaciones, claves y desinstalación |
 
 El MDR se entrega como un paquete, `mdr-<versión>.tar.gz`, con el software y la consola listos para
-usar, la herramienta de administración `mdr` (anexo B) y las plantillas de instalación en `deploy/`:
-la unidad de systemd, la configuración (`triaje.env.ejemplo`) y un perfil de ejemplo
-(`perfil.ejemplo.yml`).
+usar, el instalador (`instalar.sh`), la herramienta de administración `mdr` (anexo B) y un perfil de
+ejemplo. La instalación se reduce a tres órdenes: `instalar.sh`, `mdr configurar` y `mdr analista`.
+Lo único que hay que escribir es el perfil de la red del cliente.
 
 Cada tarea sigue, cuando aplica, la misma estructura: para qué sirve, una caja **«Quién puede»**,
 **Antes de empezar**, **Pasos** y **Qué ocurre después**. Los textos entre comillas latinas, como
@@ -182,7 +182,7 @@ Nada de esto lo resuelve el software. Conviene tenerlo por escrito antes del pri
 | Qué | Detalle |
 |---|---|
 | Sistema | Linux con systemd |
-| Python 3 y PyYAML | Probado con Python 3.14. Es la única dependencia |
+| Python 3.9 o superior y PyYAML | Probado con Python 3.14. Es la única dependencia |
 | Cliente OpenSSH | `ssh` y `ssh-keygen`: el conector y la generación de su clave |
 | `tail`, `curl` | Seguir el `alerts.json` y comprobar la salud |
 | `nmap` | El escaneo de postura (sección 7). Opcional, pero sin él nada se automatiza |
@@ -193,10 +193,14 @@ Nada de esto lo resuelve el software. Conviene tenerlo por escrito antes del pri
 > **Nota:** el reloj importa. El MDR correlaciona ráfagas por la hora de cada alerta; si el SIEM, el
 > MDR y los equipos no comparten NTP, las ráfagas se cuentan mal.
 
-En Debian o Ubuntu:
+No hace falta instalarlas antes: `instalar.sh` las comprueba y, si falta alguna, dice la orden exacta.
+Para adelantarse:
 
 ```
+# Debian, Ubuntu
 sudo apt install python3 python3-yaml openssh-client curl nmap
+# Red Hat, Rocky, Alma
+sudo dnf install python3 python3-pyyaml openssh-clients curl nmap
 ```
 
 ## 6. Instalar el servicio
@@ -207,68 +211,51 @@ sudo apt install python3 python3-yaml openssh-client curl nmap
 
 - El equipo cumple los requisitos de la sección 5.
 - Tienes el paquete `mdr-<versión>.tar.gz` en el equipo.
-- Tienes, o vas a escribir, el perfil del cliente (sección 7).
+- Sabes cómo llegarán las alertas del SIEM (sección 8). El perfil puede esperar: el asistente deja una
+  plantilla si aún no lo tienes.
 
 ### Pasos
 
-1. **Crea el usuario del servicio.** No tiene shell ni contraseña:
+1. **Instala:**
 
    ```
-   sudo useradd --system --home-dir /var/lib/mdr --no-create-home \
-       --shell /usr/sbin/nologin triaje
+   tar -xzf mdr-1.7.tar.gz && cd mdr-1.7
+   sudo ./instalar.sh
    ```
 
-2. **Instala el software**, propiedad de root:
+   Comprueba las dependencias; crea el usuario del servicio (`triaje`, sin shell ni contraseña), el
+   programa en `/opt/mdr`, la configuración en `/etc/mdr`, el estado en `/var/lib/mdr` y el servicio
+   `mdr-triaje`; y deja la orden `mdr` disponible. No arranca nada todavía.
+2. **Configura y arranca:**
 
    ```
-   sudo mkdir -p /opt/mdr
-   sudo tar -xzf mdr-<versión>.tar.gz -C /opt/mdr
+   sudo mdr configurar
    ```
 
-3. **Crea la configuración** a partir de la plantilla y edítala (anexo A):
+   El asistente pregunta, proponiendo siempre un valor:
 
-   ```
-   sudo install -d -m 0750 -o root -g triaje /etc/mdr
-   sudo install -m 0600 /opt/mdr/deploy/triaje.env.ejemplo /etc/mdr/triaje.env
-   sudo nano /etc/mdr/triaje.env
-   ```
+   | Pregunta | Qué responder |
+   |---|---|
+   | Ruta del perfil | Si aún no existe, copia la plantilla para que la adaptes (sección 7) y no arranca hasta que vuelvas a ejecutarlo |
+   | Cómo llegan las alertas | `1` si el `alerts.json` del SIEM es legible aquí; `2` si llegan por la red: puerto, IPs del SIEM y, mejor, certificado TLS (sección 8) |
+   | Ficheros de DB-IP | Los de países y de ASN, si ya los descargaste; si no, Enter (se instalan después) |
 
-4. **Instala el perfil** del cliente (sección 7):
-
-   ```
-   sudo install -m 0640 -o root -g triaje perfil-cliente.yml /etc/mdr/perfil.yml
-   ```
-
-5. **Crea el directorio de estado y una postura vacía.** Se rellena después con `mdr escanear`
-   (sección 7):
-
-   ```
-   sudo install -d -m 0700 -o triaje -g triaje /var/lib/mdr
-   echo '{"nodos": {}}' | sudo -u triaje tee /var/lib/mdr/postura.json
-   ```
-
-6. **Instala y arranca el servicio:**
-
-   ```
-   sudo cp /opt/mdr/deploy/mdr-triaje.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now mdr-triaje
-   ```
-
-7. **Mira el arranque:** `journalctl -u mdr-triaje -f`. Debe salir la línea `[inicio] monitor activo`
-   y, si el perfil tiene algo incoherente, líneas `[aviso] perfil: …`.
-
-> **Nota:** en `/etc/mdr/triaje.env` los comentarios van **siempre en su propia línea**. systemd no
-> quita un comentario puesto al final: `TRIAJE_SSH_MODO=directo  # nota` deja el modo en
-> «directo  # nota» y el conector no lo reconoce.
+   Al terminar escribe `/etc/mdr/triaje.env`, genera la clave que firma la traza (**guárdala fuera del
+   equipo**: sin ella la traza no se puede verificar), arranca el servicio y comprueba que responde.
+3. **Da de alta a los analistas** (sección 9) y a los equipos (sección 10).
+4. **Comprueba** con `sudo mdr estado` (sección 11).
 
 ### Qué ocurre después
 
-El servicio arranca solo con el equipo y se reinicia si cae. Hasta la sección 10 el conector está
-«sin configurar»: el MDR decide y lo muestra en la consola, pero **no ejecuta nada** en los equipos.
+El servicio arranca solo con el equipo y se reinicia si cae. Hasta la sección 10 no tiene acceso a los
+equipos: el MDR decide y lo muestra en la consola, pero **no ejecuta nada** en ellos.
 
-> **Nota:** el servicio no puede escribir en `/etc` ni en `/opt/mdr`, solo en `/var/lib/mdr`. Por
-> eso la clave del conector vive allí.
+`mdr configurar` se puede repetir siempre que haya que cambiar algo de lo que pregunta: propone lo que
+ya hay y no toca lo demás.
+
+> **Nota:** no hace falta editar `/etc/mdr/triaje.env` a mano. Si lo haces, los comentarios van
+> **siempre en su propia línea**: systemd no quita un comentario puesto al final y lo tomaría como parte
+> del valor.
 
 ### Las bases de países y de organizaciones
 
@@ -279,11 +266,11 @@ cada mes: «IP to Country Lite» y «IP to ASN Lite».
 1. En un equipo con internet, descarga los dos CSV, aceptando su licencia:
    https://db-ip.com/db/download/ip-to-country-lite (`dbip-country-lite-AAAA-MM.csv.gz`) y
    https://db-ip.com/db/download/ip-to-asn-lite (`dbip-asn-lite-AAAA-MM.csv.gz`).
-2. Cópialos al equipo MDR e instálalos:
+2. Cópialos al equipo MDR y dáselos a `mdr configurar` cuando los pida, o instálalos aparte:
 
    ```
-   sudo /opt/mdr/bin/mdr instalar-geoip dbip-country-lite-2026-11.csv.gz
-   sudo /opt/mdr/bin/mdr instalar-asn dbip-asn-lite-2026-11.csv.gz
+   sudo mdr instalar-geoip dbip-country-lite-2026-11.csv.gz
+   sudo mdr instalar-asn dbip-asn-lite-2026-11.csv.gz
    sudo systemctl restart mdr-triaje
    ```
 
@@ -322,7 +309,8 @@ en la capa «dependencias».
 
 ### Pasos
 
-1. **Parte de la plantilla** `/opt/mdr/deploy/perfil.ejemplo.yml`. Describe una empresa con una DMZ,
+1. **Parte de la plantilla**, que `mdr configurar` copia en `/etc/mdr/perfil.yml` la primera vez (el
+   original está en `/opt/mdr/deploy/perfil.ejemplo.yml`). Describe una empresa con una DMZ,
    una red interna y dos cortafuegos, y explica cada apartado en sus comentarios.
 2. **Nombra cada equipo como lo nombra el SIEM.** El MDR identifica el equipo atacado por el nombre
    de host que trae la alerta. Si en el SIEM se llama `srv-web01`, en `activos` también.
@@ -336,12 +324,13 @@ en la capa «dependencias».
 6. **Revisa el perfil** antes de instalarlo:
 
    ```
-   /opt/mdr/bin/mdr validar-perfil perfil-cliente.yml
+   sudo mdr validar-perfil /etc/mdr/perfil.yml
    ```
 
    Responde «perfil sin avisos» o explica cada incoherencia; por ejemplo, un `gateway` que no existe
    o un equipo que depende de otro que no está en el inventario.
-7. Instálalo en `/etc/mdr/perfil.yml` y **reinicia el servicio**: el perfil solo se lee al arrancar.
+7. La primera vez, ejecuta `sudo mdr configurar`, que arranca el servicio. Después, cada cambio exige
+   **reiniciar el servicio**: el perfil solo se lee al arrancar.
 
 > **Ejemplo:** en la plantilla, `web01` está en la DMZ detrás de `fw-dmz`. En `activos` lleva su IP,
 > su criticidad y `depende_de: [app01]`; en `topologia`, `web01: {rol: host_victima, gateway: fw-dmz}`.
@@ -359,7 +348,7 @@ analista.
 Con autorización del cliente para escanear sus equipos:
 
 ```
-sudo /opt/mdr/bin/mdr escanear
+sudo mdr escanear
 sudo systemctl restart mdr-triaje
 ```
 
@@ -397,25 +386,16 @@ El MDR no detecta: refina lo que ya detectó el SIEM. Entiende las alertas del S
 
 > **Quién puede:** administración del MDR junto con quien administra el SIEM.
 
-| Forma | Cuándo | Qué configurar |
+| Forma | Cuándo | Qué responder en `mdr configurar` |
 |---|---|---|
-| **Seguir el fichero** | El `alerts.json` del SIEM es legible desde el equipo MDR | `TRIAJE_ALERTS` con su ruta, y permiso de lectura para `triaje` |
-| **Recibir por la red** | El SIEM está en otra máquina (lo normal) | `TRIAJE_ESCUCHAR`, `TRIAJE_PERMITIR` y, mejor, TLS |
+| **Seguir el fichero** | El `alerts.json` del SIEM es legible desde el equipo MDR | `1` y su ruta. El usuario `triaje` debe poder leerlo |
+| **Recibir por la red** | El SIEM está en otra máquina (lo normal) | `2`, el puerto, las IPs del SIEM y, mejor, el certificado TLS |
 
 ### Recibir por la red
 
-1. En `/etc/mdr/triaje.env`, descomenta y ajusta:
-
-   ```
-   TRIAJE_ESCUCHAR=0.0.0.0:6514
-   TRIAJE_PERMITIR=10.0.0.5
-   TRIAJE_TLS_CERT=/etc/mdr/tls/mdr.crt
-   TRIAJE_TLS_CLAVE=/etc/mdr/tls/mdr.key
-   TRIAJE_TLS_CA=/etc/mdr/tls/ca-siem.crt
-   ```
-
-   `TRIAJE_PERMITIR` son las IPs del SIEM: sin ella, el servicio no arranca escuchando fuera de
-   `127.0.0.1`. Con `TRIAJE_TLS_CA`, además, el SIEM debe presentar un certificado firmado por esa CA.
+1. En `mdr configurar`, elige `2`. Las **IPs del SIEM** son las únicas que podrán enviar. Con
+   certificado TLS las alertas viajan cifradas; si además indicas la **CA del SIEM**, el SIEM tiene que
+   presentar un certificado firmado por ella.
 2. En el SIEM, un reenviador sigue el `alerts.json` y envía **una alerta JSON por línea** al puerto
    del MDR. Por ejemplo, con socat:
 
@@ -425,7 +405,6 @@ El MDR no detecta: refina lo que ya detectó el SIEM. Entiende las alertas del S
    ```
 
    Ese reenviador lo mantiene el cliente, como un servicio más del SIEM.
-3. Reinicia el MDR.
 
 > **Nota:** el receptor admite 64 conexiones (8 por IP) y cierra las que pasan 15 minutos sin
 > enviar; el reenviador debe reconectar solo. Un proxy TLS delante hace que el MDR vea la IP del
@@ -436,7 +415,7 @@ El MDR no detecta: refina lo que ya detectó el SIEM. Entiende las alertas del S
 Antes de dar el sistema por bueno, pasa una muestra real de alertas del cliente por la herramienta:
 
 ```
-/opt/mdr/bin/mdr validar-alertas muestra-alerts.json
+sudo mdr validar-alertas muestra-alerts.json
 ```
 
 Dice cuántas alertas sabe tratar el MDR, por familia, y qué reglas del SIEM quedan sin cubrir. Las que
@@ -455,45 +434,43 @@ nombre.
 | Analista | Cualquiera con un token de la consola | Ver todo, aprobar, rechazar, reclasificar, pausar, revertir, llevar casos y la Watchlist, editar Políticas y Conectividad |
 | Administración del MDR | Quien administra el equipo MDR | Instalar y mantener el servicio, dar y quitar tokens, cambiar el perfil |
 
-### Dar de alta a los analistas
+### Dar de alta a un analista
 
-1. Genera un token por persona: `openssl rand -hex 24`.
-2. Añádelos a `/etc/mdr/triaje.env`, entre comillas simples:
+Pídele su clave pública SSH (por ejemplo `ana.pub`) y:
 
-   ```
-   TRIAJE_CONSOLA_OPERADORES='{"<token-de-ana>":"ana","<token-de-leo>":"leo"}'
-   ```
+```
+sudo mdr analista alta ana --clave-ssh ana.pub
+```
 
-3. Reinicia el servicio y entrega a cada analista su token por un canal seguro.
+La orden:
+
+- genera su **token** y lo muestra **una sola vez**: entrégaselo por un canal seguro;
+- crea su cuenta en el equipo MDR, limitada al túnel de la consola: sin shell y sin poder abrir otra
+  cosa que el puerto de la consola (la primera vez, prepara el grupo `mdr-analistas` y su bloque de
+  `sshd`, que comprueba con `sshd -t` antes de aplicarlo);
+- reinicia el servicio para que el token valga.
+
+Sin `--clave-ssh` solo da el token, para quien ya tenga otra forma de llegar al equipo.
+
+| Para… | Orden |
+|---|---|
+| Ver quién tiene token | `sudo mdr analista lista` |
+| Quitar el acceso a alguien | `sudo mdr analista baja ana` (retira su token y, si la creó el MDR, su cuenta) |
+| Cambiarle el token | `baja` y de nuevo `alta` |
 
 ### El túnel a la consola
 
-La consola solo escucha en el propio equipo MDR. Cada analista necesita una cuenta SSH en el equipo
-MDR, sin `sudo`, y abre un túnel **con el mismo puerto** a los dos lados:
+Cada analista abre, desde su puesto, un túnel **con el mismo puerto** a los dos lados:
 
 ```
 ssh -N -L 8787:127.0.0.1:8787 ana@equipo-mdr
 ```
 
-Después abre **http://127.0.0.1:8787** en su navegador (sección 13).
+y abre **http://127.0.0.1:8787** en su navegador (sección 13).
 
 > **Nota:** el puerto local tiene que ser el mismo, 8787. La consola rechaza las peticiones que no
 > vienen de su propio puerto: con `-L 9000:127.0.0.1:8787` se ve, pero no deja aprobar ni cambiar
 > nada.
-
-Las cuentas de los analistas solo necesitan el túnel. Conviene limitarlas a él en
-`/etc/ssh/sshd_config`, con un grupo `mdr-analistas` que las reúna:
-
-```
-Match Group mdr-analistas
-    PermitOpen 127.0.0.1:8787
-    AllowTcpForwarding local
-    PermitTTY no
-    X11Forwarding no
-    ForceCommand /usr/sbin/nologin
-```
-
-Con esto entran con `ssh -N` y no tienen shell en el equipo MDR.
 
 ## 10. Dar al MDR acceso a los equipos
 
@@ -551,35 +528,35 @@ en manos de un analista.
 
 ### Pasos
 
-1. **El servicio está sano:**
+1. **Comprueba todo de una vez:**
 
    ```
-   curl -fsS http://127.0.0.1:8787/healthz
+   sudo mdr estado
    ```
 
-   Debe decir `"ok": true`. `ingesta_silencio_s` dice cuántos segundos lleva sin llegar una alerta.
-2. **El perfil está limpio:** en la Consola no aparecen avisos del perfil al arrancar, y el mapa de
-   Red no muestra la franja ámbar.
-3. **Los equipos están verificados** en Conectividad.
-4. **Una alerta de prueba llega.** Con permiso del cliente, provoca un evento controlado contra un
+   Revisa el servicio, la salud, el perfil, las alertas, los analistas, la firma de la traza, la
+   postura, las bases de DB-IP, la clave del conector y los equipos verificados. Cada punto sale con
+   `✔`, `!` (aviso) o `✗` (impide trabajar), y lo que falla dice qué ejecutar:
+
+   ```
+   MDR · estado de la instalación
+
+     ✔ servicio   activo y habilitado
+     ✔ salud      lazo vivo · última alerta hace 12 s · 142 alertas
+     ✔ analistas  2 con token
+     ! postura    vacía: nada que dependa de la confianza se automatiza
+                  → sudo mdr escanear && sudo systemctl restart mdr-triaje
+     ! equipos    3 de 4 contenibles verificados
+                  → en la consola, Conectividad: da de alta o prueba los que faltan
+   ```
+
+2. **Una alerta de prueba llega.** Con permiso del cliente, provoca un evento controlado contra un
    equipo de prueba; por ejemplo, varios intentos de SSH fallidos desde una IP conocida. Debe salir
    en la Consola y, como todo está en `humano_siempre`, en Aprobaciones.
-5. **La contención funciona.** Aprueba esa contención, comprueba en el equipo que la regla existe, y
+3. **La contención funciona.** Aprueba esa contención, comprueba en el equipo que la regla existe, y
    revírtela desde Contenciones activas.
-6. **La traza verifica:** `sudo /opt/mdr/bin/mdr verificar-traza`.
-
-### Lista de comprobación
-
-| Comprobado | Qué |
-|---|---|
-| ☐ | `systemctl is-enabled mdr-triaje` dice `enabled` |
-| ☐ | `/healthz` da `ok` |
-| ☐ | `mdr validar-perfil` no da avisos |
-| ☐ | La muestra de alertas cubre las familias esperadas (`mdr validar-alertas`) |
-| ☐ | Cada analista entra con su token por el túnel |
-| ☐ | Todos los equipos contenibles están verificados |
-| ☐ | La alerta de prueba llegó, se contuvo y se revirtió |
-| ☐ | La traza verifica, y `TRIAJE_TRAZA_CLAVE` está guardada fuera del equipo |
+4. **La traza verifica:** `sudo mdr verificar-traza`. Y la clave de la traza está guardada fuera del
+   equipo.
 
 ## 12. Abrir la automatización poco a poco
 
@@ -948,7 +925,7 @@ por hash. Si alguien altera un registro, la cadena se rompe en ese punto y la co
    (el hash anterior y el suyo). «Copiar el registro (JSON)» lo copia para auditarlo fuera.
 
 Si la cadena se rompe, el inspector abre directamente el registro alterado. Fuera de la consola, la
-administración la comprueba con `sudo /opt/mdr/bin/mdr verificar-traza`.
+administración la comprueba con `sudo mdr verificar-traza`.
 
 ## 23. Cómo sacar el informe en PDF
 
@@ -1169,22 +1146,17 @@ directorio, por ejemplo tras cambiar la clave de la traza (sección 33); nunca t
 ### Pasos
 
 1. Si la actualización cambia el comportamiento, pausa la automatización en la consola.
-2. Para el servicio y guarda la versión actual:
+2. Instala la versión nueva encima de la que hay:
 
    ```
-   sudo systemctl stop mdr-triaje
-   sudo mv /opt/mdr /opt/mdr.anterior
+   tar -xzf mdr-1.8.tar.gz && cd mdr-1.8
+   sudo ./instalar.sh
    ```
 
-3. Instala la nueva y arranca:
-
-   ```
-   sudo mkdir -p /opt/mdr && sudo tar -xzf mdr-<versión>.tar.gz -C /opt/mdr
-   sudo systemctl start mdr-triaje
-   ```
-
-4. Comprueba el arranque y `/healthz` (sección 11). Los analistas recargan la consola en el navegador.
-5. Si las notas de la versión dicen que cambiaron los permisos de algún papel, Conectividad marca los
+   Guarda la versión anterior en `/opt/mdr.anterior`, no toca la configuración ni el estado, y
+   reinicia el servicio si estaba en marcha.
+3. Comprueba con `sudo mdr estado`. Los analistas recargan la consola en el navegador.
+4. Si las notas de la versión dicen que cambiaron los permisos de algún papel, Conectividad marca los
    equipos afectados: genera su paquete de corrección y que su administrador lo ejecute.
 
 ### Actualizar las bases de países y de organizaciones
@@ -1194,8 +1166,11 @@ con `mdr instalar-geoip` y `mdr instalar-asn`, y reinicia.
 
 ### Si algo falla
 
-Vuelve atrás: para el servicio, `sudo rm -rf /opt/mdr && sudo mv /opt/mdr.anterior /opt/mdr`, y
-arranca. La configuración y el estado no se tocan al actualizar.
+Vuelve a la versión anterior:
+
+```
+sudo rm -rf /opt/mdr && sudo mv /opt/mdr.anterior /opt/mdr && sudo systemctl restart mdr-triaje
+```
 
 ## 32. Cambiar el perfil
 
@@ -1204,7 +1179,7 @@ cambios acordado (sección 4).
 
 > **Quién puede:** administración del MDR, con la aprobación del cliente.
 
-1. Edita una copia y revísala con `mdr validar-perfil` (sección 7).
+1. Edita una copia y revísala con `sudo mdr validar-perfil <copia>` (sección 7).
 2. Instálala en `/etc/mdr/perfil.yml` y reinicia el servicio.
 3. Comprueba en la Consola que el arranque no da avisos.
 
@@ -1218,7 +1193,7 @@ cambios acordado (sección 4).
 | Qué | Cómo |
 |---|---|
 | **Clave del conector** | Desde Conectividad (sección 25). Ningún equipo se queda sin acceso |
-| **Token de un analista** | Cámbialo en `TRIAJE_CONSOLA_OPERADORES` y reinicia. Para dar de baja a alguien, quita su entrada |
+| **Token de un analista** | `sudo mdr analista baja <nombre>` y de nuevo `alta` (sección 9). Para quitarle el acceso, solo `baja` |
 | **Clave de la traza** (`TRIAJE_TRAZA_CLAVE`) | **No la cambies** sobre la misma traza: lo ya firmado dejaría de verificar. Si hay que cambiarla, revierte antes las contenciones y empieza una traza nueva con otro `TRIAJE_SALIDA` |
 
 ## 34. Desinstalar
@@ -1228,17 +1203,17 @@ cambios acordado (sección 4).
 ### Pasos
 
 1. **Revierte todas las contenciones** desde la consola. Parar el servicio no las quita.
-2. Para y quita el servicio:
+2. Quita el programa:
 
    ```
-   sudo systemctl disable --now mdr-triaje
-   sudo rm /etc/systemd/system/mdr-triaje.service && sudo systemctl daemon-reload
-   sudo rm -rf /opt/mdr /etc/mdr
+   sudo /opt/mdr/deploy/instalar.sh --desinstalar
    ```
 
-3. **Conserva o archiva `/var/lib/mdr`** según la política de evidencias del cliente; contiene la
-   traza. Después, `sudo userdel triaje`.
-4. **En cada equipo**, quien lo administra quita el acceso del MDR:
+   Pide confirmación, para y quita el servicio y el programa, y **conserva** `/etc/mdr` (la
+   configuración) y `/var/lib/mdr` (la traza). Con `--desinstalar --purgar` borra también la
+   configuración. La traza no se borra nunca: archívala o bórrala según la política de evidencias del
+   cliente.
+3. **En cada equipo**, quien lo administra quita el acceso del MDR:
 
    ```
    sudo rm /etc/sudoers.d/mdr-triaje
@@ -1249,8 +1224,9 @@ cambios acordado (sección 4).
 
 ## Anexo A. El fichero triaje.env
 
-La plantilla es `/opt/mdr/deploy/triaje.env.ejemplo`. Una variable por línea, los comentarios en su
-propia línea y el JSON entre comillas simples.
+Lo escriben `mdr configurar` y `mdr analista`; no hace falta editarlo. Si se edita a mano: una
+variable por línea, los comentarios en su propia línea y el JSON entre comillas simples. La plantilla
+es `/opt/mdr/deploy/triaje.env.ejemplo`.
 
 | Variable | Valor |
 |---|---|
@@ -1280,11 +1256,16 @@ propia línea y el JSON entre comillas simples.
 
 ## Anexo B. La herramienta mdr
 
-`/opt/mdr/bin/mdr` reúne las tareas de administración. Lee `/etc/mdr/triaje.env` si puede, así que,
-ejecutada con `sudo`, usa las mismas rutas y la misma clave de la traza que el servicio.
+`mdr` reúne las tareas de administración (`instalar.sh` la deja en `/usr/bin/mdr`). Se ejecuta con
+`sudo`: así lee `/etc/mdr/triaje.env` y usa las mismas rutas y la misma clave de la traza que el
+servicio.
 
 | Orden | Qué hace |
 |---|---|
+| `mdr configurar` | Asistente: perfil, alertas del SIEM y bases de DB-IP; escribe `triaje.env` y arranca. Repetible |
+| `mdr estado` | Comprueba la instalación entera y dice qué falta. Sale con error si algo impide trabajar |
+| `mdr analista alta <nombre> [--clave-ssh <fichero.pub>]` | Token de la consola y cuenta limitada al túnel |
+| `mdr analista baja <nombre>` / `lista` | Retira el acceso / lista quién lo tiene |
 | `mdr validar-perfil [perfil.yml]` | Revisa el perfil (por defecto, el de `TRIAJE_PERFIL`). Sale con error si hay avisos |
 | `mdr validar-alertas <muestra.json>` | Cuenta qué alertas de una muestra del SIEM sabe tratar el MDR y qué reglas quedan sin cubrir |
 | `mdr escanear [--puertos …] [--equipos …]` | Escanea con Nmap los equipos del perfil y escribe la postura. Después, reinicia el servicio |
@@ -1349,14 +1330,15 @@ toca».
 
 | Síntoma | Causa probable y qué hacer |
 |---|---|
-| El servicio no arranca: «define TRIAJE_…» | Falta esa variable en `/etc/mdr/triaje.env` |
-| El conector sigue «sin configurar» | `TRIAJE_SSH_MODO` no es exactamente `directo` (¿un comentario al final de la línea?) o aún no se generó la clave |
+| Cualquier duda sobre la instalación | `sudo mdr estado`: dice qué falla y qué ejecutar |
+| El servicio no arranca: «define TRIAJE_…» | Falta esa variable: `sudo mdr configurar` |
+| El conector sigue «sin configurar» | Aún no se generó la clave en Conectividad, o `TRIAJE_SSH_MODO` no es `directo` (`sudo mdr estado` lo dice) |
 | No llegan alertas por fichero | `triaje` no puede leer el `alerts.json`; dale lectura (por ejemplo, el grupo del SIEM) |
 | No llegan alertas por red | La IP del SIEM no está en `TRIAJE_PERMITIR`, el cortafuegos corta el 6514, o falla el TLS. El registro del servicio dice por qué rechaza |
 | Llegan alertas pero no se contiene nada | Sus reglas salen sin cubrir en `mdr validar-alertas`, o el nombre del equipo no coincide con el del perfil |
 | Se abrió la automatización, pero todo sigue esperando a un analista | Falta la postura: ejecuta `mdr escanear` y reinicia (sección 7) |
 | La consola se ve pero no deja aprobar | El túnel no usa el mismo puerto a los dos lados (sección 9) |
-| «El daemon no reconoce ese token» | El token no está en `TRIAJE_CONSOLA_OPERADORES`, o no se reinició tras añadirlo |
+| «El daemon no reconoce ese token» | Mira `sudo mdr analista lista`; si no está, `mdr analista alta` |
 | No se puede generar la clave del conector | `/var/lib/mdr` no es de `triaje`, o falta `ssh-keygen` |
 | Un equipo queda «bloqueada» | Su clave del host cambió. Compruébalo con su administrador antes de aceptarla |
 | Aviso «geolocalización: no se pudo cargar la base» (o «ASN: …») | Falta el fichero de `TRIAJE_GEOIP` (o de `TRIAJE_ASN`) o no es válido. Instálalo con `mdr instalar-geoip` (o `mdr instalar-asn`), sección 6 |
