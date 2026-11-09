@@ -1,7 +1,8 @@
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { nivelPrioridad, type Filtro } from "@/datos"
+import { nivelPrioridad, textoCausa, type Filtro } from "@/datos"
+import type { CausaFallo } from "@/api"
 
 // Barra de filtros (búsqueda + clase) con contador de resultados. Reutilizada por Decisiones y Trazas.
 export function BarraFiltros({ f, set, clases, cuenta, equipo, onQuitarEquipo }: {
@@ -142,5 +143,19 @@ export function Tarjeta({ titulo, children }: { titulo: string; children: ReactN
       <h2 className="mb-4 text-sm font-medium text-muted-foreground">{titulo}</h2>
       {children}
     </section>
+  )
+}
+
+// Por qué falló, en lenguaje claro. Lo que puede ser un ataque va en rojo y con su marca; el resto,
+// con lo que hay que hacer.
+export function LineaCausa({ causa, equipo, prefijo }: { causa: CausaFallo; equipo?: string | null; prefijo?: string }) {
+  return (
+    <div className={cn("rounded border px-2 py-1", causa.posible_ataque ? "border-critico/40 bg-critico/5" : "border-border")}>
+      <p className={causa.posible_ataque ? "font-medium text-critico" : "text-foreground"}>
+        {causa.posible_ataque && <span className="mr-1.5 rounded bg-critico/15 px-1.5 py-px text-[11px] font-semibold uppercase">posible ataque</span>}
+        {prefijo && <span className="text-muted-foreground">{prefijo} </span>}{textoCausa(causa, equipo)}
+      </p>
+      {causa.evidencia && <p className="font-mono text-[11px] text-muted-foreground [overflow-wrap:anywhere]">{causa.evidencia}</p>}
+    </div>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe, cronologiaDe, eventosDeEntidad, claveIncidenteDe, quienDecidio, esperaTexto } from "./datos"
+import { filtrarDecisiones, clasesDe, contencionDe, filtroLegible, nivelPrioridad, ventanaDe, esDecision, estadoDeCasos, etiquetaClase, colorClase, ETIQUETA_CLASE, clasificarLinea, filtrarConsola, paginar, agruparPorDia, atacantesDe, agruparPorSubred, campanasDe, perfilAtacante, pasosRunbook, riesgoEquipo, riesgoAtacante, enWatchlist, ubicacionesDe, cronologiaDe, eventosDeEntidad, claveIncidenteDe, quienDecidio, esperaTexto, textoCausa, seEjecuto } from "./datos"
 import type { Decision, Detalle } from "./api"
 
 const D: Decision[] = [
@@ -72,6 +72,24 @@ describe("clasesDe", () => {
 
 describe("contencionDe", () => {
   const orden = { accion_id: "BLOQUEAR_IP", nodo_objetivo: "objetivo-vuln" }
+
+  it("lleva la causa del activo y la de cada salto de la escalada que falló", () => {
+    const f5 = { clase: "F5", descripcion: "equipo inalcanzable", accion: "comprueba la red" }
+    const f2 = { clase: "F2", descripcion: "equipo sin aprovisionar", accion: "dalo de alta" }
+    const c = contencionDe({ orden, ejecucion: { exito: false }, verificacion: { verificado: false }, causa_fallo: f5,
+      escalada: { resultado: "fallido", escalado: true, dispositivo_ejecutor: null,
+        pasos: [{ tipo: "accion", dispositivo: "fw-core", causa: f2 }, { tipo: "accion", dispositivo: "fw-edge" }] } } as Detalle)
+    expect(c.estado).toBe("fallida")
+    expect(c.causa?.clase).toBe("F5")
+    expect(c.fallosEscalada).toEqual([{ dispositivo: "fw-core", causa: f2 }])
+    const ok = contencionDe({ orden, ejecucion: { exito: true }, verificacion: { verificado: true } } as Detalle)
+    expect(ok.causa).toBeUndefined()
+  })
+  it("texto de la causa y si la orden llegó a ejecutarse", () => {
+    expect(textoCausa({ clase: "F2", descripcion: "equipo sin aprovisionar", accion: "dalo de alta" }, "atm")).toBe("atm: equipo sin aprovisionar — dalo de alta")
+    expect(seEjecuto({ clase: "F8" })).toBe(true)
+    expect(seEjecuto({ clase: "F5" })).toBe(false)
+  })
 
   it("ejecutada y verificada en el activo -> contenida allí, sin escalar", () => {
     const c = contencionDe({ orden, ejecucion: { exito: true, comando_ejecutado: "iptables -A INPUT -s 1.2.3.4 -j DROP" },
@@ -258,6 +276,8 @@ describe("clasificarLinea", () => {
     expect(clasificarLinea("↶ des-bloqueo en masa: 3 revertida(s)")).toBe("ejecucion")
     // la verificación FALLIDA es narración de la respuesta, no un error de proceso (revisión)
     expect(clasificarLinea("✗ s12 NO verificada: la contención no se confirmó")).toBe("ejecucion")
+    expect(clasificarLinea("✗ s12 no se ejecutó en atm — equipo sin aprovisionar — dalo de alta")).toBe("ejecucion")
+    expect(clasificarLinea("⇪ s12 POSIBLE ATAQUE · fw-core: la clave del host cambió — posible suplantación")).toBe("ejecucion")
     expect(clasificarLinea("✗ e3: no se pudo procesar el incidente")).toBe("error")
     expect(clasificarLinea("· s12 política: retenida — bloquea a puesto")).toBe("detalle")
     expect(clasificarLinea("cualquier otra cosa")).toBe("otro")

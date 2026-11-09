@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   useSondeo, getSalud, getPendientes, getVerificacion, getLatido, getConectividad, getMetricas, getMetricasHoy, getTrazasPanel,
-  LIMITE_TRAZAS_PANEL, listaConocida, operadorActual, actualizarCaso, ahoraServidor, type Pendiente, type Decision,
+  LIMITE_TRAZAS_PANEL, listaConocida, operadorActual, actualizarCaso, ahoraServidor, type Pendiente,
 } from "@/api"
 import { DatosCongelados } from "./bits"
-import { etiquetaClase, SIN_NOMBRE } from "@/datos"
+import { etiquetaClase, SIN_NOMBRE, textoCausa } from "@/datos"
 import { edadTexto } from "@/alertas"
 import { resumenConectividad } from "@/conectividad"
 import { incidentesDe, type IncidenteVista } from "@/incidentes"
 import { desenlaceDe, type Tono as TonoDesenlace } from "@/decisiones"
 import {
   saludPlataforma, urgentes, conActividadDeCola, textoSla, colaResumen, incidentesSinResponsable, fallidasRecientes, actividadPorHora,
-  cobertura, comparaConAyer, llegadasUltimaHora, variacion, atacadoEn24h, ultimasDecisiones, type Tono, type Hora, type Urgente,
+  cobertura, comparaConAyer, llegadasUltimaHora, variacion, atacadoEn24h, ultimasDecisiones, type Tono, type Hora, type Urgente, type Fallida,
 } from "@/panel"
 import { useToast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
@@ -105,7 +105,7 @@ function FilaAprobacion({ u, primera, onAbrir }: { u: Urgente; primera: boolean;
 }
 
 function TeToca({ pend, ahora, incidentes, fallidas, s }: {
-  pend: Pendiente[] | null; ahora: number; incidentes: IncidenteVista[]; fallidas: { d: Decision; veces: number }[]; s: Saltos
+  pend: Pendiente[] | null; ahora: number; incidentes: IncidenteVista[]; fallidas: Fallida[]; s: Saltos
 }) {
   const toast = useToast()
   const yo = operadorActual().trim()
@@ -137,10 +137,13 @@ function TeToca({ pend, ahora, incidentes, fallidas, s }: {
               : s.onVerIncidente && <button type="button" onClick={() => s.onVerIncidente!(e.clave, e.cidr)} className={cn(BOTON, "border-border bg-card hover:bg-muted")}>Abrir</button>}
           </Tarea>
         ))}
-        {fallidas.map(({ d, veces }) => (
-          <Tarea key={d.activo ?? d.id_decision ?? "f"} tono="bg-critico" letra="C" claseLetra="bg-enrutado/15 text-enrutado"
-            l1={<>{veces === 1 ? "Una contención falló" : `${veces} contenciones fallaron`} en <span className="font-mono text-[13px]">{d.activo ?? "—"}</span></>}
-            l2={`${d.accion_final ?? "acción"} · ${edadTexto(ahora - Date.parse(d.timestamp ?? ""))} · revisar el conector con ese equipo`}>
+        {fallidas.map(({ d, veces, causa, ataque }) => (
+          <Tarea key={`${ataque ? "!" : ""}${causa?.dispositivo ?? d.activo ?? d.id_decision ?? "f"}`} tono="bg-critico" letra={ataque ? "!" : "C"}
+            claseLetra={ataque ? "bg-critico/15 text-critico" : "bg-enrutado/15 text-enrutado"}
+            l1={ataque && causa
+              ? <span className="text-critico"><b className="font-semibold">Posible ataque</b> en <span className="font-mono text-[13px]">{causa.dispositivo ?? d.activo ?? "—"}</span>: {causa.descripcion}</span>
+              : <>{veces === 1 ? "Una contención falló" : `${veces} contenciones fallaron`} en <span className="font-mono text-[13px]">{d.activo ?? "—"}</span></>}
+            l2={`${d.accion_final ?? "acción"} · ${edadTexto(ahora - Date.parse(d.timestamp ?? ""))} · ${causa ? (ataque ? causa.accion : textoCausa(causa, causa.dispositivo)) : "revisar el conector con ese equipo"}`}>
             {s.onVerDecisiones && d.id_decision && <button type="button" onClick={() => s.onVerDecisiones!(d.id_decision!)} className={cn(BOTON, "border-border bg-card hover:bg-muted")}>Ver</button>}
           </Tarea>
         ))}

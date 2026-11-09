@@ -100,6 +100,22 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
             "posible_ataque": ataque or regresion, "regresion": regresion, "evidencia": evidencia[:300]}
 
 
+def se_ejecuto(causa):
+    """Si la orden llegó a ejecutarse en el equipo (F7: falló dentro; F8: se aplicó y no está). En el
+    resto ni se entró o sudo no la dejó correr: decir «NO verificada» ahí confunde."""
+    return bool(causa) and causa.get("clase") in ("F7", "F8")
+
+
+def texto(causa, equipo=None):
+    """Una línea para la consola: lo que puede ser un ataque lo dice primero, luego dónde, qué pasó y qué
+    hacer. F3 y F8 llevan su propia descripción: nunca un texto de configuración."""
+    if not causa:
+        return ""
+    pre = "POSIBLE ATAQUE · " if causa.get("posible_ataque") else ""
+    donde = f"{equipo}: " if equipo else ""
+    return f"{pre}{donde}{causa.get('descripcion')} — {causa.get('accion')}"
+
+
 # ---------------------------------------------------------------- contexto de la consola --
 # La consola (servicio/conectividad_web) sabe si un equipo está aprovisionado y verificado. El lazo y la
 # escalada la consultan a través de este registro, para no depender de la capa de servicio. Sin

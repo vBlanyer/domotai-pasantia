@@ -37,6 +37,14 @@ export const EnriquecimientoOrigenSchema = z.object({
     codigo: z.string().nullable().optional(), lat: z.number().nullable().optional(), lon: z.number().nullable().optional() }).nullable().optional(),
   asn: z.object({ asn: z.string(), org: z.string() }).nullable().optional(),
 })
+// Por qué no quedó contenida (prototipo/accion/fallos.py): F1..F10, qué hacer y si puede ser un ataque.
+export const CausaSchema = z.object({
+  clase: z.string(), descripcion: z.string().nullable().optional(), accion: z.string().nullable().optional(),
+  posible_ataque: z.boolean().nullable().optional(), regresion: z.boolean().nullable().optional(),
+  evidencia: z.string().nullable().optional(),
+  dispositivo: z.string().nullable().optional(),          // en el resumen: dónde falló (activo o salto)
+}).passthrough()
+export type CausaFallo = z.infer<typeof CausaSchema>
 export const DecisionSchema = z.object({
   id_decision: z.string().nullable().optional(), timestamp: z.string().nullable().optional(),
   activo: z.string().nullable().optional(), clase: z.string().nullable().optional(),
@@ -64,6 +72,7 @@ export const DecisionSchema = z.object({
   nodo: z.string().nullable().optional(), error: z.string().nullable().optional(),
   // relaciones evento-equipo en la red y dispositivo de contención
   relaciones: z.record(z.string(), z.array(z.string())).nullable().optional(), contencion: z.string().nullable().optional(), dispositivo: z.string().nullable().optional(),
+  causa: CausaSchema.nullable().optional(),               // por qué falló la contención (lo más grave primero)
   enriquecimiento_origen: EnriquecimientoOrigenSchema.nullable().optional(),
   // ciclo de vida del caso (registro `actualizacion_caso`): estado/asignado/nota + quién y cuándo
   estado: z.string().nullable().optional(), asignado: z.string().nullable().optional(),
@@ -87,6 +96,11 @@ const PlanSchema = z.object({
   impacto_efectivo: z.object({
     dispositivo: z.string().nullable().optional(), motivo: z.string().nullable().optional(),
   }).passthrough().nullable().optional(),
+  // cada salto (acción o verificación) y, si falló, por qué
+  pasos: z.array(z.object({
+    tipo: z.string().nullable().optional(), dispositivo: z.string().nullable().optional(),
+    causa: CausaSchema.nullable().optional(),
+  }).passthrough()).nullable().optional(),
 }).passthrough()
 export const DetalleSchema = z.object({
   id_decision: z.string().nullable().optional(),
@@ -124,6 +138,7 @@ export const DetalleSchema = z.object({
     exito: z.boolean().nullable().optional(), comando_ejecutado: z.string().nullable().optional(),
   }).passthrough().nullable().optional(),
   verificacion: z.object({ verificado: z.boolean().nullable().optional() }).passthrough().nullable().optional(),
+  causa_fallo: CausaSchema.nullable().optional(),          // por qué no quedó contenida en el activo
   escalada: PlanSchema.nullable().optional(),
   mitigacion_agente: PlanSchema.nullable().optional(),
   recomendacion: RecomendacionSchema.nullable().optional(),

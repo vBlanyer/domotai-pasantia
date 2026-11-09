@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
-import { SinConexion, ClaseBadge, DatosCongelados } from "./bits"
+import { SinConexion, ClaseBadge, DatosCongelados, LineaCausa } from "./bits"
 
 // Humo del arnés de componentes: monta React en jsdom y consulta el DOM.
 describe("bits", () => {
@@ -38,5 +38,21 @@ describe("DatosCongelados", () => {
   it("avisa de que son los últimos datos recibidos y de cuándo", () => {
     render(<DatosCongelados fallo={{ error: "x", causa: "red", desde: Date.parse("2026-10-20T10:00:00Z") }} />)
     expect(screen.getByText(/últimos datos/i)).toBeInTheDocument()
+  })
+})
+
+// Fase 2 del plan de fallos: lo que puede ser un ataque se marca en rojo; el resto, con lo que hay que hacer.
+describe("LineaCausa", () => {
+  it("posible ataque: marca roja y su propia acción, nunca de configuración", () => {
+    render(<LineaCausa causa={{ clase: "F3", descripcion: "la clave del host cambió", accion: "posible suplantación del equipo: compruébalo por otro canal", posible_ataque: true, evidencia: "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!" }} equipo="fw-core" />)
+    expect(screen.getByText("posible ataque")).toBeInTheDocument()
+    expect(screen.getByText(/fw-core: la clave del host cambió/)).toBeInTheDocument()
+    expect(screen.getByText(/REMOTE HOST IDENTIFICATION/)).toBeInTheDocument()
+    expect(screen.queryByText(/Conectividad|dalo de alta/)).not.toBeInTheDocument()
+  })
+  it("configuración: sin marca de ataque y con lo que hay que hacer", () => {
+    render(<LineaCausa causa={{ clase: "F2", descripcion: "equipo sin aprovisionar", accion: "dalo de alta o fija su clave del host en Conectividad", posible_ataque: false }} equipo="atm" prefijo="intento en" />)
+    expect(screen.queryByText("posible ataque")).not.toBeInTheDocument()
+    expect(screen.getByText(/atm: equipo sin aprovisionar — dalo de alta/)).toBeInTheDocument()
   })
 })

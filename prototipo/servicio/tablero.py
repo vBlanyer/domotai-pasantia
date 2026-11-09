@@ -377,6 +377,8 @@ def _resumen_traza(reg, ips=None, externos=(), perfil=None):
             # relación evento-equipo y desenlace de la contención, para la vista Red
             "relaciones": relaciones(reg, ips or {}, externos),
             "contencion": _conten[0], "dispositivo": _conten[1],
+            # por qué no quedó contenida en el activo (accion/fallos); None si no hubo fallo
+            "causa": causa_de(reg),
             # ciclo de vida del caso (registro `actualizacion_caso`): el visor pliega estos campos
             # (datos.estadoDeCasos). None en una decisión normal (no estorba).
             "estado": reg.get("estado"), "asignado": reg.get("asignado"), "nota": reg.get("nota"),
@@ -390,6 +392,20 @@ _NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion
 
 _ESTADO_PLAN = {"mitigado": "contenida", "fallido": "fallida", "cancelado_por_humano": "cancelada",
                 "degradado": "degradada"}
+
+
+def causa_de(reg):
+    """La causa que el analista tiene que ver de una contención con fallos: lo que puede ser un ataque
+    primero (en el activo o en cualquier salto de la escalada); si no, la del activo. None sin fallo."""
+    candidatas = []
+    if reg.get("causa_fallo"):
+        candidatas.append({**reg["causa_fallo"], "dispositivo": (reg.get("orden") or {}).get("nodo_objetivo")})
+    for p in ((reg.get("escalada") or {}).get("pasos") or []):
+        if isinstance(p, dict) and p.get("causa"):
+            candidatas.append({**p["causa"], "dispositivo": p.get("dispositivo")})
+    if not candidatas:
+        return None
+    return next((c for c in candidatas if c.get("posible_ataque")), candidatas[0])
 
 
 def contencion_de(reg):

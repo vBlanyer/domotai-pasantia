@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import { RefreshCw } from "lucide-react"
 import { useSondeo, getTrazas, getVerificacion, type Decision } from "@/api"
 import { Button } from "@/components/ui/button"
-import { Cargando, SinConexion, Vacio, Punto, BarraFiltros, DatosCongelados } from "./bits"
+import { Cargando, SinConexion, Vacio, Punto, BarraFiltros, DatosCongelados, LineaCausa } from "./bits"
 import { OrigenBadges } from "./OrigenBadges"
 import { filtrarDecisiones, clasesDe, claveDe, ventanaDe, paginar, etiquetaClase, campanasDe, TAM_PAGINA, type Filtro, quienDecidio } from "@/datos"
 import {
@@ -119,6 +119,7 @@ function Inspector({ r, i, anterior, cadena, revertidaPor, revierte, enCampana, 
               {r.resultado_filtro && <span className="text-muted-foreground"> · filtro del perfil: {r.resultado_filtro}</span>}</KV>
             {r.tecnica_mitre?.length ? <KV k="ATT&CK"><span className="inline-flex flex-wrap gap-1">{r.tecnica_mitre.map((t) => <span key={t} className="rounded bg-muted px-1.5 font-mono text-[10px]">{t}</span>)}</span></KV> : null}
             {r.motivo && <KV k="Motivo">{r.motivo}</KV>}
+            {r.causa && <KV k="Causa del fallo"><LineaCausa causa={r.causa} equipo={r.causa.dispositivo} /></KV>}
           </div>
         </Seccion>
       )}

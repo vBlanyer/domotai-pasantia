@@ -182,3 +182,78 @@ class _EjecutorBien:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPresentacion(unittest.TestCase):
+    """Fase 2: un mensaje por clase en la consola; F3 y F8 nunca con texto de configuración."""
+    CONFIGURACION = ("Conectividad", "dalo de alta", "paquete de alta", "genera la clave", "revisa el papel")
+    SALIDAS = {"F1": (-1, "nodo_ip rechazado: no es una IP valida"), "F2": (255, TestReglasDeGravedad.NO_CONOCIDA),
+               "F3": (255, "@@@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @@@\nHost key verification failed."),
+               "F4": (255, "triaje@x: Permission denied (publickey)."), "F5": (255, "ssh: connect to host x port 22: Connection refused"),
+               "F6": (1, "sudo: a password is required"), "F7": (1, "iptables: Bad rule"), "F8": (0, ""),
+               "F9": (126, "conector sin configurar: ..."), "F10": (255, "kex_exchange_identification: raro")}
+
+    def _reg(self, clase):
+        from prototipo.servicio import stream
+        rc, salida = self.SALIDAS[clase]
+        causa = fallos.clasificar_fallo(_ej(rc, salida, exito=False), {"verificado": False})
+        self.assertEqual(causa["clase"], clase)
+        d = {"id_decision": "s1", "orden": {"accion_id": "BLOQUEAR_IP", "nodo_objetivo": "atm", "nodo_ip": "10.0.0.9"},
+             "ejecucion": {"exito": False, "codigo_salida": rc, "salida": salida, "comando_ejecutado": "iptables -A INPUT -s 1.2.3.4 -j DROP"},
+             "verificacion": {"verificado": False}, "causa_fallo": causa}
+        return d, stream._lineas_ejecucion(d)
+
+    def test_un_mensaje_por_clase(self):
+        for clase in fallos.CLASES:
+            with self.subTest(clase):
+                _, lineas = self._reg(clase)
+                texto = "\n".join(lineas)
+                self.assertIn(fallos.CLASES[clase][0], texto)
+                self.assertNotIn("None", texto)
+                if clase in ("F7", "F8"):
+                    self.assertIn("✗ s1 NO verificada en atm", texto)
+                else:
+                    self.assertIn("✗ s1 no se ejecutó en atm", texto)
+                    self.assertNotIn("NO verificada", texto)
+
+    def test_F3_y_F8_son_posible_ataque_y_nunca_configuracion(self):
+        for clase in ("F3", "F8"):
+            with self.subTest(clase):
+                _, lineas = self._reg(clase)
+                texto = "\n".join(lineas)
+                self.assertIn("POSIBLE ATAQUE", texto)
+                for palabra in self.CONFIGURACION:
+                    self.assertNotIn(palabra, texto)
+
+    def test_la_regresion_tampoco_lleva_texto_de_configuracion(self):
+        for salida, rc in (("Permission denied (publickey).", 255), ("Connection refused", 255), ("sudo: a password is required", 1)):
+            c = fallos.clasificar_fallo(_ej(rc, salida), contexto={"verificado": True})
+            t = fallos.texto(c, "web-banking")
+            self.assertTrue(t.startswith("POSIBLE ATAQUE · web-banking: "))
+            for palabra in self.CONFIGURACION:
+                self.assertNotIn(palabra, t)
+
+    def test_escalada_fallida_dice_donde_y_por_que(self):
+        from prototipo.servicio import stream
+        f2 = fallos.clasificar_fallo(_ej(255, TestReglasDeGravedad.NO_CONOCIDA))
+        f3 = fallos.clasificar_fallo(_ej(255, self.SALIDAS["F3"][1]))
+        esc = {"resultado": "fallido", "dispositivo_ejecutor": None, "orden_efectiva": None,
+               "pasos": [{"tipo": "accion", "dispositivo": "fw-core", "observacion": "Error", "causa": f2},
+                         {"tipo": "accion", "dispositivo": "fw-edge", "observacion": "Error", "causa": f3}]}
+        lineas = stream._lineas_escalada("s1", esc)
+        self.assertEqual(lineas[0], "⇪ s1 escalada fallida: fw-core (equipo sin aprovisionar); fw-edge (la clave del host cambió)")
+        self.assertTrue(lineas[1].startswith("⇪ s1 POSIBLE ATAQUE · fw-edge: la clave del host cambió"))
+        self.assertEqual(stream._lineas_escalada("s1", {"resultado": "fallido", "pasos": []}),
+                         ["⇪ s1 escalada fallida: no había más equipos a los que subir"])
+        self.assertFalse(any("None" in l for l in lineas))
+
+    def test_el_resumen_de_la_decision_lleva_primero_lo_que_puede_ser_ataque(self):
+        from prototipo.servicio import tablero
+        f2 = fallos.clasificar_fallo(_ej(255, TestReglasDeGravedad.NO_CONOCIDA))
+        f8 = fallos.clasificar_fallo(_ej(0, ""), {"verificado": False})
+        reg = {"orden": {"nodo_objetivo": "atm"}, "causa_fallo": f2,
+               "escalada": {"pasos": [{"tipo": "verificacion", "dispositivo": "fw-core", "causa": f8}]}}
+        c = tablero.causa_de(reg)
+        self.assertEqual((c["clase"], c["dispositivo"]), ("F8", "fw-core"))
+        self.assertEqual(tablero.causa_de({**reg, "escalada": None})["dispositivo"], "atm")
+        self.assertIsNone(tablero.causa_de({"orden": {"nodo_objetivo": "atm"}}))

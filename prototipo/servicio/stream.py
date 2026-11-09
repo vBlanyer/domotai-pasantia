@@ -10,6 +10,7 @@ import collections, io, json, os, select, sys, threading, time
 from prototipo.entrada import ingesta, adaptador_wazuh
 from prototipo.motor import analisis, agrupacion, rafaga
 from prototipo.servicio import casos, lazo, traza, validacion
+from prototipo.accion import fallos
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
 
@@ -348,16 +349,46 @@ def _lineas_ejecucion(d):
                       f"({orden.get('nodo_ip')}): {v(ej.get('comando_ejecutado'))}")
         if ej.get("idempotente"):
             lineas.append(f"· {idd} ya estaba aplicada (idempotente): no se repitió")
-        verif = d.get("verificacion") or {}
+        verif, causa = d.get("verificacion") or {}, d.get("causa_fallo")
+        nodo = v(orden.get('nodo_objetivo'))
         if verif.get("verificado"):
-            lineas.append(f"✔ {idd} verificada — contenida en {v(orden.get('nodo_objetivo'))}")
+            lineas.append(f"✔ {idd} verificada — contenida en {nodo}")
+        elif causa:
+            # «NO verificada» solo si la orden llegó a ejecutarse; si no, se dice que no se ejecutó y por qué
+            que = "NO verificada en" if fallos.se_ejecuto(causa) else "no se ejecutó en"
+            lineas.append(f"✗ {idd} {que} {nodo} — {v(fallos.texto(causa))}")
+            if causa.get("evidencia"):
+                lineas.append(f"· {idd} evidencia: {v(causa['evidencia'])}")
         elif verif:
             lineas.append(f"✗ {idd} NO verificada: la contención no se confirmó en el activo")
     esc = d.get("escalada") or {}
     if esc:
+        lineas.extend(_lineas_escalada(idd, esc))
+    return lineas
+
+
+_RESULTADO_ESCALADA = {"fallido": "fallida", "cancelado_por_humano": "cancelada por el analista",
+                       "degradado": "degradada"}
+
+
+def _lineas_escalada(idd, esc):
+    """La escalada: dónde contuvo o, si no, en qué equipos falló y por qué (nunca «None: None»)."""
+    v = validacion.texto_terminal
+    if esc.get("resultado") == "mitigado":
         efectiva = (esc.get("orden_efectiva") or {}).get("accion_id")
-        lineas.append(f"⇪ {idd} el activo no respondió → {esc.get('dispositivo_ejecutor')}: "
-                      f"{efectiva} ({esc.get('resultado')})")
+        return [f"⇪ {idd} escalada: contenida en {v(esc.get('dispositivo_ejecutor'))} con {efectiva}"]
+    pasos = [p for p in (esc.get("pasos") or []) if isinstance(p, dict)]
+    con_causa = [p for p in pasos if p.get("causa")]
+    if con_causa:
+        motivo = "; ".join(f"{v(p.get('dispositivo'))} ({p['causa'].get('descripcion')})" for p in con_causa)
+    elif not any(p.get("tipo") == "accion" for p in pasos):
+        motivo = "no había más equipos a los que subir"
+    else:
+        motivo = "ningún salto la confirmó"
+    resultado = _RESULTADO_ESCALADA.get(esc.get("resultado"), v(esc.get("resultado")))
+    lineas = [f"⇪ {idd} escalada {resultado}: {motivo}"]
+    # lo que puede ser un ataque, en su propia línea (empieza por «POSIBLE ATAQUE»)
+    lineas += [f"⇪ {idd} {v(fallos.texto(p['causa'], p.get('dispositivo')))}" for p in con_causa if p["causa"].get("posible_ataque")]
     return lineas
 
 

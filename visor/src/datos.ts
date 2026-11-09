@@ -1,4 +1,4 @@
-import type { Decision, Detalle } from "@/api"
+import type { CausaFallo, Decision, Detalle } from "@/api"
 
 // Etiquetas legibles de las clases del motor — ÚNICA fuente (A1: vivían triplicadas en Dashboard,
 // Métricas y Aprobaciones, y dos copias no conocían exfiltración/malware). El orden es canónico y
@@ -59,8 +59,9 @@ export function clasificarLinea(linea: string): TipoLinea {
   if (linea.startsWith("⚠")) return "incidente"
   if (linea.startsWith("  Clase:") || linea.startsWith("⏸")) return "decision"
   if (linea.startsWith("↩")) return "supresion"
-  // ✗ es ambiguo: la verificación fallida es narración de la RESPUESTA; el resto, error de proceso
-  if (/^✗ \S+ NO verificada/.test(linea)) return "ejecucion"
+  // ✗ es ambiguo: la verificación fallida o la orden que no llegó a ejecutarse es narración de la
+  // RESPUESTA; el resto, error de proceso
+  if (/^✗ \S+ (NO verificada|no se ejecutó)/.test(linea)) return "ejecucion"
   if (linea.startsWith("✗")) return "error"
   if (linea.startsWith("↺")) return "propia"
   if (linea.startsWith("[aviso]") || linea.startsWith("[red]")) return "aviso"
@@ -131,7 +132,17 @@ export type Contencion = {
   destino?: string         // amenaza enrutada: a qué cola/equipo
   // tras escalar: el intento en el activo, que no respondió (la orden efectiva va arriba)
   intento?: { nodo?: string; ejecutada: boolean; verificada: boolean }
+  causa?: CausaFallo          // por qué no quedó contenida en el activo
+  fallosEscalada?: { dispositivo: string; causa: CausaFallo }[]   // los saltos de la escalada que fallaron
 }
+
+// La causa en lenguaje claro: lo que puede ser un ataque lo dice primero; F3 y F8 traen su propia
+// descripción (accion/fallos.py), nunca un texto de configuración.
+export function textoCausa(c: CausaFallo, equipo?: string | null): string {
+  return `${equipo ? `${equipo}: ` : ""}${c.descripcion ?? c.clase}${c.accion ? ` — ${c.accion}` : ""}`
+}
+// «NO verificada» solo tiene sentido si la orden llegó a ejecutarse (F7 falló dentro, F8 no está)
+export const seEjecuto = (c: CausaFallo | null | undefined) => c?.clase === "F7" || c?.clase === "F8"
 
 const ESTADO_PLAN: Record<string, EstadoContencion> = {
   mitigado: "contenida", fallido: "fallida", cancelado_por_humano: "cancelada", degradado: "degradada",
@@ -151,7 +162,8 @@ export function contencionDe(det: Detalle): Contencion {
     return { estado: v === "rechazar" || v === "reclasificar" ? "retenida" : "sin_accion", escalada: false }
   }
   const base = { accion: orden.accion_id ?? undefined, comando: det.ejecucion?.comando_ejecutado ?? undefined,
-    ejecutada: !!det.ejecucion?.exito, verificada: !!det.verificacion?.verificado }
+    ejecutada: !!det.ejecucion?.exito, verificada: !!det.verificacion?.verificado,
+    ...(det.causa_fallo ? { causa: det.causa_fallo } : {}) }
   if (base.ejecutada && base.verificada)
     return { ...base, estado: "contenida", escalada: false, dispositivo: orden.nodo_objetivo ?? undefined }
   const esc = det.escalada                                 // el activo no respondió: ¿contuvo el perímetro?
@@ -163,8 +175,11 @@ export function contencionDe(det: Detalle): Contencion {
     const arriba = estado === "contenida" && efectiva
       ? { accion: efectiva.accion_id ?? undefined, comando: undefined, ejecutada: true, verificada: true }
       : base
+    const fallosEscalada = (esc.pasos ?? []).filter((p) => p.causa)
+      .map((p) => ({ dispositivo: p.dispositivo ?? "—", causa: p.causa! }))
     return { ...arriba, estado, escalada: !!esc.escalado, intento,
-      dispositivo: esc.dispositivo_ejecutor ?? undefined, desde: orden.nodo_objetivo ?? undefined }
+      dispositivo: esc.dispositivo_ejecutor ?? undefined, desde: orden.nodo_objetivo ?? undefined,
+      ...(det.causa_fallo ? { causa: det.causa_fallo } : {}), ...(fallosEscalada.length ? { fallosEscalada } : {}) }
   }
   return { ...base, estado: "fallida", escalada: false }  // sin topología a la que escalar
 }

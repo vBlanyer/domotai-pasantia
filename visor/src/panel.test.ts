@@ -66,6 +66,16 @@ describe("lo que le toca al analista", () => {
     ], AHORA)
     expect(r).toHaveLength(1); expect(r[0].veces).toBe(2); expect(r[0].d.id_decision).toBe("x2")
   })
+  it("lo que puede ser un ataque va primero, aunque la escalada lo contuviera, y nunca como configuración", () => {
+    const f3 = { clase: "F3", descripcion: "la clave del host cambió", accion: "posible suplantación del equipo", posible_ataque: true, dispositivo: "fw-core" }
+    const f2 = { clase: "F2", descripcion: "equipo sin aprovisionar", accion: "dalo de alta en Conectividad", posible_ataque: false, dispositivo: "atm" }
+    const r = fallidasRecientes([
+      dec({ activo: "atm", contencion: "fallida", timestamp: iso(1 * H), causa: f2 }),
+      dec({ activo: "web", contencion: "contenida", timestamp: iso(2 * H), causa: f3 }),      // contuvo otro, pero ojo
+      dec({ activo: "core", contencion: "contenida", timestamp: iso(1 * H) }),                // sin causa: no entra
+    ], AHORA)
+    expect(r.map((x) => [x.ataque, x.causa?.clase])).toEqual([[true, "F3"], [false, "F2"]])
+  })
 })
 
 describe("actividad", () => {

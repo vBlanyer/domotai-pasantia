@@ -339,3 +339,21 @@ del laboratorio para no interferir con él.
     contramedida, regresión y contención correcta. Los registros con y sin clasificador son
     idénticos salvo `causa_fallo` y `causa`.
 - Evaluación 63 y banco 157 sin cambios.
+
+### Fase 2: hecho
+
+- Consola (`stream._lineas_ejecucion`):
+  - «✗ … NO verificada en X» solo cuando la orden llegó a ejecutarse (F7, F8).
+  - En el resto: «✗ … no se ejecutó en X — qué pasó — qué hacer», más una línea con la evidencia.
+  - La escalada dice dónde contuvo o en qué equipos falló y por qué. Ya no aparece «None: None».
+  - Lo que puede ser un ataque va en su propia línea, que empieza por «POSIBLE ATAQUE».
+- Resumen de cada decisión (`tablero.causa_de`): campo `causa`, con lo que puede ser ataque primero,
+  esté en el activo o en un salto de la escalada.
+- Visor:
+  - Decisiones: el detalle muestra la causa del activo y la de cada salto fallido (`LineaCausa`).
+  - Trazas: «Causa del fallo» en el detalle del registro.
+  - «Te toca»: los posibles ataques van primero, en rojo, aunque la escalada contuviera. El resto
+    muestra la causa en vez del genérico «revisar el conector».
+- Pruebas: una de presentación por clase (F1..F10). F3, F8 y la regresión nunca llevan texto de
+  configuración. Python 1180, visor 440, evaluación 63 y banco 157.
+

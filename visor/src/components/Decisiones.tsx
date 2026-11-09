@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react"
 import { TriangleAlert } from "lucide-react"
 import { useSondeo, getDecisiones, getTrazaDetalle, operadorActual, type Decision, type Detalle, type Pasaje } from "@/api"
-import { Cargando, SinConexion, Vacio, Prioridad, BarraFiltros, DatosCongelados } from "./bits"
+import { Cargando, SinConexion, Vacio, Prioridad, BarraFiltros, DatosCongelados, LineaCausa } from "./bits"
 import { filtrarDecisiones, clasesDe, claveDe, contencionDe, ventanaDe, paginar, pasosRunbook, estadoDeCasos, etiquetaClase, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro, quienDecidio } from "@/datos"
 import { desenlaceDe, resumenDecisiones, pasaFiltro, pasosDe, FILTROS_DECISION, type FiltroDecision, type Paso, type Tono } from "@/decisiones"
 import { claveDia, etiquetaDia, horaLocal } from "@/trazas"
@@ -123,7 +123,9 @@ export function InspectorDecision({ d, onVerIncidente, onVerTrazas, onVerAtacant
           <p className="flex flex-wrap gap-x-3 text-muted-foreground"><span>{c.accion}</span><span>ejecutada: {c.ejecutada ? "sí" : "no"}</span><span>verificada: {c.verificada ? "sí" : "no"}</span></p>
         )}
         {c.comando && <p className="font-mono text-muted-foreground [overflow-wrap:anywhere]">{c.comando}</p>}
-        {c.intento && <p className="text-muted-foreground">{`intento en ${c.intento.nodo ?? "el activo"}: ${c.intento.ejecutada ? "se ejecutó pero no se verificó" : "no respondió"}`}</p>}
+        {c.causa && <LineaCausa causa={c.causa} equipo={c.intento?.nodo ?? detalle?.orden?.nodo_objetivo} prefijo={c.intento ? "intento en" : undefined} />}
+        {!c.causa && c.intento && <p className="text-muted-foreground">{`intento en ${c.intento.nodo ?? "el activo"}: ${c.intento.ejecutada ? "se ejecutó pero no se verificó" : "no respondió"}`}</p>}
+        {c.fallosEscalada?.map((f, i) => <LineaCausa key={`${f.dispositivo}-${i}`} causa={f.causa} equipo={f.dispositivo} prefijo="escalada en" />)}
       </div>
     ) : null,
   ]

@@ -1,7 +1,7 @@
 // Lógica pura del Panel: la salud de la plataforma en una línea, lo que le toca al analista
 // (aprobaciones más cerca del SLA, incidentes sin responsable, contenciones fallidas), la actividad
 // de las últimas 24 h por hora y la comparación con ayer. Todo sale de datos que el visor ya recibe.
-import type { Decision, Pendiente } from "@/api"
+import type { CausaFallo, Decision, Pendiente } from "@/api"
 import { msDesde } from "@/alertas"
 import { esDecision, claveIncidenteDe } from "@/datos"
 import { ordenarCola, SLA_MS } from "@/aprobaciones"
@@ -99,15 +99,21 @@ export function incidentesSinResponsable(es: IncidenteVista[], n = 2): Incidente
 }
 
 // Contenciones fallidas de las últimas 24 h, una por equipo (la más reciente) con cuántas fallaron.
-export function fallidasRecientes(regs: Decision[], ahora: number, n = 2): { d: Decision; veces: number }[] {
-  const por = new Map<string, { d: Decision; veces: number }>()
+// Entra también lo que puede ser un ataque (clave del host cambiada, contención deshecha, un equipo que
+// funcionaba y dejó de hacerlo) aunque la escalada lo contuviera en otro sitio: eso va primero y con
+// su causa, nunca como un problema de configuración.
+export type Fallida = { d: Decision; veces: number; causa: CausaFallo | null; ataque: boolean }
+export function fallidasRecientes(regs: Decision[], ahora: number, n = 2): Fallida[] {
+  const por = new Map<string, Fallida>()
   for (const d of regs) {
-    if (!esDecision(d) || d.contencion !== "fallida" || !(ahora - ts(d) < 24 * HORA)) continue
-    const k = d.activo ?? "—"
+    const ataque = !!d.causa?.posible_ataque
+    if (!esDecision(d) || (d.contencion !== "fallida" && !ataque) || !(ahora - ts(d) < 24 * HORA)) continue
+    const k = ataque ? `!${d.causa?.dispositivo ?? d.activo ?? "—"}` : d.activo ?? "—"
     const prev = por.get(k)
-    por.set(k, { d: !prev || ts(d) > ts(prev.d) ? d : prev.d, veces: (prev?.veces ?? 0) + 1 })
+    const ultima = !prev || ts(d) > ts(prev.d) ? d : prev.d
+    por.set(k, { d: ultima, veces: (prev?.veces ?? 0) + 1, causa: ultima.causa ?? null, ataque })
   }
-  return [...por.values()].sort((a, b) => ts(b.d) - ts(a.d)).slice(0, n)
+  return [...por.values()].sort((a, b) => Number(b.ataque) - Number(a.ataque) || ts(b.d) - ts(a.d)).slice(0, n)
 }
 
 // ---- actividad -----------------------------------------------------------------------------------
