@@ -2,20 +2,33 @@
 con diseño de guía funcional: portada con banda, cabecera y pie en cada página, índice
 con números de página y cajas «Quién puede», «Nota» y «Ejemplo».
 
-Uso: python3 convertir.py ENTRADA.md SALIDA.html [paginas.json]
+Uso: python3 convertir.py ENTRADA.md SALIDA.html [paginas.json] [--titulo T] [--sub S]
   paginas.json (opcional): {título de sección: página}, de una primera impresión (ver imprimir.mjs).
+  --titulo: el tipo de documento de la portada y la cabecera (por defecto «Manual de usuario»).
+  --sub: la línea bajo el título de la portada (por defecto «Consola de detección y respuesta»).
 """
 import html
 import json
 import re
 import sys
 
+
+def _opcion(nombre, defecto):
+    if nombre in sys.argv:
+        i = sys.argv.index(nombre)
+        valor = sys.argv[i + 1]
+        del sys.argv[i:i + 2]
+        return valor
+    return defecto
+
+
+TITULO_DOC = _opcion("--titulo", "Manual de usuario")
+LINEA_SUB = _opcion("--sub", "Consola de detección y respuesta")
 ENTRADA, SALIDA = sys.argv[1], sys.argv[2]
 PAGINAS = json.load(open(sys.argv[3], encoding="utf-8")) if len(sys.argv) > 3 else {}
 
-TITULO_DOC = "Manual de usuario"
 SUBTITULO = "MDR de triaje asistido"
-META = [("Versión", "1.0"), ("Fecha", "Noviembre 2026")]
+META = [("Edición", "1.0"), ("Software", "MDR 1.7"), ("Fecha", "Noviembre 2026")]
 
 
 def slug(t):
@@ -185,7 +198,7 @@ PORTADA = f"""
   <div class="centro">
     <div class="tipo">{TITULO_DOC.upper()}</div>
     <h1 class="titulo">{SUBTITULO}</h1>
-    <div class="sub">Consola de detección y respuesta</div>
+    <div class="sub">{LINEA_SUB}</div>
     <dl>{''.join(f'<dt>{k}:</dt><dd>{v}</dd>' for k, v in META)}</dl>
   </div>
   <div class="banda-pie"></div>

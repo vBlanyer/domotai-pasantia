@@ -1,6 +1,6 @@
-# Generar el PDF del manual de usuario
+# Generar los PDF de los manuales
 
-Convierte `manual-de-usuario.md` en `manual-de-usuario.pdf` con diseño de guía funcional:
+Convierte `manual-de-usuario.md` y `manual-de-produccion.md` en sus PDF con diseño de guía funcional:
 
 - una portada con banda;
 - cabecera y pie en cada página;
@@ -14,8 +14,12 @@ y Chromium en modo headless.
 
 ```
 cd documentacion/07-fase7-documentacion-e-informe-final
-CHROME=/ruta/a/chrome sh generar-pdf/generar.sh
+CHROME=/ruta/a/chrome sh generar-pdf/generar.sh               # los dos
+CHROME=/ruta/a/chrome sh generar-pdf/generar.sh produccion    # o solo uno: usuario | produccion
 ```
+
+El tipo de documento de la portada y la línea bajo el título los pasa `generar.sh` a `convertir.py`
+con `--titulo` y `--sub`.
 
 `CHROME` es el ejecutable de Chrome o Chromium. Por defecto se usa `chromium` del PATH; también vale
 el de Playwright. Hace falta una versión reciente, con soporte de cajas de margen `@page`, que es lo

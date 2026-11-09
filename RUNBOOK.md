@@ -102,9 +102,11 @@ salud (para un monitor).
   ```
 - **Reconstruir el visor** tras cambiar su código: `cd visor && npm run build` (genera `visor/dist`, que
   sirve el daemon).
-- **Enriquecimiento del origen (offline por defecto):** país (geo), ASN y organización de la IP atacante
-  salen de tablas de muestra en `prototipo/corpus/` (`geoip-muestra.json`, `asn-muestra.json`) — **sin
-  egreso**. El **DNS inverso** del perfil del atacante está **apagado**: se activa con
+- **Enriquecimiento del origen (offline por defecto):** el país sale de la base de `TRIAJE_GEOIP` (CSV
+  `inicio,fin,país`, p. ej. DB-IP Lite; `reiniciar.sh` usa la de muestra del laboratorio,
+  `lab/geo_demo/geoip-muestra.csv`; sin base, ningún país). ASN y organización, de la de `TRIAJE_ASN`
+  (`inicio,fin,AS,organización`, p. ej. DB-IP ASN Lite; en el laboratorio, `lab/geo_demo/asn-muestra.csv`).
+  Todo **sin egreso**. El **DNS inverso** del perfil del atacante está **apagado**: se activa con
   `TRIAJE_RDNS=1` al arrancar el daemon (una consulta DNS es egreso; solo IP pública, bajo demanda).
   Sin esa variable el botón «Resolver» del perfil responde «sin resolución».
 

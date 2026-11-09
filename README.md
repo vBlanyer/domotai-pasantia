@@ -108,9 +108,12 @@ El mapa completo, carpeta a carpeta, está en **[`STRUCTURE.md`](STRUCTURE.md)**
   en [`documentacion/04-fase4-diseno-de-arquitectura/`](documentacion/04-fase4-diseno-de-arquitectura/).
 - **[`docs/pruebas/`](docs/pruebas/)** — guías de prueba y evidencia por escenario.
 - **[`RUNBOOK.md`](RUNBOOK.md)** — cómo operar el sistema completo paso a paso.
-- **Manual de usuario** — puesta en marcha, cada vista de la consola web, Conectividad, Políticas y
+- **Manual de usuario** — puesta en marcha en el laboratorio, cada vista de la consola web, Conectividad, Políticas y
   el perfil de la red:
   [`documentacion/07-fase7-documentacion-e-informe-final/manual-de-usuario.md`](documentacion/07-fase7-documentacion-e-informe-final/manual-de-usuario.md).
+- **Manual de producción** — el manual para el cliente: instalar el MDR en un equipo de su red, usar
+  la consola y mantenerlo, sin nada del laboratorio:
+  [`documentacion/07-fase7-documentacion-e-informe-final/manual-de-produccion.md`](documentacion/07-fase7-documentacion-e-informe-final/manual-de-produccion.md).
 - **Referencia de API** — endpoints HTTP del daemon (`/api/*`, `/healthz`):
   [`documentacion/07-fase7-documentacion-e-informe-final/referencia-api.md`](documentacion/07-fase7-documentacion-e-informe-final/referencia-api.md).
 - **[`CHANGELOG.md`](CHANGELOG.md)** — qué cambió en cada versión (v1.0, v1.1 y posteriores).

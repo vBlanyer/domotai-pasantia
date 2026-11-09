@@ -110,7 +110,7 @@ mínimo privilegio, ataque real, traza encadenada, reversión desde la traza).
 Para quienes usan el sistema, el **[`manual-de-usuario.md`](manual-de-usuario.md)** (09/11/2026; también en
 [PDF](manual-de-usuario.pdf), que se regenera con [`generar-pdf/`](generar-pdf/)):
 
-- la puesta en marcha y el acceso por token;
+- la puesta en marcha en el laboratorio y el acceso por token;
 - cada vista de la consola: Panel, Aprobaciones, Consola, Contenciones, Decisiones, Incidentes, Red,
   Ubicaciones, Watchlist, Trazas e Informe en PDF;
 - la configuración: Políticas, Conectividad (alta de equipos sin scripts, clave del host, rotación) y
@@ -118,7 +118,24 @@ Para quienes usan el sistema, el **[`manual-de-usuario.md`](manual-de-usuario.md
 - la referencia: familias, causas de fallo F1–F10, variables, ficheros y problemas comunes.
 
 Sustituye al antiguo [`manual-del-analista.md`](manual-del-analista.md), del 26/10, que se conserva
-como registro. La guía de operación sigue siendo la referencia para producción.
+como registro.
+
+## El manual de producción
+
+Para el cliente que compra el software, el **[`manual-de-produccion.md`](manual-de-produccion.md)**
+(09/11/2026; también en [PDF](manual-de-produccion.pdf)). Es autosuficiente y no menciona el
+laboratorio: el MDR es un servicio systemd en un equipo de la red del cliente. Cubre:
+
+- cómo funciona el MDR, lo que el cliente decide antes de instalar y los requisitos del equipo;
+- la instalación: el servicio, el perfil, el SIEM, el acceso de los analistas por túnel SSH con token
+  y el alta de los equipos desde Conectividad;
+- el uso de la consola: Panel, Aprobaciones, Consola, Contenciones, Decisiones, Incidentes, Red,
+  Ubicaciones, Watchlist, Trazas, Informe, Políticas, Conectividad y Estado de servicios;
+- el mantenimiento: registro, vigilancia, copias, actualización, rotación de claves y desinstalación;
+- anexos de referencia: variables, la herramienta `mdr`, puertos, familias, causas de fallo,
+  problemas, preguntas frecuentes, glosario y límites.
+
+Las plantillas que usa están en [`deploy/`](../../deploy/).
 
 ## La referencia de API
 

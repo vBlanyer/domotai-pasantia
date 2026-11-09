@@ -1,6 +1,6 @@
 # Manual de usuario del MDR de triaje asistido
 
-**Versión 1.0 · noviembre de 2026.** Sustituye a [`manual-del-analista.md`](manual-del-analista.md), del
+**Edición 1.0 · noviembre de 2026 · para el MDR 1.7.** Sustituye a [`manual-del-analista.md`](manual-del-analista.md), del
 26 de octubre, que no cubre el acceso por token, el Panel actual, la vista Conectividad, las causas de
 los fallos de contención ni el informe en PDF. La versión en PDF es
 [`manual-de-usuario.pdf`](manual-de-usuario.pdf).
@@ -9,7 +9,7 @@ los fallos de contención ni el informe en PDF. La versión en PDF es
 
 - **Introducción**: [1. Cómo usar este manual](#1-cómo-usar-este-manual) ·
   [2. Conceptos clave](#2-conceptos-clave) · [3. Roles y permisos](#3-roles-y-permisos)
-- **Primeros pasos**: [4. Poner en marcha el sistema](#4-poner-en-marcha-el-sistema) ·
+- **Primeros pasos**: [4. Poner en marcha el laboratorio](#4-poner-en-marcha-el-laboratorio) ·
   [5. Entrar y salir de la consola](#5-entrar-y-salir-de-la-consola) ·
   [6. Moverse por la consola](#6-moverse-por-la-consola)
 - **Operar**: [7. El Panel](#7-el-panel) ·
@@ -48,7 +48,7 @@ consola, en el orden en que suele vivirse:
 | Bloque | Para quién | Qué cubre |
 |---|---|---|
 | Introducción | Todos | Conceptos que conviene tener claros y qué puede hacer cada uno |
-| Primeros pasos | Todos | Poner en marcha el sistema, entrar, moverse por la consola |
+| Primeros pasos | Todos | Poner en marcha el laboratorio, entrar, moverse por la consola |
 | Operar | Analistas | El Panel, las aprobaciones, la Consola, pausar y revertir |
 | Investigar | Analistas | Decisiones, incidentes, el mapa de la red, ubicaciones y la traza |
 | Informar | Analistas y responsables | El informe del periodo en PDF |
@@ -69,9 +69,10 @@ A lo largo del manual se usa un caso de ejemplo: **un ataque de fuerza bruta por
 203.0.113.9 contra el servidor web-banking**. Llega como alerta, espera aprobación, se contiene, se
 revisa y sale en el informe del mes. La IP es de documentación: no es de nadie.
 
-> **Nota:** el detalle técnico del laboratorio y de los flags está en el RUNBOOK (`RUNBOOK.md`); la
-> operación en producción (servicio systemd, anclaje de la traza), en la guía de operación; la API,
-> en la referencia de API.
+> **Nota:** instalar el MDR en la red de un cliente, sin laboratorio, se explica en el
+> **manual de producción** (`manual-de-produccion.md`). Todo lo que este manual cuenta de la consola
+> vale igual allí. El detalle técnico del laboratorio y de los flags está en el RUNBOOK
+> (`RUNBOOK.md`), y la API, en la referencia de API.
 
 ## 2. Conceptos clave
 
@@ -153,10 +154,14 @@ nombre lo pone el MDR; sin él, lo escribe el analista y no se verifica.
 
 # Primeros pasos
 
-## 4. Poner en marcha el sistema
+## 4. Poner en marcha el laboratorio
 
 Esta sección es para quien administra el MDR. En el laboratorio, el sistema son tres piezas: la red
 del banco (con el SIEM), el MDR y la consola web.
+
+> **Nota:** todo lo de esta sección es **solo del laboratorio**: Containerlab, `banco.sh` y
+> `reiniciar.sh` no se usan en un cliente. Allí el MDR se instala como servicio, y sus pasos están en
+> el manual de producción.
 
 > **Quién puede:** administración del MDR, con acceso al equipo donde se ejecuta.
 
@@ -572,10 +577,11 @@ su línea de tiempo. «DNS inverso: Resolver» solo consulta si lo pides y solo 
 
 ## 14. Ubicaciones y Watchlist
 
-**Ubicaciones** muestra en un mapamundi de dónde vienen los ataques. La geolocalización es
-aproximada y no consulta servicios externos. Tres métricas: «En curso» (aún no contenidos), «Total»
+**Ubicaciones** muestra en un mapamundi de dónde vienen los ataques, por país. La geolocalización no
+consulta servicios externos: usa la base de `TRIAJE_GEOIP`, que en el laboratorio es una muestra de 14
+bloques (`lab/geo_demo/geoip-muestra.csv`; en un cliente, DB-IP Lite). Tres métricas: «En curso» (aún no contenidos), «Total»
 y «Mitigados». Al pulsar un país, «En curso» lleva a Aprobaciones de ese país; las otras dos, a
-Decisiones. Las IPs internas, de laboratorio o sin geolocalizar solo salen en la tabla.
+Decisiones. Las IPs internas, de documentación o sin geolocalizar solo salen en la tabla.
 
 **Watchlist** es tu lista de indicadores sospechosos: una IP o un bloque /24, con una nota. **Es solo
 una anotación**: no cambia ninguna decisión del motor. Las IPs vigiladas salen marcadas con ⚑ en la
@@ -862,6 +868,8 @@ toca».
 | `TRIAJE_SSH_USUARIO`, `TRIAJE_SSH_CLAVE`, `TRIAJE_SSH_KNOWN_HOSTS` | Usuario, clave privada y huellas del conector |
 | `TRIAJE_TRAZA_CLAVE` | Firma la cadena de la traza con HMAC. Sin ella, el arranque avisa «SIN firma HMAC» |
 | `TRIAJE_ANCLA` | Ancla la traza en el syslog del SIEM |
+| `TRIAJE_GEOIP`, `TRIAJE_ASN` | Bases de países (CSV `inicio,fin,país`) y de organizaciones (`inicio,fin,AS,organización`), p. ej. DB-IP Lite. `reiniciar.sh` usa las de muestra del laboratorio; sin base, ni país ni organización |
+| `TRIAJE_SALUD`, `TRIAJE_SALUD_CONTENEDOR` | De dónde lee Estado de servicios: un fichero local, o `contenedor:ruta`. `reiniciar.sh` fija el monitor del banco |
 | Recortes ante fallos | Los cinco de la sección 21 |
 
 ## Anexo D. Ficheros que escribe el sistema
