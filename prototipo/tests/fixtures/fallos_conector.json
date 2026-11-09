@@ -1,0 +1,112 @@
+{
+ "capturado": "2026-11-09T15:49:31+00:00",
+ "equipo": "api-movil",
+ "openssh_nodo": "OpenSSH_9.7p1, OpenSSL 3.3.7 7 Apr 2026",
+ "casos": [
+  {
+   "caso": "ok",
+   "clase": "ok",
+   "rc": 0,
+   "salida": "Chain INPUT (policy ACCEPT)\ntarget     prot opt source               destination         \nDROP       6    --  0.0.0.0/0            0.0.0.0/0           \n\nChain FORWARD (policy ACCEPT)\ntarget     prot opt source               destination         \n\nChain OUTPUT (policy ACCEPT)\ntarget     prot opt source               destination         \n",
+   "nota": "comando del catálogo con todo en orden"
+  },
+  {
+   "caso": "ok_LC",
+   "clase": "ok",
+   "rc": 0,
+   "salida": "Chain INPUT (policy ACCEPT)\ntarget     prot opt source               destination         \nDROP       6    --  0.0.0.0/0            0.0.0.0/0           \n\nChain FORWARD (policy ACCEPT)\ntarget     prot opt source               destination         \n\nChain OUTPUT (policy ACCEPT)\ntarget     prot opt source               destination         \n",
+   "nota": "lo mismo con LC_ALL=C"
+  },
+  {
+   "caso": "verificacion_no_esta",
+   "clase": "no_esta",
+   "rc": 1,
+   "salida": "",
+   "nota": "verificación: la regla no está (grep sin coincidencias, rc 1): NO es un fallo"
+  },
+  {
+   "caso": "F2_sin_aprovisionar",
+   "clase": "F2",
+   "rc": 255,
+   "salida": "No ED25519 host key is known for 10.20.0.10 and you have requested strict checking.\nHost key verification failed.\n",
+   "nota": "el known_hosts no tiene la clave de este equipo"
+  },
+  {
+   "caso": "F2_equipo_nuevo",
+   "clase": "F2",
+   "rc": 255,
+   "salida": "No ED25519 host key is known for 10.70.0.10 and you have requested strict checking.\nHost key verification failed.\n",
+   "nota": "pagos-qr sin dar de alta"
+  },
+  {
+   "caso": "F3_clave_host_cambiada",
+   "clase": "F3",
+   "rc": 255,
+   "salida": "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\nIT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!\nSomeone could be eavesdropping on you right now (man-in-the-middle attack)!\nIt is also possible that a host key has just been changed.\nThe fingerprint for the ED25519 key sent by the remote host is\nSHA256:dLZP9M6YEoeEEsVDwAt6E4BXAgNSmGOP5k0/nhze5cc.\nPlease contact your system administrator.\nAdd correct host key in /tmp/mdr-fallos/known_cambiada to get rid of this message.\nOffending ED25519 key in /tmp/mdr-fallos/known_cambiada:1\nHost key for 10.20.0.10 has changed and you have requested strict checking.\nHost key verification failed.\n",
+   "nota": "el known_hosts tiene OTRA clave para este equipo"
+  },
+  {
+   "caso": "F4_clave_rechazada",
+   "clase": "F4",
+   "rc": 255,
+   "salida": "triaje@10.20.0.10: Permission denied (publickey,password,keyboard-interactive).\n",
+   "nota": "el equipo no acepta la clave del conector"
+  },
+  {
+   "caso": "F5_conexion_rechazada",
+   "clase": "F5",
+   "rc": 255,
+   "salida": "ssh: connect to host 10.20.0.10 port 2222: Connection refused\n",
+   "nota": "puerto sin sshd"
+  },
+  {
+   "caso": "F5_sin_equipo",
+   "clase": "F5",
+   "rc": 255,
+   "salida": "ssh: connect to host 10.70.0.99 port 22: Host is unreachable\n",
+   "nota": "IP del laboratorio sin equipo"
+  },
+  {
+   "caso": "F5_sin_ruta",
+   "clase": "F5",
+   "rc": 255,
+   "salida": "ssh: connect to host 10.99.0.10 port 22: Operation timed out\n",
+   "nota": "red sin segmento en fw-core"
+  },
+  {
+   "caso": "F6_binario_ausente",
+   "clase": "F6",
+   "rc": 1,
+   "salida": "\nWe trust you have received the usual lecture from the local System\nAdministrator. It usually boils down to these three things:\n\n    #1) Respect the privacy of others.\n    #2) Think before you type.\n    #3) With great power comes great responsibility.\n\nFor security reasons, the password you type will not be visible.\n\n[sudo] password for triaje: \nsudo: no password was provided\nsudo: a password is required\n",
+   "nota": "acción del catálogo cuyo binario no está"
+  },
+  {
+   "caso": "F6_fuera_del_sudoers",
+   "clase": "F6",
+   "rc": 1,
+   "salida": "\nWe trust you have received the usual lecture from the local System\nAdministrator. It usually boils down to these three things:\n\n    #1) Respect the privacy of others.\n    #2) Think before you type.\n    #3) With great power comes great responsibility.\n\nFor security reasons, the password you type will not be visible.\n\n[sudo] password for triaje: \nsudo: no password was provided\nsudo: a password is required\n",
+   "nota": "comando fuera del sudoers"
+  },
+  {
+   "caso": "F6_fuera_del_sudoers_LC",
+   "clase": "F6",
+   "rc": 1,
+   "salida": "\nWe trust you have received the usual lecture from the local System\nAdministrator. It usually boils down to these three things:\n\n    #1) Respect the privacy of others.\n    #2) Think before you type.\n    #3) With great power comes great responsibility.\n\nFor security reasons, the password you type will not be visible.\n\n[sudo] password for triaje: \nsudo: no password was provided\nsudo: a password is required\n",
+   "nota": "lo mismo con LC_ALL=C"
+  },
+  {
+   "caso": "F7_comando_falla",
+   "clase": "F7",
+   "rc": 1,
+   "salida": "iptables: Bad rule (does a matching rule exist in that chain?).\n",
+   "nota": "sudo lo permite (es la reversión) pero el comando falla: la regla no existe"
+  },
+  {
+   "caso": "F9_sin_configurar",
+   "clase": "F9",
+   "rc": 126,
+   "salida": "conector sin configurar: aprovisiona el minimo privilegio (sh lab/scripts/aprovisionar-minimo-privilegio.sh) o fija TRIAJE_SSH_MODO",
+   "nota": "salida del ejecutor que rechaza (conector._ejecutor_sin_configurar)"
+  }
+ ]
+}
