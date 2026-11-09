@@ -534,6 +534,11 @@ export const ConectividadSchema = z.object({
     nombre: z.string(), ip: z.string(), zona: z.string().nullable().optional(), tipo: z.string().nullable().optional(),
     funcion: z.string().nullable().optional(), protegido: z.boolean(), puerto: z.number(), usuario: z.string(),
     ajustado: z.boolean(), huella_fijada: z.string().nullable().optional(), ultima_prueba: PruebaSchema.nullable().optional(),
+    // la última contención real en este equipo falló (fase 3 del plan de fallos): resta confianza
+    operativo: z.object({
+      clase: z.string(), descripcion: z.string().nullable().optional(), accion: z.string().nullable().optional(),
+      posible_ataque: z.boolean().nullable().optional(), regresion: z.boolean().nullable().optional(), en: z.string().nullable().optional(),
+    }).nullable().optional(),
     // inventario operativo: papel y reglas del equipo, y si es un alta pendiente o hecha desde la consola
     papel: z.string().nullable().optional(), acciones: z.array(z.string()).nullable().optional(),
     servicios: z.array(z.string()).optional(), cuentas: z.array(z.string()).optional(), cuentas_cualquiera: z.boolean().optional(),

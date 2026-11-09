@@ -2,7 +2,10 @@
 import type { EquipoConectividad, ModoSesion } from "@/api"
 
 export type Tono = "ok" | "aviso" | "critico" | "neutro"
-export type EstadoEquipo = { id: string; texto: string; sub: string; tono: Tono }
+// `aviso`: la última contención real en el equipo falló. Va ENCIMA del estado de la prueba, que no se
+// toca: solo resta confianza (nunca pone nada en verde).
+export type AvisoOperativo = { texto: string; sub: string; tono: Tono; ataque: boolean }
+export type EstadoEquipo = { id: string; texto: string; sub: string; tono: Tono; aviso?: AvisoOperativo }
 
 export const MODOS = [
   { id: "clave", nombre: "Clave · vía nodo de gestión" },
@@ -32,7 +35,21 @@ export function edadTexto(iso: string | null | undefined, ahora: number): string
   return h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`
 }
 
+export function avisoOperativo(e: EquipoConectividad, ahora = Date.now()): AvisoOperativo | undefined {
+  const o = e.operativo
+  if (!o || e.protegido) return undefined
+  const ataque = !!o.posible_ataque
+  return { texto: ataque ? "posible ataque" : "la última contención falló", tono: "critico", ataque,
+    sub: [o.descripcion ?? o.clase, edadTexto(o.en, ahora)].filter(Boolean).join(" · ") }
+}
+
 export function estadoEquipo(e: EquipoConectividad, ahora = Date.now()): EstadoEquipo {
+  const est = estadoPorPrueba(e, ahora)
+  const aviso = avisoOperativo(e, ahora)
+  return aviso ? { ...est, aviso } : est
+}
+
+function estadoPorPrueba(e: EquipoConectividad, ahora: number): EstadoEquipo {
   if (e.protegido) return { id: "protegido", texto: "no se contiene", sub: "protegido: canal de gestión del MDR", tono: "neutro" }
   if (e.alta === "pendiente") return { id: "alta_pendiente", texto: "alta pendiente", sub: "esperando el paquete en el equipo", tono: "neutro" }
   const p = e.ultima_prueba
@@ -51,7 +68,9 @@ export function resumenConectividad(equipos: EquipoConectividad[]) {
   const est = equipos.filter((e) => !e.protegido && e.alta !== "pendiente").map((e) => estadoEquipo(e))
   return {
     contenibles: est.length,
-    verificadas: est.filter((e) => e.id === "verificada" || e.id === "verificada_vieja").length,
+    // con una contención fallida encima, la prueba verde ya no basta para contarlo como verificado
+    verificadas: est.filter((e) => (e.id === "verificada" || e.id === "verificada_vieja") && !e.aviso).length,
+    conFallos: est.filter((e) => e.aviso).length,
     hostCambiada: est.filter((e) => e.id === "host_cambiada").length,
     sinAprovisionar: est.filter((e) => e.id === "sin_aprovisionar").length,
     sinProbar: est.filter((e) => e.id === "sin_probar").length,

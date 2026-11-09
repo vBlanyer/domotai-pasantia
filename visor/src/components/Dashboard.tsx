@@ -235,7 +235,7 @@ export function Dashboard({ conectado, ...s }: { conectado: boolean } & Saltos) 
     servicios: sv ? { total: sv.total, caidos: sv.caidos, caidosNombres: sv.servicios.filter((x) => x.estado !== "ok").map((x) => x.nombre).slice(0, 3) } : null,
     ingestaSilencioS: latido && !("error" in latido) ? latido.ingesta_silencio_s : undefined,
     trazaOk: verif && !("error" in verif) ? verif.ok : null,
-    conector: conect && !("error" in conect) && r ? { modo: conect.modo, problemas: r.hostCambiada + r.sinAprovisionar, verificados: r.verificadas, contenibles: r.contenibles } : null,
+    conector: conect && !("error" in conect) && r ? { modo: conect.modo, problemas: r.hostCambiada + r.sinAprovisionar + r.conFallos, verificados: r.verificadas, contenibles: r.contenibles } : null,
   })
 
   const completa = regs.length < LIMITE_TRAZAS_PANEL

@@ -402,6 +402,7 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
         if res and not res.get("exito"):      # por qué falló este salto (solo se anota: no cambia la cadena)
             o = reg.get("orden") or {}
             paso["causa"] = fallos.clasificar_fallo(res, None, fallos.contexto(o.get("nodo_ip"), o.get("accion_id")))
+            fallos.observar(o.get("nodo_ip"), paso["causa"])
         pasos.append(paso)
         if reg is None or reg.get("vetado"):  # no aplicable o vetado por el perfil: siguiente salto
             continue
@@ -416,6 +417,7 @@ def escalar_determinista(alerta, clase, perfil, catalogo, ejecutor, leer=input, 
             if veredicto != "bloqueado":      # se aplicó en el salto y la verificación no la encuentra
                 paso_v["causa"] = fallos.clasificar_fallo({"exito": True, "codigo_salida": 0, "salida": ""},
                                                           {"verificado": False})
+            fallos.observar((reg.get("orden") or {}).get("nodo_ip"), paso_v.get("causa"))
             pasos.append(paso_v)
             if veredicto == "bloqueado":
                 return _plan(pasos, reversiones, dispositivo, tocados, "mitigado", False,

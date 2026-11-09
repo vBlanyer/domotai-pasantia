@@ -135,3 +135,23 @@ def contexto(ip, accion_id=None):
         return _proveedor(ip, accion_id) or {}
     except Exception:
         return {}       # un fallo al consultar la consola nunca rompe una contención
+
+
+# Y al revés (fase 3): cada contención real le cuenta a la consola cómo fue en cada equipo, para que
+# Conectividad no siga enseñando «verificada» un equipo en el que las contenciones fallan. `causa` None =
+# contenida y verificada ahí. Solo informa: un fallo del observador nunca rompe una contención.
+_observador = None
+
+
+def configurar_observador(fn):
+    global _observador
+    _observador = fn
+
+
+def observar(ip, causa):
+    if _observador is None or not ip:
+        return
+    try:
+        _observador(ip, causa)
+    except Exception:
+        pass

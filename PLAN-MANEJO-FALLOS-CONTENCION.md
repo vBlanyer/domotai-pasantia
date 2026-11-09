@@ -357,3 +357,23 @@ del laboratorio para no interferir con él.
 - Pruebas: una de presentación por clase (F1..F10). F3, F8 y la regresión nunca llevan texto de
   configuración. Python 1180, visor 440, evaluación 63 y banco 157.
 
+
+### Fase 3: hecho
+
+- `fallos.observar(ip, causa)`: el lazo y cada salto de la escalada cuentan cómo fue la contención en
+  cada equipo. `causa` None significa que quedó contenida y verificada ahí. Si el observador falla,
+  la contención no cambia (probado).
+- `conectividad_web.registrar_operativo` guarda en memoria, por IP, el último fallo: clase,
+  descripción, qué hacer, si puede ser ataque, si es regresión y cuándo. La evidencia en bruto **no**
+  viaja a Conectividad: está en la traza de la decisión. Una contención verificada o una prueba
+  correcta quitan el aviso.
+- Visor:
+  - Conectividad: el aviso va encima de la prueba, que no se toca. Va en la fila («la última
+    contención falló» o «posible ataque») y en el detalle, con «vuelve a probar para confirmarlo».
+  - Un equipo con el aviso deja de contar como verificado.
+  - El indicador «Conector» del Panel lo cuenta como problema.
+- Criterio: tras el caso E1, web-banking deja de verse solo como «verificada» con su primera
+  contención fallida. La vista sondea, así que lo enseña en el siguiente refresco. Queda por confirmar
+  en la pasada completa del laboratorio (pendiente de la fase 0).
+- Límite conocido: el estado operativo vive en memoria. Al reiniciar el daemon se pierde, y lo
+  vuelve a poner la siguiente contención fallida.

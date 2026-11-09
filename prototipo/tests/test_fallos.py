@@ -101,6 +101,7 @@ class TestReglasDeGravedad(unittest.TestCase):
 class TestContexto(unittest.TestCase):
     def tearDown(self):
         fallos.configurar_contexto(None)
+        fallos.configurar_observador(None)
 
     def test_sin_proveedor_o_si_falla_el_contexto_es_vacio(self):
         self.assertEqual(fallos.contexto("10.0.0.1"), {})
@@ -124,6 +125,7 @@ class TestNoInterferencia(unittest.TestCase):
 
     def tearDown(self):
         fallos.configurar_contexto(None)
+        fallos.configurar_observador(None)
 
     def setUp(self):
         reloj = mock.patch.object(conector, "ahora_iso", return_value="2026-11-09T00:00:00.000+00:00")
@@ -166,6 +168,16 @@ class TestNoInterferencia(unittest.TestCase):
     def test_regresion_con_el_contexto_de_la_consola(self):
         r = self._ambos(tl.TestEscaladaPorDefecto.HostCaido, ctx=lambda ip, acc: {"verificado": ip == "192.168.1.30"})
         self.assertTrue(r["causa_fallo"]["regresion"])
+
+    def test_el_observador_recibe_cada_resultado_y_si_falla_no_cambia_nada(self):
+        vistos = []
+        fallos.configurar_observador(lambda ip, causa: vistos.append((ip, causa and causa["clase"])))
+        self._ambos(tl.TestEscaladaPorDefecto.HostCaido)
+        self.assertIn(("192.168.1.30", "F5"), vistos)        # el activo cayó
+        self.assertIn(("192.168.1.1", None), vistos)         # el cortafuegos contuvo: limpia su aviso
+        fallos.configurar_observador(lambda ip, causa: 1 / 0)
+        r = self._ambos(tl.TestEscaladaPorDefecto.HostCaido)
+        self.assertEqual(r["escalada"]["resultado"], "mitigado")
 
     def test_una_contencion_correcta_no_cambia_su_registro(self):
         r = self._ambos(_EjecutorBien)

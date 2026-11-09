@@ -44,6 +44,7 @@ def instalar(srv, ruta, ruta_auditoria):
     srv.ruta_pruebas = _junto(ruta, "conectividad-pruebas.json")
     srv.conectividad_pruebas = cx.cargar_pruebas(srv.ruta_pruebas)    # ip -> última prueba (sobrevive al reinicio)
     srv.conectividad_ultimo = {}                                        # (qué, ip) -> instante, para el freno
+    srv.conectividad_operativo = {}     # ip -> último fallo de una contención real (en memoria; fase 3)
     srv.ruta_inventario = _junto(ruta, "inventario-operativo.yml")
     srv.ruta_rotacion = cx.ruta_rotacion(ruta) if ruta else None
     srv._perfil_canonico = srv._perfil_base
@@ -181,6 +182,21 @@ def _vigente(prueba, clave, fijada):
     return bool(prueba) and prueba.get("clave_conector") == (clave or {}).get("huella") and prueba.get("huella_host") == fijada
 
 
+_CAMPOS_OPERATIVO = ("clase", "descripcion", "accion", "posible_ataque", "regresion")
+
+
+def registrar_operativo(srv, ip, causa):
+    """El resultado de una contención real en un equipo: un fallo deja un aviso encima de su prueba;
+    una contención verificada lo quita. Nunca pone nada en «verificada»: solo resta confianza. La
+    evidencia en bruto no se guarda aquí (está en la traza de la decisión)."""
+    with _lock:
+        if causa is None:
+            srv.conectividad_operativo.pop(ip, None)
+        else:
+            from prototipo.accion.conector import ahora_iso
+            srv.conectividad_operativo[ip] = {**{k: causa.get(k) for k in _CAMPOS_OPERATIVO}, "en": ahora_iso()}
+
+
 def contexto_equipo(srv, ip, accion_id=None):
     """Lo que la consola sabe de un equipo para clasificar un fallo de contención (accion/fallos):
     si tiene su clave del host fijada, si estaba verificado con las claves actuales (regresión) y, si su
@@ -225,7 +241,8 @@ def resumen(srv, operador):
         equipos.append({**e, "puerto": aj.get("puerto") or 22, "usuario": aj.get("usuario") or defecto or conector.SSH_USUARIO,
                         "ajustado": bool(aj), "huella_fijada": huellas.get(e["ip"]),
                         "ultima_prueba": (lambda p: p if _vigente(p, clave, huellas.get(e["ip"])) else None)(
-                            srv.conectividad_pruebas.get(e["ip"]))})
+                            srv.conectividad_pruebas.get(e["ip"])),
+                        "operativo": srv.conectividad_operativo.get(e["ip"])})
     puede, motivo = _permisos(srv, operador, modo)
     falta_clave = clave is None and alcanzable
     if falta_clave:
@@ -284,6 +301,8 @@ def _probar(srv, modo, e, usuario, puerto, operador=None):
          "huella_host": (cx.huellas_fijadas(kh) if rc == 0 else {}).get(e["ip"])}
     with _lock:
         srv.conectividad_pruebas[e["ip"]] = r
+        if r.get("estado") == "verificada":
+            srv.conectividad_operativo.pop(e["ip"], None)    # una prueba correcta quita el aviso
         try:
             cx.guardar_pruebas(srv.ruta_pruebas, srv.conectividad_pruebas)
         except OSError:

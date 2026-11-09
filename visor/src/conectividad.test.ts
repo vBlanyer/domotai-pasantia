@@ -20,12 +20,30 @@ describe("estadoEquipo", () => {
   })
 })
 
+describe("estado operativo (fase 3 del plan de fallos)", () => {
+  const f5 = { clase: "F5", descripcion: "equipo inalcanzable", accion: "comprueba la red", posible_ataque: false, en: new Date(Date.now() - 60_000).toISOString() }
+  it("una contención fallida va encima de la prueba verde, sin tocarla", () => {
+    const est = estadoEquipo(eq({ ultima_prueba: prueba("verificada"), operativo: f5 }))
+    expect(est).toMatchObject({ id: "verificada", tono: "ok" })
+    expect(est.aviso).toMatchObject({ texto: "la última contención falló", tono: "critico", ataque: false })
+    expect(est.aviso?.sub).toMatch(/equipo inalcanzable · hace 1 min/)
+  })
+  it("lo que puede ser ataque se nombra así", () => {
+    const est = estadoEquipo(eq({ ultima_prueba: prueba("verificada"), operativo: { ...f5, clase: "F3", descripcion: "la clave del host cambió", posible_ataque: true } }))
+    expect(est.aviso).toMatchObject({ texto: "posible ataque", ataque: true })
+  })
+  it("con el aviso deja de contar como verificado", () => {
+    const r = resumenConectividad([eq({ ultima_prueba: prueba("verificada"), operativo: f5 }), eq({ ultima_prueba: prueba("verificada") })])
+    expect(r).toMatchObject({ verificadas: 1, conFallos: 1 })
+  })
+})
+
 describe("resumenConectividad", () => {
   it("cuenta contenibles (sin protegidos), verificadas, clave cambiada y sin aprovisionar", () => {
     expect(resumenConectividad([
       eq({ ultima_prueba: prueba("verificada") }), eq({ ultima_prueba: prueba("host_cambiada") }),
       eq({ huella_fijada: null }), eq({ ultima_prueba: prueba("sin_aprovisionar") }), eq({ protegido: true }), eq({}),
-    ])).toEqual({ contenibles: 5, verificadas: 1, hostCambiada: 1, sinAprovisionar: 2, sinProbar: 1 })
+    ])).toEqual({ contenibles: 5, verificadas: 1, hostCambiada: 1, sinAprovisionar: 2, sinProbar: 1, conFallos: 0 })
   })
   it("nombra los modos del conector", () => {
     expect(MODOS.map((m) => m.id)).toEqual(["clave", "directo", "password"])

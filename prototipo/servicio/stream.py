@@ -1135,6 +1135,7 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
     from prototipo.accion import fallos
     from prototipo.servicio import conectividad_web
     fallos.configurar_contexto(lambda ip, accion_id: conectividad_web.contexto_equipo(servidor, ip, accion_id))
+    fallos.configurar_observador(lambda ip, causa: conectividad_web.registrar_operativo(servidor, ip, causa))
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 
 _NOMBRE_EJECUTOR = {"ejecutor_ssh_clave": "conector SSH con clave (usuario dedicado, sudo acotado)",

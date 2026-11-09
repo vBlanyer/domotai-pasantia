@@ -104,6 +104,7 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
     # sigue. Sin fallo no se añade el campo (los registros de una contención correcta no cambian).
     causa = None if (ejecucion.get("exito") and verif.get("verificado")) else fallos.clasificar_fallo(
         ejecucion, verif, fallos.contexto(o.get("nodo_ip"), o.get("accion_id")))
+    fallos.observar(o.get("nodo_ip"), causa)
     # Escalada por defecto (requisito del tutor industrial): si el paso en el activo no se pudo
     # ejecutar o no se verifica y el perfil describe una topologia, se sigue la cadena de
     # contencion hacia el perimetro, con el filtro del perfil en cada salto. Sin topologia no hay

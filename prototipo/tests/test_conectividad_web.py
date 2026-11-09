@@ -368,6 +368,29 @@ class TestClaveDesdeCeroYEstadoViejo(_Base):
         self.assertEqual(cw.contexto_equipo(srv, "10.0.20.10", "NO_EXISTE").get("regla_falta"), None)
         self.assertEqual(cw.contexto_equipo(self._srv(modo="laboratorio"), "10.0.20.10"), {})   # sin claves que mirar
 
+    def test_estado_operativo_de_las_contenciones_reales(self):
+        # fase 3: un fallo de contención deja un aviso encima de la prueba; nunca la pone en verde
+        from prototipo.accion import fallos
+        from prototipo.servicio import conectividad_web as cw
+        srv = self._srv({"tok": "ana"})
+        self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
+        f5 = fallos.clasificar_fallo({"exito": False, "codigo_salida": 255, "salida": "ssh: connect to host x port 22: Connection refused"},
+                                     contexto={"verificado": True})
+        cw.registrar_operativo(srv, "10.0.20.10", f5)
+        _, est = self._req(srv, "GET", "/api/conectividad", token="tok")
+        db = self._eq(est, "db-core")
+        self.assertEqual(db["ultima_prueba"]["estado"], "verificada")            # la prueba sigue ahí
+        self.assertEqual((db["operativo"]["clase"], db["operativo"]["regresion"]), ("F5", True))
+        self.assertNotIn("evidencia", db["operativo"])                           # la salida en bruto no viaja
+        self.assertIsNone(self._eq(est, "fw-core")["operativo"])
+        cw.registrar_operativo(srv, "10.0.20.10", None)                          # una contención correcta lo quita
+        self.assertNotIn("10.0.20.10", srv.conectividad_operativo)
+        cw.registrar_operativo(srv, "10.0.20.10", f5)
+        srv.conectividad_ultimo.clear()
+        self.f.ssh["10.0.20.10"] = [(0, "ok"), (1, "denegado")]
+        self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")   # y una prueba correcta
+        self.assertNotIn("10.0.20.10", srv.conectividad_operativo)
+
     def test_cualquier_cuenta_salvo_las_del_sistema(self):
         from prototipo.accion import catalogo
         srv = self._srv({"tok": "ana"})

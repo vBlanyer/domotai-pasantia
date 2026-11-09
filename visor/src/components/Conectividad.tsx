@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, TriangleAlert } from "lucide-react"
 import {
   getConectividad, probarConexion, probarEquipo, guardarConexion, guardarUsuarioDefecto, leerClaveHost, aceptarClaveHost,
   quitarInventario, sesionActual, operadorActual, generarClaveConector,
@@ -111,6 +111,12 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
         </div>
         <div className="text-xs text-muted-foreground">{[e.ip, e.zona, e.funcion].filter(Boolean).join(" · ")}</div>
       </div>
+      {est.aviso && (
+        <div role="alert" className="border-b border-critico/30 bg-critico/5 px-4 py-2 text-xs text-critico">
+          <p className="font-semibold">{est.aviso.ataque ? "Posible ataque" : "La última contención en este equipo falló"}</p>
+          <p>{[est.aviso.sub, e.operativo?.accion].filter(Boolean).join(" · ")}.{prueba ? " La prueba de conexión es anterior: vuelve a probar para confirmarlo." : ""}</p>
+        </div>
+      )}
 
       {pendiente && (
         <Seccion titulo="Alta pendiente">
@@ -393,7 +399,9 @@ export function Conectividad() {
                     {e.protegido ? <td colSpan={4} className="px-3 py-2 text-xs text-muted-foreground">Canal de gestión del MDR: no se contiene ni se configura desde aquí.</td> : <>
                       <td className="px-3 py-2">{papelTexto(e, d.papeles) ?? <span className="text-muted-foreground">sin papel</span>}
                         {(e.servicios?.length || e.cuentas?.length || e.cuentas_cualquiera) ? <span className="block text-[11.5px] text-muted-foreground">{[...(e.servicios ?? []), ...(e.cuentas_cualquiera ? ["cualquier cuenta"] : (e.cuentas ?? []).map((c) => `cuenta ${c}`))].join(" · ")}</span> : null}</td>
-                      <td className="px-3 py-2"><span className={cn("inline-flex items-center gap-1.5 font-medium whitespace-nowrap", TEXTO[est.tono])}>
+                      <td className="px-3 py-2">{est.aviso && <span className="mb-0.5 flex items-center gap-1.5 text-[11.5px] font-semibold whitespace-nowrap text-critico" title={est.aviso.sub}>
+                          <TriangleAlert className="size-3" aria-hidden />{est.aviso.texto}</span>}
+                        <span className={cn("inline-flex items-center gap-1.5 font-medium whitespace-nowrap", TEXTO[est.tono])}>
                         <span className={cn("size-2 rounded-full", PUNTO[est.tono])} />{est.texto}</span>
                         <span className="block text-[11.5px] text-muted-foreground">{est.sub}</span></td>
                       <td className="px-3 py-2"><span className={cn("rounded px-1.5 text-[11px] font-medium", PILDORA[reg.tono])}>{reg.texto}</span>

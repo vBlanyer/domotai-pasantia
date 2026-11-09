@@ -91,6 +91,19 @@ describe("Conectividad", () => {
     expect(h.probar).toHaveBeenCalledWith("fw-core", { puerto: null, usuario: null })
   })
 
+  it("una contención fallida en un equipo verificado se avisa encima de su prueba (fase 3)", async () => {
+    h.datos = base({ equipos: [equipo({ ultima_prueba: PRUEBA_OK, operativo: { clase: "F3", descripcion: "la clave del host cambió",
+      accion: "posible suplantación del equipo: compruébalo por otro canal antes de aceptar la clave", posible_ataque: true, regresion: false,
+      en: new Date().toISOString() } })] })
+    render(vista())
+    await screen.findByText("SHA256:CONECTOR")
+    expect(screen.getAllByText("posible ataque").length).toBeGreaterThan(0)                // en la fila
+    const alerta = region().getByRole("alert")                                           // y en el detalle
+    expect(alerta).toHaveTextContent("Posible ataque")
+    expect(alerta).toHaveTextContent("la clave del host cambió")
+    expect(alerta).toHaveTextContent("vuelve a probar para confirmarlo")
+  })
+
   it("la deriva del sudoers se enseña con lo que sobra y lo que falta", async () => {
     h.datos = base({ equipos: [equipo({ papel: "puesto", ultima_prueba: { ok: false, estado: "privilegio_de_mas", pasos: [],
       reglas: { estado: "sobran", sobran: ["cat *"], faltan: ["ss -K dst *"] } } })] })
