@@ -39,7 +39,23 @@ class TestTokens(unittest.TestCase):
         analistas.baja(self.env, "ana")
         self.assertEqual(analistas.lista(self.env), ["leo"])
         with self.assertRaises(ValueError):
+            analistas.baja(self.env, "ana", forzar=True)
+
+    def test_dar_de_baja_al_ultimo_exige_forzar_porque_abre_la_consola(self):
+        analistas.alta(self.env, "ana", generar=lambda: "t1")
+        with self.assertRaises(ValueError) as cm:
             analistas.baja(self.env, "ana")
+        self.assertIn("abierta", str(cm.exception))
+        analistas.baja(self.env, "ana", forzar=True)
+        self.assertEqual(analistas.lista(self.env), [])
+
+    def test_comprobar_alta_falla_antes_de_tocar_el_sistema(self):
+        analistas.alta(self.env, "ana", generar=lambda: "t1")
+        with self.assertRaises(ValueError):
+            analistas.comprobar_alta(self.env, "ana")
+        with self.assertRaises(ValueError):
+            analistas.comprobar_alta(self.env, "Ana López")
+        analistas.comprobar_alta(self.env, "leo")             # válido: no lanza
 
     def test_el_token_por_defecto_es_largo_y_distinto(self):
         a, b = analistas.alta(self.env, "ana"), analistas.alta(self.env, "leo")
@@ -63,6 +79,8 @@ class TestCuentaSSH(unittest.TestCase):
             texto = f.read()
         self.assertIn("Match Group mdr-analistas", texto)
         self.assertIn("PermitOpen 127.0.0.1:8787", texto)
+        for linea in ("AllowStreamLocalForwarding no", "AllowAgentForwarding no", "PermitTunnel no"):
+            self.assertIn(linea, texto)
         self.assertIn(["groupadd", "--system", "mdr-analistas"], run.ordenes)
         self.assertIn(["sshd", "-t"], run.ordenes)
         casa = os.path.join(self.d, "home-ana")

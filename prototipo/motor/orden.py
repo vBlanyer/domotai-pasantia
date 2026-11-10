@@ -2,13 +2,30 @@
 from prototipo.motor import perfil as perfilm
 from prototipo.motor import actores
 
-# Respaldo heredado: mapa activo->IP del plano de datos del laboratorio, para perfiles que no
-# declaran la IP del activo. La IP se resuelve primero del perfil (`perfil.ip_de`: inventario y
-# topología del cliente, V4).
+# Respaldo heredado del laboratorio: mapa activo->IP de la red pequeña, SOLO para quien no tiene perfil
+# o tiene uno sin ninguna IP (pruebas antiguas). Un perfil de cliente declara IPs: a un equipo suyo
+# sin IP no se le asigna la del laboratorio que se llame igual (ver `_ip`).
 IP_DE_NODO = {
     "objetivo-vuln": "192.168.1.30", "puesto": "192.168.1.10",
     "iot": "192.168.1.20", "borde": "192.168.1.1",
 }
+
+
+def _declara_ips(perfil):
+    secciones = ((perfil or {}).get("activos") or {}, (perfil or {}).get("topologia") or {})
+    return any(isinstance(v, dict) and v.get("ip") for sec in secciones for v in sec.values())
+
+
+def _ip(perfil, activo):
+    """La IP del equipo según el perfil. El mapa del laboratorio solo cubre a quien no tiene perfil o
+    tiene uno heredado SIN ninguna IP (las pruebas de la red pequeña); un perfil de cliente declara
+    IPs, y a un equipo suyo sin IP no se le inventa una."""
+    ip = perfilm.ip_de(perfil, activo) if perfil else None
+    if ip or (perfil and _declara_ips(perfil)):
+        return ip
+    return IP_DE_NODO.get(activo)
+
+
 _ACCIONES_SOBRE_ORIGEN = {"BLOQUEAR_IP", "MATAR_CONEXION"}
 _ACCIONES_SOBRE_CUENTA = {"FORZAR_CAMBIO_PASS"}   # la acción recae sobre el usuario, no la IP ni el servicio
 _ACCIONES_SOBRE_NODO = {"AISLAR_NODO"}            # cuarentena: se ejecuta en el cortafuegos de borde, no en el host
@@ -45,7 +62,7 @@ def construir(decision, alerta, perfil=None):
         return {
             "decision_id": decision.get("id_decision"), "accion_id": accion,
             "nodo_objetivo": activo,          # el host cuyo enlace se acota (corre en él mismo)
-            "nodo_ip": (perfilm.ip_de(perfil, activo) if perfil else None) or IP_DE_NODO.get(activo),
+            "nodo_ip": _ip(perfil, activo),
             "params": {"if": interfaz, "rate": rate},
             "impacto": decision.get("impacto"), "justificacion": decision.get("justificacion"),
         }
@@ -77,7 +94,7 @@ def construir(decision, alerta, perfil=None):
         "decision_id": decision.get("id_decision"),
         "accion_id": accion,
         "nodo_objetivo": activo,
-        "nodo_ip": (perfilm.ip_de(perfil, activo) if perfil else None) or IP_DE_NODO.get(activo),
+        "nodo_ip": _ip(perfil, activo),
         "params": params,
         "impacto": decision.get("impacto"),
         "justificacion": decision.get("justificacion"),

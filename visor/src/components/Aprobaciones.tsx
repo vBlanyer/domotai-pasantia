@@ -3,7 +3,7 @@ import { TriangleAlert, Clock, ChevronDown, ChevronRight } from "lucide-react"
 import { useSondeo, getPendientes, getTrazas, aprobar, actualizarCaso, parsearPendiente, operadorActual, operadorVerificado, ahoraServidor, type Pendiente, type Opcion, type Decision } from "@/api"
 import { edadTexto, msDesde } from "@/alertas"
 import { etiquetaClase, ubicacionLabelDe, nivelPrioridad, paginar, TAM_PAGINA } from "@/datos"
-import { SLA_MS, ordenarPor, agruparPor, ORDENES, AGRUPACIONES, type Orden, type Agrupacion, saludCola, siguienteTras, historialOrigen, resueltasHoyPor, efectoAprobar } from "@/aprobaciones"
+import { slaMs, ordenarPor, agruparPor, ORDENES, AGRUPACIONES, type Orden, type Agrupacion, saludCola, siguienteTras, historialOrigen, resueltasHoyPor, efectoAprobar } from "@/aprobaciones"
 import { cn } from "@/lib/utils"
 import { Paginador } from "@/components/Paginador"
 import { useToast } from "@/components/ui/use-toast"
@@ -76,8 +76,8 @@ function guardarPreferencia(k: string, v: string) {
 
 type Chip = "todas" | "sla" | "criticas" | "cascada" | "ataca"
 const clave = (p: Pendiente) => `${p.id}:${p.paso ?? 0}`
-const pct = (edadMs: number) => Math.min(100, Math.round((edadMs / SLA_MS) * 100))
-const tonoSla = (edadMs: number) => (edadMs >= SLA_MS ? "bg-critico" : edadMs >= SLA_MS * 0.5 ? "bg-aviso" : "bg-primary")
+const pct = (edadMs: number, sla: number) => Math.min(100, Math.round((edadMs / sla) * 100))
+const tonoSla = (edadMs: number, sla: number) => (edadMs >= sla ? "bg-critico" : edadMs >= sla * 0.5 ? "bg-aviso" : "bg-primary")
 const TONO_SEV = ["bg-enrutado", "bg-info", "bg-aviso", "bg-critico"]
 const TONO_PILDORA = ["bg-enrutado/15 text-enrutado", "bg-info/15 text-info", "bg-aviso/15 text-aviso", "bg-critico/15 text-critico"]
 
@@ -97,7 +97,7 @@ function Fila({ p, edadMs, activa, estado, seleccionada, onSeleccion, onAbrir }:
 }) {
   const v = parsearPendiente(p)
   const nivel = nivelPrioridad(p.severidad)
-  const fuera = edadMs >= SLA_MS
+  const fuera = edadMs >= slaMs(p)
   const cascada = efectoAprobar(p).cascada.length > 0
   const resumen = p.activo
     ? <><b className="font-semibold">{p.activo}</b>{p.clase && <><span className="text-muted-foreground"> · </span>{etiquetaClase(p.clase)}</>}{p.accion_final && <><span className="text-muted-foreground"> → </span><b className="font-semibold">{p.accion_final}</b></>}</>
@@ -124,7 +124,7 @@ function Fila({ p, edadMs, activa, estado, seleccionada, onSeleccion, onAbrir }:
         </span>
         <span className="flex flex-col items-end gap-1">
           <span className={cn("text-[11px] tabular-nums", fuera ? "font-semibold text-critico" : "text-muted-foreground")}>{edadTexto(edadMs)}</span>
-          <span className="h-1 w-16 overflow-hidden rounded-sm bg-muted"><span className={cn("block h-full", tonoSla(edadMs))} style={{ width: `${pct(edadMs)}%` }} /></span>
+          <span className="h-1 w-16 overflow-hidden rounded-sm bg-muted"><span className={cn("block h-full", tonoSla(edadMs, slaMs(p)))} style={{ width: `${pct(edadMs, slaMs(p))}%` }} /></span>
         </span>
       </button>
     </li>
@@ -169,7 +169,7 @@ function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicac
   const efecto = efectoAprobar(p)
   const conCascada = efecto.cascada.length > 0
   const clasificando = (v.titulo ?? "").startsWith("Nueva clase")
-  const fuera = edadMs >= SLA_MS
+  const fuera = edadMs >= slaMs(p)
   const ubic = p.enriquecimiento_origen ? ubicacionLabelDe(p) : null
   const historia = historialOrigen(trazas, p.origen_ip)
   const bloqueada = estado !== "listo"
@@ -329,7 +329,7 @@ export function Aprobaciones({ paisInicial = "", idInicial = null, onQuitarPais 
   const porPais = todas && pais ? todas.filter((x) => ubicacionLabelDe(x) === pais) : todas
   const edad = (x: Pendiente) => msDesde(x.encolado_en, ahora)
   const PASA: Record<Chip, (x: Pendiente) => boolean> = {
-    todas: () => true, sla: (x) => edad(x) >= SLA_MS, criticas: (x) => (x.severidad ?? 0) >= 4,
+    todas: () => true, sla: (x) => edad(x) >= slaMs(x), criticas: (x) => (x.severidad ?? 0) >= 4,
     cascada: (x) => efectoAprobar(x).cascada.length > 0, ataca: (x) => (x.suprimidas ?? 0) > 0,
   }
   const lista = porPais ? ordenarPor(porPais.filter(PASA[chip]), orden, ahora) : null

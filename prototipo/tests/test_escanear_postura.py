@@ -69,6 +69,19 @@ class TestEscanearPostura(unittest.TestCase):
         self.assertEqual(omitidos, ["raro"])
         self.assertEqual([a for a in run.llamadas if a[:2] != ["nmap", "--version"]], [])
 
+    def test_escanear_algunos_equipos_conserva_la_postura_del_resto(self):
+        anterior = {"version_herramienta": "v0", "timestamp": "t0",
+                    "nodos": {"web01": [{"puerto": 80, "servicio": "http", "estado": "open"}],
+                              "db01": [{"puerto": 5432, "servicio": "postgresql", "estado": "open"}],
+                              "app01": [{"puerto": 22, "servicio": "ssh", "estado": "open"}]}}
+        nuevo = {"version_herramienta": "v1", "timestamp": "t1",
+                 "nodos": {"web01": [{"puerto": 443, "servicio": "https", "estado": "open"}]}}
+        f = ep.fusionar(anterior, nuevo, intentados=["web01", "app01"])     # app01 falló al reescanear
+        self.assertEqual(f["nodos"]["web01"][0]["puerto"], 443)              # actualizado
+        self.assertIn("db01", f["nodos"])                                    # no se tocó
+        self.assertNotIn("app01", f["nodos"])                                # falló: caso gris, no lo viejo
+        self.assertEqual(f["version_herramienta"], "v1")
+
     def test_escribir_deja_el_fichero_entero(self):
         with tempfile.TemporaryDirectory() as d:
             ruta = os.path.join(d, "postura.json")

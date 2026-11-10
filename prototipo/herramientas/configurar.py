@@ -174,7 +174,8 @@ def _main():
     try:
         return configurar(os.environ.get("MDR_ENV", "/etc/mdr/triaje.env"))
     except (KeyboardInterrupt, EOFError):
-        print("\nCancelado: no se ha guardado nada.")
+        print("\nCancelado: triaje.env no se ha cambiado (lo ya hecho antes de cancelar, como copiar la "
+              "plantilla del perfil o instalar una base, se conserva).")
         return 1
 
 

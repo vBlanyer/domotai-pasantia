@@ -255,8 +255,8 @@ def _clave_aprovisionada():
 def _ejecutor_sin_configurar(nodo_ip, comando):
     """Ejecutor FAIL-CLOSED: no ejecuta nada y devuelve un error. Es el que se usa cuando no hay ni
     clave aprovisionada ni modo explícito, para NO contener con la credencial de laboratorio."""
-    return (126, "conector sin configurar: aprovisiona el minimo privilegio "
-                 "(sh lab/scripts/aprovisionar-minimo-privilegio.sh) o fija TRIAJE_SSH_MODO")
+    return (126, "conector sin configurar: genera la clave del conector en la vista Conectividad "
+                 "(con TRIAJE_SSH_MODO=directo)")
 
 def _ejecutor_rearmable(nodo_ip, comando):
     """Ejecutor FAIL-CLOSED que se REARMA: mientras no haya clave rechaza como `_ejecutor_sin_configurar`;
@@ -289,9 +289,9 @@ def ejecutor_por_defecto(escribir=print):
         return ejecutor_ssh_directo
     if modo == "clave" or _clave_aprovisionada():
         return ejecutor_ssh_clave
-    escribir("[ERROR] conector sin clave de minimo privilegio y sin TRIAJE_SSH_MODO: no se ejecutara "
-             "ninguna contencion hasta que exista. Generala desde la vista Conectividad (o aprovisiona con "
-             "sh lab/scripts/aprovisionar-minimo-privilegio.sh); SOLO en el laboratorio cabe TRIAJE_SSH_MODO=password.")
+    escribir("[ERROR] conector sin clave y sin TRIAJE_SSH_MODO: no se ejecutara ninguna contencion hasta "
+             "que exista. Fija TRIAJE_SSH_MODO=directo (sudo mdr configurar) y genera la clave en la vista "
+             "Conectividad.")
     return _ejecutor_rearmable
 
 # ---------------------------------------------------------- consola de conectividad (visor) --

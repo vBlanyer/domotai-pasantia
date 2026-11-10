@@ -33,7 +33,7 @@ export const EnriquecimientoOrigenSchema = z.object({
   alcance: z.string(), inventariado: z.boolean(), por: z.string().nullable().optional(),
   clasificacion_ip: z.string(), tercero_confiable: z.boolean(), legitimo: z.boolean(),
   geolocalizable: z.boolean(),
-  geo: z.object({ pais: z.string().nullable().optional(), ciudad: z.string().nullable().optional(),
+  geo: z.object({ pais: z.string().nullable().optional(),
     codigo: z.string().nullable().optional(), lat: z.number().nullable().optional(), lon: z.number().nullable().optional(),
     fuente: z.string().nullable().optional() }).nullable().optional(),
   geo_base: z.boolean().optional(),      // ¿había base de geolocalización (TRIAJE_GEOIP)? Ausente en trazas antiguas
@@ -181,6 +181,8 @@ export const PendienteSchema = z.object({
   // menú que se está mostrando: se reenvía al responder para que el backend descarte una
   // respuesta a un menú ya superado (p. ej. «Aprobar» justo después de «Reclasificar»).
   paso: z.number().nullable().optional(),
+  // SLA del daemon (TRIAJE_SLA_SEG): el mismo umbral que /api/metricas y el informe.
+  sla_seg: z.number().nullable().optional(),
   // null = vetada sin sustituta: aprobarla no ejecuta nada (ausente en daemons antiguos)
   accion_final: z.string().nullable().optional(),
   // estado activo y origen de la amenaza

@@ -76,6 +76,14 @@ def escanear(perfil, ejecutar=subprocess.run, puertos=None, equipos=None, ahora=
     return {"version_herramienta": version, "timestamp": sello, "nodos": nodos}, omitidos
 
 
+def fusionar(anterior, nuevo, intentados):
+    """La postura tras escanear SOLO `intentados`: el resto se conserva de `anterior`; de los
+    intentados manda el escaneo nuevo, y uno que falló queda como caso gris (sin su entrada vieja)."""
+    nodos = {k: v for k, v in ((anterior or {}).get("nodos") or {}).items() if k not in set(intentados)}
+    nodos.update(nuevo["nodos"])
+    return {**nuevo, "nodos": nodos}
+
+
 def escribir(hallazgos, ruta):
     """Escribe de una vez (fichero temporal y renombrado): el servicio nunca lee uno a medias."""
     d = os.path.dirname(os.path.abspath(ruta))
@@ -108,6 +116,13 @@ def _main(argv):
     equipos = _opcion(argv, "--equipos")
     hallazgos, omitidos = escanear(perfil, puertos=_opcion(argv, "--puertos"),
                                    equipos=equipos.split(",") if equipos else None)
+    if equipos:                                     # solo unos equipos: el resto de la postura se conserva
+        try:
+            with open(pos[1], encoding="utf-8") as f:
+                anterior = json.load(f)
+        except (OSError, ValueError):
+            anterior = {}
+        hallazgos = fusionar(anterior, hallazgos, equipos.split(","))
     escribir(hallazgos, pos[1])
     total = sum(len(v) for v in hallazgos["nodos"].values())
     print(f"postura -> {pos[1]}: {len(hallazgos['nodos'])} equipos, {total} puertos ({hallazgos['version_herramienta']})")

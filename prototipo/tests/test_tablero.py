@@ -788,6 +788,28 @@ class TestPausaEstado(unittest.TestCase):
         e.pausar(False)
         self.assertFalse(e.pausada())
 
+    def test_la_pausa_sobrevive_al_reinicio(self):
+        # Un freno de seguridad no puede soltarse solo: reiniciar (actualizar, dar de alta a un
+        # analista, una caída con Restart=always) dejaba la automatización encendida otra vez.
+        d = tempfile.mkdtemp()
+        ruta = os.path.join(d, "pausa.json")
+        e = tablero.EstadoTablero(ruta_pausa=ruta)
+        e.pausar(True, operador="ana")
+        tras_reinicio = tablero.EstadoTablero(ruta_pausa=ruta)
+        self.assertTrue(tras_reinicio.pausada())
+        self.assertTrue(any("EN PAUSA" in l["linea"] for l in tras_reinicio.consola()[1]))
+        tras_reinicio.pausar(False)
+        self.assertFalse(tablero.EstadoTablero(ruta_pausa=ruta).pausada())
+
+    def test_un_fichero_de_pausa_ilegible_no_suelta_el_freno_en_silencio(self):
+        d = tempfile.mkdtemp()
+        ruta = os.path.join(d, "pausa.json")
+        with open(ruta, "w") as f:
+            f.write("{roto")
+        e = tablero.EstadoTablero(ruta_pausa=ruta)
+        self.assertTrue(e.pausada())                 # ante la duda, lo más grave: en pausa
+        self.assertTrue(any("no se pudo leer" in l["linea"] for l in e.consola()[1]))
+
 
 class TestPausaAPI(unittest.TestCase):
     """#8: GET /api/pausa lee el estado; POST lo fija (kill switch)."""
@@ -1421,6 +1443,7 @@ class TestVistaRed(unittest.TestCase):
         enr = v["enriquecimiento_origen"]
         self.assertEqual(enr["alcance"], "externo")
         self.assertEqual(enr["geo"]["pais"], "Estados Unidos")
+        self.assertEqual(v["sla_seg"], tablero._SLA_SEG)     # la consola usa el mismo SLA que las métricas
 
     def test_la_vista_de_pendientes_sin_origen_no_revienta(self):
         v = tablero._vista_pendiente({"id": "1", "alerta": {"activo": "web-banking"}}, perfil={})

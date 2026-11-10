@@ -5,14 +5,18 @@ import { msDesde } from "@/alertas"
 import { etiquetaClase, nivelPrioridad, ubicacionLabelDe, quienDecidio } from "@/datos"
 import { campanaDe } from "@/trazas"
 
-export const SLA_MS = 15 * 60_000          // umbral de SLA del analista (= sla_umbral_seg del daemon)
+export const SLA_MS = 15 * 60_000          // SLA por defecto, si el daemon no manda el suyo
+
+// El SLA de una pendiente: el que manda el daemon (TRIAJE_SLA_SEG, el mismo de /api/metricas).
+export const slaMs = (p?: { sla_seg?: number | null }) => (p?.sla_seg ? p.sla_seg * 1000 : SLA_MS)
+export const fueraDeSla = (p: Pendiente, ahora: number) => edad(p, ahora) >= slaMs(p)
 
 const edad = (p: Pendiente, ahora: number) => msDesde(p.encolado_en, ahora)
 
 // Fuera de SLA primero, luego gravedad, luego la que más lleva esperando. No muta la entrada.
 export function ordenarCola(xs: Pendiente[], ahora: number): Pendiente[] {
   return [...xs].sort((a, b) => {
-    const fa = edad(a, ahora) >= SLA_MS ? 1 : 0, fb = edad(b, ahora) >= SLA_MS ? 1 : 0
+    const fa = fueraDeSla(a, ahora) ? 1 : 0, fb = fueraDeSla(b, ahora) ? 1 : 0
     return fb - fa || (b.severidad ?? 0) - (a.severidad ?? 0) || edad(b, ahora) - edad(a, ahora)
   })
 }
@@ -46,7 +50,7 @@ export function saludCola(xs: Pendiente[], ahora: number) {
   return {
     total: xs.length,
     ultimaHora: edades.filter((e) => e < 60 * 60_000).length,
-    fueraSla: edades.filter((e) => e >= SLA_MS).length,
+    fueraSla: xs.filter((p) => fueraDeSla(p, ahora)).length,
     masAntiguaMs: Math.max(0, ...edades),
     criticas: criticas.length,
     criticasConCascada: criticas.filter((p) => efectoAprobar(p).cascada.length > 0).length,

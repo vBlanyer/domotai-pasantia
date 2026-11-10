@@ -46,7 +46,7 @@ CONSOLA_MAX = 1000
 class EstadoTablero:
     """Estado en memoria del tablero, seguro entre hilos: pendientes de aprobacion y las lineas del
     incidente en curso. El feed de decisiones resueltas NO vive aqui (sale de la traza)."""
-    def __init__(self, max_pendientes=MAX_PENDIENTES, consola_max=CONSOLA_MAX):
+    def __init__(self, max_pendientes=MAX_PENDIENTES, consola_max=CONSOLA_MAX, ruta_pausa=None):
         self._lock = threading.Lock()
         self._pendientes = {}
         self._lineas = []
@@ -63,14 +63,45 @@ class EstadoTablero:
         self._actualizador = None          # fn(id_decision, estado/asignado/nota, operador)->bool: añade un `actualizacion_caso` a la cadena
         self._descartador = None           # fn(entrada): traza el desalojo por tope (RF-09, nada en silencio)
         self._pausada = False              # kill switch (#8): con True, toda auto-ejecución pasa a esperar humano
+        self._ruta_pausa = ruta_pausa      # si se da, la pausa sobrevive al reinicio (un freno no se suelta solo)
+        self._recuperar_pausa()
+
+    def _recuperar_pausa(self):
+        """Al arrancar, la pausa que estaba puesta sigue puesta. Un fichero ilegible se toma como
+        pausa (ante la duda, lo más grave) y se avisa."""
+        if not self._ruta_pausa or not os.path.exists(self._ruta_pausa):
+            return
+        try:
+            with open(self._ruta_pausa, encoding="utf-8") as f:
+                d = json.load(f)
+            self._pausada = bool(d.get("pausada"))
+            if self._pausada:
+                quien = f" por {d['por']}" if d.get("por") else ""
+                self.anotar_linea(f"⏻ automatización EN PAUSA desde {d.get('en', '?')}{quien} (se mantiene tras el reinicio)")
+        except (OSError, ValueError, AttributeError):
+            self._pausada = True
+            self.anotar_linea(f"⏻ automatización EN PAUSA: no se pudo leer {self._ruta_pausa}; reanúdala a mano si procede")
+
+    def _guardar_pausa(self, valor, operador):
+        if not self._ruta_pausa:
+            return
+        import tempfile
+        d = os.path.dirname(os.path.abspath(self._ruta_pausa))
+        fd, tmp = tempfile.mkstemp(dir=d, prefix=".pausa-")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump({"pausada": valor, "por": operador,
+                       "en": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, f)
+        os.replace(tmp, self._ruta_pausa)
 
     def pausar(self, valor, operador=None):
-        """Activa/desactiva la pausa global de la automatización (#8). Estado de sesión en memoria:
-        un reinicio del daemon la limpia. Narra en la Consola solo el CAMBIO (quién pulsó el kill
+        """Activa/desactiva la pausa global de la automatización (#8). Con `ruta_pausa` se guarda en
+        disco y sobrevive al reinicio. Narra en la Consola solo el CAMBIO (quién pulsó el kill
         switch importa en el diario; un reenvío idempotente no hace ruido)."""
         with self._lock:
             antes, self._pausada = self._pausada, bool(valor)
             ahora = self._pausada
+            if antes != ahora:
+                self._guardar_pausa(ahora, operador)
         if antes != ahora:   # fuera del lock: anotar_linea lo toma
             self.anotar_linea(("⏻ automatización EN PAUSA — toda contención espera al humano"
                                if ahora else "⏻ automatización reanudada")
@@ -714,9 +745,8 @@ def lista_trazas(ruta, n=None, perfil=None):
     inicio = max(0, len(regs) - n) if n else 0
     ips, externos = {}, []
     if perfil:
-        mapa = _red_segura(perfil)[0]
-        ips = {nm: v.get("ip") for nm, v in mapa["nodos"].items() if v.get("ip")}
-        externos = [nm for nm, v in mapa["nodos"].items() if v.get("tipo") == "externo"]
+        ips = ips_de(perfil)
+        externos = [nm for nm, v in _red_segura(perfil)[0]["nodos"].items() if v.get("tipo") == "externo"]
     return [{**_resumen_traza(r, ips, externos, perfil), "indice": inicio + k} for k, r in enumerate(regs[inicio:])]
 
 
@@ -1286,6 +1316,7 @@ def _vista_pendiente(p, perfil=None):
             "confianza": dec.get("confianza"), "tecnica_mitre": dec.get("tecnica_mitre") or [],
             "motivo": (dec.get("impacto_determinado") or {}).get("motivo"),
             "activo": alerta.get("activo"), "origen_ip": origen_ip,
+            "sla_seg": _SLA_SEG,       # el mismo umbral que /api/metricas: la consola cuenta con él
             "enriquecimiento_origen": actores.enriquecer_origen(
                 origen_ip, perfil, (alerta.get("contexto") or {}).get("origen_legitimo")) if origen_ip else None}
 

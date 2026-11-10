@@ -1152,7 +1152,8 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
     hilo), y los `escribir`/`leer` web que se inyectan en ejecutar. Las dependencias salen del perfil.
     El `catalogo` sirve para reconstruir las contenciones activas de la traza (/api/contenciones)."""
     from prototipo.servicio import tablero
-    estado = tablero.EstadoTablero()
+    # La pausa de la automatización vive junto a la traza: sobrevive a reinicios y actualizaciones.
+    estado = tablero.EstadoTablero(ruta_pausa=os.path.join(os.path.dirname(cfg["salida"]) or ".", "pausa.json"))
     activos = perfil.get("activos") or {}
     deps = {n: (a or {}).get("depende_de", []) for n, a in activos.items()}
     # Cola de aprobación no bloqueante salvo en modo agente (que aprueba por paso, bloqueante).

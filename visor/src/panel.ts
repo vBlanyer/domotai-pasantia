@@ -4,7 +4,7 @@
 import type { CausaFallo, Decision, Pendiente } from "@/api"
 import { msDesde } from "@/alertas"
 import { esDecision, claveIncidenteDe } from "@/datos"
-import { ordenarCola, SLA_MS } from "@/aprobaciones"
+import { ordenarCola, slaMs } from "@/aprobaciones"
 import type { IncidenteVista } from "@/incidentes"
 
 export type Tono = "ok" | "aviso" | "critico" | "neutro"
@@ -63,7 +63,8 @@ export type Urgente = { p: Pendiente; edadMs: number; restanteMs: number; fracci
 export function urgentes(xs: Pendiente[], ahora: number, n = 3): Urgente[] {
   return ordenarCola(xs, ahora).slice(0, n).map((p) => {
     const edadMs = msDesde(p.encolado_en, ahora)
-    return { p, edadMs, restanteMs: SLA_MS - edadMs, fraccion: Math.min(1, edadMs / SLA_MS) }
+    const sla = slaMs(p)
+    return { p, edadMs, restanteMs: sla - edadMs, fraccion: Math.min(1, edadMs / sla) }
   })
 }
 
@@ -77,11 +78,11 @@ export function textoSla(restanteMs: number): string {
 }
 
 export function colaResumen(xs: Pendiente[], ahora: number) {
-  const edades = xs.map((p) => msDesde(p.encolado_en, ahora))
+  const restantes = xs.map((p) => slaMs(p) - msDesde(p.encolado_en, ahora))
   return {
     total: xs.length,
-    fueraSla: edades.filter((e) => e >= SLA_MS).length,
-    porVencer: edades.filter((e) => e < SLA_MS && SLA_MS - e <= 5 * 60_000).length,
+    fueraSla: restantes.filter((r) => r <= 0).length,
+    porVencer: restantes.filter((r) => r > 0 && r <= 5 * 60_000).length,
   }
 }
 

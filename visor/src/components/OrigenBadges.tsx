@@ -18,7 +18,7 @@ const CLASE_IP: Record<string, string> = {
 export function OrigenBadges({ e }: { e?: Enr | null }) {
   if (!e) return null
   const al = ALCANCE[e.alcance] ?? { txt: e.alcance, cls: "bg-muted" }
-  const lugar = [e.geo?.ciudad, e.geo?.pais].filter(Boolean).join(", ")
+  const lugar = e.geo?.pais ?? ""
   const geo = lugar || (e.geolocalizable ? "sin base GeoIP cargada" : "sin geolocalización")
   return (
     <span className="inline-flex flex-wrap items-center gap-1 text-xs">

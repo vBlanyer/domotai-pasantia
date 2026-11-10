@@ -25,7 +25,7 @@ class TestConstruir(unittest.TestCase):
         self.assertEqual(orden.construir(d, ALERTA, {"activos": {"web-banking": {"ip": "10.10.0.10"}}})["nodo_ip"],
                          "10.10.0.10")
 
-    def test_sin_ip_en_el_perfil_cae_al_mapa_heredado(self):
+    def test_perfil_heredado_sin_ninguna_ip_cae_al_mapa_heredado(self):
         self.assertEqual(orden.construir(DECISION_VP, ALERTA, {"activos": {}})["nodo_ip"], "192.168.1.30")
 
 
@@ -34,6 +34,26 @@ PERFIL_TOPO = {
     "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
                   "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}},
 }
+
+class TestSinIPDelLaboratorioConPerfil(unittest.TestCase):
+    """Un cliente con un equipo llamado como uno del laboratorio («borde», «puesto»…) y sin IP en su
+    perfil no puede acabar contenido sobre la IP del laboratorio: sin IP, la orden va sin nodo_ip y
+    el conector no ejecuta nada."""
+    DEC = {"id_decision": "d1", "accion_final": "BLOQUEAR_IP", "activo": "borde"}
+    AL = {"origen_ip": "203.0.113.9"}
+
+    def test_perfil_de_cliente_sin_ip_para_ese_equipo_no_usa_la_del_laboratorio(self):
+        # un perfil de cliente declara IPs; si a «borde» le falta la suya, no se inventa
+        perfil = {"activos": {"web01": {"ip": "10.20.0.10"}, "borde": {"funcion": "router"}}}
+        self.assertIsNone(orden.construir(self.DEC, self.AL, perfil=perfil)["nodo_ip"])
+
+    def test_con_perfil_con_ip_se_usa_la_suya(self):
+        o = orden.construir(self.DEC, self.AL, perfil={"activos": {"borde": {"ip": "10.9.9.1"}}})
+        self.assertEqual(o["nodo_ip"], "10.9.9.1")
+
+    def test_sin_perfil_se_conserva_el_respaldo_heredado(self):
+        self.assertEqual(orden.construir(self.DEC, self.AL)["nodo_ip"], "192.168.1.1")
+
 
 class TestAislarNodo(unittest.TestCase):
     """6ª familia (FIM): AISLAR_NODO es una cuarentena REAL en el borde. Corta el reenvío del host en

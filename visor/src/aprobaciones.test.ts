@@ -148,3 +148,15 @@ describe("agruparPor: sin agrupar por defecto, o por país, campaña, activo, fa
     expect(agruparPor(xs, "campana")[0].etiqueta).toBe("203.0.113.0/24 · Rusia")
   })
 })
+
+describe("SLA del daemon", () => {
+  it("la cola usa el sla_seg que manda el daemon; sin él, 15 min", async () => {
+    const { slaMs, fueraDeSla } = await import("./aprobaciones")
+    const hace10min = new Date(Date.now() - 10 * 60_000).toISOString()
+    const corta = { id: "1", tipo: "decision", prompt: "", lineas: [], encolado_en: hace10min, sla_seg: 300 } as never
+    const sinSla = { id: "2", tipo: "decision", prompt: "", lineas: [], encolado_en: hace10min } as never
+    expect(slaMs(corta)).toBe(300_000)
+    expect(fueraDeSla(corta, Date.now())).toBe(true)       // 10 min con SLA de 5: fuera
+    expect(fueraDeSla(sinSla, Date.now())).toBe(false)     // 10 min con el de 15 por defecto: dentro
+  })
+})
