@@ -223,6 +223,17 @@ class EstadoTablero:
         traza (no repudio: quién aprobó)."""
         return bool(self._resolutor and self._resolutor(pid, respuesta, paso=paso, operador=operador))
 
+    def fijar_auditor(self, fn):
+        """El daemon registra aquí cómo encadenar en la traza la auditoría de Conectividad."""
+        self._auditor = fn
+
+    def auditar_en_traza(self, registro):
+        """Añade a la traza firmada un registro de auditoría (Conectividad). Sin auditor (tests, modo
+        terminal) no hace nada: el registro de Conectividad sigue escribiéndose aparte."""
+        fn = getattr(self, "_auditor", None)
+        if fn:
+            fn(registro)
+
     def fijar_actualizador(self, fn):
         """El daemon registra aquí cómo anotar un caso: añadir un `actualizacion_caso` a la cadena."""
         self._actualizador = fn
@@ -418,7 +429,8 @@ def _resumen_traza(reg, ips=None, externos=(), perfil=None):
 
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
 # fallos al procesar un incidente y reversiones de una contención ya decidida.
-_NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion", "actualizacion_caso")
+_NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion", "actualizacion_caso",
+                  "auditoria_conectividad")
 
 
 _ESTADO_PLAN = {"mitigado": "contenida", "fallido": "fallida", "cancelado_por_humano": "cancelada",

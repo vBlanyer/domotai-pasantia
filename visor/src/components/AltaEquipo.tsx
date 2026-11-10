@@ -94,7 +94,8 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
     if (!host?.presentada) return
     setOcupado(true); setError(null)
     if (host.fijada !== host.presentada) {
-      const a = await aceptarClaveHost(nombre, host.presentada)
+      // la casilla «Coincide con la que imprimió el equipo» es la confirmación explícita
+      const a = await aceptarClaveHost(nombre, host.presentada, !!host.fijada)
       if (a.status !== 200) { setOcupado(false); setError(String(a.datos.error ?? `HTTP ${a.status}`)); return }
     }
     const r = await darDeAlta(nombre, host.presentada)

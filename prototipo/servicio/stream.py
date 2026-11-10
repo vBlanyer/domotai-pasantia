@@ -738,6 +738,9 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 id_decision, estado=estado, asignado=asignado, nota=nota, operador=operador, ts=_ahora_iso()))
             return True
         estado_web.fijar_actualizador(actualizar_caso)
+        # La auditoría de Conectividad (pruebas, altas, claves del host, rotación) también se encadena:
+        # un cambio en el acceso del MDR a los equipos queda en la traza firmada.
+        estado_web.fijar_auditor(escribir_traza)
         # El desalojo por el tope de la cola (M3) también se encadena: nada desaparece en silencio.
         estado_web.fijar_descartador(lambda entrada: escribir_traza(_registro_descarte(entrada)))
     seq = [0]
@@ -1132,6 +1135,17 @@ def fuente_salud():
         return {"contenedor": cont, "fichero_en_contenedor": fichero}
     return {}
 
+def validar_ruta_conectividad(ruta, salida):
+    """TRIAJE_CONECTIVIDAD decide qué ficheros lee el conector (ajustes por equipo, rotación). Tiene que
+    estar en el directorio de estado, junto a la traza: si apunta a otro sitio, el servicio no arranca."""
+    base = os.path.realpath(os.path.dirname(os.path.abspath(salida)))
+    real = os.path.realpath(os.path.abspath(ruta))
+    if os.path.dirname(real) != base:
+        raise SystemExit(f"TRIAJE_CONECTIVIDAD={ruta} está fuera del directorio de estado ({base}); "
+                         "el conector solo lee sus ajustes de ahí")
+    return ruta
+
+
 def lineas_geoip():
     """Carga las bases de IPs (país: TRIAJE_GEOIP; ASN: TRIAJE_ASN) y dice cómo quedaron, para el arranque."""
     from prototipo.motor import geoip
@@ -1172,8 +1186,9 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
             operadores = {}      # un JSON válido pero de otra forma ([..]/42) tampoco debe colarse
     # Ajustes del conector editables desde la vista «Conectividad»: el conector los lee de este fichero
     # (TRIAJE_CONECTIVIDAD) por encima de las variables de entorno. Si ya viene fijado, se respeta.
-    ruta_conectividad = os.environ.setdefault(
-        "TRIAJE_CONECTIVIDAD", os.path.join(os.path.dirname(cfg["salida"]) or ".", "conectividad-operativa.yml"))
+    ruta_conectividad = validar_ruta_conectividad(os.environ.setdefault(
+        "TRIAJE_CONECTIVIDAD", os.path.join(os.path.dirname(cfg["salida"]) or ".", "conectividad-operativa.yml")),
+        cfg["salida"])
     servidor = tablero.crear_servidor(estado, cfg["salida"], salud=fuente_salud(), dependencias=deps,
                                       puerto=cfg["web_puerto"], async_web=async_web, perfil=perfil,
                                       catalogo=catalogo, latido=Latido(),   # salud del daemon (/healthz, #5)

@@ -163,7 +163,13 @@ class TestConectividadWeb(_Base):
         self.assertEqual((st, r["fijada"], r["presentada"], r["coincide"]), (200, F3, F1, False))
         self.assertEqual(self._req(srv, "POST", "/api/conectividad/clave-host", {"equipo": "db-core", "huella": F2}, token="tok")[0], 409)
         self.assertIsNone(self.f.escrito)
+        # db-core ya tiene otra clave fijada: sustituirla (posible suplantación) exige pedirlo explícitamente
         st, r = self._req(srv, "POST", "/api/conectividad/clave-host", {"equipo": "db-core", "huella": F1}, token="tok")
+        self.assertEqual(st, 409)
+        self.assertIn("reemplazar", r["error"])
+        self.assertIsNone(self.f.escrito)
+        st, r = self._req(srv, "POST", "/api/conectividad/clave-host",
+                          {"equipo": "db-core", "huella": F1, "reemplazar": True}, token="tok")
         self.assertEqual((st, r["huella"]), (200, F1))
         self.assertEqual(self.f.escrito, f"10.0.0.1 {K2}\n10.0.20.10 {NUEVA_DB}\n")
         with open(self.au) as f:
@@ -429,3 +435,41 @@ class TestClaveDesdeCeroYEstadoViejo(_Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCierreSeguridad(_Base):
+    """Puntos críticos de la revisión de seguridad de Conectividad (cierre del proyecto)."""
+
+    def test_se_puede_apagar_la_vista_sin_tocar_codigo(self):
+        with mock.patch.dict(os.environ, {"TRIAJE_CONECTIVIDAD_DESACTIVADA": "1"}):
+            srv = self._srv({"tok": "ana"})
+            st, est = self._req(srv, "GET", "/api/conectividad", token="tok")
+            self.assertEqual(st, 200)
+            self.assertFalse(est["permisos"]["editar"])
+            self.assertIn("desactivada", est["permisos"]["motivo"])
+            self.assertEqual(self.f.ficheros, [])                       # ni lee claves del host
+            st, r = self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "fw-core"}, token="tok")
+            self.assertEqual(st, 403)
+            self.assertIn("desactivada", r["error"])
+            st, _ = self._req(srv, "GET", "/api/conectividad/paquete?equipo=fw-core", token="tok")
+            self.assertEqual(st, 403)
+
+    def test_cada_cambio_queda_tambien_en_la_traza_firmada(self):
+        srv = self._srv({"tok": "ana"})
+        en_traza = []
+        srv.estado.fijar_auditor(en_traza.append)
+        st, _ = self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "fw-core"}, token="tok")
+        self.assertEqual(st, 200)
+        self.assertEqual(len(en_traza), 1)
+        reg = en_traza[0]
+        self.assertEqual((reg["tipo"], reg["operador"], reg["dimension"], reg["clave"]),
+                         ("auditoria_conectividad", "ana", "prueba", "fw-core"))
+        self.assertTrue(reg["id_decision"].startswith("conectividad~"))
+        self.assertNotIn("PRIVATE", json.dumps(reg))
+
+
+class TestAuditoriaNoEsDecision(unittest.TestCase):
+    def test_las_metricas_no_cuentan_la_auditoria_como_decision(self):
+        regs = [{"clase": "vp_intento_acceso", "origen_ip": "203.0.113.9", "contexto": {"familia": "acceso_credenciales"}},
+                {"id_decision": "conectividad~t", "tipo": "auditoria_conectividad", "dimension": "prueba", "clave": "fw-core"}]
+        self.assertEqual(tablero.metricas(regs)["total"], 1)

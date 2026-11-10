@@ -141,7 +141,7 @@ describe("Conectividad", () => {
     fireEvent.click(capa.getByRole("checkbox", { name: "Coincide con la que imprimió el equipo" }))
     fireEvent.click(capa.getByRole("button", { name: "Dar de alta pagos-qr" }))
     await waitFor(() => expect(h.alta).toHaveBeenCalledWith("pagos-qr", "SHA256:QRNUEVA"))
-    expect(h.aceptar).toHaveBeenCalledWith("pagos-qr", "SHA256:QRNUEVA")
+    expect(h.aceptar).toHaveBeenCalledWith("pagos-qr", "SHA256:QRNUEVA", false)
   })
 
   it("sin clave del conector lo dice y se genera desde la vista", async () => {
@@ -168,7 +168,7 @@ describe("Conectividad", () => {
     expect(region().getByRole("button", { name: "Fijar esta clave" })).toBeDisabled()
     fireEvent.click(region().getByRole("checkbox", { name: "Coincide con la que imprimió el equipo" }))
     fireEvent.click(region().getByRole("button", { name: "Fijar esta clave" }))
-    await waitFor(() => expect(h.aceptar).toHaveBeenCalledWith("fw-core", "SHA256:PRIMERA"))
+    await waitFor(() => expect(h.aceptar).toHaveBeenCalledWith("fw-core", "SHA256:PRIMERA", false))
   })
 
   it("el asistente manda «cualquier cuenta salvo las del sistema»", async () => {
@@ -211,6 +211,6 @@ describe("Conectividad", () => {
     fireEvent.click(region().getByRole("button", { name: "Aceptar la nueva clave…" }))
     expect(h.aceptar).not.toHaveBeenCalled()
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Aceptar la nueva clave" }))
-    await waitFor(() => expect(h.aceptar).toHaveBeenCalledWith("db-core", "SHA256:DBNUEVA"))
+    await waitFor(() => expect(h.aceptar).toHaveBeenCalledWith("db-core", "SHA256:DBNUEVA", true))   // sustituir: explícito
   })
 })

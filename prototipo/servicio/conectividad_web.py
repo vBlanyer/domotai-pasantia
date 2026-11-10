@@ -113,6 +113,16 @@ def _clave_conector(srv, modo):
     return {"huella": huella, "tipo": tipo, "publica": pub.strip()} if huella else None
 
 
+DESACTIVADA = ("la vista Conectividad está desactivada por la administración (TRIAJE_CONECTIVIDAD_DESACTIVADA): "
+               "no prueba, no lee claves ni cambia nada")
+
+
+def _desactivada():
+    """La administración puede apagar la vista sin tocar código: solo lectura de la configuración
+    guardada, sin abrir conexiones ni leer claves del host."""
+    return os.environ.get("TRIAJE_CONECTIVIDAD_DESACTIVADA") == "1"
+
+
 def _puede_editar(srv, operador):
     hay_mapa = bool(getattr(srv, "operadores", None))
     return bool(operador) and (hay_mapa or os.environ.get("TRIAJE_CONECTIVIDAD_ABIERTA") == "1")
@@ -126,6 +136,8 @@ def _motivo_no_editable(modo):
 
 
 def _permisos(srv, operador, modo):
+    if _desactivada():
+        return False, DESACTIVADA
     if modo not in _MODOS_EDITABLES:
         return False, _motivo_no_editable(modo)
     if not srv.ruta_conectividad:
@@ -246,7 +258,9 @@ def resumen(srv, operador):
     modo = srv.conectividad_modo()
     ajustes = cx.cargar(srv.ruta_conectividad) if srv.ruta_conectividad else {"usuario_defecto": None, "equipos": {}}
     clave, huellas = _clave_conector(srv, modo), {}        # la PÚBLICA: la privada no se lee nunca
-    destino = _destino_claves(modo)
+    destino = None if _desactivada() else _destino_claves(modo)
+    if _desactivada():
+        clave = None
     alcanzable = False
     if destino:
         correr = srv.conectividad_correr(destino)
@@ -290,8 +304,15 @@ def _equipo(srv, nombre):
 
 
 def _auditar(srv, operador, dimension, clave, antes, despues):
+    """Cada prueba, alta o cambio queda en el registro de Conectividad y, si el daemon lo da, también
+    en la traza encadenada y firmada (no se puede borrar sin que se note)."""
     if srv.ruta_auditoria_conectividad:
         politica_store.registrar_auditoria(srv.ruta_auditoria_conectividad, operador, dimension, clave, antes, despues)
+    estado = getattr(srv, "estado", None)
+    if estado is not None:
+        estado.auditar_en_traza({"id_decision": f"conectividad~{_ahora()}", "tipo": "auditoria_conectividad",
+                                 "timestamp": _ahora(), "operador": operador, "dimension": dimension,
+                                 "clave": clave, "antes": antes, "despues": despues})
 
 
 def _candidatos(srv, e, cuerpo):
@@ -348,6 +369,8 @@ def _ahora():
 
 def post(srv, ruta, cuerpo, operador):
     """(estado_http, cuerpo) para los POST de conectividad."""
+    if _desactivada():
+        return 403, {"error": DESACTIVADA}
     if not isinstance(cuerpo, dict):
         return 400, {"error": "cuerpo invalido"}
     modo = srv.conectividad_modo()
@@ -409,6 +432,11 @@ def post(srv, ruta, cuerpo, operador):
         with _lock:
             rc, kh = correr(["cat", conector.SSH_KNOWN_HOSTS])
             antes = (cx.huellas_fijadas(kh) if rc == 0 else {}).get(e["ip"])
+            if antes and antes != huella and cuerpo.get("reemplazar") is not True:
+                # Sustituir una clave ya fijada es el caso de una posible suplantación: no basta con la
+                # huella, hay que pedirlo explícitamente (la consola lo hace tras su diálogo).
+                return 409, {"error": f"{e['nombre']} ya tiene otra clave fijada ({antes}); sustituirla exige "
+                                      "confirmarlo explícitamente (reemplazar)"}
             try:
                 nueva = cx.aceptar_clave_host(e["ip"], puerto, huella, conector.SSH_KNOWN_HOSTS, correr)
             except cx.HuellaDistinta as ex:
@@ -581,6 +609,8 @@ def _post_alta(srv, modo, cuerpo, operador):
 
 def paquete(srv, equipo, formato, operador):
     """GET /api/conectividad/paquete: el paquete de alta (o de corrección) de un equipo."""
+    if _desactivada():
+        return 403, {"error": DESACTIVADA}
     modo = srv.conectividad_modo()
     if modo not in _MODOS_EDITABLES:
         return 409, {"error": _motivo_no_editable(modo)}

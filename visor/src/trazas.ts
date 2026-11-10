@@ -8,7 +8,7 @@ export const CHIPS: { id: Chip; nombre: string }[] = [
   { id: "todo", nombre: "Todo" }, { id: "decisiones", nombre: "Decisiones" },
   { id: "humano", nombre: "Humano" }, { id: "sistema", nombre: "Sistema" },
 ]
-const SISTEMA = new Set(["actividad_suprimida", "actividad_propia", "reversion", "actualizacion_caso"])
+const SISTEMA = new Set(["actividad_suprimida", "actividad_propia", "reversion", "actualizacion_caso", "auditoria_conectividad"])
 const GENESIS = "0".repeat(64)
 
 export function tipoDe(r: Decision): TipoFila {
@@ -73,6 +73,9 @@ export function describirSistema(r: Decision): { titulo: string; detalle: string
       return { titulo: "Caso actualizado",
         detalle: [r.estado ? (ESTADO_CASO[r.estado] ?? r.estado) : null, r.asignado ? `asignado a ${r.asignado}` : null, r.operador ? `por ${r.operador}` : null]
           .filter(Boolean).join(" · ") }
+    case "auditoria_conectividad":
+      return { titulo: "Conectividad",
+        detalle: [r.dimension, r.clave, r.operador ? `por ${r.operador}` : null].filter(Boolean).join(" · ") }
     case "error":
       return { titulo: "Error al procesar", detalle: r.error ?? "" }
     default:

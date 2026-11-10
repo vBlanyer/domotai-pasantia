@@ -80,6 +80,8 @@ export const DecisionSchema = z.object({
   estado: z.string().nullable().optional(), asignado: z.string().nullable().optional(),
   nota: z.string().nullable().optional(), operador: z.string().nullable().optional(),
   decidido_en: z.string().nullable().optional(),
+  // auditoría de Conectividad encadenada (tipo «auditoria_conectividad»): qué se tocó y dónde
+  dimension: z.string().nullable().optional(), clave: z.string().nullable().optional(),
 })
 // Detalle completo de una decisión (/api/traza/<id>): el texto de la justificación y los pasajes
 // del RAG. Laxo a propósito (`passthrough`): la traza lleva muchos más campos que no renderizamos.
@@ -592,7 +594,9 @@ export const guardarConexion = (equipo: string, ajuste: { puerto?: number | null
   postConectividad("/api/conectividad", { equipo, ...ajuste })
 export const guardarUsuarioDefecto = (usuario_defecto: string | null) => postConectividad("/api/conectividad", { usuario_defecto })
 export const leerClaveHost = (equipo: string) => postConectividad("/api/conectividad/leer-clave-host", { equipo })
-export const aceptarClaveHost = (equipo: string, huella: string) => postConectividad("/api/conectividad/clave-host", { equipo, huella })
+// `reemplazar`: sustituir una clave ya fijada (posible suplantación) hay que pedirlo explícitamente.
+export const aceptarClaveHost = (equipo: string, huella: string, reemplazar = false) =>
+  postConectividad("/api/conectividad/clave-host", reemplazar ? { equipo, huella, reemplazar: true } : { equipo, huella })
 // Inventario operativo: alta de un equipo nuevo (queda pendiente) o papel y reglas de uno existente.
 export type DatosInventario = {
   nombre: string; ip?: string; zona?: string; funcion?: string; criticidad?: string; depende_de?: string[]; interfaz?: string | null

@@ -84,10 +84,10 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
     if (r.status === 200) setHost(r.datos as typeof host)
     else aviso("No se pudo leer la clave del equipo", r)
   }
-  async function aceptar() {
+  async function aceptar(reemplazar = false) {
     if (!host?.presentada) return
     setOcupado("aceptar")
-    const r = await aceptarClaveHost(e.nombre, host.presentada)
+    const r = await aceptarClaveHost(e.nombre, host.presentada, reemplazar)
     setOcupado(null)
     if (r.status === 200) { toast({ type: "success", title: `Clave del host aceptada: ${e.nombre}` }); setHost(null); setPrueba(null) }
     else aviso("No se aceptó la clave", r)
@@ -142,7 +142,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
               : <>
                 <p className="rounded border border-border bg-card px-2 py-1.5 font-mono text-xs [overflow-wrap:anywhere]">{host.presentada}</p>
                 <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={coincide} onChange={(x) => setCoincide(x.target.checked)} />Coincide con la que imprimió el equipo</label>
-                <Boton tono="pri" onClick={aceptar} disabled={!coincide || ocupado !== null}>{ocupado === "aceptar" ? "Fijando…" : "Fijar esta clave"}</Boton>
+                <Boton tono="pri" onClick={() => aceptar()} disabled={!coincide || ocupado !== null}>{ocupado === "aceptar" ? "Fijando…" : "Fijar esta clave"}</Boton>
               </>}
           </div>
         </Seccion>
@@ -241,7 +241,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
       <AlertDialog open={confirmar} onOpenChange={(o) => { if (!o) setConfirmar(false) }}
         title={`¿Aceptar la nueva clave del host de ${e.nombre}?`}
         description="Solo si has comprobado por otro canal que el equipo es el legítimo. El conector volverá a entrar con esta clave."
-        confirmLabel="Aceptar la nueva clave" onConfirm={aceptar}>
+        confirmLabel="Aceptar la nueva clave" onConfirm={() => aceptar(true)}>
         <p className="font-mono text-xs [overflow-wrap:anywhere]">{host?.presentada}</p>
       </AlertDialog>
       <AlertDialog open={quitar} onOpenChange={(o) => { if (!o) setQuitar(false) }}

@@ -1712,3 +1712,15 @@ class TestLineaGeoip(unittest.TestCase):
     def test_base_ilegible_avisa_con_el_motivo(self):
         pais, _ = self._lineas({"TRIAJE_GEOIP": "/no/existe.csv"})
         self.assertIn("no se pudo cargar la base", pais)
+
+
+class TestRutaConectividad(unittest.TestCase):
+    def test_dentro_del_directorio_de_la_traza_vale(self):
+        self.assertEqual(stream.validar_ruta_conectividad("/var/lib/mdr/conectividad-operativa.yml",
+                                                          "/var/lib/mdr/trazas-cliente.jsonl"),
+                         "/var/lib/mdr/conectividad-operativa.yml")
+
+    def test_fuera_no_arranca(self):
+        for ruta in ("/tmp/otro.yml", "/var/lib/mdr/../../etc/x.yml", "/var/lib/mdr-otro/c.yml"):
+            with self.assertRaises(SystemExit):
+                stream.validar_ruta_conectividad(ruta, "/var/lib/mdr/trazas-cliente.jsonl")

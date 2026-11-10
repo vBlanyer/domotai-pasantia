@@ -59,6 +59,11 @@ describe("hora local y agrupación por día", () => {
 })
 
 describe("describirSistema: los registros de sistema dicen qué pasó", () => {
+  it("la auditoría de Conectividad dice qué se tocó y quién", () => {
+    const r = { tipo: "auditoria_conectividad", dimension: "clave_host", clave: "fw-core", operador: "ana" } as never
+    expect(describirSistema(r)).toEqual({ titulo: "Conectividad", detalle: "clave_host · fw-core · por ana" })
+    expect(tipoDe(r)).toBe("sistema")
+  })
   it("supresión, actividad propia, reversión, caso y error", () => {
     expect(describirSistema(sup)).toEqual({ titulo: "Ruido suprimido", detalle: "14 alertas más de 203.0.113.7 contra web-banking" })
     expect(describirSistema(propia)).toEqual({ titulo: "Actividad propia del MDR", detalle: "login de gestión en fw-core, no es amenaza" })
