@@ -1,8 +1,11 @@
-# ⚠ Vista «Conectividad»: pendiente de revisión de seguridad
+# Vista «Conectividad»: revisión de seguridad
 
-> **Estado (4 nov 2026):** integrada y funcionando, con alta de equipos, papeles, deriva del sudoers y
-> rotación de la clave validados en vivo contra el laboratorio. **No apta para producción** hasta cerrar los
-> puntos abiertos de este documento.
+> **Estado (10 nov 2026):** integrada y funcionando, con alta de equipos, papeles, deriva del sudoers y
+> rotación de la clave validados en vivo contra el laboratorio. **Revisión cerrada:** los puntos críticos
+> (auditoría encadenada en la traza, ruta de `TRIAJE_CONECTIVIDAD` validada, interruptor para apagar la vista
+> y confirmación explícita para sustituir una clave del host) se cerraron el 10 nov 2026, y los cuatro
+> restantes quedan como **límites aceptados**, descritos abajo. *(El 4 nov este encabezado decía «no apta
+> para producción» hasta cerrar los puntos abiertos.)*
 >
 > Es la vista más delicada del visor: gestiona cómo el MDR entra por SSH a los equipos del cliente.
 > Un error aquí puede filtrar datos de la red o permitir que alguien redirija o bloquee el conector.
@@ -30,7 +33,8 @@ Ficheros que escribe el daemon, junto a la salida: `conectividad-operativa.yml` 
 lee por encima del entorno vía `TRIAJE_CONECTIVIDAD`), `inventario-operativo.yml` (equipos dados de alta y
 papeles, fusionado en el perfil vivo: el motor lo ve), `conectividad-pruebas.json` (última prueba de cada
 equipo), `conectividad-rotacion.json` (rotación en curso) y `conectividad-auditoria.jsonl` (cada prueba,
-lectura y cambio, con el operador).
+lectura y cambio, con el operador; desde el 10 nov, también encadenado en la traza firmada). En producción,
+«junto a la salida» es `/var/lib/mdr`.
 
 ## Ficheros
 
@@ -55,13 +59,21 @@ lectura y cambio, con el operador).
   `TRIAJE_CONECTIVIDAD_ABIERTA=1`. Ver la configuración basta con haber entrado en la consola. La vista dice
   en una franja qué puede hacer cada sesión, y cada acción bloqueada lleva candado y motivo.
 - **Freno por equipo:** una prueba o lectura de la clave del mismo equipo como mucho cada 10 s (429).
-- **Cada prueba, lectura y cambio queda registrado** con el operador.
+- **Cada prueba, lectura y cambio queda registrado** con el operador, y además se **encadena en la traza
+  firmada** como registro `auditoria_conectividad` (no es una decisión: métricas, Decisiones y la cronología
+  lo ignoran; Trazas lo muestra como registro de sistema). Borrarlo ya no pasa desapercibido.
+- **`TRIAJE_CONECTIVIDAD` tiene que estar en el directorio de estado**, junto a la traza: si apunta a otro
+  sitio, el servicio no arranca.
+- **Interruptor de apagado:** `TRIAJE_CONECTIVIDAD_DESACTIVADA=1` deja la vista en solo lectura de la
+  configuración guardada; no prueba, no lee claves del host ni cambia nada (403).
 - **Testigo inocuo:** la prueba comprueba la denegación con `true`, que no lee nada (antes `cat /etc/shadow`).
 - **Temporal aleatorio:** la lectura sin `ssh-keyscan` usa `mktemp -d` y lo borra entero.
 - **known_hosts atómico:** se escribe a un temporal, se guarda copia del anterior y se renombra.
 - **La última prueba sobrevive al reinicio** y la vista enseña su antigüedad; si cambia el papel del equipo, se olvida.
 - **Un ajuste solo se guarda si la prueba con ese ajuste pasa.**
 - **Una clave del host nueva solo se acepta** si su huella es exactamente la que el analista vio y confirmó.
+  Sustituir una clave **ya fijada** (posible suplantación) exige además `reemplazar: true` explícito en el
+  servidor; la consola lo envía solo tras su diálogo de confirmación.
 - **Un alta solo se completa** con la clave del host fijada (la huella que imprimió el propio equipo al
   ejecutar el paquete) y la prueba completa en verde. Hasta entonces el equipo es «pendiente» y el motor no lo ve.
 - **Bloqueo de cuentas «cualquiera salvo las del sistema»:** para las cuentas que crea el atacante. OJO:
@@ -79,36 +91,45 @@ lectura y cambio, con el operador).
 - **El daemon escucha solo en 127.0.0.1**, los POST pasan el control anti-CSRF de `Origin`, y los ficheros se
   escriben de forma atómica con permisos 0600.
 
-## Lo que hay que revisar antes de producción
+## Lo que había que revisar antes de producción
 
 Cerrados el 4 nov 2026: probar y leer exigen operador con freno por equipo (antes punto 2), testigo inocuo
 (3), temporal aleatorio (4), known_hosts atómico (6) y última prueba persistente (9). El punto 1 queda
 **decidido**: ver la configuración exige haber entrado; con la consola abierta el daemon no puede saber
 quién lee, igual que el resto de la API.
 
-Siguen abiertos, por gravedad:
+La lista que quedó abierta el 4 nov se resolvió así el 10 nov 2026 (commit `8e8e416`):
 
-1. **El registro de auditoría no está encadenado.** `conectividad-auditoria.jsonl` no entra en la cadena de
-   hashes de la traza. Un alta, un cambio de clave del host o una rotación deberían quedar en la traza firmada.
-2. **El bloqueo es solo dentro del proceso.** Dos daemons, o una edición a mano de los ficheros mientras la
+| Punto | Desenlace |
+|---|---|
+| 1. Auditoría sin encadenar | **Cerrado.** Se encadena en la traza firmada como `auditoria_conectividad`. |
+| 2. Bloqueo solo dentro del proceso | **Límite aceptado.** |
+| 3. `TRIAJE_CONECTIVIDAD` apunta a cualquier sitio | **Cerrado.** Fuera del directorio de estado, el servicio no arranca. |
+| 4. No se puede apagar la vista sin código | **Cerrado.** `TRIAJE_CONECTIVIDAD_DESACTIVADA=1`. |
+| 5. La rotación escribe en los equipos | **Límite aceptado.** |
+| 6. «Cualquier cuenta» | **Límite aceptado.** |
+| 7. Reglas «que faltan» sin distinguir | **Límite aceptado.** |
+| (nuevo) Sustituir una clave del host ya fijada | **Cerrado.** Exige `reemplazar: true` explícito en el servidor. |
+
+Los límites aceptados, con el texto original de cada punto (se registran también en el
+[trabajo aplazado](../00-general/v2-trabajo-aplazado.md)):
+
+- (2) **El bloqueo es solo dentro del proceso.** Dos daemons, o una edición a mano de los ficheros mientras la
    vista guarda, pueden pisarse. Añadir un bloqueo de fichero o una comprobación de versión.
-3. **`TRIAJE_CONECTIVIDAD` decide qué ficheros lee el conector** (ajustes y rotación). Si alguien controla el
-   entorno del daemon puede apuntarlo a otro sitio. Documentarlo y validar que la ruta está dentro del
-   directorio de salida.
-4. **No hay forma de apagar la vista sin tocar código.** Añadir, por ejemplo, `TRIAJE_CONECTIVIDAD_DESACTIVADA=1`.
-5. **La rotación escribe en los equipos** (el `authorized_keys` del propio conector, sin sudo). Es una
+- (5) **La rotación escribe en los equipos** (el `authorized_keys` del propio conector, sin sudo). Es una
    capacidad nueva del conector: revisar con el cliente si la acepta, o si prefiere rotar con su gestión de
    configuración a partir del paquete.
-6. **«Cualquier cuenta» deja la frontera de cuentas en el motor.** Con esa opción, un conector comprometido
+- (6) **«Cualquier cuenta» deja la frontera de cuentas en el motor.** Con esa opción, un conector comprometido
    podría bloquear root vía sudo. Valorar una lista de exclusión en el sudoers (con sus límites conocidos) o
    restringirla a equipos donde el riesgo se acepte por escrito.
-7. **Las reglas «que faltan» no distinguen** un binario no instalado de una regla quitada a mano. Hoy es solo
+- (7) **Las reglas «que faltan» no distinguen** un binario no instalado de una regla quitada a mano. Hoy es solo
    un aviso; con un inventario de binarios por equipo podría afinarse.
 
-## Cómo dejarla de solo lectura ahora mismo
+## Cómo dejarla de solo lectura
 
-Basta con **no** definir `TRIAJE_CONECTIVIDAD_ABIERTA` y **no** tener operadores con token: nadie puede
-probar, leer claves, dar de alta, rotar ni cambiar nada. Solo se ve la configuración.
+Con `TRIAJE_CONECTIVIDAD_DESACTIVADA=1` en el entorno del servicio. También basta con **no** definir
+`TRIAJE_CONECTIVIDAD_ABIERTA` y **no** tener operadores con token, pero en producción siempre hay analistas
+con token, así que el interruptor es la forma prevista.
 
 ## Observación del laboratorio
 
@@ -120,15 +141,6 @@ El 9 nov 2026 se validó el plan [archivo/proceso-desarrollo/PLAN-PRUEBA-CONECTI
 de punta a punta: banco recién desplegado sin `aprovisionar`, clave generada desde la vista, 12 equipos
 verificados (incluido el equipo nuevo `pagos-qr`, dado de alta desde la vista), contenciones reales y rotación
 completa.
-
-
-El daemon que corre en `:8787` arrancó sin `TRIAJE_SSH_MODO` y con el nodo de gestión por defecto, así que
-la vista lo muestra como **«sin configurar»**: hoy no ejecutaría ninguna contención real. La validación en
-vivo se hizo con una instancia aparte de solo lectura, en `:8799`, arrancada así:
-
-```
-TRIAJE_NODO_GESTION=clab-banco-mdr-siem TRIAJE_SSH_MODO=clave
-```
 
 ## Cómo verificar tras tocarla
 

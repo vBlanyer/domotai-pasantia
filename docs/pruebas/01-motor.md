@@ -12,7 +12,9 @@ python3 -m unittest discover -s lab/dataset/tests     # el pipeline del dataset
 python3 -m unittest discover -s evaluacion/tests      # el marco de evaluación
 ```
 
-**Esperado:** `OK` en las tres (≈169 + 33 + 28 tests). Si las tres dan verde, el prototipo está sano.
+**Esperado:** `OK` en las tres (a 10/11/2026: 1290 + 39 + 63 tests; cuando se escribió esta guía eran ≈169 + 33 + 28).
+Si las tres dan verde, el prototipo está sano. El resto de suites: banco 157, geo-demo 12, portátil 14 y visor
+466 (vitest).
 
 ---
 
@@ -72,5 +74,7 @@ python3 -m prototipo.motor.agrupacion <normalizado.jsonl> <salida.jsonl> [ventan
 python3 -m prototipo.motor.agrupacion normalizado.jsonl incidentes.jsonl 300
 ```
 
-**Esperado:** `N alertas -> M incidentes (ventana 300s)`. Sobre las 205 de evaluación da **4 incidentes**;
-sobre las 18 soportadas, **2** (el ataque y el admin legítimo).
+**Esperado:** `N alertas -> M incidentes (ventana 300s)`. Sobre las 205 alertas de la campaña del ejemplo
+(`2026-08-31-evaluacion`, normalizadas en 1.2) da **4 incidentes**; sobre sus 18 soportadas, **2** (el ataque y
+el admin legítimo). Son cifras de esa campaña, no de la partición vigente: la partición de evaluación completa
+(300 alertas de `lab/dataset/etiquetado.jsonl`) da **14 incidentes** (comprobado el 10/11/2026).

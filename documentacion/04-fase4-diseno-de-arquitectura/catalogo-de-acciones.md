@@ -135,6 +135,10 @@ UCI, no copia de ficheros.
 > **Límite heredado:** el equipo de borde es uno de los objetivos prioritarios del catálogo, y hoy es provisional.
 > Las acciones están diseñadas para ser correctas sobre OpenWrt, pero solo se han podido probar
 > sobre el sustituto Linux. Queda como validación pendiente al desbloquear vrnetlab.
+>
+> *Actualización (06/10/2026):* la integración con OpenWrt se **descartó**. Las contenciones en el borde
+> se ejecutan y verifican sobre el cortafuegos Linux del banco; probarlas sobre OpenWrt (y su `RESTAURAR_CONFIG`
+> con UCI) queda como integración futura, no como requisito.
 
 ---
 

@@ -62,7 +62,7 @@ muestra del `alerts.json` del cliente por el adaptador y reporta cuántas alerta
 playbook, cuántas quedan **sin cobertura** (`otra`/`plataforma`, con su regla/grupos para afinar) y cuántas son
 telemetría propia. Hace **medible** la cobertura antes del go-live.
 **Qué queda (🤝, alta del cliente).** Con el reporte en mano, inventariar su *ruleset*, confirmar que cubre las
-5 familias y ajustar el mapeo o escribir su adaptador. Necesita una muestra real de sus alertas.
+10 familias (eran 5 cuando se escribió este punto) y ajustar el mapeo o escribir su adaptador. Necesita una muestra real de sus alertas.
 **Criterio de cierre.** ✔ (herramienta) El integrador mide la cobertura del *ruleset* del cliente con un
 comando; el ajuste fino sigue siendo tarea de alta por cliente.
 
@@ -107,7 +107,7 @@ biblioteca estándar).
 **Criterio de cierre.** ✔ `Restart=on-failure` cubre la caída dura; `/healthz` detecta el cuelgue del lazo.
 
 ### 6. Rotación y retención de la traza — 🛠 Prototipo · Media · **RETENCIÓN HECHA**
-**Lo que era.** Los ficheros de traza se acumulaban en `run/` sin política; un daemon de larga vida con
+**Lo que era.** Los ficheros de traza se acumulaban en `run/` (en producción, `/var/lib/mdr`) sin política; un daemon de larga vida con
 `--salida` fijo podía crecer sin límite.
 **Lo que se hizo.** Comando de **retención offline** `python3 -m prototipo.servicio.retener_trazas <dir> [--max N |
 --max-dias D] [--excepto RUTA] [--aplicar]`: poda los ficheros `trazas-*.jsonl` antiguos por número o
@@ -122,7 +122,7 @@ seguro para un log encadenado es **sellar entre arranques**. La rotación por ta
 B) para un único daemon de muy larga vida; **cuando se aborde**, debe cablear `leer_familia` en la
 reconstrucción de #4 **y** pasar la exclusión de revertidas a basarse en el `hash` del registro (no en el
 índice posicional), para que la concatenación de segmentos sea consistente (lo detectó la revisión Opus).
-**Criterio de cierre.** ✔ (retención) `run/` no crece sin límite; la poda verifica la cadena y respeta el
+**Criterio de cierre.** ✔ (retención) el directorio de trazas (`run/` en el laboratorio, `/var/lib/mdr` en producción) no crece sin límite; la poda verifica la cadena y respeta el
 activo y las evidencias.
 
 ### 7. Sincronización de reloj (NTP) y manejo de tiempos — 🤝 + 🛠 · Media · **🛠 HECHO**

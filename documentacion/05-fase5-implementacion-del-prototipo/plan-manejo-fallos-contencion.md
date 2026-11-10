@@ -1,5 +1,15 @@
 # Plan: manejo de los fallos de contención sin malinterpretar un error real
 
+> **Estado final (10/11/2026).** Fases 0–6 implementadas (ver el anexo A). **Decisión del 10/11/2026:** los
+> cinco recortes —`TRIAJE_FALLO_RAPIDO`, `TRIAJE_PRECHECK_APROVISIONADO`,
+> `TRIAJE_ESCALADA_SOLO_APROVISIONADOS`, `TRIAJE_MEMORIA_FALLOS` y `TRIAJE_ACCION_NO_EJECUTABLE`— se
+> cierran como **funcionalidad experimental, apagada por defecto**. Con ellos apagados el MDR se comporta
+> como antes del plan, más la clasificación de causas, los mensajes y el estado operativo en Conectividad
+> (fases 1–3), que no cambian decisiones. La **validación en el laboratorio** y el encendido por defecto
+> quedan como **trabajo futuro**, no como pendiente del proyecto
+> ([trabajo aplazado](../00-general/v2-trabajo-aplazado.md)). Los «Pendiente» de cada fase en el anexo se
+> leen con esta decisión.
+
 > **Problema.** Cuando una contención falla, el MDR hoy no distingue *por qué*. «Equipo sin
 > aprovisionar», «equipo inalcanzable», «sudo deniega la acción» y «alguien suplanta al equipo» salen
 > igual: «NO verificada» y «el activo no respondió». Mejorarlo es delicado: algunas de esas causas son
@@ -446,3 +456,8 @@ del laboratorio para no interferir con él.
 - **Pendiente:** validación en el banco (cortar conexión en web-banking, cuyo nodo no tiene `ss`).
   Después se encienden los interruptores por defecto en un commit aparte.
 
+### Estado final (10/11/2026)
+
+Los cinco interruptores de las fases 4–6 se quedan **apagados por defecto** como funcionalidad
+experimental. Los «Pendiente: validación en el laboratorio» de arriba pasan a trabajo futuro: se harán, si
+se hacen, después de la entrega, y solo entonces se encenderían por defecto en un commit aparte.

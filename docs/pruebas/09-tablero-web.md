@@ -46,7 +46,21 @@ menú, cuando hace falta humano, ahora también lo espera el tablero. La consola
 http://127.0.0.1:8787
 ```
 
-## Las siete vistas del visor
+## Las vistas del visor
+
+*Actualizado a 10/11/2026.* Cuando se escribió esta guía el visor tenía siete vistas (abajo). Hoy el menú
+tiene **14 entradas** en cinco grupos:
+
+| Grupo | Entradas |
+|---|---|
+| — | Panel |
+| Operar | Consola, Aprobaciones, Contenciones activas, Decisiones |
+| Investigar | Incidentes, Red, Ubicaciones, Watchlist, Trazas |
+| Informar | Informe (métricas, periodo y exportación) |
+| Configurar | Políticas de respuesta, Conectividad, Estado de servicios |
+
+El detalle de cada una está en el [manual de usuario](../../documentacion/07-fase7-documentacion-e-informe-final/manual-de-usuario.md). Las siete originales, tal como se
+describieron:
 
 - **Panel** — el resumen de un vistazo: KPIs (volumen de decisiones, aprobadas/rechazadas, escaladas) y
   gráficos de reparto por clase y acción.
@@ -73,6 +87,11 @@ ejemplo, un `iptables` por SSH contra un activo real del laboratorio o del clien
 responder `1` en la terminal. Es un tablero para el analista en su propio puesto, no una consola
 multiusuario ni algo para exponer más allá de `localhost`. Login y TLS quedan como trabajo futuro (ver
 `documentacion/00-general/estado-y-riesgos.md`, nota D11).
+
+*Actualización (10/11/2026):* en producción la consola pide un **token por analista**
+(`TRIAJE_CONSOLA_OPERADORES`, gestionado con `mdr analista`) y se usa por **túnel SSH** con el mismo puerto
+(`ssh -N -L 8787:127.0.0.1:8787 …`); cada aprobación queda firmada con el nombre del analista. Sin mapa de
+tokens (como en el arranque de laboratorio de esta guía) sigue valiendo la advertencia de arriba.
 
 ## Nota de limitación (v1): botones del submenú de reclasificar
 

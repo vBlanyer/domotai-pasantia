@@ -1,5 +1,11 @@
 # Editor de políticas de respuesta — Plan de implementación
 
+> **Estado: implementado** el 03/11/2026: compuertas del
+> motor (`ffb6752`, `2e02b5a`), overlay y validación (`fba0a5d`), almacén con auditoría (`9b8772b`), API
+> `GET`/`POST /api/politica` (`ce80317`, `70e3381`), carga del overlay en el daemon (`2ef422d`), vista del
+> visor (`bb929d9`, `e1007ee`) y correcciones de la revisión (`c7b073e`); retoques de estilo el 04/11. Las
+> casillas de abajo no se marcaron una a una: el plan se conserva tal como se ejecutó.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Hacer editable la vista «Políticas» del visor para configurar, por tipo de ataque y por zona/dispositivo, qué se contiene en automático y qué exige humano, sin poder debilitar nunca los frenos de seguridad ni mover las cifras canónicas.

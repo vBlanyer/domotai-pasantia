@@ -11,6 +11,8 @@ estado está. Empieza por ahí.
   - [estado-y-riesgos.md](00-general/estado-y-riesgos.md) — estado por fase, decisiones cerradas e incongruencias abiertas.
   - [camino-paso-a-paso.md](00-general/camino-paso-a-paso.md) — plan de ejecución ordenado, con criterio de cierre por paso.
   - [v2-trabajo-aplazado.md](00-general/v2-trabajo-aplazado.md) — el único registro de «v2»: lo aplazado conscientemente a después de la entrega, con su porqué.
+  - [decision-rumbo-xdr-vs-triaje.md](00-general/decision-rumbo-xdr-vs-triaje.md) — la disyuntiva de septiembre entre correlación XDR y reforzar el triaje, y su desenlace (se reforzó el triaje: 10 familias).
+  - [bucle-de-feedback-rf12.md](00-general/bucle-de-feedback-rf12.md) — diseño del consumo de las reclasificaciones del analista (RF-12).
 - [material-superado/](material-superado/) — material superado, conservado por trazabilidad. No es diseño vigente.
 
 ## Las siete fases
@@ -21,7 +23,7 @@ estado está. Empieza por ahí.
 | [2 — Estado del arte](02-fase2-estado-del-arte/) | MDR/XDR, modelos de lenguaje en seguridad y el registro único de requisitos | Completa |
 | [3 — Entorno de pruebas](03-fase3-entorno-de-pruebas/) | Diseño del laboratorio (ejecutable en [`lab/`](../lab/)) y el dataset etiquetado y particionado | Completa (600 alertas etiquetadas) |
 | [4 — Arquitectura](04-fase4-diseno-de-arquitectura/) | Flujo, protocolos, catálogo de acciones, auditoría, modelo y métricas | Cerrada |
-| [5 — Implementación](05-fase5-implementacion-del-prototipo/) | El prototipo [`prototipo/`](../prototipo/): decisión (5A), lazo en vivo (5B), justificador LLM real (5C), **RAG local (5D)** y **taxonomía de familias extensible (registro MITRE + tres niveles de respuesta: actuar / triar_y_enrutar / no_soportada)** | Completa (clasificador por árbol de decisión; registro de familias y perfil bancario) |
+| [5 — Implementación](05-fase5-implementacion-del-prototipo/) | El prototipo [`prototipo/`](../prototipo/): decisión (5A), lazo en vivo (5B), justificador LLM real (5C), **RAG local (5D)** y **taxonomía de familias extensible (registro MITRE + tres niveles de respuesta: actuar / triar_y_enrutar / no_soportada)** | Completa (clasificador por árbol de decisión; registro de familias y perfil bancario). Incluye el [plan de manejo de fallos de contención](05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md) y la [revisión de seguridad de Conectividad](05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md) |
 | [6 — Evaluación](06-fase6-evaluacion-del-prototipo/) | Medición contra el baseline de Wazuh, [informe](06-fase6-evaluacion-del-prototipo/informe-evaluacion.md) y análisis de errores | Completa (prototipo: tasa de FP 0.009 vs 0.310 del baseline @óptimo; recall 1.0 vs 0.920 — partición de 300, tres familias evaluadas) |
 | [7 — Informe final](07-fase7-documentacion-e-informe-final/) | Consolidación de todo lo anterior | Borrador entregado ([`report/`](report/)) |
 

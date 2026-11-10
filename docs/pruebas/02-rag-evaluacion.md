@@ -18,8 +18,11 @@ python3 -m evaluacion.campana --particion evaluacion --sin-llm
 python3 -m evaluacion.campana --particion evaluacion --con-rag
 ```
 
-**Esperado:** tabla prototipo vs baseline. Resultado principal: **precisión 1.000, tasa de FP 0.000** frente
-al baseline (0.154 / 0.282). Escribe `evaluacion/resultados/tabla.md` y `campana-<fecha>.json`.
+**Esperado:** tabla prototipo vs baseline sobre n = 300 (106 soportadas). Resultado principal (vigente,
+comprobado el 10/11/2026 con `--sin-llm`): prototipo **recall 1.000, tasa de FP 0.009** frente al baseline de
+Wazuh en su umbral óptimo (**0.920 / 0.310**), con escalado al humano **0.297** y 0 contenciones automáticas
+indebidas. *(Cuando se escribió esta guía, con un dataset menor, daba precisión 1.000 y FP 0.000 frente a
+0.154 / 0.282.)* Escribe `evaluacion/resultados/tabla.md` y `campana-<fecha>.json` (o en `--salida-dir`).
 
 ## 2.2 · Compilar el corpus del RAG desde MITRE ATT&CK
 

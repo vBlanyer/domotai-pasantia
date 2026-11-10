@@ -50,6 +50,8 @@ comparar contra él es lo único que responde a la pregunta del proyecto.
 - [Arquitectura consolidada](arquitectura-consolidada.md) — vista única: componentes, planos, flujo y los tres puntos de aislamiento.
 - [Integración en producción](integracion-en-produccion.md) — cómo se configura el prototipo para el sistema de un cliente real: arquitectura de despliegue, los puntos de configuración por cliente (perfil, catálogo, adaptador del SIEM, conector), alta de cliente, postura de seguridad y lo listo vs. trabajo futuro.
 - [Hoja de ruta a producción](hoja-de-ruta-a-produccion.md) — los pendientes para pasar de prototipo a producto final (los 12 puntos), con quién los cierra, estado, criterio de cierre y el orden progresivo de cierre del proyecto.
+- [Despliegue en AWS con OpenTofu](despliegue-aws-opentofu.md) — diseño del despliegue en la nube (MDR + visor + LLM en GPU); la IaC de [`infra/aws/`](../../infra/aws/) pasa `tofu init` + `tofu validate` y falta solo el `apply`, que decide el tutor industrial. Su resumen para la reunión: [briefing del despliegue en AWS](briefing-reunion-despliegue-aws.md).
+- [Editor de políticas de respuesta](editor-de-politicas-respuesta.md) — diseño de la vista «Políticas de respuesta» editable: por familia y por zona/dispositivo, solo puede quitar automatización respecto al perfil. **Implementado** (plan en la [Fase 5](../05-fase5-implementacion-del-prototipo/plan-editor-politicas-respuesta.md)).
 - [Requisitos del cliente y gobernanza](requisitos-del-cliente-y-gobernanza.md) — lo que no es código y debe aportar la empresa/cliente: autorización para actuar (reglas de enganche), despliegue del auditor, hardware del modelo, custodia de secretos (vault) y control de cambios; con plantillas y listas de verificación.
 
 **Material de referencia:** [EDR, XDR, MDR y telemetría](edr-xdr-mdr-telemetria.md) — encaje de las
@@ -85,3 +87,8 @@ La revisión pendiente que la Fase 1 abrió tras cerrar la Fase 4 quedó **absor
 Dos huecos conocidos que **no** son de diseño: el catálogo no se ha podido probar sobre un equipo de
 borde con firmware real (vrnetlab bloqueado), y los umbrales concretos (confianza, `LIMITAR_BANDA`)
 se calibran en la Fase 6 — la implementación arranca con valores declarados y recalibrables.
+
+*Estado a 10/11/2026:* el primero se cerró por descarte el 06/10/2026 —el bloqueo en el borde funciona
+con el cortafuegos Linux del banco y OpenWrt queda como integración futura, no como requisito—; del
+segundo, el umbral de confianza se barrió el 19/10/2026 con curva plana (el control activo es la
+política de actores, D16; ver [barrido](../../evaluacion/resultados/barrido-umbral.md)).

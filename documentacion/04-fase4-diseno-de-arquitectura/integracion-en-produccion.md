@@ -3,6 +3,13 @@
 > Continuación operativa de [`arquitectura-consolidada.md`](arquitectura-consolidada.md). Aquella describe
 > **qué** es el sistema; esta describe **cómo lo configuraríamos para un cliente real** y **qué cambia**
 > respecto al laboratorio.
+>
+> **Para instalarlo**, el procedimiento vigente (10/11/2026) está en el [manual de producción](../07-fase7-documentacion-e-informe-final/manual-de-produccion.md):
+> `sudo ./instalar.sh` → `sudo mdr configurar` → `sudo mdr analista alta <nombre> --clave-ssh <pub>` →
+> `sudo mdr estado`. Deja el código en `/opt/mdr`, la configuración en `/etc/mdr` (perfil en
+> `/etc/mdr/perfil.yml`, `triaje.env` con permisos `0600`) y el estado en `/var/lib/mdr` (traza, ficheros
+> operativos, clave del conector, postura). Este documento explica el porqué de cada pieza; los comandos de
+> laboratorio que aparecen abajo siguen siendo válidos para desarrollo.
 
 ## Idea central
 
@@ -66,10 +73,14 @@ del cliente): el daemon (`prototipo/servicio/stream.py`), el conector, la traza 
   receptor syslog — ver §3.2 y §5).
 - **Salida:** alcanzar por SSH el **plano de gestión** de los dispositivos del cliente (no el de datos).
 
-**Binding y frontera.** La API y el visor se ligan **solo a `127.0.0.1:8787`** (`tablero.py`). El sistema **no
-trae login**: el SSO corporativo, el TLS y el *reverse proxy* los pone la empresa delante. El daemon ya trae una
-**auth opcional por token** (`TRIAJE_CONSOLA_TOKEN`) con no-repudio por operador, **apagada por defecto**, además de
-la validación de `Host`/`Origin`/CORS (ver §5).
+**Binding y frontera.** La API y el visor se ligan **solo a `127.0.0.1:8787`** (`tablero.py`). **Modelo de acceso
+(10/11/2026):** cada analista entra por un **túnel SSH con el mismo puerto** a los dos lados
+(`ssh -N -L 8787:127.0.0.1:8787 <analista>@<equipo-mdr>`) y se identifica con **su token**
+(`TRIAJE_CONSOLA_OPERADORES`, gestionado con `mdr analista`); cada aprobación, reversión o cambio queda firmado con
+su nombre. El túnel cifra el tráfico, así que no hace falta TLS en la consola. **No hay SSO**, y no se pone un
+*reverse proxy* delante: uno que reescriba `Host` recibe **403** por la validación anti-DNS-rebinding, que sigue
+activa junto con `Origin`/CORS (ver §4). *(Antes de la instalación de producción, este párrafo proponía que la
+empresa pusiera login, TLS y proxy delante; ese esquema ya no es el previsto.)*
 
 **Un daemon = un cliente.** No hay multi-tenant: cada proceso carga **un** perfil (`stream.py`). Varios clientes
 = varios procesos/nodos de gestión, uno por perfil.
@@ -83,7 +94,8 @@ Configurar el prototipo para un cliente = **escribir su perfil** + **declarar su
 
 ### 2.1 El perfil del cliente — `prototipo/perfiles/<cliente>.yml`
 
-Es un YAML declarativo. El motor lo consume para decidir *qué se puede automatizar y qué no*. Claves de nivel
+En producción el perfil vive en **`/etc/mdr/perfil.yml`** (lo prepara `mdr configurar`); en el laboratorio,
+en `prototipo/perfiles/`. Es un YAML declarativo. El motor lo consume para decidir *qué se puede automatizar y qué no*. Claves de nivel
 superior (ver ejemplos reales en `bancario.yml`, `empresarial.yml`, `residencial.yml`):
 
 | Clave | Qué configura |
@@ -205,9 +217,11 @@ Configuración por variables de entorno en el nodo de gestión:
 la contraseña de laboratorio (eso ocultaría una producción mal configurada). Además sanea la inyección: exige
 IP real y rechaza `None`/metacaracteres/valores que empiecen por `-`.
 
-> **Honesto:** `ejecutor_ssh_clave` existe en código pero **no se ha ejercitado contra dispositivos reales**
-> (el laboratorio usa el ejecutor de contraseña vía `docker exec`). Validarlo contra un dispositivo de verdad
-> es parte del rollout (ver §6).
+> **Honesto:** el conector con clave **ya se ejercitó en el laboratorio con contenciones reales**: en modo
+> `directo` (SSH desde el host, sin Docker, con la clave y el `known_hosts` del host), validado en vivo, y con la
+> clave generada y rotada desde la vista Conectividad. Lo que falta es probarlo **contra los equipos reales de un
+> cliente**, que es parte del rollout. *(Hasta finales de octubre esta nota decía que no se había ejercitado:
+> el laboratorio usaba entonces el ejecutor de contraseña vía `docker exec`.)*
 
 ### 2.5 El arranque del daemon — `prototipo/servicio/stream.py`
 
@@ -239,13 +253,15 @@ tail -n0 -F /ruta/al/alerts.json \
 - Un cambio en el backend requiere **reiniciar el daemon**; el `dist` del visor se sirve por petición (basta
   `npm run build`).
 - **`--salida` estable.** El daemon reconstruye su estado (supresión y contenciones activas) de la traza que
-  retoma al arrancar. Para que un reinicio recupere ese estado, usa un `--salida` **fijo** por cliente (p. ej.
-  `run/trazas-<cliente>.jsonl`), no un nombre por arranque; así la traza de varias sesiones es una sola cadena y
+  retoma al arrancar; la pausa de la automatización también sobrevive al reinicio (`pausa.json`, junto a la
+  traza). Para que un reinicio recupere ese estado, usa un `--salida` **fijo** por cliente (en producción, dentro
+  de `/var/lib/mdr`, que fija el instalador; en el laboratorio, p. ej. `run/trazas-<cliente>.jsonl`), no un nombre
+  por arranque; así la traza de varias sesiones es una sola cadena y
   el reinicio no «olvida» qué estaba bloqueado.
 - **Servicio supervisado + healthcheck.** En producción el daemon corre como servicio **systemd**
   (`Restart=on-failure`) y expone `GET /healthz` con la salud del propio MDR (vitalidad del lazo + silencio de
   ingesta) para un monitor local. Plantillas de unidad, wrapper del *pipe* y `EnvironmentFile` en **`deploy/`**
-  (ver `deploy/README.md`).
+  (ver `deploy/README.md`); `instalar.sh` los coloca y `mdr estado` comprueba la instalación.
 
 ### 2.6 Dispositivos sin SSH: planos y *drivers*
 
@@ -354,7 +370,12 @@ por debajo. **A y C son trabajo de *rollout*** del cliente real (se eligen en el
    reales.
 6. **Habilitar la contención gradualmente** → empezar con todo a `humano_siempre`; subir a
    `automatica_si_confianza` por nivel de impacto a medida que se gana confianza.
-7. **Poner el frente de la empresa** → login, TLS y *reverse proxy* delante del `127.0.0.1:8787` (§5).
+7. **Dar acceso a los analistas** → `sudo mdr analista alta <nombre> --clave-ssh <pub>` por persona: token propio
+   y cuenta limitada al túnel de la consola (§1). *(Antes: «poner login, TLS y reverse proxy delante»; ya no es
+   el esquema previsto.)*
+
+El orden operativo completo, con `instalar.sh`, `mdr configurar` y `mdr estado`, está en el
+[manual de producción](../07-fase7-documentacion-e-informe-final/manual-de-produccion.md).
 
 ---
 
@@ -382,13 +403,16 @@ por debajo. **A y C son trabajo de *rollout*** del cliente real (se eligen en el
 
 **Trabajo futuro (lo pone/valida la empresa en el rollout):**
 
-- **Login/autenticación** del tablero: **auth opcional por token** (`TRIAJE_CONSOLA_TOKEN`) + no-repudio por operador ya disponibles (apagados por defecto); el SSO corporativo lo pone la empresa. Defensas `Host`/`Origin`/CORS siempre activas.
-- **TLS y canal de alertas seguro**: si se recibe por syslog, el UDP es *spoofable* (una alerta falsa puede
-  convertir el auto-bloqueo en un arma de DoS). Mitigaciones: syslog **TCP + TLS** y lista blanca de IPs del
-  SIEM.
+- **Login/autenticación** del tablero: **resuelto para la instalación de producción** con túnel SSH + token por
+  analista (`TRIAJE_CONSOLA_OPERADORES`, `mdr analista`) y no-repudio por operador. **No hay SSO**; integrarlo
+  sería trabajo futuro. Defensas `Host`/`Origin`/CORS siempre activas.
+- **Canal de alertas por syslog/CEF**: el UDP de syslog es *spoofable* (una alerta falsa puede convertir el
+  auto-bloqueo en un arma de DoS). **Ya existe** el receptor propio **TCP + TLS** con lista blanca de IPs del
+  SIEM y mTLS opcional (`--escuchar`, `TRIAJE_ESCUCHAR`/`TRIAJE_PERMITIR`/`TRIAJE_TLS_*`); lo que queda como
+  futuro es recibir syslog o CEF directamente.
 - **Multi-tenant**: hoy un perfil por proceso.
-- **Canal de respuesta real**: sustituir el `docker exec` del laboratorio por SSH directo (o TR-069/ACS para
-  CPE), y **validar `ejecutor_ssh_clave` contra dispositivos reales**. Para equipos que **no** son SSH, el
+- **Canal de respuesta real**: el SSH directo ya existe (`TRIAJE_SSH_MODO=directo`, validado en vivo en el
+  laboratorio); falta **probarlo contra los equipos reales de un cliente** (y TR-069/ACS para CPE). Para equipos que **no** son SSH, el
   patrón de *drivers* por plano de ejecución (registro + `DriverSSH`/`DriverRestFirewall`/… ) está descrito en
   **§2.6**; formaliza tanto el relevo del `docker exec` como el canal TR-069/ACS.
 - **TTL de bloqueos** (caducado automático de las contenciones).
@@ -397,19 +421,24 @@ por debajo. **A y C son trabajo de *rollout*** del cliente real (se eligen en el
 
 ## 5. Listo vs. trabajo futuro (resumen honesto)
 
+*Al día a 10/11/2026.*
+
 | Componente | Estado |
 |---|---|
-| Motor de decisión + triaje | **Listo y probado** (suites en verde; métricas canónicas estables). |
-| Configuración por perfil (los *seams*) | **Lista**: perfil, catálogo, sudoers generado, adaptador agnóstico. |
+| Motor de decisión + triaje | **Listo y probado** (suites en verde; métricas canónicas estables: recall 1.0, tasa de FP 0.009 con n=300). |
+| Configuración por perfil (los *seams*) | **Lista**: perfil, catálogo, sudoers generado, adaptador agnóstico; ajuste de la automatización desde la vista «Políticas de respuesta» (solo puede quitarla, con auditoría). |
 | Endurecimiento del propio MDR | **Hecho** (CORS/CSRF/Host, HMAC, sudoers, fail-closed, nunca-automáticas). |
-| Conector de producción (`ejecutor_ssh_clave`) | **Diseñado, en código; sin ejercitar contra equipos reales.** |
+| Instalación de producción | **Lista**: `instalar.sh` + `mdr configurar` / `analista` / `estado`, servicio systemd, rutas `/opt/mdr`, `/etc/mdr`, `/var/lib/mdr`. Ver el [manual de producción](../07-fase7-documentacion-e-informe-final/manual-de-produccion.md). |
+| Acceso a la consola | **Listo**: túnel SSH + token por analista; sin SSO. |
+| Conector de producción (`ejecutor_ssh_clave`, modo `directo`) | **Ejercitado en el laboratorio con contenciones reales**; falta probarlo contra equipos reales de un cliente. Alta de equipos, papeles y rotación de la clave desde la vista Conectividad, con límites aceptados ([revisión](../05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md)). |
 | Contención en puntos no-SSH (*appliance* de borde) | **Cubierto por diseño en el prototipo** (choke point Linux = opción B) **+ *fail-safe***; los *drivers* por *appliance* (opciones A/C) son *rollout*, documentados en §2.6. |
 | Segunda fuente de SIEM (CEF) | **Analizada, no implementada.** |
-| SSO / TLS / multi-tenant / TTL de bloqueos | **Trabajo futuro** (el login básico por token ya existe; el SSO corporativo lo pone la empresa). |
+| Despliegue en la nube (AWS) | IaC escrita y validada (`tofu validate`); falta el `apply`, que decide el tutor industrial ([diseño](despliegue-aws-opentofu.md)). |
+| SSO / multi-tenant / TTL de bloqueos | **Trabajo futuro.** |
 
 > En una palabra: **el núcleo que decide y el modo de configurarlo por cliente están listos y endurecidos**; lo
-> que falta para un cliente real es *operativo de rollout* (credenciales reales, canal de alertas seguro, el
-> frente de autenticación de la empresa) y validar el canal SSH de producción contra dispositivos de verdad.
+> que falta para un cliente real es *operativo de rollout* (credenciales reales, canal de alertas seguro) y
+> probar el canal SSH de producción contra los equipos de verdad del cliente.
 
 El detalle de lo pendiente —los puntos a cerrar para pasar de prototipo a producto final, con estado, criterio
 de cierre y orden— está en la **[hoja de ruta a producción](hoja-de-ruta-a-produccion.md)**, que se aborda

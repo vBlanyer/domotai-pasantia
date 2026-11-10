@@ -227,9 +227,9 @@ familias. `atacar auto` los lanza todos una vez y `atacar continuo` sin fin.
 
 ### Qué ocurre después
 
-Al reiniciar el MDR **se pierden** la pausa de la automatización, el estado operativo de
-Conectividad y la memoria de fallos: viven en memoria. La traza, las políticas, el inventario y las
-contenciones activas se conservan.
+Al reiniciar el MDR **se pierden** el estado operativo de Conectividad y la memoria de fallos: viven
+en memoria. La traza, las políticas, el inventario, las contenciones activas y la pausa de la
+automatización se conservan.
 
 ## 5. Entrar y salir de la consola
 
@@ -452,8 +452,8 @@ intentos antes y después del bloqueo, la regla exacta y el comando que la quita
 2. Desde ese momento, **toda** contención nueva espera a un analista. Arriba aparece la banda roja.
 3. Para reanudar, vuelve a pulsarlo.
 
-> **Nota:** pausar **no** retira las contenciones que ya están puestas, y la pausa se pierde si se
-> reinicia el MDR.
+> **Nota:** pausar **no** retira las contenciones que ya están puestas. La pausa **se mantiene** aunque
+> se reinicie el MDR (se guarda junto a la traza, en `pausa.json`): solo la quita un analista.
 
 ### Revertir
 
@@ -665,6 +665,11 @@ cortafuegos o puesto. Esta vista lo gestiona todo sin tocar scripts.
 > ven la pública y las huellas. **Ninguna clave del host se acepta sola**: siempre hay que confirmar
 > que la huella coincide con la que imprimió el equipo.
 
+Cada prueba, alta, cambio de clave del host o rotación queda además en la traza firmada, con el nombre
+de quien lo hizo (en Trazas sale como «Conectividad»). Sustituir una clave del host ya fijada solo se
+puede hacer desde el diálogo de confirmación: el servidor rechaza la sustitución si no se pide
+explícitamente.
+
 ### Lo que se ve
 
 - **La franja de permisos**, con lo que puede hacer tu sesión.
@@ -796,8 +801,9 @@ El historial del equipo borrado se conserva en Decisiones y en Trazas.
 
 ## 21. Recortes ante fallos de contención
 
-Están **apagados por defecto** y se encienden con `=1` al arrancar el MDR. No cambian qué se
-contiene: solo ahorran conexiones que no podían servir.
+Son **experimentales**: probados, pero no validados contra una red completa. Están **apagados por
+defecto** y se encienden con `=1` al arrancar el MDR. No cambian qué se contiene: solo ahorran
+conexiones que no podían servir.
 
 > **Quién puede:** administración del MDR.
 
@@ -829,8 +835,8 @@ contiene: solo ahorran conexiones que no podían servir.
 | exfiltracion | BLOQUEAR_DESTINO en el borde | **Nunca** |
 | malware | AISLAR_NODO | **Nunca** |
 
-Lo que no encaja en ninguna familia se marca «no soportada» y no se actúa. Si es grave, pasa a un
-analista.
+Lo que no encaja en ninguna familia se marca «no soportada» y no se actúa. Si es grave y el perfil lo
+activa (`continuidad.revisar_no_soportada_nivel`, como `bancario.yml`), pasa a un analista.
 
 ## Anexo B. Por qué falló una contención
 
@@ -863,6 +869,7 @@ toca».
 | `TRIAJE_POLITICA_ABIERTA=1` | Laboratorio: deja editar Políticas sin operador identificado |
 | `TRIAJE_SLA_SEG` | SLA de la respuesta humana en segundos (900 por defecto) |
 | `TRIAJE_RDNS=1` | Permite el DNS inverso de IPs públicas |
+| `TRIAJE_CONECTIVIDAD_DESACTIVADA=1` | Apaga la vista Conectividad: solo muestra la configuración, sin probar ni cambiar nada |
 | `TRIAJE_NODO_GESTION` | Contenedor desde el que sale el SSH del conector. `reiniciar.sh` la fija en el banco |
 | `TRIAJE_SSH_MODO` | `clave` (vía el nodo de gestión), `directo` (desde este equipo) o `password` (laboratorio). Sin clave ni modo, no ejecuta nada |
 | `TRIAJE_SSH_USUARIO`, `TRIAJE_SSH_CLAVE`, `TRIAJE_SSH_KNOWN_HOSTS` | Usuario, clave privada y huellas del conector |
@@ -917,8 +924,8 @@ nuevas entran en el mapa cuando se completan.
 **¿Por qué no puedo editar Políticas o Conectividad?** Esas vistas exigen un operador identificado por
 token. Pide un token personal a quien administra el MDR.
 
-**¿Se pierde algo al reiniciar el MDR?** La pausa, el estado operativo de Conectividad y la memoria de
-fallos. La traza, las políticas, el inventario y las contenciones activas se conservan.
+**¿Se pierde algo al reiniciar el MDR?** El estado operativo de Conectividad y la memoria de fallos.
+La traza, las políticas, el inventario, las contenciones activas y la pausa se conservan.
 
 ### El sistema
 
@@ -927,7 +934,8 @@ filtra el perfil del cliente. El modelo solo explica, y su explicación se desca
 los datos.
 
 **¿Qué significa «no soportada»?** Que la alerta cae fuera de las diez familias que el MDR trata. El
-sistema prefiere decirlo a inventar una respuesta. Si es grave, pasa a un analista.
+sistema prefiere decirlo a inventar una respuesta. Si es grave y el perfil lo activa, pasa a un
+analista.
 
 **¿El MDR sustituye al SIEM o a un antivirus?** No. Refina lo que el SIEM ya detecta; lo que el SIEM
 no ve, el MDR tampoco.

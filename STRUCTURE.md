@@ -8,16 +8,18 @@ Mapa de un vistazo de qué es cada carpeta. El diseño completo está en
 ├── prototipo/          Producto: motor de triaje MDR (paquete Python por capas: entrada/ motor/
 │                       accion/ explicacion/ servicio/ herramientas/ + datos en la raíz; stdlib + yaml)
 ├── visor/              Producto: consola web (React/TS/Vite) que sirve el daemon
-├── deploy/             Producto: kit de despliegue en producción (systemd + /healthz)
+├── deploy/             Producto: despliegue en producción (instalar.sh, empaquetar.sh, unidad systemd,
+│                       triaje.env.ejemplo, perfil.ejemplo.yml)
+├── bin/                Producto: la herramienta de administración `mdr` (configurar, estado, analista…)
 ├── evaluacion/         Arnés de evaluación contra el baseline + resultados medidos
 ├── lab/                Laboratorio: banco Containerlab, dataset etiquetado, topologías, scripts, campañas
 ├── documentacion/      Tesis por fases (00-general … 07-fase7) + material-superado/
-├── docs/               Guías de prueba y evidencia (docs/pruebas/)
+├── docs/               Guías de prueba y evidencia (docs/pruebas/), incluida la de evaluar un LLM en GPU
+├── infra/              Infraestructura como código en AWS (OpenTofu; validada, sin aplicar)
 ├── archivo/            Archivo del PROCESO de desarrollo (planes/specs); no es diseño vigente
 ├── README.md           Qué es el proyecto y qué hay construido
 ├── CHANGELOG.md        Qué cambió en cada versión (v1.0, v1.1 y posteriores)
 ├── RUNBOOK.md          Cómo arrancar y operar todo, paso a paso
-├── docs/pruebas/evaluar-llm-en-gpu.md  Cómo medir un modelo de justificación en una máquina con GPU
 └── reiniciar.sh        Reinicia el daemon en vivo sobre el banco levantado
 ```
 

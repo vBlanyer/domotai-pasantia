@@ -1,5 +1,12 @@
 # Diseño — Editor de políticas de respuesta en el visor
 
+> **Estado (10/11/2026): implementado** el 03/11/2026 (commits `ffb6752` → `c7b073e`; retoques de estilo
+> el 04/11). Es la vista «Políticas de respuesta» del grupo Configurar: solo puede **quitar** automatización
+> respecto al perfil, nunca añadirla; los cambios van a un overlay auditado (`politica-operativa.yml` y
+> `politica-auditoria.jsonl`, junto a la traza). Plan de implementación en la
+> [Fase 5](../05-fase5-implementacion-del-prototipo/plan-editor-politicas-respuesta.md). Lo que sigue es el
+> diseño tal como se acordó antes de implementarlo.
+
 > Documento de diseño (previo al plan de implementación). Recoge lo acordado en la fase de
 > exploración para que un implementador pueda planificarlo sin volver a preguntar. Lo que queda a
 > criterio del implementador está marcado como tal.

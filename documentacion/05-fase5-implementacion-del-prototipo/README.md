@@ -28,7 +28,7 @@ con un árbol de decisión que nutre el baseline determinista, no con un codific
 | **Interfaz de análisis y clasificador real (5C)** | `clasificar` detrás de un encoder ajustado sobre la partición de entrenamiento | Dada una alerta, devuelve clase, prioridad y **confianza numérica** desde el modelo, no desde una regla fija | **Resuelto con matiz** — el codificador con ajuste fino se **descartó**: con un dataset de unos cientos de filas memoriza y no se valida sin fuga. En su lugar, un **árbol de decisión** (`arbol.py`, CART) valida y **descubre reglas** que se promueven al clasificador determinista auditable (p. ej. la 6.ª regla, la de ráfaga, con evidencia 79/79). El sistema clasifica a la granularidad **VP/FP/no_soportada** que soportan las etiquetas del dataset; las clases finas exigirían etiquetas finas de las que hoy no se dispone (límite de datos, no una pieza pendiente). Ver [D15](../00-general/estado-y-riesgos.md) y [`prototipo/README.md`](../../prototipo/README.md) |
 | **Justificador en línea (5C)** | `justificar` detrás de un modelo generativo real | Produce una justificación breve que **referencia campos concretos** de la alerta ([RNF-02](../02-fase2-estado-del-arte/requisitos.md)), en un tiempo tolerable para una persona | **Hecho, con matiz** — `justificar_llm` corre un LLM real (Llama-3.2-**1B**, cuantizado, por `subprocess` a un binario de llama.cpp), verificado en vivo produciendo una justificación anclada en ~14 s; la interfaz queda lista para un modelo mayor cuando haya hardware (GPU). Ver [`prototipo/README.md §9`](../../prototipo/README.md#9-5c--el-justificador-con-llm) |
 | **Conector (5B)** | Traduce acciones abstractas del catálogo a comandos, con clave dedicada y privilegio mínimo | El motor ordena una acción y el nodo la ejecuta, con orden, comando, código de salida y salida registrados | **Hecho** — [`prototipo/`](../../prototipo/README.md#8-5b--el-lazo-en-vivo) |
-| **Validación humana y trazas en vivo (5B)** | Retiene lo que exige aprobación, muestra la justificación **por terminal (TUI/CLI, sin UI gráfica — [flujo §7](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md))**, registra la decisión | El lazo completo funciona en vivo: alerta → clasificación → justificación → validación → acción → verificación | **Hecho** — [`prototipo/`](../../prototipo/README.md#8-5b--el-lazo-en-vivo), demostrado sobre `objetivo-vuln` con `BLOQUEAR_IP` |
+| **Validación humana y trazas en vivo (5B)** | Retiene lo que exige aprobación, muestra la justificación **por terminal (TUI/CLI) y, desde el visor, en la consola web** ([flujo §7](../04-fase4-diseno-de-arquitectura/flujo-triaje-playbook-sandbox.md); la UI gráfica llegó después: ver [manual de usuario](../07-fase7-documentacion-e-informe-final/manual-de-usuario.md)), registra la decisión | El lazo completo funciona en vivo: alerta → clasificación → justificación → validación → acción → verificación | **Hecho** — [`prototipo/`](../../prototipo/README.md#8-5b--el-lazo-en-vivo), demostrado sobre `objetivo-vuln` con `BLOQUEAR_IP` |
 | **RAG local (5D)** | Recuperación aumentada: corpus curado **ATT&CK + D3FEND** + recuperación semántica por embeddings; consulta **agéntica** (el 1B decide qué recuperar) que enriquece la justificación y queda en la traza (`consulta_rag`/`pasajes_usados`) | El justificador cita conocimiento del corpus; el banco de simulación mide Hit@K/MRR | **Hecho** — `prototipo/explicacion/rag.py` (+ `extraer_attack.py`); ver [`prototipo/README §10`](../../prototipo/README.md) y [banco](../../docs/pruebas/04-escenarios-de-ataque.md) |
 | **Runner en tiempo real (daemon)** | Listener MDR que sigue `alerts.json` sin cerrarse y triaja incidentes en streaming (RF-11) con validación humana por `/dev/tty` | Escucha en vivo, agrupa la ráfaga, decide y bloquea; `Ctrl+C` cierra con resumen | **Hecho** — `prototipo/servicio/stream.py`; ver [`docs/pruebas/03-lab-en-vivo.md`](../../docs/pruebas/03-lab-en-vivo.md) |
 | **Agente de mitigación (ReAct)** | Decide la estrategia y **escala de dispositivo** (host → firewall) sobre catálogo cerrado, aprobando por paso y consultando ATT&CK/D3FEND | Ante un host inalcanzable, escala al firewall (`BLOQUEAR_IP_FIREWALL`), reversible | **Hecho** — `prototipo/explicacion/agente_mitigacion.py`; integrado en el daemon con `--agente` |
@@ -65,6 +65,12 @@ producir.
 - [`archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md`](../../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5a-nucleo-decision-design.md) — diseño del subproyecto 5A.
 - [`archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md`](../../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5b-lazo-en-vivo-design.md) — diseño del subproyecto 5B (conector, validación humana, verificación).
 - [`archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5c-justificador-llm-design.md`](../../archivo/proceso-desarrollo/superpowers/specs/2026-08-31-fase5c-justificador-llm-design.md) — diseño del subproyecto 5C (justificador con LLM real).
+
+Documentos de implementación posteriores, en esta carpeta:
+
+- [plan-editor-politicas-respuesta.md](plan-editor-politicas-respuesta.md) — plan del editor de la vista «Políticas de respuesta» (implementado el 03/11/2026; diseño en la [Fase 4](../04-fase4-diseno-de-arquitectura/editor-de-politicas-respuesta.md)).
+- [revision-seguridad-conectividad.md](revision-seguridad-conectividad.md) — revisión de seguridad de la vista Conectividad: protecciones, puntos cerrados el 10/11/2026 y límites aceptados.
+- [plan-manejo-fallos-contencion.md](plan-manejo-fallos-contencion.md) — taxonomía de los fallos de contención (F1–F10) y sus fases 0–6; los cinco recortes quedan como funcionalidad experimental, apagada por defecto.
 
 El código del prototipo vive fuera de esta carpeta, junto al laboratorio, en
 [`prototipo/`](../../prototipo/README.md) — no en `documentacion/`.
@@ -149,10 +155,11 @@ clasificaciones priorizadas con justificación explicable. Se cumple: el justifi
 clasificador determinista (nutrido por el árbol) producen la clase, la prioridad y la justificación
 sobre el dataset completo; la granularidad fina de 6 clases queda como límite de datos documentado.
 
->**Decisión de stack pendiente.** El prototipo es Python (atado por el ecosistema ML del
->clasificador y el justificador). Queda abierto evaluar **Go para el conector SSH** —binario
+>**Decisión de stack (cerrada).** El prototipo es Python (atado por el ecosistema ML del
+>clasificador y el justificador). Quedó abierto evaluar **Go para el conector SSH** —binario
 >estático, buena librería SSH, robustez para un componente que ejecuta y traza acciones— cuando se
->aborde el Paso 14; se decide por sus méritos entonces, no antes.
+>abordara el Paso 14. *Desenlace (10/11/2026):* **el conector se quedó en Python**; reescribirlo en Go
+>no hizo falta, porque el conector en Python cumple (fail-closed, mínimo privilegio, validado en vivo).
 
 > **Sobre el alcance.** Las acciones que el motor ejecuta sobre el entorno de pruebas son un
 > mecanismo de **validación en entorno controlado**, no respuesta automatizada en producción, que

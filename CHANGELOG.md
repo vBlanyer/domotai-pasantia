@@ -5,7 +5,72 @@ Las **cifras canónicas de la evaluación** (clasificación, priorización, cont
 se mueven** entre versiones: todo lo posterior a v1.0 se diseñó para no alterarlas (ver el informe,
 capítulo de resultados, y `evaluacion/resultados/`).
 
-## [No publicado] — posterior a v1.4
+## [1.8] — 2026-11-10 · cierre del proyecto
+
+### Añadido
+- **Plan de manejo de fallos de contención (fases 0–6):** cada contención fallida se clasifica (F1–F10)
+  con su causa en lenguaje claro y su evidencia, en la Consola, Decisiones, Trazas y «Te toca»; las que
+  pueden ser un ataque (clave del host cambiada, contención deshecha, regresión) se marcan aparte;
+  Conectividad se entera de las contenciones reales que fallan. Cinco **recortes** opcionales
+  (`TRIAJE_FALLO_RAPIDO`, `TRIAJE_PRECHECK_APROVISIONADO`, `TRIAJE_ESCALADA_SOLO_APROVISIONADOS`,
+  `TRIAJE_MEMORIA_FALLOS`, `TRIAJE_ACCION_NO_EJECUTABLE`): **experimentales, apagados por defecto**.
+- **Red:** mapa ramificado (una red tras su propio cortafuegos, en su rama), dependencias dentro de una
+  zona y avisos del perfil roto; **escalada de respaldo** al perímetro cuando falta el `gateway`.
+- **Producción:** `deploy/instalar.sh` (instala, actualiza, desinstala), `deploy/empaquetar.sh` (paquete
+  del cliente desde el último commit) y la herramienta `mdr` (`configurar`, `estado`,
+  `analista alta|baja|lista`, `escanear`, `instalar-geoip`, `instalar-asn`, `validar-perfil`,
+  `validar-alertas`, `verificar-traza`, `podar-trazas`). Perfil de cliente genérico
+  (`deploy/perfil.ejemplo.yml`).
+- **Postura con Nmap** (`mdr escanear`): sin postura, los ataques a servicios quedan con confianza 0,5 y
+  no se automatizan.
+- **Geolocalización y ASN reales**, offline, con las bases DB-IP Lite (`TRIAJE_GEOIP`, `TRIAJE_ASN`); sin
+  base no se inventa nada. Atribución de la licencia al pie del menú.
+- **Manuales:** de usuario (laboratorio y consola) y de producción (para el cliente), ambos en PDF.
+
+### Cambiado
+- La **pausa de la automatización persiste** (`pausa.json`, junto a la traza): sobrevive al reinicio.
+- El **SLA** de la consola es el del daemon (`TRIAJE_SLA_SEG`), el mismo de métricas e informe.
+- **Conectividad:** la auditoría se encadena en la traza firmada (`auditoria_conectividad`); interruptor
+  `TRIAJE_CONECTIVIDAD_DESACTIVADA`; sustituir una clave del host ya fijada exige confirmarlo
+  explícitamente (`reemplazar`); `TRIAJE_CONECTIVIDAD` fuera del directorio de estado impide arrancar.
+- Las alertas de un agente Wazuh real sin línea syslog (FIM: `syscheck`) se asignan al agente.
+- Estado de servicios lee el monitor del cliente (`TRIAJE_SALUD`); sin él, «sin datos».
+
+### Corregido
+- `deploy/triaje.env.ejemplo`: systemd no quita comentarios al final de la línea, así que cada variable
+  arrastraba el suyo (incluido un token de consola y una clave de traza conocidos). Ahora cada
+  comentario va en su línea y `mdr configurar` escribe el fichero.
+- `infra/aws/.gitignore` no ignoraba `*.tfvars` (comentario al final del patrón).
+- El paquete del cliente se colaba datos sin versionar (52 MB del corpus MITRE).
+- El mapa de IPs del laboratorio podía asignarse a un equipo de un perfil de cliente sin IP.
+- `mdr escanear --equipos` borraba la postura del resto.
+
+## [1.7] — 2026-11-09
+
+### Añadido
+- **Conectividad completa:** alta de equipos desde la consola (inventario, papel y reglas, paquete de
+  alta en script, playbook de Ansible o sudoers, verificación de la clave del host), **papel por
+  equipo** (servidor, cortafuegos, puesto) que acota el sudoers, **deriva del sudoers** (lo que sobra y lo
+  que falta, con paquete de corrección) y **rotación de la clave del conector** sin dejar a ningún
+  equipo sin acceso.
+
+## [1.6] — 2026-11-04
+
+### Añadido
+- **Acceso a la consola por token:** pantalla de entrada, un token por operador
+  (`TRIAJE_CONSOLA_OPERADORES`), límite de intentos, y **quién decidió** cada aprobación, reversión y
+  cambio (no repudio).
+
+## [1.5] — 2026-11-04
+
+### Añadido (consola)
+- **Editor de Políticas de respuesta:** postura de automatización por familia, zona y equipo, que solo
+  puede **quitar** automatización respecto al perfil; overlay operativo auditado y cambio en vivo.
+- **Rediseño de la consola:** menú por actividad con contadores, Panel con «Te toca», bandeja de
+  Aprobaciones, Contenciones, Decisiones e Incidentes nuevos, Red en árbol, Trazas con inspector y
+  prueba de la cadena, Estado de servicios con frescura y cascada, **Informe en PDF** como documento A4.
+  Resumen ejecutivo y Campañas se funden en Informe e Incidentes.
+
 
 ### Automatización
 - **CI con GitHub Actions** (`.github/workflows/ci.yml`): en cada push/PR a `main` corre las mismas

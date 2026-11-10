@@ -4,6 +4,14 @@
 > una decisión de rumbo. No modifica el plan de trabajo ni el informe; los resume para decidir.
 > Fecha: 2026-09-24.
 
+> **Desenlace (10/11/2026).** Se siguió la **Ruta B — reforzar el rol de triaje**: el registro pasó de 4
+> a **10 familias** con **8 patrones de respuesta** (se añadieron abuso de cuenta, integridad de ficheros,
+> denegación de servicio, acceso consumado, exfiltración/C2 y malware), siempre sobre alertas que el SIEM
+> ya levanta, sin detección primaria propia. Matiz respecto a lo escrito abajo: malware y exfiltración
+> entraron en alcance en su forma acotada (veredicto explícito del SIEM y coincidencia con lista de
+> destinos maliciosos), no por comportamiento. La Ruta A (correlación entre dominios) no se abordó. Detalle
+> en el [CHANGELOG](../../CHANGELOG.md) y en [`prototipo/README.md`](../../prototipo/README.md).
+
 ## 1. Contexto
 
 El prototipo funciona como **módulo de triaje inteligente** sobre alertas de un SIEM (Wazuh emula el del

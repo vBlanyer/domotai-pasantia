@@ -6,7 +6,9 @@ de salida canónica hacia el cliente (esa es la **traza JSONL**, RF-13); es la i
 lectura/aprobación de la consola.
 
 - **Dirección:** `http://127.0.0.1:<puerto>` (por defecto `8787`). **Liga solo a loopback**: no es
-  accesible desde la red. Exponerla a otros es trabajo de un proxy del cliente (ver la guía de integración).
+  accesible desde la red. En producción los analistas llegan por **túnel SSH con el mismo puerto** y un
+  token por persona (ver el manual de producción, §9). Un proxy inverso que reescriba `Host` recibe
+  `403` (la validación anti DNS-rebinding solo admite nombres de loopback).
 - **Formato:** JSON en cuerpo y respuesta. Los errores son `{"error": "<texto>"}` con el código HTTP.
 - Los esquemas autoritativos de respuesta viven, validados con Zod, en `visor/src/api.ts`; los
   construye `prototipo/servicio/tablero.py`.
@@ -24,20 +26,22 @@ lectura/aprobación de la consola.
 
 Los **estáticos** (el visor) no exigen token, para que la SPA cargue y pida el token al operador en
 su **pantalla de acceso** (no pinta ningún dato del cliente antes de autenticar). El
-**operador** de un POST sale del token (autoritativo, no repudio) o, en su defecto, del campo
-`operador` del cuerpo.
+**operador** de un POST sale del token cuando el daemon tiene mapa de operadores
+(`TRIAJE_CONSOLA_OPERADORES`): es autoritativo y el campo `operador` del cuerpo **se ignora** (no
+repudio). Solo sin mapa (token compartido o consola abierta) se toma el `operador` del cuerpo, sin
+verificar.
 
 ## Endpoints de lectura (GET)
 
 | Ruta | Parámetros | Devuelve |
 |------|-----------|----------|
-| `GET /healthz` | — | Salud del **propio MDR**: `{ok, alertas, lazo_quietud_s, ingesta_silencio_s}`. `ok=false` si el lazo lleva demasiado tiempo sin iterar (colgado). Distinto de `/api/salud`. |
+| `GET /healthz` | — | Salud del **propio MDR**: `{ok, desde, alertas, lazo_quietud_s, ingesta_silencio_s}`. `ok=false` si el lazo lleva demasiado tiempo sin iterar (colgado). Distinto de `/api/salud`. |
 | `GET /api/sesion` | — | Pantalla de acceso: `{requiere_token, operador}`. `operador` es el nombre que el mapa de operadores asocia al token presentado, o `null` (token compartido o consola abierta). Sin token válido, `401` como el resto de `/api/*`. |
 | `GET /api/salud` | — | Salud de los **servicios del cliente** (por servicio + dependencias). |
 | `GET /api/red` | — | Mapa de la red con la actividad por equipo (`{nodos, zonas, enlaces}`). |
 | `GET /api/decisiones` | — | Las últimas 50 decisiones (resumen por fila). Cada fila incluye `enriquecimiento_origen` de la IP atacante: `{alcance (interno/externo/…), inventariado, clasificacion_ip (publica/privada/documentacion/loopback), tercero_confiable, legitimo, geolocalizable, geo, geo_base, asn}`. Reusa el actor del motor + `ipaddress`; `geo` y `asn` son **offline**: `geo = {pais, codigo, lat, lon, fuente}` sale de la base de `TRIAJE_GEOIP` (`fuente`: `dbip` o `csv`), y `geo_base` dice si hay base cargada (sin ella, `geo` es siempre `null`); `asn = {asn, org, fuente}` sale de la base de `TRIAJE_ASN`, solo para IP pública que esté en ella; si no, `null`. |
-| `GET /api/pendientes` | — | La **cola de aprobación** (array), ordenada por severidad. Cada ítem: `{id, tipo, prompt, lineas, severidad, suprimidas, paso, accion_final, activo, origen_ip, enriquecimiento_origen, encolado_en}`. `enriquecimiento_origen` (mismo shape que en `/api/decisiones`) permite mostrar la ubicación y filtrar la cola por país en el visor. |
-| `GET /api/trazas` | `limite` (opc.) | La cola de la traza encadenada (últimos N registros, decisiones + reversiones + actualizaciones de caso…). Cada decisión con veredicto humano lleva `veredicto_por` (quién decidió; `null` = sin nombre registrado), `decidido_en` y `espera_humana_s` (segundos en cola hasta el veredicto). Los mismos campos van en `/api/decisiones`. |
+| `GET /api/pendientes` | — | La **cola de aprobación** (array), ordenada por severidad. Cada ítem: `{id, tipo, prompt, lineas, severidad, suprimidas, paso, accion_final, activo, origen_ip, enriquecimiento_origen, encolado_en, sla_seg}`. `sla_seg` es el SLA del daemon (`TRIAJE_SLA_SEG`, 900 por defecto), el mismo de `/api/metricas`: la consola cuenta con él. `enriquecimiento_origen` (mismo shape que en `/api/decisiones`) permite mostrar la ubicación y filtrar la cola por país en el visor. |
+| `GET /api/trazas` | `limite` (opc.) | La cola de la traza encadenada (últimos N registros, decisiones + reversiones + actualizaciones de caso + auditoría de Conectividad `auditoria_conectividad` `{operador, dimension, clave, antes, despues}`…). Cada decisión con veredicto humano lleva `veredicto_por` (quién decidió; `null` = sin nombre registrado), `decidido_en` y `espera_humana_s` (segundos en cola hasta el veredicto). Los mismos campos van en `/api/decisiones`. |
 | `GET /api/traza/<id>` | `indice` (opc.) | El **detalle completo** de una decisión (justificación, ejecución, verificación, escalada, pasajes del RAG, impacto determinado). `404` si no existe. |
 | `GET /api/caso/<id>` | — | El **ciclo de caso** de una decisión, plegado sobre el fichero completo: `{estado, asignado, notas[], actualizado_en?}`. Sin actualizaciones: `{estado:"nuevo", asignado:null, notas:[]}` (el caso no «rejuvenece» al salir de la ventana de `/api/trazas`). El `<id>` es `id_decision` (`sN`/`dN`) para un caso por decisión, o la clave de incidente **`inc:<prefijo/24>`** (p. ej. `inc:203.0.113`) para un caso a **nivel incidente** (misma API; el prefijo `inc:` lo separa). |
 | `GET /api/rdns` | `ip` | **DNS inverso (PTR)** de una IP pública, bajo demanda: `{ip, rdns: str|null}`. **OPT-IN y apagado por defecto**: sin `TRIAJE_RDNS` activo devuelve siempre `rdns:null` sin tocar la red (una consulta DNS es egreso, contra RNF-01); solo IP pública (si no, `rdns:null`); `ip` no válida → `400`. Se pide desde el perfil del atacante, nunca en el sondeo. |
@@ -45,8 +49,10 @@ su **pantalla de acceso** (no pinta ningún dato del cliente antes de autenticar
 | `GET /api/consola` | `desde` (opc.) | El **feed vivo** del daemon (vista «Consola»): `{hasta, lineas: [{n, t, linea}]}` con las líneas de secuencia `n > desde` (incremental). Buffer circular acotado (últimas 1.000); las líneas van saneadas de caracteres de control. Incluye el **diario del operador**: `✓/✋/↻` veredictos humanos con su nombre, `⏻` kill switch (solo el cambio), `☰` ciclo de caso y `[inicio]` el contexto del arranque (perfil, ejecutor, ancla/firma de la traza). |
 | `GET /api/verificar` | — | Integridad de la cadena de hashes: `{ok, roto_en?, motivo?}`. |
 | `GET /api/contenciones` | — | Las contenciones **activas** ahora mismo (array). |
-| `GET /api/pausa` | — | Estado del *kill switch*: `{pausada: bool}`. |
-| `GET /api/politica` | — | **Playbook estático por familia** (solo lectura): `[{familia, clase_tipica, accion, impacto, automatizacion (automatica/automatica_si_confianza/requiere_humano/nunca_automatica), mitre[], nivel, ruta, vetos[], recomendacion}]`, derivado de `catalogo`+`perfil` reutilizando el clasificador y la regla de continuidad del motor. Los matices por actor/IP se refinan en runtime (frontera honesta). |
+| `GET /api/pausa` | — | Estado del *kill switch*: `{pausada: bool}`. La pausa persiste en `pausa.json`, junto a la traza: sobrevive al reinicio. |
+| `GET /api/conectividad` | — | La vista Conectividad: modo del conector, clave **pública** del conector y su huella (la privada nunca se lee), equipos con su papel, puerto, usuario, huella del host fijada, última prueba y aviso operativo, permisos de la sesión (`permisos: {probar, editar, motivo, generar_clave}`), cambios recientes, zonas y estado de la rotación. Con `TRIAJE_CONECTIVIDAD_DESACTIVADA=1`, todo en solo lectura y sin leer claves del host. |
+| `GET /api/conectividad/paquete` | `equipo`, `formato` (`script` · `ansible` · `sudoers`) | El **paquete de alta o de corrección** de un equipo (solo lleva la clave pública). `403` sin operador identificado o con la vista desactivada; `409` si el conector aún no tiene clave. |
+| `GET /api/politica` | — | **Playbook por familia** (con lo editado en la vista Políticas ya aplicado): `[{familia, clase_tipica, accion, impacto, automatizacion (automatica/automatica_si_confianza/requiere_humano/nunca_automatica), mitre[], nivel, ruta, vetos[], recomendacion}]`, derivado de `catalogo`+`perfil` reutilizando el clasificador y la regla de continuidad del motor. Los matices por actor/IP se refinan en runtime (frontera honesta). |
 | `GET /api/metricas` | `desde`, `hasta` (YYYY-MM-DD, opc.) | Métricas: `{total, fp, tasa_fp, auto, escalado_humano, tasa_override, mttr_seg, por_clase, veredictos, por_dia, top_activos, mitre, desde, hasta}` + **tiempos de respuesta / SLA**: `{mttr_mediano_seg, sla_umbral_seg (def. 900, env TRIAJE_SLA_SEG), sla_resueltos, sla_dentro, sla_incumplidos, sla_pct}` + **ranking por amenaza y ubicación** (resumen ejecutivo): `{por_familia:[{familia,n}], por_pais:[{pais,n}]}` (`por_pais` vía geolocalización **offline**; sin IP/geo → "Sin geolocalizar"). Con periodo agrega **todo** el histórico (para el informe); sin él, la ejecución actual. Incluye `por_analista`: `[{analista, aprobar, rechazar, reclasificar, total, mediana_seg, fuera_sla}]`, las sin nombre (`analista: null`) al final. |
 
 ## Endpoints de acción (POST)
@@ -60,27 +66,39 @@ Requieren `Origin` localhost (si viene de navegador) y token si está configurad
 | `POST /api/caso` | `{id, estado?, asignado?, nota?, operador?}` | `{ok:true}` · `400` si `estado` no es válido o la actualización está vacía · `409` en modo bloqueante. `estado` ∈ `{nuevo, en_revision, resuelto}`. Añade un registro `actualizacion_caso` **encadenado** (no muta la decisión). |
 | `POST /api/pausa` | `{pausar: bool}` | `{pausada: bool}`. *Kill switch*: con `true`, toda contención automática pasa a esperar humano. Narra el **cambio** en la Consola (`⏻ … por <operador>`); un reenvío idempotente no deja línea. |
 | `POST /api/revertir-todo` | `{confirmar: true, operador?}` | Resultado del **des-bloqueo en masa** (revierte todas las contenciones activas). Sin `confirmar: true` → `400` (gesto explícito: levanta todos los bloqueos del atacante); si ya hay uno en curso → `409` (exclusión mutua). |
+| `POST /api/politica` | `{dimension, clave, automatizacion}` | Edita la postura de automatización (vista «Políticas de respuesta»). `dimension` ∈ `{familia, zona, activo}`; solo puede **quitar** automatización respecto al perfil. Se guarda en `politica-operativa.yml` y se audita en `politica-auditoria.jsonl`. Exige operador identificado (`403`); `400` si la política resultante no valida; `503` si el daemon no tiene la edición configurada. |
+| `POST /api/conectividad` | `{usuario_defecto}` o `{equipo, puerto?, usuario?}` | Usuario por defecto del conector, o puerto/usuario de un equipo. Lo de un equipo solo se guarda si la prueba con esos valores pasa. |
+| `POST /api/conectividad/probar` | `{equipo, puerto?, usuario?}` | Prueba completa de un equipo (clave del host, entrada con la clave del conector, sudo del catálogo, deriva del sudoers). Con freno por equipo (`429` con `reintentar_en`). |
+| `POST /api/conectividad/leer-clave-host` | `{equipo}` | La huella que presenta el equipo y la fijada: `{presentada, fijada, coincide}`. |
+| `POST /api/conectividad/clave-host` | `{equipo, huella, reemplazar?}` | Fija la clave del host, solo si `huella` está entre las que presenta el equipo (`409` si no). **Sustituir una ya fijada exige `reemplazar: true`** (`409` sin él): es el caso de una posible suplantación. |
+| `POST /api/conectividad/clave-conector` | `{tipo?}` (`ed25519` o `rsa`) | Genera el par del conector donde vive (la privada no sale). `409` si ya hay clave (se cambia con la rotación). |
+| `POST /api/conectividad/inventario` | `{nombre, ip?, zona?, papel?, …}` | Alta pendiente o papel y reglas de un equipo (inventario operativo). |
+| `POST /api/conectividad/inventario/quitar` | `{nombre}` | Quita un alta pendiente o un papel (un equipo ya dado de alta no se borra desde aquí). |
+| `POST /api/conectividad/alta` | `{equipo, huella}` | Completa el alta: fija la clave del host confirmada y hace la prueba completa. |
+| `POST /api/conectividad/rotacion` | `{accion}` (`iniciar` · `preparar` · `retirar` · `finalizar` · `cancelar`) | Rotación de la clave del conector sin dejar a ningún equipo sin acceso. |
 | `POST /api/revertir` | `{indice, confirmar: true, operador?}` | **Revierte UNA sola contención** por su `indice` de traza (el botón por fila del panel). `{revertida: bool, detalle}`. Sin `confirmar: true` → `400`; `indice` no numérico → `400`; si el índice no es una contención activa (inexistente o ya revertida) → `409`. Serializado con el des-bloqueo en masa (mismo lock). |
 
 ## Códigos de estado
 
-`200` OK · `400` cuerpo/parámetro inválido · `401` falta token · `403` Host/Origin no permitido ·
-`404` ruta o recurso no encontrado · `409` acción no vigente / no disponible en este modo ·
-`413` cuerpo demasiado grande · `500` error del handler (nunca tumba el servidor).
+`200` OK · `400` cuerpo/parámetro inválido · `401` falta token · `403` Host/Origin no permitido, o
+acción que exige operador identificado, o vista Conectividad desactivada · `404` ruta o recurso no
+encontrado · `409` acción no vigente / no disponible en este modo · `413` cuerpo demasiado grande ·
+`429` demasiados intentos (token o prueba de un equipo) · `500` error del handler (nunca tumba el
+servidor) · `503` función no configurada en este daemon.
 
 ## Ejemplos
 
 ```sh
 # Salud del propio daemon (monitor local)
 curl -fsS http://127.0.0.1:8787/healthz
-# {"ok": true, "alertas": 142, "lazo_quietud_s": 0.3, "ingesta_silencio_s": 12.0}
+# {"ok": true, "desde": "2026-11-10T10:00:00Z", "alertas": 142, "lazo_quietud_s": 0.3, "ingesta_silencio_s": 12.0}
 
 # Cola de aprobación (con token, si la consola lo exige)
 curl -fsS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8787/api/pendientes
 
-# Aprobar una decisión pendiente
+# Aprobar una decisión pendiente (el operador sale del token: «operador» en el cuerpo no cuenta)
 curl -fsS -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
-  -d '{"id":"7","respuesta":"1","operador":"ana"}' http://127.0.0.1:8787/api/aprobar
+  -d '{"id":"7","respuesta":"1"}' http://127.0.0.1:8787/api/aprobar
 
 # Anotar el caso de una decisión (estado + nota)
 curl -fsS -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
@@ -90,6 +108,7 @@ curl -fsS -X POST -H "Content-Type: application/json" -H "Authorization: Bearer 
 curl -fsS "http://127.0.0.1:8787/api/metricas?desde=2026-10-01&hasta=2026-10-31"
 ```
 
-> Nota: las acciones (`/api/aprobar`, `/api/caso`, `/api/revertir-todo`, `/api/revertir`, `/api/pausa`) ejecutan o
+> Nota: las acciones (`/api/aprobar`, `/api/caso`, `/api/revertir-todo`, `/api/revertir`, `/api/pausa`,
+> `/api/politica` y `/api/conectividad/*`) ejecutan o
 > cambian estado real y quedan en la traza con el operador (no repudio). Trátalas con el mismo cuidado
 > que una contención manual.

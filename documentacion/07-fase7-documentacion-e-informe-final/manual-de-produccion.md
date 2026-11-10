@@ -253,6 +253,10 @@ equipos: el MDR decide y lo muestra en la consola, pero **no ejecuta nada** en e
 `mdr configurar` se puede repetir siempre que haya que cambiar algo de lo que pregunta: propone lo que
 ya hay y no toca lo demás.
 
+> **Nota:** mientras no haya ningún analista dado de alta (sección 9), la consola está **abierta** a
+> cualquiera que llegue al puerto en el propio equipo MDR. Da de alta al primero en cuanto arranque el
+> servicio; `mdr estado` lo marca como fallo hasta entonces.
+
 > **Nota:** no hace falta editar `/etc/mdr/triaje.env` a mano. Si lo haces, los comentarios van
 > **siempre en su propia línea**: systemd no quita un comentario puesto al final y lo tomaría como parte
 > del valor.
@@ -341,9 +345,10 @@ en la capa «dependencias».
 
 La postura dice qué puertos tiene abiertos cada equipo del perfil. Con ella, el MDR distingue un ataque
 a un servicio expuesto, que contiene con confianza alta, de uno a un servicio cerrado, que es un falso
-positivo. **Sin postura, cada ataque queda con confianza 0,5**: por debajo de cualquier umbral, así
-que nada que dependa de la confianza (`automatica_si_confianza`) se ejecutará solo, y todo pasa por un
-analista.
+positivo. **Sin postura, los ataques a un servicio (fuerza bruta, reconocimiento, servicio expuesto)
+quedan con confianza 0,5**: por debajo de cualquier umbral, así que no se contienen solos con
+`automatica_si_confianza` y esperan a un analista. Las familias que se reconocen por el propio evento
+(por ejemplo, una sesión de intrusión ya abierta) no dependen de la postura.
 
 Con autorización del cliente para escanear sus equipos:
 
@@ -354,9 +359,9 @@ sudo systemctl restart mdr-triaje
 
 Escanea con Nmap los 1000 puertos habituales de cada equipo de `activos` y escribe
 `/var/lib/mdr/postura.json`. `--puertos 22,443,5432` limita los puertos y `--equipos web01,app01`, los
-equipos. Un equipo que no responde no se escribe: queda como caso gris, nunca como «sin puertos». El
-MDR lee la postura al arrancar, de ahí el reinicio, que quita la pausa de la automatización si estaba
-puesta (sección 28). Repítelo cuando cambien los servicios de la red.
+equipos (la postura del resto se conserva). Un equipo que no responde no se escribe: queda como caso
+gris, nunca como «sin puertos». El MDR lee la postura al arrancar, de ahí el reinicio. Repítelo cuando
+cambien los servicios de la red.
 
 ### Añadir una red
 
@@ -455,8 +460,8 @@ Sin `--clave-ssh` solo da el token, para quien ya tenga otra forma de llegar al 
 | Para… | Orden |
 |---|---|
 | Ver quién tiene token | `sudo mdr analista lista` |
-| Quitar el acceso a alguien | `sudo mdr analista baja ana` (retira su token y, si la creó el MDR, su cuenta) |
-| Cambiarle el token | `baja` y de nuevo `alta` |
+| Quitar el acceso a alguien | `sudo mdr analista baja ana` (retira su token y, si la creó el MDR, su cuenta). Al último analista solo se le da de baja con `--forzar`, porque la consola quedaría abierta |
+| Cambiarle el token | `baja` y de nuevo `alta … --clave-ssh <su-clave.pub>` (la `baja` también borra su cuenta) |
 
 ### El túnel a la consola
 
@@ -561,8 +566,8 @@ en manos de un analista.
 ## 12. Abrir la automatización poco a poco
 
 El primer día todo espera a un analista. La automatización se abre cuando las decisiones del MDR
-se han visto acertar en la red del cliente, y **solo funciona con postura** (sección 7): sin ella,
-`automatica_si_confianza` no se cumple nunca.
+se han visto acertar en la red del cliente. **Necesita postura** (sección 7): sin ella, los ataques a
+servicios no alcanzan la confianza de `automatica_si_confianza` y siguen esperando a un analista.
 
 > **Quién puede:** quien firma la autorización para actuar del cliente. El cambio lo hace la
 > administración del MDR.
@@ -598,7 +603,7 @@ Para salir, pulsa tu nombre en la cabecera y elige «Cerrar sesión».
 | Mensaje | Qué hacer |
 |---|---|
 | «El daemon no reconoce ese token.» | Revisa el token, o pide uno a la administración del MDR |
-| «Demasiados intentos.» | Cinco tokens distintos fallidos en un minuto bloquean 30 s. Espera la cuenta atrás |
+| «Demasiados intentos.» | Cinco tokens distintos fallidos en un minuto bloquean 30 s. Por el túnel todos llegan desde el propio equipo, así que el bloqueo afecta a todos los analistas: espera la cuenta atrás |
 | «No hay respuesta del servicio MDR…» | El túnel está cerrado o el servicio parado. La pantalla reintenta sola cada 5 s |
 | «Volver a entrar» (sobre la vista) | Tu token dejó de valer mientras trabajabas. Al entrar sigues donde estabas |
 
@@ -780,8 +785,8 @@ intentos antes y después del bloqueo, la regla exacta y el comando que la quita
 2. Desde ese momento, **toda** contención nueva espera a un analista. Arriba aparece la banda roja.
 3. Para reanudar, vuelve a pulsarlo.
 
-> **Nota:** pausar **no** retira las contenciones que ya están puestas, y la pausa se pierde si se
-> reinicia el servicio.
+> **Nota:** pausar **no** retira las contenciones que ya están puestas. La pausa **se mantiene** aunque
+> se reinicie el servicio (se guarda en `/var/lib/mdr/pausa.json`): solo la quita un analista.
 
 ### Revertir
 
@@ -980,6 +985,14 @@ lo que se ve y lo que se hace después.
 > ven la pública y las huellas. **Ninguna clave del host se acepta sola**: siempre hay que confirmar
 > que la huella coincide con la que imprimió el equipo.
 
+- **Todo queda firmado:** cada prueba, alta, cambio de clave del host o rotación se anota en la traza
+  encadenada, con el nombre de quien lo hizo; Trazas lo muestra como «Conectividad».
+- **Sustituir una clave del host ya fijada** solo se puede hacer desde el diálogo de confirmación:
+  el servidor rechaza la sustitución si no se pide explícitamente.
+- **Apagarla:** con `TRIAJE_CONECTIVIDAD_DESACTIVADA=1` en `/etc/mdr/triaje.env` (y reiniciando), la
+  vista solo muestra la configuración guardada; no prueba, no lee claves ni cambia nada. Es lo
+  recomendable fuera de los periodos de alta de equipos.
+
 ### Lo que se ve
 
 - **La franja de permisos**, con lo que puede hacer tu sesión.
@@ -1045,8 +1058,8 @@ El icono de esta vista en el menú se pone **rojo** con cualquiera de esos probl
 ## 27. Recortes ante fallos de contención
 
 Cinco ajustes que ahorran conexiones que no podían servir cuando un equipo falla. No cambian qué se
-contiene. Están **apagados por defecto** y se encienden con `=1` en `/etc/mdr/triaje.env`,
-reiniciando el servicio.
+contiene. Son **experimentales**: están probados, pero no validados contra una red completa, así que
+van **apagados por defecto**. Se encienden con `=1` en `/etc/mdr/triaje.env`, reiniciando el servicio.
 
 > **Quién puede:** administración del MDR.
 
@@ -1074,9 +1087,9 @@ reiniciando el servicio.
 | Reiniciar (tras cambiar el perfil o `triaje.env`) | `sudo systemctl restart mdr-triaje` |
 | Parar | `sudo systemctl stop mdr-triaje` |
 
-Al reiniciar, el MDR recupera de la traza las contenciones activas, y conserva las políticas y el
-inventario. **Se pierden** la pausa de la automatización, el estado operativo de Conectividad y la
-memoria de fallos, que viven en memoria.
+Al reiniciar, el MDR recupera de la traza las contenciones activas, y conserva las políticas, el
+inventario y la pausa de la automatización. **Se pierden** el estado operativo de Conectividad (los
+avisos de la última contención fallida) y la memoria de fallos, que viven en memoria.
 
 > **Nota:** parar el servicio **no** quita las contenciones puestas: siguen en los equipos. Para
 > quitarlas, revírtelas desde la consola antes de parar.
@@ -1136,8 +1149,9 @@ muestre de quién depende cada uno, y `triaje` debe poder leer el fichero.
 
 La traza es **un solo fichero que crece** (`TRIAJE_SALIDA`), y no se recorta: es la evidencia y de
 ella se recuperan las contenciones activas al reiniciar. Vigila su tamaño (`du -h /var/lib/mdr`) y
-consérvala en las copias. `mdr podar-trazas` solo sirve para las trazas antiguas que queden en el
-directorio, por ejemplo tras cambiar la clave de la traza (sección 33); nunca toca la que está en uso.
+consérvala en las copias. `mdr podar-trazas` solo sirve para trazas antiguas que queden en el
+directorio, y nunca toca la que está en uso ni una que no verifique. Las trazas firmadas con una clave
+anterior (sección 33) no verifican con la actual, así que no se podan: archívalas a mano.
 
 ## 31. Actualizar el MDR
 
@@ -1193,7 +1207,7 @@ cambios acordado (sección 4).
 | Qué | Cómo |
 |---|---|
 | **Clave del conector** | Desde Conectividad (sección 25). Ningún equipo se queda sin acceso |
-| **Token de un analista** | `sudo mdr analista baja <nombre>` y de nuevo `alta` (sección 9). Para quitarle el acceso, solo `baja` |
+| **Token de un analista** | `sudo mdr analista baja <nombre>` y de nuevo `alta <nombre> --clave-ssh <su-clave.pub>` (sección 9). Para quitarle el acceso, solo `baja` |
 | **Clave de la traza** (`TRIAJE_TRAZA_CLAVE`) | **No la cambies** sobre la misma traza: lo ya firmado dejaría de verificar. Si hay que cambiarla, revierte antes las contenciones y empieza una traza nueva con otro `TRIAJE_SALIDA` |
 
 ## 34. Desinstalar
@@ -1245,12 +1259,14 @@ es `/opt/mdr/deploy/triaje.env.ejemplo`.
 | `TRIAJE_CONSOLA_OPERADORES` | `'{"token":"nombre", …}'`: un token por analista |
 | `TRIAJE_GEOIP` | `/var/lib/mdr/dbip-country-lite.csv.gz`. La base de países (sección 6) |
 | `TRIAJE_ASN` | `/var/lib/mdr/dbip-asn-lite.csv.gz`. La base de organizaciones (sección 6) |
+| `TRIAJE_CONECTIVIDAD_DESACTIVADA` | `1` apaga la vista Conectividad (sección 25) |
 | `TRIAJE_SALUD` | Fichero del monitor de servicios del cliente (sección 29) |
 | `TRIAJE_SLA_SEG` | Plazo de respuesta del analista, en segundos (900 por defecto) |
 | `TRIAJE_RDNS` | `1` permite el DNS inverso de IPs públicas desde el perfil del atacante |
 | Recortes ante fallos | Los cinco de la sección 27 |
 
-> **Nota:** no fijes `TRIAJE_SSH_MODO=password`, `TRIAJE_CONECTIVIDAD_ABIERTA`,
+> **Nota:** no fijes `TRIAJE_CONSOLA_TOKEN` (un token compartido, sin nombre: nadie firmaría sus
+> acciones), `TRIAJE_SSH_MODO=password`, `TRIAJE_CONECTIVIDAD_ABIERTA`,
 > `TRIAJE_POLITICA_ABIERTA` ni `TRIAJE_CORS_DEV`. Son modos de prueba que quitan protecciones: entrar
 > con contraseña, o cambiar Conectividad y Políticas sin un analista identificado.
 
@@ -1302,8 +1318,8 @@ La consola (`8787`) **no** se abre en el cortafuegos: solo escucha en `127.0.0.1
 | exfiltracion | BLOQUEAR_DESTINO en el borde | **Nunca** |
 | malware | AISLAR_NODO | **Nunca** |
 
-Lo que no encaja en ninguna familia se marca «no soportada» y no se actúa. Si es grave, pasa a un
-analista.
+Lo que no encaja en ninguna familia se marca «no soportada» y no se actúa. Si es grave (nivel del SIEM
+igual o mayor que `continuidad.revisar_no_soportada_nivel`, 10 en la plantilla), pasa a un analista.
 
 ## Anexo E. Por qué falló una contención
 
@@ -1384,7 +1400,8 @@ filtra el perfil del cliente. La justificación que acompaña a cada decisión s
 datos.
 
 **¿Qué significa «no soportada»?** Que la alerta cae fuera de las diez familias que el MDR trata. El
-sistema prefiere decirlo a inventar una respuesta. Si es grave, pasa a un analista.
+sistema prefiere decirlo a inventar una respuesta. Si es grave y el perfil lo activa
+(`revisar_no_soportada_nivel`, como hace la plantilla), pasa a un analista.
 
 **¿El MDR sustituye al SIEM o a un antivirus?** No. Refina lo que el SIEM ya detecta; lo que el SIEM
 no ve, el MDR tampoco.
@@ -1432,4 +1449,6 @@ no ve, el MDR tampoco.
 | La geolocalización es por país, no por ciudad | Las bases se actualizan cada mes; una IP reasignada puede salir con el país u organización anteriores hasta la siguiente |
 | Sin inicio de sesión corporativo (SSO) | El acceso es por túnel SSH y token por analista |
 | Un perfil por instalación | Varios clientes, varias instalaciones |
-| Cambiar el perfil exige reiniciar | Lo que vive en memoria (pausa, memoria de fallos) se pierde al reiniciar |
+| Cambiar el perfil exige reiniciar | Lo que vive en memoria (avisos de Conectividad, memoria de fallos) se pierde al reiniciar |
+| Los recortes ante fallos son experimentales | Van apagados; encenderlos es decisión de quien administra (sección 27) |
+| Conectividad: límites aceptados | El bloqueo frente a ediciones simultáneas es solo dentro del proceso; la rotación escribe en el `authorized_keys` del usuario `triaje` de cada equipo; un papel con «cualquier cuenta» deja en el motor la decisión de qué cuenta bloquear; una regla «que falta» no distingue un comando no instalado de una regla quitada |

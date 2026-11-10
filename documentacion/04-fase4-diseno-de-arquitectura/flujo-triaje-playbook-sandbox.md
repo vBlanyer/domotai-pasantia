@@ -205,6 +205,8 @@ Es coherente con el resto del diseño: el pipeline es *batch con ficheros como f
 
 **Una UI gráfica queda como trabajo futuro**, para cuando el prototipo esté culminado: presentaría el mismo contenido —que ya existe— con jerarquía visual, y es donde el ejemplo del perfil (política propone → perfil degrada/veta) y el panel de métricas de la Fase 6 más ganarían. No se hace ahora porque es producto, y el prototipo demuestra la calidad de la decisión, no la presentación.
 
+*Actualización (10/11/2026):* la UI gráfica **ya existe**: es la consola web (`visor/`, servida por el daemon con `--web`), con 14 entradas en el menú —panel, consola, aprobaciones, contenciones, decisiones, incidentes, red, informe, políticas de respuesta, conectividad, entre otras—. La terminal sigue funcionando igual; la web es un segundo canal sobre la misma API. Ver la decisión D11 en [estado y riesgos](../00-general/estado-y-riesgos.md).
+
 ---
 
 ## 8. Preguntas abiertas para la empresa

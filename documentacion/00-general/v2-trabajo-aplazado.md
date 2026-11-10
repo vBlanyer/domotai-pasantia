@@ -14,8 +14,8 @@ externos están documentados con plantillas en
 | Qué | Por qué se aplazó | Detalle |
 |---|---|---|
 | **Valorar la traza como módulo transversal** — las 2 excepciones restantes del contrato son la misma cuestión: `motor/triaje.procesar` y `accion/revertir` construyen su registro con `servicio/traza` | El contrato ya está garantizado por test con ambas congeladas; es una decisión de diseño, no un hueco. (El otro ítem de esta fila —mover el `main()` batch de `triaje` a `servicio/triaje_lote`— se adelantó el 26/10.) | [`prototipo/tests/test_arquitectura.py`](../../prototipo/tests/test_arquitectura.py) (lista `EXCEPCIONES`) |
-| **Nivel 2: partir los dos módulos gordos** — `servicio/stream.py` (~1.140 líneas) en `terminal` / `supresion` / `cli` + el bucle, y `servicio/tablero.py` (~980) en `web_estado` / `web_datos` / `web_http` + fachada | Solo legibilidad; reglas si se hace: el estado a nivel de módulo (caches, locks) viaja ENTERO con su módulo, y los tests que importan privados se actualizan — sin fachadas con estado duplicado | Mapa del paquete en [`prototipo/README.md`](../../prototipo/README.md) |
-| **Trocear `prototipo/README.md` (~61 KB)**: raíz corta (mapa + arranque) + un README por capa | Es el fichero más pesado de la raíz, pero es documentación, no riesgo | — |
+| **Nivel 2: partir los dos módulos gordos** — `servicio/stream.py` (~1.380 líneas a 10/11; ~1.140 el 26/10) en `terminal` / `supresion` / `cli` + el bucle, y `servicio/tablero.py` (~1.470; ~980 el 26/10) en `web_estado` / `web_datos` / `web_http` + fachada | Solo legibilidad; reglas si se hace: el estado a nivel de módulo (caches, locks) viaja ENTERO con su módulo, y los tests que importan privados se actualizan — sin fachadas con estado duplicado | Mapa del paquete en [`prototipo/README.md`](../../prototipo/README.md) |
+| **Trocear `prototipo/README.md` (~62 KB, 852 líneas a 10/11)**: raíz corta (mapa + arranque) + un README por capa | Es el fichero más pesado de la raíz, pero es documentación, no riesgo | — |
 | Espejar `prototipo/tests/` por capas | Cosmético; `discover` los encuentra igual | — |
 | Import-linter formal | El test casero ya da la garantía; la herramienta sería refuerzo menor | `test_arquitectura.py` |
 
@@ -31,7 +31,14 @@ capas = código. Analizado con datos el 26/10 (13–15 citas vivas por fichero).
 | ~~Ejecutor SSH directo~~ — **adelantado el 26/10**: `TRIAJE_SSH_MODO=directo` (clave y known_hosts del HOST), validado en vivo contra la demo portátil | — | `prototipo/accion/conector.py` |
 | Integración end-to-end con un equipo de borde de firmware real (p. ej. OpenWrt) | Descartada el 06/10 (revertida): el bloqueo en el borde ya funciona; esto es validación extra, no requisito | CHANGELOG / estado-y-riesgos |
 | Segunda fuente de alertas (CEF) | Analizada y aparcada el 21/09; decisiones abiertas en su spec | `archivo/proceso-desarrollo/superpowers/specs/` |
-| **Despliegue en AWS con OpenTofu** (MDR + visor + LLM en GPU) — **diseño + diagrama listos**; falta escribir la IaC (`infra/aws/`) y validarla (offline/LocalStack o `apply` real) | Acordado con el tutor (27/10) como lo último del backlog; el usuario eligió entregar solo el diseño por ahora | [despliegue-aws-opentofu.md](../04-fase4-diseno-de-arquitectura/despliegue-aws-opentofu.md) |
+| **Despliegue en AWS con OpenTofu** (MDR + visor + LLM en GPU) — diseño y diagrama listos; **la IaC está escrita** (`infra/aws/`) y pasa `tofu init` + `tofu validate` (28/10); falta solo el `apply` real | Acordado con el tutor (27/10) como lo último del backlog; el `apply` (cuenta, coste, región) lo decide el tutor industrial | [despliegue-aws-opentofu.md](../04-fase4-diseno-de-arquitectura/despliegue-aws-opentofu.md) |
+
+## Conectividad y manejo de fallos de contención
+
+| Qué | Por qué se aplazó | Detalle |
+|---|---|---|
+| **Límites aceptados de la vista Conectividad** (revisión de seguridad, 10/11): (2) el bloqueo de escritura es solo dentro del proceso; (5) la rotación de la clave escribe en el `authorized_keys` de los equipos; (6) «cualquier cuenta» deja la frontera de cuentas en el motor, no en sudo; (7) las reglas «que faltan» no distinguen un binario ausente de una regla quitada | Los puntos críticos (1, 3 y 4, más el `reemplazar: true` de la clave del host) se cerraron; estos cuatro son límites conocidos que se aceptan para la entrega, con su mitigación descrita | [revision-seguridad-conectividad.md](../05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md) |
+| **Validar en el laboratorio los cinco recortes del plan de fallos** (`TRIAJE_FALLO_RAPIDO`, `TRIAJE_PRECHECK_APROVISIONADO`, `TRIAJE_ESCALADA_SOLO_APROVISIONADOS`, `TRIAJE_MEMORIA_FALLOS`, `TRIAJE_ACCION_NO_EJECUTABLE`) y, si pasan, encenderlos por defecto | Decisión del 10/11/2026: se cierran como funcionalidad **experimental, apagada por defecto**; con ellos apagados el comportamiento es el de siempre | [plan-manejo-fallos-contencion.md](../05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md) |
 
 ## Metodología de evaluación (opcional — descartado para la entrega el 21/10)
 

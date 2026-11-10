@@ -131,3 +131,7 @@ Con este documento, el diseño de la arquitectura queda **cerrado**. Todo lo pen
 implementación (Fase 5) o depende de datos de la empresa (Fase 1). El único hueco de diseño
 conocido es que el equipo de borde es provisional hasta desbloquear OpenWrt en
 vrnetlab; las decisiones están tomadas para OpenWrt, solo falta poder probarlas sobre él.
+
+*Actualización (06/10/2026):* la integración con OpenWrt se **descartó**. El bloqueo en el borde funciona
+con el cortafuegos Linux del banco (`fw-core`/`fw-edge`), validado en vivo; OpenWrt queda como
+integración futura, no como requisito, y el hueco deja de estar abierto.

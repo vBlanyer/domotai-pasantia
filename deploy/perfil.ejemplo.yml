@@ -45,6 +45,9 @@ continuidad:
   reversibilidad_obligatoria: true      # solo acciones que se pueden deshacer y comprobar
   no_cortar_gestion:          true      # nunca el plano de gestión
   umbral_confianza:           0.9       # confianza mínima para cualquier automatismo
+  # Una alerta grave que el MDR no sabe tratar («no soportada», con nivel del SIEM igual o mayor que
+  # este) pasa a revisión de un analista, sin acción. Sin esta línea, solo se registra.
+  revisar_no_soportada_nivel: 10
   actores:                              # bloquear un equipo propio o de red exige analista
     activo_interno:           humano_siempre
     dispositivo_red:          humano_siempre

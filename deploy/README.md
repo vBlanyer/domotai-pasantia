@@ -93,11 +93,12 @@ Ejemplo de sonda local cada minuto (systemd timer o cron) que alerta si el lazo 
 ingesta lleva demasiado tiempo en silencio (ajusta el umbral a tu tráfico):
 
 ```sh
-* * * * * curl -fsS http://127.0.0.1:8787/healthz | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if d["ok"] and (d["ingesta_silencio_s"] or 0) < 900 else 1)' \
+* * * * * root curl -fsS http://127.0.0.1:8787/healthz | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if d["ok"] and (d["ingesta_silencio_s"] or 0) < 900 else 1)' \
   || logger -p daemon.err "MDR /healthz: lazo no saludable o ingesta en silencio"
 ```
 
-La autenticación/TLS del visor las pone la empresa delante (no hay login; ver la guía de integración).
+El acceso a la consola es por túnel SSH con el mismo puerto y un token por analista (`mdr analista`);
+no hay inicio de sesión corporativo (SSO). Ver el manual de producción, §9.
 
 ## Retención de la traza
 

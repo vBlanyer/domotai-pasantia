@@ -86,6 +86,9 @@ las cifras, en [resultados vigentes](../../evaluacion/resultados/README.md).
 
 **Criterio de cierre** (roadmap): cumplido — existen resultados cuantitativos (tabla comparativa,
 curva del baseline) y cualitativos (lectura de las justificaciones) que demuestran el valor y las
-limitaciones del enfoque. Queda pendiente para un dataset mayor: la calibración del umbral de escalado
-(RF-07) y la granularidad fina de 6 clases (que exige etiquetas finas; el clasificador determinista
-nutrido por el árbol de decisión ya cubre VP/FP/no_soportada).
+limitaciones del enfoque. Queda pendiente para un dataset mayor la granularidad fina de 6 clases (que
+exige etiquetas finas; el clasificador determinista nutrido por el árbol de decisión ya cubre
+VP/FP/no_soportada). La calibración del umbral de escalado (RF-07), que figuraba aquí como pendiente,
+**se hizo el 19/10/2026**: el [barrido del umbral](../../evaluacion/resultados/barrido-umbral.md) de 0,0 a
+1,0 da una curva plana (escalado 0,297 y 0 bloqueos indebidos en todo el rango), porque el control activo
+de la continuidad es la política de actores (D16), no el umbral; 0,7 queda como valor por defecto seguro.

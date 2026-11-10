@@ -75,21 +75,18 @@ La salida de `python3 -m prototipo.servicio.stream …` es la vista principal:
 
 ### B. Web — el visor React (con `--web`)
 
-Consola visual que consume la misma API del daemon (tema claro/oscuro). **Doce vistas:** Panel (KPIs +
-gráficos), Métricas e informe (tendencia, distribución y matriz ATT&CK; exportable a PDF por periodo),
-Estado de servicios (las apps de negocio en verde/rojo + dependencias), Red (mapa de la red
-del cliente por zonas; al pulsar un equipo, sus eventos, gráficas y **correlación de atacantes** —por
-IP o por subred—), **Campañas** (los ataques agrupados por bloque de origen /24 a través de todos los
-equipos: una campaña que rota IPs = una fila, con sus objetivos, gravedad y ventana), **Ubicaciones** (origen de los ataques por país/ubicación con geo offline aproximada y mapa; lab/internas van en la tabla), Decisiones (el feed; filas
-expandibles con justificación, MITRE y pasajes del RAG), Aprobaciones (aprobar/rechazar desde el navegador),
-**Contenciones activas** (qué sigue bloqueado, reconstruido de la traza; **pausar la automatización**
-—*kill switch*—, des-bloqueo en masa y **revertir una contención concreta** desde su fila), Trazas
-(registro completo + verificar la cadena de hashes), **Watchlist** (indicadores IP/CIDR marcados como
-maliciosos; anotación del analista que el visor marca con ⚑, no toca el motor) y
-**Consola** (el registro vivo del daemon: incidentes, el porqué de cada decisión, la respuesta paso a
-paso y el diario del operador —veredictos con su nombre, kill switch, ciclo de caso y contexto del
-arranque—, con filtros por tipo y búsqueda). El daemon expone además `GET /healthz` con su propia
-salud (para un monitor).
+Consola visual que consume la misma API del daemon (tema claro/oscuro). **Catorce vistas en el menú**
+(el detalle de cada una está en el [manual de usuario](documentacion/07-fase7-documentacion-e-informe-final/manual-de-usuario.md)):
+Panel (salud y lo que le toca al analista), **Consola** (el registro vivo del daemon y el diario del
+operador), Aprobaciones (aprobar/rechazar/reclasificar desde el navegador), **Contenciones activas**
+(qué sigue bloqueado, reconstruido de la traza; **pausar la automatización** —*kill switch*, que
+persiste tras un reinicio—, des-bloqueo en masa y **revertir una contención concreta**), Decisiones (el
+historial, con justificación, MITRE y pasajes del RAG), Incidentes (campañas por bloque /24, con
+responsable y estado), Red (mapa de la red del cliente por zonas, con su ficha por equipo), Ubicaciones
+(origen de los ataques por país, con la base de `TRIAJE_GEOIP`), **Watchlist**, Trazas (registro completo
+y verificación de la cadena), Informe (indicadores y PDF por periodo), Políticas de respuesta (quitar
+automatización por familia, zona o equipo), Conectividad (cómo entra el conector en cada equipo) y
+Estado de servicios. El daemon expone además `GET /healthz` con su propia salud (para un monitor).
 
 - **En vivo (lo normal):** con el daemon lanzado con `--web`, abre **`http://127.0.0.1:8787`**. El visor ya
   está construido y lo sirve el propio daemon. `--web 9000` usa otro puerto.
@@ -119,7 +116,7 @@ Aprobar ejecuta la contención real (`iptables`) por el conector y escribe la tr
 queda en **orden de finalización**). Es local (`127.0.0.1`), valida `Host` y `Origin` (anti DNS-rebinding
 y anti-CSRF: un POST de aprobación solo se acepta desde el propio origen localhost, y CORS no es `*`) y
 tiene **acceso opcional por token**: con `TRIAJE_CONSOLA_TOKEN` (compartido) o `TRIAJE_CONSOLA_OPERADORES` (uno por
-analista) pide token al entrar; sin ellos queda abierta, como en el laboratorio (ver el manual de usuario, §3). En modo
+analista) pide token al entrar; sin ellos queda abierta, como en el laboratorio (ver el manual de usuario, §5). En modo
 `--agente` el agente ReAct decide la estrategia (**contiene primero en el equipo atacado** y escala al
 cortafuegos solo si ese salto falla) y **respeta el filtro del perfil igual que el modo determinista**: aplica
 en automático lo que el perfil permite (p. ej. bloquear a un atacante externo en el host atacado) y **pregunta

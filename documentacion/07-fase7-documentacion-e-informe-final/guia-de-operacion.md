@@ -1,5 +1,10 @@
 # Guía de operación del prototipo de triaje asistido
 
+> **Registro del laboratorio (11/09/2026).** Esta guía describe cómo se operó el prototipo sobre el
+> laboratorio, con sus rutas y scripts. Para instalar y operar el MDR en un cliente, la referencia es el
+> [manual de producción](manual-de-produccion.md); para usar la consola, el
+> [manual de usuario](manual-de-usuario.md). Se conserva como registro, sin actualizar.
+
 **Para quién:** el operador de Domotai que lo despliega y lo vigila. **Qué es:** un servicio que lee las
 alertas de Wazuh, las clasifica y prioriza con reglas deterministas, propone una acción del catálogo
 cerrado filtrada por el perfil del cliente, la **justifica** con un modelo de lenguaje local apoyado en
