@@ -23,7 +23,7 @@ NODOS = {
 
 # Equipos POR DAR DE ALTA desde la consola (vista Conectividad, «Añadir equipo»): existen en la
 # topologia, con IP y sshd, pero NO en el perfil ni en NODOS: ni `aprovisionar` ni el monitor los
-# tocan. Son el «equipo nuevo que llega a la red» del plan PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md.
+# tocan. Son el «equipo nuevo que llega a la red» del plan archivo/proceso-desarrollo/PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md.
 POR_DAR_DE_ALTA = {
     "pagos-qr":       {"ip": "10.70.0.10",  "gw": "10.70.0.1"},
 }

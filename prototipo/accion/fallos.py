@@ -1,4 +1,4 @@
-"""Por qué falló una contención (PLAN-MANEJO-FALLOS-CONTENCION.md, sección 3).
+"""Por qué falló una contención (documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md, sección 3).
 
 Clasifica la salida REAL de ssh/sudo/el comando en una clase F1..F10 con evidencia inequívoca, en orden:
 la primera que encaja gana y lo que no encaja es F10 (desconocido), que se trata exactamente como hasta

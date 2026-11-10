@@ -1,4 +1,4 @@
-"""Clasificación de los fallos de contención (fase 1 de PLAN-MANEJO-FALLOS-CONTENCION.md).
+"""Clasificación de los fallos de contención (fase 1 de documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md).
 
 Dos garantías: (1) cada salida REAL capturada en el laboratorio cae en su clase, y (2) clasificar no
 cambia NADA de lo que el lazo hace: los registros con y sin clasificador son idénticos salvo los campos

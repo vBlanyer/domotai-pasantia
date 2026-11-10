@@ -1,6 +1,6 @@
 # Manual de usuario del MDR de triaje asistido
 
-**Edición 1.0 · noviembre de 2026 · para el MDR 1.7.** Sustituye a [`manual-del-analista.md`](manual-del-analista.md), del
+**Edición 1.0 · noviembre de 2026 · para el MDR 1.7.** Sustituye a [`documentacion/material-superado/manual-del-analista.md`](../material-superado/manual-del-analista.md), del
 26 de octubre, que no cubre el acceso por token, el Panel actual, la vista Conectividad, las causas de
 los fallos de contención ni el informe en PDF. La versión en PDF es
 [`manual-de-usuario.pdf`](manual-de-usuario.pdf).

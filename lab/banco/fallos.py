@@ -1,4 +1,4 @@
-"""Banco de fallos del conector (fase 0 de PLAN-MANEJO-FALLOS-CONTENCION.md).
+"""Banco de fallos del conector (fase 0 de documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md).
 
 Dos modos:
 

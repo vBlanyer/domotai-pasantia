@@ -8,6 +8,7 @@ y como referencia. No deben leerse como diseño vigente.
 | [planDeTrabajo.md](planDeTrabajo.md) | Versión antigua del plan: sus objetivos saltan del diseño (obj. 4, cortado a media frase) a la evaluación (obj. 5), sin objetivo de desarrollo del prototipo | [planDeTrabajoActualizado.md](../00-general/planDeTrabajoActualizado.md) |
 | [symons.md](symons.md) | Sysmon es telemetría solo-Windows; el sandbox es OpenWrt/Linux | La telemetría del laboratorio la da [Wazuh](../03-fase3-entorno-de-pruebas/sandbox-red-containerlab.md) |
 | [herramientas-auxiliares.md](herramientas-auxiliares.md) | Proponía generar el dataset con Atomic Red Team → Sysmon → Sigma; el ground truth ahora sale de Metasploitable + Wazuh | [vulnerabilidades-esperadas.md](../../lab/docs/vulnerabilidades-esperadas.md), [auditoría](../04-fase4-diseno-de-arquitectura/auditoria-de-vulnerabilidades-del-sandbox.md) |
+| [manual-del-analista.md](manual-del-analista.md) | Manual de la consola del 26/10: no cubría el acceso por token, el Panel actual, Conectividad, las causas de fallo ni el informe en PDF | [manual-de-usuario.md](../07-fase7-documentacion-e-informe-final/manual-de-usuario.md) y [manual-de-produccion.md](../07-fase7-documentacion-e-informe-final/manual-de-produccion.md) |
 
 Parte del contenido de `herramientas-auxiliares.md` (catálogo de SIEM, correlación y threat
 intelligence) sigue siendo referencia válida; se conserva íntegro por si se retoma.

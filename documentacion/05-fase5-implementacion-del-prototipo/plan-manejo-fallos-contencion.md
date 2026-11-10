@@ -260,7 +260,7 @@ Además, en cada fase: Python, visor, banco (157) y **evaluación (63) idéntico
 - Arreglar los equipos de forma automática (reaprovisionar, aceptar claves): lo decide un humano.
 - Cambiar las decisiones del motor o sus cifras.
 - Los puntos de seguridad de la vista Conectividad
-  ([CONECTIVIDAD-PENDIENTE-REVISION.md](CONECTIVIDAD-PENDIENTE-REVISION.md)).
+  ([documentacion/05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md](revision-seguridad-conectividad.md)).
 
 ---
 

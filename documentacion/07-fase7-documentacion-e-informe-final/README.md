@@ -117,7 +117,7 @@ Para quienes usan el sistema, el **[`manual-de-usuario.md`](manual-de-usuario.md
   el perfil de la red;
 - la referencia: familias, causas de fallo F1–F10, variables, ficheros y problemas comunes.
 
-Sustituye al antiguo [`manual-del-analista.md`](manual-del-analista.md), del 26/10, que se conserva
+Sustituye al antiguo [`documentacion/material-superado/manual-del-analista.md`](../material-superado/manual-del-analista.md), del 26/10, que se conserva
 como registro.
 
 ## El manual de producción

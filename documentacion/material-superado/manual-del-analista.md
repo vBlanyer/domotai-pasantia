@@ -1,4 +1,4 @@
-> **Sustituido** el 09/11/2026 por [`manual-de-usuario.md`](manual-de-usuario.md). Se conserva como
+> **Sustituido** el 09/11/2026 por [`manual-de-usuario.md`](../07-fase7-documentacion-e-informe-final/manual-de-usuario.md). Se conserva como
 > registro: describe la consola del 26/10 y ya no está al día (SLA, acceso por token, Conectividad…).
 
 # Manual del analista — consola web del MDR
@@ -6,7 +6,7 @@
 **Para quién es.** Para el analista de seguridad (SOC) que trabaja con el sistema ya en marcha:
 cómo leer lo que el MDR decide, aprobar o corregir una respuesta, seguir un incidente y llevar su
 caso. **No** cubre instalar ni desplegar el sistema — eso está en
-[`guia-de-operacion.md`](guia-de-operacion.md) (administrador) y en [`RUNBOOK.md`](../../RUNBOOK.md).
+[`guia-de-operacion.md`](../07-fase7-documentacion-e-informe-final/guia-de-operacion.md) (administrador) y en [`RUNBOOK.md`](../../RUNBOOK.md).
 
 **Qué es esta consola.** Una pantalla web (solo accesible en el propio equipo de gestión,
 `http://127.0.0.1:8787`) donde el MDR muestra, en vivo, las alertas que ya **refinó** del SIEM del

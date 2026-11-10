@@ -1,4 +1,4 @@
-"""Memoria de fallos por equipo (fase 5 de PLAN-MANEJO-FALLOS-CONTENCION.md): solo acelera y sube la
+"""Memoria de fallos por equipo (fase 5 de documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md): solo acelera y sube la
 alerta; nunca calla nada. Solo F4/F5; F3, F6, F7 y F8 jamás la abren."""
 import os
 import unittest

@@ -1,4 +1,4 @@
-"""Memoria de fallos por equipo (fase 5 de PLAN-MANEJO-FALLOS-CONTENCION.md). Interruptor
+"""Memoria de fallos por equipo (fase 5 de documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md). Interruptor
 TRIAJE_MEMORIA_FALLOS=1, apagado por defecto.
 
 Para qué: que 25 alertas seguidas contra un equipo inalcanzable no paguen 25 veces la espera. Riesgo: que

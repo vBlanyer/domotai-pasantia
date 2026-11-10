@@ -417,4 +417,4 @@ Hito funcional y de evaluación.
 - **Clasificador con ajuste fino bloqueado** por falta de un dataset suficientemente variado (la
   empresa no lo aportó): el clasificador es un árbol de decisión, no un codificador entrenado.
 - Ejecutar el **LLM 8B** como justificador exige una máquina con **GPU** (el portátil de desarrollo
-  no puede): `EVALUAR-LLM-EN-GPU.md`.
+  no puede): `docs/pruebas/evaluar-llm-en-gpu.md`.

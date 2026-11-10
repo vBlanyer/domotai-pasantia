@@ -211,7 +211,7 @@ python3 -m prototipo.servicio.stream <fuente> <perfil> <hallazgos> [flags]
 
 ### Recortes ante fallos de contención (apagados por defecto)
 
-Fase 4 de [PLAN-MANEJO-FALLOS-CONTENCION.md](PLAN-MANEJO-FALLOS-CONTENCION.md). Cada uno se enciende con
+Fase 4 de [documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md](documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md). Cada uno se enciende con
 `=1` al arrancar el daemon. No cambian qué se contiene: solo ahorran conexiones que no podían servir.
 
 | Variable | Efecto |
@@ -240,7 +240,7 @@ sh reiniciar.sh --con-llm --agente
 - **Solo con el banco sintético:** los prompts salen hacia Anthropic. Nunca con datos de un cliente.
 - **No vale para el informe:** no es el modelo que se despliega y no es reproducible (sin
   temperatura 0, RNF-03). Las métricas del LLM se miden con el modelo local
-  (`EVALUAR-LLM-EN-GPU.md`).
+  (`docs/pruebas/evaluar-llm-en-gpu.md`).
 - Gasta la cuota de tu plan de Claude: unas 2 llamadas por alerta en el justificador y varias por
   incidente en el agente.
 - El banner del daemon sigue diciendo «modelo local (experimental)»: lo que vale es la traza.

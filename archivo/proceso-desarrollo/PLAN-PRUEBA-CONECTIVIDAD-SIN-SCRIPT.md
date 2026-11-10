@@ -8,7 +8,7 @@
 > **Estado.** Validado de punta a punta contra el laboratorio el 9 nov 2026: 12 equipos verificados
 > (los 10 del banco, el auditor y el equipo nuevo `pagos-qr`), contenciones reales en atm, web-banking
 > y fw-core, y rotación completa de la clave. Seguridad de la vista y puntos abiertos:
-> [CONECTIVIDAD-PENDIENTE-REVISION.md](CONECTIVIDAD-PENDIENTE-REVISION.md).
+> [documentacion/05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md](../../documentacion/05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md).
 
 Duración estimada: unas **2 h** la primera vez (15 min de arranque, 5 min por equipo, 30 min de
 contención y 10 min de rotación).
@@ -313,7 +313,7 @@ Siguen abiertos:
 | | Asunto | Efecto |
 |---|---|---|
 | G5 | Los equipos del banco no tienen `ss`, `tc` ni `service` | Cortar conexiones, limitar banda y parar servicios no se ejecutan en el banco; las reglas salen «incompletas». Arreglarlo es cambiar la imagen `banco-nodo` (iproute2), con su efecto en el resto de pruebas del banco |
-| G9 | Puntos de seguridad de la vista | Ver [CONECTIVIDAD-PENDIENTE-REVISION.md](CONECTIVIDAD-PENDIENTE-REVISION.md): auditoría fuera de la traza firmada, bloqueo solo en proceso, etc. |
+| G9 | Puntos de seguridad de la vista | Ver [documentacion/05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md](../../documentacion/05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md): auditoría fuera de la traza firmada, bloqueo solo en proceso, etc. |
 
 ---
 

@@ -2,7 +2,9 @@
 .terraform/
 *.tfstate
 *.tfstate.*
-*.tfvars          # valores concretos (región/cuenta); el ejemplo va aparte si hace falta
+# valores concretos (región/cuenta); el ejemplo va aparte si hace falta (comentario en su propia
+# línea: git no admite comentarios al final de un patrón)
+*.tfvars
 crash.log
 override.tf
 override.tf.json

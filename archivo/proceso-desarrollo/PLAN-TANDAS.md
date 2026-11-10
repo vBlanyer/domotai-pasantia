@@ -187,7 +187,7 @@ libre algo más limpio. Recomendado: `stream.py`, `construir_justificar_fn`, `es
 - Opción: en modo estructurado, campos obligatorios `origen` y `activo` en el esquema JSON,
   restringidos a los valores reales de la alerta, que el código pone al principio del texto.
 - Se garantizaría que la justificación nombra la alerta sin que el modelo pueda inventar datos.
-- Decidirlo después de medir los modelos en GPU (ver `EVALUAR-LLM-EN-GPU.md`).
+- Decidirlo después de medir los modelos en GPU (ver `docs/pruebas/evaluar-llm-en-gpu.md`).
 
 ---
 
@@ -305,7 +305,7 @@ validación cualitativa, además de lo de la Tanda 3) y la revisión con los tut
   menos comprobar la familia en `pruebas.evaluar`; la traza ya la guarda en `contexto`.
 - **Hallazgos del banco**: mover `lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json`, que es
   entrada viva y se editó a mano, a `lab/banco/hallazgos.json` y actualizar los documentos que lo citan.
-- **Modelo para la demo**: se decide con `EVALUAR-LLM-EN-GPU.md` (8B, Qwen2.5-3B, Foundation-Sec-1.1).
+- **Modelo para la demo**: se decide con `docs/pruebas/evaluar-llm-en-gpu.md` (8B, Qwen2.5-3B, Foundation-Sec-1.1).
 - **Subir `main`**: el `main` local va por delante de `origin/main`; las ramas de trabajo ya están en el remoto.
 
 ## Guion de la demo (~15 min, sin LLM)

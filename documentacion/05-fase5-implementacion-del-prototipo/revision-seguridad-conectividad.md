@@ -116,7 +116,7 @@ La regla de web-banking que descarta el SSH del nodo de gestión (`-A INPUT -s 1
 -j DROP`) la pone **a propósito** el caso E1 del banco («la víctima no responde al MDR»), incluido en la tanda
 de ataques, para forzar la escalada a fw-core. `sh lab/banco/banco.sh restaurar` la quita.
 
-El 9 nov 2026 se validó el plan [PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md](PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md)
+El 9 nov 2026 se validó el plan [archivo/proceso-desarrollo/PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md](../../archivo/proceso-desarrollo/PLAN-PRUEBA-CONECTIVIDAD-SIN-SCRIPT.md)
 de punta a punta: banco recién desplegado sin `aprovisionar`, clave generada desde la vista, 12 equipos
 verificados (incluido el equipo nuevo `pagos-qr`, dado de alta desde la vista), contenciones reales y rotación
 completa.
