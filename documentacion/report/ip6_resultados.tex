@@ -2,20 +2,25 @@
 % Resultados y discusión
 % ---------------------------------------------------------------------------
 % Mínimo dos páginas por capítulo (norma 2.6).
-% Cifras canónicas: evaluacion/resultados/campana-2026-09-21.json (n=300, perfil empresarial).
-% La partición de 205 alertas se conserva como historia (sec:progresion-rf03).
+% Cifras canónicas: evaluacion/resultados/campana-2026-11-11.json (n=417, perfil empresarial), con
+% desglose sin los ataques lentos (n=356). La de 300 (campana-2026-09-21.json) y la de 205 se
+% conservan como pasos de la progresión (sec:progresion-rf03).
 
 \chapter{Resultados y discusión}
 \label{cap:resultados}
 
 Este capítulo presenta, primero, el resultado final de la evaluación: la campaña sobre la partición
-de evaluación completa del conjunto de alertas etiquetado ---300 alertas, de las cuales 106
+de evaluación completa del conjunto de alertas etiquetado ---417 alertas, de las cuales 209
 pertenecen a las tres familias de ataque con acción y tienen, por tanto, una clase verdadera contra
-la que se puede medir---, con el perfil de cliente empresarial y la justificación determinista. A
-continuación expone cómo se llegó a ese resultado: la medida empezó sobre una partición de 205
-alertas y una sola familia, y creció por pasos que se reportan completos porque cada uno enseñó
-algo (sección \ref{sec:progresion-rf03}). El resto del capítulo trata la calidad de la
-justificación, la recuperación aumentada, las familias añadidas y las limitaciones.
+la que se puede medir---, con el perfil de cliente empresarial y la justificación determinista. La
+cifra se da con su desglose, porque un solo escenario ---una fuerza bruta lenta desde la dirección
+del administrador--- aporta 61 de sus 183 amenazas y cambia por sí solo la lectura. A continuación
+expone cómo se llegó a ese resultado: la medida empezó sobre una partición de 205 alertas y una sola
+familia, pasó por las 300 de la campaña de casos difíciles y creció por pasos que se reportan
+completos porque cada uno enseñó algo (sección \ref{sec:progresion-rf03}). El resto del capítulo
+trata la calidad de la justificación, la recuperación aumentada, las familias añadidas, la
+ampliación final con verdad declarada, una evaluación aparte en el laboratorio del banco y las
+limitaciones.
 
 % ===========================================================================
 \section{Resultado principal: clasificación frente al método de referencia}
@@ -27,64 +32,93 @@ de regla de Wazuh tomado como método tradicional de referencia. La tabla
 
 \begin{table}[H]
   \centering
-  \caption{Prototipo frente al baseline de Wazuh (partición de evaluación, $n=300$)}
+  \caption{Prototipo frente al baseline de Wazuh (partición de evaluación, $n=417$, y la misma
+  partición sin los ataques lentos, $n=356$)}
   \label{tab:resultado-principal}
-  \begin{tabular}{@{}lcc@{}}
+  \begin{tabular}{@{}lcccc@{}}
     \toprule
-    \textbf{Métrica} & \textbf{Prototipo} & \textbf{Baseline (nivel $\geq 5$)} \\
+    & \multicolumn{2}{c}{\textbf{$n=417$}} & \multicolumn{2}{c}{\textbf{Sin ataques lentos ($n=356$)}} \\
+    \cmidrule(lr){2-3}\cmidrule(l){4-5}
+    \textbf{Métrica} & \textbf{Prototipo} & \textbf{Baseline} & \textbf{Prototipo} & \textbf{Baseline} \\
     \midrule
-    Precisión & 0,978 & 0,548 \\
-    Exhaustividad & 1,000 & 0,920 \\
-    Medida $F_1$ & 0,989 & 0,687 \\
-    Tasa de falsos positivos & 0,009 & 0,310 \\
+    Precisión & 0,931 & 0,702 & 0,931 & 0,602 \\
+    Exhaustividad & 0,667 & 0,929 & 1,000 & 0,893 \\
+    Medida $F_1$ & 0,777 & 0,800 & 0,964 & 0,719 \\
+    Tasa de falsos positivos & 0,038 & 0,308 & 0,038 & 0,308 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-La matriz de confusión del prototipo es $VP=87$, $FP=2$, $VN=211$, $FN=0$; la del baseline en su
-umbral óptimo es $VP=80$, $FP=66$, $VN=147$, $FN=7$. El prototipo detecta todas las amenazas reales
-de la partición y deja pasar dos falsos positivos; el baseline deja pasar sesenta y seis y, además,
-\textbf{pierde siete amenazas reales}: son los accesos a un servicio en claro que Wazuh registra con
-un nivel de regla inferior al de su umbral óptimo (sección \ref{sec:tercera-familia}). Los 211
-negativos del prototipo son, sobre todo, ruido de la propia plataforma que clasifica como no
-soportado y actividad de administración legítima que reconoce como tal, dos categorías que el nivel
-de regla no sabe distinguir. Los dos falsos positivos que quedan son casos de error de contraseña
-seguido de un acceso correcto desde un puesto no declarado: ningún campo de la alerta los separa de un
-ataque, y se analizan en la sección de limitaciones.
+El baseline es el nivel de regla de Wazuh en su umbral óptimo ($\geq 5$). La matriz de confusión del
+prototipo es $VP=122$, $FP=9$, $VN=225$, $FN=61$; la del baseline, $VP=170$, $FP=72$, $VN=162$,
+$FN=13$. Las dos mitades de la tabla dicen cosas distintas, y conviene leerlas por separado.
 
-Suprimir el ruido operativo sin perder exhaustividad ---y, en este caso, recuperando amenazas que
-el nivel de regla perdía--- es precisamente el resultado que el proyecto se propuso demostrar.
+La primera es el ruido. El prototipo deja pasar nueve falsos positivos y el baseline setenta y dos:
+su tasa es ocho veces menor. Los 225 negativos del prototipo son, sobre todo, ruido de la propia
+plataforma que clasifica como no soportado y actividad legítima que reconoce como tal, dos
+categorías que el nivel de regla no sabe distinguir. Los nueve falsos positivos son usuarios
+legítimos que se equivocaron de contraseña o que se conectaron desde un origen que el perfil no
+declara ---los dos de la campaña de casos difíciles y los siete de la ampliación (sección
+\ref{sec:ampliacion})---: ningún campo de la alerta los separa de un ataque, y se analizan en la
+sección de limitaciones.
+
+La segunda es la exhaustividad, y ahí el prototipo queda por detrás: 0,667 frente a 0,929. Las 61
+amenazas que pierde son todas la misma: una fuerza bruta \textbf{lenta} desde la dirección
+declarada del administrador, que nunca llega a formar ráfaga y que el motor clasifica, por el
+origen, como actividad legítima. El baseline la detecta porque no mira el origen. Es un punto ciego
+que el trabajo había identificado y declarado antes de medirlo (sección \ref{sec:entrenado}), y se
+incorporó a la evaluación precisamente para que la cifra principal lo reflejara: con él, la medida
+$F_1$ del prototipo (0,777) queda por debajo de la del baseline (0,800). Sin ese escenario ---las
+mismas alertas, menos las 61 del ataque lento--- el prototipo detecta todas las amenazas
+(exhaustividad 1,000 y $F_1$ 0,964 frente a 0,719), incluidas las trece conexiones a un servicio en
+claro que el nivel de regla deja pasar (sección \ref{sec:tercera-familia}).
+
+El resultado que el proyecto se propuso demostrar se sostiene, pero con su condición a la vista:
+el triaje asistido suprime el ruido operativo y recupera amenazas que el nivel de regla pierde, y lo
+hace apoyándose en una señal ---el origen declarado--- que un ataque lento desde ese mismo origen
+anula. Una exhaustividad perfecta medida sin ese caso diría menos que esta.
 
 La tabla \ref{tab:indicadores} completa el resultado con los indicadores de priorización y de
 operación medidos en la misma campaña.
 
 \begin{table}[H]
   \centering
-  \caption{Indicadores de priorización y operación (partición de evaluación, $n=300$)}
+  \caption{Indicadores de priorización y operación (partición de evaluación, $n=417$)}
   \label{tab:indicadores}
   \begin{tabular}{@{}p{0.55\textwidth}c@{}}
     \toprule
     \textbf{Indicador} & \textbf{Valor} \\
     \midrule
-    Correlación de Spearman entre prioridad asignada y esperada (106 soportadas) & 0,935 \\
-    Acierto de prioridad con tolerancia de un nivel & 0,981 \\
-    Cobertura (alertas dentro de las familias con acción) & 0,367 \\
-    Tasa de escalado a validación humana & 0,297 \\
-    Contenciones automáticas indebidas & 0 \\
+    Correlación de Spearman entre prioridad asignada y esperada (209 soportadas) & 0,227 \\
+    Acierto de prioridad con tolerancia de un nivel & 0,665 \\
+    Cobertura (alertas dentro de las familias con acción) & 0,511 \\
+    Tasa de escalado a validación humana & 0,249 \\
+    Contenciones automáticas (de ellas, indebidas) & 27 (4) \\
     Acciones disruptivas indebidas sobre servicios del cliente & 0 \\
-    Tiempo medio de clasificación por alerta & 0,013\,ms \\
+    Tiempo medio de clasificación por alerta & 0,054\,ms \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-La prioridad que asigna el motor sigue de cerca la esperada (una correlación de Spearman
-\cite{spearman1904} de 0,935, y en el
-98\,\% de los casos acierta el nivel o se queda a uno de distancia). La cobertura indica que algo
-más de un tercio de las alertas de un Wazuh desplegado caen en las familias que el motor sabe
-contener; el resto es telemetría de la plataforma, que el motor marca como no soportada en lugar de
-inventar una respuesta. La tasa de escalado y las contenciones indebidas se explican en la sección
-de continuidad: casi tres de cada diez decisiones pasan por una persona porque recaen sobre activos
-propios del cliente, y ninguna contención automática fue indebida.
+La priorización es la que más acusa el ataque lento. Cada una de sus 61 alertas recibe la prioridad
+de una actividad legítima (1) cuando la esperada es la de una amenaza contra un servicio crítico
+(4), y los siete falsos positivos nuevos reciben la de una amenaza (3) cuando la esperada es 1. Sin
+el ataque lento, la correlación de Spearman \cite{spearman1904} es 0,808 y el acierto con tolerancia
+de un nivel, 0,939; sobre la partición de 300 alertas era 0,935 ---0,944 con la prioridad propia del
+reconocimiento, que rebaja un sondeo aislado a 2---. La cobertura indica que la mitad de las alertas
+caen en las familias que el motor sabe contener; el resto es telemetría de la plataforma, que el
+motor marca como no soportada en lugar de inventar una respuesta.
+
+La tasa de escalado y las contenciones se explican en la sección de continuidad: una de cada cuatro
+decisiones pasa por una persona porque recae sobre activos propios del cliente. De las 27
+contenciones automáticas, \textbf{cuatro fueron indebidas}, y son siempre el mismo caso: un técnico
+legítimo del proveedor que se equivoca de contraseña antes de entrar. Viene de fuera de la red y su
+alerta llega con confianza alta, así que ni el umbral de confianza ni la política de actores lo
+retienen. El control previsto es declararlo como socio crítico en la configuración del cliente, y
+se comprobó aparte, sin tocar la cifra principal: las indebidas pasan a cero, pero también se
+retienen los dos atacantes externos de esa misma red (las contenciones automáticas pasan de 27 a
+cero y el escalado sube a 0,368). Elegir entre las dos opciones es una decisión del cliente, no del
+motor. Ninguna acción indebida alcanzó un servicio que el cliente prestara.
 
 % ===========================================================================
 \section{La progresión de la medida, y por qué se reporta completa}
@@ -100,15 +134,17 @@ La tabla \ref{tab:progresion} resume cómo evolucionó la medida.
   \centering
   \caption{Evolución de la medida hasta el resultado final}
   \label{tab:progresion}
-  \begin{tabular}{@{}p{0.42\textwidth}cccc@{}}
+  \begin{tabular}{@{}p{0.36\textwidth}ccccc@{}}
     \toprule
-    \textbf{Momento} & $\boldsymbol{n}$ & \textbf{Soportadas} & \textbf{Precisión} & \textbf{Tasa FP} \\
+    \textbf{Momento} & $\boldsymbol{n}$ & \textbf{Soport.} & \textbf{Precisión} & \textbf{Exhaust.} & \textbf{Tasa FP} \\
     \midrule
-    Primera campaña, sin orígenes legítimos & 205 & 18 & 0,556 & 0,041 \\
-    Con orígenes legítimos declarados (RF-03) & 205 & 18 & 1,000 & 0,000 \\
-    Con la segunda familia, auditor declarado & 220 & 31 & 1,000 & 0,000 \\
-    Con la tercera familia & 233 & 42 & 1,000 & 0,000 \\
-    Con la campaña adversarial y la regla de ráfaga (final) & 300 & 106 & 0,978 & 0,009 \\
+    Primera campaña, sin orígenes legítimos & 205 & 18 & 0,556 & 1,000 & 0,041 \\
+    Con orígenes legítimos declarados (RF-03) & 205 & 18 & 1,000 & 1,000 & 0,000 \\
+    Con la segunda familia, auditor declarado & 220 & 31 & 1,000 & 1,000 & 0,000 \\
+    Con la tercera familia & 233 & 42 & 1,000 & 1,000 & 0,000 \\
+    Con la campaña adversarial y la regla de ráfaga & 300 & 106 & 0,978 & 1,000 & 0,009 \\
+    Con la ampliación: otro equipo, otro servicio, origen externo y legítimos no declarados & 356 & 148 & 0,931 & 1,000 & 0,038 \\
+    Con los ataques lentos (final) & 417 & 209 & 0,931 & 0,667 & 0,038 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -131,9 +167,17 @@ $VP=10$, $FP=55$). Después, la partición creció con dos familias generadas en
 ---el reconocimiento y el servicio en claro (secciones \ref{sec:segunda-familia} y
 \ref{sec:tercera-familia})--- y, por último, con una campaña diseñada para que las reglas del
 propio clasificador fallaran, cuya verdad la declara el experimento y no la heurística (sección
-\ref{sec:entrenado}), hasta las 300 alertas del resultado final. Con más variedad aparecieron los dos falsos positivos que el
-resultado principal reporta, y no se ocultan: una precisión de 1,000 sobre una sola familia decía
-menos que 0,978 sobre tres.
+\ref{sec:entrenado}), hasta 300 alertas. Con más variedad aparecieron dos falsos positivos, y no se
+ocultaron: una precisión de 1,000 sobre una sola familia decía menos que 0,978 sobre tres.
+
+Los dos últimos pasos responden a lo que esas 300 alertas dejaban abierto: 236 de sus etiquetas las
+había producido una regla y no el experimento, y todas las amenazas eran contra el mismo equipo. Se
+añadió una ampliación cuya verdad declara el experimento ---otro equipo víctima, otro servicio, un
+atacante externo y usuarios legítimos desde orígenes no declarados--- y se incorporaron los ataques
+lentos que el experimento de octubre había capturado (sección \ref{sec:ampliacion}). Las dos se
+diseñaron y se fijaron antes de medir, aceptando de antemano que las cifras podían empeorar, y
+empeoraron: la precisión bajó a 0,931 por siete falsos positivos nuevos y la exhaustividad a 0,667
+por el ataque lento. Se reportan junto a las anteriores, no en su lugar.
 
 Quedan dos límites que conviene no suavizar. El primero es que la legitimidad del origen es una
 señal determinista basada en la dirección, que es suplantable: en un despliegue real debería
@@ -152,23 +196,25 @@ evaluación.
 
 \begin{table}[H]
   \centering
-  \caption{Medida $F_1$ del baseline según el umbral de nivel de regla ($n=300$)}
+  \caption{Medida $F_1$ del baseline según el umbral de nivel de regla ($n=417$)}
   \label{tab:barrido-baseline}
   \begin{tabular}{@{}lcccccccc@{}}
     \toprule
     nivel $\geq$ & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 \\
     \midrule
-    $F_1$ & 0,450 & 0,687 & 0,687 & 0,205 & 0,139 & 0,202 & 0,146 & 0,146 \\
+    $F_1$ & 0,610 & 0,800 & 0,800 & 0,149 & 0,107 & 0,131 & 0,103 & 0,103 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-El mejor punto del baseline ---$F_1=0,687$, en los umbrales 4 y 5--- queda lejos del 0,989 del
-prototipo. La curva, además, no es monótona y tiene un dilema sin salida: por debajo de 5 el ruido
-se dispara (con nivel $\geq 3$ todo es positivo y la tasa de falsos positivos es 1,0), y por encima
-la exhaustividad se hunde (con nivel $\geq 8$ apenas detecta el 11,5\,\% de las amenazas, aunque su
-tasa de falsos positivos baje a 0,009). Ningún umbral consigue a la vez lo que el prototipo
-consigue: los verdaderos positivos y buena parte del ruido conviven en los mismos niveles de
+El mejor punto del baseline ---$F_1=0,800$, en los umbrales 4 y 5--- supera esta vez al prototipo
+(0,777), y la razón es el ataque lento; sin él, el baseline queda en 0,719 frente a 0,964 (sobre la
+partición de 300 alertas era 0,687 frente a 0,989). La curva, además, no es monótona y tiene un
+dilema sin salida: por debajo de 4 el ruido se dispara (con nivel $\geq 3$ todo es positivo y la
+tasa de falsos positivos es 1,0), y por encima de 5 la exhaustividad se hunde (con nivel $\geq 6$
+detecta el 10,4\,\% de las amenazas y con $\geq 8$ el 7,1\,\%, aunque su tasa de falsos positivos
+baje a 0,009). Ningún umbral consigue a la vez una tasa de falsos positivos baja y una exhaustividad
+alta: los verdaderos positivos y buena parte del ruido conviven en los mismos niveles de
 severidad. Esto confirma que el nivel de regla, por sí solo, no basta como criterio de prioridad, y
 justifica la reclasificación que realiza el motor de triaje.
 
@@ -183,7 +229,7 @@ La tabla \ref{tab:agrupacion} recoge el efecto medido.
 
 \begin{table}[H]
   \centering
-  \caption{Reducción de elementos a revisar por agrupación en incidentes}
+  \caption{Reducción de elementos a revisar por agrupación en incidentes (partición de 300 alertas)}
   \label{tab:agrupacion}
   \begin{tabular}{@{}p{0.42\textwidth}cc@{}}
     \toprule
@@ -204,8 +250,9 @@ distinguiría más incidentes y el factor de reducción sería menor.
 \section{Operación y continuidad del servicio}
 % ===========================================================================
 
-Clasificar y decidir sobre una alerta con el clasificador determinista tomó del orden de
-$0,013\,\text{ms}$, muy por debajo del presupuesto de latencia establecido; medido de punta a punta
+Clasificar y decidir sobre una alerta con el clasificador determinista toma centésimas de
+milisegundo ($0,013\,\text{ms}$ de media en la campaña de 300 alertas y $0,054\,\text{ms}$ en la de
+417, medidas en sesiones distintas del mismo portátil), muy por debajo del presupuesto de latencia establecido; medido de punta a punta
 sobre el laboratorio, el motor decide unas 565 alertas por segundo en un portátil sin GPU. Justificar
 con el modelo de lenguaje de mil millones de parámetros tomó, en la campaña inicial, aproximadamente
 $36\,\text{s}$ por alerta ---cada justificación recargaba el modelo de $808\,\text{MB}$ en un proceso
@@ -213,14 +260,14 @@ nuevo; en un despliegue el modelo permanece cargado entre invocaciones---, y por
 justificación por defecto es determinista.
 
 Sobre la métrica de continuidad ---el requisito que distingue a este trabajo de un sistema de
-respuesta automatizada convencional---, no se registró ninguna acción disruptiva indebida: ninguna
-acción propuesta a partir de una alerta que resultó ser un falso positivo alcanzaba un servicio que
+respuesta automatizada convencional---, no se registró ninguna acción disruptiva indebida en ninguna
+de las campañas: ninguna acción propuesta a partir de una alerta que resultó ser un falso positivo alcanzaba un servicio que
 el cliente prestara. La métrica, sin embargo, tenía un punto ciego que la subsección siguiente
 expone y corrige.
 
 \subsection{Continuidad bajo un atacante interno}
 
-La partición de evaluación se ejecutó con el perfil empresarial corregido para describir la red
+La partición de 300 alertas se ejecutó con el perfil empresarial corregido para describir la red
 real del laboratorio, donde el atacante es \emph{interno}: las ráfagas de fuerza bruta salen del
 puesto de un empleado. Con la \textbf{conciencia de impacto} (requisitos RF-17 y RF-19), para cada
 contención el sistema determina desde el inventario del perfil a quién bloquea y qué servicios
@@ -237,6 +284,12 @@ también; la tasa de escalado a validación humana sube de 0,067 a \textbf{0,297
 que la clasificación cambie. La automatización queda para los orígenes externos, y lo propio pasa
 siempre por una persona.
 
+La partición final añadió el caso que esa política no cubre, porque no recae sobre nada propio: un
+técnico legítimo del proveedor que entra desde fuera. Sus cuatro alertas se contuvieron de forma
+automática y son las cuatro indebidas de la tabla \ref{tab:indicadores}. La política de actores
+sigue reteniendo todo lo interno ---el escalado de la partición final es 0,249, 104 de 417---, y
+cubrir ese caso pide declarar al proveedor como socio crítico, con el coste que se describió allí.
+
 El mecanismo es configurable por perfil. Un perfil de cliente \textbf{bancario} ---continuidad
 extrema, con activos críticos que no pueden interrumpirse--- lo lleva al límite, y se demostró en
 vivo sobre un laboratorio de banco de \textbf{catorce nodos} con servicios, dependencias reales y
@@ -245,15 +298,17 @@ cascada entre activos.
 \subsection{El umbral de confianza no es el control activo}
 
 El requisito RF-07 fija un umbral de confianza por debajo del cual una decisión pasa a validación
-humana. Para calibrarlo se barrió de 0,0 a 1,0 en pasos de 0,1 sobre la misma partición. La curva
-resultó \textbf{plana}: con cualquier umbral, la tasa de escalado es 0,297, las contenciones
+humana. Para calibrarlo se barrió de 0,0 a 1,0 en pasos de 0,1 sobre la partición de 300 alertas. La
+curva resultó \textbf{plana}: con cualquier umbral, la tasa de escalado es 0,297, las contenciones
 automáticas son cero y la clasificación no cambia (exhaustividad 1,000, tasa de falsos positivos
 0,009). La razón es que, en este perfil, quien gobierna la continuidad no es el umbral sino la
 política de actores: las decisiones de confianza baja recaen sobre activos propios, que esa
 política ya retiene, y los ataques externos llegan con confianza alta porque la postura confirma el
 servicio expuesto. El valor por defecto (0,7) es seguro y el sistema es robusto a su elección; el
 umbral queda como salvaguarda secundaria, y su mecanismo se verificó aparte con un caso externo
-sintético de confianza 0,5, que sí pasa de automático a humano al cruzar el umbral.
+sintético de confianza 0,5, que sí pasa de automático a humano al cruzar el umbral. Sobre la
+partición ampliada la curva sigue plana, y por eso el umbral tampoco retiene al técnico del
+proveedor: su alerta llega con confianza alta.
 
 \subsection{¿Mejoraría la decisión un modelo de lenguaje?}
 
@@ -263,8 +318,11 @@ dudosos (los de confianza por debajo del umbral), se midió el margen disponible
 casos falla la regla simple de tratarlos todos como amenaza. Con la postura real del auditor hay
 20 casos dudosos y los 20 son amenazas reales: el margen es \textbf{cero}. Retirando la postura por
 completo, peor caso para el determinista, hay 89 casos dudosos y el margen es de dos alertas, los
-mismos dos casos de error de contraseña que ningún campo de la alerta permite separar. El
-clasificador determinista satura las métricas de este conjunto de datos; un modelo de lenguaje en
+mismos dos casos de error de contraseña que ningún campo de la alerta permite separar. En la
+partición ampliada, con la postura real, siguen siendo 20 casos dudosos y margen cero; retirándola,
+131 casos y un margen de nueve: los siete legítimos nuevos y los dos de siempre, que tampoco tienen
+en la alerta nada que los distinga. El clasificador determinista satura las métricas de este
+conjunto de datos; un modelo de lenguaje en
 la decisión no tendría margen medible y operaría justo sobre los casos ---ataques desde la dirección
 del administrador--- en los que se observó que tiende a explicar el origen como legítimo. Esto
 sostiene la decisión de diseño de que los modelos de lenguaje \textbf{asisten} el triaje
@@ -749,9 +807,13 @@ detecte, porque las pruebas fijaban la salida del modelo.
 Para descartar que el resultado dependiera de la partición elegida, la clasificación ---sin el
 justificador, por su coste de tiempo--- se repitió sobre el conjunto completo en cada paso de la
 progresión. En la primera campaña, sobre 410 alertas (36 soportadas), las tasas fueron idénticas a
-las de la partición; en el resultado final, sobre las 600 alertas del conjunto (212 soportadas),
+las de la partición; en el paso de 300 alertas, sobre las 600 del conjunto (212 soportadas),
 también: precisión 0,978, exhaustividad 1,000 y tasa de falsos positivos 0,009, con matriz
-$VP=174$, $FP=4$, $VN=422$, $FN=0$. Era el resultado esperado: el clasificador es determinista y
+$VP=174$, $FP=4$, $VN=422$, $FN=0$. En el resultado final, sobre las 813 alertas del conjunto, la
+precisión y la tasa de falsos positivos coinciden con las de la partición (0,931 y 0,038, con
+$VP=244$, $FP=18$, $VN=450$, $FN=101$), y la exhaustividad difiere (0,707 frente a 0,667) solo porque
+las dos particiones no tienen la misma proporción de alertas de ataque lento. Era el resultado
+esperado: el clasificador es determinista y
 no se entrena, así que no existe diferencia entre entrenar y evaluar sobre él. La partición se
 respetó de todas formas por rigor metodológico, y fue imprescindible para el árbol de decisión de
 la sección \ref{sec:entrenado}, que sí se entrena.
@@ -948,8 +1010,98 @@ legítimo con mucha actividad, entre 6 y 86. No existe umbral que los separe, y 
 recuperaba precisión memorizando identificadores de regla. El resultado es negativo y no se adoptó
 ninguna séptima regla; en su lugar, el motor marca esos casos con un \textbf{aviso de vigilancia}
 para el analista, que no cambia la clase, la acción ni ninguna cifra. Dos lecciones quedan: que la
-exhaustividad de 1,000 se mide sin ataques lentos en el conjunto de datos, y que reforzar con
+exhaustividad de 1,000 se medía sin ataques lentos en el conjunto de datos ---por eso se
+incorporaron después a la evaluación (sección \ref{sec:ampliacion})---, y que reforzar con
 variedad antes de adoptar una regla atrapó un artefacto antes de que llegara al motor.
+
+% ===========================================================================
+\section{Ampliación final con verdad declarada}
+\label{sec:ampliacion}
+% ===========================================================================
+
+La partición de 300 alertas tenía dos debilidades que el propio trabajo había señalado: la mayoría
+de sus etiquetas venían de la heurística, y todas las amenazas iban contra el mismo equipo, desde
+dentro de la red. Antes de cerrar se añadió una ampliación diseñada para atacar las dos, con la
+verdad declarada por el experimento y el diseño ---escenarios, verdad esperada y forma de reportar---
+fijado por escrito antes de medir. Se usó el mismo laboratorio y el mismo perfil, para que las
+cifras siguieran siendo comparables, y cada escenario salió de su propia dirección de origen, de
+modo que la verdad se asigna por quién lanzó qué y no por ventanas de tiempo ajustadas.
+
+\begin{table}[H]
+  \centering
+  \caption{Escenarios de la ampliación y decisión del motor}
+  \label{tab:ampliacion}
+  \begin{tabular}{@{}p{0.43\textwidth}cp{0.38\textwidth}@{}}
+    \toprule
+    \textbf{Escenario} & \textbf{Verdad} & \textbf{Decisión del motor} \\
+    \midrule
+    Fuerza bruta SSH desde fuera de la red & amenaza & Detectada; contenida sola \\
+    Conexiones al telnet del equipo IoT desde fuera & amenaza & Detectada; contenida sola \\
+    Conexiones al telnet del IoT desde un puesto interno & amenaza & Detectada; a un analista \\
+    Fuerza bruta al FTP desde un puesto interno & amenaza & Detectada; a un analista \\
+    Técnico de mantenimiento al telnet del IoT & legítimo & Falso positivo; a un analista \\
+    Usuario del FTP: un error y acceso correcto & legítimo & Falso positivo; a un analista \\
+    Técnico del proveedor desde fuera: dos errores y acceso & legítimo & Falso positivo;
+      \textbf{contenido solo} \\
+    Fuerza bruta lenta desde la dirección del administrador & amenaza & Pasa como legítima
+      (falso negativo) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Las cuatro amenazas nuevas se detectan todas, y cada una recibe la respuesta que el perfil prevé: lo
+externo se contiene solo y lo interno pasa por un analista. Una de ellas destapó un fallo real del
+adaptador antes de medir: el servidor FTP del laboratorio no se reconocía como el servicio expuesto
+que es, así que un ataque contra él habría salido «no expuesto»; se corrigió en la traducción de
+nombres de servicio, el mismo mecanismo que ya traducía el servidor web. El baseline, en cambio,
+pierde las seis conexiones al telnet del equipo IoT, por la misma razón que en la tercera familia:
+Wazuh las registra con nivel 3.
+
+Los tres escenarios legítimos son los casos difíciles, y salieron como se había previsto: los tres
+son falsos positivos, porque nada en la alerta distingue a un usuario que se equivoca de un atacante
+que prueba. Dos de ellos van a un analista por ser internos; el tercero, el técnico del proveedor,
+llega desde fuera con confianza alta y \textbf{se bloquea de forma automática}. Es el único caso de
+toda la evaluación en que una contención automática recae sobre alguien legítimo, y lo que lo
+evitaría ---declararlo socio crítico--- tiene un coste que se cuantificó en la tabla
+\ref{tab:indicadores}.
+
+La segunda parte de la ampliación incorporó, tal como se capturaron en octubre y con el reparto
+fijado entonces, las campañas del ataque lento desde la dirección del administrador. Lo que se
+esperaba, dicho antes de medir, era que la mayoría saldría como falsos negativos, y salieron todas:
+61 alertas. El aviso de vigilancia de ventana larga marcó 33 de ellas y los dos ataques de la
+partición, cada uno hacia su séptimo intento, a unos cuatro o cinco minutos de empezar; sobre la
+actividad legítima del administrador dio dos avisos. No cambia la clase ni contiene, y la medida,
+con razón, cuenta esas alertas como amenazas perdidas.
+
+El árbol de decisión de la sección \ref{sec:entrenado} se reentrenó sobre la partición de
+entrenamiento ampliada. Sin los ataques lentos propone una regla nueva: un acceso por credenciales
+sin ráfaga es un falso positivo. Sobre estos datos acertaría casi todo, y \textbf{no se adoptó},
+porque el experimento del ataque lento ya había mostrado que una fuerza bruta lenta produce los
+mismos recuentos que un usuario que se equivoca: la regla cambiaría falsos positivos por amenazas
+perdidas. Con los ataques lentos, el árbol vuelve a separar por el identificador de la regla de
+Wazuh, es decir, memoriza qué regla dispara cada tipo de usuario. No hay regla estable que adoptar.
+
+\subsection{Evaluación aparte en el laboratorio del banco}
+\label{sec:eval-banco}
+
+La evaluación canónica se hace en una red pequeña con un perfil empresarial. Para comprobar si lo
+que dice se sostiene en otra red y con otra política, sin cambiar el motor, se hizo una evaluación
+aparte en el laboratorio bancario ---catorce nodos, dos cortafuegos, dependencias reales entre
+servicios--- con el perfil bancario tal cual. Se diseñó también antes de medir y se reporta por
+separado, sin mezclarla con la cifra principal: una campaña de 45 alertas con seis amenazas
+---fuerza bruta y reconocimiento desde fuera, el telnet expuesto del cajero, una inyección SQL
+contra la banca web y dos fuerzas brutas internas, una desde una taquilla y otra desde un servidor
+comprometido contra la base de datos central--- y dos usuarios legítimos que se equivocan una vez
+antes de entrar, un técnico externo y un empleado de taquilla.
+
+Las cuarenta alertas de amenaza se detectaron todas, y cada una recibió la respuesta que el perfil bancario
+prevé: lo externo se contuvo solo, lo interno y lo que toca un activo crítico fue a un analista, y
+la inyección SQL se enrutó al equipo de seguridad de aplicaciones sin contener. Los dos legítimos
+fueron falsos positivos, como en la red pequeña, y \textbf{el técnico externo se bloqueó solo}: el
+mismo hallazgo, en otra red y con otra política. Las tasas no son comparables con las de la
+evaluación canónica ---la campaña tiene solo cinco negativos, de modo que una tasa de falsos
+positivos de 0,400 son dos alertas---; lo que esta evaluación aporta es el desglose por escenario,
+y ese desglose confirma que el comportamiento del motor no dependía de la red pequeña.
 
 % ===========================================================================
 \section{Hacia producción: lo que se verificó}
@@ -982,10 +1134,15 @@ no se comprobó.
       detectados y distinguidos \\
     Prueba de penetración propia & Diecinueve hallazgos sobre el sistema en producción simulada &
       16 corregidos, 3 aceptados \\
+    Recortes ante fallos de contención & En el banco, cada fallo provocado y un ataque real, con los
+      recortes apagados y encendidos & Ninguna contención perdida; se entregan encendidos \\
+    Política de la empresa & Traducción, validación, carga y consola, con pruebas automáticas y
+      una revisión final del código & La consola solo endurece; una política inválida impide
+      arrancar \\
     Instalación & El guion de instalación ejecutado sobre una raíz aislada & Instala, actualiza y
       desinstala \\
     Pruebas automatizadas & Integración continua en cada cambio (Python, visor e infraestructura) &
-      2041 casos; los tres trabajos en verde \\
+      2132 casos; los tres trabajos en verde \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -993,10 +1150,18 @@ no se comprobó.
 Dos matices acompañan a la tabla. El primero es que \emph{verificado} no es \emph{validado en un
 cliente}: todas las comprobaciones se hicieron sobre los laboratorios propios, y las acciones
 diseñadas para un equipo de borde con su firmware real solo se ejecutaron sobre su sustituto en
-contenedor. El segundo es que no todo lo construido se entrega encendido: los recortes ante fallos
-de contención están probados pero no validados contra una red completa, y por eso se entregan
-apagados; y el despliegue en la nube está escrito y validado como código, pero no aplicado en una
-cuenta real.
+contenedor. El segundo es que no todo lo construido se probó en las mismas condiciones: el
+despliegue en la nube está escrito y validado como código, pero no aplicado en una cuenta real.
+
+Los recortes ante fallos de contención merecen una línea aparte, porque pasaron de recomendación a
+resultado. Se validaron en el laboratorio del banco provocando cada fallo en un equipo ---el servicio
+SSH parado o descartando las conexiones del MDR, la clave del conector borrada, la identidad del
+equipo regenerada, una contramedida que borra la regla, un equipo sin aprovisionar, una acción que
+el equipo no puede ejecutar--- y lanzando un ataque real, con los cinco recortes apagados y
+encendidos. Ninguna contención se perdió y la causa del fallo fue la misma en los dos modos. Cuando
+un equipo descarta las conexiones del MDR, la contención pasa de unos 33 a unos 19 segundos; tras
+tres fallos seguidos, el cuarto intento se resuelve en 7 segundos en lugar de 31; y una acción que
+el equipo no puede ejecutar, de unos 17 a unos 10. Por eso se entregan encendidos.
 
 % ===========================================================================
 \section{Limitaciones y análisis de errores}
@@ -1004,14 +1169,18 @@ cuenta real.
 
 Seis limitaciones, todas medidas y no solo declaradas, acotan el alcance de estos resultados.
 Primero, el tamaño y la variedad de la muestra soportada ---dieciocho alertas de una sola familia
-en la evaluación original, 106 de tres familias en la final, todas sobre un único activo del
-laboratorio--- hacen que los porcentajes se sostengan sobre pocos casos; la correlación de orden
-de prioridad, que con una sola familia no podía calcularse, se calculó al fin (0,935), pero sobre
-tres familias y no sobre la variedad de un cliente real. Es la limitación estructural de toda la
-evaluación, y las familias añadidas la reducen sin eliminarla. Segundo, la separación entre administrador y atacante
-descansa en una señal determinista basada en la dirección de origen, que es suplantable ---la
-regla de ráfaga cubre el caso del ataque desde la dirección del administrador, pero no un ataque
-lento desde ella---, y el clasificador cubre cinco de las seis categorías del caso de uso. Tercero, el clasificador con ajuste fino permanece
+en la evaluación original, 106 de tres familias sobre un único equipo en la de 300, y 209 sobre dos
+equipos en la final--- hacen que los porcentajes se sostengan sobre pocos casos y, en la partición
+final, que un solo escenario pese un tercio de las amenazas; la evaluación aparte en el banco
+confirma el comportamiento en otra red, pero con solo cinco negativos. Es la limitación estructural
+de toda la evaluación, y cada ampliación la reduce sin eliminarla. Segundo, la separación entre
+administrador y atacante descansa en una señal determinista basada en la dirección de origen, que
+es suplantable: la regla de ráfaga cubre el ataque rápido desde la dirección del administrador,
+pero no el lento, y la evaluación final lo mide ---61 amenazas perdidas y la exhaustividad en
+0,667---. Cerrarlo exige una señal que el SIEM no tiene, como la identidad del usuario o el estado
+del propio equipo. A la inversa, un usuario legítimo desde un origen no declarado se trata como
+amenaza, y si viene de fuera se contiene solo. El clasificador, además, cubre cinco de las seis
+categorías del caso de uso. Tercero, el clasificador con ajuste fino permanece
 bloqueado por la misma concentración del conjunto de datos, así que el desajuste esperado entre un
 modelo preentrenado sobre prosa y una entrada de eventos estructurados queda documentado, pero no
 cuantificado; lo que sí se cuantificó, con un árbol sobre datos cuya verdad no venía de la
@@ -1028,19 +1197,22 @@ control. La medición con modelo mayor debió hacerse, por tanto, con un modelo 
 referencia, lo que aísla el efecto del tamaño pero deja sin comprobar el de la especialización. Quinto, el auditor de vulnerabilidades no es infalible: la ausencia de un
 hallazgo no demuestra que un activo sea seguro, y la postura de exposición usada como contexto de
 decisión se tomó de los hallazgos reales de una única campaña de escaneo. Sexto, y más importante
-para leer las cifras: \textbf{236 de las 300 etiquetas de la partición de evaluación las produjo
+para leer las cifras: \textbf{236 de las 417 etiquetas de la partición de evaluación las produjo
 una regla de etiquetado}, no el experimento. De ellas, 190 marcan como no soportado el ruido de la
 plataforma por su identificador de regla, y las 46 restantes son alertas soportadas etiquetadas con
 la misma heurística ---origen declarado, servicio expuesto--- que usa el clasificador; sobre esas el
-acuerdo es consistencia interna y no acierto independiente. Solo las 64
-etiquetas restantes, las de la campaña adversarial cuya verdad declara el experimento, miden de
-verdad; sobre ellas las reglas fallaron (sección \ref{sec:entrenado}), y de ahí salió la sexta
-regla. Ninguna etiqueta tuvo además revisión por una segunda persona. El resultado principal es,
-por tanto, una cota optimista, y su contraste honesto es el de la campaña adversarial.
+acuerdo es consistencia interna y no acierto independiente. Las otras 181 las declara el
+experimento: 64 de la campaña adversarial, 56 de la ampliación y 61 del ataque lento. Es sobre
+ellas donde las reglas fallaron ---de ahí salió la sexta regla (sección \ref{sec:entrenado})--- y
+donde aparecen los siete falsos positivos nuevos y los 61 falsos negativos (sección
+\ref{sec:ampliacion}). Ninguna etiqueta tuvo además revisión por una segunda persona. Las cifras
+sobre las etiquetas heurísticas son, por tanto, una cota optimista, y las de verdad declarada son
+la medida honesta.
 
 El resultado global, no obstante, es positivo y medido sobre el problema que el proyecto se propuso
-atacar: el triaje asistido suprime el ruido operativo sin sacrificar exhaustividad y sin
-comprometer la continuidad del servicio, y sus límites ---la cobertura parcial de categorías, la
-fragilidad de la señal de origen y la capacidad del modelo de justificación--- tienen todos una
-causa identificada y un camino de mejora conocido que la propia interfaz de análisis del prototipo
+atacar: el triaje asistido suprime el ruido operativo ---ocho veces menos falsos positivos que el
+nivel de regla--- sin comprometer la continuidad del servicio, y su única pérdida de exhaustividad
+medida tiene una causa conocida y declarada de antemano, el ataque lento desde un origen de
+confianza. Sus límites ---la cobertura parcial de categorías, la fragilidad de la señal de origen y
+la capacidad del modelo de justificación--- tienen todos una causa identificada y un camino de mejora conocido que la propia interfaz de análisis del prototipo
 ya permite incorporar sin rediseñar el sistema.

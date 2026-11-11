@@ -94,7 +94,7 @@
 | 4 | R4 — revisión independiente sobre las justificaciones del sistema final | Después del paso 2, para revisar lo que se entrega |
 | 5 | ~~R7 — `politica.yml`~~ | **Hecho (11/11):** las seis tareas del [plan](../05-fase5-implementacion-del-prototipo/plan-politica-empresa.md); `evaluacion/tests` da las mismas cifras. En el informe, R7 pasa de recomendación a resultado en la pasada final |
 | 6 | ~~R6 — PostgreSQL~~ | **No se hace (11/11):** complicaría la instalación en el equipo de IA local de Domotai. Queda en el informe como recomendación, con su plan escrito; sin base de datos el MDR funciona igual que hoy |
-| 7 | Informe: una sola pasada final con las cifras nuevas, las recomendaciones hechas pasadas a resultados, y recompilación | Al final, para no reescribirlo varias veces |
+| 7 | ~~Informe: una sola pasada final con las cifras nuevas, las recomendaciones hechas pasadas a resultados, y recompilación~~ | **Hecho (11/11):** n=417 al frente con desglose (n=356 sin los lentos; n=300 como paso de la progresión), sección de la ampliación y de la evaluación en el banco, R1/R2/R7/R8 pasadas a resultados, R4/R5/R6/R9/R10 como recomendaciones; README y PDF de los manuales al día; informe recompilado (95 pp.) |
 | 8 | **Entrega.** Commit y push finales; a partir de aquí no se toca nada | Último paso |
 
 Lo que dependa de terceros y no haya llegado al paso 7 (R4, R5, R9, R10) se queda en el informe como

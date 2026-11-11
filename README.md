@@ -20,16 +20,17 @@ recomendado para una primera prueba. El **completo** levanta la demo en vivo.
 
 ```bash
 # a. Las suites del núcleo deben dar OK (≈20 s en total)
-python3 -m unittest discover -s prototipo/tests      # 1290 tests
-python3 -m unittest discover -s evaluacion/tests      # 63 tests
+python3 -m unittest discover -s prototipo/tests      # 1366 tests
+python3 -m unittest discover -s evaluacion/tests      # 66 tests
 
 # b. Reproduce la evaluación frente al baseline de Wazuh (determinista, sin modelo)
 python3 -m evaluacion.campana --sin-llm
 ```
 
 El paso **b** imprime la tabla comparativa (idéntica a [`evaluacion/resultados/tabla.md`](evaluacion/resultados/tabla.md)):
-el prototipo logra **recall 1.000 y tasa de FP 0.009** frente a **0.920 / 0.310** del baseline de Wazuh en su
-umbral óptimo, sobre la partición de evaluación de **300 alertas**. (Si prefieres no ejecutar nada, esas cifras
+el prototipo logra una **tasa de FP de 0.038** frente a **0.308** del baseline de Wazuh en su umbral óptimo, con
+**recall 0.667** frente a 0.929, sobre la partición de evaluación de **417 alertas**: las 61 amenazas que pierde son
+todas un ataque lento desde la IP del administrador (sin él, recall **1.000** frente a 0.893). (Si prefieres no ejecutar nada, esas cifras
 ya están comprometidas en [`evaluacion/resultados/`](evaluacion/resultados/README.md).)
 
 ### 2) Completo — demo en vivo con Docker
@@ -70,15 +71,15 @@ En otra terminal, **lanza ataques** por menú: `sh lab/banco/banco.sh atacar`. A
 
 | Componente | Dónde | Estado |
 |------------|-------|--------|
-| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, **957 tests** |
+| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, **1366 tests** |
 | **Justificador con LLM real + RAG** (LLM local —1B por defecto; Llama-3.1-8B en GPU como objetivo—; recuperación aumentada local con embedder bge-m3 sobre corpus de MITRE/D3FEND/reglas/descartes, dependiente de la clase decidida) | [`prototipo/explicacion/justificador_llm.py`](prototipo/explicacion/justificador_llm.py), [`prototipo/explicacion/rag.py`](prototipo/explicacion/rag.py) | Funcional (requiere GPU; sustituto [`lab/scripts/llm_claude.py`](lab/scripts/llm_claude.py)) |
 | **Daemon en tiempo real** (agrupa en incidentes; valida con el analista; `--sin-llm`/`--con-llm`/`--agente`; healthcheck `/healthz`) | [`prototipo/servicio/stream.py`](prototipo/servicio/stream.py) | Funcional |
-| **Consola web** (14 vistas en el menú: Panel, Consola, Aprobaciones, Contenciones activas + *kill switch*, Decisiones, Incidentes, **Red** —mapa del cliente—, Ubicaciones, Watchlist, Trazas, Informe en PDF, Políticas de respuesta, Conectividad y Estado de servicios; acceso con un token por analista) | [`prototipo/servicio/tablero.py`](prototipo/servicio/tablero.py), [`visor/`](visor/) | Funcional, **466 tests** (React/TS) |
+| **Consola web** (14 vistas en el menú: Panel, Consola, Aprobaciones, Contenciones activas + *kill switch*, Decisiones, Incidentes, **Red** —mapa del cliente—, Ubicaciones, Watchlist, Trazas, Informe en PDF, Políticas de respuesta, Conectividad y Estado de servicios; acceso con un token por analista) | [`prototipo/servicio/tablero.py`](prototipo/servicio/tablero.py), [`visor/`](visor/) | Funcional, **477 tests** (React/TS) |
 | **Agente de mitigación** (ReAct: contiene en el host, escala al cortafuegos solo si falla; respeta el filtro del perfil) | [`prototipo/explicacion/agente_mitigacion.py`](prototipo/explicacion/agente_mitigacion.py) | Funcional, salida restringida por esquema; experimental |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap, objetivos; banco de 14 nodos con lanzador de las 10 familias; laboratorio portátil sin Containerlab; demo de geolocalización) | [`lab/`](lab/) | Ejecutable, **157 tests** del banco + 14 del portátil + 12 de la demo |
-| **Despliegue en producción** (instalar.sh, `mdr configurar · analista · estado · escanear · instalar-geoip`, servicio systemd, paquete del cliente) | [`deploy/`](deploy/), [`bin/mdr`](bin/mdr) | Funcional; manual de producción |
-| **Dataset etiquetado** (600 alertas VP/FP/PROPIA/no_soportada; particionado 300/300 a priori por campaña) | [`lab/dataset/`](lab/dataset/) | Cerrado, **39 tests** |
-| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, **63 tests**; campaña ejecutada |
+| **Despliegue en producción** (instalar.sh, `mdr configurar · analista · estado · escanear · instalar-geoip · validar-politica`, política de la empresa en `politica.yml`, servicio systemd, paquete del cliente) | [`deploy/`](deploy/), [`bin/mdr`](bin/mdr) | Funcional; manual de producción |
+| **Dataset etiquetado** (813 alertas VP/FP/PROPIA/no_soportada; particionado 396/417 a priori por campaña) | [`lab/dataset/`](lab/dataset/) | Cerrado, **40 tests** |
+| **Marco de evaluación** (métricas contra el baseline de Wazuh) | [`evaluacion/`](evaluacion/) | Funcional, **66 tests**; campaña ejecutada |
 | **Endurecimiento a producción** (persistencia al reiniciar, supervisión systemd + `/healthz`, retención de traza, *kill switch*, receptor de alertas por red con lista blanca, validador del *ruleset* del cliente) | [`deploy/`](deploy/), [`prototipo/`](prototipo/) | Hecho; ver [guía de integración](documentacion/04-fase4-diseno-de-arquitectura/integracion-en-produccion.md) |
 
 **La idea intelectualmente central:** la decisión clasificación→acción **no la toma el modelo**. La toma una
@@ -128,12 +129,14 @@ Fases 1–6 completas; la 7 (informe final) con borrador completo compilado en
 [`documentacion/report/`](documentacion/report/). El estado vivo, las decisiones cerradas y los riesgos están en
 [`documentacion/00-general/estado-y-riesgos.md`](documentacion/00-general/estado-y-riesgos.md).
 
-**Resultado (Fase 6, partición de 300 alertas, perfil empresarial):** frente al nivel de regla de Wazuh en su
-umbral óptimo (nivel ≥ 5), el prototipo reduce la tasa de falsos positivos de **0.310 a 0.009** (87 VP, 2 FP,
-211 VN, 0 FN) **sin perder ninguna amenaza** (recall **1.000** vs **0.920** del baseline, que deja pasar 7). Con
-la **conciencia de impacto** —medida sobre la red real del laboratorio, donde el atacante es interno— escala al
-analista el **29,7 % (89/300)** y reduce a **cero** las contenciones automáticas indebidas (la automatización
-queda para los orígenes externos). Fuente: [`evaluacion/resultados/`](evaluacion/resultados/README.md).
+**Resultado (partición de evaluación de 417 alertas, perfil empresarial):** frente al nivel de regla de Wazuh en
+su umbral óptimo (nivel ≥ 5), el prototipo reduce la tasa de falsos positivos de **0.308 a 0.038** (122 VP, 9 FP,
+225 VN, 61 FN). Los 61 falsos negativos son todos el **ataque lento** desde la IP declarada del administrador, un
+punto ciego declarado de antemano: con él, recall **0.667** vs 0.929 y F1 0.777 vs 0.800; **sin él** (n=356),
+recall **1.000** vs 0.893 y F1 **0.964** vs 0.719. Escala al analista el 24,9 % (104/417); de 27 contenciones
+automáticas, 4 indebidas (un técnico legítimo que entra desde fuera). La partición anterior de 300 alertas
+(FP 0.009, recall 1.000) queda como un paso de la progresión, y hay una evaluación aparte en el laboratorio del
+banco. Fuente: [`evaluacion/resultados/`](evaluacion/resultados/README.md) y el capítulo de resultados del informe.
 
 Decisión de diseño: el clasificador **no** es un codificador con ajuste fino, sino un **árbol de decisión**
 ([`arbol.py`](prototipo/motor/arbol.py)) que valida y descubre reglas para el baseline determinista auditable — la

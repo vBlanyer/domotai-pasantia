@@ -21,10 +21,11 @@ en local, y propone una acción de respuesta contenida sujeta a validación
 humana: el modelo justifica, no decide. Se modeló un cliente genérico, se revisó el estado del arte, se construyó un
 laboratorio reproducible con Containerlab y Wazuh, se diseñó una arquitectura que separa
 clasificación, política determinista y perfil de cliente configurable, y se evaluó el prototipo
-frente al nivel de regla de Wazuh. Sobre 300 alertas reales de tres familias,
-incluidos casos diseñados para que las reglas fallaran, el prototipo redujo la tasa de falsos
-positivos a 0,009 frente a 0,310 del método por reglas y detectó todas las amenazas, incluidas las
-que el nivel de regla deja pasar (exhaustividad 0,920 del baseline), sin acciones disruptivas. Un árbol de decisión entrenado sobre esos datos redescubrió las reglas escritas a mano
+frente al nivel de regla de Wazuh. Sobre 417 alertas reales de tres familias,
+con casos cuya verdad declara el experimento, el prototipo redujo la tasa de falsos positivos a
+0,038 frente a 0,308 del método por reglas, sin acciones disruptivas, y detectó todas las amenazas
+salvo un ataque lento desde un origen de confianza, punto ciego declarado de antemano
+(exhaustividad 0,667; 1,000 sin él). Un árbol de decisión redescubrió las reglas escritas a mano
 y aportó una, la de la ráfaga, adoptada como regla auditable. La recuperación aumentada corrigió
 la imprecisión de las explicaciones. Al cierre, el prototipo se empaquetó como servicio instalable
 con una consola web para el analista, sin alterar ninguna cifra. Queda como limitación el clasificador con ajuste fino, que

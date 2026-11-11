@@ -16,15 +16,21 @@ El objetivo general de este trabajo era desarrollar un prototipo que clasificara
 alertas de seguridad, justificando cada decisión con un modelo de lenguaje apoyado en generación
 aumentada por recuperación ejecutada en local, y que redujera los falsos positivos sin sacrificar
 la detección de amenazas reales. Los resultados del capítulo \ref{cap:resultados} sostienen que ese
-objetivo se cumplió dentro del caso de uso acotado sobre el que se evaluó. Sobre la partición
-final de 300 alertas y tres familias de ataque, el prototipo dejó la tasa de falsos positivos en
-0,009 frente al 0,310 del nivel de regla de Wazuh en su mejor umbral, con exhaustividad 1,000
-frente a 0,920 ---el método de referencia perdía siete amenazas reales que el prototipo detecta---,
-una medida $F_1$ de 0,989 frente a 0,687, y sin ejecutar ninguna acción que hubiera interrumpido
-indebidamente un servicio del cliente. La conciencia de impacto, medida sobre el laboratorio donde
+objetivo se cumplió dentro del caso de uso acotado sobre el que se evaluó, con una condición que la
+propia evaluación dejó a la vista. Sobre la partición final de 417 alertas y tres familias de
+ataque, el prototipo dejó la tasa de falsos positivos en 0,038 frente al 0,308 del nivel de regla
+de Wazuh en su mejor umbral ---ocho veces menos ruido---, sin ejecutar ninguna acción que
+interrumpiera un servicio del cliente, y detectó todas las amenazas salvo una: la fuerza bruta lenta
+desde la dirección declarada del administrador, un punto ciego que el trabajo había identificado y
+declarado antes de medirlo. Con ella, la exhaustividad es 0,667 frente a 0,929 y la medida $F_1$
+queda por debajo de la del método de referencia (0,777 frente a 0,800); sin ella, la exhaustividad
+es 1,000 frente a 0,893 ---el nivel de regla pierde trece conexiones a un servicio en claro que el
+prototipo detecta--- y la medida $F_1$, 0,964 frente a 0,719. La conciencia de impacto, medida sobre el laboratorio donde
 el atacante es interno, ejercitó el escenario más exigente de esta métrica: al retener para validación humana todo bloqueo que recae sobre un activo propio, las
 contenciones automáticas indebidas ---dos que el indicador de continuidad original no veía--- pasan a
-cero y el escalado a validación humana sube al 29,7\,\%. Este resultado confirma, con datos y no solo
+cero y el escalado a validación humana sube al 29,7\,\%; la partición final añadió el único caso
+que esa política no cubre, un técnico legítimo que entra desde fuera, cuyas cuatro alertas se
+contuvieron solas. Este resultado confirma, con datos y no solo
 con diseño, la
 idea central del trabajo: separar la clasificación, la decisión y la justificación en componentes
 distintos ---una política determinista que decide, un perfil de cliente que filtra, y un modelo de
@@ -93,12 +99,15 @@ esperaba: cuando se generaron datos cuya verdad no venía de la heurística, un 
 mostró que el aprendizaje supervisado aporta a esta escala exactamente una regla ---la ráfaga
 pesa más que el origen declarado---, y esa regla se adoptó como código auditable, con lo que la
 señal de origen dejó de ser el único criterio y su suplantación dejó de ser invisible. El tercero
-es el alcance estadístico de la evaluación misma: 106 alertas soportadas de tres familias, todas
-del mismo activo, sostienen un resultado direccionalmente claro pero no permiten generalizar sus
-cifras exactas a un cliente con un perfil de amenazas distinto; y 236 de las 300 etiquetas las
-produjo una regla de etiquetado y no el experimento, de modo que buena parte del acuerdo entre
-etiqueta y clasificador es consistencia interna. La medida honesta es la de la campaña cuya verdad
-declaró el experimento, y fue allí donde las reglas fallaron y apareció la regla de ráfaga. Las dos familias
+es el alcance estadístico de la evaluación misma: 209 alertas soportadas de tres familias, sobre
+dos equipos de un laboratorio pequeño, sostienen un resultado direccionalmente claro pero no
+permiten generalizar sus cifras exactas a un cliente con un perfil de amenazas distinto; y 236 de
+las 417 etiquetas las produjo una regla de etiquetado y no el experimento, de modo que parte del
+acuerdo entre etiqueta y clasificador es consistencia interna. La medida honesta es la de las 181
+alertas cuya verdad declaró el experimento: fue allí donde las reglas fallaron y apareció la regla
+de ráfaga, y allí donde aparecieron los falsos positivos de los usuarios legítimos no declarados y
+los falsos negativos del ataque lento. Una evaluación aparte en el laboratorio del banco, con otra
+red y otra política, reprodujo los mismos hallazgos. Las dos familias
 generadas al final del trabajo mostraron además que ampliar el conjunto de datos no es solo una
 cuestión de tamaño: la segunda hizo aflorar un falso positivo que la primera no podía revelar
 ---el prototipo habría bloqueado a su propio auditor--- y un límite de la explicación que ninguna
@@ -109,26 +118,39 @@ prototipo no usa el nivel: decide con la familia, la postura del activo y el ori
 
 \subsection*{Recomendaciones}
 
-Las recomendaciones se ordenan por quién puede llevarlas a cabo. Varias se abordaron ya después de la
-evaluación, y se indica en qué estado quedaron.
+Las recomendaciones se ordenan por quién puede llevarlas a cabo. Cuatro de las que surgieron de la
+evaluación se abordaron antes de entregar este informe y pasan, por tanto, a ser resultados; el
+resto queda para quien continúe el trabajo, con el material preparado para hacerlas.
+
+\paragraph{Abordadas antes de la entrega.}
+
+\begin{itemize}
+  \item \textbf{Ampliar el conjunto de datos con casos cuya verdad no venga de la heurística.} Se
+        hizo con otro equipo víctima, otro servicio, un atacante externo y usuarios legítimos desde
+        orígenes no declarados, y se incorporaron los ataques lentos del experimento de octubre;
+        además, una evaluación aparte en el laboratorio del banco (secciones \ref{sec:ampliacion} y
+        \ref{sec:eval-banco}). Las cifras empeoraron, como se había aceptado de antemano, y se
+        publican junto a las anteriores.
+  \item \textbf{Completar la clase propia del reconocimiento}, rebajando su prioridad a la de un
+        precursor y no a la de un intento de acceso, junto con la repetición de la evaluación.
+  \item \textbf{Validar en el laboratorio los recortes ante fallos de contención.} Ninguna contención
+        se perdió y la escalada se acelera cuando un equipo no responde; se entregan encendidos
+        (sección \ref{sec:verif-produccion}).
+  \item \textbf{Separar la política de la empresa del perfil técnico.} Las reglas de respuesta viven
+        ahora en un fichero propio, en términos de negocio, versionado y con constancia de quién lo
+        aprobó, que el motor traduce sin cambiar. Si no es válido, el servicio no arranca, y la consola
+        solo puede endurecerlo y proponer la versión siguiente para que la apruebe Seguridad.
+\end{itemize}
 
 \paragraph{Sobre los datos y el método.}
 
 \begin{itemize}
-  \item \textbf{Ampliar el conjunto de datos con casos cuya verdad no venga de la heurística}, antes
-        de volver a intentar el ajuste fino de un clasificador: más activos, más servicios y usuarios
-        legítimos desde orígenes no declarados. El método es el de la campaña de casos difíciles y el
-        árbol de decisión, con una condición que el propio trabajo validó: \emph{reforzar con variedad
-        antes de adoptar}. Se aplicó al ataque lento desde un origen de confianza y la regla que el
-        árbol propuso con un solo patrón se refutó con tres (sección \ref{sec:entrenado}); ese punto
-        ciego quedó cubierto con un aviso de vigilancia para el analista, y cerrarlo de verdad exige
-        una señal que el SIEM no tiene ---la identidad del usuario o el estado del propio equipo---,
-        propia de un EDR.
-  \item \textbf{Completar la clase propia del reconocimiento.} Ya tiene nombre y pregunta propios al
-        justificador, de modo que un sondeo deja de narrarse como explotación; se hizo en la
-        variante que no mueve las cifras, con la acción y la prioridad de un intento de acceso.
-        Falta rebajar su prioridad ---un sondeo aislado no merece la de una fuerza bruta---, y debe
-        hacerse junto con una repetición de la evaluación, porque cambia la priorización medida.
+  \item \textbf{Cerrar el punto ciego del ataque lento con una señal nueva}, no con una regla más. El
+        árbol de decisión no encontró ninguna regla estable para separarlo de un administrador
+        activo, y la que propuso al ampliar los datos ---sin ráfaga, falso positivo--- se rechazó
+        porque cambiaría falsos positivos por amenazas perdidas. Cerrarlo exige lo que el SIEM no
+        tiene: la identidad del usuario o el estado del propio equipo, propios de un EDR. Hasta
+        entonces, el aviso de vigilancia lo señala al analista.
   \item \textbf{Mantener el corpus de descarte al ritmo de las clases.} Se fijó como invariante
         comprobado automáticamente: cada clase sin amenaza declara la ficha que la fundamenta. Cada
         motivo nuevo de descarte que incorpore el perfil de un cliente debe llegar con su ficha.
@@ -136,7 +158,8 @@ evaluación, y se indica en qué estado quedaron.
         cambie el modelo o el enunciado. La tasa de anclaje es automática, pero la corrección del
         contenido no lo es, y este trabajo la juzgó con un solo revisor. El material está preparado
         para hacerlo en hora y media: una guía de revisión, hojas ciegas que ocultan la clase decidida
-        y un guion que resume las puntuaciones por criterio y por clase.
+        y un guion que resume las puntuaciones por criterio y por clase; antes conviene regenerar las
+        hojas sobre el sistema final.
 \end{itemize}
 
 \paragraph{Sobre el producto.}
@@ -151,14 +174,14 @@ evaluación, y se indica en qué estado quedaron.
         volumen.} La traza en fichero basta para el laboratorio, pero un banco genera millones de
         decisiones al año. El plan está escrito: PostgreSQL como proyección de la traza firmada, que
         sigue siendo la evidencia, de modo que la contención no dependa nunca de la base de datos y
-        esta pueda reconstruirse en cualquier momento.
-  \item \textbf{Separar la política de la empresa del perfil técnico.} Hoy las reglas de respuesta
-        conviven con el inventario y la topología, y están escritas en el idioma del motor. El plan
-        propone un fichero propio en términos de negocio, versionado y con constancia de quién lo
-        aprobó, que el motor traduce sin cambiar; la consola seguiría pudiendo solo endurecerlo.
-  \item \textbf{Validar en el laboratorio los recortes ante fallos de contención} antes de
-        activarlos. Están implementados y probados, pero se entregan apagados porque no se han
-        ejercitado contra una red completa.
+        esta pueda reconstruirse en cualquier momento. No se hizo antes de la entrega porque añade un
+        servicio más que instalar y mantener en el equipo donde la empresa ejecuta sus modelos en
+        local, y el volumen actual no lo necesita.
+  \item \textbf{Decidir con cada cliente qué hacer con los socios externos.} El único caso de
+        contención automática indebida de toda la evaluación es un técnico legítimo que entra desde
+        fuera. Declararlo socio crítico lo evita, pero retiene también a cualquier atacante que use su
+        misma red; es una decisión del cliente, y la política de la empresa es el lugar donde
+        escribirla.
 \end{itemize}
 
 \paragraph{Con la empresa y el cliente.}
@@ -182,9 +205,9 @@ evaluación, y se indica en qué estado quedaron.
 La última fase del trabajo llevó el prototipo hacia un producto instalable (sección
 \ref{sec:fase7}), y su conclusión principal es que \textbf{la separación entre decidir, filtrar y
 explicar resistió el crecimiento}. Se añadieron seis familias de ataque, una consola de catorce
-vistas, la configuración de políticas y de credenciales desde el navegador, un servicio supervisado
-y un paquete de instalación, y ninguna de esas piezas tuvo que tocar la decisión: las cifras de la
-evaluación son las mismas antes y después. Que eso fuera posible es, en sí, un resultado sobre la
+vistas, la configuración de políticas y de credenciales desde el navegador, la política de la
+empresa en un fichero propio, un servicio supervisado y un paquete de instalación, y ninguna de esas
+piezas tuvo que tocar la decisión: las cifras de la evaluación son las mismas antes y después. Que eso fuera posible es, en sí, un resultado sobre la
 arquitectura.
 
 La segunda conclusión es que lo que un analista necesita para creer al sistema no es solo que

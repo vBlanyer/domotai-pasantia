@@ -179,15 +179,19 @@ laboratorio, etiquetadas y particionadas por campaña: 20 verdaderos positivos, 
 y 374 alertas de ruido de plataforma ---telemetría de evaluación de configuración que no
 corresponde a ningún patrón del caso de uso acotado---, todas ellas concentradas, las soportadas,
 en un único activo y servicio (acceso por SSH al servidor con vulnerabilidades documentadas). Las
-ampliaciones posteriores lo llevaron a 466 alertas con la segunda y la tercera familia, y a sus
-\textbf{600 alertas definitivas} con la campaña de casos difíciles de la Fase 6 (sección
-\ref{sec:fase6}): 174 verdaderos positivos, 38 falsos positivos, 8 de actividad propia del auditor
-y 380 de ruido de plataforma, repartidas a partes iguales entre una partición de entrenamiento y
-una de evaluación de 300 alertas cada una. Las 220 soportadas siguen perteneciendo a un único
-activo: 164 de acceso por credenciales, 30 de reconocimiento y 26 de servicio en claro. Esta
-concentración, verificada al construir el conjunto y no descubierta después, es la que más adelante bloquearía el ajuste fino del
-clasificador y limitaría el alcance estadístico de la evaluación del capítulo \ref{cap:resultados}:
-se documenta aquí como una condición conocida del método, no como un hallazgo posterior.
+ampliaciones posteriores lo llevaron a 466 alertas con la segunda y la tercera familia, y a 600
+con la campaña de casos difíciles de la Fase 6 (sección \ref{sec:fase6}): 174 verdaderos positivos,
+38 falsos positivos, 8 de actividad propia del auditor y 380 de ruido de plataforma, repartidas a
+partes iguales entre una partición de entrenamiento y una de evaluación de 300 alertas cada una.
+Las 220 soportadas pertenecían todas a un único activo: 164 de acceso por credenciales, 30 de
+reconocimiento y 26 de servicio en claro. Esta concentración, verificada al construir el conjunto y
+no descubierta después, es la que más adelante bloquearía el ajuste fino del clasificador y
+limitaría el alcance estadístico de la evaluación del capítulo \ref{cap:resultados}: se documenta
+aquí como una condición conocida del método, no como un hallazgo posterior. Para reducirla, una
+ampliación final con verdad declarada por el experimento ---otro equipo víctima, otro servicio,
+atacante externo y usuarios legítimos desde orígenes no declarados--- y los ataques lentos
+capturados en octubre llevaron el conjunto a sus \textbf{813 alertas definitivas}, 396 de
+entrenamiento y 417 de evaluación (sección \ref{sec:ampliacion}).
 
 % ===========================================================================
 \section{Fase 4: diseño de la arquitectura}
@@ -516,7 +520,8 @@ cuya verdad no provenía de la heurística de etiquetado sino del propio experim
 diseñados para que el método de referencia fallara ---fuerza bruta lanzada desde la misma dirección
 declarada como administrador legítimo, y ráfagas cuyo nivel de regla no supera ningún umbral---,
 con dos réplicas para dar variedad. Esta campaña llevó el conjunto etiquetado a sus 600 alertas
-(212 soportadas), con la partición de evaluación de 300 que usa el capítulo de resultados. Sobre
+(212 soportadas), con una partición de evaluación de 300; la ampliación final la llevó a las 417
+del resultado principal. Sobre
 ella se entrenó un árbol de decisión (CART) \cite{breiman1984cart}, no como clasificador de producción sino como
 \emph{instrumento de validación}: para ver qué reglas descubriría el aprendizaje supervisado a esta
 escala con una verdad independiente de la heurística. El árbol redescubrió las reglas ya codificadas
@@ -671,6 +676,15 @@ documentados como límites aceptados.
 La figura \ref{fig:consola-politicas} muestra la primera: las familias de respuesta acotada pueden
 pasar de automáticas a humanas, y las de freno duro aparecen bloqueadas.
 
+Las reglas de fondo ---en quién se confía, qué se automatiza y qué no se toca nunca--- dejaron de
+vivir mezcladas con el inventario técnico. \textbf{La política de la empresa} se escribe en un
+fichero propio, en términos de negocio («con analista», «si hay certeza»), versionado y con
+constancia de quién lo aprobó, que el servicio traduce al arrancar a las claves que el motor ya
+leía, sin cambiarlo. La precedencia es fija: lo que el código prohíbe no se abre desde el fichero,
+y lo que el fichero cierra no se abre desde la consola, que solo puede endurecerlo y proponer la
+versión siguiente para que Seguridad la apruebe. Si el fichero no es válido, el servicio no arranca,
+y cada arranque deja en la traza firmada qué versión se aplicó.
+
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth]{img/consola-politicas.png}
@@ -708,8 +722,9 @@ Los fallos de la propia contención recibieron el mismo trato. Se clasificaron e
 diez causas ---desde el equipo inalcanzable hasta el comando que se ejecuta pero cuyo efecto no se
 verifica--- con el criterio de que, ante una causa dudosa, se asume la más grave; la consola muestra
 la causa de cada fallo. Sobre esa clasificación se implementaron recortes que aceleran la escalada
-cuando un equipo no responde, pero se entregan \textbf{experimentales y apagados}: están probados,
-pero no validados contra una red completa, y activarlos se deja a la validación en el laboratorio.
+cuando un equipo no responde. Se validaron al final en el laboratorio del banco, provocando cada
+fallo en un equipo y lanzando un ataque real con los recortes apagados y encendidos: ninguna
+contención se perdió, y se entregan \textbf{encendidos} (sección \ref{sec:verif-produccion}).
 
 \subsection{Empaquetado, instalación y documentación}
 
