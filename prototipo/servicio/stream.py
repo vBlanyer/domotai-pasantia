@@ -6,7 +6,8 @@ La fuente de lineas es inyectable (fichero seguido estilo `tail -f`, o stdin), l
 testeable con una lista y resuelve que en el laboratorio el `alerts.json` de Wazuh vive dentro del
 contenedor: se canaliza `docker exec ... tail -F ... | python3 -m prototipo.servicio.stream -`.
 """
-import collections, io, json, os, select, sys, threading, time
+import collections, hashlib, io, json, os, select, sys, threading, time
+import yaml
 from prototipo.entrada import ingesta, adaptador_wazuh
 from prototipo.motor import analisis, agrupacion, rafaga
 from prototipo.servicio import casos, lazo, traza, validacion
@@ -666,7 +667,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
              resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
-             latido=None, actividad=None, perfil_fn=None):
+             latido=None, actividad=None, perfil_fn=None, al_arrancar=()):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -705,6 +706,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                     # Fichero ya cerrado en el apagado (un hilo del agente aprobado justo al salir):
                     # ese registro se pierde, pero la cadena no se corrompe (falla antes de escribir).
                     pass
+    for reg in al_arrancar or ():          # p. ej. la política de la empresa cargada (politica_cargada)
+        escribir_traza(reg)
     # `perfil_fn`: el perfil VIVO (el del servidor, que el editor de políticas reemplaza al editar).
     # Se lee al decidir cada incidente; sin él, el perfil estático de siempre.
     perfil_fn = perfil_fn or (lambda: perfil)
@@ -1088,6 +1091,38 @@ def _servidor_responde(url, plazo=2):
     except Exception:
         return False
 
+def cargar_politica(perfil, catalogo, ruta):
+    """politica.yml (TRIAJE_POLITICA): la política de la empresa fusionada con el perfil. Devuelve
+    (perfil, info) — info None sin ruta, y el perfil intacto —. Con ruta, un fichero ausente, ilegible,
+    inválido o que repite una regla del perfil PARA el arranque: es configuración de seguridad
+    declarada a propósito, y arrancar con otra cosa sería engañar al operador."""
+    from prototipo.motor import politica_empresa as pe
+    if not ruta:
+        return perfil, None
+    try:
+        with open(ruta, "rb") as f:
+            crudo = f.read()
+        pol = yaml.safe_load(crudo.decode("utf-8")) or {}
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
+        raise SystemExit(f"TRIAJE_POLITICA={ruta}: no se pudo leer la política ({type(e).__name__}: {e})")
+    avisos = pe.validar_politica(pol, perfil, catalogo)
+    if avisos:
+        raise SystemExit(f"TRIAJE_POLITICA={ruta}: la política no es válida:\n  - " + "\n  - ".join(avisos))
+    cab = pe.cabecera(pol)
+    info = {"ruta": ruta, "version": cab.get("version"), "aprobada_por": cab.get("aprobada_por"),
+            "fecha": str(cab["fecha"]) if cab.get("fecha") is not None else None,
+            "hash": hashlib.sha256(crudo).hexdigest(), "politica": pol}
+    return pe.fusionar_perfil_y_politica(perfil, pol), info
+
+
+def registro_politica(info, timestamp):
+    """Registro de arranque para la traza firmada: qué política se aplicó (versión, quién la aprobó,
+    huella del fichero). El contenido no viaja: la huella lo identifica. Se llama `huella` y no `hash`:
+    `hash` es el campo de la propia cadena de la traza."""
+    return {"id_decision": f"politica~{timestamp}", "tipo": "politica_cargada", "timestamp": timestamp,
+            **{k: info.get(k) for k in ("ruta", "version", "aprobada_por", "fecha")}, "huella": info.get("hash")}
+
+
 def ajustar_modo_llm(cfg, sondear=_servidor_responde, escribir=print):
     """--con-llm y --agente necesitan el servidor del modelo. Sin él, cada alerta pagaba los plazos
     de espera antes de caer a la plantilla y el banner anunciaba «LLM+RAG»: se avisa y se arranca en
@@ -1283,6 +1318,8 @@ def main(argv):
     with open(cfg["hallazgos"], encoding="utf-8") as f:
         hallazgos = json.load(f)
     catalogo = catm.cargar_catalogo(os.path.join(_RAIZ, "prototipo", "catalogo.yml"))
+    # La política de la empresa (politica.yml), si la hay, ANTES de nada que lea el perfil.
+    perfil, politica_info = cargar_politica(perfil, catalogo, os.environ.get("TRIAJE_POLITICA"))
     justificar_fn = construir_justificar_fn(cfg["con_llm"])
     ejecutor = lazo._EjecutorAuto() if cfg["sin_lab"] else conector.ejecutor_por_defecto()
     # Compartida por TODO lo que ejecuta SSH (lazo, servidor web, agente): su eco de login se
@@ -1305,6 +1342,9 @@ def main(argv):
         fuente = (leer_lineas_stdin() if cfg["ruta"] == "-"
                   else leer_lineas_fichero(cfg["ruta"], una_vez=cfg["una_vez"]))
     print(banner(cfg, ejecutor))
+    if politica_info:
+        print(f"[política] versión {politica_info['version']} · aprobada por {politica_info['aprobada_por']} "
+              f"· {politica_info['fecha']} · {politica_info['ruta']} · huella {politica_info['hash'][:12]}…")
     try:                                           # cordura del perfil al arrancar (B11), sin romper
         for aviso in perfilm.validar(perfil):
             print(f"[aviso] perfil: {aviso}")
@@ -1316,6 +1356,7 @@ def main(argv):
     if cfg["web"]:
         estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo,
                                                                actividad.envolver(ejecutor))
+        servidor.politica_info = politica_info      # la vista Políticas la enseña (versión, origen de cada valor)
         for linea in lineas_avisos_red(perfil):
             print(linea)
         if not cfg["agente"]:
@@ -1370,7 +1411,8 @@ def main(argv):
                      estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
                      lector_incidente=lector_incidente, memoria=memoria,
                      latido=(servidor.latido if servidor else None), actividad=actividad,
-                     perfil_fn=((lambda: servidor.perfil) if servidor else None))
+                     perfil_fn=((lambda: servidor.perfil) if servidor else None),
+                     al_arrancar=([registro_politica(politica_info, _ahora_iso())] if politica_info else ()))
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))
