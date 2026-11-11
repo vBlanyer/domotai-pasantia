@@ -19,6 +19,8 @@ capítulo de resultados, y `evaluacion/resultados/`).
   ataques lentos del experimento de octubre; verdad declarada por el experimento y diseño fijado antes de
   medir. P 0,931 · R 0,667 · F1 0,777 (baseline 0,800) · FP 0,038; sin los ataques lentos, R 1,000 y F1
   0,964 (n=300: 0,978 · 1,000 · 0,009); 4 contenciones automáticas indebidas (técnico legítimo del proveedor).
+- **Evaluación aparte en el banco** (perfil bancario, `lab/campañas-banco/`, `lab/banco/campana_evaluacion.py`):
+  40/2/3/0; los 2 FP son los legítimos y uno se bloquea solo. `evaluacion.campana --dataset` para usar otro conjunto.
 - **Prioridad del reconocimiento** rebajada a 2 (R2); la prioridad esperada admite excepciones por familia.
 
 ### Corregido

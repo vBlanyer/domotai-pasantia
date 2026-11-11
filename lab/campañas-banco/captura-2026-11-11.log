@@ -1,0 +1,177 @@
+clab-red-cliente-wazuh
+Laboratorio detenido.
+== 1. Desplegando el banco ==
+12:48:00 INFO Containerlab started version=0.79.0
+12:48:00 INFO Parsing & checking topology file=banco.clab.yml
+12:48:00 INFO Creating docker network name=clab IPv4 subnet=172.20.20.0/24 IPv6 subnet=3fff:172:20:20::/64 MTU=0
+12:48:01 INFO Creating lab directory path=/home/pc/pasantias/domotai-pasantia/lab/topologias/clab-banco
+12:48:01 INFO Creating container name=swift-alliance
+12:48:01 INFO Creating container name=middleware
+12:48:01 INFO Creating container name=core-db
+12:48:01 INFO Creating container name=sw-soc
+12:48:01 INFO Creating container name=auditor
+12:48:01 INFO Creating container name=web-banking
+12:48:01 INFO Creating container name=api-movil
+12:48:01 INFO Creating container name=pagos-qr
+12:48:01 INFO Creating container name=taquilla
+12:48:01 INFO Creating container name=hsm
+12:48:01 INFO Creating container name=mdr-siem
+12:48:01 INFO Creating container name=internet
+12:48:01 INFO Creating container name=atm
+12:48:01 INFO Creating container name=fw-core
+12:48:01 INFO Creating container name=fw-edge
+12:48:02 INFO Created link: sw-soc:eth2 ▪┄┄▪ mdr-siem:eth1
+12:48:02 INFO Created link: sw-soc:eth3 ▪┄┄▪ auditor:eth1
+12:48:02 INFO Created link: internet:eth1 ▪┄┄▪ fw-edge:eth1
+12:48:03 INFO Created link: fw-edge:eth2 ▪┄┄▪ fw-core:eth1
+12:48:03 INFO Created link: fw-core:eth2 ▪┄┄▪ web-banking:eth1
+12:48:03 INFO Created link: fw-core:eth3 ▪┄┄▪ api-movil:eth1
+12:48:03 INFO Created link: fw-core:eth4 ▪┄┄▪ swift-alliance:eth1
+12:48:03 INFO Created link: fw-core:eth5 ▪┄┄▪ middleware:eth1
+12:48:03 INFO Created link: fw-core:eth6 ▪┄┄▪ core-db:eth1
+12:48:03 INFO Created link: fw-core:eth7 ▪┄┄▪ hsm:eth1
+12:48:03 INFO Created link: fw-core:eth8 ▪┄┄▪ sw-soc:eth1
+12:48:03 INFO Created link: fw-core:eth9 ▪┄┄▪ taquilla:eth1
+12:48:03 INFO Created link: fw-core:eth10 ▪┄┄▪ atm:eth1
+12:48:03 INFO Created link: fw-core:eth11 ▪┄┄▪ pagos-qr:eth1
+12:48:03 INFO Executed command node=swift-alliance command="ip addr add 10.30.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=mdr-siem command="ip addr add 10.100.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=web-banking command="ip addr add 10.10.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=hsm command="ip addr add 10.60.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=web-banking command="ip route add 10.0.0.0/8 via 10.10.0.1" stdout=""
+12:48:03 INFO Executed command node=swift-alliance command="ip route add 10.0.0.0/8 via 10.30.0.1" stdout=""
+12:48:03 INFO Executed command node=mdr-siem command="ip route add 10.0.0.0/8 via 10.100.0.1" stdout=""
+12:48:03 INFO Executed command node=hsm command="ip route add 10.0.0.0/8 via 10.60.0.1" stdout=""
+12:48:03 INFO Executed command node=swift-alliance command="ip route add 198.51.100.0/24 via 10.30.0.1" stdout=""
+12:48:03 INFO Executed command node=web-banking command="ip route add 198.51.100.0/24 via 10.10.0.1" stdout=""
+12:48:03 INFO Executed command node=mdr-siem command="ip route add 198.51.100.0/24 via 10.100.0.1" stdout=""
+12:48:03 INFO Executed command node=hsm command="ip route add 198.51.100.0/24 via 10.60.0.1" stdout=""
+12:48:03 INFO Executed command node=internet command="ip addr add 198.51.100.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=internet command="ip route add 10.0.0.0/8 via 198.51.100.1" stdout=""
+12:48:03 INFO Executed command node=api-movil command="ip addr add 10.20.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=pagos-qr command="ip addr add 10.70.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=auditor command="ip addr add 10.100.0.20/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=api-movil command="ip route add 10.0.0.0/8 via 10.20.0.1" stdout=""
+12:48:03 INFO Executed command node=auditor command="ip route add 10.0.0.0/8 via 10.100.0.1" stdout=""
+12:48:03 INFO Executed command node=internet command="ip route del default" stdout=""
+12:48:03 INFO Executed command node=pagos-qr command="ip route add 10.0.0.0/8 via 10.70.0.1" stdout=""
+12:48:03 INFO Executed command node=sw-soc command="ip link add br0 type bridge" stdout=""
+12:48:03 INFO Executed command node=internet command="iptables -A OUTPUT -o eth0 -j DROP" stdout=""
+12:48:03 INFO Executed command node=pagos-qr command="ip route add 198.51.100.0/24 via 10.70.0.1" stdout=""
+12:48:03 INFO Executed command node=api-movil command="ip route add 198.51.100.0/24 via 10.20.0.1" stdout=""
+12:48:03 INFO Executed command node=sw-soc command="ip link set eth1 master br0" stdout=""
+12:48:03 INFO Executed command node=auditor command="ip route add 198.51.100.0/24 via 10.100.0.1" stdout=""
+12:48:03 INFO Executed command node=atm command="ip addr add 10.210.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=sw-soc command="ip link set eth2 master br0" stdout=""
+12:48:03 INFO Executed command node=core-db command="ip addr add 10.50.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=middleware command="ip addr add 10.40.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=atm command="ip route add 10.0.0.0/8 via 10.210.0.1" stdout=""
+12:48:03 INFO Executed command node=fw-edge command="ip addr add 198.51.100.1/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=sw-soc command="ip link set eth3 master br0" stdout=""
+12:48:03 INFO Executed command node=atm command="ip route add 198.51.100.0/24 via 10.210.0.1" stdout=""
+12:48:03 INFO Executed command node=core-db command="ip route add 10.0.0.0/8 via 10.50.0.1" stdout=""
+12:48:03 INFO Executed command node=middleware command="ip route add 10.0.0.0/8 via 10.40.0.1" stdout=""
+12:48:03 INFO Executed command node=sw-soc command="ip link set br0 up" stdout=""
+12:48:03 INFO Executed command node=fw-edge command="ip addr add 10.0.0.254/24 dev eth2" stdout=""
+12:48:03 INFO Executed command node=core-db command="ip route add 198.51.100.0/24 via 10.50.0.1" stdout=""
+12:48:03 INFO Executed command node=fw-edge command="ip route add 10.0.0.0/8 via 10.0.0.1" stdout=""
+12:48:03 INFO Executed command node=middleware command="ip route add 198.51.100.0/24 via 10.40.0.1" stdout=""
+12:48:03 INFO Executed command node=taquilla command="ip addr add 10.200.0.10/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=taquilla command="ip route add 10.0.0.0/8 via 10.200.0.1" stdout=""
+12:48:03 INFO Executed command node=taquilla command="ip route add 198.51.100.0/24 via 10.200.0.1" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.0.0.1/24 dev eth1" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.10.0.1/24 dev eth2" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.20.0.1/24 dev eth3" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.30.0.1/24 dev eth4" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.40.0.1/24 dev eth5" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.50.0.1/24 dev eth6" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.60.0.1/24 dev eth7" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.100.0.1/24 dev eth8" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.200.0.1/24 dev eth9" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.210.0.1/24 dev eth10" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip addr add 10.70.0.1/24 dev eth11" stdout=""
+12:48:03 INFO Executed command node=fw-core command="ip route add 198.51.100.0/24 via 10.0.0.254" stdout=""
+12:48:04 INFO Adding host entries path=/etc/hosts
+12:48:04 INFO Adding SSH config for nodes path=/etc/ssh/ssh_config.d/clab-banco.conf
+12:48:04 INFO containerlab version
+  🎉=
+  │ A newer containerlab version (0.83.0) is available!
+  │ Release notes: https://containerlab.dev/rn/0.83/
+  │ Run 'clab version upgrade' or see https://containerlab.dev/install/ for other installation options.
+[1m╭[0m[1m───────────────────────────[0m[1m┬[0m[1m──────────────[0m[1m┬[0m[1m─────────[0m[1m┬[0m[1m────────────────────[0m[1m╮[0m
+[1m│[0m[1m            Name           [0m[1m│[0m[1m  Kind/Image  [0m[1m│[0m[1m  State  [0m[1m│[0m[1m   IPv4/6 Address   [0m[1m│[0m
+[1m├[0m[1m───────────────────────────[0m[1m┼[0m[1m──────────────[0m[1m┼[0m[1m─────────[0m[1m┼[0m[1m────────────────────[0m[1m┤[0m
+│ clab-banco-api-movil      │ linux        │ running │ 172.20.20.8        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::8  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-atm            │ linux        │ running │ 172.20.20.13       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::d  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-auditor        │ linux        │ running │ 172.20.20.10       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::a  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-core-db        │ linux        │ running │ 172.20.20.14       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::e  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-fw-core        │ linux        │ running │ 172.20.20.15       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::f  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-fw-edge        │ linux        │ running │ 172.20.20.11       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::b  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-hsm            │ linux        │ running │ 172.20.20.2        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::2  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-internet       │ linux        │ running │ 172.20.20.7        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::7  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-mdr-siem       │ linux        │ running │ 172.20.20.5        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::5  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-middleware     │ linux        │ running │ 172.20.20.12       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::c  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-pagos-qr       │ linux        │ running │ 172.20.20.9        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::9  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-sw-soc         │ linux        │ running │ 172.20.20.6        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::6  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-swift-alliance │ linux        │ running │ 172.20.20.4        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::4  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-taquilla       │ linux        │ running │ 172.20.20.16       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::10 │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-web-banking    │ linux        │ running │ 172.20.20.3        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::3  │
+╰───────────────────────────┴──────────────┴─────────┴────────────────────╯
+== 2. Wazuh ==
+b7670eaffff7782720a6138564d68949b8bbeeb94ba5dbd62d791b7e4ed10cc3
+Wazuh manager arrancando...
+Wazuh listo, recepcion de syslog activa. IP de gestion:
+  172.20.20.17
+== 3. sshd, servicios y reenviadores ==
+== 4. Monitor de salud en mdr-siem ==
+== Banco en marcha. Prueba: sh lab/banco/banco.sh test ==
+-- 1. internet -> web-banking (a traves de fw-edge y fw-core)
+   HTTP 200
+-- 2. mdr-siem llega a los dos cortafuegos
+   10.0.0.1 OK
+   10.0.0.254 OK
+-- 3. Todos los servicios sanos
+   OK
+== BD1: fuerza bruta externa contra web-banking
+== BRC: reconocimiento externo de web-banking
+== BTN: conexiones al telnet expuesto de atm
+== BEX: inyección SQL contra web-banking
+== BA1: fuerza bruta desde la taquilla (10.200.0.10)
+== BK1: fuerza bruta desde el middleware comprometido (10.40.0.10)
+== BL1: técnico externo legítimo contra api-movil
+== BL2: empleado de taquilla legítimo contra web-banking
+   esperando al reenvío…
+45 alertas en la ventana
+== Auditando la postura (hallazgos.json)
+hallazgos -> /home/pc/pasantias/domotai-pasantia/lab/campañas-banco/2026-11-11-banco-evaluacion/hallazgos.json (14 servicios, 8 nodos)
+== Campaña 2026-11-11-banco-evaluacion lista en /home/pc/pasantias/domotai-pasantia/lab/campañas-banco/2026-11-11-banco-evaluacion
+FIN rc=0

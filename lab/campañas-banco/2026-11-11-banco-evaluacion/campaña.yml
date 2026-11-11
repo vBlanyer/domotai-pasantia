@@ -1,0 +1,55 @@
+id: 2026-11-11-banco-evaluacion
+fecha: '2026-11-11'
+familia: varias
+proposito: evaluación aparte en el banco (perfil bancario); verdad declarada por el
+  experimento
+diseno: documentacion/06-fase6-evaluacion-del-prototipo/evaluacion-banco-2026-11.md
+auditor:
+  ips:
+  - 10.100.0.20
+  cuando: 2026-11-11T16:50:43+0000
+legitimos:
+  ips:
+  - 10.100.0.10
+  - 10.100.0.20
+verdad:
+- origen: 198.51.100.60
+  desde: '2026-11-11T16:48:57'
+  hasta: '2026-11-11T16:50:43'
+  etiqueta: VP
+  motivo: 'BD1: fuerza bruta externa contra web-banking'
+- origen: 198.51.100.61
+  desde: '2026-11-11T16:48:57'
+  hasta: '2026-11-11T16:50:43'
+  etiqueta: VP
+  motivo: 'BRC: reconocimiento externo de web-banking'
+- origen: 198.51.100.62
+  desde: '2026-11-11T16:48:57'
+  hasta: '2026-11-11T16:50:43'
+  etiqueta: VP
+  motivo: 'BTN: conexiones al telnet expuesto de atm'
+- origen: 198.51.100.63
+  desde: '2026-11-11T16:48:57'
+  hasta: '2026-11-11T16:50:43'
+  etiqueta: VP
+  motivo: 'BEX: inyección SQL contra web-banking'
+- origen: 10.200.0.10
+  desde: '2026-11-11T16:48:57'
+  hasta: '2026-11-11T16:50:43'
+  etiqueta: VP
+  motivo: 'BA1: fuerza bruta desde la taquilla (10.200.0.10)'
+- origen: 10.40.0.10
+  desde: '2026-11-11T16:48:57'
+  hasta: '2026-11-11T16:50:43'
+  etiqueta: VP
+  motivo: 'BK1: fuerza bruta desde el middleware comprometido (10.40.0.10)'
+- origen: 198.51.100.70
+  desde: '2026-11-11T16:48:57'
+  hasta: '2026-11-11T16:50:43'
+  etiqueta: FP
+  motivo: 'BL1: técnico externo legítimo contra api-movil'
+- origen: 10.200.0.11
+  desde: '2026-11-11T16:48:57'
+  hasta: '2026-11-11T16:50:43'
+  etiqueta: FP
+  motivo: 'BL2: empleado de taquilla legítimo contra web-banking'

@@ -79,6 +79,9 @@ FP 0,038 frente a 0,702 · 0,929 · 0,308 del baseline; **F1 0,777 frente a 0,80
 son falsos negativos (sin ellos, R 1,000 y F1 0,964). Aparecen las **primeras 4 contenciones automáticas
 indebidas** (un técnico legítimo del proveedor).
 Diseño fijado antes de medir y resultados: [ampliacion-dataset-2026-11.md](ampliacion-dataset-2026-11.md).
+Aparte, una **evaluación en el banco** (perfil bancario, 42 alertas soportadas): las 40 amenazas detectadas
+con la respuesta que prevé el perfil; los 2 legítimos, falsos positivos, uno bloqueado solo
+([evaluacion-banco-2026-11.md](evaluacion-banco-2026-11.md)).
 Las cifras de 300 que siguen son el paso anterior de la progresión.
 
 **Conciencia de impacto (21/09/2026).** Una ampliación posterior midió, sobre la misma partición de

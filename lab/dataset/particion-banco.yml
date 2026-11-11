@@ -1,0 +1,8 @@
+# Reparto de la evaluación APARTE en el banco (11/11/2026). Una sola campaña, toda en evaluación: el motor
+# es determinista y no se entrena con ella. No se mezcla con el conjunto canónico (particion.yml).
+# Diseño: documentacion/06-fase6-evaluacion-del-prototipo/evaluacion-banco-2026-11.md
+#   python3 -m lab.dataset.construir lab/campañas-banco lab/dataset/particion-banco.yml \
+#       lab/dataset/resoluciones.yml lab/dataset/etiquetado-banco.jsonl
+entrenamiento: []
+evaluacion:
+  - 2026-11-11-banco-evaluacion

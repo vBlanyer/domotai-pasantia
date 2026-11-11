@@ -113,9 +113,11 @@ def main(argv):
                     help="como invocar el modelo; por defecto, el vigente (servidor residente)")
     ap.add_argument("--salida-dir", default="evaluacion/resultados")
     ap.add_argument("--hallazgos", default="lab/campañas/2026-08-31-evaluacion/hallazgos.json")
+    ap.add_argument("--dataset", default=cargar.RUTA_DATASET,
+                    help="conjunto etiquetado; por defecto el canónico (otro, p. ej., para la evaluación del banco)")
     a = ap.parse_args(argv[1:])
 
-    filas = cargar.cargar(particion=(None if a.particion == "todas" else a.particion))
+    filas = cargar.cargar(a.dataset, particion=(None if a.particion == "todas" else a.particion))
     with open(a.hallazgos, encoding="utf-8") as f:
         hallazgos = json.load(f)
     perfil_dict = perfilm.cargar(f"prototipo/perfiles/{a.perfil}.yml")
