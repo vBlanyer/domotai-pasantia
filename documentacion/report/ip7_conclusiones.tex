@@ -16,12 +16,13 @@ El objetivo general de este trabajo era desarrollar un prototipo que clasificara
 alertas de seguridad, justificando cada decisión con un modelo de lenguaje apoyado en generación
 aumentada por recuperación ejecutada en local, y que redujera los falsos positivos sin sacrificar
 la detección de amenazas reales. Los resultados del capítulo \ref{cap:resultados} sostienen que ese
-objetivo se cumplió dentro del caso de uso acotado sobre el que se evaluó: el prototipo suprimió
-los falsos positivos que el nivel de regla de Wazuh deja pasar ---tasa de 0,000 frente a 0,282 en el caso acotado original de una familia, y de 0,009 frente a 0,310 sobre la partición final de 300 alertas---,
-sin dejar de detectar ninguna amenaza real y sin ejecutar ninguna acción que hubiera interrumpido
-indebidamente un servicio del cliente. Una ampliación posterior ---la conciencia de impacto, medida
-sobre el laboratorio donde el atacante es interno--- ejercitó el escenario más exigente de esta
-métrica: al retener para validación humana todo bloqueo que recae sobre un activo propio, las
+objetivo se cumplió dentro del caso de uso acotado sobre el que se evaluó. Sobre la partición
+final de 300 alertas y tres familias de ataque, el prototipo dejó la tasa de falsos positivos en
+0,009 frente al 0,310 del nivel de regla de Wazuh en su mejor umbral, con exhaustividad 1,000
+frente a 0,920 ---el método de referencia perdía siete amenazas reales que el prototipo detecta---,
+una medida $F_1$ de 0,989 frente a 0,687, y sin ejecutar ninguna acción que hubiera interrumpido
+indebidamente un servicio del cliente. La conciencia de impacto, medida sobre el laboratorio donde
+el atacante es interno, ejercitó el escenario más exigente de esta métrica: al retener para validación humana todo bloqueo que recae sobre un activo propio, las
 contenciones automáticas indebidas ---dos que el indicador de continuidad original no veía--- pasan a
 cero y el escalado a validación humana sube al 29,7\,\%. Este resultado confirma, con datos y no solo
 con diseño, la
@@ -70,21 +71,34 @@ prefijos del servidor hacía que el mismo enunciado, a temperatura cero, produje
 según lo que el servidor hubiera procesado antes. Un requisito no funcional de reproducibilidad
 tiene que verificarse contra esa infraestructura, y así se hizo.
 
+Algo parecido ocurrió con el agente de mitigación. Con modelos locales de hasta ocho mil millones de
+parámetros no completó por sí solo ningún ciclo de razonamiento y acción, y la tentación habría sido
+concluir que el diseño no servía. Un contraste posterior, con un modelo de frontera servido por la
+misma interfaz y solo sobre el laboratorio sintético, mostró lo contrario: el mismo código eligió la
+mejor opción en los tres escenarios de escalada (sección \ref{sec:contraste-claude}). \textbf{La
+limitación era la capacidad del modelo, no la arquitectura}, y las barreras del diseño garantizan que
+un modelo pequeño nunca hace algo peor que la regla determinista. Como ese modelo no puede usarse con
+datos de un cliente ni es reproducible, la regla sigue siendo el camino por defecto; el agente queda
+listo para un modelo local capaz.
+
 El trabajo deja, con la misma honestidad con que reporta sus logros, tres límites identificados y no
 resueltos. El primero afecta a la propia señal que hizo posible el resultado principal: la
 distinción entre un administrador legítimo y un atacante sobre el mismo servicio se apoya hoy en la
-dirección de origen declarada en la configuración del cliente, que es suplantable, y cubre cuatro de
-las seis categorías del caso de uso; las dos restantes exigen señales que el conjunto de datos no
-contiene. El segundo es que el clasificador con ajuste fino, que resolvería ese límite de raíz,
+dirección de origen declarada en la configuración del cliente, que es suplantable, y el clasificador
+cubre cinco de las seis categorías del caso de uso; la sexta, la exposición indebida de un servicio
+de gestión, exige señales que el conjunto de datos no contiene. El segundo es que el clasificador con ajuste fino, que resolvería ese límite de raíz,
 permanece bloqueado porque el conjunto de datos disponible no ofrece variedad suficiente para
 entrenarlo sin invalidar la propia evaluación; pero el límite se acotó mejor de lo que se
 esperaba: cuando se generaron datos cuya verdad no venía de la heurística, un árbol de decisión
 mostró que el aprendizaje supervisado aporta a esta escala exactamente una regla ---la ráfaga
 pesa más que el origen declarado---, y esa regla se adoptó como código auditable, con lo que la
 señal de origen dejó de ser el único criterio y su suplantación dejó de ser invisible. El tercero
-es el alcance estadístico de la evaluación misma: cuarenta y dos alertas soportadas de tres
-familias, todas del mismo activo, sostienen un resultado direccionalmente claro pero no permiten
-generalizar sus cifras exactas a un cliente con un perfil de amenazas distinto. Las dos familias
+es el alcance estadístico de la evaluación misma: 106 alertas soportadas de tres familias, todas
+del mismo activo, sostienen un resultado direccionalmente claro pero no permiten generalizar sus
+cifras exactas a un cliente con un perfil de amenazas distinto; y 236 de las 300 etiquetas las
+produjo una regla de etiquetado y no el experimento, de modo que buena parte del acuerdo entre
+etiqueta y clasificador es consistencia interna. La medida honesta es la de la campaña cuya verdad
+declaró el experimento, y fue allí donde las reglas fallaron y apareció la regla de ráfaga. Las dos familias
 generadas al final del trabajo mostraron además que ampliar el conjunto de datos no es solo una
 cuestión de tamaño: la segunda hizo aflorar un falso positivo que la primera no podía revelar
 ---el prototipo habría bloqueado a su propio auditor--- y un límite de la explicación que ninguna
@@ -95,134 +109,101 @@ prototipo no usa el nivel: decide con la familia, la postura del activo y el ori
 
 \subsection*{Recomendaciones}
 
+Las recomendaciones se ordenan por quién puede llevarlas a cabo. Varias se abordaron ya después de la
+evaluación, y se indica en qué estado quedaron.
+
+\paragraph{Sobre los datos y el método.}
+
 \begin{itemize}
-  \item \textbf{Ampliar el conjunto de datos con casos cuya verdad no venga de la heurística},
-        antes de intentar de nuevo el ajuste fino de un clasificador: más activos, más servicios,
-        ataques lentos que no formen ráfaga, y usuarios legítimos desde orígenes no declarados. La
-        campaña de casos difíciles y el árbol de decisión son el método: cada regla que el árbol
-        descubra con evidencia estable se adopta como código; el codificador entrenado competirá
-        contra ese árbol, no contra las reglas a secas.
-  \item \textbf{Dar al reconocimiento una clase propia.} La familia no cambia la acción, y el
-        diseño lo previó así; pero se midió que sí cambia la explicación: con la clase común y las
-        etiquetas MITRE que Wazuh asigna a sus reglas de reconocimiento, un sondeo de puerto se
-        narra como explotación aunque la familia y el conocimiento recuperado digan lo contrario.
-        Una clase con su propio nombre, su propia prioridad ---un sondeo aislado no merece la de
-        una fuerza bruta--- y su propia pregunta al justificador resuelve el problema en el único
-        sitio donde puede resolverse. Se implementó tras cerrar la evaluación, en la variante que no
-        mueve las cifras: el reconocimiento tiene ya clase y pregunta propias ---la explicación deja
-        de narrarlo como explotación--- conservando la acción y la prioridad de un intento de acceso,
-        de modo que la matriz y el escalado medidos no varían; rebajar además su prioridad, como aquí
-        se sugiere, queda para cuando se acepte repetir la evaluación.
-  \item \textbf{Crecer el corpus de descarte al ritmo de las clases, no antes.} Hoy contiene una
-        ficha por cada clase sin amenaza, y basta porque las clases son tres. Cada motivo nuevo de
-        descarte que el perfil de cliente incorpore debe llegar acompañado de su ficha, porque se
-        midió que sin ella la justificación del descarte cae a la plantilla. Con el \emph{embedder}
-        dedicado, crecer el corpus ya no degrada la recuperación de forma apreciable. Tras la
-        evaluación se fijó ese acoplamiento como invariante verificado: cada clase sin amenaza declara
-        la ficha que la fundamenta y una comprobación automática lo exige, de modo que el corpus solo
-        puede crecer al ritmo de las clases y nunca antes.
-  \item \textbf{Resolver, junto con Domotai C.A., si el sistema de logs propietario que
-        originalmente motivó el proyecto llegará a estar disponible}, y en qué formato entrega sus
-        eventos. De confirmarse, se integraría como una segunda fuente a través del mismo módulo de
-        ingesta que hoy consume las alertas de Wazuh, sin desplazarlo.
-  \item \textbf{Completar la validación sobre un equipo de borde con firmware real}, hoy sustituido
-        en el laboratorio por un contenedor Linux provisional: las acciones del catálogo están
-        diseñadas para ese firmware, pero solo se han verificado sobre su sustituto.
-  \item \textbf{Someter la calidad de la justificación a una segunda revisión manual independiente}
-        antes de dar por definitiva la lectura de utilidad reportada en este informe, dado que el
-        método de evaluación de esa dimensión no es completamente automatizable.
+  \item \textbf{Ampliar el conjunto de datos con casos cuya verdad no venga de la heurística}, antes
+        de volver a intentar el ajuste fino de un clasificador: más activos, más servicios y usuarios
+        legítimos desde orígenes no declarados. El método es el de la campaña de casos difíciles y el
+        árbol de decisión, con una condición que el propio trabajo validó: \emph{reforzar con variedad
+        antes de adoptar}. Se aplicó al ataque lento desde un origen de confianza y la regla que el
+        árbol propuso con un solo patrón se refutó con tres (sección \ref{sec:entrenado}); ese punto
+        ciego quedó cubierto con un aviso de vigilancia para el analista, y cerrarlo de verdad exige
+        una señal que el SIEM no tiene ---la identidad del usuario o el estado del propio equipo---,
+        propia de un EDR.
+  \item \textbf{Completar la clase propia del reconocimiento.} Ya tiene nombre y pregunta propios al
+        justificador, de modo que un sondeo deja de narrarse como explotación; se hizo en la
+        variante que no mueve las cifras, con la acción y la prioridad de un intento de acceso.
+        Falta rebajar su prioridad ---un sondeo aislado no merece la de una fuerza bruta---, y debe
+        hacerse junto con una repetición de la evaluación, porque cambia la priorización medida.
+  \item \textbf{Mantener el corpus de descarte al ritmo de las clases.} Se fijó como invariante
+        comprobado automáticamente: cada clase sin amenaza declara la ficha que la fundamenta. Cada
+        motivo nuevo de descarte que incorpore el perfil de un cliente debe llegar con su ficha.
+  \item \textbf{Medir la calidad de la justificación con un revisor independiente} cada vez que
+        cambie el modelo o el enunciado. La tasa de anclaje es automática, pero la corrección del
+        contenido no lo es, y este trabajo la juzgó con un solo revisor. El material está preparado
+        para hacerlo en hora y media: una guía de revisión, hojas ciegas que ocultan la clase decidida
+        y un guion que resume las puntuaciones por criterio y por clase.
 \end{itemize}
 
-\subsection*{Sobre el endurecimiento}
+\paragraph{Sobre el producto.}
 
-Dos piezas de endurecimiento que el diseño dejaba para el despliegue se implementaron y verificaron
-al cierre: la traza encadenada por resumen criptográfico y el conector con usuario dedicado, clave
-y privilegios restringidos al catálogo. Ninguna cambia una cifra de la evaluación, y por eso se
-describen en la metodología y no en los resultados; pero las dos responden a la misma pregunta que
-recorre este trabajo, la de qué hace falta para que un analista pueda creer al sistema: que nadie
-pueda reescribir una decisión ya tomada, y que el sistema no pueda ejecutar en un equipo del cliente
-nada que no haya declarado poder ejecutar; y, con el anclaje de la traza en el propio Wazuh, que
-tampoco pueda hacer desaparecer una decisión borrando el final del registro. La rotación de la
-credencial del conector cierra el conjunto: todo o nada sobre todos los nodos, verificada antes de
-retirar la anterior, y anotada en el mismo sistema que las decisiones.
+\begin{itemize}
+  \item \textbf{Repetir el contraste del agente con un modelo local capaz.} Con un modelo de frontera
+        servido en pruebas, el agente resolvió los tres escenarios de escalada sin degradar (sección
+        \ref{sec:contraste-claude}); falta comprobar si un modelo de pesos abiertos, en un equipo con
+        GPU del propio cliente y a temperatura nula, lo consigue también. Solo entonces tendría
+        sentido ofrecer el modo agente fuera del laboratorio.
+  \item \textbf{Llevar el almacenamiento a una base de datos antes del primer cliente de gran
+        volumen.} La traza en fichero basta para el laboratorio, pero un banco genera millones de
+        decisiones al año. El plan está escrito: PostgreSQL como proyección de la traza firmada, que
+        sigue siendo la evidencia, de modo que la contención no dependa nunca de la base de datos y
+        esta pueda reconstruirse en cualquier momento.
+  \item \textbf{Separar la política de la empresa del perfil técnico.} Hoy las reglas de respuesta
+        conviven con el inventario y la topología, y están escritas en el idioma del motor. El plan
+        propone un fichero propio en términos de negocio, versionado y con constancia de quién lo
+        aprobó, que el motor traduce sin cambiar; la consola seguiría pudiendo solo endurecerlo.
+  \item \textbf{Validar en el laboratorio los recortes ante fallos de contención} antes de
+        activarlos. Están implementados y probados, pero se entregan apagados porque no se han
+        ejercitado contra una red completa.
+\end{itemize}
 
-Sobre esa base, y ya fuera del prototipo evaluado, se ejecutó una hoja de ruta de endurecimiento
-para acercarlo a un despliegue real, recogida en una guía de integración y una hoja de ruta de
-cierre. En el propio motor en vivo: la reconstrucción del estado al reiniciar ---la memoria de
-supresión y las contenciones vigentes se rederivan de la traza, de modo que un reinicio no olvida
-qué está conteniendo---; una señal de salud del daemon expuesta para su supervisión, con su unidad
-de servicio y reinicio automático ante caída; y una política de retención de la traza que acota su
-crecimiento sin romper la cadena de verificación. En el control del operador: un interruptor que
-detiene toda la automatización al instante y un des-bloqueo en masa, para frenar y revertir si el
-sistema se equivoca. Y en la integración: la recepción de alertas por red con lista blanca de
-orígenes ---en lugar de leer solo un fichero local---, la normalización de la zona horaria de los
-sucesos para que la correlación de ráfaga no dependa del huso del emisor, y una medida de la
-capacidad de un proceso que confirma que el cuello de botella no es el motor sino el ritmo del
-sistema de logs y el canal de respuesta. Como las anteriores, ninguna de estas piezas altera una
-cifra de la evaluación; y lo que queda para un cliente concreto ---validar su conjunto de reglas,
-desplegar el auditor sobre su red y dimensionar el \emph{hardware} del modelo--- junto con las
-decisiones que corresponden a la organización ---la autorización por escrito del alcance de
-actuación y la custodia de los secretos--- se dejan identificadas en esa misma hoja de ruta. Ese
-despliegue se concretó además como \textbf{infraestructura como código} (OpenTofu): módulos que montan
-el daemon y el visor en una subred privada de AWS, con el modelo de lenguaje en una instancia con GPU
-opcional, acceso del analista por túnel sin puerto público y la traza en disco cifrado; quedan escritos
-y \emph{validados} de forma reproducible, a la espera de aplicarlos en una cuenta real. Preservan en la
-nube la postura de no comunicación con el exterior en tiempo de ejecución.
+\paragraph{Con la empresa y el cliente.}
 
-Dos extensiones más, también posteriores a la evaluación, ensanchan el alcance sin tocar sus cifras.
-El registro de familias resultó extensible en la práctica: partiendo de las cuatro familias del
-perímetro evaluado, se incorporaron seis más ---hasta diez--- que el motor atiende con el mismo
-catálogo cerrado de acciones. La quinta ---escalada y manipulación de cuentas (uso de \texttt{sudo},
-alta y cambio de cuentas)--- responde bloqueando la propia cuenta (forzar el cambio de contraseña),
-de validación humana incondicional; las demás estrenan respuestas dirigidas a la forma del ataque:
-aislar en cuarentena el host comprometido sobre el cortafuegos de borde (cambios de integridad de
-ficheros y detección de malware), acotar la banda del enlace ante una inundación (denegación de
-servicio), cortar la sesión viva de un acceso ya consumado, y bloquear en el borde el egreso hacia un
-destino malicioso conocido (exfiltración y mando y control). Todas se ejercitaron en vivo sobre el
-laboratorio y ninguna pertenece al conjunto de datos medido, de modo que ensanchan la cobertura sin
-alterar las cifras de la evaluación. Y la validación humana,
-que el prototipo evaluado hacía por terminal, se llevó además a un \textbf{visor web}: una consola
-de operaciones de quince vistas con el flujo de decisiones, la cola de aprobaciones ---con aviso al
-analista (notificación y señal sonora al entrar una decisión) y el tiempo de espera de cada una a la
-vista, como un acuerdo de nivel de servicio---, el \textbf{ciclo de vida del caso} (estado, responsable
-y notas del analista, anotados como registros encadenados en la misma traza auditable), el mapa de la
-red del cliente con los datos por dispositivo y la correlación de atacantes, la \textbf{geolocalización
-offline} del origen de los ataques sobre un mapamundi y su agrupación en campañas, el perfil de un
-atacante concreto y una lista local de indicadores (\emph{watchlist}), una matriz de cobertura MITRE
-ATT\&CK, el grafo del incidente sobre el mapa de la red y un informe exportable; y, de forma
-destacada, una \textbf{consola en vivo} que narra la «caja negra» del sistema ---el porqué de cada
-decisión y la respuesta paso a paso--- junto al \textbf{diario del operador}. Desde ella el analista
-aprueba, pausa la automatización o revierte una contención ---todas o una concreta--- sin salir del
-navegador. Trabaja además \textbf{por incidente} ---una campaña de origen /24, que reúne las IP rotadas
-de un mismo atacante en una sola historia con su propio caso---, dibuja la \textbf{línea de tiempo} del
-ataque (detección y respuesta entrelazadas), expone de solo lectura el \textbf{playbook} por familia
-(qué acción y con qué grado de automatización trata cada amenaza, derivado del catálogo y el perfil) y
-un \textbf{resumen ejecutivo} por periodo para dirección (tasa de falsos positivos, automatización
-frente a revisión humana, tiempos de respuesta, y amenazas y ubicaciones destacadas), exportable a PDF.
-El enriquecimiento del origen (alcance, clasificación de la IP, geolocalización y ASN) se
-resuelve \textbf{sin salida a Internet}, a partir de tablas de muestra embebidas sustituibles por una
-base real; la resolución de DNS inverso queda como opción desactivada por omisión, coherente con la
-propiedad de no comunicación con el exterior que recorre todo el diseño.
+\begin{itemize}
+  \item \textbf{Resolver si el sistema de logs propietario que originalmente motivó el proyecto
+        llegará a estar disponible}, y en qué formato entrega sus eventos. De confirmarse, se
+        integraría como una segunda fuente a través del mismo módulo de ingesta que hoy consume las
+        alertas de Wazuh, sin desplazarlo.
+  \item \textbf{Validar las acciones sobre un equipo de borde con firmware real.} Las acciones del
+        catálogo están diseñadas para él, pero solo se han ejecutado sobre un sustituto en
+        contenedor; la integración con OpenWrt se intentó y se aparcó porque el bloqueo en el borde ya
+        funcionaba sobre el sustituto y no era un requisito del trabajo.
+  \item \textbf{Completar los requisitos que dependen del cliente}: validar su conjunto de reglas con
+        la herramienta prevista, desplegar el auditor sobre su red, autorizar por escrito el alcance
+        de actuación y custodiar los secretos, con las plantillas que acompañan al producto.
+\end{itemize}
 
-El propio sistema se sometió además a una auditoría de seguridad ---un \emph{pentest} del MDR
-tratándolo como si estuviera en producción--- que enumeró diecinueve puntos y motivó una tanda de
-endurecimiento posterior, también sin alterar las cifras de la evaluación. De ella salieron la firma
-\textbf{HMAC} opcional de la cadena de la traza (para que quien pueda reescribir el fichero no pueda
-recalcular una cadena válida sin la clave), el conector \emph{fail-closed} (no ejecuta nada sin
-credencial), el blindaje de la consola contra peticiones forzadas entre sitios (validación de
-\texttt{Host} y \texttt{Origin}, CORS restringido) y, de forma destacada, una \textbf{autenticación
-opcional de la consola} por \emph{token} con no repudio del operador: la consola, ligada únicamente a
-\texttt{127.0.0.1}, no exigía credencial, y ahora puede hacerlo cuando el cliente lo active. Ninguna de
-estas piezas cambia una decisión del motor; todas responden a la misma pregunta que recorre el trabajo
----qué hace falta para que un analista pueda creer al sistema--- y, con la misma honestidad, nombran lo
-que todavía falta: el inicio de sesión corporativo y el cifrado del canal son parte del despliegue del
-cliente.
+\subsection*{Sobre el camino a producción}
+
+La última fase del trabajo llevó el prototipo hacia un producto instalable (sección
+\ref{sec:fase7}), y su conclusión principal es que \textbf{la separación entre decidir, filtrar y
+explicar resistió el crecimiento}. Se añadieron seis familias de ataque, una consola de catorce
+vistas, la configuración de políticas y de credenciales desde el navegador, un servicio supervisado
+y un paquete de instalación, y ninguna de esas piezas tuvo que tocar la decisión: las cifras de la
+evaluación son las mismas antes y después. Que eso fuera posible es, en sí, un resultado sobre la
+arquitectura.
+
+La segunda conclusión es que lo que un analista necesita para creer al sistema no es solo que
+acierte. Hace falta que nadie pueda reescribir una decisión ya tomada ---la traza encadenada,
+firmada y anclada en el propio SIEM---, que el sistema no pueda ejecutar en un equipo del cliente
+nada que no haya declarado poder ejecutar ---el conector restringido al catálogo---, que pueda
+pararse al instante y deshacer lo hecho, y que todo lo que una persona cambie desde la consola quede
+escrito con su nombre en la misma traza. Esas propiedades se verificaron (sección
+\ref{sec:verif-produccion}); lo que falta para un cliente concreto ---validar sus reglas, desplegar
+el auditor sobre su red, autorizar por escrito el alcance, custodiar los secretos--- es de la
+organización, y queda descrito con plantillas.
 
 \subsection*{Trabajo futuro}
 
 Quedan fuera del alcance de esta pasantía, y se documentan explícitamente para que no se
-interpreten como un olvido: la respuesta automatizada sin validación humana previa, que el diseño
-actual descarta de forma deliberada; la integración multicapa con fuentes de identidad, correo y
+interpreten como un olvido: extender la respuesta automática más allá de los orígenes externos
+---hoy toda contención sobre un activo propio, y toda respuesta marcada como freno duro, pasa por
+una persona, y el diseño lo mantiene así de forma deliberada---; reglas que dependan del horario,
+de las ventanas de mantenimiento o del rol de quien aprueba; la integración multicapa con fuentes de identidad, correo y
 nube, que ampliaría la correlación más allá de la red del cliente; el aprendizaje continuo a partir
 de la retroalimentación que el analista ya registra en cada validación, hoy almacenada pero no
 utilizada para ajustar ningún modelo; y el servicio simultáneo de varios clientes desde una sola

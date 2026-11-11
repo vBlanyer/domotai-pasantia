@@ -9,7 +9,8 @@
 \label{cap:metodologia}
 
 El trabajo se organizó en seis fases sucesivas, correspondientes una a una con los objetivos
-específicos enunciados en la Introducción, más una séptima fase de consolidación documental. Cada
+específicos enunciados en la Introducción, más una séptima fase de consolidación en la que el
+prototipo evaluado se llevó hacia un producto instalable y se documentó (sección \ref{sec:fase7}). Cada
 fase produjo un entregable concreto sobre el que se apoya la siguiente, y las decisiones de diseño
 que no podían anticiparse al inicio ---porque dependían de una medición, no de un criterio--- se
 tomaron y registraron en el momento en que la medición estuvo disponible, con su fecha. Esta
@@ -32,6 +33,20 @@ misma lógica que, más adelante, resolvió la ausencia de una fuente real de al
 esperar a que un sistema propietario estuviera disponible, se sustituyó por una plataforma de
 detección basada en reglas ---Wazuh--- desplegada dentro de un laboratorio propio, con la ventaja
 adicional de que su nivel de regla podía servir directamente como método tradicional de referencia.
+
+Por su naturaleza, el trabajo se clasifica como \textbf{desarrollo experimental} en el sentido del
+Manual de Frascati de la OCDE \cite{frascati2015}: un trabajo sistemático que parte del conocimiento
+existente ---la detección por reglas, los modelos de lenguaje y la recuperación aumentada--- para
+producir un sistema nuevo, y no investigación básica ni aplicada. El manual exige a una actividad de
+ese tipo cinco rasgos, y el método se diseñó para cumplirlos: es \emph{novedosa}, porque combina esas
+técnicas en un triaje que justifica cada decisión y respeta la continuidad del cliente;
+\emph{creativa}, porque la arquitectura se construyó para este problema y no se adaptó de un producto
+existente; \emph{incierta}, porque al empezar no se sabía si el modelo de lenguaje mejoraría la
+decisión o solo la explicación, ni cuánto aportaría frente al nivel de regla; \emph{sistemática},
+porque se organizó en fases con entregables y cada decisión se registró con su fecha y su medida; y
+\emph{reproducible}, porque el laboratorio, el conjunto de datos y las campañas de evaluación se
+regeneran por línea de comandos. Dentro de esa categoría es una innovación incremental: no sustituye
+al SIEM del cliente, sino que añade sobre él una capa de triaje que antes no existía.
 
 % ===========================================================================
 \section{Fase 1: modelado del cliente y del caso de uso}
@@ -78,8 +93,44 @@ desde el punto de entrega del proveedor hacia dentro: un equipo de borde, un con
 interna, un puesto de usuario, un dispositivo de tipo IoT con servicios expuestos y un servidor con
 vulnerabilidades documentadas ---Metasploitable2, con diecinueve puertos abiertos y fallos conocidos
 y públicos---, todos conectados además a una red de gestión fuera de banda por la que operan, sin
-contaminar el tráfico observado, el motor de triaje y un nodo auditor con Nmap
+contaminar el tráfico observado, el motor de triaje y un nodo auditor con Nmap \cite{nmap}
 (figura~\ref{fig:topologia}).
+
+La plataforma se eligió tras comparar las disponibles (tabla \ref{tab:plataformas}) con un criterio
+que decidía casi todo: el laboratorio tenía que ejecutar servicios reales, porque sobre él iban a
+correr un escáner de vulnerabilidades y una plataforma de detección. Cisco Packet Tracer quedó fuera
+por eso: \emph{simula} los dispositivos, no ejecuta su sistema ni sus servicios, y un escaneo no
+encontraría nada que analizar \cite{packettracer}. La edición gratuita de Cisco Modeling Labs sí
+virtualiza, pero limita la topología a cinco nodos \cite{cmlfree}, y la de pago está centrada en
+equipos de Cisco, sin un equipo de borde de gama baja como el que tiene un cliente pequeño. GNS3
+\cite{gns3} y EVE-NG \cite{eveng} eran alternativas válidas, pero ambas se organizan alrededor de un
+editor gráfico y de imágenes de máquina virtual: la topología vive en el proyecto de la herramienta
+y no en un fichero de texto revisable, y cada nodo cuesta una máquina virtual en un equipo de
+dieciséis gigabytes que además debía alojar Wazuh y, en algún momento, el modelo de lenguaje.
+Containerlab resolvía las dos cosas: la topología es un fichero versionado junto al código, que se
+destruye y se recrea idéntico en segundos ---la condición para que dos campañas de evaluación partan
+del mismo estado---, y los nodos son en su mayoría contenedores, mucho más ligeros. Su limitación, la
+falta de un editor gráfico, se aceptó a cambio de esa reproducibilidad. Al final del trabajo se
+comprobó además que la dependencia real era Docker y no Containerlab: una versión portátil del
+laboratorio, montada solo con Docker Compose, reproduce el lazo completo de detección y contención
+en dos nodos.
+
+\begin{table}[H]
+  \centering
+  \caption{Plataformas de laboratorio evaluadas}
+  \label{tab:plataformas}
+  \begin{tabular}{@{}p{0.27\textwidth}p{0.17\textwidth}p{0.16\textwidth}p{0.32\textwidth}@{}}
+    \toprule
+    \textbf{Plataforma} & \textbf{Servicios reales} & \textbf{Límite} & \textbf{Veredicto} \\
+    \midrule
+    Cisco Packet Tracer & No (simula) & --- & Descartada: no hay nada que escanear \\
+    Cisco Modeling Labs Free & Sí & 5 nodos & Insuficiente \\
+    Cisco Modeling Labs Personal & Sí & 20 nodos, de pago & Centrada en Cisco, sin equipo de borde de gama baja \\
+    GNS3 / EVE-NG Community & Sí & según memoria & Válidas; topología en la herramienta y nodos como máquinas virtuales \\
+    \textbf{Containerlab} & Sí & según memoria (ligero) & \textbf{Seleccionada}: topología como código, recreación idéntica, red de gestión incluida \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \begin{figure}[htbp]
 \centering
@@ -123,14 +174,18 @@ más adelante serviría de baseline.
 
 El resultado, cerrado el 31 de agosto de 2026 y ampliado el 11 de septiembre con una segunda y
 una tercera familia de ataque (secciones \ref{sec:segunda-familia} y \ref{sec:tercera-familia}),
-fue un conjunto de 410 alertas reales ---466 tras la segunda y tercera familia, y 600 tras la
-campaña de casos difíciles de la Fase 6 (sección \ref{sec:fase6})--- generadas
-sobre el propio laboratorio, etiquetadas y particionadas por campaña: 20 verdaderos positivos, 16
-falsos positivos y 374 alertas de ruido de plataforma ---telemetría de evaluación de configuración
-que no corresponde a ningún patrón del caso de uso acotado---, todas ellas concentradas, las
-soportadas, en un único activo y servicio (acceso por SSH al servidor con vulnerabilidades
-documentadas). Esta concentración en una sola familia de ataque, verificada al construir el
-conjunto y no descubierta después, es la que más adelante bloquearía el ajuste fino del
+fue, en su primera versión, un conjunto de 410 alertas reales generadas sobre el propio
+laboratorio, etiquetadas y particionadas por campaña: 20 verdaderos positivos, 16 falsos positivos
+y 374 alertas de ruido de plataforma ---telemetría de evaluación de configuración que no
+corresponde a ningún patrón del caso de uso acotado---, todas ellas concentradas, las soportadas,
+en un único activo y servicio (acceso por SSH al servidor con vulnerabilidades documentadas). Las
+ampliaciones posteriores lo llevaron a 466 alertas con la segunda y la tercera familia, y a sus
+\textbf{600 alertas definitivas} con la campaña de casos difíciles de la Fase 6 (sección
+\ref{sec:fase6}): 174 verdaderos positivos, 38 falsos positivos, 8 de actividad propia del auditor
+y 380 de ruido de plataforma, repartidas a partes iguales entre una partición de entrenamiento y
+una de evaluación de 300 alertas cada una. Las 220 soportadas siguen perteneciendo a un único
+activo: 164 de acceso por credenciales, 30 de reconocimiento y 26 de servicio en claro. Esta
+concentración, verificada al construir el conjunto y no descubierta después, es la que más adelante bloquearía el ajuste fino del
 clasificador y limitaría el alcance estadístico de la evaluación del capítulo \ref{cap:resultados}:
 se documenta aquí como una condición conocida del método, no como un hallazgo posterior.
 
@@ -182,6 +237,34 @@ y el canal hacia el objetivo quedan tras un adaptador cada uno, sin tocar la ló
 \label{fig:arquitectura}
 \end{figure}
 
+La selección de los modelos partió de los requisitos y no de los modelos. La privacidad (RNF-01)
+exige procesar en local, lo que descartó desde el principio cualquier modelo alojado al que se
+accede por una API: las alertas de un cliente no pueden salir de su red. La explicabilidad
+verificable (RNF-02) exige un modelo \emph{generativo}, porque un clasificador no redacta, y la
+reproducibilidad (RNF-03) obliga a fijar el modelo, el enunciado y una temperatura de muestreo nula.
+La restricción decisiva, sin embargo, fue el hardware: el laboratorio corría en la misma máquina que
+el modelo, y la suma estimada de ambos no cabía en ella (tabla \ref{tab:memoria}).
+
+\begin{table}[H]
+  \centering
+  \caption{Memoria estimada si el laboratorio y el modelo coexisten en el equipo de desarrollo}
+  \label{tab:memoria}
+  \begin{tabular}{@{}p{0.62\textwidth}r@{}}
+    \toprule
+    \textbf{Componente} & \textbf{Memoria} \\
+    \midrule
+    Sistema operativo, editor y navegador & 3--4\,GB \\
+    Nodos del laboratorio en contenedores & $\approx 1$\,GB \\
+    Equipo de borde con firmware real (máquina virtual) & 0,5--1\,GB \\
+    Wazuh sin indexador ni panel & 1--2\,GB \\
+    Escáner de vulnerabilidades completo (Greenbone) & 4--8\,GB \\
+    Modelo generativo de 8B cuantizado a 4 bits & $\approx 5$\,GB \\
+    \midrule
+    \textbf{Total} & \textbf{15--21\,GB} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 Sobre esa interfaz de análisis se definieron dos perfiles de despliegue según el hardware
 disponible: un perfil híbrido para el equipo de desarrollo entonces disponible ---un procesador de
 propósito general de ocho núcleos, sin GPU dedicada y con dieciséis gigabytes de memoria---, que
@@ -198,6 +281,41 @@ implementó finalmente sobre un modelo generativo de mil millones de parámetros
 análisis, precisamente por estar aislada del modelo concreto, no tuvo que rediseñarse para absorber
 ese cambio.
 
+La tabla \ref{tab:candidatos} recoge los candidatos que se consideraron, el papel que el diseño les
+asignaba y lo que ocurrió con cada uno. Se eligieron modelos de pesos abiertos de las familias Llama
+\cite{llama3} y Qwen \cite{qwen25} por dos razones prácticas: existen en varios tamaños con el mismo
+formato de conversación, lo que permitía cambiar de tamaño sin tocar el enunciado, y tienen
+cuantizaciones públicas a cuatro bits que caben en el equipo disponible. Su licencia no es
+uniforme ---la de Llama admite uso comercial con condiciones y la del Qwen de tres mil millones es
+solo de investigación---, de modo que el modelo que se despliegue en un cliente debe elegirse
+también por ese criterio. El modelo especializado en seguridad, Foundation-Sec-8B, era la
+opción preferida del diseño, pero sus cuantizaciones públicas resultaron inutilizables (sección
+\ref{sec:invocacion}), y la medición con modelo mayor se hizo con el generalista de la misma
+arquitectura. Para servirlos se eligió llama.cpp \cite{llamacpp}: ejecuta modelos cuantizados tanto
+en procesador como en GPU, expone una interfaz HTTP compatible con la de los servicios comerciales y
+admite generación restringida por esquema, de modo que el motor de triaje habla con él por la red
+local y no carga ninguna biblioteca de aprendizaje automático en su propio proceso.
+
+\begin{table}[H]
+  \centering
+  \caption{Modelos considerados y su destino}
+  \label{tab:candidatos}
+  \begin{tabular}{@{}p{0.25\textwidth}p{0.17\textwidth}p{0.18\textwidth}p{0.32\textwidth}@{}}
+    \toprule
+    \textbf{Modelo} & \textbf{Tipo y tamaño} & \textbf{Papel previsto} & \textbf{Qué pasó} \\
+    \midrule
+    SecBERT, SecureBERT, CySecBERT & Codificador, $\approx 110$\,M & Clasificar tras ajuste fino & Sustituidos por reglas deterministas y un árbol de decisión (sección \ref{sec:entrenado}) \\
+    Phi-4-mini, Llama 3.2 3B & Generativo, 3--3,8\,B & Justificar en línea & Phi-4-mini, medido a 3,7 \emph{tokens}/s en el procesador: fuera del presupuesto interactivo \\
+    Llama 3.2 1B (4 bits) & Generativo, 1\,B & Justificar en el portátil & Implementado; ancla, pero explica mal sin recuperación \\
+    Qwen2.5 3B (4 bits) & Generativo, 3\,B & Alternativa en el portátil & Probado: 5 de 5 justificaciones ancladas; sin evaluación completa \\
+    Foundation-Sec-8B & Generativo especializado, 8\,B & Perfil con GPU & Cuantizaciones públicas con plantillas erróneas: inutilizable \\
+    Llama 3.1 8B Instruct (4 bits) & Generativo, 8\,B & Justificar y agente, con GPU & Evaluado: menos de medio segundo por respuesta y 106 de 106 justificaciones ancladas \\
+    bge-m3 & \emph{Embeddings} & Recuperación & Sustituyó al generativo como \emph{embedder} \\
+    Modelos alojados (API) & --- & --- & Descartados por RNF-01; usados solo como banco de pruebas (sección \ref{sec:contraste-claude}) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 También en la Fase 4 se resolvió que la decisión de qué acción proponer nunca recae en el modelo de
 lenguaje, por las razones expuestas en la sección \ref{sec:politica-perfil} del marco teórico: una
 tabla de política determinista, indexada por la clase de la alerta, propone la acción de menor
@@ -212,6 +330,22 @@ basado en reglas y firmas contra el que el proyecto se planteó comparar.
 % ===========================================================================
 \section{Fase 5: implementación}
 % ===========================================================================
+
+La elección del lenguaje respondió a tres razones. La primera es el ecosistema: los modelos de
+lenguaje, los \emph{embeddings} y la tubería del conjunto de datos tienen en Python sus herramientas de
+referencia, y la especificación exigía un único normalizador de alertas compartido entre el lote de la
+evaluación y el servicio en vivo, lo que desaconsejaba un segundo lenguaje en ese camino. La segunda
+es la instalación: limitarse a la biblioteca estándar más un analizador de YAML permite que el
+servicio corra con el intérprete que ya trae el sistema del cliente, sin gestor de paquetes ni
+dependencias que mantener, y así se entregó al final (sección \ref{sec:fase7}). La tercera es que el
+rendimiento no pedía otra cosa: decidir sobre una alerta cuesta centésimas de milisegundo y el cuello
+de botella medido es el ritmo del SIEM, no el motor. Se evaluó Go para un único componente, el
+conector que ejecuta las acciones, por su binario estático y su biblioteca de SSH; se descartó porque
+el conector terminó delegando el transporte en el cliente OpenSSH del sistema, que ya aporta la
+verificación de identidad del equipo y la gestión de claves, y un segundo lenguaje habría duplicado
+las pruebas y el empaquetado sin una ganancia medible. La consola del analista, en cambio, es una
+aplicación de navegador: se escribió en TypeScript con React y se compila a ficheros estáticos que
+sirve el propio servicio.
 
 El prototipo se implementó en Python 3, empleando únicamente su biblioteca estándar más
 \texttt{pyyaml} para la configuración, sin gestor de paquetes ni entorno virtual adicional para el
@@ -346,10 +480,10 @@ incumplía el requisito de reproducibilidad. La identificación de versión del 
 incrementó con cada uno de estos cambios, de modo que las campañas anteriores siguen atribuidas
 a la invocación con la que se midieron.
 
-Todo el prototipo se validó con una batería de pruebas unitarias que, en el momento de escribir
-este informe, asciende a 1061 casos en el motor de triaje ---más 63 del marco de evaluación, 39 de
-la tubería de construcción del conjunto de datos, 156 del laboratorio del banco, 14 de la demostración
-portátil, 12 de la demostración de geolocalización y 281 del visor web (React/TypeScript)---,
+Todo el prototipo se validó con una batería de pruebas unitarias que, al cierre del trabajo,
+asciende a 1290 casos en el motor de triaje ---más 63 del marco de evaluación, 39 de la tubería de
+construcción del conjunto de datos, 157 del laboratorio del banco, 14 de la demostración portátil,
+12 de la demostración de geolocalización y 466 del visor web (React/TypeScript)---,
 ejecutados con generadores, ejecutores y capa de red simulados que permiten
 probar la lógica de decisión, de idempotencia, de escalada y de degradación sin necesidad de un
 modelo de lenguaje cargado ni de un laboratorio en ejecución.
@@ -371,20 +505,223 @@ precisamente la que permitió detectar que un anclaje perfecto no garantiza una 
 semánticamente correcta, y la que motivó incorporar la recuperación aumentada descrita en la
 sección anterior.
 
+Para aislar el efecto de la recuperación aumentada, la campaña se ejecutó dos veces sobre el mismo
+subconjunto de dieciocho alertas soportadas de la partición de evaluación, con el modelo generativo
+y la temperatura de muestreo fijadas en ambos casos: una vez con el justificador simple, y otra con
+la recuperación aumentada activada, comparando en cada caso el mismo par de alertas para poder
+atribuir cualquier diferencia observada a la sola presencia del módulo de recuperación.
+
 Para acotar el límite de la señal de origen, se añadió una cuarta campaña de \emph{casos difíciles}
 cuya verdad no provenía de la heurística de etiquetado sino del propio experimento: ataques
 diseñados para que el método de referencia fallara ---fuerza bruta lanzada desde la misma dirección
 declarada como administrador legítimo, y ráfagas cuyo nivel de regla no supera ningún umbral---,
 con dos réplicas para dar variedad. Esta campaña llevó el conjunto etiquetado a sus 600 alertas
 (212 soportadas), con la partición de evaluación de 300 que usa el capítulo de resultados. Sobre
-ella se entrenó un árbol de decisión (CART), no como clasificador de producción sino como
+ella se entrenó un árbol de decisión (CART) \cite{breiman1984cart}, no como clasificador de producción sino como
 \emph{instrumento de validación}: para ver qué reglas descubriría el aprendizaje supervisado a esta
 escala con una verdad independiente de la heurística. El árbol redescubrió las reglas ya codificadas
 y aportó una nueva ---que la ráfaga pesa más que el origen declarado---, que se adoptó como código
 auditable; el detalle está en el capítulo \ref{cap:resultados}.
 
-Para aislar el efecto de esa incorporación, la campaña se ejecutó dos veces sobre el mismo
-subconjunto de dieciocho alertas soportadas de la partición de evaluación, con el modelo generativo
-y la temperatura de muestreo fijadas en ambos casos: una vez con el justificador simple, y otra con
-la recuperación aumentada activada, comparando en cada caso el mismo par de alertas para poder
-atribuir cualquier diferencia observada a la sola presencia del módulo de recuperación.
+Con la partición definitiva se midieron además dos cosas que el diseño dejaba como parámetros. La
+primera, el umbral de confianza por debajo del cual una decisión pasa a validación humana
+(RF-07): se barrió de 0,0 a 1,0 en pasos de 0,1 para calibrarlo. La segunda, el margen que un
+modelo de lenguaje tendría si decidiera en los casos dudosos: se contó cuántos de ellos falla la
+regla simple de tratarlos todos como amenaza, con la postura real del auditor y retirándola por
+completo, que es el peor caso para el clasificador determinista. Los dos resultados están en el
+capítulo \ref{cap:resultados}.
+
+% ===========================================================================
+\section{Fase 7: consolidación y camino a producción}\label{sec:fase7}
+% ===========================================================================
+
+Cerrada la evaluación, la última fase tuvo dos encargos. El primero, previsto en el plan, fue la
+documentación: el informe, una guía de operación y dos manuales, uno para el analista que usa la
+consola y otro para el técnico del cliente que instala y mantiene el sistema. El segundo surgió de
+las reuniones con el tutor industrial: acercar el prototipo a lo que la empresa podría entregar a
+un cliente. Para que ese trabajo no contaminara la evaluación se fijó una regla, y se respetó en
+todas las piezas: \textbf{nada de lo construido en esta fase cambia una decisión del motor ni una
+cifra del capítulo \ref{cap:resultados}}. Se organizó como una hoja de ruta de doce puntos, y se
+cerró en lo que dependía del código: todos los puntos de código se implementaron ---y se construyó la
+herramienta para validar el conjunto de reglas del SIEM del cliente---, y lo que corresponde a la
+organización ---desplegar el auditor sobre su red, dimensionar el \emph{hardware} del modelo, autorizar
+por escrito el alcance de actuación, custodiar los secretos y controlar los cambios del catálogo y
+del perfil--- quedó descrito con plantillas para que el cliente lo complete.
+
+\subsection{El servicio como proceso de larga duración}
+
+El motor en vivo pasó de ser un programa que se lanza a un servicio que se supervisa. Al
+reiniciarse reconstruye su estado a partir de la traza ---la memoria de supresión y las
+contenciones vigentes---, de modo que un reinicio no olvida qué está conteniendo. Expone una señal
+de salud para su supervisión, con su unidad de \texttt{systemd} y reinicio automático, y una política
+de retención acota el crecimiento de la traza sin romper su cadena de verificación. Recibe alertas
+por red, con una lista blanca de orígenes, además de leerlas de un fichero; normaliza la zona
+horaria de los sucesos para que la correlación de ráfaga no dependa del huso del emisor, y una
+medida de capacidad ---unas 565 decisiones por segundo en un portátil sin GPU--- confirma que el
+cuello de botella no es el motor sino el ritmo del SIEM y del canal de respuesta. El operador
+dispone de un interruptor que detiene toda la automatización al instante y persiste entre
+reinicios, y de un desbloqueo en masa para revertir todo lo que el sistema haya contenido.
+
+\subsection{Diez familias y ocho patrones de respuesta}
+
+El registro de familias se diseñó extensible, y la fase lo puso a prueba: a las cuatro del
+perímetro evaluado ---acceso por credenciales, reconocimiento, servicio en claro y acceso
+consumado--- se sumaron seis, hasta diez, atendidas con el mismo catálogo cerrado de acciones. La
+manipulación de cuentas bloquea la propia cuenta; los cambios de integridad de ficheros y el
+\emph{malware} aíslan el equipo en cuarentena en el cortafuegos de borde; la denegación de servicio
+limita la banda del enlace en lugar de cortarlo; el acceso ya consumado corta la sesión viva; y la
+exfiltración o el mando y control bloquean en el borde el egreso hacia el destino. Las respuestas
+más disruptivas son de validación humana incondicional. Todas se ejercitaron en vivo con reglas de
+Wazuh reales, y ninguna pertenece al conjunto de datos medido, por lo que amplían la cobertura sin
+mover las cifras.
+
+Para ejercitarlas se construyó un segundo laboratorio, el de un \textbf{cliente bancario}: catorce
+nodos con servicios, dependencias reales entre ellos y un perfil de continuidad extrema, sobre el que
+la conciencia de impacto calcula qué cae en cascada si se contiene un activo. Un lanzador de ataques
+reproduce las diez familias, de una en una o de forma continua con orígenes rotados, y narra el
+comando exacto de cada ataque para que el banco no sea una caja negra.
+
+\subsection{La consola del analista}
+
+La validación humana, que el prototipo evaluado hacía por terminal, se llevó a una consola web de
+catorce vistas, agrupadas por lo que el analista hace con ellas. Para \emph{operar}: la consola en
+vivo, que narra el porqué de cada decisión y la respuesta paso a paso junto al diario del operador;
+la cola de aprobaciones, con aviso al entrar una decisión y el tiempo de espera de cada una a la
+vista como un acuerdo de nivel de servicio; las contenciones activas, revertibles todas o una a una;
+y el registro de decisiones. Para \emph{investigar}: los incidentes ---que reúnen las direcciones
+rotadas de un mismo atacante en una sola historia con su propio caso, estado, responsable y
+notas---, el mapa de la red del cliente con los datos de cada dispositivo, la ubicación de los
+orígenes, una lista local de indicadores y la traza firmada. Para \emph{informar}: un informe por
+periodo con su resumen ejecutivo, exportable a PDF. Y para \emph{configurar}: las políticas de
+respuesta, el estado de los servicios y la conectividad con los equipos del cliente. Todo cambio
+hecho desde la consola ---aprobar, revertir, anotar un caso--- se escribe en la misma traza
+encadenada que las decisiones del motor.
+
+Las figuras \ref{fig:consola-panel} a \ref{fig:consola-politicas} muestran las vistas principales.
+Se capturaron sobre una demostración sintética que inyecta ataques desde direcciones públicas de
+varios países contra el perfil bancario, con un ejecutor simulado en lugar de los equipos reales;
+la consola funciona en ella exactamente como en el laboratorio, y la franja superior avisa de que
+no exige \emph{token}, que es la configuración del laboratorio. El \textbf{panel}
+(figura \ref{fig:consola-panel}) resume lo que le toca al analista: la salud de la plataforma, las
+aprobaciones más urgentes por el tiempo que les queda de acuerdo de servicio y los incidentes sin
+responsable. La \textbf{consola en vivo} (figura \ref{fig:consola-vivo}) es la «caja negra»
+narrada: por cada incidente, la clase, la confianza, las señales que pesaron, la consecuencia de la
+acción y el comando exacto que se ejecutó y verificó. En \textbf{aprobaciones}
+(figura \ref{fig:consola-aprobaciones}), cada decisión retenida explica qué ocurre si se aprueba y
+si se rechaza, y por qué la propone el motor; en el ejemplo, una denegación de servicio contra la
+banca en línea propone limitar la banda del enlace, y la consola advierte antes de aprobar que es una
+mitigación parcial que no frena un flujo entrante.
+\textbf{Incidentes} (figura \ref{fig:consola-incidentes}) agrupa por bloque de origen y cuenta la
+historia del ataque en una frase, y \textbf{Red} (figura \ref{fig:consola-red}) dibuja los ataques
+sobre la topología declarada en el perfil, con las dependencias entre activos que usa la conciencia
+de impacto.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{img/consola-panel.png}
+  \caption[Consola: panel]{Panel de la consola del analista. Fuente: elaboración propia, sobre una demostración sintética del
+  laboratorio bancario.}
+  \label{fig:consola-panel}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{img/consola-vivo.png}
+  \caption[Consola: caja negra narrada]{Consola en vivo: cada decisión narrada con su clase, sus señales, su consecuencia y el comando ejecutado y verificado. Fuente: elaboración propia, sobre una demostración sintética del
+  laboratorio bancario.}
+  \label{fig:consola-vivo}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{img/consola-aprobaciones.png}
+  \caption[Consola: aprobaciones]{Cola de aprobaciones con el detalle de una decisión retenida: qué pasa si se aprueba o se rechaza, y por qué la propone el motor. Fuente: elaboración propia, sobre una demostración sintética del
+  laboratorio bancario.}
+  \label{fig:consola-aprobaciones}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{img/consola-incidentes.png}
+  \caption[Consola: incidentes]{Incidentes agrupados por bloque de origen, con la historia del ataque y su cronología. Fuente: elaboración propia, sobre una demostración sintética del
+  laboratorio bancario.}
+  \label{fig:consola-incidentes}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{img/consola-red.png}
+  \caption[Consola: mapa de la red]{Mapa de la red del cliente con los ataques, las dependencias entre activos y los equipos que esperan una decisión. Fuente: elaboración propia, sobre una demostración sintética del
+  laboratorio bancario.}
+  \label{fig:consola-red}
+\end{figure}
+
+Dos de esas vistas cambiaron el modelo de seguridad y se trataron con más cuidado. \textbf{Las
+políticas de respuesta} permiten al operador decidir, familia por familia y zona por zona, qué
+respuestas se ejecutan solas y cuáles esperan a una persona; las marcadas como freno duro no pueden
+pasar a automáticas, y cada cambio queda auditado con el nombre de quien lo hizo. \textbf{La vista de
+conectividad} da de alta los equipos del cliente y sus credenciales de acceso: la clave privada del
+conector se genera y vive en el servidor y nunca sale hacia el navegador ni hacia la interfaz de
+programación, la identidad de cada equipo se verifica sin aceptarla de forma automática, el sistema
+se niega a actuar antes que recurrir a una credencial por defecto, y editar exige un operador
+identificado. Como es la vista donde un error podría filtrar datos sensibles, se sometió a una
+revisión de seguridad propia; sus puntos críticos se cerraron ---entre ellos, un interruptor para
+desactivarla por completo y el registro de cada cambio en la traza firmada--- y los demás quedaron
+documentados como límites aceptados.
+La figura \ref{fig:consola-politicas} muestra la primera: las familias de respuesta acotada pueden
+pasar de automáticas a humanas, y las de freno duro aparecen bloqueadas.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{img/consola-politicas.png}
+  \caption[Consola: políticas de respuesta]{Políticas de respuesta por familia de ataque: las de freno duro no pueden pasar a automáticas. Fuente: elaboración propia, sobre una demostración sintética del
+  laboratorio bancario.}
+  \label{fig:consola-politicas}
+\end{figure}
+
+El enriquecimiento del origen de un ataque ---alcance, clasificación de la dirección, país y sistema
+autónomo--- se resuelve \textbf{sin salida a Internet}, con las bases gratuitas de DB-IP \cite{dbiplite} instaladas en
+local, coherente con la propiedad de no comunicación con el exterior que recorre el diseño. La vista de
+ubicaciones (figura \ref{fig:consola-ubicaciones}) agrega los ataques por país; las direcciones
+internas y las de documentación, como las del laboratorio, no se geolocalizan y se listan aparte.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{img/consola-ubicaciones.png}
+  \caption[Consola: ubicaciones]{Origen de los ataques por país, resuelto sin salida a Internet. Fuente: elaboración propia, sobre una demostración sintética del
+  laboratorio bancario.}
+  \label{fig:consola-ubicaciones}
+\end{figure}
+
+\subsection{Seguridad del propio sistema}
+
+Un sistema que contiene amenazas es él mismo un objetivo, así que se sometió a una prueba de
+penetración propia, tratándolo como si estuviera en producción. Enumeró diecinueve puntos y motivó
+una tanda de endurecimiento: la firma HMAC opcional de la traza, para que quien pueda reescribir el
+fichero no pueda recalcular una cadena válida sin la clave; el conector que no ejecuta nada sin
+credencial; la protección de la consola contra peticiones forzadas entre sitios; y un
+\textbf{acceso a la consola por \emph{token}} con no repudio del operador, sobre una consola que escucha
+solo en la máquina local y a la que los analistas llegan por un túnel SSH. Tres puntos menores
+quedaron aceptados como residuales, con su justificación.
+
+Los fallos de la propia contención recibieron el mismo trato. Se clasificaron en una taxonomía de
+diez causas ---desde el equipo inalcanzable hasta el comando que se ejecuta pero cuyo efecto no se
+verifica--- con el criterio de que, ante una causa dudosa, se asume la más grave; la consola muestra
+la causa de cada fallo. Sobre esa clasificación se implementaron recortes que aceleran la escalada
+cuando un equipo no responde, pero se entregan \textbf{experimentales y apagados}: están probados,
+pero no validados contra una red completa, y activarlos se deja a la validación en el laboratorio.
+
+\subsection{Empaquetado, instalación y documentación}
+
+Por último, se resolvió cómo llega el sistema a un cliente. El proveedor genera un paquete por
+versión, sin pruebas ni datos del laboratorio; en el equipo del cliente, un único guion lo instala
+como servicio y una herramienta de administración, \texttt{mdr}, guía la configuración, da de alta a
+los analistas, escanea la postura de la red y diagnostica el estado de la instalación con el remedio
+de cada problema. La instalación se probó sobre una raíz de pruebas aislada. Para la nube, el
+despliegue se escribió además como infraestructura como código (OpenTofu \cite{opentofu}): el servicio y la consola
+en una subred privada, el modelo de lenguaje en una instancia con GPU opcional, acceso por túnel sin
+puerto público y la traza en disco cifrado; se valida de forma reproducible pero no se aplicó en una
+cuenta real. Una integración continua ejecuta en cada cambio las pruebas de Python, las del visor
+con su compilación y la validación de la infraestructura. El manual de producción que acompaña al
+paquete está escrito para quien compra el sistema, sin referencias al laboratorio; el de usuario
+describe la consola vista por vista.

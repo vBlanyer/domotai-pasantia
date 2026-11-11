@@ -48,7 +48,6 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{float}
-\usepackage{listings}
 \usepackage{xcolor}
 
 % Diagramas vectoriales, dibujados en el propio documento: quedan editables y
@@ -214,31 +213,6 @@
    \item[]\fontsize{10}{13}\selectfont}
   {\end{list}}
 
-% ---------------------------------------------------------------------------
-% Listados de código C (XC8)
-% ---------------------------------------------------------------------------
-\lstset{
-  language=C,
-  basicstyle=\ttfamily\fontsize{10}{12}\selectfont,
-  keywordstyle=\color{blue!70!black}\bfseries,
-  commentstyle=\color{green!45!black}\itshape,
-  stringstyle=\color{red!60!black},
-  numbers=left, numberstyle=\tiny\color{gray}, numbersep=8pt,
-  frame=single, rulecolor=\color{gray!45}, backgroundcolor=\color{gray!5},
-  breaklines=true, breakatwhitespace=true, tabsize=4,
-  showstringspaces=false, captionpos=b,
-  morekeywords={uint8_t,uint16_t,uint32_t,int8_t,int16_t,int32_t,bool,
-                __delay_ms,__delay_us,__interrupt,__at,persistent,
-                TRISA,TRISB,TRISC,TRISD,TRISE,LATA,LATB,LATC,LATD,LATE,
-                ANSELA,ANSELB,ANSELC,ANSELD,ANSELE,PORTA,PORTB,PORTC},
-  literate=%
-    {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
-    {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
-    {ñ}{{\~n}}1 {Ñ}{{\~N}}1 {ü}{{\"u}}1 {Ü}{{\"U}}1
-    {¿}{{?`}}1 {¡}{{!`}}1 {°}{{\textdegree}}1
-}
-\renewcommand{\lstlistingname}{Código}
-\renewcommand{\lstlistlistingname}{Índice de códigos}
 
 % ===========================================================================
 \begin{document}
@@ -355,8 +329,8 @@
 \input{ip0_resumen}
 
 % --- Dedicatoria y agradecimientos (normas 3.5 y 3.6, opcionales) ----------
-% \input{ip0_dedicatoria}
-% \input{ip0_agradecimientos}
+\input{ip0_dedicatoria}
+\input{ip0_agradecimientos}
 
 % --- Índice general (norma 3.7) --------------------------------------------
 \tableofcontents
