@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, type ComponentType }
 import {
   Moon, Sun, Menu, Bell, BellOff, Pause, PanelLeftClose, PanelLeftOpen,
   LayoutDashboard, SquareTerminal, ListChecks, Shield, List, TriangleAlert, Network, MapPin, Eye, ScrollText,
-  ChartBar, SlidersHorizontal, Activity, KeyRound,
+  ChartBar, SlidersHorizontal, Activity, KeyRound, Radar,
 } from "lucide-react"
 import {
   useSondeo, getSalud, getPendientes, getPausa, getContenciones, getTrazas, getConectividad, tokenActual, listaConocida, comprobarSesion,
@@ -27,13 +27,14 @@ import { Trazas } from "@/components/Trazas"
 import { Contenciones } from "@/components/Contenciones"
 import { Politicas } from "@/components/Politicas"
 import { Conectividad } from "@/components/Conectividad"
+import { AsistenteRed } from "@/components/AsistenteRed"
 import { Incidentes } from "@/components/Incidentes"
 import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import { alertaMenuSalud } from "@/salud"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "ubicaciones" | "incidentes" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "conectividad" | "incidente" | "atacante"
+type Vista = "panel" | "metricas" | "salud" | "red" | "ubicaciones" | "incidentes" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "asistente" | "conectividad" | "incidente" | "atacante"
 
 // Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
 // navegador no lo permite, se ignora en silencio.
@@ -113,6 +114,7 @@ const NAV: { grupo: string | null; vistas: Entrada[] }[] = [
   ] },
   { grupo: "Configurar", vistas: [
     { id: "politicas", nombre: "Políticas de respuesta", icono: SlidersHorizontal },
+    { id: "asistente", nombre: "Asistente de red", icono: Radar },
     { id: "conectividad", nombre: "Conectividad", icono: KeyRound },
     { id: "salud", nombre: "Estado de servicios", icono: Activity },
   ] },
@@ -355,6 +357,7 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
           {vista === "contenciones" && <Contenciones />}
           {vista === "watchlist" && <Watchlist />}
           {vista === "politicas" && <Politicas />}
+          {vista === "asistente" && <AsistenteRed />}
           {vista === "conectividad" && <Conectividad />}
           {vista === "incidentes" && <Incidentes claveInicial={incidenteSel?.clave ?? null}
             onVerDecisiones={(prefijo) => { setEquipo(null); setTextoDec(prefijo); setVista("decisiones") }}

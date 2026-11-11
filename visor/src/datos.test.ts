@@ -16,6 +16,9 @@ describe("esDecision", () => {
   it("el arranque con politica.yml (politica_cargada) no es una decisión", () => {
     expect(esDecision({ tipo: "politica_cargada" } as Decision)).toBe(false)
   })
+  it("la auditoría del asistente de red no es una decisión", () => {
+    expect(esDecision({ tipo: "auditoria_asistente" } as Decision)).toBe(false)
+  })
 })
 
 describe("estadoDeCasos", () => {

@@ -422,6 +422,55 @@ export const getPoliticaExplicar = () => pedir("/api/politica/explicar", z.objec
 export const getPoliticaPropuesta = () =>
   pedir("/api/politica/propuesta", z.object({ version: z.number(), yaml: z.string() }))
 
+// Asistente de red (GET/POST /api/asistente…): del escaneo con Nmap a una PROPUESTA de perfil. La consola
+// nunca escribe el perfil vivo; el técnico descarga los ficheros y los instala.
+const EquipoBorradorSchema = z.object({
+  incluido: z.boolean(), nombre: z.string(), zona: z.string().nullable(), papel: z.string(), criticidad: z.string(),
+  no_tocar: z.boolean(), depende_de: z.array(z.string()), funcion: z.string(), gateway: z.string().nullable(),
+  interfaces: z.array(z.string()), servicios: z.array(z.number()), deducido: z.boolean(), sin_camino: z.boolean(),
+  huella: z.boolean().optional(),
+})
+export type EquipoBorrador = z.infer<typeof EquipoBorradorSchema>
+export const BorradorRedSchema = z.object({
+  gestion: z.string().nullable(), redes_internas: z.array(z.string()), salida: z.array(z.string()),
+  traceroute: z.boolean(), equipos: z.record(z.string(), EquipoBorradorSchema), basado_en: z.string().nullable().optional(),
+})
+export type BorradorRed = z.infer<typeof BorradorRedSchema>
+export const AsistenteEstadoSchema = z.object({
+  escaneando: z.boolean(), error: z.string().nullable(),
+  descubrimiento: z.object({ fecha: z.string(), operador: z.string().nullable(), rangos: z.array(z.string()),
+                             externo: z.string() }).passthrough().nullable(),
+  borrador: BorradorRedSchema.nullable(), nombres_siem: z.array(z.string()),
+  por_defecto: z.object({ gestion: z.string().nullable(), rangos: z.array(z.string()) }),
+})
+export type AsistenteEstado = z.infer<typeof AsistenteEstadoSchema>
+export const getAsistente = () => pedir("/api/asistente", AsistenteEstadoSchema)
+export const PropuestaRedSchema = z.object({
+  perfil_yaml: z.string(), postura_json: z.string(), politica_yaml: z.string(),
+  validacion: z.object({ errores: z.array(z.string()), avisos: z.array(z.string()) }), red: RedSchema,
+})
+export type PropuestaRed = z.infer<typeof PropuestaRedSchema>
+export const getPropuestaRed = () => pedir("/api/asistente/propuesta", PropuestaRedSchema)
+export type PeticionEscaneo = {
+  rangos: string[]; externo: string; ritmo: "suave" | "normal"; puertos: "comunes" | number[]; autorizado: boolean
+}
+async function postAsistente(ruta: string, cuerpo: Record<string, unknown>): Promise<unknown> {
+  const r = await fetch(BASE + ruta, {
+    method: "POST", headers: cabeceras({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ...cuerpo, operador: operadorActual() }),
+  })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error((j as { error?: string }).error ?? `HTTP ${r.status}`)
+  return j
+}
+// Lanza con el motivo del servidor (entrada no válida, sin autorización, ya hay un escaneo…).
+export async function escanearRed(p: PeticionEscaneo): Promise<void> {
+  await postAsistente("/api/asistente/escanear", p)
+}
+export async function guardarBorrador(cambios: Record<string, Partial<EquipoBorrador>>): Promise<BorradorRed> {
+  return BorradorRedSchema.parse(await postAsistente("/api/asistente/borrador", { cambios }))
+}
+
 export type CambioPolitica = {
   dimension: "familia" | "zona" | "activo"; clave: string
   automatizacion: "automatica_si_confianza" | "humano_siempre" | null

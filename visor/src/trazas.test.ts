@@ -64,6 +64,11 @@ describe("describirSistema: los registros de sistema dicen qué pasó", () => {
     expect(describirSistema(r)).toEqual({ titulo: "Conectividad", detalle: "clave_host · fw-core · por ana" })
     expect(tipoDe(r)).toBe("sistema")
   })
+  it("el asistente de red es de sistema y dice qué hizo y quién", () => {
+    const r = { tipo: "auditoria_asistente", accion: "escaneo", operador: "ana", detalle: { rangos: ["10.20.0.0/24"] } } as never
+    expect(tipoDe(r)).toBe("sistema")
+    expect(describirSistema(r)).toEqual({ titulo: "Asistente de red", detalle: "escaneo · por ana" })
+  })
   it("el arranque con politica.yml es de sistema y dice qué versión y quién la aprobó", () => {
     const r = { tipo: "politica_cargada", version: 3, aprobada_por: "Seguridad", huella: "ab" } as never
     expect(tipoDe(r)).toBe("sistema")
