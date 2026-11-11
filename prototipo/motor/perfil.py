@@ -23,6 +23,29 @@ def _cidr_ok(s):
     except ValueError:
         return False
 
+
+def perfil_minimo(ip_gestion, redes):
+    """El perfil con el que arranca una instalación nueva antes de describir la red (asistente de red):
+    solo el equipo del MDR, su red de gestión y los rangos del cliente. Sin equipos que contener: el
+    asistente propone después el perfil completo. ValueError si algo no es válido."""
+    try:
+        ip = str(ipaddress.IPv4Address(str(ip_gestion)))
+    except ValueError:
+        raise ValueError(f"IP del MDR no válida: {ip_gestion}")
+    if not redes:
+        raise ValueError("hace falta al menos un rango de la red del cliente")
+    normalizadas = []
+    for r in redes:
+        try:
+            normalizadas.append(str(ipaddress.IPv4Network(str(r), strict=False)))
+        except ValueError:
+            raise ValueError(f"rango no válido: {r}")
+    return {"version": "v0", "ip_gestion": ip, "redes_internas": normalizadas,
+            "activos": {"mdr": {"ip": ip, "funcion": "equipo MDR (plano de gestión)", "criticidad": "critica",
+                                "servicios_prestados": []}},
+            "red": {"zonas": {"Gestión": ["mdr"]}},
+            "continuidad": {"reversibilidad_obligatoria": True, "no_cortar_gestion": True}}
+
 def validar(perfil):
     """Revisa el perfil al cargarlo y devuelve una lista de avisos (vacía = coherente), SIN romper:
     un perfil mal escrito debe verse al arrancar, no fallar en silencio en la primera alerta. No

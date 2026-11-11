@@ -75,7 +75,7 @@ class TestConfigurar(unittest.TestCase):
         self.assertEqual(entorno.leer(self.env)["TRIAJE_TRAZA_CLAVE"], "ab" * 32)
 
     def test_sin_perfil_copia_la_plantilla_y_no_arranca(self):
-        rc = self._correr(Guion(self.perfil, "s", "", "", "1", self.alerts, "", ""), perfil_existe=False)
+        rc = self._correr(Guion(self.perfil, "p", "", "", "1", self.alerts, "", ""), perfil_existe=False)
         self.assertTrue(os.path.isfile(self.perfil))
         self.assertNotIn(["systemctl", "restart", "mdr-triaje"], self.sistema.ordenes)
         self.assertTrue(any("Edítala" in t for t in self.dicho))
@@ -84,7 +84,7 @@ class TestConfigurar(unittest.TestCase):
     def test_con_perfil_nuevo_instala_la_politica_con_los_administradores_y_socios(self):
         import yaml
         from prototipo.motor import politica_empresa as pe
-        self._correr(Guion(self.perfil, "s", "10.99.0.10, 10.99.0.11", "203.0.113.7, nope, 198.51.100.0/24",
+        self._correr(Guion(self.perfil, "p", "10.99.0.10, 10.99.0.11", "203.0.113.7, nope, 198.51.100.0/24",
                            "1", self.alerts, "", ""), perfil_existe=False)
         ruta = os.path.join(self.d, "politica.yml")
         self.assertEqual(entorno.leer(self.env)["TRIAJE_POLITICA"], ruta)
@@ -98,6 +98,22 @@ class TestConfigurar(unittest.TestCase):
         with open(self.perfil, encoding="utf-8") as f:
             self.assertEqual(pe.validar_politica(yaml.safe_load(texto), yaml.safe_load(f), {}), [])
 
+    def test_sin_perfil_escribe_el_minimo_y_arranca(self):
+        import yaml
+        from prototipo.motor import perfil as perfilm
+        self._correr(Guion(self.perfil, "m", "10.99.0.10", "10.20.0.0/24, nope, 172.16.10.0/24", "1", self.alerts, "", ""),
+                     perfil_existe=False)
+        with open(self.perfil, encoding="utf-8") as f:
+            self.assertEqual(yaml.safe_load(f), perfilm.perfil_minimo("10.99.0.10", ["10.20.0.0/24", "172.16.10.0/24"]))
+        self.assertTrue(any("nope" in t for t in self.dicho))
+        self.assertIn(["systemctl", "restart", "mdr-triaje"], self.sistema.ordenes)
+        self.assertNotIn("TRIAJE_POLITICA", entorno.leer(self.env))   # la plantilla de política nombra equipos que no hay
+
+    def test_perfil_minimo_sin_ip_valida_no_escribe_ni_arranca(self):
+        self._correr(Guion(self.perfil, "m", "10.99.0", "10.20.0.0/24", "1", self.alerts, "", ""), perfil_existe=False)
+        self.assertFalse(os.path.exists(self.perfil))
+        self.assertNotIn(["systemctl", "restart", "mdr-triaje"], self.sistema.ordenes)
+
     def test_con_perfil_existente_no_toca_la_politica(self):
         self._correr(Guion(self.perfil, "1", self.alerts, "", ""))
         self.assertNotIn("TRIAJE_POLITICA", entorno.leer(self.env))
@@ -107,7 +123,7 @@ class TestConfigurar(unittest.TestCase):
         ruta = os.path.join(self.d, "politica.yml")
         with open(ruta, "w", encoding="utf-8") as f:
             f.write("politica: {version: 7}\n")
-        self._correr(Guion(self.perfil, "s", "", "", "1", self.alerts, "", ""), perfil_existe=False)
+        self._correr(Guion(self.perfil, "p", "", "", "1", self.alerts, "", ""), perfil_existe=False)
         with open(ruta, encoding="utf-8") as f:
             self.assertEqual(f.read(), "politica: {version: 7}\n")
         self.assertEqual(entorno.leer(self.env)["TRIAJE_POLITICA"], ruta)

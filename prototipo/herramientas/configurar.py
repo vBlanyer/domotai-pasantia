@@ -13,6 +13,8 @@ import subprocess
 import sys
 import time
 
+import yaml
+
 from prototipo.herramientas import entorno
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -93,6 +95,25 @@ def _instalar_politica(perfil, plantilla, preguntar, decir):
     return ruta
 
 
+def _escribir_perfil_minimo(perfil, preguntar, decir):
+    """Perfil mínimo (solo el MDR y los rangos): el servicio arranca y la red se describe con el asistente
+    de la consola. Sin política: la plantilla nombra equipos que este perfil no tiene."""
+    from prototipo.motor import perfil as perfilm
+    ip = preguntar("IP de este equipo MDR en la red del cliente", "").strip()
+    rangos = _direcciones(preguntar("Rangos de la red del cliente, separados por comas", ""), True, decir)
+    try:
+        p = perfilm.perfil_minimo(ip, rangos)
+    except ValueError as e:
+        decir(f"  No se escribe el perfil: {e}. Vuelve a ejecutar «sudo mdr configurar».")
+        return False
+    with open(perfil, "w", encoding="utf-8") as f:
+        f.write("# Perfil mínimo: solo el MDR y los rangos. Describe la red con el asistente de red de la consola.\n")
+        yaml.safe_dump(p, f, allow_unicode=True, sort_keys=False)
+    _dar_a_triaje(perfil)
+    decir(f"  Perfil mínimo en {perfil}. Cuando arranque, describe la red en la consola: Asistente de red.")
+    return True
+
+
 def configurar(ruta_env, preguntar=_preguntar_consola, decir=print, ejecutar=subprocess.run,
                plantilla_perfil=PLANTILLA_PERFIL, plantilla_politica=PLANTILLA_POLITICA, salud=_salud_http, instalar_base=_instalar_base, esperar=time.sleep):
     if not os.path.exists(ruta_env):
@@ -107,13 +128,17 @@ def configurar(ruta_env, preguntar=_preguntar_consola, decir=print, ejecutar=sub
     perfil = preguntar("Ruta del perfil", v.get("TRIAJE_PERFIL") or "/etc/mdr/perfil.yml")
     perfil_listo = True
     if not os.path.isfile(perfil):
-        if preguntar("No existe. ¿Copio ahí la plantilla para que la adaptes? (s/n)", "s").lower().startswith("s"):
+        modo = preguntar("No existe. ¿Empiezo con un perfil mínimo para el asistente de red (m) o copio la "
+                         "plantilla para editarla a mano (p)?", "m").strip().lower()
+        if modo.startswith("p"):
             shutil.copy(plantilla_perfil, perfil)
             _dar_a_triaje(perfil)
             decir(f"  Plantilla copiada en {perfil}. Edítala con la red del cliente; el servicio no arrancará "
                   "hasta entonces.")
             cambios["TRIAJE_POLITICA"] = _instalar_politica(perfil, plantilla_politica, preguntar, decir)
-        perfil_listo = False
+            perfil_listo = False
+        else:
+            perfil_listo = _escribir_perfil_minimo(perfil, preguntar, decir)
     else:
         from prototipo.motor import perfil as perfilm
         try:
