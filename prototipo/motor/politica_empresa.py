@@ -303,3 +303,22 @@ def extraer_politica(perfil):
     if graves:
         pol["desconocidos_graves"] = graves
     return pol, resto
+
+
+def propuesta(pol, overlay):
+    """La versión siguiente de la política con los cambios de consola (overlay) aplicados, pendiente de
+    aprobar. No escribe nada: la consola propone, Seguridad aprueba y el técnico la instala."""
+    nueva = copy.deepcopy(pol or {})
+    previa = (nueva.get("politica") or {}).get("version")
+    ra = nueva.setdefault("respuesta_automatica", {})
+    for clave, destino in _DIMENSION.items():
+        for k, v in ((overlay or {}).get(destino) or {}).items():
+            valor = (v or {}).get("automatizacion")
+            if valor in _INVERSO:
+                ra.setdefault(clave, {})[k] = _INVERSO[valor]
+    if not ra:
+        nueva.pop("respuesta_automatica")
+    cab = {"version": (previa or 0) + 1, "aprobada_por": "[pendiente de aprobación]"}
+    if previa is not None:
+        cab["basada_en"] = previa
+    return {"politica": cab, **{k: v for k, v in nueva.items() if k != "politica"}}

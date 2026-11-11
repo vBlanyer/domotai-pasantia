@@ -1130,7 +1130,12 @@ class _Manejador(BaseHTTPRequestHandler):
                 regs = _registros_periodo(s.ruta_traza) if (desde or hasta) else _registros_cacheados(s.ruta_traza)
                 return self._responder(metricas(regs, desde=desde, hasta=hasta))
             if ruta == "/api/politica":   # playbook estático por familia (solo lectura)
-                return self._responder(politica_estado(s.catalogo, s.perfil))
+                return self._responder(politica_con_origenes(s))
+            if ruta == "/api/politica/explicar":   # la política efectiva en frases (lo que firma Seguridad)
+                from prototipo.motor import politica_empresa as pe
+                return self._responder({"frases": pe.explicar(s.perfil, s.catalogo)})
+            if ruta == "/api/politica/propuesta":  # versión siguiente con los cambios de consola; NO escribe nada
+                return self._responder(politica_propuesta(s))
             if ruta.startswith("/api/"):
                 return self._responder({"error": "no encontrado"}, 404)
             return self._servir_archivo(ruta)          # el build de React (index.html + assets/)
@@ -1424,6 +1429,83 @@ def politica_estado(catalogo, perfil):
             "protegida": bool(set(miembros or []) & activos_gestion),
             "dispositivos": disp})
     return {"familias": familias_, "zonas": zonas}
+
+
+_DIM_OVERLAY = {"familia": ("automatizacion_por_familia", "por_tipo_de_ataque"),
+                "zona": ("politicas_por_zona", "por_zona"),
+                "activo": ("overrides_por_activo", "por_equipo")}
+
+
+def _overlay_de(s):
+    from prototipo.servicio import politica_store as ps
+    ruta = getattr(s, "ruta_overlay", None)
+    return ps.cargar_overlay(ruta) if ruta else {}
+
+
+def _ultimos_cambios(ruta):
+    """Último cambio de consola por (dimensión, clave), del registro de auditoría de políticas."""
+    out = {}
+    if not ruta or not os.path.exists(ruta):
+        return out
+    with open(ruta, encoding="utf-8") as f:
+        for linea in f:
+            try:
+                r = json.loads(linea)
+            except json.JSONDecodeError:
+                continue
+            out[(r.get("dimension"), r.get("clave"))] = r
+    return out
+
+
+def politica_con_origenes(s):
+    """politica_estado + de dónde sale cada valor (codigo | consola | fichero | perfil | por_defecto), la
+    cabecera de politica.yml (sin el fichero) y los cambios de consola que aún no están en él."""
+    est = politica_estado(s.catalogo, s.perfil)
+    info = getattr(s, "politica_info", None)
+    ra = (((info or {}).get("politica") or {}).get("respuesta_automatica") or {})
+    overlay, base = _overlay_de(s), (getattr(s, "_perfil_base", None) or {})
+
+    def origen(dim, clave, codigo=False):
+        seccion, en_fichero = _DIM_OVERLAY[dim]
+        if codigo:
+            return "codigo"
+        if clave in (overlay.get(seccion) or {}):
+            return "consola"
+        if clave in (ra.get(en_fichero) or {}):
+            return "fichero"
+        if clave in (base.get(seccion) or {}):
+            return "perfil"
+        return "por_defecto"
+    for f in est["familias"]:
+        f["origen"] = origen("familia", f["familia"], codigo=f["automatizacion"] == "nunca_automatica" or not f.get("accion"))
+    for z in est["zonas"]:
+        z["origen"] = origen("zona", z["zona"], codigo=z.get("protegida"))
+        for d in z["dispositivos"]:
+            d["origen"] = origen("activo", d["activo"])
+    cambios = _ultimos_cambios(getattr(s, "ruta_auditoria", None))
+    est["diferencias"] = []
+    for dim, (seccion, _) in _DIM_OVERLAY.items():
+        for clave, v in sorted((overlay.get(seccion) or {}).items()):
+            c = cambios.get((dim, clave)) or {}
+            est["diferencias"].append({
+                "dimension": dim, "clave": clave, "despues": (v or {}).get("automatizacion"),
+                "antes": ((base.get(seccion) or {}).get(clave) or {}).get("automatizacion") or "por_defecto",
+                "operador": c.get("operador"), "en": c.get("timestamp")})
+    est["politica"] = ({**{k: info.get(k) for k in ("version", "aprobada_por", "fecha", "ruta")}, "huella": info.get("hash")}
+                       if info else None)
+    return est
+
+
+def politica_propuesta(s):
+    """La versión siguiente de politica.yml con los cambios de consola, en YAML para descargar. Sin
+    politica.yml, parte de las reglas del perfil. Solo lectura: Seguridad la aprueba fuera."""
+    import yaml as _yaml
+    from prototipo.motor import politica_empresa as pe
+    info = getattr(s, "politica_info", None)
+    pol = (info or {}).get("politica") or pe.extraer_politica(getattr(s, "_perfil_base", None) or {})[0]
+    prop = pe.propuesta(pol, _overlay_de(s))
+    return {"version": prop["politica"]["version"],
+            "yaml": _yaml.safe_dump(prop, allow_unicode=True, sort_keys=False)}
 
 
 def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=None,

@@ -182,3 +182,21 @@ class TestExtraer(unittest.TestCase):
         pol, resto = pe.extraer_politica(perfil)
         self.assertNotIn("equipos_propios", pol.get("respuesta_automatica") or {})
         self.assertEqual(resto["continuidad"]["actores"], perfil["continuidad"]["actores"])
+
+
+class TestPropuesta(unittest.TestCase):
+    def test_aplica_los_cambios_de_consola_y_sube_la_version(self):
+        overlay = {"overrides_por_activo": {"web01": {"automatizacion": "humano_siempre"}},
+                   "automatizacion_por_familia": {"acceso_credenciales": {"automatizacion": "humano_siempre"}}}
+        p = pe.propuesta(POLITICA, overlay)
+        self.assertEqual(p["politica"]["version"], 4)
+        self.assertEqual(p["politica"]["basada_en"], 3)
+        self.assertIn("pendiente", p["politica"]["aprobada_por"])
+        self.assertEqual(p["respuesta_automatica"]["por_equipo"], {"db01": "con_analista", "web01": "con_analista"})
+        self.assertEqual(p["respuesta_automatica"]["por_tipo_de_ataque"]["acceso_credenciales"], "con_analista")
+        self.assertEqual(POLITICA["politica"]["version"], 3)            # no muta la vigente
+
+    def test_sin_politica_previa_es_la_version_1(self):
+        p = pe.propuesta({}, {"politicas_por_zona": {"DMZ": {"automatizacion": "humano_siempre"}}})
+        self.assertEqual(p["politica"]["version"], 1)
+        self.assertEqual(p["respuesta_automatica"]["por_zona"], {"DMZ": "con_analista"})
