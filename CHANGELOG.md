@@ -14,10 +14,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
   cinco recortes quedan **encendidos por defecto** (`=0` los apaga).
 - **Conector:** no pasa ninguna variable `TRIAJE_*` a `ssh` ni a `docker exec` (antes, una lista de cuatro secretos).
 
-- **Evaluación ampliada (R1 + R2):** partición de evaluación de 356 alertas (148 soportadas) con otro
-  equipo (`iot`), otro servicio (FTP), atacante externo y legítimos desde orígenes no declarados;
-  verdad declarada por el experimento y diseño fijado antes de medir. P 0,931 · R 1,000 · FP 0,038
-  (n=300: 0,978 · 1,000 · 0,009); 4 contenciones automáticas indebidas (técnico legítimo del proveedor).
+- **Evaluación ampliada (R1 + R2):** partición de evaluación de 417 alertas (209 soportadas) con otro
+  equipo (`iot`), otro servicio (FTP), atacante externo, legítimos desde orígenes no declarados y los
+  ataques lentos del experimento de octubre; verdad declarada por el experimento y diseño fijado antes de
+  medir. P 0,931 · R 0,667 · F1 0,777 (baseline 0,800) · FP 0,038; sin los ataques lentos, R 1,000 y F1
+  0,964 (n=300: 0,978 · 1,000 · 0,009); 4 contenciones automáticas indebidas (técnico legítimo del proveedor).
 - **Prioridad del reconocimiento** rebajada a 2 (R2); la prioridad esperada admite excepciones por familia.
 
 ### Corregido

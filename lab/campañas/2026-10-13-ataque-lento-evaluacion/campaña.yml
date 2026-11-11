@@ -1,0 +1,15 @@
+id: 2026-10-13-ataque-lento-evaluacion
+fecha: 2026-10-14
+familia: acceso_credenciales
+proposito: ataque lento (fuerza bruta repartida en minutos, evade la rafaga de 60 s) desde la IP declarada del admin; experimento A, verdad declarada
+ataques:
+  - escenario: L1 fuerza bruta LENTA root@ desde la IP declarada del administrador (equipo comprometido)
+    objetivo: objetivo-vuln
+    desde: borde
+auditor:
+  ips: ["172.20.20.4"]
+  cuando: "2026-10-14T13:49:58+0000"
+legitimos:
+  ips: ["192.168.1.1"]
+verdad:
+  - { origen: "192.168.1.1", desde: "2026-10-14T13:49:59", hasta: "2026-10-14T14:01:24", etiqueta: VP, motivo: "L1: fuerza bruta lenta desde la IP del admin (suplantacion o equipo comprometido); evade la rafaga de 60 s pero no la ventana de 600 s" }

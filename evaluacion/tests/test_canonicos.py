@@ -29,21 +29,37 @@ def _evaluar(filas, rafaga_causal=False):
                            rafaga_causal=rafaga_causal)
 
 
+def _particion_sin(*fuera):
+    filas = cargar.cargar(_ruta("lab", "dataset", "etiquetado.jsonl"), particion="evaluacion")
+    return [f for f in filas if not any(x in f["campaña"] for x in fuera)]
+
+
 class TestCanonicosEnLote(unittest.TestCase):
-    # Partición vigente desde el 11/11/2026: n=356, 148 soportadas (ampliación R1 + prioridad R2).
+    # Partición vigente desde el 11/11/2026: n=417, 209 soportadas (ampliación R1 con los ataques lentos + R2).
     def test_particion_de_evaluacion(self):
         r = _campana("evaluacion")
-        self.assertEqual(r["clasificacion_prototipo"]["matriz"], {"vp": 122, "fp": 9, "vn": 225, "fn": 0})
-        self.assertAlmostEqual(r["operacion"]["tasa_escalado"], 104 / 356)
+        # Los 61 FN son los ataques lentos desde la IP del administrador: el punto ciego declarado.
+        self.assertEqual(r["clasificacion_prototipo"]["matriz"], {"vp": 122, "fp": 9, "vn": 225, "fn": 61})
+        self.assertEqual(r["baseline"]["optimo"]["matriz"], {"vp": 170, "fp": 72, "vn": 162, "fn": 13})
+        self.assertAlmostEqual(r["operacion"]["tasa_escalado"], 104 / 417)
         # D1 de la ampliación: el técnico legítimo del proveedor (origen externo) se bloquea solo.
         self.assertEqual((r["automatizacion"]["automaticos"], r["automatizacion"]["indebidos"]), (27, 4))
+        self.assertAlmostEqual(r["priorizacion"]["acierto_pm1"], 0.665, places=3)
+        self.assertAlmostEqual(r["priorizacion"]["spearman"], 0.227, places=3)
+
+    def test_sin_los_ataques_lentos(self):
+        # Desglose del informe: la misma partición sin las dos campañas de ataque lento (n=356).
+        filas = _particion_sin("lento")
+        r = _evaluar(filas)
+        self.assertEqual(len(filas), 356)
+        self.assertEqual(r["clasificacion_prototipo"]["matriz"], {"vp": 122, "fp": 9, "vn": 225, "fn": 0})
+        self.assertAlmostEqual(r["operacion"]["tasa_escalado"], 104 / 356)
         self.assertAlmostEqual(r["priorizacion"]["acierto_pm1"], 0.939, places=3)
         self.assertAlmostEqual(r["priorizacion"]["spearman"], 0.808, places=3)
 
     def test_las_300_alertas_anteriores_no_cambian(self):
         # El resultado de n=300 (antes de la ampliación) se conserva; R2 solo mueve su Spearman (0,935 -> 0,944).
-        filas = [f for f in cargar.cargar(_ruta("lab", "dataset", "etiquetado.jsonl"), particion="evaluacion")
-                 if "2026-11-11" not in f["campaña"]]
+        filas = _particion_sin("lento", "2026-11-11")
         r = _evaluar(filas)
         self.assertEqual(len(filas), 300)
         self.assertEqual(r["clasificacion_prototipo"]["matriz"], {"vp": 87, "fp": 2, "vn": 211, "fn": 0})
@@ -54,8 +70,8 @@ class TestCanonicosEnLote(unittest.TestCase):
 
     def test_dataset_completo(self):
         r = _campana(None)
-        self.assertEqual(r["clasificacion_prototipo"]["matriz"], {"vp": 244, "fp": 18, "vn": 450, "fn": 0})
-        self.assertAlmostEqual(r["operacion"]["tasa_escalado"], 208 / 712)
+        self.assertEqual(r["clasificacion_prototipo"]["matriz"], {"vp": 244, "fp": 18, "vn": 450, "fn": 101})
+        self.assertAlmostEqual(r["operacion"]["tasa_escalado"], 208 / 813)
 
 
 class TestCanonicosCausales(unittest.TestCase):
@@ -63,11 +79,11 @@ class TestCanonicosCausales(unittest.TestCase):
         # Las 8 primeras alertas de la fuerza bruta desde el origen declarado 192.168.1.1 no llegan
         # al umbral (9) hasta la novena: en vivo salen como FP. Declarado en el informe.
         r = _campana("evaluacion", rafaga_causal=True)
-        self.assertEqual(r["clasificacion_prototipo"]["matriz"], {"vp": 114, "fp": 9, "vn": 225, "fn": 8})
-        self.assertAlmostEqual(r["clasificacion_prototipo"]["recall"], 0.934, places=3)
-        self.assertAlmostEqual(r["operacion"]["tasa_escalado"], 0.27, places=3)
-        self.assertAlmostEqual(r["priorizacion"]["acierto_pm1"], 0.885, places=3)
-        self.assertAlmostEqual(r["priorizacion"]["spearman"], 0.643, places=3)
+        self.assertEqual(r["clasificacion_prototipo"]["matriz"], {"vp": 114, "fp": 9, "vn": 225, "fn": 69})
+        self.assertAlmostEqual(r["clasificacion_prototipo"]["recall"], 0.623, places=3)
+        self.assertAlmostEqual(r["operacion"]["tasa_escalado"], 96 / 417)
+        self.assertAlmostEqual(r["priorizacion"]["acierto_pm1"], 0.627, places=3)
+        self.assertAlmostEqual(r["priorizacion"]["spearman"], 0.182, places=3)
 
 
 if __name__ == "__main__":

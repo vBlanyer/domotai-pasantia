@@ -1,5 +1,7 @@
 # Ampliación del conjunto de datos y prioridad por familia (R1 + R2) — diseño fijado antes de medir
 
+> **Cifra vigente: §10 (n=417, con los ataques lentos).** §8 recoge el paso intermedio (n=356).
+
 > **Estado:** diseño del 11/11/2026, escrito **antes** de lanzar ninguna campaña. Todo lo que fija este
 > documento (escenarios, verdad de cada uno, reparto, prioridad esperada y correcciones del adaptador) se
 > decide sin haber visto los resultados, y no se cambia al verlos. Recomendaciones R1 y R2 de
@@ -127,4 +129,54 @@ retirándola, 131 grises y 9 de margen (antes 2): los legítimos nuevos más los
 credenciales sin ráfaga (≤ 8 alertas en un minuto) es FP», que aquí acertaría casi todo (122/1/25/0). **No se
 adopta**: el experimento del ataque lento ya mostró que una fuerza bruta lenta da los mismos recuentos que
 un usuario que se equivoca, así que la regla cambiaría falsos positivos por amenazas perdidas.
+
+## 9. Segunda parte: los ataques lentos (fijado antes de incorporarlos, 11/11/2026)
+
+R1 pide también «ataques lentos que no formen ráfaga». El experimento del 13–14/10 los capturó en este
+mismo laboratorio, con la verdad declarada, pero quedaron en su rama (etiqueta `experimento-ataque-lento`)
+y no en el conjunto de datos. Se incorporan **tal cual**, sin volver a capturarlos, con el reparto que se
+fijó entonces:
+
+| Campaña | Intentos | Alertas | Partición |
+|---|---|---|---|
+| `2026-10-13-ataque-lento-entrenamiento` | 12 | 24 | entrenamiento |
+| `2026-10-14-lento-8-entrenamiento` | 8 | 16 | entrenamiento |
+| `2026-10-13-ataque-lento-evaluacion` | 12 | 24 | evaluación |
+| `2026-10-14-lento-18-evaluacion` | 18 | 37 | evaluación |
+
+Escenario (todas): fuerza bruta **lenta** `root@` desde la IP declarada del administrador (192.168.1.1),
+un intento cada ~40 s. Verdad: **VP** (suplantación o equipo comprometido). Qué se espera, dicho antes de
+medir: la mayoría saldrán como **falsos negativos**, porque no forman ráfaga (≤ 8 alertas en un minuto) y
+el origen está declarado; el aviso de vigilancia de ventana larga las marca para el analista, pero no
+cambia la clase. Es la medida honesta del punto ciego que el informe ya declara: la exhaustividad dejará
+de ser 1,000. No se cambia ninguna regla por ello.
+
+## 10. Resultados con los ataques lentos — cifra vigente (n=417)
+
+Partición de evaluación: **417 alertas, 209 soportadas** (`evaluacion/resultados/campana-2026-11-11.json`).
+Decisión del 11/11, tras ver el resultado y conforme a lo fijado en §9: n=417 es la cifra principal, con
+desglose.
+
+| | Prototipo (n=417) | Baseline (n=417) | Prototipo sin ataques lentos (n=356) | Prototipo (n=300) |
+|---|---|---|---|---|
+| Precisión | 0,931 | 0,702 | 0,931 | 0,978 |
+| Exhaustividad | **0,667** | 0,929 | 1,000 | 1,000 |
+| F1 | **0,777** | **0,800** | 0,964 | 0,989 |
+| Tasa de FP | 0,038 | 0,308 | 0,038 | 0,009 |
+| Escalado a humano | 0,249 | — | 0,292 | 0,297 |
+| Automáticas (indebidas) | 27 (4) | — | 27 (4) | 0 (0) |
+| Priorización ±1 / Spearman | 0,665 / 0,227 | — | 0,939 / 0,808 | 0,981 / 0,944 |
+
+- **Las 61 alertas de ataque lento son falsos negativos**, como se esperaba: sin ráfaga y desde un origen
+  declarado, el motor las clasifica como actividad legítima. El baseline las detecta porque no mira el
+  origen. Con ellas, **el F1 del prototipo queda por debajo del de Wazuh** (0,777 frente a 0,800), aunque
+  su tasa de FP siga siendo ocho veces menor. Un solo escenario aporta 61 de las 183 amenazas.
+- **Aviso de vigilancia** (ventana de 10 min contada como en vivo, umbral 15): marca 33 de las 61 alertas y
+  **los dos ataques de la evaluación**, ambos desde su alerta 15 (hacia el 7.º intento, a 4–5 min de
+  empezar); da 2 avisos sobre las 17 alertas legítimas del administrador. No cambia la clase ni contiene:
+  la métrica las cuenta, con razón, como amenazas perdidas.
+- **Árbol de decisión:** con los ataques lentos separa por `regla_id` (5710) y nivel de Wazuh, es decir,
+  memoriza qué regla dispara cada tipo de usuario —el confundido que la campaña de octubre intentaba romper—,
+  como ya vio el experimento del ataque lento. No hay regla estable que adoptar.
+- Ráfaga contada como en vivo: 114/9/225/69, exhaustividad 0,623. Conjunto completo (813): 244/18/450/101.
 

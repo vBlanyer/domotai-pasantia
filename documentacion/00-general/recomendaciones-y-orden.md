@@ -89,7 +89,7 @@
 |---|---|---|
 | 0 | Correo a Domotai: especificaciones y acceso a su máquina de IA (R5), revisor de 1,5 h (R4), router con OpenWrt (R10), respuesta sobre los logs propietarios (R9) | Lo externo se pide primero porque tarda |
 | 1 | ~~R8 — validar los recortes ante fallos en el banco~~ | **Hecho (11/11):** los cinco validados y encendidos por defecto; [resultados](../../evaluacion/resultados/validacion-recortes-2026-11-11/README.md). En el informe, R8 pasa de recomendación a resultado en la pasada final |
-| 2 | ~~R1 + R2 — campañas nuevas con verdad declarada, prioridad propia del reconocimiento y re-evaluación~~ | **Hecho (11/11)** en el laboratorio pequeño (comparable con el anterior): n=356, 148 soportadas; P 0,931, R 1,000, FP 0,038; 4 automáticas indebidas. [Diseño y resultados](../06-fase6-evaluacion-del-prototipo/ampliacion-dataset-2026-11.md) |
+| 2 | ~~R1 + R2 — campañas nuevas con verdad declarada, prioridad propia del reconocimiento y re-evaluación~~ | **Hecho (11/11)** en el laboratorio pequeño (comparable con el anterior), con los ataques lentos del experimento: n=417, 209 soportadas; P 0,931, R 0,667, F1 0,777 (baseline 0,800), FP 0,038; sin los lentos, R 1,000 y F1 0,964; 4 automáticas indebidas. [Diseño y resultados](../06-fase6-evaluacion-del-prototipo/ampliacion-dataset-2026-11.md) |
 | 3 | R5 — agente con un modelo local en la máquina de Domotai | En cuanto haya acceso; puede ir en paralelo al paso 2 |
 | 4 | R4 — revisión independiente sobre las justificaciones del sistema final | Después del paso 2, para revisar lo que se entrega |
 | 5 | R7 — `politica.yml` | 3–4 días |
