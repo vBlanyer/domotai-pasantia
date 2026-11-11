@@ -138,6 +138,9 @@ function Revisar({ borrador, nombres, propuesta, onCambio }: {
   borrador: BorradorRed; nombres: string[]; propuesta: PropuestaRed | null
   onCambio: (ip: string, campo: keyof EquipoBorrador, valor: unknown) => void
 }) {
+  // «Depende de» se escribe como texto (con sus comas) y se guarda como lista: si el campo mostrara la lista
+  // ya limpia, la coma desaparecería al teclearla.
+  const [depTexto, setDepTexto] = useState<Record<string, string>>({})
   const ips = Object.keys(borrador.equipos).sort(porIp)
   const nombreDe = (ip: string) => borrador.equipos[ip]?.nombre || ip
   const llegaPor = (e: EquipoBorrador) =>
@@ -175,7 +178,11 @@ function Revisar({ borrador, nombres, propuesta, onCambio }: {
                       {CRITICIDADES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></td>
                     <td>{fw ? "—" : <input type="checkbox" aria-label={`No tocar ${ip} directamente`} checked={e.no_tocar} onChange={(x) => onCambio(ip, "no_tocar", x.target.checked)} />}</td>
                     <td>{fw ? "—" : <input className="asr-input asr-dep" aria-label={`Depende de (${ip})`} placeholder="nombres, con comas"
-                      value={e.depende_de.join(", ")} onChange={(x) => onCambio(ip, "depende_de", x.target.value.split(",").map((s) => s.trim()).filter(Boolean))} />}</td>
+                      value={depTexto[ip] ?? e.depende_de.join(", ")}
+                      onChange={(x) => {
+                        setDepTexto({ ...depTexto, [ip]: x.target.value })
+                        onCambio(ip, "depende_de", x.target.value.split(",").map((t) => t.trim()).filter(Boolean))
+                      }} />}</td>
                   </tr>
                 )
               })}
@@ -260,12 +267,15 @@ export function AsistenteRed() {
   const [local, setLocal] = useState<BorradorRed | null>(null)
   const [propuesta, setPropuesta] = useState<PropuestaRed | null>(null)
   const [fallo, setFallo] = useState<string | null>(null)
+  const [guardados, setGuardados] = useState(0)
   const pendiente = useRef<Record<string, Partial<EquipoBorrador>>>({})
   const reloj = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const remoto = est?.borrador ?? null
   const borrador = local && remoto && local.basado_en === remoto.basado_en ? local : remoto
-  const clave = useMemo(() => JSON.stringify(borrador), [borrador])
+  // La propuesta la calcula el servidor con SU borrador: se pide cuando ese cambia (sondeo) o justo después de
+  // guardar, nunca con cada pulsación (el servidor aún no tendría el cambio).
+  const claveRemota = useMemo(() => JSON.stringify(remoto), [remoto])
   const actual: Paso = paso ?? (borrador ? 2 : 1)
 
   useEffect(() => {
@@ -273,7 +283,7 @@ export function AsistenteRed() {
     let vivo = true
     getPropuestaRed().then((r) => { if (vivo && !("error" in r)) setPropuesta(r) })
     return () => { vivo = false }
-  }, [clave])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [claveRemota, guardados])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => { if (reloj.current) clearTimeout(reloj.current) }, [])
 
@@ -291,6 +301,7 @@ export function AsistenteRed() {
       try {
         setLocal(await guardarBorrador(cambios))
         setFallo(null)
+        setGuardados((n) => n + 1)
       } catch (e) {
         setFallo(`No se guardó: ${(e as Error).message}`)
       }

@@ -104,8 +104,10 @@ def _saltos(host, ip):
     if not por_ttl:
         return []
     ultimo = max(por_ttl)
-    hasta = ultimo if por_ttl[ultimo] != ip else ultimo - 1
-    return [por_ttl.get(t) for t in range(1, hasta + 1)]
+    if por_ttl[ultimo] == ip:
+        return [por_ttl.get(t) for t in range(1, ultimo)]
+    # La traza no llegó al equipo: lo que hay después del último salto visible no se sabe (hueco final).
+    return [por_ttl.get(t) for t in range(1, ultimo + 1)] + [None]
 
 
 def parsear_xml(texto):
@@ -183,7 +185,7 @@ def _nmap(correr, args):
         raise RuntimeError(f"{args[0]} devolvió una salida ilegible: {e}")
 
 
-def descubrir(peticion, correr, gestion, operador, ahora):
+def descubrir(peticion, correr, gestion, operador, ahora, origen="consola"):
     """Las cuatro pasadas, juntas. RuntimeError si Nmap falla (el llamador conserva lo anterior)."""
     vivos = [e for e in _nmap(correr, argumentos_vivos(peticion)) if e["ip"] != gestion]
     equipos = []
@@ -201,7 +203,7 @@ def descubrir(peticion, correr, gestion, operador, ahora):
             equipos = [{**e, "huella_ssh": huellas.get(e["ip"])} for e in equipos]
     fuera = _nmap(correr, argumentos_salida(peticion))
     salida = fuera[0]["saltos"] if fuera else None
-    return {"version": 1, "fecha": ahora, "operador": operador, "gestion": gestion,
+    return {"version": 1, "fecha": ahora, "operador": operador, "gestion": gestion, "origen": origen, "autorizado": True,
             "rangos": peticion["rangos"], "externo": peticion["externo"], "ritmo": peticion["ritmo"],
             "puertos": peticion["puertos"], "equipos": equipos, "salida": salida,
             "traceroute": any(e["saltos"] is not None for e in equipos) or salida is not None}

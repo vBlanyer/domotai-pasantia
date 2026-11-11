@@ -104,6 +104,29 @@ describe("AsistenteRed · Revisar", () => {
   })
 })
 
+describe("AsistenteRed · lo revisado llega a la propuesta", () => {
+  it("tras guardar, la propuesta se vuelve a pedir y refleja el cambio", async () => {
+    h.propuesta.mockResolvedValueOnce(PROP(["10.20.0.30: falta su nombre en el SIEM"])).mockResolvedValue(PROP())
+    const guardado = { ...BORRADOR, equipos: { ...BORRADOR.equipos, "10.20.0.30": { ...BORRADOR.equipos["10.20.0.30"], nombre: "nas01" } } }
+    h.guardar.mockResolvedValue(guardado)
+    render(<AsistenteRed />)
+    expect(await screen.findByText(/falta su nombre en el SIEM/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Nombre en el SIEM de 10.20.0.30"), { target: { value: "nas01" } })
+    expect(await screen.findByText(/Nada: puedes validar y exportar/, undefined, { timeout: 2500 })).toBeInTheDocument()
+    const llamadasTrasGuardar = h.propuesta.mock.invocationCallOrder.filter((n) => n > h.guardar.mock.invocationCallOrder[0])
+    expect(llamadasTrasGuardar.length).toBeGreaterThan(0)
+  })
+
+  it("«Depende de» deja escribir varias dependencias separadas por comas", async () => {
+    render(<AsistenteRed />)
+    const campo = screen.getByLabelText("Depende de (10.20.0.30)") as HTMLInputElement
+    fireEvent.change(campo, { target: { value: "srv-db01," } })
+    expect(campo.value).toBe("srv-db01,")
+    fireEvent.change(campo, { target: { value: "srv-db01, nas01" } })
+    await waitFor(() => expect(h.guardar).toHaveBeenCalledWith({ "10.20.0.30": { depende_de: ["srv-db01", "nas01"] } }), { timeout: 2000 })
+  })
+})
+
 describe("AsistenteRed · Exportar", () => {
   it("con errores no deja descargar", async () => {
     h.propuesta.mockResolvedValue(PROP(["nombre repetido: x"]))

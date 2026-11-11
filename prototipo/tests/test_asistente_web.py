@@ -192,6 +192,28 @@ class TestAsistenteWeb(_Base):
         self.assertEqual((st, b["equipos"]["10.0.0.2"]["nombre"]), (200, "fw-interno"))
         self.assertEqual(self._req(srv, "GET", "/api/asistente/propuesta")[0], 200)
 
+    def test_un_escaneo_importado_queda_en_la_traza_una_vez(self):
+        import shutil
+        destino = os.path.join(self.d, "asistente-descubrimiento.json")
+        with open(os.path.join(os.path.dirname(__file__), "fixtures", "nmap", "descubrimiento.json"), encoding="utf-8") as f:
+            desc = {**json.load(f), "origen": "cli", "operador": "root-tecnico"}
+        with open(destino, "w", encoding="utf-8") as f:
+            json.dump(desc, f)
+        srv = self._srv()
+        self._req(srv, "GET", "/api/asistente")
+        self._req(srv, "GET", "/api/asistente")
+        importados = [r for r in self.en_traza if r["accion"] == "escaneo_importado"]
+        self.assertEqual(len(importados), 1)
+        self.assertEqual((importados[0]["operador"], importados[0]["detalle"]["rangos"]), ("root-tecnico", desc["rangos"]))
+        self.assertEqual(oct(os.stat(destino).st_mode & 0o777), "0o600")
+
+    def test_propuesta_con_gestion_rota_no_da_500(self):
+        with open(os.path.join(self.d, "asistente-descubrimiento.json"), "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "fecha": "t", "gestion": "foo", "rangos": ["10.20.0.0/24"], "equipos": [],
+                       "salida": None, "traceroute": False}, f)
+        st, r = self._req(self._srv(), "GET", "/api/asistente/propuesta")
+        self.assertEqual(st, 409)
+
     def test_laboratorio_abierto_sin_mapa(self):
         from unittest import mock
         srv = self._srv(operadores={})

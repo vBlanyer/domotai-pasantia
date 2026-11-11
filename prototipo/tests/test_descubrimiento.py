@@ -143,7 +143,7 @@ class TestCLI(unittest.TestCase):
         salida = os.path.join(tempfile.mkdtemp(), "d.json")
         with mock.patch.object(d, "ejecutor_nmap", return_value=_correr_falso()), redirect_stdout(io.StringIO()) as out:
             rc = cli.main(["--gestion", "10.99.0.10", *sum((["--rango", r] for r in PETICION["rangos"]), []),
-                           "--externo", "198.51.100.10", "--salida", salida, "--operador", "ana"])
+                           "--externo", "198.51.100.10", "--salida", salida, "--operador", "ana", "--autorizado"])
         self.assertEqual(rc, 0)
         with open(salida, encoding="utf-8") as f:
             r = json.load(f)
@@ -155,6 +155,44 @@ class TestCLI(unittest.TestCase):
         from contextlib import redirect_stdout
         from prototipo.herramientas import descubrir as cli
         with redirect_stdout(io.StringIO()) as out:
-            rc = cli.main(["--gestion", "10.99.0.10", "--rango", "8.8.8.0/24", "--externo", "198.51.100.10", "--salida", "/tmp/x"])
+            rc = cli.main(["--gestion", "10.99.0.10", "--rango", "8.8.8.0/24", "--externo", "198.51.100.10", "--salida", "/tmp/x",
+                           "--autorizado"])
         self.assertEqual(rc, 1)
         self.assertIn("privadas", out.getvalue())
+
+
+class TestTrazaIncompleta(unittest.TestCase):
+    def test_traza_que_no_llega_al_equipo_acaba_en_hueco(self):
+        xml = _leer("detalle.xml").replace('<hop ttl="3" ipaddr="10.20.0.10"', '<borrado ttl="3"', 1)
+        app = next(e for e in d.parsear_xml(xml) if e["ip"] == "10.20.0.10")
+        self.assertEqual(app["saltos"], ["10.99.0.1", "10.0.0.2", None])
+
+
+class TestCLIAutorizacion(unittest.TestCase):
+    def _cli(self, *extra):
+        import io, tempfile
+        from contextlib import redirect_stdout
+        from prototipo.herramientas import descubrir as cli
+        salida = os.path.join(tempfile.mkdtemp(), "d.json")
+        with mock.patch.object(d, "ejecutor_nmap", return_value=_correr_falso()), redirect_stdout(io.StringIO()) as out:
+            rc = cli.main(["--rango", "10.20.0.0/24", "--externo", "198.51.100.10", "--salida", salida, *extra])
+        return rc, out.getvalue(), salida
+
+    def test_sin_autorizacion_no_escanea(self):
+        rc, out, salida = self._cli("--gestion", "10.99.0.10")
+        self.assertEqual(rc, 1)
+        self.assertIn("autoriz", out)
+        self.assertFalse(os.path.exists(salida))
+
+    def test_gestion_invalida_no_escanea(self):
+        rc, out, _ = self._cli("--gestion", "foo", "--autorizado")
+        self.assertEqual(rc, 1)
+
+    def test_escribe_en_0600_y_marca_el_origen(self):
+        import json
+        rc, _, salida = self._cli("--gestion", "10.99.0.10", "--autorizado")
+        self.assertEqual(rc, 0)
+        self.assertEqual(oct(os.stat(salida).st_mode & 0o777), "0o600")
+        with open(salida, encoding="utf-8") as f:
+            r = json.load(f)
+        self.assertEqual((r["origen"], r["autorizado"]), ("cli", True))

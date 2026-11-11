@@ -20,7 +20,10 @@ from prototipo.motor import politica_empresa as pe
 
 PAPELES = ("servidor", "cortafuegos", "fragil", "desconocido")
 CRITICIDADES = ("baja", "media", "alta", "critica")
-_NOMBRE = re.compile(r"^[a-z0-9][a-z0-9-]{1,30}\Z")
+# El nombre es el que trae el SIEM (`resolver_activo`): mayúsculas, puntos (FQDN) y guiones bajos incluidos.
+_NOMBRE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}\Z")
+_RESERVADOS = {"mdr", "internet"}           # el equipo del MDR y el nodo externo del mapa
+_ZONA_GESTION = "Gestión"
 _FRAGILES = {9100, 515, 631, 554}
 _CAMPOS = {"incluido", "nombre", "zona", "papel", "criticidad", "no_tocar", "depende_de", "funcion", "gateway"}
 
@@ -33,6 +36,14 @@ def _en_rangos(ip, rangos):
         return False
 
 
+def _privada(ip):
+    try:
+        a = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return a.is_private and not (a.is_loopback or a.is_link_local or a.is_unspecified or a.is_multicast)
+
+
 def _subred(ip):
     return str(ipaddress.ip_network(f"{ip}/24", strict=False))
 
@@ -43,12 +54,25 @@ def borrador_inicial(desc):
     equipos = {e["ip"]: e for e in desc.get("equipos") or []}
     salida = [s for s in (desc.get("salida") or []) if s]
     saltos_vistos = {s for e in equipos.values() for s in (e.get("saltos") or []) if s}
-    fws = sorted({ip for ip in saltos_vistos | set(salida) if _en_rangos(ip, rangos)})
-    # Interfaces de cada cortafuegos: las IPs con su misma huella SSH.
-    interfaces, absorbidas = {}, set()
+    # Un salto intermedio privado es un cortafuegos de la red del cliente aunque su segmento no se escaneara
+    # (tránsito o gestión): sin él no habría cadena. Su segmento se propone en redes_internas, con aviso.
+    gestion = desc.get("gestion")
+    fws = sorted({ip for ip in saltos_vistos | set(salida) if ip != gestion and (_en_rangos(ip, rangos) or _privada(ip))})
+    fuera = sorted(f for f in fws if not _en_rangos(f, rangos))
+    # Interfaces de cada cortafuegos: las IPs con su misma huella SSH. No lo es una IP a la que se llega A TRAVÉS
+    # de él, ni una con otros puertos (equipos clonados de una plantilla comparten huella): esas se avisan.
+    interfaces, absorbidas, compartida = {}, set(), {}
     for f in fws:
         huella = (equipos.get(f) or {}).get("huella_ssh")
-        otras = sorted(ip for ip, e in equipos.items() if huella and ip != f and e.get("huella_ssh") == huella and ip not in fws)
+        puertos_f = {p["puerto"] for p in (equipos.get(f) or {}).get("puertos") or []}
+        otras = []
+        for ip, e in sorted(equipos.items()):
+            if not huella or ip == f or ip in fws or e.get("huella_ssh") != huella:
+                continue
+            if f in (e.get("saltos") or []) or {p["puerto"] for p in e.get("puertos") or []} != puertos_f:
+                compartida[ip] = f
+            else:
+                otras.append(ip)
         interfaces[f] = otras
         absorbidas.update(otras)
     cadena = [s for s in salida if s in fws]
@@ -73,7 +97,7 @@ def borrador_inicial(desc):
         if ip in absorbidas:
             continue
         puertos = sorted(p["puerto"] for p in e.get("puertos") or [])
-        base = {"incluido": True, "nombre": (e.get("dns") or "").split(".")[0].lower() if e.get("dns") else "",
+        base = {"incluido": True, "nombre": (e.get("dns") or "").split(".")[0] if e.get("dns") else "",
                 "criticidad": "media", "no_tocar": False, "depende_de": [], "funcion": "", "servicios": puertos,
                 "interfaces": [], "deducido": False, "sin_camino": False, "huella": bool(e.get("huella_ssh"))}
         if ip in fws:
@@ -92,13 +116,16 @@ def borrador_inicial(desc):
             papel = "desconocido"
         salida_b[ip] = {**base, "papel": papel, "zona": f"Zona {_subred(ip)}", "gateway": gateway,
                         "sin_camino": sin_camino, "incluido": not (papel == "desconocido" and not puertos)}
+        if ip in compartida:
+            salida_b[ip]["huella_compartida_con"] = compartida[ip]
     for f in fws:                     # un salto que no está en los rangos escaneados no se conoce más allá
         if f not in salida_b:
             salida_b[f] = {"incluido": True, "nombre": "", "criticidad": "media", "no_tocar": False, "depende_de": [],
                            "funcion": "", "servicios": [], "interfaces": [], "papel": "cortafuegos", "zona": None,
                            "gateway": gw_fw[f], "deducido": deducido[f], "sin_camino": False, "huella": False}
-    return {"version": 1, "basado_en": desc.get("fecha"), "gestion": desc.get("gestion"), "redes_internas": list(rangos),
-            "salida": salida, "traceroute": bool(desc.get("traceroute")), "equipos": salida_b}
+    redes = list(rangos) + sorted({_subred(f) for f in fuera} - set(rangos))
+    return {"version": 1, "basado_en": desc.get("fecha"), "gestion": gestion, "redes_internas": redes,
+            "salida": salida, "traceroute": bool(desc.get("traceroute")), "equipos": salida_b, "fuera_de_rangos": fuera}
 
 
 def aplicar_cambios(borrador, cambios):
@@ -117,7 +144,7 @@ def aplicar_cambios(borrador, cambios):
             if k in ("incluido", "no_tocar") and not isinstance(v, bool):
                 raise ValueError(f"{ip}.{k}: verdadero o falso")
             if k == "nombre" and not (v == "" or (isinstance(v, str) and _NOMBRE.match(v))):
-                raise ValueError(f"{ip}.nombre: minúsculas, números y guiones (2 a 31)")
+                raise ValueError(f"{ip}.nombre: letras, números, puntos, guiones y guiones bajos (hasta 63)")
             if k == "zona" and not (v is None or (isinstance(v, str) and 0 < len(v.strip()) <= 40)):
                 raise ValueError(f"{ip}.zona: un nombre de hasta 40 caracteres")
             if k == "papel" and v not in PAPELES:
@@ -216,6 +243,10 @@ def validar(b, catalogo):
         if e.get("gateway") and e["gateway"] not in fws:
             errores.append(f"{e['nombre'] or ip}: su cortafuegos ({e['gateway']}) está descartado")
     errores += [f"nombre repetido: {n} ({', '.join(ips)})" for n, ips in nombres.items() if len(ips) > 1]
+    errores += [f"{', '.join(ips)}: «{n}» está reservado (el MDR o el nodo externo del mapa)"
+                for n, ips in nombres.items() if n.lower() in _RESERVADOS]
+    errores += [f"{e['nombre'] or ip}: la zona «{_ZONA_GESTION}» es la del MDR; usa otro nombre"
+                for ip, e in sorted(inc.items()) if e["papel"] != "cortafuegos" and e.get("zona") == _ZONA_GESTION]
     for ip, e in inc.items():
         for dep in e["depende_de"]:
             if dep not in nombres:
@@ -241,6 +272,14 @@ def validar(b, catalogo):
             avisos.append(f"{n}: su salida hacia el borde está deducida del traceroute: confírmala")
         if e["papel"] == "cortafuegos" and not e.get("huella"):
             avisos.append(f"{n}: sin huella SSH; sus otras interfaces pueden aparecer como equipos sueltos")
+    for f in b.get("fuera_de_rangos") or []:
+        if f in inc:
+            avisos.append(f"{inc[f]['nombre'] or f}: cortafuegos fuera de los rangos escaneados; se propone su red "
+                          f"{_subred(f)} en redes_internas")
+    for ip, e in sorted(inc.items()):
+        if e.get("huella_compartida_con"):
+            avisos.append(f"{e['nombre'] or ip} comparte huella SSH con el cortafuegos {e['huella_compartida_con']} "
+                          "(¿equipo clonado?): se deja como equipo aparte; compruébalo")
     for ip, e in sorted(b["equipos"].items()):
         if not e["incluido"] and e["servicios"]:
             avisos.append(f"{ip} descartado con puertos abiertos ({', '.join(map(str, e['servicios']))})")

@@ -59,6 +59,18 @@ def _guardar(ruta, datos):
         raise
 
 
+def _adoptar_importado(srv):
+    """Un descubrimiento hecho con «sudo mdr descubrir» entra en la traza firmada la primera vez que la
+    consola lo usa (quién, qué rangos), y queda en 0600 como los de la consola."""
+    with srv._asistente_lock:
+        d = _leer(srv.ruta_asistente_desc)
+        if not d or d.get("origen") != "cli" or d.get("auditado"):
+            return
+        _guardar(srv.ruta_asistente_desc, {**d, "auditado": True})
+    _auditar(srv, d.get("operador"), "escaneo_importado",
+             {"rangos": d.get("rangos"), "externo": d.get("externo"), "fecha": d.get("fecha"), "autorizado": d.get("autorizado")})
+
+
 def _borrador(srv):
     """El borrador vigente: el guardado si es del último descubrimiento; si no (escaneo hecho con
     «sudo mdr descubrir», o borrador de un escaneo anterior), el que propone ese descubrimiento."""
@@ -86,6 +98,7 @@ def _base(srv):
 
 def resumen(srv, registros):
     """GET /api/asistente."""
+    _adoptar_importado(srv)
     base = _base(srv)
     return {**srv.asistente_estado, "descubrimiento": _leer(srv.ruta_asistente_desc),
             "borrador": _borrador(srv), "nombres_siem": ar.nombres_del_siem(registros, base),
@@ -148,10 +161,14 @@ def post(srv, ruta, cuerpo, operador):
 
 def propuesta(srv, estado_red):
     """GET /api/asistente/propuesta: los tres ficheros, la validación y el mapa. No escribe nada."""
+    _adoptar_importado(srv)
     borrador, d = _borrador(srv), _leer(srv.ruta_asistente_desc)
     if borrador is None or d is None:
         return 404, {"error": "aún no hay escaneo"}
-    perfil = ar.perfil_desde_borrador(borrador)
+    try:
+        perfil = ar.perfil_desde_borrador(borrador)
+    except ValueError as e:
+        return 409, {"error": f"el descubrimiento no sirve para proponer un perfil: {e}"}
     hoy = _ahora()[:10]
     return 200, {"perfil_yaml": "# Propuesto por el asistente de red. Revísalo con: mdr validar-perfil perfil.yml\n"
                                 + yaml.safe_dump(perfil, allow_unicode=True, sort_keys=False),

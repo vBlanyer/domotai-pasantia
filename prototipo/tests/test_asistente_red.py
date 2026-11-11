@@ -172,3 +172,51 @@ class TestPropuesta(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCasosReales(unittest.TestCase):
+    """Revisión final: lo que encuentra un técnico en un cliente real."""
+    def test_rangos_sin_transito_ni_gestion_no_dicen_directo(self):
+        solo = copy.deepcopy(DESC)
+        solo["rangos"] = ["172.16.10.0/24", "10.20.0.0/24"]
+        solo["equipos"] = [e for e in solo["equipos"] if not e["ip"].startswith(("10.0.0.", "10.99.0."))]
+        b = a.borrador_inicial(solo)
+        self.assertEqual(b["equipos"]["10.20.0.10"]["gateway"], "10.0.0.2")
+        self.assertEqual(b["equipos"]["172.16.10.10"]["gateway"], "10.99.0.1")
+        self.assertEqual(b["equipos"]["10.99.0.1"]["papel"], "cortafuegos")
+        self.assertIn("10.99.0.0/24", b["redes_internas"])
+        self.assertIn("10.0.0.0/24", b["redes_internas"])
+        self.assertTrue(any("fuera de los rangos" in x for x in a.validar(b, CAT)["avisos"]))
+
+    def test_huella_clonada_no_absorbe_servidores_detras_del_cortafuegos(self):
+        clon = copy.deepcopy(DESC)
+        fw = next(e for e in clon["equipos"] if e["ip"] == "10.0.0.2")["huella_ssh"]
+        for e in clon["equipos"]:
+            if e["ip"] in ("10.20.0.10", "10.20.0.20"):
+                e["huella_ssh"] = fw
+        b = a.borrador_inicial(clon)
+        self.assertIn("10.20.0.10", b["equipos"])
+        self.assertIn("10.20.0.20", b["equipos"])
+        self.assertEqual(b["equipos"]["10.0.0.2"]["interfaces"], ["10.20.0.1"])
+
+    def test_huella_clonada_en_el_mismo_segmento_se_avisa(self):
+        clon = copy.deepcopy(DESC)
+        fw = next(e for e in clon["equipos"] if e["ip"] == "10.99.0.1")["huella_ssh"]
+        for e in clon["equipos"]:
+            if e["ip"] == "172.16.10.1":
+                e["puertos"].append({"puerto": 443, "servicio": "https", "producto": None, "version": None})
+                e["huella_ssh"] = fw
+        b = a.borrador_inicial(clon)
+        self.assertIn("172.16.10.1", b["equipos"])                     # puertos distintos: no es una interfaz
+        self.assertTrue(any("172.16.10.1" in x and "huella" in x for x in a.validar(b, CAT)["avisos"]))
+
+    def test_nombres_como_los_trae_el_siem(self):
+        b = a.aplicar_cambios(_oficina(), {"172.16.10.10": {"nombre": "WEB01.cliente.local"}, "10.20.0.30": {"nombre": "NAS_01"}})
+        self.assertEqual(b["equipos"]["172.16.10.10"]["nombre"], "WEB01.cliente.local")
+        self.assertEqual(a.validar(b, CAT)["errores"], [])
+
+    def test_nombres_y_zona_reservados(self):
+        for cambios in ({"10.20.0.30": {"nombre": "mdr"}}, {"10.20.0.30": {"nombre": "internet"}},
+                        {"10.20.0.30": {"zona": "Gestión"}}):
+            with self.subTest(cambios=cambios):
+                self.assertTrue(a.validar(a.aplicar_cambios(_oficina(), cambios), CAT)["errores"])

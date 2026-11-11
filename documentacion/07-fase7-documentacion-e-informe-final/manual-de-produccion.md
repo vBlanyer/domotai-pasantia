@@ -332,8 +332,8 @@ Si `mdr configurar` escribió el perfil mínimo, el servicio ya está en marcha 
 
 > **Nota:** la consola **nunca escribe el perfil vivo**: cambiar la red cambia dónde y cómo contiene el MDR, así
 > que lo aplica el técnico. El escaneo sale del equipo MDR por la red del cliente; si el servicio no tiene
-> privilegios para el traceroute, ejecuta `sudo mdr descubrir … --salida /var/lib/mdr/asistente-descubrimiento.json`
-> y la consola lo leerá.
+> privilegios para el traceroute, ejecuta `sudo mdr descubrir … --autorizado --salida /var/lib/mdr/asistente-descubrimiento.json`
+> y la consola lo leerá; la primera vez que lo use, lo anota en la traza firmada con quién lo lanzó y qué rangos.
 
 ### Pasos (a mano)
 
@@ -1369,7 +1369,7 @@ servicio.
 | `mdr analista alta <nombre> [--clave-ssh <fichero.pub>]` | Token de la consola y cuenta limitada al túnel |
 | `mdr analista baja <nombre>` / `lista` | Retira el acceso / lista quién lo tiene |
 | `mdr validar-perfil [perfil.yml]` | Revisa el perfil (por defecto, el de `TRIAJE_PERFIL`). Sale con error si hay avisos |
-| `mdr descubrir --gestion IP --rango R… --externo IP --salida F` | Escanea la red del cliente con Nmap para el asistente de red (con `sudo`, por el traceroute). Exige la autorización por escrito del cliente |
+| `mdr descubrir --gestion IP --rango R… --externo IP --salida F --autorizado` | Escanea la red del cliente con Nmap para el asistente de red (con `sudo`, por el traceroute). `--autorizado` confirma la autorización por escrito del cliente; sin él no escanea |
 | `mdr validar-politica [politica.yml]` | Revisa la política contra el perfil (por defecto, la de `TRIAJE_POLITICA`). Sale con error si no es válida |
 | `mdr explicar-politica [politica.yml]` | La política vigente contada en frases, con los cambios hechos en la consola |
 | `mdr migrar-politica` | Saca del perfil las reglas de la empresa a un `politica.yml` nuevo; no pisa uno que exista |
