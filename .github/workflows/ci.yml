@@ -25,7 +25,7 @@ jobs:
       - name: Suites
         run: |
           set -e
-          for d in prototipo evaluacion lab/dataset lab/banco lab/portatil lab/geo_demo; do
+          for d in prototipo evaluacion lab/dataset lab/banco lab/portatil lab/geo_demo lab/oficina; do
             echo "== $d =="
             PYTHONPATH=. python3 -m unittest discover -s "$d/tests" -p "test_*.py"
           done

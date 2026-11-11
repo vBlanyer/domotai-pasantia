@@ -1,0 +1,88 @@
+# Laboratorio «oficina»: la red que el asistente de red descubre (plan-asistente-de-red.md, tarea 1).
+# Fuente única de IPs y servicios: lab/oficina/red.py (lab/oficina/tests comprueba que coinciden).
+#
+#   internet ── fw-borde ─┬─ mdr 10.99.0.10 (MDR: escanea y aloja el conector; ip_gestion)
+#                         ├─ sw-dmz ─┬─ srv-web01 172.16.10.10 · srv-correo01 172.16.10.20
+#                         └─ fw-interno ── sw-interna ─┬─ srv-app01 .10 · srv-db01 .20 · nas01 .30
+#                                                      └─ impresora .50 · puesto .77   (10.20.0.0/24)
+#
+# Rutas de datos concretas por eth1+; la ruta por defecto de gestión (eth0) se conserva para docker exec
+# y el syslog hacia Wazuh. 'internet' es la excepción: se le borra y se bloquea eth0 de salida (como en
+# el banco), así que solo llega a la oficina por fw-borde. Ningún nodo trae el acceso del conector.
+# Se levanta con: sh lab/oficina/oficina.sh up   (no convive con el banco ni con la red pequeña)
+
+name: oficina
+
+topology:
+  defaults:
+    kind: linux
+    image: banco-nodo:1
+
+  nodes:
+    internet:
+      exec:
+        - ip addr add 198.51.100.10/24 dev eth1
+        - ip route add 10.0.0.0/8 via 198.51.100.1
+        - ip route add 172.16.10.0/24 via 198.51.100.1
+        - ip route del default
+        - iptables -A OUTPUT -o eth0 -j DROP
+
+    fw-borde:
+      sysctls: {net.ipv4.ip_forward: 1}
+      exec:
+        - ip addr add 198.51.100.1/24 dev eth1
+        - ip addr add 10.99.0.1/24 dev eth2
+        - ip addr add 172.16.10.1/24 dev eth3
+        - ip addr add 10.0.0.1/24 dev eth4
+        - ip route add 10.20.0.0/24 via 10.0.0.2
+
+    fw-interno:
+      sysctls: {net.ipv4.ip_forward: 1}
+      exec:
+        - ip addr add 10.0.0.2/24 dev eth1
+        - ip addr add 10.20.0.1/24 dev eth2
+        - ip route add 10.99.0.0/24 via 10.0.0.1
+        - ip route add 172.16.10.0/24 via 10.0.0.1
+        - ip route add 198.51.100.0/24 via 10.0.0.1
+
+    sw-dmz:
+      exec: ["ip link add br0 type bridge", "ip link set eth1 master br0", "ip link set eth2 master br0",
+             "ip link set eth3 master br0", "ip link set br0 up"]
+    sw-interna:
+      exec: ["ip link add br0 type bridge", "ip link set eth1 master br0", "ip link set eth2 master br0",
+             "ip link set eth3 master br0", "ip link set eth4 master br0", "ip link set eth5 master br0",
+             "ip link set eth6 master br0", "ip link set br0 up"]
+
+    mdr:
+      exec: ["ip addr add 10.99.0.10/24 dev eth1", "ip route add 172.16.10.0/24 via 10.99.0.1",
+             "ip route add 10.0.0.0/8 via 10.99.0.1", "ip route add 198.51.100.0/24 via 10.99.0.1"]
+
+    srv-web01:
+      exec: ["ip addr add 172.16.10.10/24 dev eth1", "ip route add 10.0.0.0/8 via 172.16.10.1", "ip route add 198.51.100.0/24 via 172.16.10.1"]
+    srv-correo01:
+      exec: ["ip addr add 172.16.10.20/24 dev eth1", "ip route add 10.0.0.0/8 via 172.16.10.1", "ip route add 198.51.100.0/24 via 172.16.10.1"]
+
+    srv-app01:
+      exec: ["ip addr add 10.20.0.10/24 dev eth1", "ip route add 10.0.0.0/8 via 10.20.0.1", "ip route add 172.16.10.0/24 via 10.20.0.1", "ip route add 198.51.100.0/24 via 10.20.0.1"]
+    srv-db01:
+      exec: ["ip addr add 10.20.0.20/24 dev eth1", "ip route add 10.0.0.0/8 via 10.20.0.1", "ip route add 172.16.10.0/24 via 10.20.0.1", "ip route add 198.51.100.0/24 via 10.20.0.1"]
+    nas01:
+      exec: ["ip addr add 10.20.0.30/24 dev eth1", "ip route add 10.0.0.0/8 via 10.20.0.1", "ip route add 172.16.10.0/24 via 10.20.0.1", "ip route add 198.51.100.0/24 via 10.20.0.1"]
+    impresora:
+      exec: ["ip addr add 10.20.0.50/24 dev eth1", "ip route add 10.0.0.0/8 via 10.20.0.1", "ip route add 172.16.10.0/24 via 10.20.0.1", "ip route add 198.51.100.0/24 via 10.20.0.1"]
+    puesto:
+      exec: ["ip addr add 10.20.0.77/24 dev eth1", "ip route add 10.0.0.0/8 via 10.20.0.1", "ip route add 172.16.10.0/24 via 10.20.0.1", "ip route add 198.51.100.0/24 via 10.20.0.1"]
+
+  links:
+    - endpoints: ["internet:eth1", "fw-borde:eth1"]
+    - endpoints: ["fw-borde:eth2", "mdr:eth1"]
+    - endpoints: ["fw-borde:eth3", "sw-dmz:eth1"]
+    - endpoints: ["sw-dmz:eth2", "srv-web01:eth1"]
+    - endpoints: ["sw-dmz:eth3", "srv-correo01:eth1"]
+    - endpoints: ["fw-borde:eth4", "fw-interno:eth1"]
+    - endpoints: ["fw-interno:eth2", "sw-interna:eth1"]
+    - endpoints: ["sw-interna:eth2", "srv-app01:eth1"]
+    - endpoints: ["sw-interna:eth3", "srv-db01:eth1"]
+    - endpoints: ["sw-interna:eth4", "nas01:eth1"]
+    - endpoints: ["sw-interna:eth5", "impresora:eth1"]
+    - endpoints: ["sw-interna:eth6", "puesto:eth1"]
