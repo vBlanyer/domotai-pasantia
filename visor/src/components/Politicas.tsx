@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react"
 import {
-  useSondeo, getPolitica, actualizarPolitica,
+  useSondeo, getPolitica, actualizarPolitica, getPoliticaExplicar, getPoliticaPropuesta,
   type PoliticaEstado, type PoliticaFamilia, type ZonaPolitica, type DispositivoPolitica, type CambioPolitica,
+  type DiferenciaPolitica,
 } from "@/api"
 import { Cargando, SinConexion, Vacio } from "@/components/bits"
 import { etiquetaClase, pasosRunbook } from "@/datos"
 import "./Politicas.css"
 
 type Valor = CambioPolitica["automatizacion"]
-type Pestana = "familias" | "zonas"
+type Pestana = "familias" | "zonas" | "confianza" | "intocables" | "castellano"
+const PESTANAS: [Pestana, string][] = [["familias", "Por tipo de ataque"], ["zonas", "Por zona y dispositivo"],
+  ["confianza", "Confianza"], ["intocables", "Intocables"], ["castellano", "En castellano"]]
 
 const AUTO = "automatica_si_confianza"
 const HUMANO = "humano_siempre"
@@ -49,6 +52,60 @@ function aValor(a?: string | null): Valor {
   return a === HUMANO || a === "requiere_humano" ? HUMANO : a === AUTO || a === "automatica_si_confianza" ? AUTO : null
 }
 function radioClase(n: number) { return n === 0 ? "z0" : n <= 2 ? "z1" : "z2" }
+
+// De dónde sale cada valor (plan de la política de la empresa): el código manda, luego politica.yml,
+// y la consola solo endurece por encima.
+function origenTexto(origen: string | undefined, version: unknown) {
+  if (origen === "codigo") return "código"
+  if (origen === "consola") return "consola"
+  if (origen === "fichero") return version != null ? `política v${version}` : "política"
+  if (origen === "perfil") return "perfil"
+  return "por defecto"
+}
+function Origen({ sujeto, origen, version }: { sujeto: string; origen?: string; version?: unknown }) {
+  if (!origen) return null                          // servicio anterior: no lo informa
+  const t = origenTexto(origen, version)
+  return <span className={`pol-origen o-${origen}`} aria-label={`${sujeto}: origen ${t}`}>{t}</span>
+}
+const VALOR_LEGIBLE: Record<string, string> = {
+  automatica_si_confianza: "si hay certeza", humano_siempre: "con analista", por_defecto: "por defecto",
+}
+function hora(iso?: string | null) {
+  if (!iso) return ""
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("es", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+}
+
+function descargar(nombre: string, texto: string) {
+  const url = URL.createObjectURL(new Blob([texto], { type: "application/x-yaml" }))
+  const a = document.createElement("a")
+  a.href = url; a.download = nombre
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+}
+
+// «En castellano»: la política efectiva contada en frases (GET /api/politica/explicar), lo que firma Seguridad.
+function Explicacion() {
+  const [frases, setFrases] = useState<string[] | null>(null)
+  const [fallo, setFallo] = useState<string | null>(null)
+  useEffect(() => {
+    let vivo = true
+    getPoliticaExplicar().then((r) => {
+      if (!vivo) return
+      if ("error" in r) setFallo(r.error)
+      else setFrases(r.frases)
+    })
+    return () => { vivo = false }
+  }, [])
+  if (fallo) return <p role="alert" className="pol-alert">No se pudo leer la explicación ({fallo}).</p>
+  if (!frases) return <Cargando />
+  return (
+    <div className="pol-panel">
+      <p className="pol-panel-nota">Lo mismo que imprime <span className="mono">mdr explicar-politica</span>; es lo que aprueba Seguridad.</p>
+      <ul className="pol-frases">{frases.map((f, i) => <li key={i}>{f}</li>)}</ul>
+    </div>
+  )
+}
 
 type Sel = { tipo: "familia"; f: PoliticaFamilia } | { tipo: "activo"; d: DispositivoPolitica; zona: string }
 
@@ -183,24 +240,102 @@ export function Politicas() {
     )
   }
 
+  const cab = est.politica
+  const version = cab?.version
+  const difs: DiferenciaPolitica[] = est.diferencias ?? []
+  async function exportar() {
+    setAviso(null)
+    const r = await getPoliticaPropuesta()
+    if ("error" in r) { setAviso(`No se pudo preparar la propuesta (${r.error}).`); return }
+    descargar(`politica-v${r.version}.yml`, r.yaml)
+  }
+  const siguiente = typeof version === "number" ? version + 1 : 1
+
   return (
     <div className="pol">
+      {/* La política vigente: de dónde salen las reglas y la propuesta de la versión siguiente. */}
+      <section aria-label="Política vigente" className="pol-banner">
+        <div className="pol-banner-txt">
+          {cab
+            ? <><b>Política de la empresa · versión {String(version ?? "?")}</b>
+                <span> · aprobada por {cab.aprobada_por ?? "(sin indicar)"}{cab.fecha ? ` · ${cab.fecha}` : ""}</span>
+                <span className="mono"> · {cab.ruta}{cab.huella ? ` · huella ${cab.huella.slice(0, 12)}…` : ""}</span></>
+            : <><b>Sin politica.yml</b><span>: las reglas vienen del perfil. <span className="mono">mdr migrar-politica</span> las pasa a un fichero propio.</span></>}
+        </div>
+        <div className="pol-banner-btns">
+          <button type="button" className="pol-btn" onClick={() => { setPestana("castellano"); setSel(null) }}>Leer en castellano</button>
+          <button type="button" className="pol-btn pol-btn-p" onClick={exportar}>Exportar propuesta v{siguiente}</button>
+        </div>
+      </section>
+
+      {difs.length > 0 && (
+        <section aria-label="Cambios de consola pendientes" className="pol-drift">
+          <p><b>{difs.length === 1 ? "1 cambio hecho en la consola" : `${difs.length} cambios hechos en la consola`}</b>{" "}
+            endurecen la política y aún no están en el fichero. Si Seguridad los aprueba, exporta la propuesta; si no, vuelve cada uno a la política.</p>
+          <ul>
+            {difs.map((d) => (
+              <li key={`${d.dimension}:${d.clave}`}>
+                <span className="mono pol-drift-k">{d.clave}</span>
+                <span>{VALOR_LEGIBLE[d.antes ?? ""] ?? d.antes} → {VALOR_LEGIBLE[d.despues ?? ""] ?? d.despues}
+                  {d.operador ? ` — ${d.operador}` : ""}{d.en ? `, ${hora(d.en)}` : ""}</span>
+                <button type="button" className="pol-btn" aria-label={`Volver a la política: ${d.clave}`}
+                  onClick={() => cambiar({ dimension: d.dimension, clave: d.clave, automatizacion: null })}>Volver a la política</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Sin título propio (la cabecera de la app ya dice «Políticas de respuesta») ni caja alrededor:
           la primera fila son las pestañas con el resumen a la derecha, como una barra de herramientas. */}
       <div className="pol-tabs">
         <div role="tablist" className="pol-tablist">
-          {([["familias", "Por tipo de ataque"], ["zonas", "Por zona y dispositivo"]] as const).map(([id, n]) => (
+          {PESTANAS.map(([id, n]) => (
             <button key={id} role="tab" aria-selected={pestana === id} onClick={() => { setPestana(id); setSel(null) }} className="pol-tab">
               {n}
             </button>
           ))}
         </div>
-        {resumen}
+        {(pestana === "familias" || pestana === "zonas") && resumen}
       </div>
 
       {aviso && <p role="alert" className="pol-alert">{aviso}</p>}
 
-      <div className="pol-grid">
+      {pestana === "castellano" && <Explicacion />}
+
+      {pestana === "confianza" && (
+        <div className="pol-panel">
+          {est.confianza ? <>
+            <p className="pol-panel-nota">Solo lectura: viene {est.confianza.origen === "fichero" ? <>de <span className="mono">politica.yml</span>{version != null ? ` v${version}` : ""}</> : "del perfil"}.
+              Para cambiarlo, Seguridad aprueba una versión nueva.</p>
+            <dl className="pol-dl">
+              <dt>Administradores</dt><dd>{est.confianza.administradores.length ? est.confianza.administradores.map((ip) => <span key={ip} className="mono pol-ip">{ip}</span>) : "—"}</dd>
+              <dt>Socios críticos</dt><dd>{est.confianza.socios_criticos.length ? est.confianza.socios_criticos.map((ip) => <span key={ip} className="mono pol-ip">{ip}</span>) : "—"}</dd>
+              <dt>Sospechar si hay ráfaga</dt><dd>{est.confianza.rafaga ? `${est.confianza.rafaga.alertas} alertas en ${est.confianza.rafaga.en_segundos} s del mismo origen` : "—"}</dd>
+              <dt>Certeza mínima</dt><dd>{est.confianza.certeza_minima != null ? String(est.confianza.certeza_minima).replace(".", ",") : "—"}</dd>
+              <dt>Desconocidos graves</dt><dd>{est.confianza.revisar_desde_nivel != null ? `a revisión desde el nivel ${est.confianza.revisar_desde_nivel}` : "solo se registran"}</dd>
+            </dl>
+          </> : <Vacio>El servicio no informa de la confianza.</Vacio>}
+        </div>
+      )}
+
+      {pestana === "intocables" && (
+        <div className="pol-panel">
+          <ul className="pol-frases">
+            {(est.intocables ?? []).map((i) => (
+              <li key={`${i.activo}:${i.servicio}`}><span className="mono">{i.activo} · {String(i.servicio)}</span> — nunca en automático
+                <Origen sujeto={`${i.activo} ${i.servicio}`} origen={i.origen} version={version} /></li>
+            ))}
+            <li><span className="mono">plano de gestión</span> — ninguna contención lo corta <Origen sujeto="plano de gestión" origen="codigo" /></li>
+            <li><span className="mono">equipos propios</span> — bloquearlos exige un analista <Origen sujeto="equipos propios" origen="codigo" /></li>
+            {est.familias.filter((f) => f.automatizacion === "nunca_automatica").map((f) => (
+              <li key={f.familia}><span className="mono">{f.familia}</span> — freno duro: nunca se contiene solo <Origen sujeto={`freno ${f.familia}`} origen="codigo" /></li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(pestana === "familias" || pestana === "zonas") && <div className="pol-grid">
         <section aria-label="Lista">
 
           {pestana === "familias" ? (
@@ -223,6 +358,7 @@ export function Politicas() {
                       </div>
                     </div>
                     <div className="pol-ctl">
+                      <Origen sujeto={f.familia} origen={f.origen} version={version} />
                       {sinAccion
                         ? <span className="pol-tag-routed">se tría y enruta</span>
                         : <Segmento sujeto={f.familia} opciones={AUTO_HUMANO} deshabilitado={bloqueada} actual={ef}
@@ -242,6 +378,7 @@ export function Politicas() {
                     <span className="zn">{z.zona}</span>
                     <span className="zc">{z.dispositivos.length} dispositivo{z.dispositivos.length === 1 ? "" : "s"}</span>
                     <span className="zctl">
+                      <Origen sujeto={`zona ${z.zona}`} origen={z.origen} version={version} />
                       {z.protegida
                         ? <span className="pol-tag-routed">protegido · no_cortar_gestion</span>
                         : <><span className="zl">postura de zona</span>
@@ -263,6 +400,7 @@ export function Politicas() {
                                 <div className="pol-sub">radio {d.radio}{d.cascada.length > 0 && <> <span className="arw">·</span> cascada: {d.cascada.join(", ")}</>}</div>
                               </div>
                               <div className="pol-ctl">
+                                <Origen sujeto={d.activo} origen={d.origen} version={version} />
                                 {!z.protegida && <Segmento sujeto={d.activo} opciones={HEREDA} actual={val("activo", d.activo, aValor(d.override))}
                                   onElegir={(v) => cambiar({ dimension: "activo", clave: d.activo, automatizacion: v })} />}
                                 {n > 0
@@ -296,7 +434,7 @@ export function Politicas() {
               </p>
             </div>
           )}
-      </div>
+      </div>}
     </div>
   )
 }

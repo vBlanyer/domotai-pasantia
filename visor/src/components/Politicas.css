@@ -120,3 +120,37 @@
 .pol-detail-empty p { margin: 0; }
 .pol-detail-empty p:first-child { color: var(--pol-faint); }
 .pol-detail-empty strong { color: var(--pol-fg); font-weight: 600; }
+
+/* politica.yml: franja de la política vigente, cambios de consola pendientes, origen de cada valor y
+   las pestañas de solo lectura (Confianza, Intocables, En castellano). Mismos tokens que el resto. */
+.pol-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  background: var(--pol-surface); border: 1px solid var(--pol-border); border-radius: 11px; padding: 11px 14px; font-size: .84rem; }
+.pol-banner-txt { min-width: 0; color: var(--pol-muted); }
+.pol-banner-txt b { color: var(--pol-fg); font-weight: 600; }
+.pol-banner-txt .mono { font-size: .76rem; overflow-wrap: anywhere; }
+.pol-banner-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.pol-btn { font: inherit; font-size: .8rem; font-weight: 500; padding: 7px 12px; min-height: 34px; border-radius: 8px;
+  border: 1px solid var(--pol-border); background: var(--pol-surface); color: var(--pol-fg); cursor: pointer; }
+.pol-btn:hover { background: var(--pol-surface2); }
+.pol-btn:focus-visible { outline: 2px solid var(--pol-accent); outline-offset: 2px; }
+.pol-btn-p { background: var(--pol-accent); border-color: var(--pol-accent); color: var(--primary-foreground); }
+.pol-btn-p:hover { background: color-mix(in srgb, var(--pol-accent) 85%, black); }
+.pol-drift { background: var(--pol-warnbg); border: 1px solid color-mix(in srgb, var(--pol-warn) 45%, var(--pol-border));
+  border-radius: 11px; padding: 11px 14px; font-size: .82rem; display: flex; flex-direction: column; gap: 8px; }
+.pol-drift p { margin: 0; } .pol-drift b { color: var(--pol-warn); }
+.pol-drift ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pol-drift li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.pol-drift-k { background: var(--pol-surface); border: 1px solid var(--pol-border); border-radius: 6px; padding: 1px 7px; font-size: .74rem; }
+.pol-origen { font-family: var(--pol-mono); font-size: .64rem; padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid var(--pol-border); color: var(--pol-muted); }
+.pol-origen.o-codigo { color: var(--pol-crit); border-color: color-mix(in srgb, var(--pol-crit) 40%, var(--pol-border)); }
+.pol-origen.o-fichero { color: var(--pol-accent); border-color: color-mix(in srgb, var(--pol-accent) 40%, var(--pol-border)); }
+.pol-origen.o-consola { color: var(--pol-warn); border-color: color-mix(in srgb, var(--pol-warn) 45%, var(--pol-border)); background: var(--pol-warnbg); }
+.pol-panel { background: var(--pol-surface); border: 1px solid var(--pol-border); border-radius: 11px; padding: 14px 16px; }
+.pol-panel-nota { margin: 0 0 10px; font-size: .78rem; color: var(--pol-muted); }
+.pol-frases { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: .86rem; line-height: 1.5; }
+.pol-frases .pol-origen { margin-left: 8px; }
+.pol-dl { display: grid; grid-template-columns: minmax(0, 200px) 1fr; gap: 8px 16px; margin: 0; font-size: .84rem; }
+.pol-dl dt { color: var(--pol-muted); } .pol-dl dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.pol-ip { background: var(--pol-surface2); border-radius: 6px; padding: 1px 7px; font-size: .76rem; }
+@media (max-width: 640px) { .pol-dl { grid-template-columns: 1fr; } }

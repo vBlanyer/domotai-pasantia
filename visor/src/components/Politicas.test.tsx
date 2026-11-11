@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 
-const h = vi.hoisted(() => ({ pol: {} as unknown, act: vi.fn() }))
+const h = vi.hoisted(() => ({ pol: {} as unknown, act: vi.fn(), explicar: vi.fn(), propuesta: vi.fn() }))
 vi.mock("@/api", async (orig) => ({
   ...(await orig<typeof import("@/api")>()),
   useSondeo: () => h.pol,
   actualizarPolitica: (...a: unknown[]) => h.act(...a),
+  getPoliticaExplicar: () => h.explicar(),
+  getPoliticaPropuesta: () => h.propuesta(),
 }))
 import { Politicas } from "./Politicas"
 
@@ -101,3 +103,81 @@ describe("Politicas", () => {
     expect(screen.getByText(/Sin políticas que mostrar/)).toBeInTheDocument()
   })
 })
+
+// politica.yml en la vista (plan de la política de la empresa, tarea 5)
+const CAB = { version: 3, aprobada_por: "Dirección de Seguridad", fecha: "2026-11-10", ruta: "/etc/mdr/politica.yml", huella: "9f3c" + "0".repeat(60) }
+const CONF = { administradores: ["10.99.0.10"], socios_criticos: ["203.0.113.7"], rafaga: { alertas: 9, en_segundos: 60 },
+  certeza_minima: 0.9, revisar_desde_nivel: 10, origen: "fichero" }
+const DIF = { dimension: "familia", clave: "acceso_credenciales", antes: "automatica_si_confianza", despues: "humano_siempre", operador: "ana.perez", en: "2026-11-11T10:40:00+00:00" }
+const conPolitica = (extra = {}) => ({
+  familias: [{ ...F[0], origen: "consola" }, { ...F[1], origen: "codigo" }, { ...F[2], origen: "fichero" }],
+  zonas: [{ ...Z[0], origen: "fichero", dispositivos: Z[0].dispositivos.map((d) => ({ ...d, origen: "por_defecto" })) }, { ...Z[1], origen: "codigo" }],
+  politica: CAB, diferencias: [DIF], confianza: CONF, intocables: [{ activo: "db01", servicio: 5432, origen: "fichero" }], ...extra })
+
+describe("Politicas con politica.yml", () => {
+  beforeEach(() => {
+    h.act.mockReset(); h.act.mockResolvedValue(undefined)
+    h.explicar.mockReset(); h.explicar.mockResolvedValue({ frases: ["Sobre db01, una contención espera siempre a un analista."] })
+    h.propuesta.mockReset(); h.propuesta.mockResolvedValue({ version: 4, yaml: "politica:\n  version: 4\n" })
+    h.pol = conPolitica()
+  })
+
+  it("franja de la política vigente", () => {
+    render(<Politicas />)
+    expect(screen.getByText(/versión 3/)).toBeInTheDocument()
+    expect(screen.getByText(/Dirección de Seguridad/)).toBeInTheDocument()
+    expect(screen.getByText(/\/etc\/mdr\/politica.yml/)).toBeInTheDocument()
+  })
+
+  it("sin politica.yml lo dice", () => {
+    h.pol = conPolitica({ politica: null, diferencias: [] })
+    render(<Politicas />)
+    expect(screen.getByText(/Sin politica\.yml/)).toBeInTheDocument()
+  })
+
+  it("cada fila dice de dónde sale su valor", () => {
+    render(<Politicas />)
+    expect(screen.getByLabelText("acceso_credenciales: origen consola")).toBeInTheDocument()
+    expect(screen.getByLabelText("malware: origen código")).toBeInTheDocument()
+    expect(screen.getByLabelText("reconocimiento: origen política v3")).toBeInTheDocument()
+  })
+
+  it("aviso de cambios de consola y volver a la política", async () => {
+    render(<Politicas />)
+    expect(screen.getByText(/1 cambio hecho en la consola/)).toBeInTheDocument()
+    expect(screen.getByText(/ana\.perez/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Volver a la política: acceso_credenciales" }))
+    await waitFor(() => expect(h.act).toHaveBeenCalledWith({ dimension: "familia", clave: "acceso_credenciales", automatizacion: null }))
+  })
+
+  it("pestaña Confianza", () => {
+    render(<Politicas />)
+    fireEvent.click(screen.getByRole("tab", { name: "Confianza" }))
+    expect(screen.getByText("10.99.0.10")).toBeInTheDocument()
+    expect(screen.getByText("203.0.113.7")).toBeInTheDocument()
+    expect(screen.getByText(/9 alertas en 60 s/)).toBeInTheDocument()
+  })
+
+  it("pestaña Intocables", () => {
+    render(<Politicas />)
+    fireEvent.click(screen.getByRole("tab", { name: "Intocables" }))
+    expect(screen.getByText(/db01 · 5432/)).toBeInTheDocument()
+    expect(screen.getByText(/malware/)).toBeInTheDocument()       // los frenos duros del código también
+  })
+
+  it("pestaña En castellano pide la explicación", async () => {
+    render(<Politicas />)
+    fireEvent.click(screen.getByRole("tab", { name: "En castellano" }))
+    expect(await screen.findByText(/Sobre db01, una contención espera siempre a un analista/)).toBeInTheDocument()
+  })
+
+  it("exportar la propuesta descarga el YAML", async () => {
+    const crear = vi.fn(() => "blob:x"); const soltar = vi.fn()
+    Object.assign(URL, { createObjectURL: crear, revokeObjectURL: soltar })
+    render(<Politicas />)
+    fireEvent.click(screen.getByRole("button", { name: /Exportar propuesta/ }))
+    await waitFor(() => expect(h.propuesta).toHaveBeenCalled())
+    await waitFor(() => expect(crear).toHaveBeenCalled())
+  })
+})
+

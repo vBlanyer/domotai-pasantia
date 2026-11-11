@@ -1493,6 +1493,22 @@ def politica_con_origenes(s):
                 "operador": c.get("operador"), "en": c.get("timestamp")})
     est["politica"] = ({**{k: info.get(k) for k in ("version", "aprobada_por", "fecha", "ruta")}, "huella": info.get("hash")}
                        if info else None)
+    # Confianza e intocables (pestañas de la vista), del perfil efectivo; «fichero» si los declara politica.yml.
+    pol = (info or {}).get("politica") or {}
+    perfil = s.perfil or {}
+    raf, cont = perfil.get("rafaga") or {}, perfil.get("continuidad") or {}
+    est["confianza"] = {
+        "administradores": list(perfil.get("origenes_legitimos") or []),
+        "socios_criticos": list(perfil.get("terceros_confiables") or []),
+        "rafaga": ({"alertas": raf["umbral"], "en_segundos": raf["ventana_s"]}
+                   if raf.get("umbral") and raf.get("ventana_s") else None),
+        "certeza_minima": cont.get("umbral_confianza"),
+        "revisar_desde_nivel": cont.get("revisar_no_soportada_nivel"),
+        "origen": "fichero" if pol.get("confianza") else "perfil"}
+    del_fichero = {(e.get("equipo"), e.get("servicio")) for e in pol.get("nunca_tocar_en_automatico") or []}
+    est["intocables"] = [{"activo": e.get("activo"), "servicio": e.get("servicio"),
+                          "origen": "fichero" if (e.get("activo"), e.get("servicio")) in del_fichero else "perfil"}
+                         for e in perfil.get("excepciones") or [] if e.get("regla") == "nunca_automatica"]
     return est
 
 

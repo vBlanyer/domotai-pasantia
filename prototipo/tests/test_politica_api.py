@@ -72,6 +72,17 @@ class TestApiPolitica(unittest.TestCase):
                          ("familia", "reconocimiento", "automatica_si_confianza", "humano_siempre", "ana"))
         self.assertTrue(d["en"])
 
+    def test_confianza_e_intocables(self):
+        pol = {**POL, "confianza": {"administradores": ["10.0.0.1"], "sospechar_si_rafaga": {"alertas": 9, "en_segundos": 60}},
+               "nunca_tocar_en_automatico": [{"equipo": "srv", "servicio": 5432}]}
+        _, est = self._req(self._srv(pol), "GET", "/api/politica")
+        self.assertEqual(est["confianza"]["administradores"], ["10.0.0.1"])
+        self.assertEqual(est["confianza"]["rafaga"], {"alertas": 9, "en_segundos": 60})
+        self.assertEqual(est["confianza"]["origen"], "fichero")
+        self.assertEqual(est["intocables"], [{"activo": "srv", "servicio": 5432, "origen": "fichero"}])
+        _, sin = self._req(self._srv(), "GET", "/api/politica")
+        self.assertEqual((sin["confianza"]["administradores"], sin["intocables"]), ([], []))
+
     def test_explicar(self):
         st, r = self._req(self._srv(POL), "GET", "/api/politica/explicar")
         self.assertEqual(st, 200)

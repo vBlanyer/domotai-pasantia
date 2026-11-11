@@ -371,24 +371,54 @@ export const PoliticaFamiliaSchema = z.object({
     nota: z.string().nullable().optional() }).nullable().optional(),
   postura_familia: z.string().nullable().optional(),
   automatizacion_efectiva: z.string(),
+  // De dónde sale el valor: codigo | consola | fichero (politica.yml) | perfil | por_defecto.
+  origen: z.string().optional(),
 })
 export type PoliticaFamilia = z.infer<typeof PoliticaFamiliaSchema>
 export const DispositivoPoliticaSchema = z.object({
   activo: z.string(), criticidad: z.string().nullable().optional(), override: z.string().nullable().optional(),
   postura_efectiva: z.string().nullable().optional(), cascada: z.array(z.string()), radio: z.number(),
   cascada_posiblemente_incompleta: z.boolean(),
+  origen: z.string().optional(),
 })
 export type DispositivoPolitica = z.infer<typeof DispositivoPoliticaSchema>
 export const ZonaPoliticaSchema = z.object({
   zona: z.string(), automatizacion: z.string(), protegida: z.boolean(),
-  dispositivos: z.array(DispositivoPoliticaSchema),
+  dispositivos: z.array(DispositivoPoliticaSchema), origen: z.string().optional(),
 })
 export type ZonaPolitica = z.infer<typeof ZonaPoliticaSchema>
+// La política de la empresa (politica.yml): cabecera, cambios de consola que aún no están en el fichero,
+// confianza e intocables. Opcionales: un servicio anterior no los manda.
+export const CabeceraPoliticaSchema = z.object({
+  version: z.union([z.number(), z.string()]).nullable().optional(), aprobada_por: z.string().nullable().optional(),
+  fecha: z.string().nullable().optional(), ruta: z.string().nullable().optional(), huella: z.string().nullable().optional(),
+})
+export const DiferenciaPoliticaSchema = z.object({
+  dimension: z.enum(["familia", "zona", "activo"]), clave: z.string(),
+  antes: z.string().nullable().optional(), despues: z.string().nullable().optional(),
+  operador: z.string().nullable().optional(), en: z.string().nullable().optional(),
+})
+export type DiferenciaPolitica = z.infer<typeof DiferenciaPoliticaSchema>
+export const ConfianzaPoliticaSchema = z.object({
+  administradores: z.array(z.string()), socios_criticos: z.array(z.string()),
+  rafaga: z.object({ alertas: z.number(), en_segundos: z.number() }).nullable().optional(),
+  certeza_minima: z.number().nullable().optional(), revisar_desde_nivel: z.number().nullable().optional(),
+  origen: z.string(),
+})
+export type ConfianzaPolitica = z.infer<typeof ConfianzaPoliticaSchema>
 export const PoliticaEstadoSchema = z.object({
   familias: z.array(PoliticaFamiliaSchema), zonas: z.array(ZonaPoliticaSchema),
+  politica: CabeceraPoliticaSchema.nullable().optional(),
+  diferencias: z.array(DiferenciaPoliticaSchema).optional(),
+  confianza: ConfianzaPoliticaSchema.optional(),
+  intocables: z.array(z.object({ activo: z.string().nullable(), servicio: z.union([z.number(), z.string()]).nullable(), origen: z.string() })).optional(),
 })
 export type PoliticaEstado = z.infer<typeof PoliticaEstadoSchema>
 export const getPolitica = () => pedir("/api/politica", PoliticaEstadoSchema)
+// La política efectiva en frases (lo que firma Seguridad) y la propuesta de versión siguiente (solo lectura).
+export const getPoliticaExplicar = () => pedir("/api/politica/explicar", z.object({ frases: z.array(z.string()) }))
+export const getPoliticaPropuesta = () =>
+  pedir("/api/politica/propuesta", z.object({ version: z.number(), yaml: z.string() }))
 
 export type CambioPolitica = {
   dimension: "familia" | "zona" | "activo"; clave: string
