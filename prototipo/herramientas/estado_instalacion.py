@@ -83,6 +83,9 @@ def comprobar(env, ejecutar=subprocess.run, salud=_salud_http, ahora=None):
             perfil = {}
             out.append(_c("perfil", "fallo", f"no se puede leer: {e}", "sudo mdr validar-perfil"))
 
+    from prototipo.herramientas import politica as hpol
+    out.append(hpol.linea_estado(env, perfil))
+
     if env.get("TRIAJE_ESCUCHAR"):
         if env.get("TRIAJE_PERMITIR") or env["TRIAJE_ESCUCHAR"].startswith("127."):
             tls = " con TLS" if env.get("TRIAJE_TLS_CERT") else " sin TLS"

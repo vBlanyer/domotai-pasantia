@@ -191,3 +191,115 @@ def validar_politica(pol, perfil, catalogo):
     avisos += [f"{c}: está en el perfil y en la política; déjala solo en la política"
                for c in _choques(perfil, traducir_politica(pol))]
     return avisos
+
+
+_INVERSO = {v: k for k, v in VALORES.items()}
+_EN_PALABRAS = {"automatica": "se ejecuta sola", "automatica_si_confianza": "se ejecuta sola si hay certeza",
+                "humano_siempre": "espera siempre a un analista"}     # sujeto femenino: «la respuesta», «una contención»
+
+
+def _num(x):
+    return f"{x:.2f}".replace(".", ",") if isinstance(x, float) else str(x)
+
+
+def explicar(perfil, catalogo):
+    """La política EFECTIVA del perfil (con o sin politica.yml) contada en frases, en el orden en que
+    decide: frenos del código, confianza, automatización por defecto y por capas, intocables."""
+    perfil = perfil or {}
+    cont = perfil.get("continuidad") or {}
+    frases = []
+    frenos = sorted(familias_freno_duro(catalogo))
+    if frenos:
+        frases.append(f"Estos tipos de ataque nunca se contienen solos, lo fija el código: {', '.join(frenos)}.")
+    frases.append("El plano de gestión no se corta nunca y solo se ejecutan acciones que se pueden deshacer.")
+    if perfil.get("origenes_legitimos"):
+        r = perfil.get("rafaga") or {}
+        tras = (f", salvo que formen una ráfaga de {r.get('umbral')} alertas en {r.get('ventana_s')} s"
+                if r.get("umbral") and r.get("ventana_s") else "")
+        frases.append(f"La actividad de {', '.join(map(str, perfil['origenes_legitimos']))} no es un ataque{tras}.")
+    if perfil.get("terceros_confiables"):
+        frases.append(f"Los socios críticos ({', '.join(map(str, perfil['terceros_confiables']))}) nunca se "
+                      "bloquean sin un analista.")
+    if "umbral_confianza" in cont:
+        frases.append(f"Ninguna respuesta se ejecuta sola con una certeza menor de {_num(cont['umbral_confianza'])}.")
+    for clave, que in (("impacto_localizado", "Una respuesta localizada (bloquear un origen)"),
+                       ("impacto_alcanza_servicio", "Una respuesta que afecta a un servicio"),
+                       ("impacto_ninguno", "Una respuesta que solo observa")):
+        if clave in cont:
+            frases.append(f"{que} {_EN_PALABRAS.get(cont[clave], cont[clave])}.")
+    act = cont.get("actores") or {}
+    if act:
+        frases.append("Una contención sobre un equipo propio " + _EN_PALABRAS.get(act.get("activo_interno"), "sigue el caso general")
+                      + "; sobre un dispositivo de red, " + _EN_PALABRAS.get(act.get("dispositivo_red"), "sigue el caso general") + ".")
+    if cont.get("contener_externos_desconocidos"):
+        frases.append("Una contención contra un origen externo desconocido "
+                      + _EN_PALABRAS.get(cont["contener_externos_desconocidos"], "") + ".")
+    for fam, pol in sorted((perfil.get("automatizacion_por_familia") or {}).items()):
+        frases.append(f"La respuesta a un ataque de tipo {fam} {_EN_PALABRAS.get((pol or {}).get('automatizacion'), '')}.")
+    zonas = (perfil.get("red") or {}).get("zonas") or {}
+    for zona, pol in sorted((perfil.get("politicas_por_zona") or {}).items()):
+        equipos = ", ".join(zonas.get(zona) or [])
+        frases.append(f"En la zona {zona}" + (f" ({equipos})" if equipos else "") + ", una contención "
+                      + _EN_PALABRAS.get((pol or {}).get("automatizacion"), "") + ".")
+    for eq, pol in sorted((perfil.get("overrides_por_activo") or {}).items()):
+        frases.append(f"Sobre {eq}, una contención {_EN_PALABRAS.get((pol or {}).get('automatizacion'), '')}.")
+    for e in perfil.get("excepciones") or []:
+        if e.get("regla") == "nunca_automatica":
+            frases.append(f"El servicio {e.get('servicio')} de {e.get('activo')} no se toca nunca en automático.")
+    if cont.get("revisar_no_soportada_nivel"):
+        frases.append(f"Una alerta que el MDR no sabe tratar, con nivel {cont['revisar_no_soportada_nivel']} o más, "
+                      "pasa a revisión de un analista, sin acción.")
+    return frases
+
+
+def extraer_politica(perfil):
+    """Lo inverso de la traducción, para migrar un perfil antiguo: (politica, perfil_sin_politica).
+    Lo que no tiene equivalente en el fichero (p. ej. actores distintos entre sí, umbral_largo) se
+    queda en el perfil. fusionar_perfil_y_politica(resto, politica) devuelve el perfil de partida."""
+    resto = copy.deepcopy(perfil or {})
+    pol, conf, ra = {}, {}, {}
+    if "origenes_legitimos" in resto:
+        conf["administradores"] = resto.pop("origenes_legitimos")
+    if "terceros_confiables" in resto:
+        conf["socios_criticos"] = resto.pop("terceros_confiables")
+    raf = resto.get("rafaga") or {}
+    if "umbral" in raf and "ventana_s" in raf:
+        conf["sospechar_si_rafaga"] = {"alertas": raf.pop("umbral"), "en_segundos": raf.pop("ventana_s")}
+        if not raf:
+            resto.pop("rafaga")
+    cont = resto.get("continuidad") or {}
+    if "umbral_confianza" in cont:
+        ra["certeza_minima"] = cont.pop("umbral_confianza")
+    for clave, origen in _NIVEL.items():
+        if origen in cont and cont[origen] in _INVERSO:
+            ra[clave] = _INVERSO[cont.pop(origen)]
+    act = cont.get("actores") or {}
+    if (set(act) == {"activo_interno", "dispositivo_red"} and act["activo_interno"] == act["dispositivo_red"]
+            and act["activo_interno"] in _INVERSO):
+        ra["equipos_propios"] = _INVERSO[act["activo_interno"]]
+        cont.pop("actores")
+    if cont.get("contener_externos_desconocidos") in _INVERSO:
+        ra["externos_desconocidos"] = _INVERSO[cont.pop("contener_externos_desconocidos")]
+    graves = {}
+    if "revisar_no_soportada_nivel" in cont:
+        graves["revisar_desde_nivel"] = cont.pop("revisar_no_soportada_nivel")
+    for clave, destino in _DIMENSION.items():
+        if destino in resto:
+            ra[clave] = {k: _INVERSO.get((v or {}).get("automatizacion"), (v or {}).get("automatizacion"))
+                         for k, v in resto.pop(destino).items()}
+    exc = resto.get("excepciones") or []
+    nunca = [e for e in exc if e.get("regla") == "nunca_automatica"]
+    if nunca:
+        pol["nunca_tocar_en_automatico"] = [{"equipo": e.get("activo"), "servicio": e.get("servicio")} for e in nunca]
+        otras = [e for e in exc if e.get("regla") != "nunca_automatica"]
+        if otras:
+            resto["excepciones"] = otras
+        else:
+            resto.pop("excepciones")
+    if conf:
+        pol["confianza"] = conf
+    if ra:
+        pol["respuesta_automatica"] = ra
+    if graves:
+        pol["desconocidos_graves"] = graves
+    return pol, resto

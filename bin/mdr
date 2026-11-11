@@ -25,6 +25,9 @@ Uso: mdr <orden> [argumentos]
   analista alta <nombre> [--clave-ssh <fichero.pub>] | baja <nombre> | lista
                                    Tokens de la consola y cuentas limitadas al túnel.
   validar-perfil [perfil.yml]      Revisa el perfil del cliente (por defecto, el de TRIAJE_PERFIL).
+  validar-politica [politica.yml]  Revisa la política de la empresa (por defecto, TRIAJE_POLITICA).
+  explicar-politica [politica.yml] La política efectiva contada en frases (lo que aprueba Seguridad).
+  migrar-politica                  Saca del perfil las reglas de política a un politica.yml nuevo.
   validar-alertas <muestra.json>   Cuenta qué alertas de una muestra del SIEM sabe tratar el MDR.
   escanear [--puertos 22,443] [--equipos a,b]
                                    Escanea con Nmap los equipos del perfil y escribe la postura
@@ -60,6 +63,12 @@ avisos += ["mapa de la red: " + l.split("sección red: ", 1)[-1] for l in stream
            if l.split("sección red: ", 1)[-1] not in avisos]
 print("\n".join(avisos) if avisos else "perfil sin avisos")
 sys.exit(1 if avisos else 0)' "$perfil" ;;
+  validar-politica)
+    exec python3 -m prototipo.herramientas.politica validar "$@" ;;
+  explicar-politica)
+    exec python3 -m prototipo.herramientas.politica explicar "$@" ;;
+  migrar-politica)
+    exec python3 -m prototipo.herramientas.politica migrar "$@" ;;
   validar-alertas)
     [ "$#" -ge 1 ] || { echo "mdr: indica la muestra de alertas (JSON, una por línea)" >&2; exit 2; }
     exec python3 -m prototipo.herramientas.validar_reglas "$@" ;;

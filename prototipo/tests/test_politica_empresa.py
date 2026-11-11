@@ -136,3 +136,49 @@ class TestValidar(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestExplicar(unittest.TestCase):
+    def setUp(self):
+        self.frases = pe.explicar(pe.fusionar_perfil_y_politica(PERFIL, POLITICA), CAT)
+        self.texto = "\n".join(self.frases)
+
+    def test_cuenta_la_confianza(self):
+        self.assertIn("10.99.0.10", self.texto)
+        self.assertIn("203.0.113.7", self.texto)
+        self.assertIn("9 alertas en 60 s", self.texto)
+
+    def test_cuenta_la_automatizacion_por_capas(self):
+        self.assertIn("0,90", self.texto)
+        self.assertTrue(any("acceso_credenciales" in f and "certeza" in f for f in self.frases))
+        self.assertTrue(any("Interna" in f and "db01" in f and "analista" in f for f in self.frases))
+        self.assertTrue(any("db01" in f and "5432" in f for f in self.frases))
+
+    def test_nombra_los_frenos_duros_del_codigo(self):
+        frase = next(f for f in self.frases if "nunca se contienen solos" in f)
+        self.assertIn("integridad_fichero", frase)
+
+    def test_sin_politica_explica_el_perfil(self):
+        self.assertTrue(pe.explicar(PERFIL, CAT))          # nunca vacío: al menos los frenos del código
+
+
+class TestExtraer(unittest.TestCase):
+    def test_ida_y_vuelta(self):
+        perfil = pe.fusionar_perfil_y_politica(PERFIL, POLITICA)
+        pol, resto = pe.extraer_politica(perfil)
+        self.assertNotIn("origenes_legitimos", resto)
+        self.assertEqual(pe.fusionar_perfil_y_politica(resto, pol), perfil)
+        self.assertEqual(pol["respuesta_automatica"]["por_defecto"], "si_hay_certeza")
+        self.assertEqual(pol["nunca_tocar_en_automatico"], [{"equipo": "db01", "servicio": 5432}])
+
+    def test_lo_tecnico_se_queda_en_el_perfil(self):
+        perfil = {**PERFIL, "rafaga": {"umbral": 9, "ventana_s": 60, "umbral_largo": 15}}
+        pol, resto = pe.extraer_politica(perfil)
+        self.assertEqual(resto["rafaga"], {"umbral_largo": 15})
+        self.assertEqual(resto["activos"], PERFIL["activos"])
+
+    def test_actores_distintos_se_quedan_en_el_perfil(self):
+        perfil = {**PERFIL, "continuidad": {"actores": {"activo_interno": "humano_siempre", "dispositivo_red": "automatica"}}}
+        pol, resto = pe.extraer_politica(perfil)
+        self.assertNotIn("equipos_propios", pol.get("respuesta_automatica") or {})
+        self.assertEqual(resto["continuidad"]["actores"], perfil["continuidad"]["actores"])

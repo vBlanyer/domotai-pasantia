@@ -93,6 +93,12 @@ class TestEstado(unittest.TestCase):
         self.assertEqual(c["nivel"], "aviso")
         self.assertIn("Conectividad", c["remedio"])
 
+    def test_la_politica_aparece_en_el_estado(self):
+        c = self._por_tema()["política"]
+        self.assertEqual(c["nivel"], "ok")                      # sin TRIAJE_POLITICA: reglas en el perfil
+        self.env["TRIAJE_POLITICA"] = os.path.join(self.d, "no-existe.yml")
+        self.assertEqual(self._por_tema()["política"]["nivel"], "fallo")
+
     def test_perfil_ausente_es_un_fallo(self):
         os.unlink(self.env["TRIAJE_PERFIL"])
         self.assertEqual(self._por_tema()["perfil"]["nivel"], "fallo")
