@@ -97,14 +97,18 @@ def capturar(equipo="api-movil"):
 
 
 _DESHACER = "/root/mdr-fallos-copia"
+# El sshd del banco se renombra a «sshd: /usr/sbin/sshd … [listener]» y `pkill` con nombre exacto no lo
+# encuentra (medido el 11/11: el caso «sshd» no paraba nada y «clave-host» no recargaba). Se apunta al
+# proceso que escucha, no a las sesiones.
+_SSHD = "'^sshd: /usr/sbin/sshd'"
 _CASOS = {
     "e1": ("iptables -C INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP 2>/dev/null || iptables -I INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP",
            "iptables -D INPUT -s 10.100.0.10 -p tcp --dport 22 -j DROP 2>/dev/null || true"),
-    "sshd": ("pkill -x sshd || true", "pgrep -x sshd >/dev/null || /usr/sbin/sshd -E /var/log/banco/sshd.log"),
+    "sshd": (f"pkill -f {_SSHD} || true", f"pgrep -f {_SSHD} >/dev/null || /usr/sbin/sshd -E /var/log/banco/sshd.log"),
     "sin-clave": (f"mkdir -p {_DESHACER} && cp -p /home/triaje/.ssh/authorized_keys {_DESHACER}/authorized_keys && : > /home/triaje/.ssh/authorized_keys",
                   f"cp -p {_DESHACER}/authorized_keys /home/triaje/.ssh/authorized_keys"),
-    "clave-host": (f"mkdir -p {_DESHACER}/ssh && cp -p /etc/ssh/ssh_host_* {_DESHACER}/ssh/ && rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && pkill -HUP -x sshd || true",
-                   f"cp -p {_DESHACER}/ssh/ssh_host_* /etc/ssh/ && pkill -HUP -x sshd || true"),
+    "clave-host": (f"mkdir -p {_DESHACER}/ssh && cp -p /etc/ssh/ssh_host_* {_DESHACER}/ssh/ && rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && pkill -HUP -f {_SSHD} || true",
+                   f"cp -p {_DESHACER}/ssh/ssh_host_* /etc/ssh/ && pkill -HUP -f {_SSHD} || true"),
     "contramedida": ("nohup sh -c 'while true; do for r in $(iptables -S INPUT | grep -o \"192\\.0\\.2\\.[0-9]*\"); do "
                      "iptables -D INPUT -s $r -j DROP 2>/dev/null; done; sleep 0.1; done' >/dev/null 2>&1 & echo $! > /tmp/mdr-contramedida.pid",
                      "kill $(cat /tmp/mdr-contramedida.pid) 2>/dev/null; rm -f /tmp/mdr-contramedida.pid"),

@@ -801,9 +801,8 @@ El historial del equipo borrado se conserva en Decisiones y en Trazas.
 
 ## 21. Recortes ante fallos de contención
 
-Son **experimentales**: probados, pero no validados contra una red completa. Están **apagados por
-defecto** y se encienden con `=1` al arrancar el MDR. No cambian qué se contiene: solo ahorran
-conexiones que no podían servir.
+No cambian qué se contiene: solo ahorran conexiones que no podían servir. Están validados contra una
+red completa y van **encendidos por defecto**; cada uno se apaga con `=0` al arrancar el MDR.
 
 > **Quién puede:** administración del MDR.
 

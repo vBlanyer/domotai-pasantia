@@ -1,0 +1,275 @@
+clab-red-cliente-wazuh
+Banco detenido.
+== 1. Desplegando el banco ==
+11:36:12 INFO Containerlab started version=0.79.0
+11:36:12 INFO Parsing & checking topology file=banco.clab.yml
+11:36:12 INFO Creating docker network name=clab IPv4 subnet=172.20.20.0/24 IPv6 subnet=3fff:172:20:20::/64 MTU=0
+11:36:12 INFO Creating lab directory path=/home/pc/pasantias/domotai-pasantia/lab/topologias/clab-banco
+11:36:12 INFO Creating container name=hsm
+11:36:12 INFO Creating container name=taquilla
+11:36:12 INFO Creating container name=sw-soc
+11:36:12 INFO Creating container name=atm
+11:36:12 INFO Creating container name=fw-edge
+11:36:12 INFO Creating container name=api-movil
+11:36:12 INFO Creating container name=middleware
+11:36:12 INFO Creating container name=pagos-qr
+11:36:12 INFO Creating container name=swift-alliance
+11:36:12 INFO Creating container name=web-banking
+11:36:12 INFO Creating container name=internet
+11:36:12 INFO Creating container name=mdr-siem
+11:36:12 INFO Creating container name=core-db
+11:36:12 INFO Creating container name=fw-core
+11:36:12 INFO Creating container name=auditor
+11:36:13 INFO Created link: internet:eth1 ▪┄┄▪ fw-edge:eth1
+11:36:13 INFO Created link: fw-edge:eth2 ▪┄┄▪ fw-core:eth1
+11:36:14 INFO Created link: sw-soc:eth2 ▪┄┄▪ mdr-siem:eth1
+11:36:14 INFO Created link: sw-soc:eth3 ▪┄┄▪ auditor:eth1
+11:36:14 INFO Created link: fw-core:eth2 ▪┄┄▪ web-banking:eth1
+11:36:14 INFO Created link: fw-core:eth4 ▪┄┄▪ swift-alliance:eth1
+11:36:14 INFO Created link: fw-core:eth5 ▪┄┄▪ middleware:eth1
+11:36:14 INFO Created link: fw-core:eth3 ▪┄┄▪ api-movil:eth1
+11:36:14 INFO Created link: fw-core:eth6 ▪┄┄▪ core-db:eth1
+11:36:14 INFO Created link: fw-core:eth7 ▪┄┄▪ hsm:eth1
+11:36:14 INFO Created link: fw-core:eth8 ▪┄┄▪ sw-soc:eth1
+11:36:14 INFO Created link: fw-core:eth9 ▪┄┄▪ taquilla:eth1
+11:36:14 INFO Created link: fw-core:eth10 ▪┄┄▪ atm:eth1
+11:36:14 INFO Created link: fw-core:eth11 ▪┄┄▪ pagos-qr:eth1
+11:36:15 INFO Executed command node=mdr-siem command="ip addr add 10.100.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=taquilla command="ip addr add 10.200.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=swift-alliance command="ip addr add 10.30.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=pagos-qr command="ip addr add 10.70.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=taquilla command="ip route add 10.0.0.0/8 via 10.200.0.1" stdout=""
+11:36:15 INFO Executed command node=swift-alliance command="ip route add 10.0.0.0/8 via 10.30.0.1" stdout=""
+11:36:15 INFO Executed command node=auditor command="ip addr add 10.100.0.20/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=pagos-qr command="ip route add 10.0.0.0/8 via 10.70.0.1" stdout=""
+11:36:15 INFO Executed command node=mdr-siem command="ip route add 10.0.0.0/8 via 10.100.0.1" stdout=""
+11:36:15 INFO Executed command node=fw-edge command="ip addr add 198.51.100.1/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=hsm command="ip addr add 10.60.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=mdr-siem command="ip route add 198.51.100.0/24 via 10.100.0.1" stdout=""
+11:36:15 INFO Executed command node=pagos-qr command="ip route add 198.51.100.0/24 via 10.70.0.1" stdout=""
+11:36:15 INFO Executed command node=swift-alliance command="ip route add 198.51.100.0/24 via 10.30.0.1" stdout=""
+11:36:15 INFO Executed command node=taquilla command="ip route add 198.51.100.0/24 via 10.200.0.1" stdout=""
+11:36:15 INFO Executed command node=hsm command="ip route add 10.0.0.0/8 via 10.60.0.1" stdout=""
+11:36:15 INFO Executed command node=auditor command="ip route add 10.0.0.0/8 via 10.100.0.1" stdout=""
+11:36:15 INFO Executed command node=fw-edge command="ip addr add 10.0.0.254/24 dev eth2" stdout=""
+11:36:15 INFO Executed command node=hsm command="ip route add 198.51.100.0/24 via 10.60.0.1" stdout=""
+11:36:15 INFO Executed command node=auditor command="ip route add 198.51.100.0/24 via 10.100.0.1" stdout=""
+11:36:15 INFO Executed command node=fw-edge command="ip route add 10.0.0.0/8 via 10.0.0.1" stdout=""
+11:36:15 INFO Executed command node=internet command="ip addr add 198.51.100.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=internet command="ip route add 10.0.0.0/8 via 198.51.100.1" stdout=""
+11:36:15 INFO Executed command node=atm command="ip addr add 10.210.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=internet command="ip route del default" stdout=""
+11:36:15 INFO Executed command node=internet command="iptables -A OUTPUT -o eth0 -j DROP" stdout=""
+11:36:15 INFO Executed command node=atm command="ip route add 10.0.0.0/8 via 10.210.0.1" stdout=""
+11:36:15 INFO Executed command node=atm command="ip route add 198.51.100.0/24 via 10.210.0.1" stdout=""
+11:36:15 INFO Executed command node=middleware command="ip addr add 10.40.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=core-db command="ip addr add 10.50.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=sw-soc command="ip link add br0 type bridge" stdout=""
+11:36:15 INFO Executed command node=web-banking command="ip addr add 10.10.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=middleware command="ip route add 10.0.0.0/8 via 10.40.0.1" stdout=""
+11:36:15 INFO Executed command node=core-db command="ip route add 10.0.0.0/8 via 10.50.0.1" stdout=""
+11:36:15 INFO Executed command node=web-banking command="ip route add 10.0.0.0/8 via 10.10.0.1" stdout=""
+11:36:15 INFO Executed command node=sw-soc command="ip link set eth1 master br0" stdout=""
+11:36:15 INFO Executed command node=web-banking command="ip route add 198.51.100.0/24 via 10.10.0.1" stdout=""
+11:36:15 INFO Executed command node=middleware command="ip route add 198.51.100.0/24 via 10.40.0.1" stdout=""
+11:36:15 INFO Executed command node=core-db command="ip route add 198.51.100.0/24 via 10.50.0.1" stdout=""
+11:36:15 INFO Executed command node=sw-soc command="ip link set eth2 master br0" stdout=""
+11:36:15 INFO Executed command node=sw-soc command="ip link set eth3 master br0" stdout=""
+11:36:15 INFO Executed command node=api-movil command="ip addr add 10.20.0.10/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=sw-soc command="ip link set br0 up" stdout=""
+11:36:15 INFO Executed command node=api-movil command="ip route add 10.0.0.0/8 via 10.20.0.1" stdout=""
+11:36:15 INFO Executed command node=api-movil command="ip route add 198.51.100.0/24 via 10.20.0.1" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.0.0.1/24 dev eth1" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.10.0.1/24 dev eth2" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.20.0.1/24 dev eth3" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.30.0.1/24 dev eth4" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.40.0.1/24 dev eth5" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.50.0.1/24 dev eth6" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.60.0.1/24 dev eth7" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.100.0.1/24 dev eth8" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.200.0.1/24 dev eth9" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.210.0.1/24 dev eth10" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip addr add 10.70.0.1/24 dev eth11" stdout=""
+11:36:15 INFO Executed command node=fw-core command="ip route add 198.51.100.0/24 via 10.0.0.254" stdout=""
+11:36:15 INFO Adding host entries path=/etc/hosts
+11:36:15 INFO Adding SSH config for nodes path=/etc/ssh/ssh_config.d/clab-banco.conf
+11:36:15 INFO containerlab version
+  🎉=
+  │ A newer containerlab version (0.83.0) is available!
+  │ Release notes: https://containerlab.dev/rn/0.83/
+  │ Run 'clab version upgrade' or see https://containerlab.dev/install/ for other installation options.
+[1m╭[0m[1m───────────────────────────[0m[1m┬[0m[1m──────────────[0m[1m┬[0m[1m─────────[0m[1m┬[0m[1m────────────────────[0m[1m╮[0m
+[1m│[0m[1m            Name           [0m[1m│[0m[1m  Kind/Image  [0m[1m│[0m[1m  State  [0m[1m│[0m[1m   IPv4/6 Address   [0m[1m│[0m
+[1m├[0m[1m───────────────────────────[0m[1m┼[0m[1m──────────────[0m[1m┼[0m[1m─────────[0m[1m┼[0m[1m────────────────────[0m[1m┤[0m
+│ clab-banco-api-movil      │ linux        │ running │ 172.20.20.16       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::10 │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-atm            │ linux        │ running │ 172.20.20.10       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::a  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-auditor        │ linux        │ running │ 172.20.20.6        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::6  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-core-db        │ linux        │ running │ 172.20.20.15       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::f  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-fw-core        │ linux        │ running │ 172.20.20.9        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::9  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-fw-edge        │ linux        │ running │ 172.20.20.8        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::8  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-hsm            │ linux        │ running │ 172.20.20.7        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::7  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-internet       │ linux        │ running │ 172.20.20.11       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::b  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-mdr-siem       │ linux        │ running │ 172.20.20.5        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::5  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-middleware     │ linux        │ running │ 172.20.20.13       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::d  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-pagos-qr       │ linux        │ running │ 172.20.20.2        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::2  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-sw-soc         │ linux        │ running │ 172.20.20.12       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::c  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-swift-alliance │ linux        │ running │ 172.20.20.4        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::4  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-taquilla       │ linux        │ running │ 172.20.20.3        │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::3  │
+├───────────────────────────┼──────────────┼─────────┼────────────────────┤
+│ clab-banco-web-banking    │ linux        │ running │ 172.20.20.14       │
+│                           │ banco-nodo:1 │         │ 3fff:172:20:20::e  │
+╰───────────────────────────┴──────────────┴─────────┴────────────────────╯
+== 2. Wazuh ==
+4f20536dc8c19f7d03a93562507225eb1498c9f1a558143b09ec178d2dae7cc4
+Wazuh manager arrancando...
+Wazuh listo, recepcion de syslog activa. IP de gestion:
+  172.20.20.17
+== 3. sshd, servicios y reenviadores ==
+== 4. Monitor de salud en mdr-siem ==
+== Banco en marcha. Prueba: sh lab/banco/banco.sh test ==
+== Aprovisionando minimo privilegio (conector desde mdr-siem) ==
+-- api-movil (10.20.0.10) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-api-movil, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+-- atm (10.210.0.10) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-atm, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+-- core-db (10.50.0.10) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-core-db, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+-- hsm (10.60.0.10) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-hsm, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+-- middleware (10.40.0.10) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-middleware, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+-- swift-alliance (10.30.0.10) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-swift-alliance, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+-- taquilla (10.200.0.10) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-taquilla, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+-- web-banking (10.10.0.10) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-web-banking, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+-- fw-core (10.0.0.1) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-fw-core, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+-- fw-edge (10.0.0.254) --
+== 1. Clave del conector en el auditor ==
+== 2. Usuario 'triaje' en clab-banco-fw-edge, solo con clave ==
+== 3. Sudoers generado desde el catalogo ==
+# AVISO: sin ruta en el nodo, fuera del sudoers: ss, tc, service, restaurar
+   19 comandos permitidos
+== 4. Comprobaciones ==
+   permitido (del catalogo):  iptables -L -n   OK
+   denegado (fuera del catalogo): true   OK
+   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+== listo: el conector usara la clave (conector.ejecutor_por_defecto) ==
+== Aprovisionamiento completo ==
+-- 1. internet -> web-banking (a traves de fw-edge y fw-core)
+   HTTP 200
+-- 2. mdr-siem llega a los dos cortafuegos
+   10.0.0.1 OK
+   10.0.0.254 OK
+-- 3. Todos los servicios sanos
+   OK

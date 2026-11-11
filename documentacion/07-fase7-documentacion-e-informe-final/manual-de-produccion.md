@@ -1058,8 +1058,9 @@ El icono de esta vista en el menú se pone **rojo** con cualquiera de esos probl
 ## 27. Recortes ante fallos de contención
 
 Cinco ajustes que ahorran conexiones que no podían servir cuando un equipo falla. No cambian qué se
-contiene. Son **experimentales**: están probados, pero no validados contra una red completa, así que
-van **apagados por defecto**. Se encienden con `=1` en `/etc/mdr/triaje.env`, reiniciando el servicio.
+contiene. Están validados contra una red completa y van **encendidos por defecto**. Cada uno se apaga
+con `=0` en `/etc/mdr/triaje.env`, reiniciando el servicio. Los tres que usan lo que sabe Conectividad
+(los equipos aprovisionados y su última prueba) no hacen nada hasta que haya equipos dados de alta.
 
 > **Quién puede:** administración del MDR.
 
@@ -1450,5 +1451,5 @@ no ve, el MDR tampoco.
 | Sin inicio de sesión corporativo (SSO) | El acceso es por túnel SSH y token por analista |
 | Un perfil por instalación | Varios clientes, varias instalaciones |
 | Cambiar el perfil exige reiniciar | Lo que vive en memoria (avisos de Conectividad, memoria de fallos) se pierde al reiniciar |
-| Los recortes ante fallos son experimentales | Van apagados; encenderlos es decisión de quien administra (sección 27) |
+| La memoria de fallos vive en el proceso | Tras reiniciar, vuelve a necesitar tres fallos seguidos de un equipo para abrirse (sección 27) |
 | Conectividad: límites aceptados | El bloqueo frente a ediciones simultáneas es solo dentro del proceso; la rotación escribe en el `authorized_keys` del usuario `triaje` de cada equipo; un papel con «cualquier cuenta» deja en el motor la decisión de qué cuenta bloquear; una regla «que falta» no distingue un comando no instalado de una regla quitada |

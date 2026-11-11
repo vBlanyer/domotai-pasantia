@@ -1,0 +1,118 @@
+[
+ {
+  "modo": "apagados",
+  "caso": "Prueba de Conectividad de web-banking",
+  "estado": "verificada",
+  "faltan": [
+   "restaurar *",
+   "service * start",
+   "service * stop",
+   "ss -K dst *",
+   "ss -lntu",
+   "ss -tunap",
+   "tc qdisc del dev * root",
+   "tc qdisc replace dev * root tbf rate * burst 32kbit latency 400ms",
+   "tc qdisc show dev *"
+  ]
+ },
+ {
+  "modo": "apagados",
+  "caso": "F2 — web-banking sin huella fijada (PRECHECK)",
+  "ip": "198.51.100.177",
+  "segundos": 5.3,
+  "accion": "BLOQUEAR_IP",
+  "exito_activo": false,
+  "rc": 255,
+  "omitido": null,
+  "causa": "F2",
+  "escalada": "mitigado",
+  "contenido_en": "fw-core",
+  "pasos": [
+   "fw-core: OK: BLOQUEAR_IP_FIREWALL aplicada en fw-core (rc=0",
+   "fw-core: bloqueado"
+  ]
+ },
+ {
+  "modo": "apagados",
+  "caso": "E1 + fw-core sin huella fijada (ESCALADA_SOLO)",
+  "ip": "198.51.100.178",
+  "segundos": 30.4,
+  "accion": "BLOQUEAR_IP",
+  "exito_activo": false,
+  "rc": 255,
+  "omitido": null,
+  "causa": "F5",
+  "escalada": "mitigado",
+  "contenido_en": "fw-edge",
+  "pasos": [
+   "fw-core: Error: fallo en fw-core (rc=255)",
+   "fw-edge: OK: BLOQUEAR_IP_FIREWALL aplicada en fw-edge (rc=0",
+   "fw-edge: bloqueado"
+  ]
+ },
+ {
+  "modo": "apagados",
+  "caso": "F6 — cortar conexión sin ss (ACCION_NO_EJECUTABLE)",
+  "ip": "198.51.100.179",
+  "segundos": null,
+  "error": "sin decisión en el plazo"
+ },
+ {
+  "modo": "encendidos",
+  "caso": "Prueba de Conectividad de web-banking",
+  "estado": "verificada",
+  "faltan": [
+   "restaurar *",
+   "service * start",
+   "service * stop",
+   "ss -K dst *",
+   "ss -lntu",
+   "ss -tunap",
+   "tc qdisc del dev * root",
+   "tc qdisc replace dev * root tbf rate * burst 32kbit latency 400ms",
+   "tc qdisc show dev *"
+  ]
+ },
+ {
+  "modo": "encendidos",
+  "caso": "F2 — web-banking sin huella fijada (PRECHECK)",
+  "ip": "198.51.100.180",
+  "segundos": 6.3,
+  "accion": "BLOQUEAR_IP",
+  "exito_activo": false,
+  "rc": null,
+  "omitido": "sin_aprovisionar",
+  "causa": "F2",
+  "escalada": "mitigado",
+  "contenido_en": "fw-core",
+  "pasos": [
+   "fw-core: OK: BLOQUEAR_IP_FIREWALL aplicada en fw-core (rc=0",
+   "fw-core: bloqueado"
+  ]
+ },
+ {
+  "modo": "encendidos",
+  "caso": "E1 + fw-core sin huella fijada (ESCALADA_SOLO)",
+  "ip": "198.51.100.181",
+  "segundos": 15.4,
+  "accion": "BLOQUEAR_IP",
+  "exito_activo": false,
+  "rc": 255,
+  "omitido": null,
+  "causa": "F5",
+  "escalada": "mitigado",
+  "contenido_en": "fw-edge",
+  "pasos": [
+   "fw-core: salto omitido: fw-core sin aprovisionar",
+   "fw-edge: OK: BLOQUEAR_IP_FIREWALL aplicada en fw-edge (rc=0",
+   "fw-edge: bloqueado"
+  ]
+ },
+ {
+  "modo": "encendidos",
+  "caso": "F6 — cortar conexión sin ss (ACCION_NO_EJECUTABLE)",
+  "ip": "198.51.100.182",
+  "segundos": null,
+  "error": "sin decisión en el plazo"
+ }
+]

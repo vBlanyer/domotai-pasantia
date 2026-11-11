@@ -206,10 +206,9 @@ python3 -m prototipo.servicio.stream <fuente> <perfil> <hallazgos> [flags]
 | `--una-vez` | Procesa un fichero FINITO hasta el final y sale (para pruebas/demos/reproceso puntual), en vez de seguirlo como `tail -f`. |
 | `--escuchar host:puerto` · `--permitir IP,…` · `--tls-cert/-clave` · `--tls-ca` | Recepción de alertas por red (SIEM remoto) con lista blanca (obligatoria fuera de loopback) y TLS opcional; con `--tls-ca`, mTLS (exige cert de cliente). Ver [deploy/README.md](deploy/README.md). |
 
-### Recortes ante fallos de contención (apagados por defecto)
+### Recortes ante fallos de contención
 
-Fase 4 de [documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md](documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md). Cada uno se enciende con
-`=1` al arrancar el daemon. No cambian qué se contiene: solo ahorran conexiones que no podían servir.
+Fases 4–6 de [documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md](documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md). No cambian qué se contiene: solo ahorran conexiones que no podían servir. Los cinco se validaron en el banco el 11/11/2026 ([resultados](evaluacion/resultados/validacion-recortes-2026-11-11/README.md)): ninguna contención se pierde. Van **encendidos por defecto** y se apagan con `=0`; los tres que dependen de la consola no hacen nada sin datos de Conectividad. Para repetir la validación: `python3 -m lab.banco.validar_recortes` con el banco levantado y aprovisionado.
 
 | Variable | Efecto |
 |---|---|

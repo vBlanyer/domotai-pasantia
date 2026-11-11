@@ -7,11 +7,14 @@ _SEGURO = re.compile(r'^[A-Za-z0-9._:-]+\Z')   # IPs, puertos, nombres de servic
 
 # Secretos del propio MDR que el subproceso (docker/ssh) NO necesita: se filtran de su entorno para no
 # exponerlos vía /proc/<pid>/environ a un usuario local del nodo de gestión (endurecimiento V1.1 #3).
-_SECRETOS_ENTORNO = ("TRIAJE_TRAZA_CLAVE", "TRIAJE_ANCLA", "TRIAJE_CONSOLA_TOKEN", "TRIAJE_CONSOLA_OPERADORES")
+# Ni ssh ni docker exec leen ninguna variable del MDR: no se les pasa ninguna `TRIAJE_*`. Antes era una
+# lista negra de cuatro secretos (clave de la traza, ancla, token y operadores de la consola), que dejaba
+# pasar cualquier secreto nuevo; la prueba `test_ejecuta_con_entorno_filtrado_y_plazo` ya exigía esto.
+_PREFIJO_PROPIO = "TRIAJE_"
 
 
 def _env_filtrado():
-    return {k: v for k, v in os.environ.items() if k not in _SECRETOS_ENTORNO}
+    return {k: v for k, v in os.environ.items() if not k.startswith(_PREFIJO_PROPIO)}
 # \Z (no $) para que un \n final no cuele -> separador de comandos en el shell remoto.
 
 

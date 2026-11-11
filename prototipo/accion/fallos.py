@@ -110,8 +110,18 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
             "posible_ataque": ataque or regresion, "regresion": regresion, "evidencia": evidencia[:300]}
 
 
+# Los cinco recortes se validaron en el banco el 11/11/2026 (evaluacion/resultados/validacion-recortes-2026-11-11):
+# ninguna contención perdida y la misma causa con y sin ellos. Van encendidos por defecto y se apagan con la
+# variable a "0". Los que dependen de la consola (PRECHECK, ESCALADA_SOLO, ACCION_NO_EJECUTABLE) no hacen nada
+# sin datos de Conectividad.
+VALIDADOS = frozenset({"TRIAJE_FALLO_RAPIDO", "TRIAJE_PRECHECK_APROVISIONADO", "TRIAJE_ESCALADA_SOLO_APROVISIONADOS",
+                       "TRIAJE_MEMORIA_FALLOS", "TRIAJE_ACCION_NO_EJECUTABLE"})
+
+
 def interruptor(nombre):
-    """Los recortes de la fase 4 van con su variable, apagados por defecto hasta validarlos."""
+    """Los recortes van con su variable: los validados, encendidos salvo `=0`; uno nuevo sin validar, apagado salvo `=1`."""
+    if nombre in VALIDADOS:
+        return os.environ.get(nombre, "1") != "0"
     return os.environ.get(nombre) == "1"
 
 

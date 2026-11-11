@@ -1,14 +1,10 @@
 # Plan: manejo de los fallos de contención sin malinterpretar un error real
 
-> **Estado final (10/11/2026).** Fases 0–6 implementadas (ver el anexo A). **Decisión del 10/11/2026:** los
-> cinco recortes —`TRIAJE_FALLO_RAPIDO`, `TRIAJE_PRECHECK_APROVISIONADO`,
-> `TRIAJE_ESCALADA_SOLO_APROVISIONADOS`, `TRIAJE_MEMORIA_FALLOS` y `TRIAJE_ACCION_NO_EJECUTABLE`— se
-> cierran como **funcionalidad experimental, apagada por defecto**. Con ellos apagados el MDR se comporta
-> como antes del plan, más la clasificación de causas, los mensajes y el estado operativo en Conectividad
-> (fases 1–3), que no cambian decisiones. La **validación en el laboratorio** y el encendido por defecto
-> quedan como **trabajo futuro**, no como pendiente del proyecto
-> ([trabajo aplazado](../00-general/v2-trabajo-aplazado.md)). Los «Pendiente» de cada fase en el anexo se
-> leen con esta decisión.
+> **Estado final (11/11/2026).** Fases 0–6 implementadas (anexo A) y **validadas en el banco** (anexo B,
+> [resultados](../../evaluacion/resultados/validacion-recortes-2026-11-11/README.md)): con los cinco recortes
+> ninguna contención se pierde y la causa es la misma que sin ellos. Desde el 11/11 van **encendidos por
+> defecto** (`fallos.VALIDADOS`) y se apagan con la variable a `0`. La decisión del 10/11 de dejarlos como
+> funcionalidad experimental apagada queda superada.
 
 > **Problema.** Cuando una contención falla, el MDR hoy no distingue *por qué*. «Equipo sin
 > aprovisionar», «equipo inalcanzable», «sudo deniega la acción» y «alguien suplanta al equipo» salen
@@ -461,3 +457,22 @@ del laboratorio para no interferir con él.
 Los cinco interruptores de las fases 4–6 se quedan **apagados por defecto** como funcionalidad
 experimental. Los «Pendiente: validación en el laboratorio» de arriba pasan a trabajo futuro: se harán, si
 se hacen, después de la entrega, y solo entonces se encenderían por defecto en un commit aparte.
+
+## Anexo B · Validación en el banco (11/11/2026)
+
+Arnés reproducible: `python3 -m lab.banco.validar_recortes` (banco levantado y aprovisionado). Resultados
+completos, método e incidencias en
+[evaluacion/resultados/validacion-recortes-2026-11-11/README.md](../../evaluacion/resultados/validacion-recortes-2026-11-11/README.md).
+
+| Recorte | Caso | Sin el recorte | Con el recorte |
+|---|---|---|---|
+| `FALLO_RAPIDO` | F5 — el equipo descarta el SSH del MDR (E1) | 32–34 s | 18–20 s |
+| `MEMORIA_FALLOS` | F5 cuatro veces seguidas | ~31 s cada vez | 18 · 13 · 13 · **7** s; se abre al 3.º fallo y se cierra sola al recuperar el acceso (60–75 s) |
+| `PRECHECK_APROVISIONADO` | F2 — equipo sin huella fijada | se intenta y falla | no se intenta; mismo tiempo (F2 ya falla al instante) |
+| `ESCALADA_SOLO_APROVISIONADOS` | E1 + fw-core sin huella | 30 s, falla en fw-core | 15 s, salto omitido; contenido en fw-edge en los dos |
+| `ACCION_NO_EJECUTABLE` | F6 — cortar conexión sin `ss` | 17 s, sudo lo rechaza | 10 s, no se intenta |
+
+F3 (clave del host cambiada) y F8 (contramedida) dan la misma causa, desenlace y tiempo con y sin recortes,
+como exigía el criterio de la fase 4. No se ejercitaron F7 (comando que falla con sudo permitido) ni F9
+(daemon sin clave) en el banco; están cubiertos por las pruebas con las salidas reales capturadas en la fase 0.
+

@@ -38,7 +38,6 @@ capas = código. Analizado con datos el 26/10 (13–15 citas vivas por fichero).
 | Qué | Por qué se aplazó | Detalle |
 |---|---|---|
 | **Límites aceptados de la vista Conectividad** (revisión de seguridad, 10/11): (2) el bloqueo de escritura es solo dentro del proceso; (5) la rotación de la clave escribe en el `authorized_keys` de los equipos; (6) «cualquier cuenta» deja la frontera de cuentas en el motor, no en sudo; (7) las reglas «que faltan» no distinguen un binario ausente de una regla quitada | Los puntos críticos (1, 3 y 4, más el `reemplazar: true` de la clave del host) se cerraron; estos cuatro son límites conocidos que se aceptan para la entrega, con su mitigación descrita | [revision-seguridad-conectividad.md](../05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md) |
-| **Validar en el laboratorio los cinco recortes del plan de fallos** (`TRIAJE_FALLO_RAPIDO`, `TRIAJE_PRECHECK_APROVISIONADO`, `TRIAJE_ESCALADA_SOLO_APROVISIONADOS`, `TRIAJE_MEMORIA_FALLOS`, `TRIAJE_ACCION_NO_EJECUTABLE`) y, si pasan, encenderlos por defecto | Decisión del 10/11/2026: se cierran como funcionalidad **experimental, apagada por defecto**; con ellos apagados el comportamiento es el de siempre | [plan-manejo-fallos-contencion.md](../05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md) |
 
 ## Metodología de evaluación (opcional — descartado para la entrega el 21/10)
 

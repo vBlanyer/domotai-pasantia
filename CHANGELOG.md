@@ -5,6 +5,21 @@ Las **cifras canónicas de la evaluación** (clasificación, priorización, cont
 se mueven** entre versiones: todo lo posterior a v1.0 se diseñó para no alterarlas (ver el informe,
 capítulo de resultados, y `evaluacion/resultados/`).
 
+## [Sin publicar]
+
+### Cambiado
+- **Recortes ante fallos validados en el banco** (11/11/2026, `evaluacion/resultados/validacion-recortes-2026-11-11/`):
+  ninguna contención se pierde; un equipo que descarta el SSH del MDR pasa de ~33 s a ~19 s y los fallos
+  repetidos de ~31 s a ~7 s, y cortar una conexión que el equipo no puede ejecutar, de ~17 s a ~10 s. Los
+  cinco recortes quedan **encendidos por defecto** (`=0` los apaga).
+- **Conector:** no pasa ninguna variable `TRIAJE_*` a `ssh` ni a `docker exec` (antes, una lista de cuatro secretos).
+
+### Corregido
+- `lab/banco/fallos.py`: los casos «sshd» y «clave-host» no paraban ni recargaban el sshd del banco.
+
+### Añadido
+- `lab/banco/validar_recortes.py`: arnés reproducible de la validación de los recortes.
+
 ## [1.8] — 2026-11-10 · cierre del proyecto
 
 ### Añadido

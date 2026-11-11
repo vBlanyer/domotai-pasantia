@@ -1,0 +1,68 @@
+[
+ {
+  "modo": "apagados",
+  "caso": "Prueba de Conectividad de web-banking",
+  "estado": "verificada",
+  "faltan": [
+   "restaurar *",
+   "service * start",
+   "service * stop",
+   "ss -K dst *",
+   "ss -lntu",
+   "ss -tunap",
+   "tc qdisc del dev * root",
+   "tc qdisc replace dev * root tbf rate * burst 32kbit latency 400ms",
+   "tc qdisc show dev *"
+  ]
+ },
+ {
+  "modo": "apagados",
+  "caso": "F6 — cortar conexión sin ss (ACCION_NO_EJECUTABLE)",
+  "ip": "198.51.100.235",
+  "segundos": 16.6,
+  "accion": "MATAR_CONEXION",
+  "exito_activo": false,
+  "rc": 1,
+  "omitido": null,
+  "causa": "F6",
+  "escalada": "mitigado",
+  "contenido_en": "fw-core",
+  "pasos": [
+   "fw-core: OK: BLOQUEAR_IP_FIREWALL aplicada en fw-core (rc=0",
+   "fw-core: bloqueado"
+  ]
+ },
+ {
+  "modo": "encendidos",
+  "caso": "Prueba de Conectividad de web-banking",
+  "estado": "verificada",
+  "faltan": [
+   "restaurar *",
+   "service * start",
+   "service * stop",
+   "ss -K dst *",
+   "ss -lntu",
+   "ss -tunap",
+   "tc qdisc del dev * root",
+   "tc qdisc replace dev * root tbf rate * burst 32kbit latency 400ms",
+   "tc qdisc show dev *"
+  ]
+ },
+ {
+  "modo": "encendidos",
+  "caso": "F6 — cortar conexión sin ss (ACCION_NO_EJECUTABLE)",
+  "ip": "198.51.100.236",
+  "segundos": 9.6,
+  "accion": "MATAR_CONEXION",
+  "exito_activo": false,
+  "rc": null,
+  "omitido": "no_ejecutable",
+  "causa": "F6",
+  "escalada": "mitigado",
+  "contenido_en": "fw-core",
+  "pasos": [
+   "fw-core: OK: BLOQUEAR_IP_FIREWALL aplicada en fw-core (rc=0",
+   "fw-core: bloqueado"
+  ]
+ }
+]

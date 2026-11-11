@@ -1,0 +1,30 @@
+
+========================================================================
+  Monitor MDR en tiempo real — ACTIVO
+  Perfil: bancario.yml · Justificador: plantilla · Ejecutor: conector SSH con clave (usuario dedicado, sudo acotado)
+  Escuchando: stdin (canalizado) · ventana de agrupacion: 5s · traza SIN ancla (TRIAJE_ANCLA no definida) · SIN firma HMAC (TRIAJE_TRAZA_CLAVE no definida)
+  (Ctrl+C para detener)
+========================================================================
+[web] tablero en http://127.0.0.1:8791
+[aviso] geolocalización: sin base (TRIAJE_GEOIP); los orígenes salen sin país
+[aviso] ASN: sin base (TRIAJE_ASN); los orígenes salen sin organización
+⚠ Incidente: 3 alerta(s) · 10.100.0.10 -> web-banking (ssh) · reglas [5715x3]
+  Clase: no_soportada · Prioridad: 2 · Confianza: 1.0 · accion None -> None (filtro: sin acción) · justificador plantilla-0
+· s1 señales: ráfaga 3/60 s (umbral 9) · ssh expuesto (auditor) · origen legítimo: sí · criticidad alta
+· s1 política: sin acción
+⚠ Incidente: 10 alerta(s) · 198.51.100.235 -> web-banking (ssh) · reglas [5760x9, 5763x1]
+  Clase: vp_intento_acceso · Prioridad: 4 · Confianza: 1.0 · accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro: automática) · justificador plantilla-0
+  Consecuencia: bloquea a 198.51.100.235 (origen no inventariado) · 0 servicios detenidos
+· s2 señales: ráfaga 10/60 s (umbral 9) · ssh expuesto (auditor) · origen legítimo: no · criticidad alta
+▶ s2 BLOQUEAR_IP en web-banking (10.10.0.10): iptables -A INPUT -s 198.51.100.235 -j DROP
+✔ s2 verificada — contenida en web-banking
+⚠ Incidente: 1 alerta(s) · 198.51.100.235 -> web-banking (ssh) · reglas [100600x1]
+  Clase: vp_acceso_consumado · Prioridad: 4 · Confianza: 1.0 · accion MATAR_CONEXION -> MATAR_CONEXION (filtro: automática) · justificador plantilla-0
+  Consecuencia: bloquea a 198.51.100.235 (origen no inventariado) · 0 servicios detenidos
+  Escalada (el activo no respondio): mitigado · contenido en fw-core
+· s3 señales: ráfaga 11/60 s (umbral 9) · ssh expuesto (auditor) · origen legítimo: no · criticidad alta
+▶ s3 MATAR_CONEXION en web-banking (10.10.0.10): ss -K dst 198.51.100.235
+✗ s3 no se ejecutó en web-banking — acción no ejecutable en este equipo — falta en su sudoers: ss -K dst * (binario no instalado o fuera de su papel)
+· s3 evidencia: We trust you have received the usual lecture from the local System
+⇪ s3 escalada: contenida en fw-core con BLOQUEAR_IP_FIREWALL
+↺ actividad propia del MDR en web-banking (4 alerta(s)): no es un ataque

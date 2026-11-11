@@ -1,0 +1,2 @@
+{"operador": "validacion", "dimension": "prueba", "clave": "web-banking", "antes": null, "despues": {"estado": "verificada", "reglas": "faltan"}, "timestamp": "2026-11-11T15:37:38.410479+00:00"}
+{"operador": "validacion", "dimension": "prueba", "clave": "web-banking", "antes": null, "despues": {"estado": "verificada", "reglas": "faltan"}, "timestamp": "2026-11-11T15:45:42.128446+00:00"}

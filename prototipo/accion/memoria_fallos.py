@@ -1,5 +1,5 @@
 """Memoria de fallos por equipo (fase 5 de documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md). Interruptor
-TRIAJE_MEMORIA_FALLOS=1, apagado por defecto.
+TRIAJE_MEMORIA_FALLOS: encendido por defecto desde la validación en el banco del 11/11/2026 (se apaga con =0).
 
 Para qué: que 25 alertas seguidas contra un equipo inalcanzable no paguen 25 veces la espera. Riesgo: que
 esconda que un atacante dejó al SOC sin acceso. Por eso solo ACELERA (no se intenta en el equipo: se escala

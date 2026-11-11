@@ -320,9 +320,27 @@ class TestInterruptores(unittest.TestCase):
                                    leer=lambda *_: "s")
         return r, ej.llamadas, tablero.contencion_de(r)
 
-    def test_apagados_por_defecto(self):
-        for k in INTERRUPTORES:
-            self.assertFalse(fallos.interruptor(k))
+    def test_un_recorte_sin_validar_va_apagado(self):
+        # uno nuevo, fuera de VALIDADOS, solo se enciende con "1"
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TRIAJE_RECORTE_NUEVO", None)
+            self.assertFalse(fallos.interruptor("TRIAJE_RECORTE_NUEVO"))
+        with mock.patch.dict(os.environ, {"TRIAJE_RECORTE_NUEVO": "1"}):
+            self.assertTrue(fallos.interruptor("TRIAJE_RECORTE_NUEVO"))
+
+    def test_los_cinco_estan_validados(self):
+        self.assertEqual(fallos.VALIDADOS, set(INTERRUPTORES) | {"TRIAJE_MEMORIA_FALLOS", "TRIAJE_ACCION_NO_EJECUTABLE"})
+
+    def test_validados_encendidos_por_defecto(self):
+        # validados en el banco el 11/11: encendidos sin variable, apagados solo con "0"
+        for k in fallos.VALIDADOS:
+            with mock.patch.dict(os.environ, {}, clear=False):
+                os.environ.pop(k, None)
+                self.assertTrue(fallos.interruptor(k), k)
+            with mock.patch.dict(os.environ, {k: "0"}):
+                self.assertFalse(fallos.interruptor(k), k)
+            with mock.patch.dict(os.environ, {k: "1"}):
+                self.assertTrue(fallos.interruptor(k), k)
 
     def test_las_mismas_contenciones_con_y_sin_interruptores(self):
         for clase, activo in ACTIVOS.items():

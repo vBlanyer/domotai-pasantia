@@ -1,0 +1,48 @@
+
+========================================================================
+  Monitor MDR en tiempo real — ACTIVO
+  Perfil: bancario.yml · Justificador: plantilla · Ejecutor: conector SSH con clave (usuario dedicado, sudo acotado)
+  Escuchando: stdin (canalizado) · ventana de agrupacion: 5s · traza SIN ancla (TRIAJE_ANCLA no definida) · SIN firma HMAC (TRIAJE_TRAZA_CLAVE no definida)
+  (Ctrl+C para detener)
+========================================================================
+[web] tablero en http://127.0.0.1:8791
+[aviso] geolocalización: sin base (TRIAJE_GEOIP); los orígenes salen sin país
+[aviso] ASN: sin base (TRIAJE_ASN); los orígenes salen sin organización
+[inicio] memoria de fallos activa: 3 fallos seguidos de acceso a un equipo → se escala directo y se reprueba cada 60 s
+⚠ Incidente: 8 alerta(s) · 198.51.100.180 -> web-banking (ssh) · reglas [5760x7, 5763x1]
+  Clase: vp_intento_acceso · Prioridad: 4 · Confianza: 1.0 · accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro: automática) · justificador plantilla-0
+  Consecuencia: bloquea a 198.51.100.180 (origen no inventariado) · 0 servicios detenidos
+  Escalada (el activo no respondio): mitigado · contenido en fw-core
+· s1 señales: ráfaga 8/60 s (umbral 9) · ssh expuesto (auditor) · origen legítimo: no · criticidad alta
+▶ s1 BLOQUEAR_IP en web-banking (10.10.0.10): no se intentó
+✗ s1 no se ejecutó en web-banking — equipo sin aprovisionar — dalo de alta o fija su clave del host en Conectividad
+· s1 evidencia: no se intentó: el equipo no tiene su clave del host fijada
+⇪ s1 escalada: contenida en fw-core con BLOQUEAR_IP_FIREWALL
+⚠ Incidente: 3 alerta(s) · 10.100.0.10 -> web-banking (ssh) · reglas [5715x3]
+  Clase: no_soportada · Prioridad: 2 · Confianza: 1.0 · accion None -> None (filtro: sin acción) · justificador plantilla-0
+· s2 señales: ráfaga 3/60 s (umbral 9) · ssh expuesto (auditor) · origen legítimo: sí · criticidad alta
+· s2 política: sin acción
+↩ 198.51.100.180 → web-banking · acceso_credenciales — ya decidido (contenida en fw-core) · +1 suprimida(s) [ref s1]
+↺ actividad propia del MDR en fw-core (4 alerta(s)): no es un ataque
+⚠ Incidente: 10 alerta(s) · 198.51.100.181 -> web-banking (ssh) · reglas [5760x10]
+  Clase: vp_intento_acceso · Prioridad: 4 · Confianza: 1.0 · accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro: automática) · justificador plantilla-0
+  Consecuencia: bloquea a 198.51.100.181 (origen no inventariado) · 0 servicios detenidos
+  Escalada (el activo no respondio): mitigado · contenido en fw-edge
+· s3 señales: ráfaga 10/60 s (umbral 9) · ssh expuesto (auditor) · origen legítimo: no · criticidad alta
+▶ s3 BLOQUEAR_IP en web-banking (10.10.0.10): no se llegó a entrar en el equipo
+✗ s3 no se ejecutó en web-banking — POSIBLE ATAQUE · el MDR perdió el acceso a un equipo que funcionaba — posible ataque: compruébalo antes de reaprovisionar
+· s3 evidencia: ssh: connect to host 10.10.0.10 port 22: Operation timed out
+⇪ s3 escalada: contenida en fw-edge con BLOQUEAR_IP_FIREWALL
+↺ actividad propia del MDR en fw-edge (4 alerta(s)): no es un ataque
+⚠ Incidente: 10 alerta(s) · 198.51.100.182 -> web-banking (ssh) · reglas [5760x10]
+  Clase: vp_intento_acceso · Prioridad: 4 · Confianza: 1.0 · accion BLOQUEAR_IP -> BLOQUEAR_IP (filtro: automática) · justificador plantilla-0
+  Consecuencia: bloquea a 198.51.100.182 (origen no inventariado) · 0 servicios detenidos
+· s4 señales: ráfaga 10/60 s (umbral 9) · ssh expuesto (auditor) · origen legítimo: no · criticidad alta
+▶ s4 BLOQUEAR_IP en web-banking (10.10.0.10): iptables -A INPUT -s 198.51.100.182 -j DROP
+✔ s4 verificada — contenida en web-banking
+⚠ Incidente: 1 alerta(s) · 198.51.100.182 -> web-banking (ssh) · reglas [5715x1]
+  Clase: no_soportada · Prioridad: 2 · Confianza: 1.0 · accion None -> None (filtro: sin acción) · justificador plantilla-0
+· s5 señales: ráfaga 11/60 s (umbral 9) · ssh expuesto (auditor) · origen legítimo: no · criticidad alta
+· s5 política: sin acción
+↺ actividad propia del MDR en web-banking (4 alerta(s)): no es un ataque
+[aviso] ingesta: sin alertas desde hace 120 s; ¿sigue viva la fuente (Wazuh)?
