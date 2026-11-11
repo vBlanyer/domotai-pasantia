@@ -430,7 +430,7 @@ def _resumen_traza(reg, ips=None, externos=(), perfil=None):
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
 # fallos al procesar un incidente y reversiones de una contención ya decidida.
 _NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion", "actualizacion_caso",
-                  "auditoria_conectividad", "politica_cargada")
+                  "auditoria_conectividad", "politica_cargada", "auditoria_asistente")
 
 
 _ESTADO_PLAN = {"mitigado": "contenida", "fallido": "fallida", "cancelado_por_humano": "cancelada",
@@ -1075,6 +1075,13 @@ class _Manejador(BaseHTTPRequestHandler):
                 quien = operador_de(ops, self.headers.get("Authorization")) if isinstance(ops, dict) and ops else (
                     "consola" if os.environ.get("TRIAJE_CONECTIVIDAD_ABIERTA") == "1" else None)
                 return self._responder(conectividad_web.resumen(s, quien))
+            if ruta == "/api/asistente":   # asistente de red: estado del escaneo, borrador y nombres del SIEM
+                from prototipo.servicio import asistente_web
+                return self._responder(asistente_web.resumen(s, _registros_cacheados(s.ruta_traza)))
+            if ruta == "/api/asistente/propuesta":   # perfil, postura y política propuestos; NO escribe nada
+                from prototipo.servicio import asistente_web
+                codigo, resp = asistente_web.propuesta(s, estado_red)
+                return self._responder(resp, codigo)
             if ruta == "/api/conectividad/paquete":   # paquete de alta de un equipo (solo la clave PÚBLICA)
                 from prototipo.servicio import conectividad_web
                 q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
@@ -1202,6 +1209,7 @@ class _Manejador(BaseHTTPRequestHandler):
             s = self.server
             ruta = self.path.split("?", 1)[0]
             if ruta not in ("/api/aprobar", "/api/pausa", "/api/revertir-todo", "/api/revertir", "/api/caso", "/api/watchlist", "/api/politica",
+                            "/api/asistente/escanear", "/api/asistente/borrador",
                             "/api/conectividad", "/api/conectividad/probar", "/api/conectividad/leer-clave-host",
                             "/api/conectividad/clave-host", "/api/conectividad/inventario",
                             "/api/conectividad/inventario/quitar", "/api/conectividad/alta", "/api/conectividad/rotacion",
@@ -1220,6 +1228,10 @@ class _Manejador(BaseHTTPRequestHandler):
                                          self.headers.get("Authorization"), cuerpo)
             if ruta == "/api/politica":   # edita la postura de automatización (overlay operativo, fail-closed)
                 return self._post_politica(s, cuerpo, operador)
+            if ruta.startswith("/api/asistente/"):   # asistente de red: escanear y borrador (fail-closed, auditado)
+                from prototipo.servicio import asistente_web
+                codigo, resp = asistente_web.post(s, ruta, cuerpo, operador)
+                return self._responder(resp, codigo)
             if ruta.startswith("/api/conectividad"):   # ajustes del conector por equipo (fail-closed)
                 from prototipo.servicio import conectividad_web
                 codigo, resp = conectividad_web.post(s, ruta, cuerpo, operador)
@@ -1555,6 +1567,8 @@ def crear_servidor(estado, ruta_traza, salud=None, dependencias=None, estaticos=
     srv.ruta_overlay, srv.ruta_auditoria = ruta_overlay, ruta_auditoria
     from prototipo.servicio import conectividad_web   # vista «Conectividad»: ajustes del conector por equipo
     conectividad_web.instalar(srv, ruta_conectividad, ruta_auditoria_conectividad)
+    from prototipo.servicio import asistente_web       # vista «Asistente de red»: del escaneo a una propuesta
+    asistente_web.instalar(srv, ruta_traza)
     srv._politica_lock = threading.Lock()
     if ruta_overlay:   # copia operativa de políticas (separada del perfil canónico, que no se toca)
         from prototipo.motor import perfil as perfilm
