@@ -1,0 +1,283 @@
+{
+  "version": 1,
+  "fecha": "2026-11-11T19:10:56+00:00",
+  "operador": "prueba",
+  "gestion": "10.99.0.10",
+  "rangos": [
+    "172.16.10.0/24",
+    "10.20.0.0/24",
+    "10.0.0.0/24",
+    "10.99.0.0/24"
+  ],
+  "externo": "198.51.100.10",
+  "ritmo": "suave",
+  "puertos": "comunes",
+  "equipos": [
+    {
+      "ip": "172.16.10.1",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:9d8Q4kN9OnhycK4lTcFso8Y13IiqnmYRSueklDTVkDE",
+      "saltos": []
+    },
+    {
+      "ip": "172.16.10.10",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        },
+        {
+          "puerto": 80,
+          "servicio": "http",
+          "producto": null,
+          "version": null
+        },
+        {
+          "puerto": 443,
+          "servicio": "https",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:uGCOywSidNXLBFafpwDJzYAYh/4OF7bL1uctqsh2y+Q",
+      "saltos": [
+        "10.99.0.1"
+      ]
+    },
+    {
+      "ip": "172.16.10.20",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        },
+        {
+          "puerto": 25,
+          "servicio": "smtp",
+          "producto": null,
+          "version": null
+        },
+        {
+          "puerto": 587,
+          "servicio": "submission",
+          "producto": null,
+          "version": null
+        },
+        {
+          "puerto": 993,
+          "servicio": "imaps",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:kheofqmZwjo940V3A4Uy+TrlEIXmrmG9V/hRVtXgaOs",
+      "saltos": [
+        "10.99.0.1"
+      ]
+    },
+    {
+      "ip": "10.20.0.1",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:c4GYgfcN5Ib2MNOrEEexZ4SibG54/82uMIYWg8HxWbw",
+      "saltos": [
+        "10.99.0.1"
+      ]
+    },
+    {
+      "ip": "10.20.0.10",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        },
+        {
+          "puerto": 8443,
+          "servicio": "https-alt",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:7JOqSX4eqDX44zI93XUrKN2uso7Avi6VM74Wd2ikqGk",
+      "saltos": [
+        "10.99.0.1",
+        "10.0.0.2"
+      ]
+    },
+    {
+      "ip": "10.20.0.20",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        },
+        {
+          "puerto": 5432,
+          "servicio": "postgresql",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:DUiVgNLGhM3pB7xaPBcr9PsZTi9uvgz/zcDSIySO0aw",
+      "saltos": [
+        "10.99.0.1",
+        "10.0.0.2"
+      ]
+    },
+    {
+      "ip": "10.20.0.30",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        },
+        {
+          "puerto": 445,
+          "servicio": "microsoft-ds",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:Zsyd55BEDStCAxIMujqDJAhBYkF0YUAG8Ih13JxJSCU",
+      "saltos": [
+        "10.99.0.1",
+        "10.0.0.2"
+      ]
+    },
+    {
+      "ip": "10.20.0.50",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 80,
+          "servicio": "http",
+          "producto": null,
+          "version": null
+        },
+        {
+          "puerto": 9100,
+          "servicio": "jetdirect",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": null,
+      "saltos": [
+        "10.99.0.1",
+        "10.0.0.2"
+      ]
+    },
+    {
+      "ip": "10.20.0.77",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [],
+      "huella_ssh": null,
+      "saltos": [
+        "10.99.0.1",
+        "10.0.0.2"
+      ]
+    },
+    {
+      "ip": "10.0.0.1",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:9d8Q4kN9OnhycK4lTcFso8Y13IiqnmYRSueklDTVkDE",
+      "saltos": []
+    },
+    {
+      "ip": "10.0.0.2",
+      "dns": null,
+      "mac": null,
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:c4GYgfcN5Ib2MNOrEEexZ4SibG54/82uMIYWg8HxWbw",
+      "saltos": [
+        "10.99.0.1"
+      ]
+    },
+    {
+      "ip": "10.99.0.1",
+      "dns": null,
+      "mac": "AA:C1:AB:F0:C5:83",
+      "fabricante": null,
+      "puertos": [
+        {
+          "puerto": 22,
+          "servicio": "ssh",
+          "producto": null,
+          "version": null
+        }
+      ],
+      "huella_ssh": "SHA256:9d8Q4kN9OnhycK4lTcFso8Y13IiqnmYRSueklDTVkDE",
+      "saltos": []
+    }
+  ],
+  "salida": [
+    "10.99.0.1"
+  ],
+  "traceroute": true
+}
