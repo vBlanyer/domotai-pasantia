@@ -14,11 +14,21 @@ capítulo de resultados, y `evaluacion/resultados/`).
   cinco recortes quedan **encendidos por defecto** (`=0` los apaga).
 - **Conector:** no pasa ninguna variable `TRIAJE_*` a `ssh` ni a `docker exec` (antes, una lista de cuatro secretos).
 
+- **Evaluación ampliada (R1 + R2):** partición de evaluación de 356 alertas (148 soportadas) con otro
+  equipo (`iot`), otro servicio (FTP), atacante externo y legítimos desde orígenes no declarados;
+  verdad declarada por el experimento y diseño fijado antes de medir. P 0,931 · R 1,000 · FP 0,038
+  (n=300: 0,978 · 1,000 · 0,009); 4 contenciones automáticas indebidas (técnico legítimo del proveedor).
+- **Prioridad del reconocimiento** rebajada a 2 (R2); la prioridad esperada admite excepciones por familia.
+
 ### Corregido
 - `lab/banco/fallos.py`: los casos «sshd» y «clave-host» no paraban ni recargaban el sshd del banco.
+- Postura: `vsftpd`, `proftpd` y `pure-ftpd` casan con el protocolo `ftp` del auditor (un ataque real al
+  FTP expuesto salía «no expuesto»).
+- `lab/dataset/construir.py`: ignora las carpetas de `lab/campañas` sin `campaña.yml`.
 
 ### Añadido
 - `lab/banco/validar_recortes.py`: arnés reproducible de la validación de los recortes.
+- `lab/scripts/campana-ampliacion.sh`: campañas de la ampliación R1 (señuelo telnet en `iot`, reenvío de `vsftpd.log`).
 
 ## [1.8] — 2026-11-10 · cierre del proyecto
 

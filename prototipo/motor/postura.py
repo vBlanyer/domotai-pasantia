@@ -9,7 +9,11 @@ ausente: un servicio desconocido o un nodo no escaneado dan `None` (caso gris) �
 # con 80/443 abiertos salía «no expuesto» (caso EXPLOIT del banco). Solo se usa para comparar con el
 # auditor: el nombre de la alerta no cambia, porque las órdenes (`service {servicio} stop`) lo usan.
 _WEB = frozenset({"http", "https"})
-_PROTOCOLOS = {"apache": _WEB, "apache2": _WEB, "httpd": _WEB, "nginx": _WEB, "http": _WEB, "https": _WEB}
+# Ídem para FTP (11/11/2026, fijado antes de medir la ampliación R1): vsftpd escribe como «vsftpd» y el
+# auditor lista el puerto 21 como «ftp»; sin esto, un ataque real a un FTP expuesto salía «no expuesto».
+_FTP = frozenset({"ftp"})
+_PROTOCOLOS = {"apache": _WEB, "apache2": _WEB, "httpd": _WEB, "nginx": _WEB, "http": _WEB, "https": _WEB,
+               "vsftpd": _FTP, "proftpd": _FTP, "pure-ftpd": _FTP}
 
 
 def _protocolos(servicio):

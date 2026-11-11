@@ -28,7 +28,7 @@ def evaluar(filas, hallazgos, perfil_dict, perfil_nombre, catalogo, tabla_priori
     # Priorizacion (solo soportadas con prioridad esperada mapeada)
     pp, ep = [], []
     for f, p in zip(filas, preds):
-        e = prioridad.esperada(f.get("activo"), f.get("etiqueta"), tabla_prioridad)
+        e = prioridad.esperada(f.get("activo"), f.get("etiqueta"), tabla_prioridad, f.get("familia"))
         if e is not None and f.get("etiqueta") in ("VP", "FP"):
             pp.append(p["prioridad"]); ep.append(e)
     prioriz = {"n": len(pp), "acierto_pm1": metricas.acierto_prioridad(pp, ep),

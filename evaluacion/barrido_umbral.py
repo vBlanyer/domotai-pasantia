@@ -50,16 +50,23 @@ def tabla_markdown(puntos, perfil, n):
                    f"{p['indebidos']} | {p['recall']:.3f} | {p['tasa_fp']:.3f} |")
     plano = len({(p["escalado"], p["automaticos"], p["indebidos"]) for p in puntos}) == 1
     out += ["", "## Cómo leer"]
+    indebidos = puntos[0]["indebidos"] if puntos else 0
     if plano:
-        out += ["La curva es **constante**: el umbral NO cambia el desenlace en este perfil. La continuidad "
-                "(0 bloqueos indebidos) no la garantiza el umbral de confianza sino la **política de actores** "
-                "(D16/C1): bloquear una IP interna, de red o de gestión exige humano siempre, y un atacante "
-                "externo se bloquea con 0 colateral. El umbral solo mordería en una acción LOCALIZADA de baja "
-                "confianza contra un actor EXTERNO, de las que esta partición no tiene ninguna (los VP externos "
-                "tienen confianza 1.0 por postura confirmada; los de confianza 0.5/0.6 recaen sobre activos "
-                "propios, que la política de actores escala por sí sola). Mecanismo verificado aparte: un caso "
-                "externo sintético de confianza 0.5 sí cambia de automático a humano al cruzar el umbral.",
-                "", "**Conclusión RF-07:** el valor por defecto (0.7) es seguro y el sistema es robusto a su "
+        out += ["La curva es **constante**: el umbral NO cambia el desenlace en este perfil. Lo que protege la "
+                "continuidad no es el umbral de confianza sino la **política de actores** (D16/C1): bloquear una "
+                "IP interna, de red o de gestión exige humano siempre, y un atacante externo se bloquea con 0 "
+                "colateral. El umbral solo mordería en una acción LOCALIZADA de baja confianza contra un actor "
+                "EXTERNO, de las que esta partición no tiene ninguna (los VP externos tienen confianza 1.0 por "
+                "postura confirmada; los de confianza 0.5/0.6 recaen sobre activos propios, que la política de "
+                "actores escala por sí sola). Mecanismo verificado aparte: un caso externo sintético de confianza "
+                "0.5 sí cambia de automático a humano al cruzar el umbral."]
+        if indebidos:
+            out += ["", f"Los **{indebidos} bloqueos automáticos indebidos** no dependen del umbral: son un origen "
+                    "EXTERNO legítimo (en la ampliación del 11/11/2026, el técnico del proveedor que se equivoca y "
+                    "entra) clasificado con confianza alta. Ni el umbral ni la política de actores lo retienen; el "
+                    "control previsto es declararlo en `terceros_confiables` del perfil, que nunca se bloquea sin "
+                    "un analista."]
+        out += ["", "**Conclusión RF-07:** el valor por defecto (0.7) es seguro y el sistema es robusto a su "
                 "elección en este perfil; el umbral es un salvavidas secundario, no el control activo de la continuidad."]
     else:
         out += ["Al bajar el umbral se auto-ejecuta más (menos escalado) a costa de arriesgar bloqueos "

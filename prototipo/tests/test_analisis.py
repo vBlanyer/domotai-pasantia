@@ -168,14 +168,15 @@ class TestClasificar(unittest.TestCase):
         self.assertEqual(r["clase"], "fp_actividad_legitima")
 
     def test_reconocimiento_vp_tiene_clase_propia(self):
-        # Recomendación #2 (versión segura): el reconocimiento VP tiene clase propia para que el
-        # justificador no lo narre como explotación. MISMA confianza, prioridad y acción que
-        # vp_intento_acceso -> las cifras canónicas no se mueven (es_amenaza sigue True, prioridad igual).
+        # Recomendación #2: el reconocimiento VP tiene clase propia (el justificador no lo narra como
+        # explotación) y, desde R2 (11/11/2026), prioridad propia por debajo de un intento de acceso: un
+        # sondeo aislado es un precursor. Misma confianza y misma acción.
         a = dict(self.alerta); a["familia"] = "reconocimiento"
         r = analisis.clasificar(a, {"postura": {"expuesto": True}, "criticidad": "media"})
         self.assertEqual(r["clase"], "vp_reconocimiento")
         self.assertEqual(r["confianza"], 1.0)
-        self.assertEqual(r["prioridad"], analisis._priorizar("vp_intento_acceso", "media"))
+        self.assertEqual(r["prioridad"], 2)
+        self.assertLess(r["prioridad"], analisis._priorizar("vp_intento_acceso", "media"))
 
     def test_reconocimiento_sin_exposicion_sigue_siendo_fp(self):
         # Solo se renombra el DESENLACE VP; el FP de exposición inexistente no cambia (metrics-safety).

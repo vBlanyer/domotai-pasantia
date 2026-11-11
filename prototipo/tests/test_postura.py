@@ -71,3 +71,17 @@ class TestOtrosExpuestos(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNombresDeServicioFtp(unittest.TestCase):
+    """vsftpd escribe como «vsftpd»; el auditor lista el puerto 21 como «ftp» (ampliación R1, 11/11)."""
+    H = {"nodos": {"objetivo-vuln": [{"servicio": "ftp", "estado": "open"}, {"servicio": "ssh", "estado": "open"}],
+                   "otro": [{"servicio": "ssh", "estado": "open"}]}}
+
+    def test_el_programa_ftp_casa_con_el_protocolo_del_auditor(self):
+        for prog in ("vsftpd", "proftpd", "pure-ftpd"):
+            self.assertTrue(postura.postura_de(self.H, "objetivo-vuln", prog)["expuesto"], prog)
+
+    def test_sin_ftp_abierto_sigue_sin_exponer(self):
+        self.assertFalse(postura.postura_de(self.H, "otro", "vsftpd")["expuesto"])
+

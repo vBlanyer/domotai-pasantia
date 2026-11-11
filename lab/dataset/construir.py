@@ -22,6 +22,12 @@ def construir(campañas, particion_map, resoluciones):
             salida.append(reg)
     return salida
 
+def _es_dir_campaña(d):
+    # lab/campañas tambien aloja capturas y regresiones sueltas (banco-*, captura-cef) sin su ficha:
+    # no son campañas etiquetables y no deben tumbar el build. Una campaña de verdad lleva campaña.yml.
+    return os.path.isdir(d) and os.path.exists(os.path.join(d, "campaña.yml"))
+
+
 def _cargar_campaña(dir_camp):
     with open(os.path.join(dir_camp, "campaña.yml"), encoding="utf-8") as f:
         ficha = yaml.safe_load(f)
@@ -52,7 +58,7 @@ def main(argv):
     campañas = []
     for nombre in sorted(os.listdir(raiz_campañas)):
         d = os.path.join(raiz_campañas, nombre)
-        if os.path.isdir(d):
+        if _es_dir_campaña(d):
             campañas.append(_cargar_campaña(d))
     regs = construir(campañas, particion_map, resoluciones)
     with open(salida, "w", encoding="utf-8") as f:

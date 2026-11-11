@@ -72,6 +72,13 @@ límites —cubre 4 de las 6 categorías (las 2 finas exigen etiquetas de las qu
 están medidos y documentados. Los números de la campaña original y su análisis están en el
 [informe](informe-evaluacion.md).
 
+**Ampliación R1 + R2 (11/11/2026).** La partición vigente pasa a **356 alertas, 148 soportadas**, con
+otro equipo, otro servicio, atacante externo y legítimos desde orígenes no declarados, y el
+reconocimiento con prioridad propia: P 0,931 · R 1,000 · FP 0,038 frente a 0,602 · 0,893 · 0,308 del
+baseline, y las **primeras 4 contenciones automáticas indebidas** (un técnico legítimo del proveedor).
+Diseño fijado antes de medir y resultados: [ampliacion-dataset-2026-11.md](ampliacion-dataset-2026-11.md).
+Las cifras de 300 que siguen son el paso anterior de la progresión.
+
 **Conciencia de impacto (21/09/2026).** Una ampliación posterior midió, sobre la misma partición de
 300 y con el perfil `empresarial` corregido para describir la red real del laboratorio, **a quién
 bloqueaban de verdad** las contenciones automáticas: 69 recaían sobre el puesto de un empleado —en

@@ -1,0 +1,153 @@
+{
+  "clasificacion_prototipo": {
+    "matriz": {
+      "vp": 244,
+      "fp": 18,
+      "vn": 450,
+      "fn": 0
+    },
+    "precision": 0.9312977099236641,
+    "recall": 1.0,
+    "f1": 0.9644268774703557,
+    "tasa_fp": 0.038461538461538464
+  },
+  "baseline": {
+    "optimo": {
+      "umbral": 5,
+      "matriz": {
+        "vp": 218,
+        "fp": 143,
+        "vn": 325,
+        "fn": 26
+      },
+      "f1": 0.7206611570247934
+    },
+    "puntos": [
+      {
+        "umbral": 3,
+        "matriz": {
+          "vp": 244,
+          "fp": 468,
+          "vn": 0,
+          "fn": 0
+        },
+        "f1": 0.5104602510460251
+      },
+      {
+        "umbral": 4,
+        "matriz": {
+          "vp": 218,
+          "fp": 143,
+          "vn": 325,
+          "fn": 26
+        },
+        "f1": 0.7206611570247934
+      },
+      {
+        "umbral": 5,
+        "matriz": {
+          "vp": 218,
+          "fp": 143,
+          "vn": 325,
+          "fn": 26
+        },
+        "f1": 0.7206611570247934
+      },
+      {
+        "umbral": 6,
+        "matriz": {
+          "vp": 37,
+          "fp": 105,
+          "vn": 363,
+          "fn": 207
+        },
+        "f1": 0.19170984455958548
+      },
+      {
+        "umbral": 7,
+        "matriz": {
+          "vp": 25,
+          "fp": 93,
+          "vn": 375,
+          "fn": 219
+        },
+        "f1": 0.13812154696132597
+      },
+      {
+        "umbral": 8,
+        "matriz": {
+          "vp": 25,
+          "fp": 3,
+          "vn": 465,
+          "fn": 219
+        },
+        "f1": 0.18382352941176472
+      },
+      {
+        "umbral": 9,
+        "matriz": {
+          "vp": 19,
+          "fp": 3,
+          "vn": 465,
+          "fn": 225
+        },
+        "f1": 0.14285714285714285
+      },
+      {
+        "umbral": 10,
+        "matriz": {
+          "vp": 19,
+          "fp": 3,
+          "vn": 465,
+          "fn": 225
+        },
+        "f1": 0.14285714285714285
+      },
+      {
+        "umbral": 11,
+        "matriz": {
+          "vp": 0,
+          "fp": 1,
+          "vn": 467,
+          "fn": 244
+        },
+        "f1": "n/d"
+      },
+      {
+        "umbral": 12,
+        "matriz": {
+          "vp": 0,
+          "fp": 1,
+          "vn": 467,
+          "fn": 244
+        },
+        "f1": "n/d"
+      }
+    ]
+  },
+  "priorizacion": {
+    "n": 296,
+    "acierto_pm1": 0.9391891891891891,
+    "spearman": 0.8077676851732563
+  },
+  "operacion": {
+    "cobertura": 0.42696629213483145,
+    "tasa_escalado": 0.29213483146067415,
+    "ms_medio_clasificar": 0.052484898868427214
+  },
+  "continuidad": {
+    "disruptivas_indebidas": 0,
+    "retencion_correcta": "n/d"
+  },
+  "automatizacion": {
+    "automaticos": 54,
+    "indebidos": 8,
+    "tasa_indebidos": 0.14814814814814814
+  },
+  "condiciones": {
+    "perfil": "empresarial",
+    "n_alertas": 712,
+    "n_soportadas": 296,
+    "version_baseline": "baseline-0"
+  }
+}

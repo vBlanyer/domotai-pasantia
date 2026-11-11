@@ -1,12 +1,14 @@
 # Tabla comparativa — perfil empresarial
-n = 600 alertas (212 soportadas)  ·  baseline en su umbral optimo (nivel >= 5)
+n = 712 alertas (296 soportadas)  ·  baseline en su umbral optimo (nivel >= 5)
 
 | Metrica | Prototipo | Baseline (Wazuh @optimo) |
 |---------|-----------|--------------------------|
-| Precision | 0.978 | 0.550 |
-| Recall | 1.000 | 0.920 |
-| F1 | 0.989 | 0.688 |
-| Tasa de FP | 0.009 | 0.308 |
+| Precision | 0.931 | 0.604 |
+| Recall | 1.000 | 0.893 |
+| F1 | 0.964 | 0.721 |
+| Tasa de FP | 0.038 | 0.306 |
 
-Matriz prototipo: {'vp': 174, 'fp': 4, 'vn': 422, 'fn': 0}
-Matriz baseline: {'vp': 160, 'fp': 131, 'vn': 295, 'fn': 14}
+Matriz prototipo: {'vp': 244, 'fp': 18, 'vn': 450, 'fn': 0}
+Matriz baseline: {'vp': 218, 'fp': 143, 'vn': 325, 'fn': 26}
+
+Contenciones automáticas (sin humano): 54 · indebidas (FP/PROPIA): 8 · tasa de escalado al humano: 0.292

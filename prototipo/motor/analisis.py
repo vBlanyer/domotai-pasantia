@@ -30,7 +30,8 @@ CLASES_SIN_AMENAZA = ("fp_actividad_legitima", "fp_exposicion_inexistente", "no_
 _PRIORIDAD_BASE = {
     "vp_acceso_consumado": 4, "vp_abuso_cuenta": 4, "vp_integridad": 4, "vp_denegacion_servicio": 4,
     "vp_exfiltracion": 4, "vp_malware": 4,
-    "vp_intento_acceso": 3, "vp_reconocimiento": 3,
+    # R2 (11/11/2026): un sondeo aislado es un precursor, no un acceso; prioridad propia, por debajo.
+    "vp_intento_acceso": 3, "vp_reconocimiento": 2,
     "vp_exposicion_gestion": 2,
     "fp_actividad_legitima": 1, "fp_exposicion_inexistente": 1, "no_soportada": 1,
     "amenaza_enrutada": 3,

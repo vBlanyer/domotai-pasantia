@@ -1,7 +1,14 @@
-# Prioridad esperada por (activo, etiqueta). Fuente: la gravedad del nodo en
-# lab/docs/vulnerabilidades-esperadas.md + la etiqueta como desempate.
-# HONESTO: en la particion de evaluacion TODAS las alertas soportadas son
-# objetivo-vuln/ssh, asi que este mapeo tiene una sola entrada util. Escala 1-4.
+# Prioridad esperada por (activo, etiqueta), con excepciones por familia. Escala 1-4.
+# Fuente: la gravedad del nodo en lab/docs/vulnerabilidades-esperadas.md + la etiqueta como desempate.
+# Fijada ANTES de medir la ampliación del 11/11/2026
+# (documentacion/06-fase6-evaluacion-del-prototipo/ampliacion-dataset-2026-11.md).
 objetivo-vuln:
-  VP: 4   # acceso real contra el objetivo vulnerable (Metasploitable, nodo critico) -> maxima
-  FP: 1   # actividad del administrador legitimo -> minima
+  VP: 4   # acceso real contra el objetivo vulnerable (vsftpd, telnetd y SSH críticos o altos) -> máxima
+  FP: 1   # actividad legítima -> mínima
+  familias:
+    reconocimiento: { VP: 2 }   # R2: un sondeo aislado es un precursor, no un acceso
+iot:
+  VP: 4   # telnet sin cifrar y sin autenticación: gravedad crítica
+  FP: 1
+  familias:
+    reconocimiento: { VP: 2 }

@@ -12,3 +12,11 @@ class TestPrioridad(unittest.TestCase):
     def test_no_mapeado_es_none(self):
         tabla = prioridad.cargar_esperada(RUTA)
         self.assertIsNone(prioridad.esperada("nodo-desconocido", "VP", tabla))
+
+    def test_excepcion_por_familia(self):
+        tabla = prioridad.cargar_esperada(RUTA)
+        self.assertEqual(prioridad.esperada("objetivo-vuln", "VP", tabla, "reconocimiento"), 2)
+        self.assertEqual(prioridad.esperada("objetivo-vuln", "VP", tabla, "acceso_credenciales"), 4)
+        self.assertEqual(prioridad.esperada("objetivo-vuln", "FP", tabla, "reconocimiento"), 1)
+        self.assertEqual(prioridad.esperada("iot", "VP", tabla, "servicio_expuesto"), 4)
+

@@ -1,0 +1,26 @@
+id: 2026-11-11-ampliacion-entrenamiento
+fecha: 2026-11-11
+familia: varias
+proposito: ampliación R1 (otro equipo, otro servicio, atacante externo, legítimos no declarados); verdad declarada por el experimento
+diseno: documentacion/06-fase6-evaluacion-del-prototipo/ampliacion-dataset-2026-11.md
+ataques:
+  - { escenario: "A1 fuerza bruta SSH root@ desde un atacante externo", objetivo: objetivo-vuln, desde: proveedor }
+  - { escenario: "A2 conexiones telnet al iot desde un atacante externo", objetivo: iot, desde: proveedor }
+  - { escenario: "B1 conexiones telnet al iot desde un equipo interno", objetivo: iot, desde: puesto }
+  - { escenario: "B2 un técnico de mantenimiento entra por telnet al iot desde un origen no declarado", objetivo: iot, desde: puesto }
+  - { escenario: "C1 fuerza bruta FTP msfadmin@", objetivo: objetivo-vuln, desde: puesto }
+  - { escenario: "C2 usuario legítimo de FTP que se equivoca una vez y entra", objetivo: objetivo-vuln, desde: puesto }
+  - { escenario: "D1 técnico del proveedor que se equivoca dos veces y entra por SSH", objetivo: objetivo-vuln, desde: proveedor }
+auditor:
+  ips: ["172.20.20.4"]
+  cuando: "2026-11-11T16:24:32+0000"
+legitimos:
+  ips: ["192.168.1.1"]
+verdad:
+  - { origen: "10.0.1.50",    desde: "2026-11-11T16:21:19", hasta: "2026-11-11T16:24:32", etiqueta: VP, motivo: "A1: fuerza bruta SSH de un atacante externo" }
+  - { origen: "10.0.1.51",    desde: "2026-11-11T16:21:19", hasta: "2026-11-11T16:24:32", etiqueta: VP, motivo: "A2: telnet al iot desde un atacante externo" }
+  - { origen: "192.168.1.42", desde: "2026-11-11T16:21:19", hasta: "2026-11-11T16:24:32", etiqueta: VP, motivo: "B1: telnet al iot desde un equipo interno" }
+  - { origen: "192.168.1.43", desde: "2026-11-11T16:21:19", hasta: "2026-11-11T16:24:32", etiqueta: FP, motivo: "B2: técnico de mantenimiento legítimo, origen no declarado" }
+  - { origen: "192.168.1.44", desde: "2026-11-11T16:21:19", hasta: "2026-11-11T16:24:32", etiqueta: VP, motivo: "C1: fuerza bruta FTP" }
+  - { origen: "192.168.1.45", desde: "2026-11-11T16:21:19", hasta: "2026-11-11T16:24:32", etiqueta: FP, motivo: "C2: usuario legítimo de FTP que se equivoca una vez" }
+  - { origen: "10.0.1.52",    desde: "2026-11-11T16:21:19", hasta: "2026-11-11T16:24:32", etiqueta: FP, motivo: "D1: técnico del proveedor que se equivoca dos veces" }
