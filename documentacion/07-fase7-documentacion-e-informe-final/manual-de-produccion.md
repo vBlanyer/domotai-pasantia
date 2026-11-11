@@ -16,7 +16,7 @@ su consola y mantenerlo. La versión en PDF es [`manual-de-produccion.pdf`](manu
   [9. Dar acceso a los analistas](#9-dar-acceso-a-los-analistas) ·
   [10. Dar al MDR acceso a los equipos](#10-dar-al-mdr-acceso-a-los-equipos) ·
   [11. Comprobar la instalación](#11-comprobar-la-instalación) ·
-  [12. Abrir la automatización poco a poco](#12-abrir-la-automatización-poco-a-poco)
+  [12. La política de la empresa](#12-la-política-de-la-empresa)
 - **Usar la consola**: [13. Entrar y moverse por la consola](#13-entrar-y-moverse-por-la-consola) ·
   [14. El Panel](#14-el-panel) ·
   [15. Cómo resolver las aprobaciones](#15-cómo-resolver-las-aprobaciones) ·
@@ -171,7 +171,8 @@ Nada de esto lo resuelve el software. Conviene tenerlo por escrito antes del pri
 | **Los analistas** | Quién entra en la consola y con qué nombre firma (sección 9) |
 | **El escaneo de postura** | Si se autoriza escanear los equipos y con qué cadencia. Sin él, nada se contiene solo (sección 7) |
 | **Custodia de secretos** | Si la clave del conector y la de la traza viven en un gestor de secretos |
-| **Control de cambios** | Quién aprueba cambios en el perfil |
+| **La política de la empresa** | Quién la escribe y quién la aprueba: en quién se confía y qué se automatiza (sección 12) |
+| **Control de cambios** | Quién aprueba cambios en el perfil y en la política |
 
 # Instalar
 
@@ -237,6 +238,7 @@ sudo dnf install python3 python3-pyyaml openssh-clients curl nmap
    | Pregunta | Qué responder |
    |---|---|
    | Ruta del perfil | Si aún no existe, copia la plantilla para que la adaptes (sección 7) y no arranca hasta que vuelvas a ejecutarlo |
+   | Administradores y socios críticos | Solo con un perfil nuevo: las IPs de administración y las de los socios que nunca se bloquean sin un analista. Van a la política de la empresa, `/etc/mdr/politica.yml` (sección 12) |
    | Cómo llegan las alertas | `1` si el `alerts.json` del SIEM es legible aquí; `2` si llegan por la red: puerto, IPs del SIEM y, mejor, certificado TLS (sección 8) |
    | Ficheros de DB-IP | Los de países y de ASN, si ya los descargaste; si no, Enter (se instalan después) |
 
@@ -291,8 +293,9 @@ cada mes: «IP to Country Lite» y «IP to ASN Lite».
 
 ## 7. Escribir el perfil del cliente
 
-Todo lo que el MDR sabe de la red del cliente sale del perfil: los equipos, cuáles dependen de cuáles,
-dónde se contiene y qué se automatiza.
+Todo lo que el MDR sabe de la red del cliente sale del perfil: los equipos, cuáles dependen de cuáles
+y dónde se contiene. Qué se automatiza y en quién se confía no van aquí: son la política de la empresa
+(sección 12).
 
 > **Quién puede:** administración del MDR, con el inventario del cliente. Cada cambio pasa por el
 > control de cambios del cliente.
@@ -303,8 +306,6 @@ dónde se contiene y qué se automatiza.
 | `topologia` | La cadena de contención: qué equipos se contienen y cuál es su cortafuegos (`gateway`) |
 | `red` | Para el mapa: nodos extra (internet, switches), enlaces y zonas |
 | `ip_gestion`, `redes_internas` | El plano de gestión, que nunca se corta, y las redes propias |
-| `origenes_legitimos`, `terceros_confiables` | Quién no es atacante, y a quién no se bloquea sin un analista |
-| `continuidad`, `excepciones` | Qué se automatiza según el impacto, y los servicios que nunca se tocan solos |
 | `rutas` | Adónde se deriva lo que no se contiene (por ejemplo, appsec) |
 
 **Las dependencias** deciden la cascada: si `app01` depende de `db01` y cae `db01`, `app01` cae con
@@ -323,8 +324,9 @@ en la capa «dependencias».
    los cortafuegos perimetrales.
 4. **Declara el plano de gestión** en `ip_gestion` y las redes propias en `redes_internas`. El MDR
    nunca corta el plano de gestión.
-5. **Deja la automatización cerrada:** la plantilla trae `humano_siempre` en cada nivel de
-   `continuidad`. Se abre después (sección 12).
+5. **No escribas aquí las reglas de la empresa.** Quién es de confianza, qué se automatiza y qué
+   no se toca nunca van en `politica.yml` (sección 12). Si una regla está en los dos ficheros, el
+   servicio no arranca.
 6. **Revisa el perfil** antes de instalarlo:
 
    ```
@@ -347,7 +349,7 @@ La postura dice qué puertos tiene abiertos cada equipo del perfil. Con ella, el
 a un servicio expuesto, que contiene con confianza alta, de uno a un servicio cerrado, que es un falso
 positivo. **Sin postura, los ataques a un servicio (fuerza bruta, reconocimiento, servicio expuesto)
 quedan con confianza 0,5**: por debajo de cualquier umbral, así que no se contienen solos con
-`automatica_si_confianza` y esperan a un analista. Las familias que se reconocen por el propio evento
+`si_hay_certeza` y esperan a un analista. Las familias que se reconocen por el propio evento
 (por ejemplo, una sesión de intrusión ya abierta) no dependen de la postura.
 
 Con autorización del cliente para escanear sus equipos:
@@ -539,7 +541,7 @@ en manos de un analista.
    sudo mdr estado
    ```
 
-   Revisa el servicio, la salud, el perfil, las alertas, los analistas, la firma de la traza, la
+   Revisa el servicio, la salud, el perfil, la política, las alertas, los analistas, la firma de la traza, la
    postura, las bases de DB-IP, la clave del conector y los equipos verificados. Cada punto sale con
    `✔`, `!` (aviso) o `✗` (impide trabajar), y lo que falla dice qué ejecutar:
 
@@ -557,32 +559,76 @@ en manos de un analista.
 
 2. **Una alerta de prueba llega.** Con permiso del cliente, provoca un evento controlado contra un
    equipo de prueba; por ejemplo, varios intentos de SSH fallidos desde una IP conocida. Debe salir
-   en la Consola y, como todo está en `humano_siempre`, en Aprobaciones.
+   en la Consola y, como todo está en `con_analista`, en Aprobaciones.
 3. **La contención funciona.** Aprueba esa contención, comprueba en el equipo que la regla existe, y
    revírtela desde Contenciones activas.
 4. **La traza verifica:** `sudo mdr verificar-traza`. Y la clave de la traza está guardada fuera del
    equipo.
 
-## 12. Abrir la automatización poco a poco
+## 12. La política de la empresa
+
+La política dice cuándo puede actuar el MDR solo y cuándo debe esperar a un analista: en quién se
+confía, qué se automatiza y qué no se toca nunca en automático. Vive en `/etc/mdr/politica.yml`,
+aparte del perfil, y está escrita en términos de negocio para que la pueda leer y firmar Seguridad.
+
+> **Quién puede:** la escribe y la aprueba la dirección de Seguridad del cliente (quien firma la
+> autorización para actuar). La administración del MDR solo la instala.
+
+| Sección | Qué define |
+|---|---|
+| `politica` | Versión, quién la aprobó y cuándo. Queda anotado en la traza firmada en cada arranque |
+| `confianza` | `administradores` (actividad legítima), `socios_criticos` (nunca se bloquean sin un analista) y `sospechar_si_rafaga` (cuántas alertas bastan para sospechar igualmente) |
+| `respuesta_automatica` | `certeza_minima` y, por nivel de impacto, `sola`, `si_hay_certeza` o `con_analista`; con excepciones `por_tipo_de_ataque`, `por_zona` y `por_equipo` |
+| `nunca_tocar_en_automatico` | Los servicios que nunca se contienen solos, aunque el resto se automatice |
+| `desconocidos_graves` | Desde qué nivel del SIEM una alerta que el MDR no sabe tratar pasa a un analista |
+
+### Escribirla y aprobarla
+
+1. **Parte de la plantilla**, que `mdr configurar` deja en `/etc/mdr/politica.yml` junto a un perfil
+   nuevo, con los administradores y socios críticos que se le indicaron (el original está en
+   `/opt/mdr/deploy/politica.ejemplo.yml`). Trae todo en `con_analista`.
+2. **Revísala** contra el perfil:
+
+   ```
+   sudo mdr validar-politica
+   ```
+
+   Rechaza las claves desconocidas, los equipos, zonas o tipos de ataque que no existen, las IPs mal
+   escritas, las reglas repetidas en el perfil y cualquier intento de automatizar lo que el código
+   prohíbe (los «frenos duros», como aislar un equipo).
+3. **Que Seguridad la lea en frases** y la firme:
+
+   ```
+   sudo mdr explicar-politica
+   ```
+
+   Pon en `politica.aprobada_por` y `politica.fecha` quién la aprobó y cuándo.
+4. **Instálala** y reinicia el servicio. Si no es válida, **el servicio no arranca** y el registro dice
+   por qué. `mdr estado` muestra la versión vigente y quién la aprobó.
+
+> **Nota:** una instalación anterior, con las reglas aún dentro del perfil, sigue funcionando igual.
+> `sudo mdr migrar-politica` las saca a `/etc/mdr/politica.yml` (guarda el perfil anterior como
+> `perfil.yml.antes-de-migrar`); después fija `TRIAJE_POLITICA` y reinicia.
+
+### Abrir la automatización poco a poco
 
 El primer día todo espera a un analista. La automatización se abre cuando las decisiones del MDR
 se han visto acertar en la red del cliente. **Necesita postura** (sección 7): sin ella, los ataques a
-servicios no alcanzan la confianza de `automatica_si_confianza` y siguen esperando a un analista.
+servicios no alcanzan la confianza de `si_hay_certeza` y siguen esperando a un analista.
 
-> **Quién puede:** quien firma la autorización para actuar del cliente. El cambio lo hace la
-> administración del MDR.
-
-1. **Primeras semanas:** todo en `humano_siempre`. Los analistas aprueban o rechazan y el MDR deja
+1. **Primeras semanas:** todo en `con_analista`. Los analistas aprueban o rechazan y el MDR deja
    constancia de cada decisión.
 2. **Revisa** en el Informe cuántas propuestas se aprobaron tal cual y cuántas se rechazaron, por
    familia.
-3. **Abre por impacto:** en el perfil, pasa `impacto_ninguno` a `automatica` y, después,
-   `impacto_localizado` a `automatica_si_confianza`. Reinicia.
+3. **Abre por impacto:** en la política, pasa `solo_observar` a `sola` y, después, `por_defecto` a
+   `si_hay_certeza`. Sube la versión, que Seguridad la apruebe, y reinicia.
 4. **Afina sin reiniciar** desde Políticas (sección 24): lo que se cambia allí solo puede **quitar**
-   automatización, nunca añadirla, y queda firmado.
+   automatización, nunca añadirla, y queda firmado. Esos cambios no reescriben `politica.yml`: la
+   consola los marca como pendientes y exporta una propuesta con la versión siguiente para que
+   Seguridad la apruebe.
 
 > **Nota:** las acciones con candado («nunca automática»), como aislar un equipo, esperan siempre a
-> un analista, diga lo que diga el perfil.
+> un analista, diga lo que diga la política.
 
 # Usar la consola
 
@@ -970,8 +1016,17 @@ reiniciar.
 - **«Por zona y dispositivo».** Postura por zona (AUTO o HUMANO; el plano de gestión no se edita) y
   por equipo (HEREDA, AUTO o HUMANO), con su criticidad y cuántos equipos caerían en cascada.
 
+- **Origen de cada valor.** Cada fila dice de dónde sale: del código (freno duro), de la política de
+  la empresa, de la consola o del perfil. Arriba se ve la versión de `politica.yml` vigente y quién
+  la aprobó.
+- **Cambios pendientes.** Lo que la consola ha endurecido sobre la política aparece en una lista, con
+  quién lo cambió y cuándo. «Volver a la política» lo deshace; «Exportar propuesta» descarga la
+  versión siguiente de `politica.yml` con esos cambios, para que la apruebe Seguridad (sección 12).
+- **Confianza, Intocables y En castellano.** Los administradores y socios críticos, los servicios
+  que nunca se tocan solos, y la política entera contada en frases.
+
 > **Nota:** si la familia **o** la zona está en HUMANO, prevalece HUMANO. Lo que se edita en la
-> consola solo puede **quitar** automatización respecto al perfil; nunca añadirla. Se conserva al
+> consola solo puede **quitar** automatización respecto a la política; nunca añadirla. Se conserva al
 > reiniciar.
 
 ## 25. Conectividad
@@ -1198,6 +1253,10 @@ cambios acordado (sección 4).
 2. Instálala en `/etc/mdr/perfil.yml` y reinicia el servicio.
 3. Comprueba en la Consola que el arranque no da avisos.
 
+Para cambiar la **política** (en quién se confía, qué se automatiza), el camino es el de la
+sección 12: Seguridad aprueba la versión nueva, se revisa con `sudo mdr validar-politica`, se instala
+y se reinicia.
+
 > **Nota:** un equipo dado de alta desde la consola se quita borrándolo de
 > `/var/lib/mdr/inventario-operativo.yml` y reiniciando.
 
@@ -1247,6 +1306,7 @@ es `/opt/mdr/deploy/triaje.env.ejemplo`.
 |---|---|
 | `TRIAJE_ALERTS` | Ruta del `alerts.json` del SIEM. Sin uso si se recibe por red |
 | `TRIAJE_PERFIL` | `/etc/mdr/perfil.yml` |
+| `TRIAJE_POLITICA` | `/etc/mdr/politica.yml`, la política de la empresa (sección 12). Sin ella, las reglas se leen del perfil |
 | `TRIAJE_HALLAZGOS` | `/var/lib/mdr/postura.json`. Lo escribe `mdr escanear` (sección 7) |
 | `TRIAJE_SALIDA` | Ruta **fija** de la traza, en `/var/lib/mdr` |
 | `TRIAJE_WEB_PUERTO` | `8787` |
@@ -1284,6 +1344,9 @@ servicio.
 | `mdr analista alta <nombre> [--clave-ssh <fichero.pub>]` | Token de la consola y cuenta limitada al túnel |
 | `mdr analista baja <nombre>` / `lista` | Retira el acceso / lista quién lo tiene |
 | `mdr validar-perfil [perfil.yml]` | Revisa el perfil (por defecto, el de `TRIAJE_PERFIL`). Sale con error si hay avisos |
+| `mdr validar-politica [politica.yml]` | Revisa la política contra el perfil (por defecto, la de `TRIAJE_POLITICA`). Sale con error si no es válida |
+| `mdr explicar-politica [politica.yml]` | La política vigente contada en frases, con los cambios hechos en la consola |
+| `mdr migrar-politica` | Saca del perfil las reglas de la empresa a un `politica.yml` nuevo; no pisa uno que exista |
 | `mdr validar-alertas <muestra.json>` | Cuenta qué alertas de una muestra del SIEM sabe tratar el MDR y qué reglas quedan sin cubrir |
 | `mdr escanear [--puertos …] [--equipos …]` | Escanea con Nmap los equipos del perfil y escribe la postura. Después, reinicia el servicio |
 | `mdr instalar-geoip <fichero.csv.gz>` | Comprueba la base de países descargada y la instala en `TRIAJE_GEOIP`. Después, reinicia el servicio |

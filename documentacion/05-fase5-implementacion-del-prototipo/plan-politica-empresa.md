@@ -1,8 +1,10 @@
 # Política de la empresa en un fichero propio — plan de implementación
 
-> **Estado (10/11/2026): pendiente.** Plan anotado a petición del usuario, sin ejecutar. Se implementa
-> tarea a tarea con superpowers:subagent-driven-development (recomendado) o superpowers:executing-plans.
-> Los pasos usan casillas (`- [ ]`).
+> **Estado (11/11/2026): implementado.** Las seis tareas, con superpowers:executing-plans. Decisiones
+> tomadas por el camino: el traductor vive en `prototipo/motor/politica_empresa.py` (no en `perfil.py`);
+> el registro de la traza usa `huella` (el campo `hash` es de la cadena); la API añade `confianza` e
+> `intocables` para las pestañas; y `politica.ejemplo.yml` lo copia `mdr configurar` solo junto a un
+> perfil nuevo, no `instalar.sh` (que también actualiza instalaciones con las reglas en el perfil).
 
 **Objetivo:** que las reglas de respuesta de la empresa (quién es de confianza, qué se automatiza, qué no
 se toca nunca) vivan en un fichero propio, **`/etc/mdr/politica.yml`**, escrito en términos de negocio,
@@ -73,45 +75,45 @@ Valores: `sola` → `automatica`, `si_hay_certeza` → `automatica_si_confianza`
 ## Tareas
 
 ### Tarea 1: traductor y validación
-- [ ] `motor/perfil.py`: `traducir_politica(pol: dict) -> dict` (claves del perfil) y
+- [x] `motor/perfil.py`: `traducir_politica(pol: dict) -> dict` (claves del perfil) y
   `validar_politica(pol, perfil) -> list[str]` (claves desconocidas, equipos/zonas/familias inexistentes,
   valores fuera de la tabla, regla repetida en el perfil, intento de abrir un freno duro).
-- [ ] `fusionar_perfil_y_politica(perfil, pol) -> dict`: perfil nuevo con lo traducido; error si choca.
-- [ ] Pruebas: cada fila de la tabla de traducción; perfil sin política = mismo perfil; choque = error;
+- [x] `fusionar_perfil_y_politica(perfil, pol) -> dict`: perfil nuevo con lo traducido; error si choca.
+- [x] Pruebas: cada fila de la tabla de traducción; perfil sin política = mismo perfil; choque = error;
   `con_analista` sobre una familia de freno duro = válido, `si_hay_certeza` = error.
 
 ### Tarea 2: carga en el servicio
-- [ ] `servicio/stream.py`: si `TRIAJE_POLITICA` existe, leerla y fusionarla antes de validar el perfil;
+- [x] `servicio/stream.py`: si `TRIAJE_POLITICA` existe, leerla y fusionarla antes de validar el perfil;
   la cabecera (`version`, `aprobada_por`, `fecha`, hash del fichero) queda en el estado del servicio y se
   anota en la traza al arrancar (registro `politica_cargada`).
-- [ ] Pruebas: arranque con y sin fichero; fichero inválido = el servicio no arranca y lo dice.
+- [x] Pruebas: arranque con y sin fichero; fichero inválido = el servicio no arranca y lo dice.
 
 ### Tarea 3: órdenes de `mdr`
-- [ ] `mdr validar-politica [fichero]`: avisos en castellano y código de salida.
-- [ ] `mdr explicar-politica`: la política efectiva contada en frases («Un intento de acceso a web01
+- [x] `mdr validar-politica [fichero]`: avisos en castellano y código de salida.
+- [x] `mdr explicar-politica`: la política efectiva contada en frases («Un intento de acceso a web01
   desde Internet se bloquea solo si la certeza es ≥ 0,9; sobre db01 siempre decide un analista»).
-- [ ] `mdr migrar-politica`: extrae del perfil actual las claves de política a un `politica.yml` nuevo y
+- [x] `mdr migrar-politica`: extrae del perfil actual las claves de política a un `politica.yml` nuevo y
   las quita del perfil (con copia de seguridad), para las instalaciones existentes.
-- [ ] `mdr estado` muestra la versión vigente y si hay cambios de consola sin pasar al fichero.
+- [x] `mdr estado` muestra la versión vigente y si hay cambios de consola sin pasar al fichero.
 
 ### Tarea 4: API
-- [ ] `GET /api/politica` añade `origen` por fila (`codigo` | `fichero` | `consola` | `por_defecto`), la
+- [x] `GET /api/politica` añade `origen` por fila (`codigo` | `fichero` | `consola` | `por_defecto`), la
   cabecera de la política y la lista de diferencias consola↔fichero.
-- [ ] `GET /api/politica/explicar` (texto de `explicar-politica`) y
+- [x] `GET /api/politica/explicar` (texto de `explicar-politica`) y
   `GET /api/politica/propuesta` (YAML de la política con los cambios de consola aplicados y
   `version + 1`, para que Seguridad lo apruebe). Solo lectura: **no** escribe `politica.yml`.
 
 ### Tarea 5: vista «Políticas de respuesta»
-- [ ] Franja superior con la política vigente (versión, quién la aprobó, fecha, validación).
-- [ ] Cada valor con su origen; los cambios de consola con autor, hora y «volver a la política».
-- [ ] Pestañas nuevas: Confianza, Intocables y «En castellano».
-- [ ] Aviso de diferencias y botón «Exportar como propuesta» (descarga el YAML).
-- [ ] Pruebas del visor para cada estado (sin fichero, con fichero, con diferencias).
+- [x] Franja superior con la política vigente (versión, quién la aprobó, fecha, validación).
+- [x] Cada valor con su origen; los cambios de consola con autor, hora y «volver a la política».
+- [x] Pestañas nuevas: Confianza, Intocables y «En castellano».
+- [x] Aviso de diferencias y botón «Exportar como propuesta» (descarga el YAML).
+- [x] Pruebas del visor para cada estado (sin fichero, con fichero, con diferencias).
 
 ### Tarea 6: instalación y documentación
-- [ ] `deploy/politica.ejemplo.yml` comentado; `instalar.sh` lo copia si no existe; `mdr configurar`
+- [x] `deploy/politica.ejemplo.yml` comentado; `instalar.sh` lo copia si no existe; `mdr configurar`
   pregunta por los administradores y socios críticos.
-- [ ] Manual de producción: sección «La política de la empresa» (quién la escribe, cómo se aprueba,
+- [x] Manual de producción: sección «La política de la empresa» (quién la escribe, cómo se aprueba,
   cómo se aplica). Manual de usuario: la vista Políticas actualizada.
 
 ## Fuera de este plan (a propósito)

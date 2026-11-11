@@ -1,0 +1,54 @@
+# Política de la empresa: cuándo puede actuar el MDR solo y cuándo debe esperar a un analista. La escribe
+# y la aprueba la dirección de Seguridad; el técnico solo la instala. Copiar a /etc/mdr/politica.yml,
+# fijar TRIAJE_POLITICA y comprobarla con `mdr validar-politica`. `mdr explicar-politica` la cuenta en
+# frases, que es lo que conviene que firme Seguridad. El servicio la lee al arrancar: tras cada cambio,
+# `systemctl restart mdr-triaje`. Si no es válida, el servicio no arranca.
+#
+# Lo técnico de la red (equipos, cortafuegos, zonas) está en el perfil. Una regla no puede estar en los
+# dos ficheros a la vez.
+#
+# Valores de respuesta:
+#   sola            el MDR contiene sin preguntar
+#   si_hay_certeza  contiene solo si la confianza llega a certeza_minima; si no, pregunta
+#   con_analista    siempre espera a un analista
+#
+# Lo que el código prohíbe automatizar (los «frenos duros», como aislar un equipo por un cambio de
+# fichero) no se abre desde aquí: la validación lo rechaza.
+
+politica:
+  version: 1
+  aprobada_por: "[pendiente de aprobación]"     # quién de Seguridad la aprobó
+  fecha: 2026-11-11
+
+# --- En quién se confía -------------------------------------------------------------------------
+confianza:
+  # Equipos de administración o escáneres autorizados: su actividad es legítima. IP exacta.
+  administradores: ["10.99.0.10"]
+  # Socios críticos (pasarela de pago, proveedor): un ataque aparente desde ellos se trata como amenaza,
+  # pero nunca se bloquea sin un analista. IP exacta o red.
+  socios_criticos: []
+  # Cuántas alertas del mismo origen en ese tiempo bastan para sospechar aunque sea de confianza
+  # (un equipo propio comprometido o una IP suplantada).
+  sospechar_si_rafaga: { alertas: 9, en_segundos: 60 }
+
+# --- Qué hace el MDR solo ------------------------------------------------------------------------
+# Para empezar, TODO espera a un analista. La automatización se abre después, caso a caso.
+respuesta_automatica:
+  certeza_minima: 0.9                  # confianza mínima para cualquier automatismo
+  por_defecto: con_analista            # una contención localizada (bloquear un origen)
+  si_afecta_a_un_servicio: con_analista
+  solo_observar: con_analista          # acciones sin impacto
+  equipos_propios: con_analista        # bloquear un equipo interno o de red
+  # Excepciones más finas (solo si_hay_certeza o con_analista):
+  # por_tipo_de_ataque: { acceso_credenciales: si_hay_certeza }
+  # por_zona:           { Interna: con_analista }
+  # por_equipo:         { web01: con_analista }
+
+# Servicios que nunca se tocan de forma automática, aunque el resto se automatice.
+nunca_tocar_en_automatico:
+  - { equipo: db01, servicio: 5432 }
+
+# Una alerta grave que el MDR no sabe tratar, con nivel del SIEM igual o mayor que este, pasa a revisión
+# de un analista, sin acción. Sin esta sección, solo se registra.
+desconocidos_graves:
+  revisar_desde_nivel: 10

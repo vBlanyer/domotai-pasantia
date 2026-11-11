@@ -14,7 +14,7 @@
 | R4 | Medir la justificación con un revisor independiente | Material listo: guía, hojas ciegas, `puntuar_revision.py` (~1,5 h de revisor) | **Otra persona** | No (es una medida aparte) | Pequeño |
 | R5 | Contraste del agente con un modelo local capaz | Sonnet (sustituto) 3/3; Llama 3.1 8B local 0/3 | **Máquina con GPU** | No | Pequeño–medio |
 | R6 | Almacenamiento en PostgreSQL | Plan escrito: [plan-almacenamiento-postgresql.md](../05-fase5-implementacion-del-prototipo/plan-almacenamiento-postgresql.md) (9 tareas) | Nosotros | No | Grande |
-| R7 | Política de la empresa en `politica.yml` | Plan escrito y mockup: [plan-politica-empresa.md](../05-fase5-implementacion-del-prototipo/plan-politica-empresa.md) (6 tareas) | Nosotros | No | Medio |
+| R7 | Política de la empresa en `politica.yml` | **Hecho (11/11/2026):** [plan-politica-empresa.md](../05-fase5-implementacion-del-prototipo/plan-politica-empresa.md) (6 tareas) | Nosotros | No | Medio |
 | R8 | Validar en el laboratorio los recortes ante fallos | Implementados y probados, apagados ([plan-manejo-fallos-contencion.md](../05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md)) | Nosotros + laboratorio del banco | No | Medio |
 | R9 | Sistema de logs propietario de Domotai | Sin respuesta | **Domotai** | No | Desconocido (adaptador CEF ya analizado) |
 | R10 | Equipo de borde con firmware real | OpenWrt intentado y aparcado; acciones verificadas sobre el sustituto | **Hardware** (un router con OpenWrt) | No | Medio |
@@ -92,7 +92,7 @@
 | 2 | ~~R1 + R2 — campañas nuevas con verdad declarada, prioridad propia del reconocimiento y re-evaluación~~ | **Hecho (11/11)** en el laboratorio pequeño (comparable con el anterior), con los ataques lentos del experimento: n=417, 209 soportadas; P 0,931, R 0,667, F1 0,777 (baseline 0,800), FP 0,038; sin los lentos, R 1,000 y F1 0,964; 4 automáticas indebidas. Más una evaluación aparte en el banco (perfil bancario): 40/2/3/0, los 2 FP son los legítimos y uno se bloquea solo. [Diseño y resultados](../06-fase6-evaluacion-del-prototipo/ampliacion-dataset-2026-11.md) |
 | 3 | R5 — agente con un modelo local en la máquina de Domotai | En cuanto haya acceso; puede ir en paralelo al paso 2 |
 | 4 | R4 — revisión independiente sobre las justificaciones del sistema final | Después del paso 2, para revisar lo que se entrega |
-| 5 | R7 — `politica.yml` | 3–4 días |
+| 5 | ~~R7 — `politica.yml`~~ | **Hecho (11/11):** las seis tareas del [plan](../05-fase5-implementacion-del-prototipo/plan-politica-empresa.md); `evaluacion/tests` da las mismas cifras. En el informe, R7 pasa de recomendación a resultado en la pasada final |
 | 6 | ~~R6 — PostgreSQL~~ | **No se hace (11/11):** complicaría la instalación en el equipo de IA local de Domotai. Queda en el informe como recomendación, con su plan escrito; sin base de datos el MDR funciona igual que hoy |
 | 7 | Informe: una sola pasada final con las cifras nuevas, las recomendaciones hechas pasadas a resultados, y recompilación | Al final, para no reescribirlo varias veces |
 | 8 | **Entrega.** Commit y push finales; a partir de aquí no se toca nada | Último paso |

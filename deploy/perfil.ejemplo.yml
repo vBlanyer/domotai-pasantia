@@ -1,6 +1,6 @@
 # Perfil del cliente: todo lo que el MDR sabe de la red que protege. Copiar a /etc/mdr/perfil.yml,
 # adaptarlo y comprobarlo con `mdr validar-perfil`. El servicio solo lo lee al arrancar: tras cada
-# cambio, `systemctl restart mdr-triaje`.
+# cambio, `systemctl restart mdr-triaje`. Las reglas de la empresa van aparte, en politica.yml.
 #
 # Este ejemplo describe una empresa con una DMZ (web y correo), una red interna (aplicación y base de
 # datos) y dos cortafuegos: fw-dmz delante de los servidores y fw-borde hacia internet. Las IPs son de
@@ -22,39 +22,16 @@ activos:
 # Redes propias del cliente: una IP de aquí que no esté en el inventario también es un equipo interno.
 redes_internas: ["10.0.0.0/8", "192.0.2.0/24"]
 
-# --- Quién no es un atacante --------------------------------------------------------------------
-# Orígenes cuya actividad es legítima (administración, escáner autorizado). IP exacta.
-origenes_legitimos: ["10.99.0.10"]
-# Terceros de confianza (pasarela de pago, proveedor crítico): un ataque aparente desde ellos se trata
-# como amenaza, pero nunca se bloquea sin un analista. IP exacta o red.
-terceros_confiables: []
 # Plano de gestión: ninguna contención lo corta nunca.
 ip_gestion: 10.99.0.10
 
-# Cuántas alertas del mismo origen en la ventana bastan para tratarlo como ataque aunque sea legítimo
-# (un equipo propio comprometido o una IP suplantada).
-rafaga: { umbral: 9, ventana_s: 60 }
-
-# --- Qué se automatiza ---------------------------------------------------------------------------
-# Para empezar, TODO espera a un analista (humano_siempre). La automatización se abre después, nivel a
-# nivel: automatica | automatica_si_confianza | humano_siempre.
+# Frenos fijos: solo acciones que se pueden deshacer y comprobar, y nunca el plano de gestión.
 continuidad:
-  impacto_ninguno:            humano_siempre
-  impacto_localizado:         humano_siempre
-  impacto_alcanza_servicio:   humano_siempre
-  reversibilidad_obligatoria: true      # solo acciones que se pueden deshacer y comprobar
-  no_cortar_gestion:          true      # nunca el plano de gestión
-  umbral_confianza:           0.9       # confianza mínima para cualquier automatismo
-  # Una alerta grave que el MDR no sabe tratar («no soportada», con nivel del SIEM igual o mayor que
-  # este) pasa a revisión de un analista, sin acción. Sin esta línea, solo se registra.
-  revisar_no_soportada_nivel: 10
-  actores:                              # bloquear un equipo propio o de red exige analista
-    activo_interno:           humano_siempre
-    dispositivo_red:          humano_siempre
+  reversibilidad_obligatoria: true
+  no_cortar_gestion:          true
 
-# Servicios que nunca se tocan de forma automática, aunque el resto se automatice.
-excepciones:
-  - { servicio: 5432, activo: db01, regla: nunca_automatica }
+# Quién es de confianza, qué se automatiza y qué no se toca nunca son reglas de la empresa: están en
+# politica.yml (plantilla: deploy/politica.ejemplo.yml), no aquí.
 
 # --- Cadena de contención ------------------------------------------------------------------------
 # Dónde se contiene: cada servidor (host_victima) con su cortafuegos (gateway), y cada cortafuegos con

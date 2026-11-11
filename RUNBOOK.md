@@ -206,6 +206,22 @@ python3 -m prototipo.servicio.stream <fuente> <perfil> <hallazgos> [flags]
 | `--una-vez` | Procesa un fichero FINITO hasta el final y sale (para pruebas/demos/reproceso puntual), en vez de seguirlo como `tail -f`. |
 | `--escuchar host:puerto` · `--permitir IP,…` · `--tls-cert/-clave` · `--tls-ca` | Recepción de alertas por red (SIEM remoto) con lista blanca (obligatoria fuera de loopback) y TLS opcional; con `--tls-ca`, mTLS (exige cert de cliente). Ver [deploy/README.md](deploy/README.md). |
 
+### La política de la empresa (`TRIAJE_POLITICA`)
+
+Con `TRIAJE_POLITICA=<politica.yml>`, el daemon lee al arrancar la política de la empresa (en quién se
+confía, qué se automatiza, qué no se toca nunca) y la fusiona con el perfil; si no existe, no es válida
+o repite una regla del perfil, **no arranca** y dice por qué. Cada arranque deja un registro
+`politica_cargada` en la traza (versión, quién la aprobó y la huella del fichero). Los perfiles del
+laboratorio llevan las reglas dentro, así que por defecto no se usa. Para probarla con el banco:
+
+```
+cp prototipo/perfiles/bancario.yml run/bancario-tecnico.yml
+python3 -m prototipo.herramientas.politica migrar --perfil run/bancario-tecnico.yml --salida run/politica.yml
+TRIAJE_POLITICA=run/politica.yml python3 -m prototipo.servicio.stream - run/bancario-tecnico.yml <hallazgos> --web
+```
+
+Plan y decisiones: [plan-politica-empresa.md](documentacion/05-fase5-implementacion-del-prototipo/plan-politica-empresa.md).
+
 ### Recortes ante fallos de contención
 
 Fases 4–6 de [documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md](documentacion/05-fase5-implementacion-del-prototipo/plan-manejo-fallos-contencion.md). No cambian qué se contiene: solo ahorran conexiones que no podían servir. Los cinco se validaron en el banco el 11/11/2026 ([resultados](evaluacion/resultados/validacion-recortes-2026-11-11/README.md)): ninguna contención se pierde. Van **encendidos por defecto** y se apagan con `=0`; los tres que dependen de la consola no hacen nada sin datos de Conectividad. Para repetir la validación: `python3 -m lab.banco.validar_recortes` con el banco levantado y aprovisionado.

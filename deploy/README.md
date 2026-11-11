@@ -9,10 +9,11 @@ Son plantillas: ajústalas a las rutas y al usuario del cliente.
 | `arrancar-mdr.sh` | Wrapper del *pipe* `tail -F alerts.json \| python3 -m prototipo.servicio.stream … --web --salida <fijo>` (systemd no hace *pipes*). Lee las variables del `EnvironmentFile`. |
 | `mdr-triaje.service` | Unidad systemd: `Restart=always` (resiliencia: reinicia aunque el daemon salga 0 tras un EOF de la fuente) + endurecimiento básico. |
 | `triaje.env.ejemplo` | Ejemplo de `EnvironmentFile` (fuente, perfil, `--salida` fijo, conector SSH, HMAC, salud). |
-| `perfil.ejemplo.yml` | Perfil de cliente genérico y comentado, para entregar al cliente (sin nada del laboratorio). |
+| `perfil.ejemplo.yml` | Perfil de cliente genérico y comentado (la red: equipos, cortafuegos, zonas), para entregar al cliente (sin nada del laboratorio). |
+| `politica.ejemplo.yml` | Política de la empresa comentada (en quién se confía, qué se automatiza), para que la apruebe Seguridad. `mdr configurar` la copia junto a un perfil nuevo. |
 | `instalar.sh` | Instala, actualiza o desinstala en el equipo del cliente (va en la raíz del paquete). |
 | `empaquetar.sh` | Genera el paquete del cliente (proveedor). |
-| `../bin/mdr` | Herramienta de administración: `configurar`, `estado`, `analista`, `validar-perfil`, `validar-alertas`, `escanear` (postura con Nmap), `instalar-geoip` / `instalar-asn` (bases DB-IP Lite), `verificar-traza`, `podar-trazas`. |
+| `../bin/mdr` | Herramienta de administración: `configurar`, `estado`, `analista`, `validar-perfil`, `validar-alertas`, `escanear` (postura con Nmap), `instalar-geoip` / `instalar-asn` (bases DB-IP Lite), `verificar-traza`, `podar-trazas`, `validar-politica`, `explicar-politica`, `migrar-politica`. |
 
 ## Preparar el paquete (proveedor)
 

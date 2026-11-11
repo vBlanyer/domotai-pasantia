@@ -4,6 +4,7 @@ from prototipo.herramientas import configurar, entorno
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PLANTILLA_ENV = os.path.join(RAIZ, "deploy", "triaje.env.ejemplo")
 PLANTILLA_PERFIL = os.path.join(RAIZ, "deploy", "perfil.ejemplo.yml")
+PLANTILLA_POLITICA = os.path.join(RAIZ, "deploy", "politica.ejemplo.yml")
 
 
 class Guion:
@@ -41,7 +42,7 @@ class TestConfigurar(unittest.TestCase):
             shutil.copy(PLANTILLA_PERFIL, self.perfil)
         self.sistema = sistema or Sistema()
         return configurar.configurar(self.env, preguntar=guion, decir=self.dicho.append, ejecutar=self.sistema,
-                                     plantilla_perfil=PLANTILLA_PERFIL, salud=lambda p: {"ok": True},
+                                     plantilla_perfil=PLANTILLA_PERFIL, plantilla_politica=PLANTILLA_POLITICA, salud=lambda p: {"ok": True},
                                      instalar_base=lambda *a: {"rangos": 1, "fuente": "dbip"})
 
     def test_alertas_por_fichero_con_hmac_nuevo_y_arranque(self):
@@ -74,11 +75,42 @@ class TestConfigurar(unittest.TestCase):
         self.assertEqual(entorno.leer(self.env)["TRIAJE_TRAZA_CLAVE"], "ab" * 32)
 
     def test_sin_perfil_copia_la_plantilla_y_no_arranca(self):
-        rc = self._correr(Guion(self.perfil, "s", "1", self.alerts, "", ""), perfil_existe=False)
+        rc = self._correr(Guion(self.perfil, "s", "", "", "1", self.alerts, "", ""), perfil_existe=False)
         self.assertTrue(os.path.isfile(self.perfil))
         self.assertNotIn(["systemctl", "restart", "mdr-triaje"], self.sistema.ordenes)
         self.assertTrue(any("Edítala" in t for t in self.dicho))
         self.assertEqual(rc, 0)
+
+    def test_con_perfil_nuevo_instala_la_politica_con_los_administradores_y_socios(self):
+        import yaml
+        from prototipo.motor import politica_empresa as pe
+        self._correr(Guion(self.perfil, "s", "10.99.0.10, 10.99.0.11", "203.0.113.7, nope, 198.51.100.0/24",
+                           "1", self.alerts, "", ""), perfil_existe=False)
+        ruta = os.path.join(self.d, "politica.yml")
+        self.assertEqual(entorno.leer(self.env)["TRIAJE_POLITICA"], ruta)
+        with open(ruta, encoding="utf-8") as f:
+            texto = f.read()
+        self.assertIn("# ", texto)                                  # conserva los comentarios de la plantilla
+        conf = yaml.safe_load(texto)["confianza"]
+        self.assertEqual(conf["administradores"], ["10.99.0.10", "10.99.0.11"])
+        self.assertEqual(conf["socios_criticos"], ["203.0.113.7", "198.51.100.0/24"])
+        self.assertTrue(any("nope" in t for t in self.dicho))       # lo mal escrito se avisa y se omite
+        with open(self.perfil, encoding="utf-8") as f:
+            self.assertEqual(pe.validar_politica(yaml.safe_load(texto), yaml.safe_load(f), {}), [])
+
+    def test_con_perfil_existente_no_toca_la_politica(self):
+        self._correr(Guion(self.perfil, "1", self.alerts, "", ""))
+        self.assertNotIn("TRIAJE_POLITICA", entorno.leer(self.env))
+        self.assertFalse(os.path.exists(os.path.join(self.d, "politica.yml")))
+
+    def test_perfil_nuevo_no_pisa_una_politica_que_ya_existe(self):
+        ruta = os.path.join(self.d, "politica.yml")
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write("politica: {version: 7}\n")
+        self._correr(Guion(self.perfil, "s", "", "", "1", self.alerts, "", ""), perfil_existe=False)
+        with open(ruta, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "politica: {version: 7}\n")
+        self.assertEqual(entorno.leer(self.env)["TRIAJE_POLITICA"], ruta)
 
     def test_las_bases_se_instalan_si_se_da_el_fichero(self):
         instaladas = []

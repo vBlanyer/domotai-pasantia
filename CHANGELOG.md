@@ -7,6 +7,18 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [Sin publicar]
 
+### Añadido
+- **`politica.yml`, la política de la empresa** en términos de negocio (en quién se confía, qué se
+  automatiza, qué no se toca nunca), aparte del perfil técnico y traducida a sus claves al arrancar
+  (`TRIAJE_POLITICA`). Una política inválida, o una regla en los dos ficheros, impide arrancar; cada
+  arranque anota versión, aprobador y huella en la traza. Órdenes `mdr validar-politica`,
+  `explicar-politica` (en frases) y `migrar-politica`; línea «política» en `mdr estado`. La vista
+  Políticas dice el origen de cada valor, lista los cambios de consola pendientes con «Volver a la
+  política» y exporta la propuesta de la versión siguiente. Plantillas separadas:
+  `deploy/perfil.ejemplo.yml` (solo la red) y `deploy/politica.ejemplo.yml`; `mdr configurar` instala la
+  política junto a un perfil nuevo y pregunta por administradores y socios críticos. Las instalaciones
+  con las reglas en el perfil siguen igual.
+
 ### Cambiado
 - **Recortes ante fallos validados en el banco** (11/11/2026, `evaluacion/resultados/validacion-recortes-2026-11-11/`):
   ninguna contención se pierde; un equipo que descarta el SSH del MDR pasa de ~33 s a ~19 s y los fallos

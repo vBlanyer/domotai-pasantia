@@ -648,9 +648,22 @@ Decide qué respuestas se ejecutan solas y cuáles esperan a un analista.
   enrutan» no tienen acción. «detalle» muestra el impacto, los vetos y el runbook.
 - **«Por zona y dispositivo».** Postura por zona (AUTO o HUMANO; el plano de gestión no se edita) y
   por equipo (HEREDA, AUTO o HUMANO), con su criticidad y cuántos equipos caerían en cascada.
+- **Origen de cada valor.** Un distintivo dice de dónde sale cada fila: del código (freno duro), de
+  la política de la empresa (`politica.yml`), de la consola o del perfil. Si hay `politica.yml`, la
+  cabecera muestra su versión y quién la aprobó.
+- **Cambios pendientes.** Lo que se ha endurecido en la consola respecto a `politica.yml` sale en una
+  lista con quién lo cambió y cuándo. «Volver a la política» lo deshace; «Exportar propuesta vN»
+  descarga la versión siguiente del fichero con esos cambios, para que la apruebe Seguridad. La
+  consola nunca reescribe `politica.yml`.
+- **Confianza, Intocables y En castellano.** Los administradores y socios críticos, los servicios que
+  nunca se tocan solos, y la política entera contada en frases.
 
 > **Nota:** si la familia **o** la zona está en HUMANO, prevalece HUMANO. Lo que se edita en la
-> consola solo puede **quitar** automatización respecto al perfil; nunca añadirla.
+> consola solo puede **quitar** automatización respecto a la política; nunca añadirla.
+
+> **Nota:** los perfiles del laboratorio llevan las reglas dentro y no usan `politica.yml`. Para
+> probarla, `python3 -m prototipo.herramientas.politica migrar --perfil <copia del perfil> --salida
+> <politica.yml>` y arranca con `TRIAJE_POLITICA=<politica.yml>`.
 
 ## 18. Conectividad: cómo entra el MDR en cada equipo
 
@@ -774,6 +787,10 @@ Todo lo que el MDR sabe del cliente vive en su **perfil**, por ejemplo
 | `continuidad`, `excepciones` | Qué se automatiza según el impacto, y los servicios que nunca se tocan solos |
 | `rutas` | Adónde se enruta lo que no se contiene (por ejemplo, appsec) |
 
+En producción, las reglas de la empresa (quién no es atacante, qué se automatiza y qué no se toca
+nunca) se sacan del perfil a `politica.yml`, en términos de negocio, para que las apruebe Seguridad.
+Los perfiles del laboratorio las siguen llevando dentro.
+
 **Las dependencias** deciden la cascada: si `middleware` depende de `core-db` y cae `core-db`,
 middleware cae con él. El motor usa este dato para no aislar algo que tumbe servicios sin aprobación,
 y el mapa lo dibuja en la capa «dependencias».
@@ -865,6 +882,7 @@ toca».
 | `TRIAJE_CONSOLA_TOKEN` | Token compartido. Con él, la consola pide token |
 | `TRIAJE_CONSOLA_OPERADORES` | `{"token":"nombre", …}`: un token por persona, que firma sus acciones |
 | `TRIAJE_CONECTIVIDAD_ABIERTA=1` | Laboratorio: deja probar y editar Conectividad sin operador identificado |
+| `TRIAJE_POLITICA` | La política de la empresa (`politica.yml`). Sin ella, las reglas se leen del perfil. Si no es válida, el MDR no arranca |
 | `TRIAJE_POLITICA_ABIERTA=1` | Laboratorio: deja editar Políticas sin operador identificado |
 | `TRIAJE_SLA_SEG` | SLA de la respuesta humana en segundos (900 por defecto) |
 | `TRIAJE_RDNS=1` | Permite el DNS inverso de IPs públicas |

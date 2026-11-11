@@ -6,6 +6,7 @@ pregunta propone lo que ya hay, y lo que no pregunta (analistas, recortes…) no
 """
 import ipaddress
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -16,6 +17,7 @@ from prototipo.herramientas import entorno
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PLANTILLA_PERFIL = os.path.join(RAIZ, "deploy", "perfil.ejemplo.yml")
+PLANTILLA_POLITICA = os.path.join(RAIZ, "deploy", "politica.ejemplo.yml")
 PLANTILLA_ENV = os.path.join(RAIZ, "deploy", "triaje.env.ejemplo")
 ALERTS_WAZUH = "/var/ossec/logs/alerts/alerts.json"
 
@@ -54,8 +56,45 @@ def _dar_a_triaje(ruta):
         pass
 
 
+def _direcciones(texto, red, decir):
+    """IPs (o redes, si red) separadas por comas; lo mal escrito se avisa y se omite."""
+    buenas = []
+    for x in (t.strip() for t in (texto or "").split(",")):
+        if not x:
+            continue
+        try:
+            ipaddress.ip_network(x, strict=False) if red else ipaddress.ip_address(x)
+            buenas.append(x)
+        except ValueError:
+            decir(f"  «{x}» no es una IP{' ni una red' if red else ''}: se omite")
+    return buenas
+
+
+def _instalar_politica(perfil, plantilla, preguntar, decir):
+    """Con un perfil nuevo, la política de la empresa va al lado (politica.yml) desde la plantilla, con los
+    administradores y socios críticos que se indiquen. Una que ya exista no se pisa."""
+    ruta = os.path.join(os.path.dirname(perfil), "politica.yml")
+    if os.path.exists(ruta):
+        decir(f"  Ya hay una política en {ruta}: se usa tal cual.")
+        return ruta
+    with open(plantilla, encoding="utf-8") as f:
+        texto = f.read()
+    adm = _direcciones(preguntar("IPs de los equipos de administración, separadas por comas", "10.99.0.10"), False, decir)
+    soc = _direcciones(preguntar("IPs o redes de los socios críticos (pasarela de pago, proveedor), vacío = ninguno",
+                                 ""), True, decir)
+    lista = lambda xs: "[" + ", ".join(f'"{x}"' for x in xs) + "]"
+    texto = re.sub(r"(?m)^(\s*administradores:).*$", lambda m: f"{m.group(1)} {lista(adm)}", texto, count=1)
+    texto = re.sub(r"(?m)^(\s*socios_criticos:).*$", lambda m: f"{m.group(1)} {lista(soc)}", texto, count=1)
+    with open(ruta, "w", encoding="utf-8") as f:
+        f.write(texto)
+    _dar_a_triaje(ruta)
+    decir(f"  Política de la empresa en {ruta}: hoy todo espera a un analista. Que la revise y apruebe "
+          "Seguridad («mdr explicar-politica» la cuenta en frases).")
+    return ruta
+
+
 def configurar(ruta_env, preguntar=_preguntar_consola, decir=print, ejecutar=subprocess.run,
-               plantilla_perfil=PLANTILLA_PERFIL, salud=_salud_http, instalar_base=_instalar_base, esperar=time.sleep):
+               plantilla_perfil=PLANTILLA_PERFIL, plantilla_politica=PLANTILLA_POLITICA, salud=_salud_http, instalar_base=_instalar_base, esperar=time.sleep):
     if not os.path.exists(ruta_env):
         shutil.copy(PLANTILLA_ENV, ruta_env)
         os.chmod(ruta_env, 0o600)
@@ -73,6 +112,7 @@ def configurar(ruta_env, preguntar=_preguntar_consola, decir=print, ejecutar=sub
             _dar_a_triaje(perfil)
             decir(f"  Plantilla copiada en {perfil}. Edítala con la red del cliente; el servicio no arrancará "
                   "hasta entonces.")
+            cambios["TRIAJE_POLITICA"] = _instalar_politica(perfil, plantilla_politica, preguntar, decir)
         perfil_listo = False
     else:
         from prototipo.motor import perfil as perfilm

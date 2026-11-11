@@ -9,7 +9,7 @@ Mapa de un vistazo de qué es cada carpeta. El diseño completo está en
 │                       accion/ explicacion/ servicio/ herramientas/ + datos en la raíz; stdlib + yaml)
 ├── visor/              Producto: consola web (React/TS/Vite) que sirve el daemon
 ├── deploy/             Producto: despliegue en producción (instalar.sh, empaquetar.sh, unidad systemd,
-│                       triaje.env.ejemplo, perfil.ejemplo.yml)
+│                       triaje.env.ejemplo, perfil.ejemplo.yml, politica.ejemplo.yml)
 ├── bin/                Producto: la herramienta de administración `mdr` (configurar, estado, analista…)
 ├── evaluacion/         Arnés de evaluación contra el baseline + resultados medidos
 ├── lab/                Laboratorio: banco Containerlab, dataset etiquetado, topologías, scripts, campañas
