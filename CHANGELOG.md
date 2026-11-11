@@ -8,6 +8,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
 ## [Sin publicar]
 
 ### Añadido
+- **Asistente de red** (rama `asistente-de-red`): una vista de la consola que describe una red nueva a
+  partir de un escaneo con Nmap (equipos, puertos, caminos por traceroute y huellas SSH) y **propone**
+  `perfil.yml`, `postura.json` y `politica.yml` para descargar; la consola nunca escribe el perfil vivo.
+  Escanear exige operador identificado y la autorización del cliente, y queda en la traza firmada.
+  `mdr configurar` ofrece un **perfil mínimo** para arrancar sin describir la red; `mdr descubrir` escanea
+  desde la línea de órdenes. Laboratorio nuevo **`oficina`** (`lab/oficina/`) para ensayar la instalación
+  en un cliente; ensayado de punta a punta.
 - **`politica.yml`, la política de la empresa** en términos de negocio (en quién se confía, qué se
   automatiza, qué no se toca nunca), aparte del perfil técnico y traducida a sus claves al arrancar
   (`TRIAJE_POLITICA`). Una política inválida, o una regla en los dos ficheros, impide arrancar; cada

@@ -38,7 +38,7 @@ Mapa de un vistazo de qué es cada carpeta. El diseño completo está en
 - **[`evaluacion/`](evaluacion/resultados/README.md)** — campañas, métricas frente al baseline de
   reglas y los resultados datados que respaldan el capítulo de resultados del informe.
 - **[`lab/`](lab/)** — el laboratorio ejecutable: el **banco** bancario sobre Containerlab
-  ([`lab/banco/`](lab/banco/)), el **dataset etiquetado** ([`lab/dataset/`](lab/dataset/)), las
+  ([`lab/banco/`](lab/banco/)), el **laboratorio oficina** para ensayar una instalación nueva con el asistente de red ([`lab/oficina/`](lab/oficina/)), el **dataset etiquetado** ([`lab/dataset/`](lab/dataset/)), las
   topologías, los scripts de aprovisionamiento/auditoría/campañas y las campañas datadas que
   generaron el dataset.
 

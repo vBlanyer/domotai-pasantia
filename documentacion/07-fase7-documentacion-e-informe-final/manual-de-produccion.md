@@ -237,7 +237,7 @@ sudo dnf install python3 python3-pyyaml openssh-clients curl nmap
 
    | Pregunta | Qué responder |
    |---|---|
-   | Ruta del perfil | Si aún no existe, copia la plantilla para que la adaptes (sección 7) y no arranca hasta que vuelvas a ejecutarlo |
+   | Ruta del perfil | Si aún no existe, elige **m** (recomendado): un perfil mínimo con la IP de este equipo y los rangos de la red del cliente; el servicio arranca y la red se describe con el asistente de la consola (sección 7). O **p**: copia la plantilla para editarla a mano, y no arranca hasta que vuelvas a ejecutarlo |
    | Administradores y socios críticos | Solo con un perfil nuevo: las IPs de administración y las de los socios que nunca se bloquean sin un analista. Van a la política de la empresa, `/etc/mdr/politica.yml` (sección 12) |
    | Cómo llegan las alertas | `1` si el `alerts.json` del SIEM es legible aquí; `2` si llegan por la red: puerto, IPs del SIEM y, mejor, certificado TLS (sección 8) |
    | Ficheros de DB-IP | Los de países y de ASN, si ya los descargaste; si no, Enter (se instalan después) |
@@ -312,9 +312,32 @@ y dónde se contiene. Qué se automatiza y en quién se confía no van aquí: so
 él. El MDR usa este dato para no aislar algo que tumbe servicios sin aprobación, y el mapa lo dibuja
 en la capa «dependencias».
 
-### Pasos
+### Con el asistente de red (recomendado)
 
-1. **Parte de la plantilla**, que `mdr configurar` copia en `/etc/mdr/perfil.yml` la primera vez (el
+Si `mdr configurar` escribió el perfil mínimo, el servicio ya está en marcha y la consola tiene la vista
+**Asistente de red** (en «Configurar»):
+
+1. **Escanear.** Rangos de la red del cliente, la IP del MDR, una dirección de fuera para trazar la salida a
+   internet, el ritmo (suave por defecto, por los equipos frágiles) y los puertos. Exige marcar que tienes la
+   **autorización por escrito** del cliente; avisa también a quien vigila su SIEM, porque el escaneo se ve.
+   Tarda unos minutos.
+2. **Revisar.** El asistente propone los cortafuegos (por los saltos del traceroute, con sus interfaces
+   agrupadas por la huella SSH), el camino de cada equipo, una zona por subred y un papel. Completa lo que el
+   escaneo no sabe: el **nombre de cada equipo en el SIEM**, las zonas, la criticidad, qué equipo **no se toca
+   directamente** y las dependencias. El mapa se dibuja mientras tanto.
+3. **Validar y exportar.** Con las mismas reglas que `mdr validar-perfil`; sin errores, descarga
+   `perfil.yml`, `postura.json` y una propuesta de `politica.yml` (sección 12).
+4. **Instala** el perfil y la postura (`/etc/mdr/perfil.yml`, `/var/lib/mdr/postura.json`), y la política
+   cuando la apruebe Seguridad; reinicia el servicio. Después, Conectividad (sección 10).
+
+> **Nota:** la consola **nunca escribe el perfil vivo**: cambiar la red cambia dónde y cómo contiene el MDR, así
+> que lo aplica el técnico. El escaneo sale del equipo MDR por la red del cliente; si el servicio no tiene
+> privilegios para el traceroute, ejecuta `sudo mdr descubrir … --salida /var/lib/mdr/asistente-descubrimiento.json`
+> y la consola lo leerá.
+
+### Pasos (a mano)
+
+1. **Parte de la plantilla**, que `mdr configurar` copia en `/etc/mdr/perfil.yml` si eliges **p** (el
    original está en `/opt/mdr/deploy/perfil.ejemplo.yml`). Describe una empresa con una DMZ,
    una red interna y dos cortafuegos, y explica cada apartado en sus comentarios.
 2. **Nombra cada equipo como lo nombra el SIEM.** El MDR identifica el equipo atacado por el nombre
@@ -585,8 +608,9 @@ aparte del perfil, y está escrita en términos de negocio para que la pueda lee
 ### Escribirla y aprobarla
 
 1. **Parte de la plantilla**, que `mdr configurar` deja en `/etc/mdr/politica.yml` junto a un perfil
-   nuevo, con los administradores y socios críticos que se le indicaron (el original está en
-   `/opt/mdr/deploy/politica.ejemplo.yml`). Trae todo en `con_analista`.
+   copiado de la plantilla (respuesta **p**), con los administradores y socios críticos que se le
+   indicaron (el original está en `/opt/mdr/deploy/politica.ejemplo.yml`). Trae todo en `con_analista`.
+   Con el perfil mínimo (respuesta **m**), la propuesta la exporta el asistente de red (sección 7).
 2. **Revísala** contra el perfil:
 
    ```
@@ -1328,8 +1352,9 @@ es `/opt/mdr/deploy/triaje.env.ejemplo`.
 
 > **Nota:** no fijes `TRIAJE_CONSOLA_TOKEN` (un token compartido, sin nombre: nadie firmaría sus
 > acciones), `TRIAJE_SSH_MODO=password`, `TRIAJE_CONECTIVIDAD_ABIERTA`,
-> `TRIAJE_POLITICA_ABIERTA` ni `TRIAJE_CORS_DEV`. Son modos de prueba que quitan protecciones: entrar
-> con contraseña, o cambiar Conectividad y Políticas sin un analista identificado.
+> `TRIAJE_POLITICA_ABIERTA`, `TRIAJE_ASISTENTE_ABIERTO` ni `TRIAJE_CORS_DEV`. Son modos de prueba que quitan
+> protecciones: entrar con contraseña, o cambiar Conectividad y Políticas, o escanear, sin un analista
+> identificado.
 
 ## Anexo B. La herramienta mdr
 
@@ -1344,6 +1369,7 @@ servicio.
 | `mdr analista alta <nombre> [--clave-ssh <fichero.pub>]` | Token de la consola y cuenta limitada al túnel |
 | `mdr analista baja <nombre>` / `lista` | Retira el acceso / lista quién lo tiene |
 | `mdr validar-perfil [perfil.yml]` | Revisa el perfil (por defecto, el de `TRIAJE_PERFIL`). Sale con error si hay avisos |
+| `mdr descubrir --gestion IP --rango R… --externo IP --salida F` | Escanea la red del cliente con Nmap para el asistente de red (con `sudo`, por el traceroute). Exige la autorización por escrito del cliente |
 | `mdr validar-politica [politica.yml]` | Revisa la política contra el perfil (por defecto, la de `TRIAJE_POLITICA`). Sale con error si no es válida |
 | `mdr explicar-politica [politica.yml]` | La política vigente contada en frases, con los cambios hechos en la consola |
 | `mdr migrar-politica` | Saca del perfil las reglas de la empresa a un `politica.yml` nuevo; no pisa uno que exista |

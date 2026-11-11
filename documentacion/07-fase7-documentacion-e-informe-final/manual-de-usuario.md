@@ -26,7 +26,8 @@ los fallos de contención ni el informe en PDF. La versión en PDF es
   [18. Conectividad: cómo entra el MDR en cada equipo](#18-conectividad-cómo-entra-el-mdr-en-cada-equipo) ·
   [19. Estado de servicios](#19-estado-de-servicios) ·
   [20. El perfil de la red del cliente](#20-el-perfil-de-la-red-del-cliente) ·
-  [21. Recortes ante fallos de contención](#21-recortes-ante-fallos-de-contención)
+  [21. Recortes ante fallos de contención](#21-recortes-ante-fallos-de-contención) ·
+  [22. Asistente de red: instalar una red nueva](#22-asistente-de-red-instalar-una-red-nueva)
 - **Anexos**: [A. Familias de ataque](#anexo-a-familias-de-ataque-y-su-respuesta) ·
   [B. Causas de fallo](#anexo-b-por-qué-falló-una-contención) ·
   [C. Variables](#anexo-c-variables-de-entorno) · [D. Ficheros](#anexo-d-ficheros-que-escribe-el-sistema) ·
@@ -52,7 +53,7 @@ consola, en el orden en que suele vivirse:
 | Operar | Analistas | El Panel, las aprobaciones, la Consola, pausar y revertir |
 | Investigar | Analistas | Decisiones, incidentes, el mapa de la red, ubicaciones y la traza |
 | Informar | Analistas y responsables | El informe del periodo en PDF |
-| Configurar | Administración del MDR | Políticas, Conectividad, el perfil de la red y los recortes ante fallos |
+| Configurar | Administración del MDR | Políticas, el asistente de red, Conectividad, el perfil de la red y los recortes ante fallos |
 
 Cada tarea sigue, cuando aplica, la misma estructura:
 
@@ -275,7 +276,7 @@ cerrar: basta con cerrar la pestaña.
 | Operar | «Consola», «Aprobaciones», «Contenciones activas», «Decisiones» |
 | Investigar | «Incidentes», «Red», «Ubicaciones», «Watchlist», «Trazas» |
 | Informar | «Informe» |
-| Configurar | «Políticas de respuesta», «Conectividad», «Estado de servicios» |
+| Configurar | «Políticas de respuesta», «Asistente de red», «Conectividad», «Estado de servicios» |
 
 Las señales del menú dicen dónde hay algo:
 
@@ -836,6 +837,67 @@ red completa y van **encendidos por defecto**; cada uno se apaga con `=0` al arr
 
 # Anexos
 
+## 22. Asistente de red: instalar una red nueva
+
+El asistente describe al MDR una red que no conoce a partir de un escaneo con Nmap: quién hay, qué ofrece
+cada equipo y por qué cortafuegos se llega. **Propone** el perfil, la postura y la política; **no los
+aplica**. Los descargas, los revisas y los instalas tú, como haría el técnico en un cliente.
+
+> **Quién puede:** operador identificado (o `TRIAJE_ASISTENTE_ABIERTO=1` en el laboratorio). Escanear exige
+> marcar que tienes la autorización por escrito del cliente; cada escaneo y cada cambio quedan en la traza.
+
+### El laboratorio «oficina»
+
+Una red pequeña que el MDR no conoce (detalle en [`lab/oficina/README.md`](../../lab/oficina/README.md)):
+`fw-borde` hacia internet, una DMZ (`srv-web01`, `srv-correo01`), `fw-interno` delante de la red interna
+(`srv-app01`, `srv-db01`, `nas01`, una impresora y un puesto) y el nodo `mdr`, desde el que salen el escaneo
+y el conector. **Nada está preparado para el MDR**: el acceso a cada equipo se da con su paquete de alta.
+
+### Pasos
+
+1. **Levanta la oficina** (no convive con el banco ni con la red pequeña):
+
+   ```
+   sh lab/oficina/oficina.sh up
+   sh lab/oficina/oficina.sh test
+   ```
+
+2. **Arranca el MDR como en un cliente nuevo:** `sh lab/oficina/oficina.sh mdr` (detiene antes cualquier
+   otro daemon del MDR). Arranca con un **perfil mínimo**, solo el MDR y los rangos de la oficina, en
+   `run/oficina/perfil.yml`. Abre http://127.0.0.1:8787.
+3. **Conectividad → «Generar la clave del conector».** Se crea en el nodo `mdr`; la privada no sale de ahí.
+4. **Asistente de red → Escanear.** Los rangos y la IP del MDR ya vienen del perfil mínimo. Escribe la
+   dirección de fuera (`198.51.100.10`), marca la autorización y pulsa «Escanear». **Tarda unos 5 minutos**
+   a ritmo suave; la página se actualiza sola.
+5. **Revisar lo encontrado.** El asistente propone dos cortafuegos (con sus otras interfaces agrupadas por la
+   huella SSH), un camino para cada equipo y una zona por subred; la impresora sale como equipo frágil y el
+   puesto, que no ofrece nada, descartado. Completa lo que el escaneo no sabe:
+   - **El nombre de cada equipo en el SIEM.** Es el que el MDR usa para reconocerlo. En la oficina es el nombre
+     del nodo (`fw-borde`, `srv-web01`…). El campo sugiere los nombres que las alertas ya han traído; el
+     escaneo en sí **no** genera alertas, así que las sugerencias aparecen a medida que hay actividad.
+   - **Las zonas** (por ejemplo, `DMZ` e `Interna`), la **criticidad**, qué equipo **no se toca
+     directamente** (la base de datos) y **de qué depende** cada uno (`srv-web01` de `srv-app01`, y este de
+     `srv-db01`).
+
+   El mapa de abajo se dibuja con lo que vas aceptando, y «Falta para exportar» dice qué queda.
+6. **Validar y exportar.** Sin errores, descarga `perfil.yml`, `postura.json` y `politica.yml`. Los avisos
+   que verás son esperables: la base de datos y la impresora quedan fuera de la cadena de contención (su
+   contención va a los cortafuegos perimetrales) y el paso de `fw-interno` al borde está deducido.
+7. **Instala** los tres ficheros en `run/oficina/` (sustituyen al perfil mínimo; compruébalos antes con
+   `sh bin/mdr validar-perfil run/oficina/perfil.yml`) y vuelve a ejecutar `sh lab/oficina/oficina.sh mdr`.
+   La Consola muestra la política cargada.
+8. **Conectividad, equipo por equipo** (los cortafuegos y los servidores con SSH): descarga su paquete de
+   alta y ejecútalo como su administrador, en el laboratorio con
+   `docker exec -i clab-oficina-<equipo> sh < alta-<equipo>.sh`; después «Leer la clave del host», compara la
+   huella con la que imprimió el paquete, fíjala y «Probar». Cada uno debe quedar **verificado**.
+9. **El ataque:** `sh lab/oficina/oficina.sh atacar` (fuerza bruta SSH desde internet contra `srv-web01`).
+   Como la política lo deja todo en manos de un analista, la contención espera en **Aprobaciones**;
+   apruébala y comprueba en la Consola que queda verificada, y en **Red** las tres zonas y los dos
+   cortafuegos.
+
+> **Nota:** para repetir desde cero, `sh lab/oficina/oficina.sh down && sh lab/oficina/oficina.sh up` y borra
+> `run/oficina/`: el laboratorio recreado ya no tiene usuarios, claves ni reglas del ensayo anterior.
+
 ## Anexo A. Familias de ataque y su respuesta
 
 | Familia | Respuesta | ¿Puede ser automática? |
@@ -884,6 +946,7 @@ toca».
 | `TRIAJE_CONECTIVIDAD_ABIERTA=1` | Laboratorio: deja probar y editar Conectividad sin operador identificado |
 | `TRIAJE_POLITICA` | La política de la empresa (`politica.yml`). Sin ella, las reglas se leen del perfil. Si no es válida, el MDR no arranca |
 | `TRIAJE_POLITICA_ABIERTA=1` | Laboratorio: deja editar Políticas sin operador identificado |
+| `TRIAJE_ASISTENTE_ABIERTO=1` | Laboratorio: deja escanear y editar el borrador del asistente de red sin operador identificado |
 | `TRIAJE_SLA_SEG` | SLA de la respuesta humana en segundos (900 por defecto) |
 | `TRIAJE_RDNS=1` | Permite el DNS inverso de IPs públicas |
 | `TRIAJE_CONECTIVIDAD_DESACTIVADA=1` | Apaga la vista Conectividad: solo muestra la configuración, sin probar ni cambiar nada |
@@ -905,6 +968,8 @@ Todos viven en `run/`, junto a la traza.
 | `trazas-*.jsonl` | La traza encadenada. Al reiniciar, el MDR recupera de aquí las contenciones activas |
 | `politica-operativa.yml` | Lo editado en Políticas |
 | `politica-auditoria.jsonl` | Quién cambió qué en Políticas |
+| `asistente-descubrimiento.json` | El último escaneo del asistente de red |
+| `asistente-borrador.json` | Lo revisado en el asistente (sobrevive a reiniciar) |
 | `conectividad-operativa.yml` | Usuario y puerto por equipo |
 | `conectividad-auditoria.jsonl` | Cada prueba y cambio en Conectividad |
 | `conectividad-pruebas.json` | La última prueba de cada equipo |

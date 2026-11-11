@@ -67,5 +67,25 @@ class TestTopologia(unittest.TestCase):
             self.assertTrue(any(ipaddress.ip_address(ip) in r for r in redes), ip)
 
 
+class TestOrdenMdr(unittest.TestCase):
+    """oficina.sh mdr: arranca el MDR como en un cliente nuevo (perfil mínimo, nada aprovisionado)."""
+    def setUp(self):
+        with open(GUION, encoding="utf-8") as f:
+            self.guion = f.read()
+        self.bloque = self.guion.split("\n  mdr)", 1)[1].split(";;", 1)[0] if "\n  mdr)" in self.guion else ""
+
+    def test_orden_mdr(self):
+        self.assertTrue(self.bloque, "falta la orden mdr")
+        for trozo in ("TRIAJE_NODO_GESTION=clab-oficina-mdr", "perfil_minimo", "run/oficina/perfil.yml",
+                      "run/oficina/postura.json", "TRIAJE_ASISTENTE_ABIERTO=1", "prototipo.servicio.stream"):
+            self.assertIn(trozo, self.bloque, trozo)
+        self.assertNotIn("aprovisionar", self.guion)
+
+    def test_el_perfil_minimo_usa_los_rangos_del_laboratorio(self):
+        for r in red.RANGOS:
+            self.assertIn(f"--rango {r}", self.bloque, r)
+        self.assertIn(f"--gestion {red.GESTION}", self.bloque)
+
+
 if __name__ == "__main__":
     unittest.main()

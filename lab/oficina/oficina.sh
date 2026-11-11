@@ -8,6 +8,9 @@
 #   sh lab/oficina/oficina.sh test     comprueba desde el nodo mdr que llega a cada equipo, y que internet
 #                                      solo entra por fw-borde
 #   sh lab/oficina/oficina.sh atacar   fuerza bruta SSH desde internet contra srv-web01 (10 intentos)
+#   sh lab/oficina/oficina.sh mdr [puerto]   arranca el MDR como en un cliente nuevo: perfil mínimo (solo el
+#                                      MDR y los rangos), sin clave del conector; consola en http://127.0.0.1:8787
+#                                      (o el puerto dado). Detiene antes cualquier otro daemon del MDR.
 #
 # A propósito NO se prepara el acceso del conector en ningún equipo: se da con el paquete de alta de la
 # vista Conectividad, como en un cliente.
@@ -47,7 +50,8 @@ case "${1:-up}" in
       # La imagen trae las claves del host generadas al construirse: todos los equipos tendrían la misma
       # huella. Cada equipo genera las suyas antes de arrancar sshd.
       docker exec $P-$n sh -c 'pkill -x sshd 2>/dev/null; rm -f /etc/ssh/ssh_host_*; ssh-keygen -A >/dev/null; /usr/sbin/sshd -E /var/log/banco/sshd.log'
-      docker exec -d $P-$n python3 /opt/banco/reenviador.py --nodo $n --destino "$W:514" \
+      # Al nombre del contenedor (DNS de Docker), no a su IP: si Wazuh se recrea cambia de IP.
+      docker exec -d $P-$n python3 /opt/banco/reenviador.py --nodo $n --destino "clab-red-cliente-wazuh:514" \
         --sshd /var/log/banco/sshd.log --web /var/log/banco/access.log
     done
     for n in $(red nodos); do
@@ -86,7 +90,30 @@ case "${1:-up}" in
     done
     echo "Hecho. Mira la Consola del MDR."
     ;;
+  mdr)
+    # Como un cliente nuevo: el servicio arranca con el perfil mínimo y la red se describe con el asistente
+    # de la consola. Los ficheros que exporta el asistente se copian a run/oficina/ y se vuelve a ejecutar.
+    cd "$RAIZ"
+    mkdir -p run/oficina
+    [ -f run/oficina/perfil.yml ] || python3 -m prototipo.herramientas.perfil_minimo --gestion 10.99.0.10 \
+      --rango 172.16.10.0/24 --rango 10.20.0.0/24 --rango 10.0.0.0/24 --rango 10.99.0.0/24 --salida run/oficina/perfil.yml
+    [ -f run/oficina/postura.json ] || echo '{"nodos": {}}' > run/oficina/postura.json
+    W=clab-red-cliente-wazuh
+    docker ps --format '{{.Names}}' | grep -q "^$W$" || { echo "Wazuh no está en marcha: sh lab/oficina/oficina.sh up"; exit 1; }
+    pkill -9 -f "python3 -m prototipo(\.servicio)?\.stream" 2>/dev/null || true
+    docker exec "$W" pkill -f "tail -n0 -F /var/ossec/logs/alerts/alerts.json" 2>/dev/null || true
+    sleep 1
+    export TRIAJE_NODO_GESTION=clab-oficina-mdr          # el escaneo y el conector salen del nodo mdr
+    export TRIAJE_ASISTENTE_ABIERTO=1 TRIAJE_CONECTIVIDAD_ABIERTA=1 TRIAJE_POLITICA_ABIERTA=1   # laboratorio
+    if [ -f run/oficina/politica.yml ]; then export TRIAJE_POLITICA=run/oficina/politica.yml; fi
+    SALIDA="run/oficina/trazas-$(date +%F-%H%M%S).jsonl"
+    echo "→ MDR de la oficina: perfil run/oficina/perfil.yml · traza $SALIDA"
+    echo "  Consola: http://127.0.0.1:${2:-8787}  ·  Ctrl+C para detener"
+    docker exec "$W" sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
+      | python3 -m prototipo.servicio.stream - run/oficina/perfil.yml run/oficina/postura.json \
+          --salida "$SALIDA" --web ${2:-8787}
+    ;;
   *)
-    sed -n '2,12p' "$0"; exit 2
+    sed -n '2,15p' "$0"; exit 2
     ;;
 esac

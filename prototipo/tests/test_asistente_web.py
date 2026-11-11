@@ -170,6 +170,28 @@ class TestAsistenteWeb(_Base):
         _, est = self._req(srv, "GET", "/api/asistente")
         self.assertEqual(est["nombres_siem"], ["srv-web01"])
 
+    def test_nombres_del_siem_incluyen_las_decisiones_pendientes(self):
+        """Ensayo en vivo: la primera alerta de un equipo queda pendiente del analista y aún no está en la
+        traza; su nombre ya es útil para el asistente."""
+        srv = self._srv()
+        srv.async_web = True
+        srv.estado.encolar_decision({"clave": ("198.51.100.10", "acceso_credenciales"), "severidad": 4, "activo": "srv-web01"})
+        _, est = self._req(srv, "GET", "/api/asistente")
+        self.assertEqual(est["nombres_siem"], ["srv-web01"])
+
+    def test_un_escaneo_de_mdr_descubrir_se_revisa_en_la_consola(self):
+        """`sudo mdr descubrir --salida <junto a la traza>/asistente-descubrimiento.json` (servicio sin
+        privilegios): la consola lo toma, propone su borrador y deja revisarlo y exportarlo."""
+        import shutil
+        shutil.copy(os.path.join(os.path.dirname(__file__), "fixtures", "nmap", "descubrimiento.json"),
+                    os.path.join(self.d, "asistente-descubrimiento.json"))
+        srv = self._srv()
+        _, est = self._req(srv, "GET", "/api/asistente")
+        self.assertIn("10.0.0.2", est["borrador"]["equipos"])
+        st, b = self._req(srv, "POST", "/api/asistente/borrador", {"cambios": {"10.0.0.2": {"nombre": "fw-interno"}}})
+        self.assertEqual((st, b["equipos"]["10.0.0.2"]["nombre"]), (200, "fw-interno"))
+        self.assertEqual(self._req(srv, "GET", "/api/asistente/propuesta")[0], 200)
+
     def test_laboratorio_abierto_sin_mapa(self):
         from unittest import mock
         srv = self._srv(operadores={})

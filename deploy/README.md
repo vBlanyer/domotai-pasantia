@@ -13,7 +13,7 @@ Son plantillas: ajústalas a las rutas y al usuario del cliente.
 | `politica.ejemplo.yml` | Política de la empresa comentada (en quién se confía, qué se automatiza), para que la apruebe Seguridad. `mdr configurar` la copia junto a un perfil nuevo. |
 | `instalar.sh` | Instala, actualiza o desinstala en el equipo del cliente (va en la raíz del paquete). |
 | `empaquetar.sh` | Genera el paquete del cliente (proveedor). |
-| `../bin/mdr` | Herramienta de administración: `configurar`, `estado`, `analista`, `validar-perfil`, `validar-alertas`, `escanear` (postura con Nmap), `instalar-geoip` / `instalar-asn` (bases DB-IP Lite), `verificar-traza`, `podar-trazas`, `validar-politica`, `explicar-politica`, `migrar-politica`. |
+| `../bin/mdr` | Herramienta de administración: `configurar`, `estado`, `analista`, `validar-perfil`, `validar-alertas`, `escanear` (postura con Nmap), `instalar-geoip` / `instalar-asn` (bases DB-IP Lite), `verificar-traza`, `podar-trazas`, `validar-politica`, `explicar-politica`, `migrar-politica`, `descubrir` (escaneo para el asistente de red). |
 
 ## Preparar el paquete (proveedor)
 

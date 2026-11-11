@@ -206,6 +206,14 @@ python3 -m prototipo.servicio.stream <fuente> <perfil> <hallazgos> [flags]
 | `--una-vez` | Procesa un fichero FINITO hasta el final y sale (para pruebas/demos/reproceso puntual), en vez de seguirlo como `tail -f`. |
 | `--escuchar host:puerto` · `--permitir IP,…` · `--tls-cert/-clave` · `--tls-ca` | Recepción de alertas por red (SIEM remoto) con lista blanca (obligatoria fuera de loopback) y TLS opcional; con `--tls-ca`, mTLS (exige cert de cliente). Ver [deploy/README.md](deploy/README.md). |
 
+### El asistente de red y el laboratorio `oficina`
+
+`sh lab/oficina/oficina.sh up` levanta una red que el MDR no conoce y `sh lab/oficina/oficina.sh mdr` arranca
+el daemon con un perfil mínimo (`run/oficina/perfil.yml`), `TRIAJE_NODO_GESTION=clab-oficina-mdr` y los
+opt-in de laboratorio (`TRIAJE_ASISTENTE_ABIERTO`, `TRIAJE_CONECTIVIDAD_ABIERTA`). El escaneo de la vista
+Asistente de red tarda unos 5 minutos a ritmo suave. Recorrido: manual de usuario, sección 22; plan:
+[plan-asistente-de-red.md](documentacion/05-fase5-implementacion-del-prototipo/plan-asistente-de-red.md).
+
 ### La política de la empresa (`TRIAJE_POLITICA`)
 
 Con `TRIAJE_POLITICA=<politica.yml>`, el daemon lee al arrancar la política de la empresa (en quién se

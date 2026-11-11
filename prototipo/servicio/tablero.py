@@ -1077,7 +1077,8 @@ class _Manejador(BaseHTTPRequestHandler):
                 return self._responder(conectividad_web.resumen(s, quien))
             if ruta == "/api/asistente":   # asistente de red: estado del escaneo, borrador y nombres del SIEM
                 from prototipo.servicio import asistente_web
-                return self._responder(asistente_web.resumen(s, _registros_cacheados(s.ruta_traza)))
+                pend = s.estado.decisiones_pendientes() if getattr(s, "async_web", False) else []
+                return self._responder(asistente_web.resumen(s, list(_registros_cacheados(s.ruta_traza)) + pend))
             if ruta == "/api/asistente/propuesta":   # perfil, postura y política propuestos; NO escribe nada
                 from prototipo.servicio import asistente_web
                 codigo, resp = asistente_web.propuesta(s, estado_red)

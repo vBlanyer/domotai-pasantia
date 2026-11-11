@@ -59,6 +59,15 @@ def _guardar(ruta, datos):
         raise
 
 
+def _borrador(srv):
+    """El borrador vigente: el guardado si es del último descubrimiento; si no (escaneo hecho con
+    «sudo mdr descubrir», o borrador de un escaneo anterior), el que propone ese descubrimiento."""
+    d, b = _leer(srv.ruta_asistente_desc), _leer(srv.ruta_asistente_borrador)
+    if d and (b is None or b.get("basado_en") != d.get("fecha")):
+        return ar.borrador_inicial(d)
+    return b
+
+
 def _puede(srv, operador):
     return bool(operador) and (bool(getattr(srv, "operadores", None)) or os.environ.get("TRIAJE_ASISTENTE_ABIERTO") == "1")
 
@@ -79,7 +88,7 @@ def resumen(srv, registros):
     """GET /api/asistente."""
     base = _base(srv)
     return {**srv.asistente_estado, "descubrimiento": _leer(srv.ruta_asistente_desc),
-            "borrador": _leer(srv.ruta_asistente_borrador), "nombres_siem": ar.nombres_del_siem(registros, base),
+            "borrador": _borrador(srv), "nombres_siem": ar.nombres_del_siem(registros, base),
             "por_defecto": {"gestion": base.get("ip_gestion"), "rangos": list(base.get("redes_internas") or [])}}
 
 
@@ -124,7 +133,7 @@ def post(srv, ruta, cuerpo, operador):
         return 202, {"escaneando": True}
     if ruta == "/api/asistente/borrador":
         with srv._asistente_lock:
-            borrador = _leer(srv.ruta_asistente_borrador)
+            borrador = _borrador(srv)
             if borrador is None:
                 return 404, {"error": "aún no hay escaneo"}
             try:
@@ -139,7 +148,7 @@ def post(srv, ruta, cuerpo, operador):
 
 def propuesta(srv, estado_red):
     """GET /api/asistente/propuesta: los tres ficheros, la validación y el mapa. No escribe nada."""
-    borrador, d = _leer(srv.ruta_asistente_borrador), _leer(srv.ruta_asistente_desc)
+    borrador, d = _borrador(srv), _leer(srv.ruta_asistente_desc)
     if borrador is None or d is None:
         return 404, {"error": "aún no hay escaneo"}
     perfil = ar.perfil_desde_borrador(borrador)

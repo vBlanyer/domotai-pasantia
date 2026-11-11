@@ -72,6 +72,7 @@ Documentos de implementación posteriores, en esta carpeta:
 - [revision-seguridad-conectividad.md](revision-seguridad-conectividad.md) — revisión de seguridad de la vista Conectividad: protecciones, puntos cerrados el 10/11/2026 y límites aceptados.
 - [plan-manejo-fallos-contencion.md](plan-manejo-fallos-contencion.md) — taxonomía de los fallos de contención (F1–F10) y sus fases 0–6; los cinco recortes quedan como funcionalidad experimental, apagada por defecto.
 - [plan-almacenamiento-postgresql.md](plan-almacenamiento-postgresql.md) — **pendiente**: almacenamiento en PostgreSQL (traza firmada como fuente de verdad + proyector), con identificadores numéricos, rotación mensual de la traza y retención por particiones. Plan aprobado el 10/11/2026, sin ejecutar.
+- [plan-asistente-de-red.md](plan-asistente-de-red.md) — **implementado en la rama `asistente-de-red` (11/11/2026), sin integrar en `main`**: del escaneo con Nmap a una propuesta de perfil que la consola nunca aplica; perfil mínimo; laboratorio `oficina`. Diseño en la [Fase 4](../04-fase4-diseno-de-arquitectura/asistente-de-red.md).
 - [plan-politica-empresa.md](plan-politica-empresa.md) — **implementado (11/11/2026)**: la política de respuesta de la empresa en un fichero propio (`politica.yml`, en términos de negocio, versionado y aprobado), traducida a las claves del perfil sin tocar el motor; órdenes `mdr` y vista Políticas con el origen de cada valor y la propuesta de la versión siguiente.
 
 El código del prototipo vive fuera de esta carpeta, junto al laboratorio, en
