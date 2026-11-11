@@ -7,7 +7,7 @@
 Por defecto usan TRIAJE_POLITICA y TRIAJE_PERFIL. Plan:
 documentacion/05-fase5-implementacion-del-prototipo/plan-politica-empresa.md (tarea 3).
 """
-import argparse, os, shutil, sys
+import argparse, os, shutil, sys, tempfile
 from datetime import date
 
 import yaml
@@ -52,15 +52,20 @@ def linea_estado(env, perfil):
                 "remedio": "sudo mdr migrar-politica  (o quita TRIAJE_POLITICA)"}
     try:
         pol = _yaml(ruta)
-    except (OSError, yaml.YAMLError) as e:
-        return {"tema": "política", "nivel": "fallo", "texto": f"no se puede leer: {e}", "remedio": "sudo mdr validar-politica"}
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
+        return {"tema": "política", "nivel": "fallo", "texto": f"no se puede leer: {type(e).__name__}",
+                "remedio": "sudo mdr validar-politica"}
     avisos = pe.validar_politica(pol, perfil or {}, catm.cargar_catalogo(_CATALOGO)) if perfil is not None else []
     if avisos:
         return {"tema": "política", "nivel": "fallo", "texto": f"no es válida ({len(avisos)} aviso(s)): el servicio no arrancará",
                 "remedio": "sudo mdr validar-politica"}
     cab = pe.cabecera(pol)
     texto = f"versión {cab.get('version', '?')} · aprobada por {cab.get('aprobada_por') or '(sin indicar)'}"
-    n = _n_cambios(_overlay(env))
+    try:
+        base = pe.fusionar_perfil_y_politica(perfil or {}, pol)
+    except ValueError as e:                    # solo sin perfil legible: la validación no pudo cruzarlos
+        return {"tema": "política", "nivel": "fallo", "texto": str(e), "remedio": "sudo mdr validar-politica"}
+    n = _n_cambios(perfilm.overlay_efectivo(base, _overlay(env)))
     if n:
         return {"tema": "política", "nivel": "aviso",
                 "texto": f"{texto} · {n} cambio{'s' if n != 1 else ''} de consola sin pasar al fichero",
@@ -99,7 +104,7 @@ def _explicar(a, env):
         print(f"Política versión {cab.get('version', '?')}, aprobada por {cab.get('aprobada_por') or '(sin indicar)'}.")
     else:
         print("Sin politica.yml: las reglas vienen del perfil.")
-    overlay = _overlay(env)
+    overlay = perfilm.overlay_efectivo(perfil, _overlay(env))
     if _n_cambios(overlay):
         perfil = perfilm.fusionar_politicas(perfil, overlay)
         print(f"Incluye {_n_cambios(overlay)} cambio(s) hecho(s) en la consola (solo endurecen).")
@@ -109,9 +114,28 @@ def _explicar(a, env):
     return 0
 
 
+def _escribir_atomico(ruta, datos):
+    """Temporal en el mismo directorio + os.replace: un corte a medias no deja el fichero roto."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(ruta)), prefix=".mdr-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            yaml.safe_dump(datos, f, allow_unicode=True, sort_keys=False)
+        if os.path.exists(ruta):
+            shutil.copymode(ruta, tmp)
+        os.replace(tmp, ruta)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
 def _migrar(a, env):
     if os.path.exists(a.salida):
         print(f"{a.salida} ya existe: no se pisa. Bórralo o indica otra salida.")
+        return 1
+    copia = a.perfil + ".antes-de-migrar"
+    if os.path.exists(copia):
+        print(f"{copia} ya existe (¿una migración anterior?): no se pisa. Muévelo antes de repetir.")
         return 1
     perfil = _yaml(a.perfil)
     pol, resto = pe.extraer_politica(perfil)
@@ -119,14 +143,26 @@ def _migrar(a, env):
         print("el perfil no tiene reglas de política que migrar")
         return 1
     pol = {"politica": {"version": 1, "aprobada_por": "[pendiente de aprobación]", "fecha": date.today().isoformat()}, **pol}
-    with open(a.salida, "w", encoding="utf-8") as f:
-        yaml.safe_dump(pol, f, allow_unicode=True, sort_keys=False)
-    copia = a.perfil + ".antes-de-migrar"
+    # Antes de tocar nada: la política resultante debe ser válida y, junto al perfil recortado, decir
+    # exactamente lo mismo que el perfil de partida.
+    avisos = pe.validar_politica(pol, resto, catm.cargar_catalogo(_CATALOGO))
+    if not avisos and pe.fusionar_perfil_y_politica(resto, pol) != perfil:
+        avisos = ["el perfil recortado y la política no equivalen al perfil de partida"]
+    if avisos:
+        print("No se migra: la política resultante no sería válida (corrige el perfil y repite):")
+        print("\n".join(f"  - {x}" for x in avisos))
+        return 1
     shutil.copy2(a.perfil, copia)
-    with open(a.perfil, "w", encoding="utf-8") as f:
-        yaml.safe_dump(resto, f, allow_unicode=True, sort_keys=False)
+    _escribir_atomico(a.salida, pol)
+    _escribir_atomico(a.perfil, resto)
     print(f"política -> {a.salida}\nperfil sin las reglas de política -> {a.perfil} (copia: {copia})")
-    print("Los comentarios del perfil no se conservan (están en la copia). Fija TRIAJE_POLITICA y reinicia el servicio.")
+    print("Los comentarios del perfil no se conservan (están en la copia).")
+    if env.get("TRIAJE_POLITICA") != a.salida:
+        print(f"IMPORTANTE: fija TRIAJE_POLITICA={a.salida} en /etc/mdr/triaje.env y reinicia el servicio. "
+              "Hasta entonces, si el servicio se reinicia, arranca SIN estas reglas (todo espera a un analista "
+              "y no se reconocen los orígenes legítimos).")
+    else:
+        print("Reinicia el servicio para aplicarla.")
     return 0
 
 
@@ -145,7 +181,11 @@ def main(argv=None, env=None):
     if not a.perfil:
         print("indica el perfil (--perfil o TRIAJE_PERFIL)")
         return 1
-    return {"validar": _validar, "explicar": _explicar, "migrar": _migrar}[a.orden](a, env)
+    try:
+        return {"validar": _validar, "explicar": _explicar, "migrar": _migrar}[a.orden](a, env)
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
+        print(f"no se puede leer: {type(e).__name__}: {e}")
+        return 1
 
 
 if __name__ == "__main__":

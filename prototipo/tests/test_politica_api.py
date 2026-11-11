@@ -83,6 +83,15 @@ class TestApiPolitica(unittest.TestCase):
         _, sin = self._req(self._srv(), "GET", "/api/politica")
         self.assertEqual((sin["confianza"]["administradores"], sin["intocables"]), ([], []))
 
+    def test_la_confianza_dice_si_los_equipos_propios_exigen_analista(self):
+        _, sin = self._req(self._srv(), "GET", "/api/politica")
+        self.assertEqual((sin["confianza"]["equipos_propios"], sin["confianza"]["equipos_propios_origen"]),
+                         ("humano_siempre", "codigo"))
+        pol = {**POL, "respuesta_automatica": {**POL["respuesta_automatica"], "equipos_propios": "si_hay_certeza"}}
+        _, con = self._req(self._srv(pol), "GET", "/api/politica")
+        self.assertEqual((con["confianza"]["equipos_propios"], con["confianza"]["equipos_propios_origen"]),
+                         ("automatica_si_confianza", "fichero"))
+
     def test_explicar(self):
         st, r = self._req(self._srv(POL), "GET", "/api/politica/explicar")
         self.assertEqual(st, 200)
@@ -97,6 +106,29 @@ class TestApiPolitica(unittest.TestCase):
         self.assertEqual((r["version"], p["politica"]["version"], p["politica"]["basada_en"]), (4, 4, 3))
         self.assertEqual(p["respuesta_automatica"]["por_equipo"], {"srv": "con_analista"})
         self.assertEqual(srv.politica_info["politica"]["politica"]["version"], 3)
+
+    def test_la_consola_no_puede_aflojar_la_politica(self):
+        pol = {**POL, "respuesta_automatica": {**POL["respuesta_automatica"],
+                                               "por_tipo_de_ataque": {"acceso_credenciales": "con_analista"}}}
+        srv = self._srv(pol)
+        with mock.patch.dict(os.environ, {"TRIAJE_POLITICA_ABIERTA": "1"}):
+            for dim, clave in (("familia", "acceso_credenciales"), ("zona", "Core"), ("activo", "srv")):
+                st, r = self._req(srv, "POST", "/api/politica", {"dimension": dim, "clave": clave,
+                                  "automatizacion": "automatica_si_confianza", "operador": "ana"})
+                self.assertEqual(st, 400, (dim, r))
+        self.assertFalse(os.path.exists(self.ov))
+
+    def test_un_overlay_antiguo_que_afloja_o_ya_coincide_no_cuenta(self):
+        srv = self._srv(POL)
+        with open(self.ov, "w", encoding="utf-8") as f:     # escrito antes de la política, o ya aprobado
+            yaml.safe_dump({"politicas_por_zona": {"Core": {"automatizacion": "automatica_si_confianza"}},
+                            "automatizacion_por_familia": {"reconocimiento": {"automatizacion": "automatica_si_confianza"}}}, f)
+        _, est = self._req(srv, "GET", "/api/politica")
+        self.assertEqual(est["diferencias"], [])
+        self.assertEqual({f["familia"]: f["origen"] for f in est["familias"]}["reconocimiento"], "fichero")
+        _, r = self._req(srv, "GET", "/api/politica/propuesta")
+        p = yaml.safe_load(r["yaml"])
+        self.assertEqual(p["respuesta_automatica"]["por_zona"], {"Core": "con_analista"})
 
     def test_propuesta_sin_politica_parte_del_perfil(self):
         st, r = self._req(self._srv(), "GET", "/api/politica/propuesta")

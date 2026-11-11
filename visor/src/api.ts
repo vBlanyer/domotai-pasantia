@@ -404,6 +404,8 @@ export const ConfianzaPoliticaSchema = z.object({
   rafaga: z.object({ alertas: z.number(), en_segundos: z.number() }).nullable().optional(),
   certeza_minima: z.number().nullable().optional(), revisar_desde_nivel: z.number().nullable().optional(),
   origen: z.string(),
+  // bloquear un equipo propio: lo que aplica el motor (humano_siempre por defecto) y de dónde sale
+  equipos_propios: z.string().nullable().optional(), equipos_propios_origen: z.string().nullable().optional(),
 })
 export type ConfianzaPolitica = z.infer<typeof ConfianzaPoliticaSchema>
 export const PoliticaEstadoSchema = z.object({

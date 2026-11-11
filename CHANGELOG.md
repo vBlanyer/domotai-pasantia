@@ -36,6 +36,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
 - **Prioridad del reconocimiento** rebajada a 2 (R2); la prioridad esperada admite excepciones por familia.
 
 ### Corregido
+- **La consola ya no puede aflojar** lo que el perfil (o ahora `politica.yml`) deja en manos de un
+  analista: antes, en Políticas, poner AUTO una familia, zona o equipo cerrados en la base los abría (y
+  un equipo podía saltarse el HUMANO de su zona). Ahora el POST responde 400, y una entrada así en un
+  `politica-operativa.yml` antiguo se ignora al arrancar; tampoco cuenta como cambio pendiente ni
+  entra en la propuesta.
 - `lab/banco/fallos.py`: los casos «sshd» y «clave-host» no paraban ni recargaban el sshd del banco.
 - Postura: `vsftpd`, `proftpd` y `pure-ftpd` casan con el protocolo `ftp` del auditor (un ataque real al
   FTP expuesto salía «no expuesto»).

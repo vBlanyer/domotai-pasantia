@@ -150,7 +150,10 @@ class TestExplicar(unittest.TestCase):
 
     def test_cuenta_la_automatizacion_por_capas(self):
         self.assertIn("0,90", self.texto)
-        self.assertTrue(any("acceso_credenciales" in f and "certeza" in f for f in self.frases))
+        # por tipo de ataque, zona o equipo solo se endurece: si_hay_certeza no promete automatizar nada
+        frase = next(f for f in self.frases if "acceso_credenciales" in f)
+        self.assertIn("regla general", frase)
+        self.assertNotIn("se ejecuta sola", frase)
         self.assertTrue(any("Interna" in f and "db01" in f and "analista" in f for f in self.frases))
         self.assertTrue(any("db01" in f and "5432" in f for f in self.frases))
 
@@ -200,3 +203,57 @@ class TestPropuesta(unittest.TestCase):
         p = pe.propuesta({}, {"politicas_por_zona": {"DMZ": {"automatizacion": "humano_siempre"}}})
         self.assertEqual(p["politica"]["version"], 1)
         self.assertEqual(p["respuesta_automatica"]["por_zona"], {"DMZ": "con_analista"})
+
+
+MAL_FORMADAS = [
+    {"confianza": ["10.99.0.10"]},
+    {"respuesta_automatica": ["sola"]},
+    {"confianza": {"sospechar_si_rafaga": [9, 60]}},
+    {"respuesta_automatica": {"por_defecto": ["sola"]}},
+    {"respuesta_automatica": {"por_tipo_de_ataque": {"acceso_credenciales": {"a": 1}}}},
+    {"respuesta_automatica": {"por_tipo_de_ataque": ["acceso_credenciales"]}},
+    {"nunca_tocar_en_automatico": "db01"},
+    {"nunca_tocar_en_automatico": {"equipo": "db01", "servicio": 5432}},
+    {"confianza": {"administradores": 5}},
+    {"confianza": {"socios_criticos": "203.0.113.7"}},
+    {"desconocidos_graves": 10},
+    {"desconocidos_graves": ["x"]},
+    {"politica": [1]},
+    {"politica": {"version": "1.2"}},
+    {"politica": {"version": 0}},
+    {"politica": {"aprobada_por": 4711}},
+    {"politica": {"clave_rara": 1}},
+]
+
+
+class TestValidarEsTotal(unittest.TestCase):
+    """I1/I2 de la revisión: cualquier cosa que devuelva yaml.safe_load da avisos, nunca una excepción."""
+    def test_las_formas_incorrectas_dan_avisos(self):
+        for pol in MAL_FORMADAS:
+            with self.subTest(pol=pol):
+                self.assertTrue(pe.validar_politica(pol, PERFIL, CAT))
+
+    def test_la_cabecera_correcta_no_avisa(self):
+        self.assertEqual(pe.validar_politica({"politica": {"version": 2, "aprobada_por": "Seguridad",
+                                                            "fecha": __import__("datetime").date(2026, 11, 11)}},
+                                             PERFIL, CAT), [])
+
+    def test_secciones_vacias_son_validas(self):
+        self.assertEqual(pe.validar_politica({"confianza": None, "respuesta_automatica": None,
+                                              "nunca_tocar_en_automatico": None}, PERFIL, CAT), [])
+
+
+class TestSemanticaReal(unittest.TestCase):
+    """I3 de la revisión: lo que se firma debe ser lo que el motor hace."""
+    def test_equipos_propios_no_admite_sola(self):
+        avisos = pe.validar_politica({"respuesta_automatica": {"equipos_propios": "sola"}}, PERFIL, CAT)
+        self.assertTrue(any("equipos_propios" in a for a in avisos))
+
+    def test_una_excepcion_si_hay_certeza_no_se_cuenta_como_automatizacion(self):
+        pol = {"respuesta_automatica": {"por_defecto": "con_analista",
+                                        "por_tipo_de_ataque": {"acceso_credenciales": "si_hay_certeza"},
+                                        "por_zona": {"DMZ": "si_hay_certeza"}, "por_equipo": {"web01": "si_hay_certeza"}}}
+        frases = pe.explicar(pe.fusionar_perfil_y_politica(PERFIL, pol), CAT)
+        for nombre in ("acceso_credenciales", "DMZ", "web01"):
+            frase = next(f for f in frases if nombre in f)
+            self.assertNotIn("se ejecuta sola", frase, frase)

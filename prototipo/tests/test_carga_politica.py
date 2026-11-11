@@ -79,3 +79,17 @@ class TestRegistroEnLaTraza(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCargaRobusta(unittest.TestCase):
+    def test_una_forma_incorrecta_no_arranca_con_mensaje_y_sin_traceback(self):
+        for texto in ("confianza: [10.99.0.10]\n", "politica: [1]\n", "- a\n- b\n", "politica: {version: '1.2'}\n"):
+            with self.subTest(texto=texto), self.assertRaises(SystemExit) as e:
+                stream.cargar_politica(PERFIL, CAT, _escribir(texto))
+            self.assertIn("politica", str(e.exception).lower())
+
+    def test_la_cabecera_se_normaliza_a_texto(self):
+        ruta = _escribir("politica: {version: 2, aprobada_por: Seguridad, fecha: 2026-11-11}\n")
+        _, info = stream.cargar_politica(PERFIL, CAT, ruta)
+        self.assertEqual((info["version"], info["fecha"]), (2, "2026-11-11"))
+        json.dumps(stream.registro_politica(info, "t"))         # la traza la puede escribir

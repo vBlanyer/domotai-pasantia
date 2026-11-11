@@ -64,6 +64,11 @@ describe("describirSistema: los registros de sistema dicen qué pasó", () => {
     expect(describirSistema(r)).toEqual({ titulo: "Conectividad", detalle: "clave_host · fw-core · por ana" })
     expect(tipoDe(r)).toBe("sistema")
   })
+  it("el arranque con politica.yml es de sistema y dice qué versión y quién la aprobó", () => {
+    const r = { tipo: "politica_cargada", version: 3, aprobada_por: "Seguridad", huella: "ab" } as never
+    expect(tipoDe(r)).toBe("sistema")
+    expect(describirSistema(r)).toEqual({ titulo: "Política cargada", detalle: "versión 3 · aprobada por Seguridad" })
+  })
   it("supresión, actividad propia, reversión, caso y error", () => {
     expect(describirSistema(sup)).toEqual({ titulo: "Ruido suprimido", detalle: "14 alertas más de 203.0.113.7 contra web-banking" })
     expect(describirSistema(propia)).toEqual({ titulo: "Actividad propia del MDR", detalle: "login de gestión en fw-core, no es amenaza" })

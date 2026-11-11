@@ -240,9 +240,9 @@ export function ventanaDe(regs: Decision[]): { mostrados: number; total: number;
 
 // Qué registros de la traza son decisiones: no los resúmenes de supresión («el ataque sigue, ya
 // decidido»), el eco del login del propio MDR al contener («actividad propia»), la reversión de
-// una contención ni el fallo al procesar un incidente.
+// una contención, el fallo al procesar un incidente ni el arranque con politica.yml.
 const NO_DECISIONES = new Set(["actividad_suprimida", "actividad_propia", "reversion", "error", "actualizacion_caso",
-  "auditoria_conectividad"])
+  "auditoria_conectividad", "politica_cargada"])
 export function esDecision(d: Decision): boolean {
   return !NO_DECISIONES.has(d.tipo ?? "")
 }

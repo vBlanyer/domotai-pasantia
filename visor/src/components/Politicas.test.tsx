@@ -165,6 +165,18 @@ describe("Politicas con politica.yml", () => {
     expect(screen.getByText(/malware/)).toBeInTheDocument()       // los frenos duros del código también
   })
 
+  it("Intocables solo dice que los equipos propios exigen analista si es verdad", () => {
+    h.pol = conPolitica({ confianza: { ...CONF, equipos_propios: "humano_siempre", equipos_propios_origen: "codigo" } })
+    const { unmount } = render(<Politicas />)
+    fireEvent.click(screen.getByRole("tab", { name: "Intocables" }))
+    expect(screen.getByText(/bloquearlos exige un analista/)).toBeInTheDocument()
+    unmount()
+    h.pol = conPolitica({ confianza: { ...CONF, equipos_propios: "automatica_si_confianza", equipos_propios_origen: "fichero" } })
+    render(<Politicas />)
+    fireEvent.click(screen.getByRole("tab", { name: "Intocables" }))
+    expect(screen.queryByText(/bloquearlos exige un analista/)).toBeNull()
+  })
+
   it("pestaña En castellano pide la explicación", async () => {
     render(<Politicas />)
     fireEvent.click(screen.getByRole("tab", { name: "En castellano" }))

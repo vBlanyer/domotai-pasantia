@@ -6,8 +6,9 @@ Plan: documentacion/05-fase5-implementacion-del-prototipo/plan-politica-empresa.
 es un error, no «gana uno».
 """
 import copy
+from datetime import date
 
-from prototipo.motor import analisis, familias, politica
+from prototipo.motor import actores, analisis, familias, politica
 from prototipo.motor import perfil as perfilm
 
 VALORES = {"sola": "automatica", "si_hay_certeza": "automatica_si_confianza", "con_analista": "humano_siempre"}
@@ -128,14 +129,53 @@ def _entero_positivo(v):
     return isinstance(v, int) and not isinstance(v, bool) and v > 0
 
 
+_CABECERA = {"version", "aprobada_por", "fecha", "basada_en"}
+
+
+def _forma(pol):
+    """Avisos de forma (un mapa donde va un mapa, una lista donde va una lista, la cabecera bien
+    escrita). Si hay alguno, el resto de la validación no se intenta: no sabría qué leer."""
+    avisos = []
+    cab = pol.get("politica")
+    if cab is not None and not isinstance(cab, dict):
+        avisos.append("politica: debe ser un mapa con version, aprobada_por y fecha")
+    elif cab:
+        avisos += [f"clave desconocida: politica.{k}" for k in cab if k not in _CABECERA]
+        for k in ("version", "basada_en"):
+            if k in cab and not _entero_positivo(cab[k]):
+                avisos.append(f"politica.{k} debe ser un entero positivo: {cab[k]!r}")
+        if "aprobada_por" in cab and not isinstance(cab["aprobada_por"], str):
+            avisos.append(f"politica.aprobada_por debe ser un texto (entre comillas): {cab['aprobada_por']!r}")
+        if "fecha" in cab and not isinstance(cab["fecha"], (str, date)):
+            avisos.append(f"politica.fecha debe ser una fecha (AAAA-MM-DD): {cab['fecha']!r}")
+    for sec in ("confianza", "respuesta_automatica", "desconocidos_graves"):
+        if pol.get(sec) is not None and not isinstance(pol[sec], dict):
+            avisos.append(f"{sec}: debe ser un mapa (clave: valor), no {type(pol[sec]).__name__}")
+    conf = pol.get("confianza") if isinstance(pol.get("confianza"), dict) else {}
+    for k in ("administradores", "socios_criticos"):
+        if conf.get(k) is not None and not isinstance(conf[k], list):
+            avisos.append(f"confianza.{k}: debe ser una lista, p. ej. [\"10.0.0.1\"]")
+    if conf.get("sospechar_si_rafaga") is not None and not isinstance(conf["sospechar_si_rafaga"], dict):
+        avisos.append("confianza.sospechar_si_rafaga: debe ser un mapa {alertas: N, en_segundos: S}")
+    ra = pol.get("respuesta_automatica") if isinstance(pol.get("respuesta_automatica"), dict) else {}
+    for k in _DIMENSION:
+        if ra.get(k) is not None and not isinstance(ra[k], dict):
+            avisos.append(f"respuesta_automatica.{k}: debe ser un mapa (nombre: valor)")
+    n = pol.get("nunca_tocar_en_automatico")
+    if n is not None and not isinstance(n, list):
+        avisos.append("nunca_tocar_en_automatico: debe ser una lista de {equipo, servicio}")
+    return avisos
+
+
 def validar_politica(pol, perfil, catalogo):
-    """Avisos en castellano (vacío = válida). Mira claves, valores, equipos, zonas y familias conocidas,
-    direcciones, números, reglas repetidas en el perfil y frenos duros que el fichero intente abrir."""
+    """Avisos en castellano (vacío = válida). Mira la forma, claves, valores, equipos, zonas y familias
+    conocidas, direcciones, números, reglas repetidas en el perfil y frenos duros que el fichero intente
+    abrir. Acepta cualquier cosa que devuelva yaml.safe_load: nunca lanza."""
     if pol is None:
         return []
     if not isinstance(pol, dict):
         return ["la política debe ser un mapa"]
-    perfil = perfil or {}
+    perfil = perfil if isinstance(perfil, dict) else {}
     avisos = []
     for clave, val in pol.items():
         if clave not in _CLAVES:
@@ -144,6 +184,9 @@ def validar_politica(pol, perfil, catalogo):
         permitidas = _CLAVES[clave]
         if permitidas and isinstance(val, dict):
             avisos += [f"clave desconocida: {clave}.{k}" for k in val if k not in permitidas]
+    forma = _forma(pol)
+    if forma:
+        return avisos + forma
     conf = pol.get("confianza") or {}
     for ip in conf.get("administradores") or []:
         if not perfilm._ip_ok(str(ip)):
@@ -161,10 +204,14 @@ def validar_politica(pol, perfil, catalogo):
         c = ra["certeza_minima"]
         if isinstance(c, bool) or not isinstance(c, (int, float)) or not 0 <= c <= 1:
             avisos.append(f"respuesta_automatica.certeza_minima debe estar entre 0 y 1: {c!r}")
-    for clave in list(_NIVEL) + ["equipos_propios", "externos_desconocidos"]:
-        if clave in ra and ra[clave] not in VALORES:
+    for clave in list(_NIVEL) + ["externos_desconocidos"]:
+        if clave in ra and not (isinstance(ra[clave], str) and ra[clave] in VALORES):
             avisos.append(f"respuesta_automatica.{clave}: valor no reconocido ({ra[clave]!r}); "
                           f"usa {', '.join(VALORES)}")
+    # El motor solo admite dos posturas para bloquear lo propio (actores.POLITICAS): «sola» no existe.
+    if "equipos_propios" in ra and not (isinstance(ra["equipos_propios"], str) and ra["equipos_propios"] in _SOLO_DOS):
+        avisos.append(f"respuesta_automatica.equipos_propios: valor no admitido ({ra['equipos_propios']!r}); "
+                      "usa si_hay_certeza o con_analista")
     conocidos = {"por_tipo_de_ataque": set(familias.registro()),
                  "por_zona": set(((perfil.get("red") or {}).get("zonas") or {})),
                  "por_equipo": set(perfil.get("activos") or {})}
@@ -174,7 +221,7 @@ def validar_politica(pol, perfil, catalogo):
         for k, v in (ra.get(clave) or {}).items():
             if k not in conocidos[clave]:
                 avisos.append(f"respuesta_automatica.{clave}: {nombre[clave]} desconocido: {k}")
-            if v not in _SOLO_DOS:
+            if not (isinstance(v, str) and v in _SOLO_DOS):
                 avisos.append(f"respuesta_automatica.{clave}.{k}: valor no admitido ({v!r}); usa si_hay_certeza o con_analista")
             elif clave == "por_tipo_de_ataque" and k in frenos and v != "con_analista":
                 avisos.append(f"respuesta_automatica.por_tipo_de_ataque.{k}: es un freno duro del código; "
@@ -188,14 +235,17 @@ def validar_politica(pol, perfil, catalogo):
     graves = pol.get("desconocidos_graves") or {}
     if "revisar_desde_nivel" in graves and not _entero_positivo(graves["revisar_desde_nivel"]):
         avisos.append(f"desconocidos_graves.revisar_desde_nivel debe ser un entero positivo: {graves['revisar_desde_nivel']!r}")
-    avisos += [f"{c}: está en el perfil y en la política; déjala solo en la política"
-               for c in _choques(perfil, traducir_politica(pol))]
+    if not avisos:            # con valores ya sanos, la traducción no puede fallar
+        avisos += [f"{c}: está en el perfil y en la política; déjala solo en la política"
+                   for c in _choques(perfil, traducir_politica(pol))]
     return avisos
 
 
 _INVERSO = {v: k for k, v in VALORES.items()}
 _EN_PALABRAS = {"automatica": "se ejecuta sola", "automatica_si_confianza": "se ejecuta sola si hay certeza",
                 "humano_siempre": "espera siempre a un analista"}     # sujeto femenino: «la respuesta», «una contención»
+_EN_CAPA = {"automatica_si_confianza": "no añade restricción: sigue la regla general",
+            "humano_siempre": "espera siempre a un analista"}
 
 
 def _num(x):
@@ -227,22 +277,24 @@ def explicar(perfil, catalogo):
                        ("impacto_ninguno", "Una respuesta que solo observa")):
         if clave in cont:
             frases.append(f"{que} {_EN_PALABRAS.get(cont[clave], cont[clave])}.")
-    act = cont.get("actores") or {}
-    if act:
-        frases.append("Una contención sobre un equipo propio " + _EN_PALABRAS.get(act.get("activo_interno"), "sigue el caso general")
-                      + "; sobre un dispositivo de red, " + _EN_PALABRAS.get(act.get("dispositivo_red"), "sigue el caso general") + ".")
+    # Bloquear lo propio: el motor solo admite dos posturas y, sin declarar, exige analista (actores.politica).
+    propio = {"automatica_si_confianza": "se ejecuta sola si hay certeza", "humano_siempre": "espera siempre a un analista"}
+    frases.append("Una contención sobre un equipo propio " + propio[actores.politica(perfil, "activo_interno")]
+                  + "; sobre un dispositivo de red, " + propio[actores.politica(perfil, "dispositivo_red")] + ".")
     if cont.get("contener_externos_desconocidos"):
         frases.append("Una contención contra un origen externo desconocido "
                       + _EN_PALABRAS.get(cont["contener_externos_desconocidos"], "") + ".")
+    # Por tipo de ataque, zona o equipo solo se ENDURECE (perfil.filtrar): con_analista obliga a un
+    # analista; si_hay_certeza no añade restricción y no puede automatizar nada por sí sola.
     for fam, pol in sorted((perfil.get("automatizacion_por_familia") or {}).items()):
-        frases.append(f"La respuesta a un ataque de tipo {fam} {_EN_PALABRAS.get((pol or {}).get('automatizacion'), '')}.")
+        frases.append(f"La respuesta a un ataque de tipo {fam} {_EN_CAPA.get((pol or {}).get('automatizacion'), '')}.")
     zonas = (perfil.get("red") or {}).get("zonas") or {}
     for zona, pol in sorted((perfil.get("politicas_por_zona") or {}).items()):
         equipos = ", ".join(zonas.get(zona) or [])
         frases.append(f"En la zona {zona}" + (f" ({equipos})" if equipos else "") + ", una contención "
-                      + _EN_PALABRAS.get((pol or {}).get("automatizacion"), "") + ".")
+                      + _EN_CAPA.get((pol or {}).get("automatizacion"), "") + ".")
     for eq, pol in sorted((perfil.get("overrides_por_activo") or {}).items()):
-        frases.append(f"Sobre {eq}, una contención {_EN_PALABRAS.get((pol or {}).get('automatizacion'), '')}.")
+        frases.append(f"Sobre {eq}, una contención {_EN_CAPA.get((pol or {}).get('automatizacion'), '')}.")
     for e in perfil.get("excepciones") or []:
         if e.get("regla") == "nunca_automatica":
             frases.append(f"El servicio {e.get('servicio')} de {e.get('activo')} no se toca nunca en automático.")

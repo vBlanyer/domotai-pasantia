@@ -136,20 +136,44 @@ def _avisos_posturas(perfil, activos):
                 avisos.append(f"{dim}: activo desconocido ({clave})")
     return avisos
 
+def cambio_afloja(base, seccion, clave, valor):
+    """¿Abriría este cambio de consola lo que la base (perfil + politica.yml) deja en humano_siempre?
+    En equipos, también si la zona del equipo lo cierra: el override por equipo gana a la zona."""
+    if valor == "humano_siempre":
+        return False
+    if ((base.get(seccion) or {}).get(clave) or {}).get("automatizacion") == "humano_siempre":
+        return True
+    return seccion == "overrides_por_activo" and postura_zona_activo(base, clave) == "humano_siempre"
+
+
 def fusionar_politicas(perfil, overlay):
-    """Perfil NUEVO con el overlay aplicado por clave a las tres dimensiones de política
-    (un valor None quita la clave). No muta `perfil`."""
+    """Perfil NUEVO con el overlay de la consola aplicado por clave a las tres dimensiones de política.
+    La consola SOLO ENDURECE: una entrada que aflojaría la base se ignora, y None deja el valor de la
+    base (nunca lo borra). No muta `perfil`."""
     out = dict(perfil or {})
     for dim in _DIMENSIONES_POLITICA:
         if dim not in (overlay or {}):
             continue
         merged = dict(out.get(dim) or {})
         for clave, pol in (overlay[dim] or {}).items():
-            if pol is None:
-                merged.pop(clave, None)
-            else:
-                merged[clave] = pol
+            if not isinstance(pol, dict) or cambio_afloja(perfil or {}, dim, clave, pol.get("automatizacion")):
+                continue
+            merged[clave] = pol
         out[dim] = merged
+    return out
+
+
+def overlay_efectivo(base, overlay):
+    """Las entradas del overlay que cambian algo: ni aflojan la base (se ignoran al fusionar) ni
+    repiten lo que ya dice (p. ej. tras aprobar la propuesta e instalar la política nueva)."""
+    out = {}
+    for dim in _DIMENSIONES_POLITICA:
+        for clave, pol in ((overlay or {}).get(dim) or {}).items():
+            valor = (pol or {}).get("automatizacion") if isinstance(pol, dict) else None
+            if (valor is None or cambio_afloja(base or {}, dim, clave, valor)
+                    or valor == (((base or {}).get(dim) or {}).get(clave) or {}).get("automatizacion")):
+                continue
+            out.setdefault(dim, {})[clave] = pol
     return out
 
 _EN_EL_BORDE = {"AISLAR_NODO", "BLOQUEAR_DESTINO"}   # se ejecutan en el cortafuegos de borde del activo

@@ -1172,6 +1172,9 @@ class _Manejador(BaseHTTPRequestHandler):
             fila = next((f for f in politica_resumen(s.catalogo, base) if f["familia"] == clave), None)
             if fila and fila["automatizacion"] == "nunca_automatica":
                 return self._responder({"error": "familia con acción nunca_automatica: no admite automatización"}, 400)
+        if perfilm.cambio_afloja(base, ps.DIMENSIONES[dim], clave, valor):
+            return self._responder({"error": "la política lo deja en manos de un analista: la consola solo puede "
+                                             "endurecerla, no abrirla"}, 400)
         with s._politica_lock:
             overlay_ant = ps.cargar_overlay(s.ruta_overlay)
             overlay = ps.aplicar_cambio(overlay_ant, dim, clave, valor)
@@ -1437,9 +1440,11 @@ _DIM_OVERLAY = {"familia": ("automatizacion_por_familia", "por_tipo_de_ataque"),
 
 
 def _overlay_de(s):
+    """Los cambios de consola que de verdad cambian algo respecto a la base (ver perfil.overlay_efectivo)."""
+    from prototipo.motor import perfil as perfilm
     from prototipo.servicio import politica_store as ps
     ruta = getattr(s, "ruta_overlay", None)
-    return ps.cargar_overlay(ruta) if ruta else {}
+    return perfilm.overlay_efectivo(getattr(s, "_perfil_base", None) or {}, ps.cargar_overlay(ruta) if ruta else {})
 
 
 def _ultimos_cambios(ruta):
@@ -1504,7 +1509,11 @@ def politica_con_origenes(s):
                    if raf.get("umbral") and raf.get("ventana_s") else None),
         "certeza_minima": cont.get("umbral_confianza"),
         "revisar_desde_nivel": cont.get("revisar_no_soportada_nivel"),
-        "origen": "fichero" if pol.get("confianza") else "perfil"}
+        "origen": "fichero" if pol.get("confianza") else "perfil",
+        # Bloquear un equipo propio: lo que el motor aplica de verdad (sin declarar, exige analista).
+        "equipos_propios": actores.politica(perfil, "activo_interno"),
+        "equipos_propios_origen": ("fichero" if "equipos_propios" in (pol.get("respuesta_automatica") or {})
+                                   else "perfil" if (cont.get("actores") or {}).get("activo_interno") else "codigo")}
     del_fichero = {(e.get("equipo"), e.get("servicio")) for e in pol.get("nunca_tocar_en_automatico") or []}
     est["intocables"] = [{"activo": e.get("activo"), "servicio": e.get("servicio"),
                           "origen": "fichero" if (e.get("activo"), e.get("servicio")) in del_fichero else "perfil"}

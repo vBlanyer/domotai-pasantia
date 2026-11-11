@@ -11,6 +11,8 @@
 #   sola            el MDR contiene sin preguntar
 #   si_hay_certeza  contiene solo si la confianza llega a certeza_minima; si no, pregunta
 #   con_analista    siempre espera a un analista
+# Las excepciones por tipo de ataque, zona y equipo solo ENDURECEN: con_analista obliga a esperar a un
+# analista; si_hay_certeza no añade restricción (sigue la regla general) y nunca automatiza por sí sola.
 #
 # Lo que el código prohíbe automatizar (los «frenos duros», como aislar un equipo por un cambio de
 # fichero) no se abre desde aquí: la validación lo rechaza.
@@ -38,9 +40,9 @@ respuesta_automatica:
   por_defecto: con_analista            # una contención localizada (bloquear un origen)
   si_afecta_a_un_servicio: con_analista
   solo_observar: con_analista          # acciones sin impacto
-  equipos_propios: con_analista        # bloquear un equipo interno o de red
-  # Excepciones más finas (solo si_hay_certeza o con_analista):
-  # por_tipo_de_ataque: { acceso_credenciales: si_hay_certeza }
+  equipos_propios: con_analista        # bloquear un equipo interno o de red (si_hay_certeza o con_analista)
+  # Excepciones que endurecen la regla general (con_analista), p. ej. cuando por_defecto ya se abrió:
+  # por_tipo_de_ataque: { reconocimiento: con_analista }
   # por_zona:           { Interna: con_analista }
   # por_equipo:         { web01: con_analista }
 

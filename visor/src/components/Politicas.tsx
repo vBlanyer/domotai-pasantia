@@ -327,7 +327,10 @@ export function Politicas() {
                 <Origen sujeto={`${i.activo} ${i.servicio}`} origen={i.origen} version={version} /></li>
             ))}
             <li><span className="mono">plano de gestión</span> — ninguna contención lo corta <Origen sujeto="plano de gestión" origen="codigo" /></li>
-            <li><span className="mono">equipos propios</span> — bloquearlos exige un analista <Origen sujeto="equipos propios" origen="codigo" /></li>
+            {(est.confianza?.equipos_propios ?? "humano_siempre") !== "automatica_si_confianza" && (
+              <li><span className="mono">equipos propios</span> — bloquearlos exige un analista{" "}
+                <Origen sujeto="equipos propios" origen={est.confianza?.equipos_propios_origen ?? "codigo"} version={version} /></li>
+            )}
             {est.familias.filter((f) => f.automatizacion === "nunca_automatica").map((f) => (
               <li key={f.familia}><span className="mono">{f.familia}</span> — freno duro: nunca se contiene solo <Origen sujeto={`freno ${f.familia}`} origen="codigo" /></li>
             ))}

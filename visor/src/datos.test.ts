@@ -13,6 +13,9 @@ describe("esDecision", () => {
     const tipos = ["decision", null, "reversion", "error", "actividad_suprimida", "actividad_propia", "actualizacion_caso"]
     expect(tipos.map((tipo) => esDecision({ tipo } as Decision))).toEqual([true, true, false, false, false, false, false])
   })
+  it("el arranque con politica.yml (politica_cargada) no es una decisión", () => {
+    expect(esDecision({ tipo: "politica_cargada" } as Decision)).toBe(false)
+  })
 })
 
 describe("estadoDeCasos", () => {

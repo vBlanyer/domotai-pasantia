@@ -77,11 +77,39 @@ class TestFusionYValidacion(unittest.TestCase):
         self.assertEqual(out["politicas_por_zona"]["Core"]["automatizacion"], "humano_siempre")
         self.assertNotIn("politicas_por_zona", base)
 
-    def test_fusionar_none_quita_clave(self):
+    def test_fusionar_none_no_quita_lo_que_cierra_la_base(self):
+        # None = «sin cambio de consola»: vuelve al valor de la base, nunca lo borra (borrarlo aflojaría).
         base = {"politicas_por_zona": {"Core": {"automatizacion": "humano_siempre"}, "DMZ": {"automatizacion": "humano_siempre"}}}
         out = perfil.fusionar_politicas(base, {"politicas_por_zona": {"Core": None}})
-        self.assertNotIn("Core", out["politicas_por_zona"])
-        self.assertIn("Core", base["politicas_por_zona"])
+        self.assertEqual(out["politicas_por_zona"]["Core"], {"automatizacion": "humano_siempre"})
+
+    def test_fusionar_nunca_afloja_la_base(self):
+        """La consola solo endurece (C1 de la revisión de politica.yml): lo que la base deja en
+        humano_siempre no lo abre ni la familia, ni la zona, ni un equipo dentro de esa zona."""
+        base = {"activos": {"app01": {"ip": "10.0.0.5"}}, "red": {"zonas": {"Interna": ["app01"]}},
+                "automatizacion_por_familia": {"acceso_credenciales": {"automatizacion": "humano_siempre"}},
+                "politicas_por_zona": {"Interna": {"automatizacion": "humano_siempre"}}}
+        abrir = {"automatizacion": "automatica_si_confianza"}
+        out = perfil.fusionar_politicas(base, {"automatizacion_por_familia": {"acceso_credenciales": abrir},
+                                               "politicas_por_zona": {"Interna": abrir},
+                                               "overrides_por_activo": {"app01": abrir}})
+        self.assertEqual(perfil.postura_familia(out, "acceso_credenciales"), "humano_siempre")
+        self.assertEqual(perfil.postura_zona_activo(out, "app01"), "humano_siempre")
+
+    def test_fusionar_si_abre_lo_que_la_base_no_cierra(self):
+        base = {"automatizacion_por_familia": {"reconocimiento": {"automatizacion": "automatica_si_confianza"}}}
+        out = perfil.fusionar_politicas(base, {"automatizacion_por_familia": {"reconocimiento": {"automatizacion": "humano_siempre"}}})
+        self.assertEqual(perfil.postura_familia(out, "reconocimiento"), "humano_siempre")
+
+    def test_overlay_efectivo_quita_lo_que_afloja_y_lo_que_ya_coincide(self):
+        base = {"automatizacion_por_familia": {"acceso_credenciales": {"automatizacion": "humano_siempre"},
+                                               "reconocimiento": {"automatizacion": "humano_siempre"}}}
+        ov = {"automatizacion_por_familia": {"acceso_credenciales": {"automatizacion": "automatica_si_confianza"},
+                                             "reconocimiento": {"automatizacion": "humano_siempre"},
+                                             "servicio_expuesto": {"automatizacion": "humano_siempre"}}}
+        self.assertEqual(perfil.overlay_efectivo(base, ov),
+                         {"automatizacion_por_familia": {"servicio_expuesto": {"automatizacion": "humano_siempre"}}})
+        self.assertEqual(perfil.overlay_efectivo(base, None), {})
 
     def test_fusionar_dimension_nula_no_revienta(self):
         base = {"politicas_por_zona": {"Core": {"automatizacion": "humano_siempre"}}}
