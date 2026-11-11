@@ -28,6 +28,7 @@ Uso: mdr <orden> [argumentos]
   validar-politica [politica.yml]  Revisa la política de la empresa (por defecto, TRIAJE_POLITICA).
   explicar-politica [politica.yml] La política efectiva contada en frases (lo que aprueba Seguridad).
   migrar-politica                  Saca del perfil las reglas de política a un politica.yml nuevo.
+  descubrir --gestion IP --rango R… --externo IP --salida F   Escanea la red del cliente para el asistente de red.
   validar-alertas <muestra.json>   Cuenta qué alertas de una muestra del SIEM sabe tratar el MDR.
   escanear [--puertos 22,443] [--equipos a,b]
                                    Escanea con Nmap los equipos del perfil y escribe la postura
@@ -69,6 +70,8 @@ sys.exit(1 if avisos else 0)' "$perfil" ;;
     exec python3 -m prototipo.herramientas.politica explicar "$@" ;;
   migrar-politica)
     exec python3 -m prototipo.herramientas.politica migrar "$@" ;;
+  descubrir)
+    exec python3 -m prototipo.herramientas.descubrir "$@" ;;
   validar-alertas)
     [ "$#" -ge 1 ] || { echo "mdr: indica la muestra de alertas (JSON, una por línea)" >&2; exit 2; }
     exec python3 -m prototipo.herramientas.validar_reglas "$@" ;;
