@@ -1262,13 +1262,24 @@ def _contexto_arranque(cfg, ejecutor=None):
     return just, lab, ancla
 
 
+def _aviso_consola_abierta(cfg):
+    """Con --web y sin tokens, cualquiera que llegue al puerto entra en la consola: el arranque lo dice
+    (#15 de la revisión del 15/11), igual que dice si la traza va sin firma."""
+    if cfg.get("web") and not (os.environ.get("TRIAJE_CONSOLA_TOKEN") or os.environ.get("TRIAJE_CONSOLA_OPERADORES")):
+        return ("[inicio] consola SIN autenticación (ni TRIAJE_CONSOLA_OPERADORES ni TRIAJE_CONSOLA_TOKEN): "
+                "da de alta un analista con «mdr analista alta»")
+    return None
+
+
 def _lineas_inicio(cfg, ejecutor=None):
     """El contexto del arranque para el feed de la Consola: sin esto, quien abre el visor no sabe
     con qué perfil se decide, qué ejecutor toca la red ni si la traza queda anclada y firmada."""
     just, lab, ancla = _contexto_arranque(cfg, ejecutor)
-    return [f"[inicio] monitor activo · perfil {os.path.basename(cfg['perfil'])} · "
-            f"justificador {just} · ejecutor {lab}",
-            f"[inicio] traza {ancla}"]
+    lineas = [f"[inicio] monitor activo · perfil {os.path.basename(cfg['perfil'])} · "
+              f"justificador {just} · ejecutor {lab}",
+              f"[inicio] traza {ancla}"]
+    aviso = _aviso_consola_abierta(cfg)
+    return lineas + ([aviso] if aviso else [])
 
 
 def banner(cfg, ejecutor=None):
@@ -1278,7 +1289,8 @@ def banner(cfg, ejecutor=None):
             "\n  Monitor MDR en tiempo real — ACTIVO"
             f"\n  Perfil: {os.path.basename(cfg['perfil'])} · Justificador: {just} · Ejecutor: {lab}"
             f"\n  Escuchando: {fuente} · ventana de agrupacion: {cfg['ventana']}s · traza {ancla}"
-            "\n  (Ctrl+C para detener)\n" + "=" * 72)
+            + (f"\n  {_aviso_consola_abierta(cfg)[len('[inicio] '):]}" if _aviso_consola_abierta(cfg) else "")
+            + "\n  (Ctrl+C para detener)\n" + "=" * 72)
 
 def _resumen_nuevo():
     return {"alertas": 0, "incidentes": 0, "aprobadas": 0, "rechazadas": 0,

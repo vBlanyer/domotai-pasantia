@@ -945,6 +945,13 @@ class _Manejador(BaseHTTPRequestHandler):
     def log_message(self, *a):        # silencioso: el daemon ya imprime lo suyo
         pass
 
+    def end_headers(self):
+        # Anti-clickjacking (#14 de la revisión del 15/11): ninguna página ajena puede cargar la consola
+        # en un iframe para que el analista pulse «aprobar» o el kill switch sin saberlo. En TODA respuesta.
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
+        super().end_headers()
+
     def _host_ok(self):
         # Anti DNS-rebinding: el navegador manda el hostname que escribió el usuario; si no es el
         # propio tablero (localhost), la petición viene de un dominio ajeno que resuelve a nuestra IP.
@@ -1224,7 +1231,12 @@ class _Manejador(BaseHTTPRequestHandler):
             # tope): se rechaza explícitamente. Los cuerpos legítimos (id/respuesta/paso) son < 1 KiB.
             if not 0 <= n <= _MAX_CUERPO:
                 return self._responder({"error": "Content-Length fuera de rango"}, 413)
-            cuerpo = json.loads(self.rfile.read(n) or b"{}")
+            try:
+                cuerpo = json.loads(self.rfile.read(n) or b"{}")
+            except ValueError:
+                return self._responder({"error": "el cuerpo no es JSON válido"}, 400)
+            if not isinstance(cuerpo, dict):      # #22: una lista o un número daban 500 en vez de 400
+                return self._responder({"error": "el cuerpo debe ser un objeto JSON"}, 400)
             operador = resolver_operador(getattr(s, "operadores", None),
                                          self.headers.get("Authorization"), cuerpo)
             if ruta == "/api/politica":   # edita la postura de automatización (overlay operativo, fail-closed)

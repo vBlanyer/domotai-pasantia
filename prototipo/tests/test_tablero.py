@@ -1076,11 +1076,14 @@ class Test500SinDetalle(unittest.TestCase):
                                      puerto=0, estaticos=tempfile.mkdtemp())
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        from unittest import mock
         c = http.client.HTTPConnection("127.0.0.1", srv.server_address[1], timeout=3)
-        c.request("POST", "/api/pausa", "[1, 2]", {"Content-Type": "application/json"})
-        r = c.getresponse(); cuerpo = json.loads(r.read()); c.close()
+        with mock.patch.object(srv.estado, "pausar", side_effect=RuntimeError("fallo en /etc/mdr/secreto")):
+            c.request("POST", "/api/pausa", '{"pausar": true}', {"Content-Type": "application/json"})
+            r = c.getresponse(); texto = r.read().decode(); c.close()
         self.assertEqual(r.status, 500)
-        self.assertEqual(cuerpo["error"], "error interno")
+        self.assertEqual(json.loads(texto)["error"], "error interno")
+        self.assertNotIn("secreto", texto)
 
 
 class TestHealthz(unittest.TestCase):

@@ -103,9 +103,14 @@ class TestAgotamientoDeSlots(unittest.TestCase):
         _cliente_envia(puerto, b'{"x":1}\n')              # 2ª conexión de la misma IP: rechazada
         vistos = [next(gen) for _ in range(8)]
         self.assertNotIn('{"x":1}', vistos)
-        primero.close()                                   # al cerrar, el cupo se libera
-        _cliente_envia(puerto, b'{"ok":2}\n')
-        self.assertEqual(_recoge(gen, 1), ['{"ok":2}'])
+        primero.close()                                   # al cerrar, el cupo se libera...
+        # ...cuando el hilo de esa conexión ve el EOF, no en el mismo instante: en una máquina cargada
+        # (la CI) el primer reintento puede llegar antes. Se reintenta hasta un plazo (#17 de la revisión).
+        fin, recibido = time.time() + 5, []
+        while time.time() < fin and not recibido:
+            _cliente_envia(puerto, b'{"ok":2}\n')
+            recibido = [v for v in (next(gen) for _ in range(20)) if v == '{"ok":2}']
+        self.assertEqual(recibido, ['{"ok":2}'])
 
     def test_abierto_fuera_de_loopback_se_niega_tambien_aqui(self):
         # Defensa en profundidad de M2: el fail-closed no vive solo en la CLI (stream.validar_escucha);

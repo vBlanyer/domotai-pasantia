@@ -1,7 +1,7 @@
 // Referencia MITRE ATT&CK: dato ESTÁTICO (no de runtime). La matriz es una vista de COBERTURA POR
 // FAMILIA: la API agrega `metricas.mitre = [{tecnica, n}]` expandiendo cada decisión a TODAS las
 // técnicas que declara su familia (`prototipo/familias.yml`), no la subtécnica concreta que puso
-// Wazuh. Por eso aquí vive EXACTAMENTE el conjunto de técnicas de las 8 familias (ni más —no las ~200
+// Wazuh. Por eso aquí vive EXACTAMENTE el conjunto de técnicas de las 10 familias (ni más —no las ~200
 // de enterprise ni subtécnicas aspiracionales— ni menos): así un ataque por familia enciende su
 // columna entera y la matriz refleja la cobertura real del MDR. DEBE mantenerse en sync con los
 // campos `mitre` de familias.yml (hoy 10 familias). Cada técnica se coloca en su táctica ATT&CK.
