@@ -19,6 +19,29 @@ Cada punto indica cómo se comprobó, porque no todos se han probado en vivo.
 | 10 | IaC de AWS: si el disco tarda en adjuntarse, la traza va al disco raíz sin avisar | Baja | No | Lectura de la plantilla |
 | 11 | La consola web compilada (`visor/dist`) no está en git: en AWS (y en cualquier clon nuevo) la consola no carga | **Alta** para AWS | No (el motor funciona, la consola no) | **Reproducido** en contenedor `amazonlinux:2023` (404 en `/`) |
 | 12 | IaC de AWS: `tofu destroy` puede quedarse colgado al desmontar el EBS de la traza | Baja | No | Comportamiento conocido de AWS, **no probado** |
+| 13 | Las reglas `sudo` del conector aceptan argumentos extra (`iptables … --modprobe=…` → root; `passwd -l root`) | **Alta** | — | **Comprobado** con `sudo -l` en contenedor (sin ejecutar) |
+| 14 | La consola no envía cabeceras anti-clickjacking | Media-baja | — | `grep` |
+| 15 | El daemon no avisa al arrancar si la consola está abierta (sin tokens) | Baja | — | Lectura de código |
+| 16 | La traza activa crece sin límite: la retención nunca la poda y la API la relee entera | Media (a largo plazo) | — | Lectura de código |
+| 17 | Prueba inestable (`test_receptor`) → **CI en rojo en `main`** | Media (CI) | — | Log de la CI + 8/8 OK en local |
+| 18 | AWS: el código queda en manos del usuario del servicio (`chown -R triaje /opt/mdr`) | Media | — | Lectura de la plantilla |
+| 19 | AWS: sin `TRIAJE_TRAZA_CLAVE` ni analistas → traza sin firma y consola sin autenticación | Media | — | Lectura de la plantilla |
+| 20 | Unidad systemd poco endurecida (`systemd-analyze security`: 8.5 EXPOSED) | Baja-media | — | `systemd-analyze` offline |
+| 21 | Sin copias de seguridad, sonda de salud ni retención automatizadas | Baja-media | — | Lectura de `deploy/` e `infra/` |
+| 22 | La API responde 500 (no 400) a un cuerpo JSON que no es un objeto | Muy baja | — | Log de la CI |
+| 23 | La CI no tiene lint de Python, ShellCheck, escaneo de secretos ni auditoría de dependencias | Baja | — | `ci.yml` |
+
+## Prioridades recomendadas
+
+1. **#13 — sudoers del conector:** es el único punto que convierte un robo de credenciales en root en
+   los equipos del cliente.
+2. **#17 — prueba inestable:** tiene la CI en rojo en `main`. Mientras tanto, relanzar el job.
+3. **Antes de la prueba en AWS:** #7 (versión), #11 (consola), #18 y #19 (permisos y secretos en AWS).
+4. **#1 — aprobaciones pendientes perdidas al reiniciar** y **#16 — traza sin límite:** afectan al uso
+   continuado en producción.
+5. Lo demás (#2–#6, #8–#10, #12, #14, #15, #20–#23), cuando haya hueco.
+
+**Pendiente de decisión:** ejecutar `npm audit` (envía la lista de dependencias al registro de npm).
 
 ---
 
@@ -361,3 +384,189 @@ aproximados: comprobarlos en la calculadora de AWS.
 **Conclusión:** con #7 y #11 corregidos, lo que queda son sobre todo problemas de permisos de la
 cuenta y errores pasajeros de AWS. El código del MDR ya se probó en la distribución de destino.
 Solo AWS real puede validar systemd, el EBS, SSM y la red.
+
+---
+
+# Auditoría de permisos, validaciones, pruebas, seguridad, logs y mantenimiento (15/11)
+
+Revisión **de solo lectura**: no se cambió código ni configuración. Las comprobaciones activas se
+hicieron en contenedores desechables (`amazonlinux:2023`, `alpine:3.20`, ShellCheck) o en local.
+
+## Resultado de las pruebas
+
+| Suite | Resultado | Dónde |
+|---|---|---|
+| `prototipo` (motor) | 1290 OK | Local y Amazon Linux 2023 (Python 3.9) |
+| `evaluacion` | 63 OK | Local y Amazon Linux 2023 |
+| `lab/dataset` | 39 OK | Local |
+| `lab/banco` | 157 OK | Local |
+| `lab/portatil` | 14 OK | Local |
+| `lab/geo_demo` | 12 OK | Local |
+| Visor (React/TS) | 466 OK, typecheck y build OK | CI (run `43795604398`) |
+| OpenTofu | `tofu validate` OK | CI |
+| ShellCheck (todos los `.sh` y `bin/mdr`) | 0 problemas reales (4 falsos positivos SC1007 por el idiom `CDPATH= cd`) | Contenedor |
+
+## Lo que está bien hecho (no hace falta tocar)
+
+- **Permisos en disco:**
+  - traza en 0600 (`abrir_append`), `/var/lib/mdr` en 0700 y `/etc/mdr` en 0750 `root:triaje`;
+  - `triaje.env` en 0600 y `UMask=0077`;
+  - el código queda de root y en solo lectura para el servicio ([instalar.sh](deploy/instalar.sh)).
+- **Cuentas de analista:** solo pueden abrir el túnel (`PermitOpen 127.0.0.1:<puerto>`,
+  `ForceCommand /usr/sbin/nologin`, sin TTY ni reenvíos), y `sshd -t` se valida antes de recargar
+  ([analistas.py](prototipo/herramientas/analistas.py)).
+- **API web** ([tablero.py](prototipo/servicio/tablero.py)):
+  - escucha solo en 127.0.0.1 y comprueba el Host (anti DNS-rebinding) y el Origin en cada POST
+    (anti-CSRF);
+  - CORS restringido a su propio origen;
+  - cuerpo limitado a 64 KiB y `Content-Length` negativo rechazado;
+  - tokens comparados con `hmac.compare_digest` y bloqueo tras varios intentos fallidos;
+  - sin travesía de rutas en los ficheros estáticos.
+- **Código:** sin `shell=True`, `eval`, `exec` ni `pickle`; YAML siempre con `safe_load`; el conector
+  valida los parámetros y falla cerrado si no hay clave.
+- **SSH:** `StrictHostKeyChecking=yes` en producción y `accept-new` solo al dar de alta un equipo. El
+  `=no` existe únicamente en el ejecutor del laboratorio.
+- **Secretos:** nada real en git ni en el historial. Solo hay credenciales de laboratorio puestas a
+  propósito (`Cliente2026`, `msfadmin`) y una cabecera de clave falsa en un test.
+- **Traza:** cadena de hashes, HMAC y ancla en Wazuh; `flock` y `flush` en cada escritura; la
+  retención verifica la cadena antes de podar.
+- **Mantenimiento:**
+  - las actualizaciones guardan la versión anterior en `/opt/mdr.anterior`;
+  - `mdr estado`, `validar-perfil`, `verificar-traza` y `podar-trazas`;
+  - la rotación de la clave del conector revoca la vieja (paso 4 de
+    [rotar-clave-conector.sh](lab/scripts/rotar-clave-conector.sh); la variable `PUB_VIEJA` sin usar
+    no tiene efecto).
+- **AWS:** rol de IAM mínimo (SSM y lectura de secretos), IMDSv2 obligatorio, EBS cifrado y sin IP
+  pública.
+
+## 13. Las reglas `sudo` del conector aceptan argumentos extra — **Alta**
+
+El sudoers se genera desde el catálogo (`python3 -m prototipo.accion.catalogo --sudoers`) con
+comodines, por ejemplo `triaje ALL=(root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP`. En sudoers,
+**`*` también admite espacios** (sudoers(5): los argumentos se comparan como una sola cadena y el
+comodín cruza los límites entre palabras). Comprobado en un contenedor `alpine:3.20` con `sudo -n -l`
+(pregunta si se permitiría, **sin ejecutar nada**):
+
+| Comando | Resultado |
+|---|---|
+| `iptables -A INPUT -s 1.2.3.4 -j DROP` (el legítimo) | Permitido |
+| `iptables -A INPUT -s 1.2.3.4 --modprobe=/tmp/x -j DROP` | **Permitido** |
+| `iptables -A INPUT -s 1.2.3.4 -j ACCEPT -j DROP` | **Permitido** |
+| `passwd -l root` | **Permitido** |
+| `iptables -F INPUT …` / `iptables -L` / `service ../../tmp/x stop` | Denegado |
+
+`--modprobe=<programa>` hace que iptables ejecute ese programa para cargar módulos del kernel, aquí
+como root. **Consecuencia:** quien obtenga la clave del conector (o comprometa el MDR) no queda
+limitado al catálogo: puede obtener root en **todos** los equipos dados de alta, o bloquear la cuenta
+de root. El MDR valida los parámetros antes de enviarlos, pero el sudoers es la última barrera en el
+equipo y hoy no cumple lo que promete ("la frontera de privilegio es exactamente el catálogo").
+
+**Arreglos:**
+1. **Envoltorio** (*wrapper*) propiedad de root, por ejemplo `/usr/local/sbin/mdr-accion`, que reciba
+   `ACCION IP` y valide cada argumento (IP con `ipaddress`, usuario distinto de root, servicio en
+   una lista permitida). El sudoers permitiría solo ese envoltorio.
+2. Con sudo ≥ 1.9.10, usar expresiones regulares ancladas
+   (`^-A INPUT -s [0-9.]+(/[0-9]+)? -j DROP$`).
+
+En ambos casos, añadir una prueba que verifique con `sudo -l` que `--modprobe` y `root` quedan
+denegados.
+
+## 14. La consola no envía cabeceras anti-clickjacking — Media-baja
+
+No hay `X-Frame-Options` ni `Content-Security-Policy: frame-ancestors` (`grep` sin resultados en
+[tablero.py](prototipo/servicio/tablero.py)). Una página maliciosa que el analista visite podría
+cargar `http://127.0.0.1:8787` dentro de un *iframe* invisible y engañarle para que pulse "aprobar" o
+el *kill switch*. Los clics dentro del iframe son del mismo origen, así que la comprobación del Origin
+no lo frena. **Arreglo:** enviar `X-Frame-Options: DENY` y `Content-Security-Policy: frame-ancestors
+'none'` en todas las respuestas.
+
+## 15. El daemon no avisa al arrancar si la consola está abierta — Baja
+
+El banner de arranque avisa si la traza no tiene firma HMAC o ancla
+([stream.py:1222-1226](prototipo/servicio/stream.py#L1222-L1226)), pero no si no hay
+`TRIAJE_CONSOLA_TOKEN` ni `TRIAJE_CONSOLA_OPERADORES` (la consola queda sin autenticación). Solo lo
+detecta `mdr estado`. **Arreglo:** una línea `[inicio] consola SIN autenticación` en el banner.
+
+## 16. La traza activa crece sin límite — Media (a largo plazo)
+
+- En producción `TRIAJE_SALIDA` es una ruta **fija** y no hay rotación en caliente (lo dice el
+  propio código en `traza.familia`).
+- `retener_trazas` solo poda **otros** ficheros `trazas-*.jsonl` y nunca el activo. Con un único
+  fichero no poda **nada**.
+- La API vuelve a leer y cargar en memoria **toda** la traza cada vez que cambia
+  ([tablero.py:719](prototipo/servicio/tablero.py#L719)), es decir, con cada decisión nueva.
+
+**Consecuencia:** tras meses de uso, más disco, más memoria y una consola cada vez más lenta.
+**Arreglo:** rotación por tamaño o por fecha (el sistema ya está preparado para segmentos
+`<base>.<N>.jsonl`, la "Opción B de #6"), y que la API lea de forma incremental.
+
+## 17. Prueba inestable → CI en rojo en `main` — Media (CI)
+
+Run `43795604398` (el push del 15/11, que solo añadía este `.md`): falla
+`test_receptor.TestAgotamientoDeSlots.test_una_ip_no_monopoliza_los_slots`
+([test_receptor.py:108](prototipo/tests/test_receptor.py#L108)). La prueba cierra la primera conexión
+y envía la segunda **sin esperar** a que el receptor libere el cupo de esa IP. En los servidores de
+GitHub, más lentos, a veces aún no lo ha liberado. En local pasa 8 de 8 veces. **Arreglo:** que la
+prueba reintente el envío hasta un plazo en lugar de suponer que la liberación es instantánea.
+**Mientras tanto,** relanzar el job deja la CI en verde.
+
+## 18. AWS: el código queda en manos del usuario del servicio — Media
+
+[mdr_user_data.sh.tftpl](infra/aws/templates/mdr_user_data.sh.tftpl) hace `chown -R triaje:triaje
+/opt/mdr`. Así el servicio puede **modificar su propio código** (persistencia si se compromete). Es
+justo lo que [instalar.sh](deploy/instalar.sh) evita (código de root y en solo lectura). **Arreglo:**
+que el arranque de AWS use `instalar.sh` con el paquete de `empaquetar.sh`, lo que de paso resuelve
+el punto 11.
+
+## 19. AWS: traza sin firma y consola sin autenticación — Media
+
+El arranque de AWS no define `TRIAJE_TRAZA_CLAVE` ni analistas (`mdr configurar` y `mdr analista` no
+se ejecutan). La traza queda sin HMAC y la consola abierta a cualquiera que tenga acceso SSM a la
+instancia. **Arreglo:** leer la clave y los tokens de Secrets Manager (el permiso ya existe en
+[iam.tf](infra/aws/iam.tf)), o ejecutar `mdr configurar` en el arranque.
+
+## 20. Unidad systemd poco endurecida — Baja-media
+
+`systemd-analyze security --offline=true deploy/mdr-triaje.service` → **8.5 EXPOSED**. Ya tiene
+`NoNewPrivileges`, `ProtectSystem=full`, `PrivateTmp` y `UMask`. Le faltan, entre otros:
+`CapabilityBoundingSet=` (vacío), `ProtectHome=yes`, `PrivateDevices=yes`, `ProtectKernel*`,
+`RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX`, `SystemCallFilter=@system-service` y
+`ProtectSystem=strict` con `ReadWritePaths`. **Cuidado:** el daemon lanza `ssh` y `tail`, así que
+cada restricción hay que probarla con el banco antes de darla por buena.
+
+## 21. Sin copias de seguridad, sonda de salud ni retención automatizadas — Baja-media
+
+- Los *snapshots* del EBS de la traza solo aparecen como comentario en [mdr.tf](infra/aws/mdr.tf); no
+  hay `aws_dlm_lifecycle_policy` ni copia de seguridad en la instalación local.
+- La sonda de `/healthz` y el cron de retención solo existen como **ejemplos** en
+  [deploy/README.md](deploy/README.md) (líneas 92 y 110-120); `instalar.sh` no los instala. Si el
+  daemon se queda en bucle de reinicios, nadie recibe aviso.
+- En AWS no hay agente de CloudWatch: los logs (journald) se pierden si se pierde la instancia (la
+  traza, en el EBS, sí se conserva).
+
+**Arreglo:** que `instalar.sh` instale un *timer* de systemd para la sonda y otro para la retención,
+y en AWS una política de snapshots (DLM).
+
+## 22. La API responde 500 a un cuerpo JSON que no es un objeto — Muy baja
+
+En el log de la CI: `error interno en /api/pausa: AttributeError: 'list' object has no attribute
+'get'`. Está controlado (no tumba nada), pero debería ser un 400. Otros endpoints ya lo comprueban
+(`isinstance(cuerpo, dict)`, [tablero.py:1153](prototipo/servicio/tablero.py#L1153)). **Arreglo:**
+comprobarlo una sola vez, justo después del `json.loads` del POST.
+
+## 23. Huecos en la CI — Baja
+
+[ci.yml](.github/workflows/ci.yml) ejecuta pruebas, typecheck, build y `tofu validate`, pero no tiene:
+- lint de Python (por ejemplo ruff);
+- ShellCheck (hoy pasa limpio, pero nada lo vigila);
+- escaneo de secretos (por ejemplo gitleaks);
+- auditoría de dependencias (`npm audit`).
+
+Además, las pruebas emiten `ResourceWarning` por ficheros sin cerrar (por ejemplo
+[test_triaje.py:308](prototipo/tests/test_triaje.py#L308)).
+
+## No revisado (requiere red o entorno real)
+
+- `npm audit` (envía el árbol de dependencias al registro de npm): pendiente de tu visto bueno.
+- Comportamiento real de systemd, SSM y el EBS: solo en una VM de Amazon Linux o en AWS.
+- La explotación real de `--modprobe` (punto 13): se comprobó el permiso, no se ejecutó.
