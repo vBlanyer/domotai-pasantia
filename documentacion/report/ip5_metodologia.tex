@@ -293,9 +293,10 @@ cuantizaciones públicas a cuatro bits que caben en el equipo disponible. Su lic
 uniforme ---la de Llama admite uso comercial con condiciones y la del Qwen de tres mil millones es
 solo de investigación---, de modo que el modelo que se despliegue en un cliente debe elegirse
 también por ese criterio. El modelo especializado en seguridad, Foundation-Sec-8B, era la
-opción preferida del diseño, pero sus cuantizaciones públicas resultaron inutilizables (sección
-\ref{sec:invocacion}), y la medición con modelo mayor se hizo con el generalista de la misma
-arquitectura. Para servirlos se eligió llama.cpp \cite{llamacpp}: ejecuta modelos cuantizados tanto
+opción preferida del diseño, pero las cuantizaciones públicas del modelo base resultaron
+inutilizables (sección \ref{sec:invocacion}), y la medición con modelo mayor se hizo con el
+generalista de la misma arquitectura. Al cierre del trabajo se midió su versión con instrucciones,
+publicada después, que sí funciona (sección \ref{sec:rag-modelos}). Para servirlos se eligió llama.cpp \cite{llamacpp}: ejecuta modelos cuantizados tanto
 en procesador como en GPU, expone una interfaz HTTP compatible con la de los servicios comerciales y
 admite generación restringida por esquema, de modo que el motor de triaje habla con él por la red
 local y no carga ninguna biblioteca de aprendizaje automático en su propio proceso.
@@ -312,7 +313,7 @@ local y no carga ninguna biblioteca de aprendizaje automático en su propio proc
     Phi-4-mini, Llama 3.2 3B & Generativo, 3--3,8\,B & Justificar en línea & Phi-4-mini, medido a 3,7 \emph{tokens}/s en el procesador: fuera del presupuesto interactivo \\
     Llama 3.2 1B (4 bits) & Generativo, 1\,B & Justificar en el portátil & Implementado; ancla, pero explica mal sin recuperación \\
     Qwen2.5 3B (4 bits) & Generativo, 3\,B & Alternativa en el portátil & Probado: 5 de 5 justificaciones ancladas; sin evaluación completa \\
-    Foundation-Sec-8B & Generativo especializado, 8\,B & Perfil con GPU & Cuantizaciones públicas con plantillas erróneas: inutilizable \\
+    Foundation-Sec-8B & Generativo especializado, 8\,B & Perfil con GPU & Base: cuantizaciones públicas con plantillas erróneas, inutilizable. Instruct (4 bits): medido al cierre, funciona; demasiado lento sin GPU (sección \ref{sec:rag-modelos}) \\
     Llama 3.1 8B Instruct (4 bits) & Generativo, 8\,B & Justificar y agente, con GPU & Evaluado: menos de medio segundo por respuesta y 106 de 106 justificaciones ancladas \\
     bge-m3 & \emph{Embeddings} & Recuperación & Sustituyó al generativo como \emph{embedder} \\
     Modelos alojados (API) & --- & --- & Descartados por RNF-01; usados solo como banco de pruebas (sección \ref{sec:contraste-claude}) \\

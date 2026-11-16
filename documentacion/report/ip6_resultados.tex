@@ -810,7 +810,9 @@ consulta agéntica y redacta la justificación--- y manteniendo todo lo demás: 
 cuatro familias. Las cifras no son comparables con las de las tablas anteriores, que se midieron
 sobre 12 alertas y 32 fichas; sí lo son entre sí. Se probaron los dos modelos locales que caben en
 el portátil, Llama~3.2 de 1B y Qwen2.5 de 3B, ambos cuantizados a 4 bits y servidos con
-\emph{llama.cpp} solo con CPU, y dos modelos mayores, Claude Haiku y Claude Sonnet. La tabla
+\emph{llama.cpp} solo con CPU; el modelo especializado que el diseño prefería, Foundation-Sec-8B en
+su versión con instrucciones \cite{foundationsec8b}, también a 4 bits y con CPU; y dos modelos
+mayores, Claude Haiku y Claude Sonnet. La tabla
 \ref{tab:modelos} recoge una fila por generador; la primera es la consulta fija, que no usa
 generador, como referencia.
 
@@ -824,6 +826,7 @@ número de la regla de Wazuh que disparó la alerta.
   \centering
   \caption{Recuperación agéntica y síntesis según el modelo generador (16 alertas, 35 fichas, \emph{bge-m3})}
   \label{tab:modelos}
+  \setlength{\tabcolsep}{5pt}
   \begin{tabular}{@{}lcccccc@{}}
     \toprule
     & \multicolumn{4}{c}{\textbf{Recuperación}} & \multicolumn{2}{c}{\textbf{Síntesis}} \\
@@ -833,6 +836,7 @@ número de la regla de Wazuh que disparó la alerta.
     Ninguno (consulta fija) & 0,50 & 0,81 & 0,94 & 0,68 & --- & --- \\
     Llama 3.2 1B (local) & 0,44 & 0,81 & 0,94 & 0,64 & 11/16 & 0,91 \\
     Qwen2.5 3B (local) & 0,31 & 0,75 & 0,88 & 0,54 & 16/16 & 0,00 \\
+    Foundation-Sec-8B (local)$^{*}$ & 0,31 & 0,81 & 0,88 & 0,56 & 16/16 & 0,31 \\
     Claude Haiku & 0,50 & 0,81 & 0,94 & 0,70 & 16/16 & 0,94 \\
     Claude Sonnet & 0,38 & 0,81 & 1,00 & 0,61 & 16/16 & 1,00 \\
     \bottomrule
@@ -840,15 +844,18 @@ número de la regla de Wazuh que disparó la alerta.
   \par\smallskip
   {\footnotesize 1.ª, top 3 y top 5: aciertos de la ficha esperada en esas posiciones. RRM: rango
   recíproco medio. Del modelo: justificaciones que escribió el modelo y pasaron el anclaje (el resto
-  cayó a la plantilla). Cita la regla: proporción de esas que mencionan el número de regla de la alerta.}
+  cayó a la plantilla). Cita la regla: proporción de esas que mencionan el número de regla de la alerta.
+  $^{*}$Con el plazo por llamada ampliado a 900\,s solo para el banco: con los 120\,s de producción,
+  sus 16 justificaciones habrían caído a la plantilla.}
 \end{table}
 
 En la recuperación, ningún generador mejora con claridad la consulta fija. Con 16 alertas, cada
 acierto vale 0,06, y las diferencias entre la fija, el 1B y los dos modelos de Claude son de una o
-dos alertas en la primera posición, con los tres primeros puestos iguales (0,81). El único que se
-aparta es Qwen, que empeora en todas las métricas: sus consultas desplazan la búsqueda en lugar de
-afinarla, el mismo efecto que la sección anterior atribuyó al \emph{embedder} débil y que aquí
-aparece con un \emph{embedder} bueno y un generador que añade ruido. El techo de la recuperación
+dos alertas en la primera posición, con los tres primeros puestos iguales (0,81). Los que se
+apartan son Qwen y Foundation-Sec, que bajan la primera posición a 0,31: sus consultas desplazan la
+búsqueda en lugar de afinarla, el mismo efecto que la sección anterior atribuyó al \emph{embedder}
+débil y que aquí aparece con un \emph{embedder} bueno y un generador que añade ruido. La
+especialización en seguridad no ayuda a formular la consulta. El techo de la recuperación
 lo siguen poniendo el corpus y el \emph{embedder}, lo que confirma que la consulta fija,
 determinista, es la adecuada para producción.
 
@@ -856,7 +863,13 @@ En la síntesis las diferencias sí son claras, y cada modelo falla de una maner
 escribe una justificación aceptable en 11 de 16 alertas; en las otras cinco su texto no pasa el
 anclaje o el plazo, y el sistema degrada a la plantilla, que es el comportamiento seguro previsto.
 Qwen ancla las 16, pero no cita nunca el número de regla: describe la alerta en general sin el dato
-que permite al analista comprobarla. Los dos modelos de Claude escriben y anclan las 16 y citan la
+que permite al analista comprobarla. Foundation-Sec también ancla las 16 y cita la regla en cinco;
+su vocabulario es el del dominio ---nombra la técnica de MITRE ATT\&CK y la contramedida de D3FEND
+de las fichas recuperadas---, pero a 1,4 \emph{tokens} por segundo en el procesador cada
+justificación tardó entre dos y tres minutos y medio, y todas superaron el plazo de 120\,s del
+justificador: en este equipo no es utilizable en línea, y su sitio es el perfil con GPU que la Fase~4
+le asignaba. Que la versión con instrucciones funcione cierra la duda que dejaron las
+cuantizaciones del modelo base: el problema era de la plantilla, no del modelo. Los dos modelos de Claude escriben y anclan las 16 y citan la
 regla en casi todas (Haiku) o en todas (Sonnet). Un generador mayor mejora la justificación, no qué
 ficha se encuentra.
 
@@ -867,7 +880,7 @@ límites que acotan la lectura: no permite fijar la temperatura, así que no es 
 el modelo que se desplegaría. La falta de reproducibilidad se ve en los datos: una primera pasada
 de Haiku dio un rango recíproco medio de 0,73 y un 0,62 en la primera posición, frente a 0,70 y
 0,50 en la de la tabla. Los modelos locales sí son reproducibles. En el portátil, el banco completo
-tardó 21 minutos con el 1B, 18 con Qwen y entre 6 y 7 con Claude. Los informes de cada ejecución
+tardó 21 minutos con el 1B, 18 con Qwen, 67 con Foundation-Sec y entre 6 y 7 con Claude. Los informes de cada ejecución
 están en \texttt{evaluacion/resultados/rag-agentico-modelos/}, con el procedimiento para añadir
 otros modelos.
 

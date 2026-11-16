@@ -10,6 +10,7 @@ columna «Fija» de cada fichero no usa generador y es la misma en todos.
 |---|---|---|---|
 | `2026-11-16-llama-3.2-1b-q4.md` | Llama 3.2 1B (Q4, local) | `lab/scripts/llm-server.sh modelos/llama-3.2-1b-q4.gguf` | 21 min |
 | `2026-11-16-qwen2.5-3b-instruct-q4_0.md` | Qwen2.5 3B Instruct (Q4_0, local) | `lab/scripts/llm-server.sh modelos/qwen2.5-3b-instruct-q4_0.gguf` | 18 min |
+| `2026-11-16-foundation-sec-8b-instruct-q4_k_m.md` | Foundation-Sec-8B-Instruct (Q4_K_M de mradermacher, local) | `lab/scripts/llm-server.sh modelos/foundation-sec-8b-instruct-q4_k_m.gguf` y el banco con `--plazo 900` | 67 min |
 | `2026-11-16-claude-haiku.md` | Claude Haiku | `lab/scripts/llm_claude.py --modelo haiku` | 7 min |
 | `2026-11-16-claude-sonnet.md` | Claude Sonnet | `lab/scripts/llm_claude.py --modelo sonnet` | 6 min |
 
