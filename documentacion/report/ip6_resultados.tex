@@ -800,6 +800,59 @@ consulta. Es el mismo tipo de defecto que el de la invocación (sección \ref{se
 componente que funcionaba con un modelo deja de hacerlo con otro sin que ninguna prueba lo
 detecte, porque las pruebas fijaban la salida del modelo.
 
+\subsection{Con distintos modelos generadores}
+\label{sec:rag-modelos}
+
+Queda una pregunta que el portátil no permite responder con el modelo local: si la consulta
+agéntica y la justificación mejoran con un modelo generador mayor. Para contestarla se repitió el
+banco cambiando solo el generador ---el que formula la consulta agéntica y redacta la
+justificación--- y manteniendo todo lo demás: el \emph{embedder} \emph{bge-m3}, el corpus, ya con
+sus 35 fichas reindexadas, y el banco, ampliado a 16 alertas de cuatro familias. Las cifras no son
+comparables con las de las tablas anteriores, que se midieron sobre 12 alertas y 32 fichas; sí lo
+son entre sí. La tabla \ref{tab:modelos} recoge una fila por generador. La primera fila es la
+consulta fija, que no usa generador, como referencia; la síntesis mide si la justificación se
+apoya en las fichas recuperadas (anclaje) y si menciona el término técnico esperado.
+
+\begin{table}[H]
+  \centering
+  \caption{Recuperación agéntica y síntesis según el modelo generador (16 alertas, 35 fichas, \emph{bge-m3})}
+  \label{tab:modelos}
+  \begin{tabular}{@{}lcccccc@{}}
+    \toprule
+    & \multicolumn{4}{c}{\textbf{Recuperación}} & \multicolumn{2}{c}{\textbf{Síntesis}} \\
+    \cmidrule(lr){2-5}\cmidrule(l){6-7}
+    \textbf{Generador} & \textbf{1.ª} & \textbf{Top 3} & \textbf{Top 5} & \textbf{RRM} & \textbf{Anclaje} & \textbf{Término} \\
+    \midrule
+    Ninguno (consulta fija) & 0,50 & 0,81 & 0,94 & 0,68 & --- & --- \\
+    Claude Haiku & 0,62 & 0,81 & 0,88 & 0,73 & 1,00 & 0,81 \\
+    Claude Sonnet & 0,44 & 0,81 & 0,94 & 0,62 & 1,00 & 1,00 \\
+    \bottomrule
+  \end{tabular}
+  \par\smallskip
+  {\footnotesize 1.ª, top 3 y top 5: aciertos de la ficha esperada en esas posiciones. RRM: rango recíproco medio.}
+\end{table}
+
+Los modelos de Claude se sirvieron a través de un sustituto del servidor de inferencia que
+genera con la herramienta de línea de órdenes de Claude, con la sesión de quien la ejecuta. Tiene
+tres límites que acotan la lectura: no permite fijar la temperatura, así que no es reproducible
+(RNF-03); los enunciados salen del equipo, por lo que solo se usó con el banco sintético; y no es
+el modelo que se desplegaría. Las cifras comparan generadores entre sí; no fijan una cifra del
+producto.
+
+En la recuperación, el generador no marca una diferencia que se pueda separar del azar. Con 16
+alertas, cada acierto vale 0,06: Haiku acierta dos alertas más que la consulta fija en la primera
+posición y Sonnet una menos, una diferencia que otra ejecución sin temperatura fija podría
+invertir. Entre las tres primeras, los tres casos coinciden en 0,81. El techo de la recuperación
+lo siguen poniendo el corpus y el \emph{embedder}, no el modelo que reformula la consulta, lo que
+confirma que la consulta fija, determinista, es la adecuada para producción.
+
+En la síntesis sí aparece una diferencia. Los dos modelos anclan todas sus justificaciones en las
+fichas recuperadas, sin afirmar nada que el contexto no respalde; Sonnet menciona el término
+técnico esperado en todas y Haiku falla en tres de dieciséis. Un generador mayor mejora la
+redacción de la justificación, no qué ficha se encuentra. Los informes de cada ejecución están en
+\texttt{evaluacion/resultados/rag-agentico-modelos/}, con el procedimiento para añadir otros
+modelos a la tabla.
+
 % ===========================================================================
 \section{Verificación sobre el conjunto completo}
 % ===========================================================================
