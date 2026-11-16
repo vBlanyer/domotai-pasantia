@@ -77,6 +77,15 @@ class TestInforme(unittest.TestCase):
         for frag in ("Hit Rate@1", "Precision@3", "MRR", "Fija", "Agéntica", "anclaje"):
             self.assertIn(frag, md)
 
+    def test_informe_cuenta_las_justificaciones_en_plantilla(self):
+        # un modelo lento que pasa del plazo cae a la plantilla: el informe tiene que decir cuántas
+        md = sim.formatear_informe(self._agg(0.5, 0.4, 0.4), self._agg(0.6, 0.5, 0.5),
+                                   {"tasa_anclaje": 1.0, "tasa_termino": 0.5, "n": 16, "plantilla": 3})
+        self.assertIn("cayeron a la plantilla: 3 de 16", md)
+        md = sim.formatear_informe(self._agg(0.5, 0.4, 0.4), self._agg(0.6, 0.5, 0.5),
+                                   {"tasa_anclaje": 1.0, "tasa_termino": 0.5, "n": 16})
+        self.assertNotIn("plantilla:", md)
+
 
 if __name__ == "__main__":
     unittest.main()

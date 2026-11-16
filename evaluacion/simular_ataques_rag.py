@@ -88,6 +88,9 @@ def formatear_informe(rec_fija, rec_agentica, sintesis=None, ks=(1, 3, 5), condi
     if sintesis:
         L += ["", "## Síntesis del 1B (justificación con contexto recuperado)",
               f"- Tasa de anclaje: {_fmt(sintesis['tasa_anclaje'])}  ·  Tasa de término: {_fmt(sintesis['tasa_termino'])}"]
+        if sintesis.get("plantilla") is not None:
+            L.append(f"- Justificaciones que cayeron a la plantilla: {sintesis['plantilla']} de {sintesis['n']} "
+                     f"(el modelo falló o pasó del plazo)")
     return "\n".join(L) + "\n"
 
 # -------------------------------------------------------------------- run --
@@ -120,10 +123,15 @@ def main(argv):
     if con_sintesis:
         print("Evaluando síntesis del 1B (justificación con RAG)...")
         rec_fn = rag.recuperar_fn_agentico(indice, emb, generador=gen, k=kmax)
+        en_plantilla = []
         def _just_texto(a):
             ctx = {"postura": {"expuesto": True}, "criticidad": "alta"}
-            return jl.justificar_con_rag(a, ctx, "vp_intento_acceso", gen, rec_fn).get("texto", "")
+            r = jl.justificar_con_rag(a, ctx, "vp_intento_acceso", gen, rec_fn)
+            if r.get("justificador") == "plantilla":
+                en_plantilla.append(a.get("id_alerta"))
+            return r.get("texto", "")
         sintesis = evaluar_sintesis(alertas, _just_texto, jl.verificar_anclaje)
+        sintesis["plantilla"] = len(en_plantilla)
     condiciones = (f"embedder `{os.path.basename(rag.MODELO)}` ({emb.__name__}) · "
                    f"generador `{jl._version_llm()}` ({gen.__name__})")
     informe = formatear_informe(rec_fija, rec_ag, sintesis, ks, condiciones=condiciones)
