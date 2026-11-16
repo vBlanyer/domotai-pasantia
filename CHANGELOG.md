@@ -7,6 +7,8 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [Sin publicar]
 
+## [1.9.1] — 2026-11-16 · revisión final de la consola
+
 ### Corregido
 - La demo sin laboratorio (`--sin-lab`) ya no omite todas las contenciones: los recortes de Conectividad
   (equipo sin clave del host fijada) no se aplican con el ejecutor simulado.
