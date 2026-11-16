@@ -120,6 +120,28 @@ def _recuperar_ids_agentico(indice, embedder, generador, k):
         return [p["id"] for p in r["pasajes"]]
     return _fn
 
+def generador_con_plazo(gen, plazo, tiempos, reloj=None):
+    """El generador con otro plazo por llamada (solo para el banco: producción espera 120 s) y el tiempo
+    de cada llamada anotado en `tiempos`. Sirve para medir un modelo más lento que el plazo de
+    producción sin que todas sus justificaciones caigan a la plantilla."""
+    import time
+    reloj = reloj or time.monotonic
+    def _g(prompt, **kw):
+        t0 = reloj()
+        try:
+            return gen(prompt, timeout=plazo, **kw)
+        finally:
+            tiempos.append(reloj() - t0)
+    _g.__name__ = getattr(gen, "__name__", "generador")
+    return _g
+
+def resumen_tiempos(tiempos, plazo_produccion=120):
+    n = len(tiempos)
+    if not n:
+        return "- Llamadas al modelo: 0"
+    return (f"- Llamadas al modelo: {n} · media {sum(tiempos) / n:.1f} s · máx {max(tiempos):.1f} s · "
+            f"por encima de {plazo_produccion} s: {sum(1 for t in tiempos if t > plazo_produccion)}")
+
 def main(argv):
     from prototipo.explicacion import rag, justificador_llm as jl
     ks = (1, 3, 5)
@@ -129,6 +151,10 @@ def main(argv):
     alertas = cargar_simulaciones()
     indice = rag.cargar_indice()
     emb, gen = rag.embedder_por_defecto(), jl.generador_por_defecto()
+    tiempos = []
+    plazo = int(argv[argv.index("--plazo") + 1]) if "--plazo" in argv else None
+    if plazo:
+        gen = generador_con_plazo(gen, plazo, tiempos)
     print(f"Evaluando recuperación (fija y agéntica) sobre {len(alertas)} alertas... (usa el 1B, lento)")
     rec_fija = evaluar_recuperacion(alertas, _recuperar_ids_fijo(indice, emb, kmax), ks)
     rec_ag = evaluar_recuperacion(alertas, _recuperar_ids_agentico(indice, emb, gen, kmax), ks)
@@ -143,6 +169,8 @@ def main(argv):
     condiciones = (f"embedder `{os.path.basename(rag.MODELO)}` ({emb.__name__}) · "
                    f"generador `{jl._version_llm()}` ({gen.__name__})")
     informe = formatear_informe(rec_fija, rec_ag, sintesis, ks, condiciones=condiciones)
+    if plazo:
+        informe += f"\n## Tiempos (plazo del banco: {plazo} s; producción: 120 s)\n{resumen_tiempos(tiempos)}\n"
     os.makedirs(salida_dir, exist_ok=True)
     ruta = os.path.join(salida_dir, f"rag-simulacion-{datetime.date.today().isoformat()}.md")
     with open(ruta, "w", encoding="utf-8") as f:

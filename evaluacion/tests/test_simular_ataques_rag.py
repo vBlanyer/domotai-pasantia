@@ -82,6 +82,23 @@ class TestSintesis(unittest.TestCase):
         self.assertIn("Término en las del modelo: 0.50", md)
 
 
+class TestPlazo(unittest.TestCase):
+    def test_generador_con_plazo_pasa_el_plazo_y_mide(self):
+        vistos, tiempos = [], []
+        def gen(prompt, timeout=120, esquema=None):
+            vistos.append((prompt, timeout, esquema))
+            return "ok"
+        g = sim.generador_con_plazo(gen, 600, tiempos, reloj=iter([0.0, 150.0, 200.0, 210.0]).__next__)
+        self.assertEqual(g("p1"), "ok")
+        self.assertEqual(g("p2", esquema={"x": 1}), "ok")
+        self.assertEqual(vistos, [("p1", 600, None), ("p2", 600, {"x": 1})])
+        self.assertEqual(tiempos, [150.0, 10.0])
+
+    def test_resumen_de_tiempos(self):
+        self.assertEqual(sim.resumen_tiempos([150.0, 10.0, 130.0], plazo_produccion=120),
+                         "- Llamadas al modelo: 3 · media 96.7 s · máx 150.0 s · por encima de 120 s: 2")
+
+
 class TestInforme(unittest.TestCase):
     def _agg(self, mrr, h, p):
         return {"agregado": {"mrr": mrr, "por_k": {k: {"hit_rate": h, "precision": p} for k in (1, 3, 5)}}}
