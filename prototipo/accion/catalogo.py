@@ -94,7 +94,11 @@ def reglas(catalogo, allowlist=None):
     allowlist = allowlist or {}
     out = []
     for binario, args in comandos_privilegiados(catalogo):
-        valores = [v for v in (allowlist.get(binario) or []) if _VALOR_SEGURO.match(str(v))]
+        pedidos = allowlist.get(binario) or []
+        valores = [v for v in pedidos if _VALOR_SEGURO.match(str(v))
+                   and not (binario == "passwd" and str(v) in _cuentas_del_sistema())]
+        if pedidos and not valores and args.count("*") == 1:
+            continue                  # una lista que se queda vacía al filtrar NO reabre el comodín
         if valores and args.count("*") == 1:
             out.extend((binario, args.replace("*", v)) for v in valores)
         else:
@@ -111,6 +115,103 @@ def reglas_de_equipo(catalogo, acciones=None, servicios=(), cuentas=(), cuentas_
         return reglas(catalogo)
     sub = {k: v for k, v in catalogo.items() if k in set(acciones_efectivas(acciones, servicios, cuentas, cuentas_cualquiera))}
     return reglas(sub, {"service": list(servicios or []), "passwd": [] if cuentas_cualquiera else list(cuentas or [])})
+
+
+# ------------------------------------------------------------- envoltorio mdr-accion --
+# En sudoers un comodín `*` admite espacios (sudoers(5): los argumentos se comparan como una sola cadena),
+# así que `iptables -A INPUT -s * -j DROP` dejaba pasar `--modprobe=<programa>`, que iptables ejecuta como
+# root (#13 de la revisión del 15/11). El sudoers solo permite ahora este envoltorio, que recibe los
+# argumentos ya separados y valida CADA UNO por su tipo antes de ejecutar exactamente una plantilla del
+# catálogo. Es sh POSIX: sirve con cualquier sudo (también el 1.6.9 de Metasploitable).
+ENVOLTORIO_RUTA = "/usr/local/sbin/mdr-accion"
+PATH_SEGURO = "/usr/sbin:/usr/bin:/sbin:/bin"
+_TIPO_PARAMETRO = {"ip": "ip", "ip_nodo": "ip", "puerto": "puerto", "if": "iface", "rate": "rate",
+                   "servicio": "nombre", "usuario": "cuenta"}          # el resto: nombre
+_VALIDADORES = r"""_una_linea() { case "$1" in *'
+'*) return 1 ;; esac; return 0; }
+_casa() { _una_linea "$1" && printf '%s' "$1" | grep -Eqx -- "$2"; }
+_OCT='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
+es_ip() { _casa "$1" "($_OCT\.){3}$_OCT(/([0-9]|[12][0-9]|3[0-2]))?"; }
+es_puerto() { _casa "$1" '[0-9]{1,5}' && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]; }
+es_iface() { _casa "$1" '[A-Za-z0-9][A-Za-z0-9._-]{0,14}'; }
+es_rate() { _casa "$1" '[0-9]{1,9}(bit|kbit|mbit|gbit)'; }
+es_nombre() { _casa "$1" '[A-Za-z0-9][A-Za-z0-9._-]{0,62}'; }
+es_cuenta() { es_nombre "$1" || return 1; case " $SISTEMA " in *" $1 "*) return 1 ;; esac; return 0; }
+"""
+
+
+def _cuentas_del_sistema():
+    from prototipo.motor.perfil import CUENTAS_DEL_SISTEMA
+    return CUENTAS_DEL_SISTEMA
+
+
+def _plantillas_tipadas(catalogo, allowlist=None):
+    """[(binario, [token])] en el mismo orden que `reglas`: cada token es un literal o («tipo»,) para un
+    parámetro. Con allowlist, el único parámetro de ese binario pasa a ser cada valor permitido (literal)."""
+    import shlex
+    crudas = {}
+    for accion in catalogo.values():
+        for campo in ("comando", "reversion_cmd", "verificacion"):
+            for tramo in (accion.get(campo) or "").split(";"):
+                partes = tramo.split("|", 1)[0].split()
+                if partes and _BINARIO.match(partes[0]):
+                    clave = (partes[0], " ".join(_PLANTILLA.sub("*", p) for p in partes[1:]))
+                    crudas.setdefault(clave, [(_TIPO_PARAMETRO.get(p[1:-1], "nombre"),) if _PLANTILLA.fullmatch(p) else p
+                                              for p in partes[1:]])
+    out = []
+    for binario, args in reglas(catalogo, allowlist):
+        tokens = crudas.get((binario, args))
+        if tokens is None:                       # una plantilla expandida con un valor de la allowlist
+            tokens = shlex.split(args)
+        out.append((binario, tokens))
+    return out
+
+
+def envoltorio(catalogo, allowlist=None, path=PATH_SEGURO):
+    """Texto del envoltorio /usr/local/sbin/mdr-accion para un equipo (sus reglas: catálogo o papel)."""
+    import shlex
+    q = shlex.quote
+    funciones, nombres = [], []
+    for i, (binario, tokens) in enumerate(_plantillas_tipadas(catalogo, allowlist), 1):
+        conds = [f"[ $# -eq {len(tokens) + 1} ]", f'[ "$1" = {q(binario)} ]']
+        for j, t in enumerate(tokens, 2):
+            arg = f'"${{{j}}}"'
+            conds.append(f"es_{t[0]} {arg}" if isinstance(t, tuple) else f"[ {arg} = {q(t)} ]")
+        funciones.append(f"r{i}() {{ " + " && ".join(conds) + "; }")
+        nombres.append(f'r{i} "$@"')
+    reglas_txt = "\n".join(f"{b} {a}".strip() for b, a in reglas(catalogo, allowlist))
+    sistema = " ".join(sorted(_cuentas_del_sistema()))
+    lineas = [
+        "#!/bin/sh",
+        "# mdr-accion: lo único que el conector del MDR puede ejecutar como root en este equipo.",
+        "# Generado desde prototipo/catalogo.yml (python3 -m prototipo.accion.catalogo --envoltorio). No editar",
+        "# a mano. Valida cada argumento por su tipo y ejecuta exactamente una plantilla del catálogo;",
+        "# cualquier otra cosa sale con el código 126 sin ejecutar nada.",
+        f"PATH={path}",
+        "export PATH",
+        f"SISTEMA={q(sistema)}",
+        _VALIDADORES.rstrip("\n"),
+        *funciones,
+        'if [ "${1:-}" = "--reglas" ] && [ $# -eq 1 ]; then',
+        "cat <<'FIN_REGLAS'",
+        reglas_txt,
+        "FIN_REGLAS",
+        "exit 0",
+        "fi",
+        "if " + " || ".join(nombres) + "; then",
+        '  exec "$@"',
+        "fi",
+        'echo "mdr-accion: orden fuera del catálogo; no se ejecuta" >&2',
+        "exit 126",
+    ]
+    return "\n".join(lineas) + "\n"
+
+
+def sudoers_envoltorio(usuario, ruta=ENVOLTORIO_RUTA):
+    """El sudoers del conector: solo el envoltorio (que valida cada argumento)."""
+    return ("# Generado por el MDR: el conector solo puede ejecutar como root el envoltorio, que valida cada\n"
+            "# argumento contra el catálogo cerrado de acciones (RF-15). No editar a mano.\n"
+            f"{usuario} ALL=(root) NOPASSWD: {ruta}\n")
 
 
 def sudoers(catalogo, usuario, rutas, allowlist=None):
@@ -135,8 +236,22 @@ def sudoers(catalogo, usuario, rutas, allowlist=None):
                 f"#   python3 -m prototipo.accion.catalogo --sudoers {usuario} --rutas bin=/ruta,...\n")
     return cabecera + "\n".join(lineas) + "\n", faltan
 
+def _allowlist_de(argv):
+    allowlist = {}
+    if "--allowlist" in argv:   # p. ej. --allowlist service=nginx:apache2,passwd=appuser
+        for par in argv[argv.index("--allowlist") + 1].split(","):
+            if "=" in par:
+                b, vals = par.split("=", 1)
+                allowlist[b.strip()] = [v for v in vals.split(":") if v]
+    return allowlist
+
+
 def _main(argv):
     import os, sys
+    if "--envoltorio" in argv:
+        cat = cargar_catalogo(os.path.join(os.path.dirname(os.path.dirname(__file__)), "catalogo.yml"))
+        sys.stdout.write(envoltorio(cat, allowlist=_allowlist_de(argv) or None))
+        return 0
     if "--sudoers" in argv:
         usuario = argv[argv.index("--sudoers") + 1]
         rutas = {}
