@@ -53,21 +53,31 @@ def evaluar_sintesis(alertas, justificar_texto, anclado_fn):
     y si aparece `termino_esperado`. `justificar_texto(alerta) -> str` inyectable."""
     filas = []
     for a in alertas:
-        texto = justificar_texto(a) or ""
+        r = justificar_texto(a)
+        # Puede devolver el texto o el resultado del justificador ({texto, justificador}). Un texto del
+        # modelo que no pasa el anclaje se sustituye por la plantilla, anclada por construcción: el
+        # anclaje y el término solo miden al modelo si se separan sus textos de los de la plantilla.
+        texto = (r.get("texto") if isinstance(r, dict) else r) or ""
+        plantilla = isinstance(r, dict) and r.get("justificador") == "plantilla"
         term = a.get("termino_esperado", "")
         filas.append({"id_alerta": a.get("id_alerta"),
                       "anclado": bool(anclado_fn(texto, a)),
-                      "menciona_termino": bool(term and term in texto)})
+                      "menciona_termino": bool(term and term in texto),
+                      "plantilla": plantilla})
     n = len(filas) or 1
+    del_modelo = [f for f in filas if not f["plantilla"]]
     return {"n": len(filas),
             "tasa_anclaje": sum(f["anclado"] for f in filas) / n,
             "tasa_termino": sum(f["menciona_termino"] for f in filas) / n,
+            "plantilla": len(filas) - len(del_modelo), "del_modelo": len(del_modelo),
+            "tasa_termino_modelo": (sum(f["menciona_termino"] for f in del_modelo) / len(del_modelo)
+                                    if del_modelo else None),
             "filas": filas}
 
 # ---------------------------------------------------------------- informe --
 
 def _fmt(x):
-    return f"{x:.2f}"
+    return "—" if x is None else f"{x:.2f}"
 
 def formatear_informe(rec_fija, rec_agentica, sintesis=None, ks=(1, 3, 5), condiciones=None):
     af, aa = rec_fija["agregado"], rec_agentica["agregado"]
@@ -90,7 +100,10 @@ def formatear_informe(rec_fija, rec_agentica, sintesis=None, ks=(1, 3, 5), condi
               f"- Tasa de anclaje: {_fmt(sintesis['tasa_anclaje'])}  ·  Tasa de término: {_fmt(sintesis['tasa_termino'])}"]
         if sintesis.get("plantilla") is not None:
             L.append(f"- Justificaciones que cayeron a la plantilla: {sintesis['plantilla']} de {sintesis['n']} "
-                     f"(el modelo falló o pasó del plazo)")
+                     f"(texto del modelo sin anclar, fallo o plazo superado)")
+        if sintesis.get("del_modelo") is not None:
+            L.append(f"- Escritas por el modelo (y ancladas): {sintesis['del_modelo']} de {sintesis['n']}  ·  "
+                     f"Término en las del modelo: {_fmt(sintesis['tasa_termino_modelo'])}")
     return "\n".join(L) + "\n"
 
 # -------------------------------------------------------------------- run --
@@ -123,15 +136,10 @@ def main(argv):
     if con_sintesis:
         print("Evaluando síntesis del 1B (justificación con RAG)...")
         rec_fn = rag.recuperar_fn_agentico(indice, emb, generador=gen, k=kmax)
-        en_plantilla = []
-        def _just_texto(a):
+        def _justificar(a):
             ctx = {"postura": {"expuesto": True}, "criticidad": "alta"}
-            r = jl.justificar_con_rag(a, ctx, "vp_intento_acceso", gen, rec_fn)
-            if r.get("justificador") == "plantilla":
-                en_plantilla.append(a.get("id_alerta"))
-            return r.get("texto", "")
-        sintesis = evaluar_sintesis(alertas, _just_texto, jl.verificar_anclaje)
-        sintesis["plantilla"] = len(en_plantilla)
+            return jl.justificar_con_rag(a, ctx, "vp_intento_acceso", gen, rec_fn)
+        sintesis = evaluar_sintesis(alertas, _justificar, jl.verificar_anclaje)
     condiciones = (f"embedder `{os.path.basename(rag.MODELO)}` ({emb.__name__}) · "
                    f"generador `{jl._version_llm()}` ({gen.__name__})")
     informe = formatear_informe(rec_fija, rec_ag, sintesis, ks, condiciones=condiciones)

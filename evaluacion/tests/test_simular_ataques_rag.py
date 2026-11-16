@@ -66,6 +66,21 @@ class TestSintesis(unittest.TestCase):
         self.assertAlmostEqual(res["tasa_anclaje"], 0.5)     # a anclada, b vacia
         self.assertAlmostEqual(res["tasa_termino"], 0.5)     # a cita 5760, b no
 
+    def test_separa_las_del_modelo_de_la_plantilla(self):
+        # la plantilla está anclada por construcción: el anclaje no puede medir al modelo con ella dentro
+        alertas = [{"id_alerta": x, "termino_esperado": "T1"} for x in "abcd"]
+        res_por = {"a": {"texto": "T1 del modelo", "justificador": "llm"},
+                   "b": {"texto": "otro texto", "justificador": "llm"},
+                   "c": {"texto": "T1 de la plantilla", "justificador": "plantilla"},
+                   "d": {"texto": "T1 de la plantilla", "justificador": "plantilla"}}
+        res = sim.evaluar_sintesis(alertas, lambda al: res_por[al["id_alerta"]], lambda t, al: True)
+        self.assertEqual((res["plantilla"], res["del_modelo"]), (2, 2))
+        self.assertAlmostEqual(res["tasa_termino_modelo"], 0.5)          # a sí, b no; c y d no cuentan
+        self.assertAlmostEqual(res["tasa_termino"], 0.75)                 # la mezcla, como antes
+        md = sim.formatear_informe(TestInforme._agg(None, 0.5, 0.4, 0.4), TestInforme._agg(None, 0.6, 0.5, 0.5), res)
+        self.assertIn("Escritas por el modelo (y ancladas): 2 de 4", md)
+        self.assertIn("Término en las del modelo: 0.50", md)
+
 
 class TestInforme(unittest.TestCase):
     def _agg(self, mrr, h, p):
@@ -80,7 +95,8 @@ class TestInforme(unittest.TestCase):
     def test_informe_cuenta_las_justificaciones_en_plantilla(self):
         # un modelo lento que pasa del plazo cae a la plantilla: el informe tiene que decir cuántas
         md = sim.formatear_informe(self._agg(0.5, 0.4, 0.4), self._agg(0.6, 0.5, 0.5),
-                                   {"tasa_anclaje": 1.0, "tasa_termino": 0.5, "n": 16, "plantilla": 3})
+                                   {"tasa_anclaje": 1.0, "tasa_termino": 0.5, "n": 16, "plantilla": 3,
+                                    "del_modelo": 13, "tasa_termino_modelo": 0.5})
         self.assertIn("cayeron a la plantilla: 3 de 16", md)
         md = sim.formatear_informe(self._agg(0.5, 0.4, 0.4), self._agg(0.6, 0.5, 0.5),
                                    {"tasa_anclaje": 1.0, "tasa_termino": 0.5, "n": 16})
