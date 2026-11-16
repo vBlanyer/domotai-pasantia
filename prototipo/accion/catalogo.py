@@ -207,6 +207,15 @@ def envoltorio(catalogo, allowlist=None, path=PATH_SEGURO):
     return "\n".join(lineas) + "\n"
 
 
+def envoltorio_de_equipo(catalogo, acciones=None, servicios=(), cuentas=(), cuentas_cualquiera=False, path=PATH_SEGURO):
+    """El envoltorio de un equipo según su papel: las mismas reglas que `reglas_de_equipo`."""
+    if acciones is None:
+        return envoltorio(catalogo, path=path)
+    sub = {k: v for k, v in catalogo.items() if k in set(acciones_efectivas(acciones, servicios, cuentas, cuentas_cualquiera))}
+    return envoltorio(sub, {"service": list(servicios or []), "passwd": [] if cuentas_cualquiera else list(cuentas or [])},
+                      path=path)
+
+
 def sudoers_envoltorio(usuario, ruta=ENVOLTORIO_RUTA):
     """El sudoers del conector: solo el envoltorio (que valida cada argumento)."""
     return ("# Generado por el MDR: el conector solo puede ejecutar como root el envoltorio, que valida cada\n"

@@ -232,7 +232,7 @@ def sondear_acceso(srv, ip):
 def contexto_equipo(srv, ip, accion_id=None):
     """Lo que la consola sabe de un equipo para clasificar un fallo de contención (accion/fallos):
     si tiene su clave del host fijada, si estaba verificado con las claves actuales (regresión) y, si su
-    última prueba vigente lo dice, qué regla de la acción falta en su sudoers. Solo lectura."""
+    última prueba vigente lo dice, qué regla de la acción falta en su envoltorio. Solo lectura."""
     modo = srv.conectividad_modo()
     destino = _destino_claves(modo)
     if not destino or not ip:
@@ -625,7 +625,9 @@ def paquete(srv, equipo, formato, operador):
                                         e.get("cuentas_cualquiera") is True)
     generado = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC") + (f" por {operador}" if operador else "")
     try:
-        nombre, contenido = cx.paquete(formato, e, usuario, pub if rc == 0 else "", reglas, generado)
+        env = catalogom.envoltorio_de_equipo(cat, e.get("acciones") if e.get("papel") else None, e.get("servicios"),
+                                             e.get("cuentas"), e.get("cuentas_cualquiera") is True)
+        nombre, contenido = cx.paquete(formato, e, usuario, pub if rc == 0 else "", reglas, generado, envoltorio=env)
     except ValueError as ex:
         return 400, {"error": str(ex)}
     return 200, {"nombre": nombre, "contenido": contenido, "formato": formato}

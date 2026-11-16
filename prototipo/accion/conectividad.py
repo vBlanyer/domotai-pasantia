@@ -165,24 +165,31 @@ def diagnosticar(rc, salida):
     d = _DIAGNOSTICO.get(fallos.patron(salida))
     if d:
         return d
+    # Alta anterior al envoltorio (#13) o sin terminar: sudo no permite mdr-accion o no existe.
+    if "mdr-accion" in (salida or "") and re.search(r"not allowed to execute|command not found|No such file", salida):
+        return "sin_envoltorio"
     return "sin_acceso" if rc in (124, 127) else "fallo"
 
 
 _ESTADO = {"host_cambiada": "host_cambiada", "sin_fijar": "sin_aprovisionar", "sin_clave": "sin_aprovisionar",
+           "sin_envoltorio": "sin_aprovisionar",
            "sin_acceso": "sin_acceso", "fallo": "fallo"}
 _TEXTO = {"host_cambiada": "la clave del host no coincide con la fijada",
           "sin_fijar": "no hay clave del host fijada para este equipo",
           "sin_clave": "el equipo no acepta la clave del conector",
           "sin_acceso": "no se pudo conectar (puerto cerrado, sin ruta o sin respuesta)",
-          "fallo": "el comando del catálogo falló"}
+          "fallo": "el comando del catálogo falló",
+          "sin_envoltorio": "el equipo no tiene el envoltorio mdr-accion (alta anterior a la revisión del 15/11 o "
+                            "sin terminar): vuelve a ejecutar su paquete de alta"}
 
 
 def probar(ejecutor, ip, permitido=None, listar=None, esperadas=None):
     """Prueba de conexión con el `ejecutor` del conector. Devuelve {ok, estado, pasos[, reglas]}.
 
     Con `listar` (un ejecutor SIN sudo) y `esperadas` (las reglas del papel del equipo), añade la
-    comprobación de deriva: lo que sudo permite de verdad frente a lo esperado. Sobrar algo es
-    privilegio de más; faltar algo solo avisa (binario no instalado o regla quitada a mano)."""
+    comprobación de deriva: sudo solo debe permitir el envoltorio mdr-accion, y lo que el envoltorio
+    admite (`mdr-accion --reglas`) se compara con lo esperado. Sobrar algo es privilegio de más; faltar
+    algo solo avisa (envoltorio de otro papel o de un alta anterior)."""
     pasos = []
     rc, out = ejecutor(ip, permitido or COMANDO_PERMITIDO)
     d = diagnosticar(rc, out)
@@ -208,12 +215,25 @@ def probar(ejecutor, ip, permitido=None, listar=None, esperadas=None):
         pasos.append({"paso": "lo que sudo permite coincide con su papel", "ok": True,
                       "detalle": "no se pudo listar (sudo pide contraseña para listar): sin comprobar"})
         return {"ok": True, "estado": "verificada", "pasos": pasos, "reglas": {"estado": "sin_comprobar", "sobran": [], "faltan": []}}
-    cmp = comparar_reglas(esperadas, reglas_de_sudo_l(out3))
+    # sudo solo debe permitir el envoltorio: cualquier otra regla (un sudoers antiguo con comodines) es
+    # privilegio de más, porque un comodín de sudo admite argumentos extra (#13).
+    otras = sorted(f"{b} {a}".strip() for b, a in reglas_de_sudo_l(out3) if (b, a) != ("mdr-accion", ""))
+    if otras:
+        pasos.append({"paso": "sudo solo permite el envoltorio", "ok": False,
+                      "detalle": f"sudo permite {len(otras)} regla(s) además del envoltorio mdr-accion"})
+        return {"ok": False, "estado": "privilegio_de_mas", "pasos": pasos,
+                "reglas": {"estado": "sobran", "sobran": otras, "faltan": []}}
+    rc4, out4 = ejecutor(ip, "--reglas")
+    if rc4 != 0:
+        pasos.append({"paso": "lo que el envoltorio permite coincide con su papel", "ok": True,
+                      "detalle": "el envoltorio no listó sus reglas: sin comprobar"})
+        return {"ok": True, "estado": "verificada", "pasos": pasos, "reglas": {"estado": "sin_comprobar", "sobran": [], "faltan": []}}
+    cmp = comparar_reglas(esperadas, reglas_de_envoltorio(out4))
     if cmp["sobran"]:
-        pasos.append({"paso": "lo que sudo permite coincide con su papel", "ok": False,
-                      "detalle": f"sudo permite {len(cmp['sobran'])} regla(s) que su papel no incluye"})
+        pasos.append({"paso": "lo que el envoltorio permite coincide con su papel", "ok": False,
+                      "detalle": f"el envoltorio permite {len(cmp['sobran'])} regla(s) que su papel no incluye"})
         return {"ok": False, "estado": "privilegio_de_mas", "pasos": pasos, "reglas": cmp}
-    pasos.append({"paso": "lo que sudo permite coincide con su papel", "ok": True,
+    pasos.append({"paso": "lo que el envoltorio permite coincide con su papel", "ok": True,
                   "detalle": (f"{len(esperadas) - len(cmp['faltan'])} de {len(esperadas)} reglas presentes; "
                               f"faltan {len(cmp['faltan'])} (binario no instalado o regla quitada)") if cmp["faltan"]
                   else f"{len(esperadas)} reglas esperadas, {len(esperadas)} encontradas"})
@@ -236,6 +256,16 @@ def reglas_de_sudo_l(texto):
             partes = cmd.strip().split(None, 1)
             if partes:
                 out.append(_norm(partes[0], partes[1] if len(partes) > 1 else ""))
+    return out
+
+
+def reglas_de_envoltorio(texto):
+    """[(binario, args)] de `mdr-accion --reglas` (una regla por línea, como `catalogo.reglas`)."""
+    out = []
+    for linea in (texto or "").splitlines():
+        partes = linea.strip().split(None, 1)
+        if partes:
+            out.append(_norm(partes[0], partes[1] if len(partes) > 1 else ""))
     return out
 
 
@@ -358,43 +388,54 @@ def _sq(texto):
     return "'" + str(texto).replace("'", "'\\''") + "'"
 
 
-def paquete(formato, equipo, usuario, publica, reglas, generado):
-    """Paquete de alta de un equipo: «script» (sh idempotente que resuelve las rutas en el propio
-    equipo), «ansible» o «sudoers» (rutas típicas de Debian/Ubuntu). Solo lleva la clave PÚBLICA.
+def paquete(formato, equipo, usuario, publica, reglas, generado, envoltorio=None):
+    """Paquete de alta de un equipo: «script» (sh idempotente), «ansible» o «sudoers». Instala el
+    envoltorio /usr/local/sbin/mdr-accion (`envoltorio`, generado desde el catálogo para su papel) y un
+    sudoers que SOLO permite ese envoltorio (#13 de la revisión del 15/11). Solo lleva la clave PÚBLICA.
     Devuelve (nombre_fichero, contenido)."""
+    from prototipo.accion.catalogo import ENVOLTORIO_RUTA
     if not _USUARIO.match(usuario or ""):
         raise ValueError("usuario inválido")
     k = clave_publica_valida(publica)
     if not k:
         raise ValueError("clave pública del conector no disponible")
+    if not envoltorio:
+        raise ValueError("falta el envoltorio del equipo")
     nombre = equipo["nombre"]
     papel = equipo.get("papel") or "sin papel (catálogo completo)"
     listas = " · ".join(x for x in (f"servicios: {', '.join(equipo.get('servicios') or [])}" if equipo.get("servicios") else "",
                                     "cuentas: cualquiera salvo las del sistema" if equipo.get("cuentas_cualquiera")
                                     else f"cuentas: {', '.join(equipo.get('cuentas') or [])}" if equipo.get("cuentas") else "") if x)
     cab = f"Alta de {nombre} en el MDR · generado el {generado}"
+    linea_sudo = f"{usuario} ALL=(root) NOPASSWD: {ENVOLTORIO_RUTA}"
+    env = envoltorio.rstrip("\n")
+    binarios = " ".join(sorted({b for b, _ in reglas}))
     if formato == "sudoers":
         lineas = [f"# {cab}", f"# Papel: {papel}{' · ' + listas if listas else ''}",
-                  "# Rutas típicas de Debian/Ubuntu: compruébalas en el equipo (command -v) antes de instalarlo.",
-                  *[f"{usuario} ALL=(root) NOPASSWD: {RUTAS_TIPICAS.get(b, '/usr/bin/' + b)} {a}".rstrip() for b, a in reglas]]
+                  f"# Instala antes el envoltorio {ENVOLTORIO_RUTA} (root:root, 0755): el paquete «script» lo hace.",
+                  "# El conector solo puede ejecutar como root el envoltorio, que valida cada argumento.",
+                  linea_sudo]
         return f"mdr-{usuario}.sudoers", "\n".join(lineas) + "\n"
     if formato == "ansible":
-        sud = "\n".join(f"          {usuario} ALL=(root) NOPASSWD: {RUTAS_TIPICAS.get(b, '/usr/bin/' + b)} {a}".rstrip() for b, a in reglas)
+        env_yaml = "\n".join(("          " + l) if l else "" for l in env.splitlines())
         return f"alta-{nombre}.yml", (
-            f"# {cab}\n# Papel: {papel}{' · ' + listas if listas else ''}. Rutas típicas de Debian/Ubuntu: revísalas.\n"
+            f"# {cab}\n# Papel: {papel}{' · ' + listas if listas else ''}.\n"
             f"- name: Alta de {nombre} en el MDR\n  hosts: {nombre}\n  become: true\n  tasks:\n"
             f"    - name: Usuario del conector, sin contraseña (solo clave)\n"
             f"      ansible.builtin.user: {{ name: {usuario}, shell: /bin/sh, password: '*' }}\n"
             f"    - name: Clave pública del conector\n"
             f"      ansible.posix.authorized_key: {{ user: {usuario}, key: \"{k}\" }}\n"
-            f"    - name: Sudo limitado a su papel\n"
+            f"    - name: Envoltorio del MDR (valida cada argumento contra el catálogo)\n"
+            f"      ansible.builtin.copy:\n        dest: {ENVOLTORIO_RUTA}\n        owner: root\n        group: root\n"
+            f"        mode: \"0755\"\n        content: |\n{env_yaml}\n"
+            f"    - name: Sudo limitado al envoltorio\n"
             f"      ansible.builtin.copy:\n        dest: /etc/sudoers.d/mdr-{usuario}\n        mode: \"0440\"\n"
-            f"        validate: visudo -cf %s\n        content: |\n          # Generado por el MDR. No editar a mano.\n{sud}\n"
+            f"        validate: visudo -cf %s\n        content: |\n          # Generado por el MDR. No editar a mano.\n"
+            f"          {linea_sudo}\n"
             f"    - name: Huella de la clave del host (dictala en la plataforma)\n"
             f"      ansible.builtin.command: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub\n      changed_when: false\n")
     if formato != "script":
         raise ValueError("formato desconocido")
-    reglas_sh = "\n".join(f"regla {_sq(b)} {_sq(a)}" for b, a in reglas)
     return f"alta-{nombre}.sh", f"""#!/bin/sh
 # {cab}
 # Papel: {papel}{' · ' + listas if listas else ''}
@@ -415,14 +456,24 @@ K={_sq(k)}
 touch "$H/.ssh/authorized_keys"
 grep -qxF "$K" "$H/.ssh/authorized_keys" || echo "$K" >> "$H/.ssh/authorized_keys"
 chown "$U:$U" "$H/.ssh/authorized_keys"; chmod 600 "$H/.ssh/authorized_keys"
+# El envoltorio: lo ÚNICO que el conector puede ejecutar como root. Valida cada argumento contra el
+# catálogo del papel de este equipo y ejecuta exactamente esa orden (#13 de la revisión del 15/11).
+E=$(mktemp)
+cat > "$E" <<'MDR_ACCION_FIN'
+{env}
+MDR_ACCION_FIN
+sh -n "$E"
+install -d -m 755 /usr/local/sbin
+install -m 755 -o root -g root "$E" {ENVOLTORIO_RUTA}
+rm -f "$E"
+for b in {binarios}; do
+  command -v "$b" >/dev/null 2>&1 || echo "  aviso: $b no está instalado; las acciones que lo usan fallarán" >&2
+done
 T=$(mktemp)
-regla() {{
-  b=$(command -v "$1" 2>/dev/null || true)
-  if [ -n "$b" ]; then echo "$U ALL=(root) NOPASSWD: $b $2" >> "$T"
-  else echo "  aviso: $1 no está instalado; se omite la regla «$1 $2»" >&2; fi
-}}
-echo "# Generado por el MDR para {nombre}. No editar a mano: se regenera desde la plataforma." > "$T"
-{reglas_sh}
+cat > "$T" <<'MDR_SUDOERS_FIN'
+# Generado por el MDR para {nombre}. No editar a mano: se regenera desde la plataforma.
+{linea_sudo}
+MDR_SUDOERS_FIN
 visudo -cf "$T" >/dev/null
 # Sustituye cualquier sudoers anterior que da permisos SOLO al usuario del conector (el de este paquete,
 # el del aprovisionamiento del laboratorio o uno añadido a mano): sudo suma todos los ficheros, y uno

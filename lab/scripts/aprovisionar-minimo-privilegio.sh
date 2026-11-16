@@ -6,14 +6,14 @@
 # Lo que deja:
 #   - en el auditor (nodo de gestion): un par de claves RSA en /root/.ssh/triaje y la clave del
 #     host del nodo en /root/.ssh/known_hosts_triaje, para que el conector verifique el host.
-#   - en el nodo: un usuario 'triaje' sin contrasena (solo clave), y un bloque en /etc/sudoers
-#     GENERADO DESDE EL CATALOGO (python3 -m prototipo.accion.catalogo --sudoers) que le permite, sin
-#     contrasena, exactamente los comandos del catalogo cerrado de acciones y nada mas. Las rutas
-#     de los binarios se resuelven en el propio nodo, porque sudoers las exige absolutas.
+#   - en el nodo: un usuario 'triaje' sin contrasena (solo clave), el envoltorio /usr/local/sbin/mdr-accion
+#     GENERADO DESDE EL CATALOGO (python3 -m prototipo.accion.catalogo --envoltorio), que valida cada
+#     argumento y ejecuta exactamente los comandos del catalogo cerrado de acciones y nada mas, y un
+#     sudoers que solo le permite, sin contrasena, ese envoltorio.
 #
-# Es idempotente: se puede repetir. Termina con dos comprobaciones: un comando del catalogo
-# (permitido) y uno fuera de el (denegado). Si la segunda no falla, el aprovisionamiento no
-# vale, y el script lo dice.
+# Es idempotente: se puede repetir. Termina con comprobaciones: un comando del catalogo
+# (permitido) y varios fuera de el (denegados, incluido un token de mas). Si alguno de estos
+# no falla, el aprovisionamiento no vale, y el script lo dice.
 #
 # RSA y no ed25519, y el sudoers en /etc/sudoers y no en sudoers.d: el objetivo es Metasploitable
 # (OpenSSH 4.7 y sudo 1.6.9, de 2007-2008). En un equipo actual se preferiria ed25519 y sudoers.d.
@@ -48,10 +48,16 @@ docker exec $NODO sh -c "
   echo '$PUB' > \$H/.ssh/authorized_keys && chmod 600 \$H/.ssh/authorized_keys
   chown -R $USUARIO: \$H/.ssh"
 
-echo "== 3. Sudoers generado desde el catalogo =="
-RUTAS=$(docker exec $NODO sh -c 'for b in iptables ss tc service passwd tcpdump ps ip reboot ping timeout restaurar; do
-  p=$(command -v $b 2>/dev/null || true); printf "%s=%s," "$b" "$p"; done')
-SUDOERS=$(cd "$HERE" && python3 -m prototipo.accion.catalogo --sudoers "$USUARIO" --rutas "$RUTAS")
+echo "== 3. Envoltorio mdr-accion y sudoers que solo lo permite =="
+# El envoltorio (python3 -m prototipo.accion.catalogo --envoltorio) valida cada argumento contra el
+# catalogo y ejecuta exactamente esa orden; el sudoers solo permite el envoltorio. Antes eran reglas
+# de sudoers con comodines, y un `*` de sudoers admite espacios: `iptables -A INPUT -s * -j DROP`
+# dejaba pasar `--modprobe=<programa>` (root). #13 de la revision del 15/11.
+ENVOLTORIO=/usr/local/sbin/mdr-accion
+(cd "$HERE" && python3 -m prototipo.accion.catalogo --envoltorio) | docker exec -i $NODO sh -c "
+  mkdir -p /usr/local/sbin && cat > $ENVOLTORIO.tmp && sh -n $ENVOLTORIO.tmp &&
+  chown root:root $ENVOLTORIO.tmp && chmod 755 $ENVOLTORIO.tmp && mv $ENVOLTORIO.tmp $ENVOLTORIO"
+SUDOERS="$USUARIO ALL=(root) NOPASSWD: $ENVOLTORIO"
 # sudoers.d si el sudo del nodo lo admite (Alpine); si no (sudo 1.6.9 de Metasploitable), un bloque
 # entre marcas en /etc/sudoers. En ambos casos visudo -c valida antes de dar por bueno.
 docker exec -i $NODO sh -c "
@@ -65,25 +71,28 @@ docker exec -i $NODO sh -c "
   fi" <<EOF
 $SUDOERS
 EOF
-echo "   $(echo "$SUDOERS" | grep -c "^$USUARIO ") comandos permitidos"
+echo "   sudo solo permite $ENVOLTORIO ($(docker exec $NODO $ENVOLTORIO --reglas | wc -l) plantillas del catalogo)"
 
 echo "== 4. Comprobaciones =="
-# La ruta de iptables es la que el nodo resolvio (Metasploitable: /sbin; Alpine: /usr/sbin).
-IPT=$(printf '%s' "$RUTAS" | tr ',' '\n' | grep '^iptables=' | cut -d= -f2)
 SSH="ssh -n -i $CLAVE -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$KNOWN -o ConnectTimeout=5 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa"
-if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S $IPT -L -n'" >/dev/null 2>&1; then
+if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S $ENVOLTORIO iptables -L -n'" >/dev/null 2>&1; then
   echo "   permitido (del catalogo):  iptables -L -n   OK"
 else
   echo "   ERROR: el comando del catalogo no se pudo ejecutar"; exit 1
 fi
 if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S true'" >/dev/null 2>&1; then
-  echo "   ERROR: un comando FUERA del catalogo se ejecuto: el sudoers no restringe"; exit 1
+  echo "   ERROR: un comando FUERA del envoltorio se ejecuto: el sudoers no restringe"; exit 1
 else
-  echo "   denegado (fuera del catalogo): true   OK"
+  echo "   denegado (fuera del envoltorio): true   OK"
 fi
-if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S $IPT -F'" >/dev/null 2>&1; then
+if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S $ENVOLTORIO iptables -F'" >/dev/null 2>&1; then
   echo "   ERROR: 'iptables -F' (mismo binario, otros argumentos) se ejecuto"; exit 1
 else
   echo "   denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK"
+fi
+if docker exec $AUDITOR sh -c "$SSH $USUARIO@$IP 'sudo -S $ENVOLTORIO iptables -A INPUT -s 1.2.3.4 --modprobe=/tmp/x -j DROP'" >/dev/null 2>&1; then
+  echo "   ERROR: un token de mas (--modprobe) se ejecuto: el envoltorio no restringe"; exit 1
+else
+  echo "   denegado (token de mas): iptables -A INPUT -s 1.2.3.4 --modprobe=/tmp/x -j DROP   OK"
 fi
 echo "== listo: el conector usara la clave (conector.ejecutor_por_defecto) =="

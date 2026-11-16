@@ -184,6 +184,12 @@ def _claves(claves=None, clave=SSH_CLAVE):
     return [clave, clave + ".nueva"] if clave == SSH_CLAVE and conectividad.cargar_rotacion() else [clave]
 
 
+# #13 de la revisión del 15/11: con clave (modos clave y directo) el sudoers solo permite el envoltorio
+# mdr-accion, que valida cada argumento contra el catálogo; el modo contraseña del laboratorio no cambia.
+from prototipo.accion.catalogo import ENVOLTORIO_RUTA as _ENVOLTORIO
+_PREFIJO_SUDO = f"LC_ALL=C sudo -S {_ENVOLTORIO}"
+
+
 def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, known_hosts=SSH_KNOWN_HOSTS, puerto=None,
                       sudo=True, claves=None):
     """La linea que ejecuta el auditor. Separada del ejecutor para poder probar lo que importa sin
@@ -202,7 +208,7 @@ def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
     # `sudo -l`, o mantener su authorized_keys al rotar la clave). Nunca un comando del catálogo.
     # LC_ALL=C: sudo y el comando responden en inglés, sea cual sea el idioma del equipo, para que la
     # clasificación del fallo (accion/fallos) no dependa de él. No cambia lo que el sudoers permite.
-    remoto = f"LC_ALL=C sudo -S {comando}" if sudo else comando
+    remoto = f"{_PREFIJO_SUDO} {comando}" if sudo else comando
     return f"{ssh} {usuario}@{nodo_ip} \"{remoto}\""
 
 def _ajustes(nodo_ip, usuario=None, puerto=None):
@@ -228,7 +234,7 @@ def _args_ssh_directo(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
             "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=yes",
             "-o", f"UserKnownHostsFile={known_hosts}", "-o", "ConnectTimeout=5",
             "-o", "HostKeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa",
-            *_opt_puerto(puerto), f"{usuario}@{nodo_ip}", f"LC_ALL=C sudo -S {comando}" if sudo else comando]
+            *_opt_puerto(puerto), f"{usuario}@{nodo_ip}", f"{_PREFIJO_SUDO} {comando}" if sudo else comando]
 
 
 def ejecutor_ssh_directo(nodo_ip, comando, usuario=None, puerto=None, sudo=True, claves=None):

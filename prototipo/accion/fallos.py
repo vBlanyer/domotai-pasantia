@@ -41,7 +41,8 @@ _PATRONES = (
             r"Network is unreachable", r"Could not resolve hostname", r"Connection closed", r"Connection reset by",
             r"sin respuesta en \d+ s")),
     ("F6", (r"a password is required", r"is not allowed to execute", r"may not run sudo", r"usual lecture",
-            r"no password was provided", r"incorrect password attempt", r"no tty present")),
+            r"no password was provided", r"incorrect password attempt", r"no tty present",
+            r"mdr-accion: orden fuera del cat")),     # el envoltorio rechazó la orden (fuera del papel)
 )
 _REGRESION = {"F4", "F5", "F6"}     # con el equipo verificado, dejan de ser configuración
 
@@ -95,7 +96,7 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
     regresion = bool(ctx.get("verificado")) and clase in _REGRESION and not (clase == "F6" and ctx.get("regla_falta"))
     descripcion, accion, ataque = CLASES[clase]
     if clase == "F6" and ctx.get("regla_falta"):
-        descripcion, accion = "acción no ejecutable en este equipo", f"falta en su sudoers: {ctx['regla_falta']} (binario no instalado o fuera de su papel)"
+        descripcion, accion = "acción no ejecutable en este equipo", f"falta en su envoltorio: {ctx['regla_falta']} (fuera de su papel o alta antigua: vuelve a ejecutar su paquete de alta)"
     elif regresion:
         descripcion = {"F4": "el equipo dejó de aceptar la clave del conector",
                        "F5": "el MDR perdió el acceso a un equipo que funcionaba",

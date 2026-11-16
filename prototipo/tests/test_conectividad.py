@@ -254,7 +254,9 @@ class TestDerivaPaqueteRotacion(unittest.TestCase):
         self.assertEqual((r["ok"], r["estado"], r["reglas"]["estado"]), (False, "privilegio_de_mas", "sobran"))
         r = cx.probar(ejec, "10.0.0.1", listar=lambda ip, c: (0, self.SUDO_L.splitlines()[0] + "\n    (root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP"),
                       esperadas=[("iptables", "-A INPUT -s * -j DROP"), ("tc", "qdisc show dev *")])
-        self.assertEqual((r["ok"], r["reglas"]["estado"], r["reglas"]["faltan"]), (True, "faltan", ["tc qdisc show dev *"]))
+        # un sudoers antiguo (reglas con comodines, sin envoltorio) es privilegio de más aunque coincida con
+        # el papel: un comodín de sudo admite argumentos extra (#13 de la revisión del 15/11)
+        self.assertEqual((r["ok"], r["estado"], r["reglas"]["estado"]), (False, "privilegio_de_mas", "sobran"))
 
     def test_las_pruebas_sobreviven_en_disco(self):
         import tempfile
@@ -279,22 +281,28 @@ class TestDerivaPaqueteRotacion(unittest.TestCase):
         eq = {"nombre": "pagos-qr", "ip": "10.30.0.20", "papel": "servidor", "servicios": ["nginx"], "cuentas": ["appqr"]}
         pub = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample mdr-conector"
         reglas = [("service", "nginx stop"), ("iptables", "-A INPUT -s * -j DROP")]
-        nombre, sh = cx.paquete("script", eq, "triaje", pub, reglas, "04/11/2026")
+        env = "#!/bin/sh\n# envoltorio de prueba\nexit 126\n"
+        with self.assertRaises(ValueError):                           # sin envoltorio no hay paquete
+            cx.paquete("script", eq, "triaje", pub, reglas, "04/11/2026")
+        paquete = lambda formato, gen: cx.paquete(formato, eq, "triaje", pub, reglas, gen, envoltorio=env)
+        nombre, sh = paquete("script", "04/11/2026")
         self.assertEqual(nombre, "alta-pagos-qr.sh")
-        self.assertIn("regla 'service' 'nginx stop'", sh)
+        self.assertIn("# envoltorio de prueba", sh)
+        self.assertIn("triaje ALL=(root) NOPASSWD: /usr/local/sbin/mdr-accion", sh)
         self.assertIn("visudo -cf", sh)
         self.assertIn("mdr-sudoers-anterior", sh)                 # aparta (con copia) el sudoers viejo del MDR
         self.assertIn('grep -c "^$U[[:space:]]" "$f"', sh)          # también uno añadido a mano, si solo es del conector
         self.assertIn("revísalo a mano", sh)                          # uno que mezcla otros usuarios no se toca
         self.assertIn("# >>> conector-triaje", sh)                    # el bloque clásico en /etc/sudoers
         self.assertNotIn("PRIVATE", sh)
-        nombre, sud = cx.paquete("sudoers", eq, "triaje", pub, reglas, "hoy")
-        self.assertIn("triaje ALL=(root) NOPASSWD: /usr/sbin/service nginx stop", sud)
-        nombre, yml = cx.paquete("ansible", eq, "triaje", pub, reglas, "hoy")
+        nombre, sud = paquete("sudoers", "hoy")
+        self.assertIn("triaje ALL=(root) NOPASSWD: /usr/local/sbin/mdr-accion", sud)
+        self.assertNotIn("/usr/sbin/service", sud)
+        nombre, yml = paquete("ansible", "hoy")
         self.assertEqual(nombre, "alta-pagos-qr.yml")
         self.assertIn("validate: visudo -cf %s", yml)
         with self.assertRaises(ValueError):
-            cx.paquete("script", eq, "triaje", "no es una clave", reglas, "hoy")
+            cx.paquete("script", eq, "triaje", "no es una clave", reglas, "hoy", envoltorio=env)
 
 
 class TestConectorSinSudoYRotacion(unittest.TestCase):
@@ -303,7 +311,7 @@ class TestConectorSinSudoYRotacion(unittest.TestCase):
         linea = conector.comando_ssh_clave("10.0.0.1", "sudo -S -l", sudo=False, claves=["/k.nueva"])
         self.assertIn("-i /k.nueva -o IdentitiesOnly=yes", linea)
         self.assertTrue(linea.endswith('triaje@10.0.0.1 "sudo -S -l"'))
-        self.assertTrue(conector.comando_ssh_clave("10.0.0.1", "iptables -L -n").endswith('"LC_ALL=C sudo -S iptables -L -n"'))
+        self.assertTrue(conector.comando_ssh_clave("10.0.0.1", "iptables -L -n").endswith('"LC_ALL=C sudo -S /usr/local/sbin/mdr-accion iptables -L -n"'))
         args = conector._args_ssh_directo("10.0.0.1", "true", sudo=False, claves=["/a", "/b"])
         self.assertEqual(args[1:6], ["-n", "-i", "/a", "-i", "/b"])
         self.assertEqual(args[-1], "true")

@@ -116,7 +116,7 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
         if precheck and ctx.get("aprovisionado") is False:
             ejecucion = conector.resultado_omitido(o, "el equipo no tiene su clave del host fijada", timestamp)
         elif regla:
-            ejecucion = conector.resultado_omitido(o, f"falta en su sudoers: {regla}", timestamp,
+            ejecucion = conector.resultado_omitido(o, f"falta en su envoltorio: {regla}", timestamp,
                                                    omitido="no_ejecutable", regla_falta=regla)
         else:
             ejecucion = conector.ejecutar_orden(o, catalogo, ejecutor, timestamp)

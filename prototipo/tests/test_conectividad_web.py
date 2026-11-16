@@ -44,6 +44,7 @@ class _Falso:
 
     ficheros = None
     sudo_l = None                # salida de `sudo -l` del usuario del conector (None = pide contraseña)
+    reglas_env = None            # salida de `mdr-accion --reglas` (None = el envoltorio no responde)
 
     def ejecutor_con(self, modo, usuario=None, puerto=None, sudo=True, claves=None):
         def ej(ip, cmd):
@@ -54,6 +55,8 @@ class _Falso:
                 return 0, ""
             if claves:
                 return 0, "ok"
+            if cmd == "--reglas":
+                return (0, self.reglas_env) if self.reglas_env is not None else (1, "")
             cola = self.ssh.setdefault(ip, [(0, "ok"), (1, "denegado")])
             return cola.pop(0) if len(cola) > 1 else cola[0]
         return ej
@@ -227,7 +230,9 @@ class TestPermisosAltaYRotacion(_Base):
         self.assertNotIn("pagos-qr", srv.perfil.get("activos") or {})            # pendiente: el motor aún no lo ve
         st, p = self._req(srv, "GET", "/api/conectividad/paquete?equipo=pagos-qr&formato=script", token="tok")
         self.assertEqual((st, p["nombre"]), (200, "alta-pagos-qr.sh"))
-        self.assertIn("regla 'service' 'nginx stop'", p["contenido"])
+        self.assertIn("\nservice nginx stop\n", p["contenido"])                  # en el envoltorio de su papel
+        self.assertNotIn("\nservice sshd stop\n", p["contenido"])
+        self.assertIn("install -m 755 -o root -g root", p["contenido"])
         self.assertIn(PUB, p["contenido"])
         # sin clave del host fijada no hay alta
         self.assertEqual(self._req(srv, "POST", "/api/conectividad/alta", {"equipo": "pagos-qr", "huella": F1}, token="tok")[0], 409)
@@ -365,7 +370,8 @@ class TestClaveDesdeCeroYEstadoViejo(_Base):
         self.assertTrue(ctx["verificado"] and ctx["prueba_en"])
         self.assertNotIn("regla_falta", ctx)
         self.assertEqual(len(self.f.vistos), vistos)                    # no abre ninguna conexión al equipo
-        self.f.sudo_l = "    (root) NOPASSWD: /sbin/iptables -L -n"     # el sudoers no tiene la regla de bloquear
+        self.f.sudo_l = "    (root) NOPASSWD: /usr/local/sbin/mdr-accion"
+        self.f.reglas_env = "iptables -L -n\n"                          # el envoltorio no tiene la regla de bloquear
         srv.conectividad_ultimo.clear()
         self.f.ssh["10.0.20.10"] = [(0, "ok"), (1, "denegado")]
         self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
@@ -428,8 +434,9 @@ class TestClaveDesdeCeroYEstadoViejo(_Base):
         from prototipo.motor import perfil as perfilm
         self.assertIsNone(perfilm.papel_deniega(srv.perfil, "FORZAR_CAMBIO_PASS", "db-core", {"usuario": "backdoor"}))
         self.assertIn("cuenta del sistema", perfilm.papel_deniega(srv.perfil, "FORZAR_CAMBIO_PASS", "db-core", {"usuario": "root"}))
-        _, p = self._req(srv, "GET", "/api/conectividad/paquete?equipo=db-core&formato=sudoers", token="tok")
-        self.assertIn("passwd -l *", p["contenido"])                                   # comodín, como el clásico
+        _, p = self._req(srv, "GET", "/api/conectividad/paquete?equipo=db-core&formato=script", token="tok")
+        self.assertIn("\npasswd -l *\n", p["contenido"])                              # cualquier cuenta...
+        self.assertIn('es_cuenta "${3}"', p["contenido"])                              # ...que no sea del sistema
         self.assertIn("cuentas: cualquiera salvo las del sistema", p["contenido"])
 
 
