@@ -16,6 +16,10 @@ describe("esDecision", () => {
   it("el arranque con politica.yml (politica_cargada) no es una decisión", () => {
     expect(esDecision({ tipo: "politica_cargada" } as Decision)).toBe(false)
   })
+  it("las aprobaciones pendientes y perdidas no son decisiones", () => {
+    expect(esDecision({ tipo: "pendiente" } as Decision)).toBe(false)
+    expect(esDecision({ tipo: "pendiente_perdida" } as Decision)).toBe(false)
+  })
   it("la auditoría del asistente de red no es una decisión", () => {
     expect(esDecision({ tipo: "auditoria_asistente" } as Decision)).toBe(false)
   })

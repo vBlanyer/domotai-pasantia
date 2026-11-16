@@ -9,7 +9,7 @@ export const CHIPS: { id: Chip; nombre: string }[] = [
   { id: "humano", nombre: "Humano" }, { id: "sistema", nombre: "Sistema" },
 ]
 const SISTEMA = new Set(["actividad_suprimida", "actividad_propia", "reversion", "actualizacion_caso", "auditoria_conectividad",
-  "politica_cargada", "auditoria_asistente"])
+  "politica_cargada", "auditoria_asistente", "pendiente", "pendiente_perdida"])
 const GENESIS = "0".repeat(64)
 
 export function tipoDe(r: Decision): TipoFila {
@@ -77,6 +77,18 @@ export function describirSistema(r: Decision): { titulo: string; detalle: string
     case "auditoria_conectividad":
       return { titulo: "Conectividad",
         detalle: [r.dimension, r.clave, r.operador ? `por ${r.operador}` : null].filter(Boolean).join(" · ") }
+    case "pendiente": {
+      const p = r as unknown as { accion_final?: unknown; origen_ip?: unknown; activo?: unknown }
+      return { titulo: "Pendiente de aprobación",
+        detalle: [p.accion_final ? String(p.accion_final) : null, `${String(p.origen_ip ?? "—")} → ${String(p.activo ?? "—")}`]
+          .filter(Boolean).join(" · ") }
+    }
+    case "pendiente_perdida": {
+      const p = r as unknown as { origen_ip?: unknown; activo?: unknown; motivo?: unknown }
+      return { titulo: "Aprobación perdida al reiniciar",
+        detalle: [`${String(p.origen_ip ?? "—")} → ${String(p.activo ?? "—")}`, p.motivo ? String(p.motivo) : null]
+          .filter(Boolean).join(" · ") }
+    }
     case "auditoria_asistente": {
       const p = r as unknown as { accion?: unknown; operador?: unknown }
       return { titulo: "Asistente de red",

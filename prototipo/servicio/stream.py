@@ -472,6 +472,48 @@ def _linea_en_cola(d):
     return f"⏸ En cola (espera al analista) · {d.get('clase')} · confianza {d.get('confianza')}"
 
 
+# ------------------------------------------------- aprobaciones pendientes en la traza (#1) --
+# La cola de Aprobaciones vive en memoria: sin rastro, un reinicio la vaciaba en silencio. Al encolar se
+# encadena un registro `pendiente`; al resolver, la decisión lleva el mismo id_decision; al arrancar, las
+# pendientes que nadie resolvió se anotan como `pendiente_perdida` y se avisan.
+_CAMPOS_PENDIENTE = ("activo", "origen_ip", "clase", "accion_final", "prioridad")
+
+
+def registro_pendiente(decision, id_cola, ts):
+    return {"id_decision": decision.get("id_decision"), "tipo": "pendiente", "timestamp": ts, "id_cola": id_cola,
+            **{k: decision.get(k) for k in _CAMPOS_PENDIENTE}}
+
+
+def pendientes_sin_resolver(registros):
+    """Los `pendiente` sin un registro posterior que los cierre: la decisión resuelta (mismo
+    id_decision), el desalojo por el tope (`<id>~tope`) o un aviso de pérdida anterior."""
+    abiertas = {}
+    for r in registros:
+        idd = r.get("id_decision")
+        if not idd:
+            continue
+        if r.get("tipo") == "pendiente":
+            abiertas.setdefault(idd, r)
+        else:
+            abiertas.pop(idd, None)
+            if str(idd).endswith("~tope"):
+                abiertas.pop(str(idd)[:-len("~tope")], None)
+    return list(abiertas.values())
+
+
+def registro_pendiente_perdida(p, ts):
+    return {"id_decision": p.get("id_decision"), "tipo": "pendiente_perdida", "timestamp": ts,
+            "motivo": "el servicio se reinició antes de que nadie la resolviera",
+            **{k: p.get(k) for k in _CAMPOS_PENDIENTE}}
+
+
+def linea_pendientes_perdidas(perdidas):
+    cuales = ", ".join(f"{p.get('activo')} ← {p.get('origen_ip')}" for p in perdidas[:5])
+    mas = f" y {len(perdidas) - 5} más" if len(perdidas) > 5 else ""
+    return (f"[inicio] {len(perdidas)} aprobación(es) pendiente(s) se perdieron al reiniciar ({cuales}{mas}): "
+            "revísalas en Trazas; si el ataque sigue, volverán a la cola")
+
+
 def _entrada_cola(decision, alerta):
     """Construye la entrada de la cola: contexto para resolver + líneas para mostrar (mismas que el
     prompt de la terminal, para que el visor las presente igual)."""
@@ -723,12 +765,17 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     encolar = diferir_escalada = None
     pausa = estado_web.pausada if estado_web is not None else None   # kill switch (#8)
     if estado_web is not None:
+        trazadas = set()          # tarjetas ya anotadas: una repetición que se suma a la tarjeta no repite
+        def _anotar_pendiente(decision, pid):
+            if pid is not None and pid not in trazadas:
+                trazadas.add(pid)
+                escribir_traza(registro_pendiente(decision, pid, _ahora_iso()))
         def encolar(decision, alerta):
-            estado_web.encolar_decision(_entrada_cola(decision, alerta))
+            _anotar_pendiente(decision, estado_web.encolar_decision(_entrada_cola(decision, alerta)))
         # La escalada automática que pide humano tampoco puede bloquear el lazo: sin esto, la
         # pregunta esperaba sin plazo en una ruta que el visor no muestra y el daemon se congelaba.
         def diferir_escalada(parcial, alerta, desde, lineas):
-            estado_web.encolar_decision(_entrada_escalada(parcial, alerta, desde, lineas))
+            _anotar_pendiente(parcial, estado_web.encolar_decision(_entrada_escalada(parcial, alerta, desde, lineas)))
         estado_web.fijar_resolutor(
             _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir,
                                  diferir_escalada=diferir_escalada, al_resolver=al_resolver))
@@ -1413,6 +1460,12 @@ def main(argv):
         # segmentos (traza.leer_familia) queda para la Opción B de #6, que además debe pasar la
         # exclusión de revertidas a basarse en el hash del registro (único al concatenar), no en el índice.
         memoria = MemoriaDecisiones.desde_traza(previos, perfil)
+        perdidas = pendientes_sin_resolver(previos)          # #1: la cola en memoria no sobrevive al reinicio
+        if perdidas:
+            aviso = linea_pendientes_perdidas(perdidas)
+            print(aviso)
+            if cfg["web"]:
+                estado.anotar_linea(aviso)
         with traza.abrir_append(cfg["salida"]) as traza_f:   # permisos 0600 (integridad de la traza)
             ejecutar(fuente, hallazgos, perfil, perfil_nombre, catalogo, ejecutor,
                      justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
@@ -1424,7 +1477,8 @@ def main(argv):
                      lector_incidente=lector_incidente, memoria=memoria,
                      latido=(servidor.latido if servidor else None), actividad=actividad,
                      perfil_fn=((lambda: servidor.perfil) if servidor else None),
-                     al_arrancar=([registro_politica(politica_info, _ahora_iso())] if politica_info else ()))
+                     al_arrancar=(([registro_politica(politica_info, _ahora_iso())] if politica_info else [])
+                                  + [registro_pendiente_perdida(p, _ahora_iso()) for p in perdidas]))
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))

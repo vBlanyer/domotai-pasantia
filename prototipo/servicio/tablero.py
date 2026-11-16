@@ -430,7 +430,7 @@ def _resumen_traza(reg, ips=None, externos=(), perfil=None):
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
 # fallos al procesar un incidente y reversiones de una contención ya decidida.
 _NO_DECISIONES = ("actividad_suprimida", "actividad_propia", "error", "reversion", "actualizacion_caso",
-                  "auditoria_conectividad", "politica_cargada", "auditoria_asistente")
+                  "auditoria_conectividad", "politica_cargada", "auditoria_asistente", "pendiente", "pendiente_perdida")
 
 
 _ESTADO_PLAN = {"mitigado": "contenida", "fallido": "fallida", "cancelado_por_humano": "cancelada",

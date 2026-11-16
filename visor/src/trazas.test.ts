@@ -64,6 +64,15 @@ describe("describirSistema: los registros de sistema dicen qué pasó", () => {
     expect(describirSistema(r)).toEqual({ titulo: "Conectividad", detalle: "clave_host · fw-core · por ana" })
     expect(tipoDe(r)).toBe("sistema")
   })
+  it("la tarjeta pendiente y la perdida al reiniciar son de sistema y dicen de qué se trata", () => {
+    const p = { tipo: "pendiente", activo: "srv-web01", origen_ip: "198.51.100.10", accion_final: "BLOQUEAR_IP" } as never
+    expect(tipoDe(p)).toBe("sistema")
+    expect(describirSistema(p)).toEqual({ titulo: "Pendiente de aprobación", detalle: "BLOQUEAR_IP · 198.51.100.10 → srv-web01" })
+    const q = { tipo: "pendiente_perdida", activo: "srv-web01", origen_ip: "198.51.100.10", motivo: "el servicio se reinició antes de que nadie la resolviera" } as never
+    expect(tipoDe(q)).toBe("sistema")
+    expect(describirSistema(q)).toEqual({ titulo: "Aprobación perdida al reiniciar",
+      detalle: "198.51.100.10 → srv-web01 · el servicio se reinició antes de que nadie la resolviera" })
+  })
   it("el asistente de red es de sistema y dice qué hizo y quién", () => {
     const r = { tipo: "auditoria_asistente", accion: "escaneo", operador: "ana", detalle: { rangos: ["10.20.0.0/24"] } } as never
     expect(tipoDe(r)).toBe("sistema")

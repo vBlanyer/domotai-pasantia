@@ -66,7 +66,7 @@ export function siguienteTras(orden: string[], actual: string, resueltas: Set<st
 }
 
 const SISTEMA = new Set(["actividad_suprimida", "actividad_propia", "reversion", "error", "actualizacion_caso",
-  "auditoria_conectividad", "politica_cargada", "auditoria_asistente"])
+  "auditoria_conectividad", "politica_cargada", "auditoria_asistente", "pendiente", "pendiente_perdida"])
 
 // Lo que ya pasó con un origen según la traza: decisiones con hora, lo más reciente primero.
 export function historialOrigen(trazas: Decision[], ip: string | null | undefined, max = 5) {

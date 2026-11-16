@@ -23,6 +23,13 @@ def _linea_wazuh(srcip="192.168.1.10", rule_id="5760"):
         "full_log": "Failed password for root from %s" % srcip})
 
 
+
+
+def _sin_pendientes(buf):
+    """Los registros de la traza sin los `pendiente` que la cola encadena al encolar (#1 de la revisión
+    del 15/11): las pruebas del modo web comprueban la decisión, no el rastro de la tarjeta."""
+    return [l for l in buf.getvalue().splitlines() if l.strip() and json.loads(l).get("tipo") != "pendiente"]
+
 class TestBucleInmediato(unittest.TestCase):
     def test_avisa_si_la_ingesta_queda_en_silencio(self):
         t = [0.0]
@@ -97,11 +104,11 @@ class TestColaNoBloqueante(unittest.TestCase):
         self._ejecutar(estado, buf)                  # NO bloquea (sin leer)
         cola = estado.decisiones_pendientes()
         self.assertEqual(len(cola), 1)
-        self.assertEqual(buf.getvalue().strip(), "")  # aún no hay traza
+        self.assertEqual(_sin_pendientes(buf), [])  # aún no hay traza
         pid = cola[0]["id"]
         self.assertTrue(estado.resolver_decision(pid, "1"))   # aprobar
         self.assertEqual(estado.decisiones_pendientes(), [])  # sale de la cola
-        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["veredicto_humano"], "aprobar")
         self.assertIsNotNone(r["orden"])
 
@@ -114,7 +121,7 @@ class TestColaNoBloqueante(unittest.TestCase):
         self.assertTrue(p["esperando_clase"])
         self.assertTrue(p["clases"])
         self.assertTrue(estado.resolver_decision(pid, "1"))   # elige una clase -> finaliza
-        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["veredicto_humano"], "reclasificar")
         self.assertIsNone(r["orden"])                          # reclasificar no ejecuta
 
@@ -126,7 +133,7 @@ class TestColaNoBloqueante(unittest.TestCase):
         p = estado.decisiones_pendientes()[0]
         self.assertIn("accion_final", tablero._vista_pendiente(p))
         self.assertTrue(estado.resolver_decision(p["id"], "2", paso=0))
-        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(p["accion_final"], r["accion_final"])
 
     def test_reclasificar_avanza_el_paso(self):
@@ -146,9 +153,9 @@ class TestColaNoBloqueante(unittest.TestCase):
         self.assertTrue(estado.resolver_decision(pid, "3", paso=0))    # -> submenú de clases
         self.assertFalse(estado.resolver_decision(pid, "1", paso=0))   # menú viejo: rechazado
         self.assertEqual(len(estado.decisiones_pendientes()), 1)       # sigue en cola
-        self.assertEqual(buf.getvalue().strip(), "")                   # nada trazado ni ejecutado
+        self.assertEqual(_sin_pendientes(buf), [])                   # nada trazado ni ejecutado
         self.assertTrue(estado.resolver_decision(pid, "1", paso=1))    # clase elegida en el paso vigente
-        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["veredicto_humano"], "reclasificar")
 
     def test_aprobar_con_el_paso_vigente_ejecuta(self):
@@ -156,7 +163,7 @@ class TestColaNoBloqueante(unittest.TestCase):
         self._ejecutar(estado, buf)
         pid = estado.decisiones_pendientes()[0]["id"]
         self.assertTrue(estado.resolver_decision(pid, "1", paso=0))
-        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["veredicto_humano"], "aprobar")
 
     def test_rechazar_con_el_paso_vigente_retiene(self):
@@ -164,7 +171,7 @@ class TestColaNoBloqueante(unittest.TestCase):
         self._ejecutar(estado, buf)
         pid = estado.decisiones_pendientes()[0]["id"]
         self.assertTrue(estado.resolver_decision(pid, "2", paso=0))
-        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["veredicto_humano"], "rechazar")
         self.assertIsNone(r["orden"])                          # rechazar no ejecuta
 
@@ -264,7 +271,7 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
         # El visor descarta las líneas «──…»: la acción y el dispositivo van en una línea «Acción:».
         self.assertTrue(any(l.startswith("Acción: BLOQUEAR_IP_FIREWALL en gateway") for l in cola[0]["lineas"]))
         self.assertFalse(any(l.startswith("──") for l in cola[0]["lineas"]))
-        self.assertEqual(buf.getvalue().strip(), "")              # se traza al resolver
+        self.assertEqual(_sin_pendientes(buf), [])              # se traza al resolver
         self.assertEqual(ej.aplicado, set())
 
     def test_aprobar_la_escalada_contiene_en_el_cortafuegos_y_traza(self):
@@ -273,7 +280,7 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
         p = estado.decisiones_pendientes()[0]
         self.assertTrue(estado.resolver_decision(p["id"], "s", paso=p["paso"]))
         self.assertEqual(estado.decisiones_pendientes(), [])
-        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["escalada"]["resultado"], "mitigado")
         self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "gateway")
         self.assertEqual(r["veredicto_escalada"], "aprobar")
@@ -284,7 +291,7 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
         self._ejecutar(estado, buf, ej)
         p = estado.decisiones_pendientes()[0]
         self.assertTrue(estado.resolver_decision(p["id"], "s", paso=p["paso"], operador="ana"))
-        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["veredicto_por"], "ana")           # no repudio: queda quién aprobó
 
     def test_rechazar_la_escalada_no_contiene_y_traza(self):
@@ -292,7 +299,7 @@ class TestEscaladaEnModoWeb(unittest.TestCase):
         self._ejecutar(estado, buf, ej)
         p = estado.decisiones_pendientes()[0]
         self.assertTrue(estado.resolver_decision(p["id"], "", paso=p["paso"]))
-        r = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["escalada"]["resultado"], "cancelado_por_humano")
         self.assertEqual(r["veredicto_escalada"], "rechazar")
         self.assertEqual(ej.aplicado, set())
@@ -393,9 +400,9 @@ class TestEscaladaConHumanoEnCadaSalto(unittest.TestCase):
         self.assertEqual([c["tipo"] for c in cola], ["escalada"])
         self.assertTrue(any("en gateway" in l for l in cola[0]["lineas"]))
         self.assertEqual(ej.aplicado, set())                         # el cortafuegos, intacto
-        self.assertEqual(buf.getvalue().strip(), "")                 # se traza al resolver la escalada
+        self.assertEqual(_sin_pendientes(buf), [])                 # se traza al resolver la escalada
         cola = self._resolver(estado, "s")
-        r = json.loads(buf.getvalue().splitlines()[0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["veredicto_humano"], "aprobar")
         self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "gateway")
 
@@ -408,9 +415,9 @@ class TestEscaladaConHumanoEnCadaSalto(unittest.TestCase):
         self.assertEqual([c["tipo"] for c in cola], ["escalada"])
         self.assertTrue(any("en edge" in l for l in cola[0]["lineas"]), cola[0]["lineas"])
         self.assertEqual(ej.aplicado, set())
-        self.assertEqual(buf.getvalue().strip(), "")
+        self.assertEqual(_sin_pendientes(buf), [])
         self.assertEqual(self._resolver(estado, "s"), [])
-        r = json.loads(buf.getvalue().splitlines()[0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["escalada"]["resultado"], "mitigado")
         self.assertEqual(r["escalada"]["dispositivo_ejecutor"], "edge")
         self.assertEqual(ej.aplicado, {"192.168.1.2"})
@@ -428,7 +435,7 @@ class TestModoAgente(unittest.TestCase):
             leer=lambda *_: "s", mitigar_fn=mitigar)
         self.assertEqual(resumen["incidentes"], 1)
         self.assertEqual(resumen["ejecutadas"], 1)                 # resultado mitigado -> ejecutada
-        traza = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        traza = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(traza["mitigacion_agente"]["dispositivo_ejecutor"], "gateway")
 
 
@@ -499,7 +506,7 @@ class TestModoAgenteEscalada(unittest.TestCase):
                         perfil_nombre="prueba", catalogo=CAT, ejecutor=ejec, justificar_fn=None,
                         ventana_agrupacion=0, salida_traza=buf, escribir=lambda *a, **k: None,
                         leer=lambda *_: "s", mitigar_fn=mitigar)
-        traza = json.loads([l for l in buf.getvalue().splitlines() if l.strip()][0])
+        traza = json.loads(_sin_pendientes(buf)[0])
         self.assertTrue(traza["mitigacion_agente"]["escalado"])                       # host->firewall
         self.assertEqual(traza["mitigacion_agente"]["dispositivo_ejecutor"], "gateway")
 
@@ -1154,7 +1161,7 @@ class TestBarreraDeExcepciones(unittest.TestCase):
                         estado_web=estado)
         p = estado.decisiones_pendientes()[0]
         self.assertTrue(estado.resolver_decision(p["id"], "1", paso=p["paso"]))
-        r = json.loads(buf.getvalue().splitlines()[0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(r["veredicto_humano"], "aprobar")
         self.assertFalse(r["ejecucion"]["exito"])
         self.assertIn("docker", r["ejecucion"]["error"])
@@ -1168,7 +1175,7 @@ class TestTrazaDelDaemon(unittest.TestCase):
                         perfil=y("perfil.yml"), perfil_nombre="prueba", catalogo=CAT,
                         ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=5,
                         salida_traza=buf, escribir=lambda *a, **k: None, reloj=lambda: 0, suprimir=False)
-        r = json.loads(buf.getvalue().splitlines()[0])
+        r = json.loads(_sin_pendientes(buf)[0])
         self.assertIsNotNone(datetime.datetime.fromisoformat(r["decidido_en"]).tzinfo)
         self.assertEqual(r["incidente"]["conteo"], 2)
         self.assertTrue(r["incidente"]["primera_ts"].startswith("2026-08-31T00:00:00"))
@@ -1241,7 +1248,7 @@ class TestRevisionFinal(unittest.TestCase):
         regs = [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
         self.assertEqual(estado.decisiones_pendientes(), [])          # sin tarjeta duplicada
         self.assertEqual(resumen["incidentes"], 1)
-        self.assertEqual(sorted(r.get("tipo") for r in regs), ["actividad_suprimida", "decision"])
+        self.assertEqual(sorted(r.get("tipo") for r in regs), ["actividad_suprimida", "decision", "pendiente"])
 
     def test_la_traza_conserva_los_saltos_de_una_escalada_diferida_varias_veces(self):
         # gateway aplica la regla pero no la verifica; edge contiene. La regla puesta en gateway tiene
@@ -1259,7 +1266,7 @@ class TestRevisionFinal(unittest.TestCase):
         estado.resolver_decision(primera["id"], "s", paso=primera["paso"])
         segunda = estado.decisiones_pendientes()[0]
         estado.resolver_decision(segunda["id"], "s", paso=segunda["paso"])
-        r = json.loads(buf.getvalue().splitlines()[0])
+        r = json.loads(_sin_pendientes(buf)[0])
         esc = r["escalada"]
         self.assertEqual(esc["dispositivo_ejecutor"], "edge")
         self.assertIn("gateway", [p["dispositivo"] for p in esc["pasos"]])

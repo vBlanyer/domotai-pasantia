@@ -242,7 +242,7 @@ export function ventanaDe(regs: Decision[]): { mostrados: number; total: number;
 // decidido»), el eco del login del propio MDR al contener («actividad propia»), la reversión de
 // una contención, el fallo al procesar un incidente ni el arranque con politica.yml.
 const NO_DECISIONES = new Set(["actividad_suprimida", "actividad_propia", "reversion", "error", "actualizacion_caso",
-  "auditoria_conectividad", "politica_cargada", "auditoria_asistente"])
+  "auditoria_conectividad", "politica_cargada", "auditoria_asistente", "pendiente", "pendiente_perdida"])
 export function esDecision(d: Decision): boolean {
   return !NO_DECISIONES.has(d.tipo ?? "")
 }
