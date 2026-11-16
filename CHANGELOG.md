@@ -7,6 +7,15 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [Sin publicar]
 
+## [1.9] — 2026-11-16 · entrega final
+
+### Añadido
+- **El RAG agéntico con cinco generadores** (informe, `tab:modelos`; `evaluacion/resultados/rag-agentico-modelos/`):
+  Llama 3.2 1B, Qwen2.5 3B y Foundation-Sec-8B-Instruct en local, y Claude Haiku y Sonnet. Ninguno
+  mejora con claridad la consulta fija; la diferencia está en la justificación. El banco del RAG separa
+  los textos del modelo de los de la plantilla, cuenta los que cayeron a ella y admite `--plazo`.
+- Manual de producción: las carpetas del MDR instalado, en el equipo MDR y en cada equipo del cliente.
+
 ### Seguridad
 - **Envoltorio `mdr-accion` del conector** (#13 de la revisión del 15/11): las reglas de sudoers con
   comodines admitían argumentos extra (`iptables -A INPUT -s 1.2.3.4 --modprobe=<programa> -j DROP`
