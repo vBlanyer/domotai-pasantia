@@ -169,11 +169,11 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
         <Seccion titulo="Papel y reglas" extra={puede ? <Boton className="h-6 px-2 text-xs" onClick={() => onAsistente({ equipo: e, paso: 2 })}>Editar</Boton> : null}>
           <p className="text-[13px]">{e.papel
             ? <><b className="font-medium">{papelTexto(e, d.papeles)}</b>{e.servicios?.length ? ` · servicios: ${e.servicios.join(", ")}` : ""}{e.cuentas_cualquiera ? " · cuentas: cualquiera salvo las del sistema" : e.cuentas?.length ? ` · cuentas: ${e.cuentas.join(", ")}` : ""}</>
-            : <span className="text-muted-foreground">Sin papel declarado: su sudoers es el catálogo entero. Declara su papel para reducirlo a lo que necesita.</span>}</p>
+            : <span className="text-muted-foreground">Sin papel declarado: su envoltorio admite el catálogo entero. Declara su papel para reducirlo a lo que necesita.</span>}</p>
           <p className="mt-1.5 flex items-center gap-1.5 text-xs"><span className={cn("size-2 rounded-full", PUNTO[reg.tono])} /><span className={TEXTO[reg.tono]}>Reglas en el equipo: {reg.texto}</span>{reg.sub && <span className="text-muted-foreground">· {reg.sub}</span>}</p>
           {reglas && (reglas.sobran.length > 0 || reglas.faltan.length > 0) && (
             <div className="mt-2 space-y-2">
-              {reglas.sobran.length > 0 && <p className="text-xs text-critico">Alguien cambió el sudoers en el equipo: el conector puede hacer más de lo que debe.</p>}
+              {reglas.sobran.length > 0 && <p className="text-xs text-critico">El sudoers o el envoltorio del equipo permiten más de lo que su papel necesita: el conector puede hacer más de lo que debe.</p>}
               <Deriva sobran={reglas.sobran} faltan={reglas.faltan} />
               {puede && <Boton tono={reglas.sobran.length ? "pri" : "normal"} className="h-7 text-xs" onClick={() => onAsistente({ equipo: e, paso: 3 })}>Generar paquete de corrección</Boton>}
             </div>

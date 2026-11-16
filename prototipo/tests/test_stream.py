@@ -785,6 +785,25 @@ class TestWeb(unittest.TestCase):
         finally:
             servidor.server_close()
 
+    def test_sin_lab_no_aplica_los_recortes_de_conectividad(self):
+        # --sin-lab usa el ejecutor simulado: no hay equipos reales, así que lo que la consola sabe de
+        # ellos (sin clave del host fijada) no puede omitir contenciones; si no, la demo sale «fallida».
+        from prototipo.accion import fallos
+        self.addCleanup(fallos.configurar_contexto, None)
+        for sin_lab, con_contexto in ((True, False), (False, True)):
+            with self.subTest(sin_lab=sin_lab):
+                fallos.configurar_contexto(None)
+                d = tempfile.mkdtemp()
+                cfg = {"web": True, "web_puerto": 0, "salida": os.path.join(d, "t.jsonl"), "sin_lab": sin_lab}
+                from unittest import mock
+                with mock.patch.dict(os.environ, {}):
+                    os.environ.pop("TRIAJE_CONECTIVIDAD", None)
+                    _, servidor, _, _ = stream.construir_web(cfg, {"activos": {}})
+                try:
+                    self.assertIs(fallos._proveedor is not None, con_contexto)
+                finally:
+                    servidor.server_close()
+
 
 class TestTopeLineaStdin(unittest.TestCase):
     def test_linea_gigante_sin_salto_se_descarta_y_resincroniza(self):

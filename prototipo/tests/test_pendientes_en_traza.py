@@ -62,5 +62,20 @@ class TestPendientesEnTraza(unittest.TestCase):
         self.assertEqual(tablero.metricas(regs)["total"], 0)
 
 
+
+class TestOrigenDelPendiente(unittest.TestCase):
+    def test_el_origen_sale_del_contexto_de_la_decision(self):
+        # la decisión real guarda el origen en contexto.origen_ip (no en el primer nivel)
+        d = {"id_decision": "s3", "activo": "atm", "clase": "vp_denegacion_servicio",
+             "accion_final": "LIMITAR_BANDA", "prioridad": 4, "contexto": {"origen_ip": "80.58.0.10"}}
+        r = stream.registro_pendiente(d, "c1", "2026-11-16T19:36:53+00:00")
+        self.assertEqual(r["origen_ip"], "80.58.0.10")
+        self.assertEqual(stream.registro_pendiente({**d, "origen_ip": "1.2.3.4"}, "c1", "t")["origen_ip"], "1.2.3.4")
+
+    def test_la_api_de_trazas_muestra_el_origen_del_pendiente(self):
+        r = tablero._resumen_traza({"tipo": "pendiente", "id_decision": "s3", "activo": "atm",
+                                    "origen_ip": "80.58.0.10", "accion_final": "LIMITAR_BANDA"})
+        self.assertEqual(r["origen_ip"], "80.58.0.10")
+
 if __name__ == "__main__":
     unittest.main()

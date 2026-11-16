@@ -156,7 +156,7 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
 
         {paso === 2 && (
           <>
-            <p className="text-[12.5px] text-muted-foreground">El papel decide qué acciones del catálogo le aplican. Su sudoers será solo eso, y el motor no le propondrá lo que no admita.</p>
+            <p className="text-[12.5px] text-muted-foreground">El papel decide qué acciones del catálogo le aplican. Su envoltorio admitirá solo eso, y el motor no le propondrá lo que no admita.</p>
             <div className="grid gap-2.5 sm:grid-cols-3" role="radiogroup" aria-label="Papel del equipo">
               {papeles.map((p) => (
                 <button key={p.id} type="button" role="radio" aria-checked={papel === p.id} onClick={() => elegirPapel(p.id)}
@@ -179,7 +179,7 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
               <Etiqueta id="al-serv" texto="Servicios que se pueden parar" ayuda={sinLista("servicios").length && !lista(servicios).length ? "Sin lista no se podrá parar ninguno: nunca «cualquier servicio»." : "Separados por comas."}>
                 <input id="al-serv" className={cn(campo, "font-mono")} value={servicios} placeholder="nginx" onChange={(e) => setServicios(e.target.value)} /></Etiqueta>
               <Etiqueta id="al-cuentas" texto="Cuentas que se pueden bloquear" ayuda={cualquiera
-                ? "El sudoers admite cualquier cuenta; el motor nunca bloquea root ni las cuentas del sistema."
+                ? "El envoltorio admite cualquier cuenta salvo root y las del sistema, que nunca se bloquean."
                 : "Nunca root ni las cuentas del sistema."}>
                 <input id="al-cuentas" className={cn(campo, "font-mono disabled:bg-muted")} value={cualquiera ? "" : cuentas} disabled={cualquiera}
                   placeholder={cualquiera ? "cualquiera salvo las del sistema" : "appqr"} onChange={(e) => setCuentas(e.target.value)} />

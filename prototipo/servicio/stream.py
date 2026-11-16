@@ -480,8 +480,11 @@ _CAMPOS_PENDIENTE = ("activo", "origen_ip", "clase", "accion_final", "prioridad"
 
 
 def registro_pendiente(decision, id_cola, ts):
-    return {"id_decision": decision.get("id_decision"), "tipo": "pendiente", "timestamp": ts, "id_cola": id_cola,
-            **{k: decision.get(k) for k in _CAMPOS_PENDIENTE}}
+    r = {"id_decision": decision.get("id_decision"), "tipo": "pendiente", "timestamp": ts, "id_cola": id_cola,
+         **{k: decision.get(k) for k in _CAMPOS_PENDIENTE}}
+    if not r.get("origen_ip"):          # la decisión lo guarda en su contexto
+        r["origen_ip"] = (decision.get("contexto") or {}).get("origen_ip")
+    return r
 
 
 def pendientes_sin_resolver(registros):
@@ -1287,7 +1290,10 @@ def construir_web(cfg, perfil, catalogo=None, ejecutor=None):
     # por qué falló una contención (accion/fallos). Solo informa: no decide nada.
     from prototipo.accion import fallos
     from prototipo.servicio import conectividad_web
-    fallos.configurar_contexto(lambda ip, accion_id: conectividad_web.contexto_equipo(servidor, ip, accion_id))
+    # Con --sin-lab el ejecutor es simulado y no hay equipos reales: lo que la consola sabe de ellos (sin
+    # clave del host fijada) no debe omitir contenciones, o la demo saldría entera «fallida».
+    if not cfg.get("sin_lab"):
+        fallos.configurar_contexto(lambda ip, accion_id: conectividad_web.contexto_equipo(servidor, ip, accion_id))
     fallos.configurar_observador(lambda ip, causa: conectividad_web.registrar_operativo(servidor, ip, causa))
     return estado, servidor, tablero.escribir_web(estado), tablero.LectorWeb(estado)
 

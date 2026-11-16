@@ -7,6 +7,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [Sin publicar]
 
+### Corregido
+- La demo sin laboratorio (`--sin-lab`) ya no omite todas las contenciones: los recortes de Conectividad
+  (equipo sin clave del host fijada) no se aplican con el ejecutor simulado.
+- Los registros «Pendiente de aprobación» llevan el origen (sale del contexto de la decisión) y la
+  vista Trazas lo muestra.
+- Textos de Conectividad y del alta de equipos al día con el envoltorio `mdr-accion`.
+
 ## [1.9] — 2026-11-16 · entrega final
 
 ### Añadido

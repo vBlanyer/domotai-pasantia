@@ -380,7 +380,8 @@ def _resumen_traza(reg, ips=None, externos=(), perfil=None):
     imp = reg.get("impacto_determinado") or {}
     est = reg.get("justificacion_estructurada") or {}
     _conten = contencion_de(reg)                 # una sola vez (desenlace + dispositivo)
-    _origen_ip = (est.get("evidencia") or {}).get("origen_ip")
+    # el de la evidencia en las decisiones; los registros de sistema (pendiente, perdida) lo llevan arriba
+    _origen_ip = (est.get("evidencia") or {}).get("origen_ip") or reg.get("origen_ip")
     return {"id_decision": reg.get("id_decision"), "timestamp": reg.get("timestamp"),
             "activo": reg.get("activo"), "clase": reg.get("clase"), "confianza": reg.get("confianza"),
             "accion_final": reg.get("accion_final"), "requiere_humano": reg.get("requiere_humano"),
