@@ -155,7 +155,61 @@ Una instalación atiende a **un cliente**: carga un solo perfil. Dos clientes so
 | `/opt/mdr` | El software, la consola y la herramienta `mdr` | root, solo lectura para el servicio |
 | `/etc/mdr/triaje.env` | La configuración del servicio, con sus secretos | root, `0600` |
 | `/etc/mdr/perfil.yml` | El perfil del cliente | root, legible por `triaje` |
+| `/etc/mdr/politica.yml` | La política de la empresa (sección 12) | root, legible por `triaje` |
 | `/var/lib/mdr` | El estado: la traza, lo editado en la consola, los hallazgos y la clave del conector | `triaje`, `0700` |
+
+### Las carpetas, en detalle
+
+**En el equipo MDR:**
+
+```
+/opt/mdr/                          el programa: se sustituye entero al actualizar
+├── VERSION
+├── bin/mdr                        la herramienta mdr (también en /usr/bin/mdr)
+├── deploy/                        instalar.sh, la unidad del servicio y las plantillas
+│                                  (perfil.ejemplo.yml, politica.ejemplo.yml, triaje.env.ejemplo)
+├── visor/dist/                    la consola web, ya construida
+└── …                              el motor, el catálogo cerrado de acciones y el corpus de las justificaciones
+/opt/mdr.anterior/                 la versión previa, tras actualizar: sirve para volver atrás
+
+/etc/mdr/                          lo que decide el cliente (root:triaje, 0750)
+├── triaje.env                     configuración y secretos (0600)
+├── perfil.yml                     la red: equipos, zonas, topología, papeles
+├── politica.yml                   la política de la empresa
+└── tls/                           solo si el SIEM envía por TLS: mdr.crt, mdr.key, ca-siem.crt
+
+/etc/systemd/system/mdr-triaje.service
+
+/var/lib/mdr/                      lo que el MDR recuerda y la evidencia (triaje, 0700)
+├── trazas-cliente.jsonl           la traza firmada y encadenada (segmento activo)
+├── trazas-cliente.1.jsonl …       segmentos archivados
+├── postura.json                   los hallazgos de cada equipo
+├── conector/                      clave y clave.pub del conector, y known_hosts con las huellas fijadas
+├── conectividad-*.yml / .json     ajustes, pruebas, rotación y auditoría de la vista Conectividad
+├── inventario-operativo.yml       equipos dados de alta desde la consola
+├── politica-operativa.yml         ajustes de la consola sobre la política (solo endurecen)
+├── politica-auditoria.jsonl
+├── watchlist.json, pausa.json     vigilancia e interruptor de parada
+├── asistente-*.json               último escaneo y borrador del asistente de red
+└── dbip-*.csv.gz                  bases de países y organizaciones (opcionales)
+```
+
+Recién instalado, `/var/lib/mdr` solo tiene `postura.json`. Lo demás aparece la primera vez que se
+usa cada función. Al desinstalar se conservan `/etc/mdr` y `/var/lib/mdr`, y la traza no se borra
+nunca.
+
+**En cada equipo del cliente** (lo que deja su paquete de alta, sección 10):
+
+```
+/usr/local/sbin/mdr-accion         el envoltorio (root:root, 0755): lo único que el MDR ejecuta como root;
+                                   comprueba cada argumento contra las acciones del papel del equipo
+/etc/sudoers.d/mdr-triaje          una sola línea: triaje puede ejecutar el envoltorio, nada más (0440)
+/home/triaje/.ssh/authorized_keys  la clave PÚBLICA del conector; el usuario no tiene contraseña
+/root/mdr-sudoers-anterior.*       copia de un sudoers anterior del conector, si el alta lo apartó
+```
+
+Ni agente ni servicio. En el **SIEM** no se instala nada: el MDR lee su `alerts.json` o recibe las
+alertas por la red (sección 8).
 
 ## 4. Lo que el cliente decide antes de instalar
 
