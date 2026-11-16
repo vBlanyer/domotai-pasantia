@@ -6,10 +6,21 @@ familias), el mismo corpus (35 fichas, `prototipo/corpus/indice.json`) y el mism
 (`bge-m3`). Solo cambia el modelo que formula la consulta agéntica y redacta la justificación. La
 columna «Fija» de cada fichero no usa generador y es la misma en todos.
 
-| Fichero | Generador | Cómo se sirvió |
-|---|---|---|
-| `2026-11-16-claude-haiku.md` | Claude Haiku | `lab/scripts/llm_claude.py --modelo haiku` |
-| `2026-11-16-claude-sonnet.md` | Claude Sonnet | `lab/scripts/llm_claude.py --modelo sonnet` |
+| Fichero | Generador | Cómo se sirvió | Tiempo en el portátil |
+|---|---|---|---|
+| `2026-11-16-llama-3.2-1b-q4.md` | Llama 3.2 1B (Q4, local) | `lab/scripts/llm-server.sh modelos/llama-3.2-1b-q4.gguf` | 21 min |
+| `2026-11-16-qwen2.5-3b-instruct-q4_0.md` | Qwen2.5 3B Instruct (Q4_0, local) | `lab/scripts/llm-server.sh modelos/qwen2.5-3b-instruct-q4_0.gguf` | 18 min |
+| `2026-11-16-claude-haiku.md` | Claude Haiku | `lab/scripts/llm_claude.py --modelo haiku` | 7 min |
+| `2026-11-16-claude-sonnet.md` | Claude Sonnet | `lab/scripts/llm_claude.py --modelo sonnet` | 6 min |
+
+Los ficheros `*-ronda1.md` son la primera pasada con Claude, anterior a que el banco separara las
+justificaciones del modelo de las de la plantilla (commit `fdf73c5`); se conservan porque muestran la
+variación entre dos ejecuciones sin temperatura fija.
+
+**Qué mide la síntesis.** Un texto del modelo que no pasa la comprobación de anclaje se sustituye por
+la plantilla (anclada por construcción), así que la «tasa de anclaje» es 1,00 siempre. Lo que mide al
+modelo es cuántas justificaciones escribió él (y ancladas) y, sobre esas, cuántas citan el número de
+la regla de Wazuh de la alerta (`termino_esperado`).
 
 **Límites.** Los modelos de Claude se sirven con `claude -p` a través del sustituto de
 `llm-server`: no se puede fijar la temperatura a 0 (no es reproducible, RNF-03), los enunciados
