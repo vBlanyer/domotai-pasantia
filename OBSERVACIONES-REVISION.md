@@ -39,13 +39,14 @@ Aplicado en `main` (commits locales) según el plan
 | # | Estado | Commit |
 |---|---|---|
 | 1 | **Hecho**: registro `pendiente` al encolar; `pendiente_perdida` y aviso `[inicio]` al arrancar | `2e84bc9` |
-| 2 | **Hecho**: índice reindexado (35 fichas) y `test_rag_indice` lo vigila. Recuperación fija sobre las 16 simulaciones: MRR 0,611 → 0,684, acierto en la 1.ª posición 0,375 → 0,500 (la agéntica, que usa el 1B, no se volvió a medir) | `9404c01` |
-| 4 | **Hecho**: comentario de `attack.ts` (10 familias) y cifras del README (1453 tests del motor, 492 del visor) | `ee810e4`, docs |
+| 2 | **Hecho**: índice reindexado (35 fichas) y `test_rag_indice` lo vigila. Recuperación fija sobre las 16 simulaciones: MRR 0,611 → 0,684, acierto en la 1.ª posición 0,375 → 0,500. La agéntica se midió después con cinco generadores (Llama 1B, Qwen 3B, Foundation-Sec-8B, Claude Haiku y Sonnet): ninguno mejora con claridad la consulta fija; informe, `tab:modelos` | `9404c01`, `84b2a65`, `9df3daf` |
+| 4 | **Hecho**: comentario de `attack.ts` (10 familias) y cifras del README (1467 tests del motor, 70 de la evaluación, 492 del visor) | `ee810e4`, docs |
 | 13 | **Hecho**: envoltorio `/usr/local/sbin/mdr-accion` generado desde el catálogo; el sudoers solo lo permite a él; conector, prueba de Conectividad, paquete de alta y aprovisionamiento lo usan. Verificado en vivo: banco aprovisionado (10/10 nodos, `--modprobe` denegado) y un ataque D1 contenido y verificado a través del envoltorio | `95cb506`, `61aac59` |
 | 14 | **Hecho**: `X-Frame-Options: DENY` y `frame-ancestors 'none'` en toda respuesta | `ee810e4` |
 | 15 | **Hecho**: aviso `[inicio] consola SIN autenticación` al arrancar | `ee810e4` |
 | 17 | **Hecho**: la prueba reintenta hasta un plazo | `ee810e4` |
 | 22 | **Hecho**: cuerpo que no es un objeto (o JSON inválido) → 400 | `ee810e4` |
+| — | **Revisión final de la rama** (revisor independiente): sin críticos; 3 importantes corregidos (alta antigua mal diagnosticada, testigo de sudo y ruta exacta del envoltorio) y los 8 menores también (IP sin prefijo, usuario del conector protegido, valores sin «-», `limite_banda` validado, temporales del alta, permisos de `/usr/local/sbin`, Ansible aparta sudoers antiguos) | `56f301d`, `56cc1d8` |
 | 3, 5, 16, 20, 21, 23 | Recomendación, sin cambios | — |
 | 6–12, 18, 19 | Para la fase de AWS, sin cambios | — |
 
