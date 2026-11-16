@@ -52,6 +52,8 @@ class _Falso:
             if not sudo:
                 if cmd == "sudo -S -l":
                     return (0, self.sudo_l) if self.sudo_l else (1, "sudo: a password is required")
+                if cmd == "sudo -S true":                     # el testigo, sin envoltorio: sudo lo deniega
+                    return 1, "sudo: a password is required"
                 return 0, ""
             if claves:
                 return 0, "ok"
@@ -378,6 +380,13 @@ class TestClaveDesdeCeroYEstadoViejo(_Base):
         ctx = cw.contexto_equipo(srv, "10.0.20.10", "BLOQUEAR_IP")
         self.assertTrue(ctx["regla_falta"].startswith("iptables "))
         self.assertEqual(cw.contexto_equipo(srv, "10.0.20.10", "NO_EXISTE").get("regla_falta"), None)
+        # un alta antigua (sudoers sin envoltorio): sudo pide contraseña y el recorte cubre cualquier acción
+        self.f.sudo_l = "    (root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP"
+        srv.conectividad_ultimo.clear()
+        self.f.ssh["10.0.20.10"] = [(1, "sudo: a password is required")]
+        _, r = self._req(srv, "POST", "/api/conectividad/probar", {"equipo": "db-core"}, token="tok")
+        self.assertEqual(r["estado"], "sin_aprovisionar")
+        self.assertTrue(cw.contexto_equipo(srv, "10.0.20.10", "BLOQUEAR_IP")["regla_falta"].startswith("iptables "))
         self.assertEqual(cw.contexto_equipo(self._srv(modo="laboratorio"), "10.0.20.10"), {})   # sin claves que mirar
 
     def test_estado_operativo_de_las_contenciones_reales(self):

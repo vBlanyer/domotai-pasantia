@@ -38,9 +38,41 @@ class TestPruebaDeConectividad(unittest.TestCase):
     REGLAS_TXT = "\n".join(f"{b} {a}".strip() for b, a in ESPERADAS)
     SUDO_L = f"User triaje may run the following commands on x:\n    (root) NOPASSWD: {ENV}\n"
 
-    def _probar(self, ejecutor, sudo_l):
-        listar = _ejecutor({"sudo -S -l": (0, sudo_l)})
+    NIEGA = (1, "sudo: a password is required")
+
+    def _probar(self, ejecutor, sudo_l, testigo=None):
+        listar = _ejecutor({"sudo -S -l": (0, sudo_l), "sudo -S true": testigo or self.NIEGA})
         return cx.probar(ejecutor, "10.0.0.5", listar=listar, esperadas=self.ESPERADAS)
+
+    # Revisión final: lo que sudo responde DE VERDAD en un equipo con el sudoers antiguo (sin regla
+    # para mdr-accion y stdin cerrado): pide contraseña, sin nombrar el envoltorio.
+    SUDO_L_ANTIGUO = ("User triaje may run the following commands on x:\n"
+                      "    (root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP, /sbin/iptables -L -n\n")
+
+    def test_alta_antigua_se_diagnostica_y_falta_todo(self):
+        for salida in ("sudo: a password is required", "sudo: no password was provided"):
+            with self.subTest(salida=salida):
+                r = self._probar(_ejecutor({"iptables -L -n": (1, salida)}), self.SUDO_L_ANTIGUO)
+                self.assertEqual(r["estado"], "sin_aprovisionar")
+                self.assertIn("paquete de alta", r["pasos"][-1]["detalle"])
+                self.assertEqual(sorted(r["reglas"]["faltan"]), sorted(self.REGLAS_TXT.splitlines()))
+                self.assertIn("iptables -A INPUT -s * -j DROP", r["reglas"]["sobran"])
+
+    def test_un_fallo_con_envoltorio_no_es_alta_antigua(self):
+        r = self._probar(_ejecutor({"iptables -L -n": (1, "iptables: not found")}), self.SUDO_L)
+        self.assertEqual(r["estado"], "fallo")
+
+    def test_testigo_de_sudo_va_sin_envoltorio(self):
+        # un equipo con NOPASSWD: ALL: el envoltorio rechaza «true», pero sudo lo permitiría
+        ej = _ejecutor({"true": (126, "rechazo"), "--reglas": (0, self.REGLAS_TXT)})
+        r = self._probar(ej, self.SUDO_L, testigo=(0, ""))
+        self.assertEqual(r["estado"], "privilegio_de_mas")
+
+    def test_envoltorio_en_otra_ruta_es_privilegio_de_mas(self):
+        ej = _ejecutor({"true": (126, "rechazo"), "--reglas": (0, self.REGLAS_TXT)})
+        r = self._probar(ej, self.SUDO_L + "    (root) NOPASSWD: /home/triaje/mdr-accion\n")
+        self.assertEqual(r["estado"], "privilegio_de_mas")
+        self.assertIn("/home/triaje/mdr-accion", r["reglas"]["sobran"])
 
     def test_deriva_sin_envoltorio(self):
         for salida in (f"Sorry, user triaje is not allowed to execute '{ENV} iptables -L -n' as root on x.",

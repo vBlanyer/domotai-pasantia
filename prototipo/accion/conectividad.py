@@ -23,6 +23,7 @@ import tempfile
 import yaml
 
 from prototipo.accion import fallos
+from prototipo.accion.catalogo import ENVOLTORIO_RUTA
 
 _USUARIO = re.compile(r"^[a-z_][a-z0-9_-]{0,31}\Z")
 _VACIO = {"usuario_defecto": None, "equipos": {}}
@@ -193,12 +194,30 @@ def probar(ejecutor, ip, permitido=None, listar=None, esperadas=None):
     pasos = []
     rc, out = ejecutor(ip, permitido or COMANDO_PERMITIDO)
     d = diagnosticar(rc, out)
+    reglas = None
+    if d in ("fallo", "sin_envoltorio") and listar is not None:
+        # Un alta anterior al envoltorio: sudo no tiene regla para mdr-accion y, con stdin cerrado, solo
+        # dice que pide contraseña. Se confirma con `sudo -l`; entonces falta TODO el papel (el recorte
+        # «acción no ejecutable» lo usa) y sobra lo que el sudoers antiguo permite.
+        rc3, out3 = listar(ip, "sudo -S -l")
+        if rc3 == 0:
+            rutas = _rutas_sudo_l(out3)
+            if (ENVOLTORIO_RUTA, "") not in rutas:
+                d = "sin_envoltorio"
+                reglas = {"estado": "sobran" if rutas else "faltan", "sobran": _sobran_del_sudo(rutas),
+                          "faltan": sorted(f"{b} {a}".strip() for b, a in (esperadas or []))}
     if d != "ok":
         pasos.append({"paso": "entra y ejecuta un comando del catálogo", "ok": False, "detalle": _TEXTO[d]})
-        return {"ok": False, "estado": _ESTADO[d], "pasos": pasos}
+        r = {"ok": False, "estado": _ESTADO[d], "pasos": pasos}
+        if reglas is not None:
+            r["reglas"] = reglas
+        return r
     pasos.append({"paso": "entra y ejecuta un comando del catálogo", "ok": True,
                   "detalle": "clave del host, entrada con la clave del conector y sudo del catálogo: correctos"})
-    rc2, out2 = ejecutor(ip, COMANDO_PROHIBIDO)
+    # El testigo va SIN envoltorio cuando se puede (`sudo -S true` con el ejecutor sin sudo): el envoltorio
+    # rechazaría «true» aunque el sudoers lo permitiera todo (NOPASSWD: ALL).
+    rc2, out2 = (listar(ip, f"sudo -S {COMANDO_PROHIBIDO}") if listar is not None
+                 else ejecutor(ip, COMANDO_PROHIBIDO))
     if rc2 == 0:
         pasos.append({"paso": "sudo deniega lo que está fuera del catálogo", "ok": False,
                       "detalle": "sudo permitió un comando fuera del catálogo: el privilegio no es el mínimo"})
@@ -217,7 +236,7 @@ def probar(ejecutor, ip, permitido=None, listar=None, esperadas=None):
         return {"ok": True, "estado": "verificada", "pasos": pasos, "reglas": {"estado": "sin_comprobar", "sobran": [], "faltan": []}}
     # sudo solo debe permitir el envoltorio: cualquier otra regla (un sudoers antiguo con comodines) es
     # privilegio de más, porque un comodín de sudo admite argumentos extra (#13).
-    otras = sorted(f"{b} {a}".strip() for b, a in reglas_de_sudo_l(out3) if (b, a) != ("mdr-accion", ""))
+    otras = _sobran_del_sudo(_rutas_sudo_l(out3))
     if otras:
         pasos.append({"paso": "sudo solo permite el envoltorio", "ok": False,
                       "detalle": f"sudo permite {len(otras)} regla(s) además del envoltorio mdr-accion"})
@@ -257,6 +276,32 @@ def reglas_de_sudo_l(texto):
             if partes:
                 out.append(_norm(partes[0], partes[1] if len(partes) > 1 else ""))
     return out
+
+
+def _rutas_sudo_l(texto):
+    """[(ruta, args)] de las reglas NOPASSWD de `sudo -l`, con la ruta tal cual (sin normalizar)."""
+    out = []
+    for linea in (texto or "").splitlines():
+        if "NOPASSWD:" not in linea:
+            continue
+        for cmd in linea.split("NOPASSWD:", 1)[1].split(","):
+            partes = cmd.strip().split(None, 1)
+            if partes:
+                out.append((partes[0], partes[1].strip() if len(partes) > 1 else ""))
+    return out
+
+
+def _sobran_del_sudo(rutas):
+    """Lo que sudo permite además del envoltorio en SU ruta: un `mdr-accion` en otra ruta (quizá escribible
+    por el usuario) cuenta como regla de más, con su ruta completa."""
+    from prototipo.accion.catalogo import ENVOLTORIO_RUTA
+    otras = []
+    for ruta, args in rutas:
+        if (ruta, args) == (ENVOLTORIO_RUTA, ""):
+            continue
+        b, a = _norm(ruta, args)
+        otras.append(f"{ruta} {args}".strip() if b == "mdr-accion" else f"{b} {a}".strip())
+    return sorted(otras)
 
 
 def reglas_de_envoltorio(texto):

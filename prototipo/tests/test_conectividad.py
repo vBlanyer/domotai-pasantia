@@ -249,10 +249,11 @@ class TestDerivaPaqueteRotacion(unittest.TestCase):
 
     def test_la_prueba_marca_privilegio_de_mas_si_sobran_reglas(self):
         ejec = lambda ip, cmd: (0, "ok") if cmd == "iptables -L -n" else (1, "Sorry, user triaje is not allowed")
-        listar = lambda ip, cmd: (0, self.SUDO_L)
+        listar = lambda ip, cmd: (0, self.SUDO_L) if cmd == "sudo -S -l" else (1, "sudo: a password is required")
         r = cx.probar(ejec, "10.0.0.1", listar=listar, esperadas=[("iptables", "-A INPUT -s * -j DROP")])
         self.assertEqual((r["ok"], r["estado"], r["reglas"]["estado"]), (False, "privilegio_de_mas", "sobran"))
-        r = cx.probar(ejec, "10.0.0.1", listar=lambda ip, c: (0, self.SUDO_L.splitlines()[0] + "\n    (root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP"),
+        r = cx.probar(ejec, "10.0.0.1", listar=lambda ip, c: (0, self.SUDO_L.splitlines()[0] + "\n    (root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP")
+                      if c == "sudo -S -l" else (1, "sudo: a password is required"),
                       esperadas=[("iptables", "-A INPUT -s * -j DROP"), ("tc", "qdisc show dev *")])
         # un sudoers antiguo (reglas con comodines, sin envoltorio) es privilegio de más aunque coincida con
         # el papel: un comodín de sudo admite argumentos extra (#13 de la revisión del 15/11)
