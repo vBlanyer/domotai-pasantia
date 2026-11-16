@@ -502,7 +502,7 @@ fluido, anclado y \emph{equivocado}; ahora producen, en su mayoría, una descrip
 por plantilla, que es correcta por construcción. Para un sistema que un analista debe poder creer,
 la segunda situación es preferible sin discusión.
 
-Es también la demostración más limpia de la tesis que atraviesa este capítulo: \textbf{la tasa de
+Es también la demostración más limpia de la idea que atraviesa este capítulo: \textbf{la tasa de
 anclaje no es una medida de calidad}. Una intervención que mejora las justificaciones la empeora, y
 una que las empeorase podría mejorarla. Reportarla sola, sin la lectura del contenido, induce a
 error.
@@ -545,7 +545,7 @@ credencial, en lugar de un atacante»--- y las diez amenazas citan origen, activ
 expuesto. La clasificación no cambió en ningún estado, como corresponde a un componente en el que
 el modelo no participa.
 
-La tabla, leída de izquierda a derecha, es la formulación más precisa de la tesis de este capítulo:
+La tabla, leída de izquierda a derecha, es la formulación más precisa de la idea central de este capítulo:
 \textbf{el 1,00 de la primera columna y el 1,00 de la tercera son el mismo número significando
 cosas opuestas}. El primero medía ocho textos anclados y falsos; el tercero, dieciocho textos
 anclados y correctos. Entre ambos, el 0,61 fue una mejora. Ninguna lectura de la tasa, por sí sola,
@@ -715,7 +715,7 @@ peor. La medición dice lo contrario, según recoge la tabla \ref{tab:consulta}.
   \end{tabular}
 \end{table}
 
-La explicación que se dio entonces fue que añadir texto a una consulta semántica no añade señal
+La primera explicación que se formuló fue que añadir texto a una consulta semántica no añade señal
 sino que la desplaza: la consulta es un único vector, y las palabras que el modelo agrega lo mueven.
 Es una explicación plausible, y resultó ser incompleta, como muestra la subsección siguiente.
 
@@ -748,9 +748,9 @@ La ficha correcta pasa a estar siempre entre las cinco primeras. Y el cambio cor
 anterior sobre la consulta agéntica: con el \emph{embedder} dedicado, la consulta que el modelo
 amplía recupera algo mejor que la fija ---rango recíproco medio de 0,73 frente a 0,70, aciertos
 entre las tres primeras de 0,92 frente a 0,83---. Que fuera peor no era una propiedad de la técnica,
-como se había interpretado, sino un artefacto del \emph{embedder} débil, y la intención de diseño
----que aumentar la consulta nunca la empeore--- se sostiene. El informe conserva la explicación
-anterior tal como se dio, porque ilustra un riesgo real de la evaluación: una explicación
+como se interpretó en un primer momento, sino un artefacto del \emph{embedder} débil, y la intención
+de diseño ---que aumentar la consulta nunca la empeore--- se sostiene. Se recoge aquí esa primera
+explicación porque ilustra un riesgo real de la evaluación: una explicación
 mecanicista convincente de un resultado negativo puede estar describiendo el instrumento y no el
 fenómeno.
 
@@ -777,8 +777,8 @@ La causa es la caché de prefijos del servidor de inferencia, que reutiliza cóm
 anteriores y altera el camino numérico de la generación, de modo que a temperatura cero la salida
 depende del estado del servidor. Desactivarla en cada petición ---al coste de recalcular
 enunciados de unas decenas de \emph{tokens}--- hizo que el banco diera cifras idénticas antes y
-después de una campaña. Las cifras reproducibles son las que este capítulo reporta; las dos
-anteriores no deben citarse. La lección excede a este montaje: \textbf{la reproducibilidad de un
+después de una campaña. Las cifras reproducibles son las que este capítulo reporta; los valores
+0,77 y 0,81 no deben citarse. La lección excede a este montaje: \textbf{la reproducibilidad de un
 modelo de lenguaje no la garantiza el muestreo determinista por sí solo, sino la infraestructura
 que lo sirve}, y un requisito no funcional de reproducibilidad debe verificarse contra esa
 infraestructura y no darse por cumplido al fijar la temperatura.
@@ -791,7 +791,7 @@ qué otros textos viajaran en el mismo lote, en los dos caminos, con una similit
 mismo de 0,99975; y esa diferencia bastó para voltear un empate del banco de recuperación. La
 regla que lo resuelve es la misma: un texto por llamada, siempre, de modo que el vector sea
 función del texto y de nada más. Con ella, subproceso y servidor coinciden hasta la última cifra,
-el índice construido por uno vale para el otro, y el banco reproduce las cifras publicadas.
+el índice construido por uno vale para el otro, y el banco reproduce las cifras de este capítulo.
 
 De paso quedó a la vista un segundo defecto, menor: el modelo mayor antepone a veces un preámbulo
 ---«la búsqueda que te recomiendo es:»--- y sitúa la consulta en la línea siguiente. La limpieza de
