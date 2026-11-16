@@ -20,7 +20,7 @@ recomendado para una primera prueba. El **completo** levanta la demo en vivo.
 
 ```bash
 # a. Las suites del núcleo deben dar OK (≈20 s en total)
-python3 -m unittest discover -s prototipo/tests      # 1366 tests
+python3 -m unittest discover -s prototipo/tests      # 1453 tests
 python3 -m unittest discover -s evaluacion/tests      # 66 tests
 
 # b. Reproduce la evaluación frente al baseline de Wazuh (determinista, sin modelo)
@@ -71,10 +71,10 @@ En otra terminal, **lanza ataques** por menú: `sh lab/banco/banco.sh atacar`. A
 
 | Componente | Dónde | Estado |
 |------------|-------|--------|
-| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, **1366 tests** |
+| **Motor de triaje** (ingesta → clasifica → política → perfil de cliente → traza → acción con validación humana) | [`prototipo/`](prototipo/) | Funcional, **1453 tests** |
 | **Justificador con LLM real + RAG** (LLM local —1B por defecto; Llama-3.1-8B en GPU como objetivo—; recuperación aumentada local con embedder bge-m3 sobre corpus de MITRE/D3FEND/reglas/descartes, dependiente de la clase decidida) | [`prototipo/explicacion/justificador_llm.py`](prototipo/explicacion/justificador_llm.py), [`prototipo/explicacion/rag.py`](prototipo/explicacion/rag.py) | Funcional (requiere GPU; sustituto [`lab/scripts/llm_claude.py`](lab/scripts/llm_claude.py)) |
 | **Daemon en tiempo real** (agrupa en incidentes; valida con el analista; `--sin-llm`/`--con-llm`/`--agente`; healthcheck `/healthz`) | [`prototipo/servicio/stream.py`](prototipo/servicio/stream.py) | Funcional |
-| **Consola web** (14 vistas en el menú: Panel, Consola, Aprobaciones, Contenciones activas + *kill switch*, Decisiones, Incidentes, **Red** —mapa del cliente—, Ubicaciones, Watchlist, Trazas, Informe en PDF, Políticas de respuesta, Conectividad y Estado de servicios; acceso con un token por analista) | [`prototipo/servicio/tablero.py`](prototipo/servicio/tablero.py), [`visor/`](visor/) | Funcional, **477 tests** (React/TS) |
+| **Consola web** (14 vistas en el menú: Panel, Consola, Aprobaciones, Contenciones activas + *kill switch*, Decisiones, Incidentes, **Red** —mapa del cliente—, Ubicaciones, Watchlist, Trazas, Informe en PDF, Políticas de respuesta, Conectividad y Estado de servicios; acceso con un token por analista) | [`prototipo/servicio/tablero.py`](prototipo/servicio/tablero.py), [`visor/`](visor/) | Funcional, **492 tests** (React/TS) |
 | **Agente de mitigación** (ReAct: contiene en el host, escala al cortafuegos solo si falla; respeta el filtro del perfil) | [`prototipo/explicacion/agente_mitigacion.py`](prototipo/explicacion/agente_mitigacion.py) | Funcional, salida restringida por esquema; experimental |
 | **Laboratorio** (Containerlab: red de cliente con Wazuh, auditor Nmap, objetivos; banco de 14 nodos con lanzador de las 10 familias; laboratorio portátil sin Containerlab; demo de geolocalización) | [`lab/`](lab/) | Ejecutable, **157 tests** del banco + 14 del portátil + 12 de la demo |
 | **Despliegue en producción** (instalar.sh, `mdr configurar · analista · estado · escanear · instalar-geoip · validar-politica`, política de la empresa en `politica.yml`, servicio systemd, paquete del cliente) | [`deploy/`](deploy/), [`bin/mdr`](bin/mdr) | Funcional; manual de producción |

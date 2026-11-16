@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Estado (16/11/2026): pendiente.** Alcance acordado con el usuario: #13, los arreglos rápidos (#17, #14,
+> **Estado (16/11/2026): hecho** (commits `ee810e4`..HEAD; ver el estado en `OBSERVACIONES-REVISION.md`). Alcance acordado con el usuario: #13, los arreglos rápidos (#17, #14,
 > #15, #22, #4), #1 y #2 de [`OBSERVACIONES-REVISION.md`](../../OBSERVACIONES-REVISION.md). El resto queda
 > como recomendación o para la fase de AWS. Commits locales en `main`, sin push.
 

@@ -690,7 +690,7 @@ explícitamente.
 - **La clave del conector**, con su huella y «Copiar clave pública». Si no existe, «Generar la clave
   del conector» (recomendada en ed25519).
 - **Las cifras:** equipos contenibles, conexión verificada, clave del host cambiada, sin aprovisionar.
-- **La tabla de equipos**, con su papel, el estado de la conexión, si su sudoers coincide con su papel
+- **La tabla de equipos**, con su papel, el estado de la conexión, si lo que permite su envoltorio coincide con su papel
   y su clave del host.
 
 | Estado | Significado |
@@ -722,7 +722,11 @@ anterior no lo tapa. Se quita con una contención correcta o con una prueba nuev
    bloquear; las cuentas del sistema nunca se bloquean.
 4. **Paquete de alta:** un script, un playbook de Ansible o solo el sudoers. El administrador del
    equipo lo ejecuta en él. Lleva solo la clave pública, no pide contraseñas de administrador, crea el
-   usuario `triaje` y su sudoers y aparta los sudoers antiguos del conector.
+   usuario `triaje`, instala el **envoltorio** `/usr/local/sbin/mdr-accion` y un sudoers de una sola
+   línea que solo permite ese envoltorio, y aparta los sudoers antiguos del conector. El envoltorio
+   comprueba cada argumento contra las acciones del papel del equipo y rechaza todo lo demás (código
+   126), así que el conector no puede ejecutar como root nada que no sea exactamente una acción del
+   catálogo.
 5. **Verificar y dar de alta:** «Leer la clave del equipo», marca «Coincide con la que imprimió el
    equipo» y pulsa «Dar de alta». Hace la prueba completa.
 
@@ -737,8 +741,11 @@ no actúa en él.
   la huella y «Fijar esta clave».
 - **«Clave del host cambiada»:** muestra la fijada frente a la que presenta ahora. **Compruébalo por
   otro canal** antes de «Aceptar la nueva clave…».
-- **«Papel y reglas»:** cambia el papel o quítalo. Si alguien tocó el sudoers del equipo, verás lo que
-  **sobra** (rojo) y lo que **falta** (ámbar), y podrás «Generar paquete de corrección».
+- **«Papel y reglas»:** cambia el papel o quítalo. La prueba pide al envoltorio la lista de lo que
+  admite y la compara con el papel: verás lo que **sobra** (rojo) y lo que **falta** (ámbar), y podrás
+  «Generar paquete de corrección». Si sudo permite algo además del envoltorio (un sudoers antiguo con
+  reglas sueltas), sale como privilegio de más; si el equipo no tiene envoltorio (alta anterior al
+  16/11/2026), sale «sin aprovisionar»: vuelve a ejecutar su paquete de alta.
 - **«Cómo entra el conector»:** puerto y usuario. «Probar y guardar» solo guarda si la prueba pasa.
 
 > **Nota:** la consola solo quita altas pendientes y papeles. Un equipo ya dado de alta se quita de
@@ -830,7 +837,7 @@ red completa y van **encendidos por defecto**; cada uno se apaga con `=0` al arr
 | `TRIAJE_PRECHECK_APROVISIONADO` | No intenta en un equipo que la consola sabe sin clave del host. Escala, o queda fallida con su motivo |
 | `TRIAJE_ESCALADA_SOLO_APROVISIONADOS` | Salta los cortafuegos de escalada sin aprovisionar y lo anota («salto omitido») |
 | `TRIAJE_MEMORIA_FALLOS` | Tras 3 fallos de acceso seguidos a un equipo en 5 minutos, deja de intentar en él y escala directo. Avisa una vez («el MDR no tiene acceso a X») y lo reprueba cada 60 s sin sudo |
-| `TRIAJE_ACCION_NO_EJECUTABLE` | Si la prueba de Conectividad de las últimas 24 h dice que falta la regla de esa acción en el sudoers, no la intenta |
+| `TRIAJE_ACCION_NO_EJECUTABLE` | Si la prueba de Conectividad de las últimas 24 h dice que falta la regla de esa acción en su envoltorio, no la intenta |
 
 > **Nota:** ninguno se activa ante una clave del host cambiada ni ante una contención deshecha: pueden
 > ser un ataque y se quieren ver en cada intento.
@@ -928,7 +935,7 @@ toca».
 | **F3** | **La clave del host cambió** | **Posible suplantación.** Compruébalo por otro canal antes de aceptar la clave |
 | F4 | El equipo no acepta la clave del conector | Ejecuta su paquete de alta |
 | F5 | Equipo inalcanzable | Comprueba que el equipo y sshd están en marcha y que la red llega |
-| F6 | sudo deniega la acción | Revisa el papel y el sudoers. Si falta la regla, es una «acción no ejecutable en este equipo» |
+| F6 | sudo o el envoltorio deniegan la acción | Revisa el papel y vuelve a ejecutar el paquete de alta. Si falta la regla, es una «acción no ejecutable en este equipo» |
 | F7 | La acción falló dentro del equipo | Revisa la salida del comando |
 | **F8** | **Se aplicó, pero ya no está** | **Posible contramedida:** alguien pudo deshacerla |
 | F9 | El conector no tiene clave | Genera la clave del conector en Conectividad |
@@ -1035,7 +1042,8 @@ no ve, el MDR tampoco.
 | Conector | La parte del MDR que entra por SSH en los equipos para contener |
 | Contención | La acción que corta el ataque: bloquear una IP, cortar una conexión, aislar un equipo… |
 | Decisión | Lo que el MDR resolvió sobre un incidente, con su desenlace |
-| Deriva del sudoers | Diferencia entre lo que sudo permite en un equipo y lo que su papel necesita |
+| Deriva del sudoers | Diferencia entre lo que el envoltorio y sudo permiten en un equipo y lo que su papel necesita |
+| Envoltorio `mdr-accion` | Script de root que recibe cada orden del conector, comprueba cada argumento contra el catálogo y la ejecuta o la rechaza (126). Es lo único que el sudoers del conector permite |
 | Escalada | Contener en el cortafuegos cuando no se puede en el equipo atacado |
 | Familia | El tipo de ataque: fuerza bruta, reconocimiento, malware… Hay diez |
 | Huella | La identidad de la clave del host de un equipo, que se fija una vez |

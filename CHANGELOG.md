@@ -7,6 +7,26 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [Sin publicar]
 
+### Seguridad
+- **Envoltorio `mdr-accion` del conector** (#13 de la revisión del 15/11): las reglas de sudoers con
+  comodines admitían argumentos extra (`iptables -A INPUT -s 1.2.3.4 --modprobe=<programa> -j DROP`
+  ejecutaba ese programa como root; `passwd -l *` admitía `root`). Ahora el sudoers del conector solo
+  permite `/usr/local/sbin/mdr-accion`, generado desde el catálogo (`catalogo --envoltorio`), que valida
+  cada argumento por su tipo y ejecuta exactamente una acción del catálogo; lo demás sale con 126. El
+  paquete de alta (script, Ansible) y el aprovisionamiento del laboratorio lo instalan; la prueba de
+  Conectividad exige que sudo solo permita el envoltorio y compara `mdr-accion --reglas` con el papel. Los
+  equipos dados de alta antes salen como privilegio de más o sin aprovisionar hasta volver a ejecutar su
+  paquete de alta.
+- La consola envía `X-Frame-Options: DENY` y `Content-Security-Policy: frame-ancestors 'none'` (#14), y
+  el arranque avisa si la consola no tiene autenticación (#15).
+
+### Corregido
+- Las aprobaciones pendientes quedan en la traza (`pendiente`) y, si el servicio se reinicia antes de
+  resolverlas, se anotan como `pendiente_perdida` y se avisan al arrancar (#1).
+- El índice del RAG cubre de nuevo las 35 fichas del corpus, con una prueba que lo vigila (#2).
+- La API responde 400 (no 500) a un cuerpo JSON que no es un objeto (#22); prueba `test_receptor`
+  estable (#17).
+
 ### Añadido
 - **Asistente de red** (rama `asistente-de-red`): una vista de la consola que describe una red nueva a
   partir de un escaneo con Nmap (equipos, puertos, caminos por traceroute y huellas SSH) y **propone**

@@ -42,9 +42,9 @@ Los cinco puntos de variabilidad del diseño se tocan en tres ficheros; el códi
    salida.json`). Es lo que distingue «intento contra un servicio expuesto» de «intento contra algo que no
    existe». Se regenera cuando cambia el inventario.
 3. **Catálogo de acciones** `prototipo/catalogo.yml` — cerrado. Cada acción lleva comando, reversión,
-   verificación e impacto. **Cambiarlo obliga a re-aprovisionar el mínimo privilegio (§3.3)**: el sudoers
-   de los nodos se genera desde el catálogo, y un comando nuevo no aprovisionado será denegado (falla
-   cerrado, que es lo correcto).
+   verificación e impacto. **Cambiarlo obliga a re-aprovisionar el mínimo privilegio (§3.3)**: el envoltorio
+   `mdr-accion` de los nodos se genera desde el catálogo, y un comando nuevo no aprovisionado será
+   denegado (falla cerrado, que es lo correcto).
 
 ## 3. Puesta en marcha, en este orden
 
@@ -69,14 +69,16 @@ dimensiones en lugar de devolver similitudes sin sentido.
 ```bash
 sh lab/scripts/aprovisionar-minimo-privilegio.sh <contenedor-o-host> <ip>
 ```
-Deja en el nodo el usuario `triaje` (solo clave), el sudoers generado desde el catálogo y, en el auditor,
-la clave y el `known_hosts` del nodo. Esperado al final:
+Deja en el nodo el usuario `triaje` (solo clave), el envoltorio `/usr/local/sbin/mdr-accion` generado
+desde el catálogo, un sudoers que solo permite ese envoltorio y, en el auditor, la clave y el
+`known_hosts` del nodo. Esperado al final:
 ```
 permitido (del catalogo):  iptables -L -n   OK
-denegado (fuera del catalogo): cat /etc/shadow   OK
+denegado (fuera del envoltorio): true   OK
 denegado (mismo binario, argumentos fuera del catalogo): iptables -F   OK
+denegado (token de mas): iptables -A INPUT -s 1.2.3.4 --modprobe=/tmp/x -j DROP   OK
 ```
-Si cualquiera de los dos «denegado» no aparece, el aprovisionamiento **falla a propósito**: no operes.
+Si cualquiera de los «denegado» no aparece, el aprovisionamiento **falla a propósito**: no operes.
 
 ### 3.4 El servicio
 ```bash

@@ -180,17 +180,27 @@ BLOQUEAR_IP:
   no en el SIEM.
 
 **Permisos de mínimo privilegio, derivados del catálogo.** El catálogo cerrado es también la frontera de
-privilegio en el nodo. `catalogo.py` **genera el sudoers** a partir de él:
+privilegio en el nodo. `catalogo.py` **genera el envoltorio** `/usr/local/sbin/mdr-accion` a partir de él, y
+el sudoers del conector solo permite ese envoltorio:
 
 ```bash
-python3 -m prototipo.accion.catalogo --sudoers triaje \
-    --rutas iptables=/sbin/iptables,service=/usr/sbin/service,passwd=/usr/bin/passwd \
-    --allowlist service=nginx:apache2,passwd=appuser
+python3 -m prototipo.accion.catalogo --envoltorio --allowlist service=nginx:apache2,passwd=appuser
+# sudoers:  triaje ALL=(root) NOPASSWD: /usr/local/sbin/mdr-accion
 ```
 
-Emite líneas `triaje ALL=(root) NOPASSWD: /sbin/iptables -A INPUT -s * -j DROP`, etc. La `--allowlist`
-restringe los comodines de **servicio/cuenta** a valores concretos (no `service * stop`); `{ip}`/`{puerto}`
-quedan como comodín por naturaleza. El usuario del conector **solo puede ejecutar lo que el catálogo define**.
+El envoltorio (sh POSIX, vale con cualquier `sudo`) recibe la orden ya partida en argumentos y la compara con
+cada plantilla del catálogo: mismo número de argumentos, literales iguales y cada parámetro de su tipo
+(`{ip}` IPv4 o IPv4/prefijo, `{puerto}` 1–65535, `{if}` nombre de interfaz, `{rate}` número + unidad,
+`{servicio}`/`{usuario}` de la `--allowlist` del papel, y una cuenta nunca del sistema). Si encaja, ejecuta
+**exactamente** esa orden con `PATH` fijo; si no, sale con 126 sin ejecutar nada. `mdr-accion --reglas` lista
+lo que admite, en el mismo formato que `catalogo.reglas`, y es lo que la prueba de Conectividad compara con
+el papel del equipo (la deriva).
+
+Por qué no reglas de sudoers con comodines (como hasta el 16/11/2026, `--sudoers`): en sudoers un `*` admite
+espacios, así que `iptables -A INPUT -s * -j DROP` dejaba pasar `-s 1.2.3.4 --modprobe=/tmp/x -j DROP`, que
+iptables ejecuta como root, y `passwd -l *` admitía `passwd -l root` (#13 de
+[OBSERVACIONES-REVISION.md](../../OBSERVACIONES-REVISION.md)). El usuario del conector **solo puede ejecutar lo
+que el catálogo define**, argumento a argumento.
 
 ### 2.4 El conector y las credenciales — `prototipo/accion/conector.py`
 
@@ -201,7 +211,7 @@ deseado, no re-ejecuta). Hay **dos ejecutores**:
   producción.**
 - `ejecutor_ssh_clave` — **diseño de producción**: usuario SSH dedicado, clave privada, *host* verificado
   (`StrictHostKeyChecking=yes`, `UserKnownHostsFile`), `BatchMode`/`PasswordAuthentication=no`, sin contraseña
-  viajando; `sudo` acotado por el sudoers generado del catálogo.
+  viajando; `sudo` acotado al envoltorio `mdr-accion` generado del catálogo (`sudo -S /usr/local/sbin/mdr-accion <orden>`).
 
 Configuración por variables de entorno en el nodo de gestión:
 
@@ -295,7 +305,7 @@ estructurada** (REST de fabricante, NETCONF/RESTCONF, SNMP, un controlador SDN o
 *driver* lleva su **propio mapeo** `accion_id` → llamada; el catálogo sigue siendo la **lista canónica** de
 acciones con sus metadatos (impacto, reversión, `nunca_automatica`).
 
-**Autorización por plano.** En SSH, la frontera de privilegio es el sudoers derivado del catálogo cerrado; en
+**Autorización por plano.** En SSH, la frontera de privilegio es el envoltorio `mdr-accion` derivado del catálogo cerrado (el sudoers solo lo permite a él); en
 una API, un **token con alcance** solo a esas operaciones, sacado del vault. Misma disciplina de mínimo
 privilegio.
 
@@ -363,7 +373,7 @@ por debajo. **A y C son trabajo de *rollout*** del cliente real (se eligen en el
 3. **Apuntar la fuente a su SIEM** → si es Wazuh, seguir su `alerts.json`; si es otro, escribir el adaptador
    (§2.2) y registrarlo en `ingesta.ADAPTADORES`.
 4. **Aprovisionar el conector** → crear el usuario SSH dedicado y su clave en el nodo de gestión, registrar las
-   *host keys* de los dispositivos, y **generar el sudoers** desde el catálogo (`--sudoers`, §2.3) con la
+   *host keys* de los dispositivos, y **generar el envoltorio** desde el catálogo (`--envoltorio`, §2.3) con la
    `--allowlist` del cliente.
 5. **Arrancar en seco** → correr el daemon **sin `--con-llm`** y revisar los `[aviso] perfil:` del arranque;
    lanzar alertas de prueba y comprobar las decisiones en el visor **antes** de dar permisos de ejecución
@@ -387,8 +397,8 @@ El orden operativo completo, con `instalar.sh`, `mdr configurar` y `mdr estado`,
   POST (anti-CSRF), CORS **no** es `*` (una web ajena no puede leer el estado del SOC), tope de cuerpo POST.
 - **Traza:** cadena SHA-256 *tamper-evident*, firma **HMAC** opcional (`TRIAJE_TRAZA_CLAVE`), fichero `0600`,
   **ancla externa** por syslog a Wazuh para detectar truncado.
-- **Conector/catálogo:** catálogo cerrado = frontera de acciones **y** de privilegio; sudoers de mínimo
-  privilegio; saneamiento anti-inyección; **fail-closed** sin credencial.
+- **Conector/catálogo:** catálogo cerrado = frontera de acciones **y** de privilegio; envoltorio
+  `mdr-accion` que valida cada argumento y sudoers que solo lo permite a él; saneamiento anti-inyección; **fail-closed** sin credencial.
 - **Motor/perfil:** acciones `nunca_automatica` jamás automáticas; reversibilidad obligatoria; no cortar el
   plano de gestión; terceros de confianza y externos desconocidos retenidos a humano; veto si no hay IPv4 de
   origen.

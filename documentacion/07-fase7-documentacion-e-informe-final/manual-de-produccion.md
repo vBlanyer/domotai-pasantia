@@ -525,9 +525,12 @@ por `sudo`, los comandos de su papel. Todo se hace desde la vista **Conectividad
       que se pueden tocar. Las cuentas del sistema nunca se bloquean. Pulsa «Guardar y generar el
       paquete de corrección».
    2. Entrega el paquete a quien administra el equipo: un script, un playbook de Ansible o solo el
-      sudoers. Lo ejecuta en el equipo como root: crea el usuario `triaje`, instala la clave pública y
-      su sudoers en `/etc/sudoers.d/mdr-triaje`, e imprime la huella de la clave del equipo. No lleva
-      secretos ni pide contraseñas.
+      sudoers. Lo ejecuta en el equipo como root: crea el usuario `triaje`, instala la clave pública,
+      el envoltorio `/usr/local/sbin/mdr-accion` (root, 0755) y un sudoers de una línea en
+      `/etc/sudoers.d/mdr-triaje` que **solo** permite ese envoltorio, e imprime la huella de la clave
+      del equipo. No lleva secretos ni pide contraseñas. El envoltorio comprueba cada argumento (una IP,
+      un puerto, una interfaz, un servicio o una cuenta de la lista del papel, nunca una cuenta del
+      sistema) y ejecuta exactamente la acción del catálogo; cualquier otra cosa sale con el código 126.
    3. «Leer la clave del equipo», compara la huella con la que imprimió el paquete y «Fijar esta
       clave».
    4. Prueba la conexión. Debe quedar **verificada**.
@@ -539,9 +542,10 @@ por `sudo`, los comandos de su papel. Todo se hace desde la vista **Conectividad
 > **Nota:** si una huella no coincide, **no la fijes**: compruébala con quien administra el equipo por
 > otro canal. Una huella distinta puede ser una suplantación.
 
-> **Nota:** el formato «solo el sudoers» trae las rutas de los comandos de Debian y Ubuntu. En otro
-> sistema, compruébalas con `command -v` antes de instalarlo. El script y el playbook las resuelven
-> solos.
+> **Nota:** el formato «solo el sudoers» es la línea que permite el envoltorio; no instala el
+> envoltorio. Úsalo solo si el envoltorio ya está en el equipo (lo instalan el script y el playbook).
+> Un equipo dado de alta antes del 16/11/2026 tiene el sudoers antiguo, con una regla por acción: la
+> prueba de Conectividad lo marca y basta con volver a ejecutar su paquete de alta.
 
 ### Qué ocurre después
 
@@ -1077,7 +1081,7 @@ lo que se ve y lo que se hace después.
 - **La franja de permisos**, con lo que puede hacer tu sesión.
 - **La clave del conector**, con su huella y «Copiar clave pública».
 - **Las cifras:** equipos contenibles, conexión verificada, clave del host cambiada, sin aprovisionar.
-- **La tabla de equipos**, con su papel, el estado de la conexión, si su sudoers coincide con su papel
+- **La tabla de equipos**, con su papel, el estado de la conexión, si lo que permite su envoltorio coincide con su papel
   y su clave del host.
 
 | Estado | Significado |
@@ -1099,7 +1103,7 @@ anterior no lo tapa. Se quita con una contención correcta o con una prueba nuev
   la huella y «Fijar esta clave».
 - **«Clave del host cambiada»:** muestra la fijada frente a la que presenta ahora. **Compruébalo por
   otro canal** antes de «Aceptar la nueva clave…».
-- **«Papel y reglas»:** cambia el papel o quítalo. Si alguien tocó el sudoers del equipo, verás lo que
+- **«Papel y reglas»:** cambia el papel o quítalo. Si lo que admite el envoltorio del equipo (o su sudoers) no es su papel, verás lo que
   **sobra** (rojo) y lo que **falta** (ámbar), y podrás «Generar paquete de corrección».
 - **«Cómo entra el conector»:** puerto y usuario. «Probar y guardar» solo guarda si la prueba pasa.
 
@@ -1149,7 +1153,7 @@ con `=0` en `/etc/mdr/triaje.env`, reiniciando el servicio. Los tres que usan lo
 | `TRIAJE_PRECHECK_APROVISIONADO` | No intenta en un equipo que la consola sabe sin clave del host. Escala, o queda fallida con su motivo |
 | `TRIAJE_ESCALADA_SOLO_APROVISIONADOS` | Salta los cortafuegos de escalada sin aprovisionar y lo anota («salto omitido») |
 | `TRIAJE_MEMORIA_FALLOS` | Tras 3 fallos de acceso seguidos a un equipo en 5 minutos, deja de intentar en él y escala directo. Avisa una vez («el MDR no tiene acceso a X») y lo reprueba cada 60 s sin sudo |
-| `TRIAJE_ACCION_NO_EJECUTABLE` | Si la prueba de Conectividad de las últimas 24 h dice que falta la regla de esa acción en el sudoers, no la intenta |
+| `TRIAJE_ACCION_NO_EJECUTABLE` | Si la prueba de Conectividad de las últimas 24 h dice que falta la regla de esa acción en su envoltorio, no la intenta |
 
 > **Nota:** ninguno se activa ante una clave del host cambiada ni ante una contención deshecha: pueden
 > ser un ataque y se quieren ver en cada intento.
@@ -1314,7 +1318,7 @@ y se reinicia.
 3. **En cada equipo**, quien lo administra quita el acceso del MDR:
 
    ```
-   sudo rm /etc/sudoers.d/mdr-triaje
+   sudo rm /etc/sudoers.d/mdr-triaje /usr/local/sbin/mdr-accion
    sudo userdel -r triaje
    ```
 
@@ -1423,7 +1427,7 @@ toca».
 | **F3** | **La clave del host cambió** | **Posible suplantación.** Compruébalo por otro canal antes de aceptar la clave |
 | F4 | El equipo no acepta la clave del conector | Ejecuta su paquete de alta |
 | F5 | Equipo inalcanzable | Comprueba que el equipo y sshd están en marcha y que la red llega |
-| F6 | sudo deniega la acción | Revisa el papel y el sudoers. Si falta la regla, es una «acción no ejecutable en este equipo» |
+| F6 | sudo o el envoltorio deniegan la acción | Revisa el papel y vuelve a ejecutar el paquete de alta. Si falta la regla, es una «acción no ejecutable en este equipo» |
 | F7 | La acción falló dentro del equipo | Revisa la salida del comando |
 | **F8** | **Se aplicó, pero ya no está** | **Posible contramedida:** alguien pudo deshacerla |
 | F9 | El conector no tiene clave | Genera la clave del conector en Conectividad |
@@ -1509,7 +1513,8 @@ no ve, el MDR tampoco.
 | Conector | La parte del MDR que entra por SSH en los equipos para contener |
 | Contención | La acción que corta el ataque: bloquear una IP, cortar una conexión, aislar un equipo… |
 | Decisión | Lo que el MDR resolvió sobre un incidente, con su desenlace |
-| Deriva del sudoers | Diferencia entre lo que sudo permite en un equipo y lo que su papel necesita |
+| Deriva del sudoers | Diferencia entre lo que el envoltorio y sudo permiten en un equipo y lo que su papel necesita |
+| Envoltorio `mdr-accion` | Script de root que recibe cada orden del conector, comprueba cada argumento contra el catálogo y la ejecuta o la rechaza (126). Es lo único que el sudoers del conector permite |
 | Equipo MDR | El equipo de la red del cliente donde corre el MDR |
 | Escalada | Contener en el cortafuegos cuando no se puede en el equipo atacado |
 | Familia | El tipo de ataque: fuerza bruta, reconocimiento, malware… Hay diez |

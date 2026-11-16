@@ -1,7 +1,7 @@
 # Observaciones de la revisión (15/11/2026)
 
 Detalles encontrados al recorrer el código para explicar las tecnologías, el RAG, MITRE/D3FEND y el
-almacenamiento. **No se ha cambiado nada del código**: esto es solo una lista para revisar.
+almacenamiento. El estado de cada punto tras los arreglos del 16/11 está en [Estado](#estado-16112026).
 
 Cada punto indica cómo se comprobó, porque no todos se han probado en vivo.
 
@@ -30,6 +30,24 @@ Cada punto indica cómo se comprobó, porque no todos se han probado en vivo.
 | 21 | Sin copias de seguridad, sonda de salud ni retención automatizadas | Baja-media | — | Lectura de `deploy/` e `infra/` |
 | 22 | La API responde 500 (no 400) a un cuerpo JSON que no es un objeto | Muy baja | — | Log de la CI |
 | 23 | La CI no tiene lint de Python, ShellCheck, escaneo de secretos ni auditoría de dependencias | Baja | — | `ci.yml` |
+
+## Estado (16/11/2026)
+
+Aplicado en `main` (commits locales) según el plan
+[`plan-revision-15-11.md`](documentacion/05-fase5-implementacion-del-prototipo/plan-revision-15-11.md):
+
+| # | Estado | Commit |
+|---|---|---|
+| 1 | **Hecho**: registro `pendiente` al encolar; `pendiente_perdida` y aviso `[inicio]` al arrancar | `2e84bc9` |
+| 2 | **Hecho**: índice reindexado (35 fichas) y `test_rag_indice` lo vigila. Recuperación fija sobre las 16 simulaciones: MRR 0,611 → 0,684, acierto en la 1.ª posición 0,375 → 0,500 (la agéntica, que usa el 1B, no se volvió a medir) | `9404c01` |
+| 4 | **Hecho**: comentario de `attack.ts` (10 familias) y cifras del README (1453 tests del motor, 492 del visor) | `ee810e4`, docs |
+| 13 | **Hecho**: envoltorio `/usr/local/sbin/mdr-accion` generado desde el catálogo; el sudoers solo lo permite a él; conector, prueba de Conectividad, paquete de alta y aprovisionamiento lo usan. Verificado en vivo: banco aprovisionado (10/10 nodos, `--modprobe` denegado) y un ataque D1 contenido y verificado a través del envoltorio | `95cb506`, `61aac59` |
+| 14 | **Hecho**: `X-Frame-Options: DENY` y `frame-ancestors 'none'` en toda respuesta | `ee810e4` |
+| 15 | **Hecho**: aviso `[inicio] consola SIN autenticación` al arrancar | `ee810e4` |
+| 17 | **Hecho**: la prueba reintenta hasta un plazo | `ee810e4` |
+| 22 | **Hecho**: cuerpo que no es un objeto (o JSON inválido) → 400 | `ee810e4` |
+| 3, 5, 16, 20, 21, 23 | Recomendación, sin cambios | — |
+| 6–12, 18, 19 | Para la fase de AWS, sin cambios | — |
 
 ## Prioridades recomendadas
 
