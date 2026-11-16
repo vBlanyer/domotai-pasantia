@@ -22,7 +22,9 @@ _PLANTILLA = re.compile(r"\{[a-z_]+\}")
 _BINARIO = re.compile(r"^[a-z][a-z0-9_-]*$")
 # Valores de allowlist del sudoers: nombres de servicio/cuenta limpios. Rechaza `*` (reabriría el
 # comodín), espacios y metacaracteres (sudoers roto) — misma disciplina que conector._SEGURO.
-_VALOR_SEGURO = re.compile(r"^[A-Za-z0-9._-]+\Z")
+# Empieza por letra o número: un valor que empezara por «-» sería una opción del binario
+# (`passwd -l -d`, `service --status-all stop`).
+_VALOR_SEGURO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 
 def _tramos(plantilla):
     """Los comandos de una plantilla: cada tramo de ';' y solo el primer tramo de una tuberia
@@ -131,7 +133,7 @@ _VALIDADORES = r"""_una_linea() { case "$1" in *'
 '*) return 1 ;; esac; return 0; }
 _casa() { _una_linea "$1" && printf '%s' "$1" | grep -Eqx -- "$2"; }
 _OCT='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
-es_ip() { _casa "$1" "($_OCT\.){3}$_OCT(/([0-9]|[12][0-9]|3[0-2]))?"; }
+es_ip() { _casa "$1" "($_OCT\.){3}$_OCT"; }
 es_puerto() { _casa "$1" '[0-9]{1,5}' && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]; }
 es_iface() { _casa "$1" '[A-Za-z0-9][A-Za-z0-9._-]{0,14}'; }
 es_rate() { _casa "$1" '[0-9]{1,9}(bit|kbit|mbit|gbit)'; }
@@ -167,7 +169,7 @@ def _plantillas_tipadas(catalogo, allowlist=None):
     return out
 
 
-def envoltorio(catalogo, allowlist=None, path=PATH_SEGURO):
+def envoltorio(catalogo, allowlist=None, path=PATH_SEGURO, usuario=None):
     """Texto del envoltorio /usr/local/sbin/mdr-accion para un equipo (sus reglas: catálogo o papel)."""
     import shlex
     q = shlex.quote
@@ -180,7 +182,8 @@ def envoltorio(catalogo, allowlist=None, path=PATH_SEGURO):
         funciones.append(f"r{i}() {{ " + " && ".join(conds) + "; }")
         nombres.append(f'r{i} "$@"')
     reglas_txt = "\n".join(f"{b} {a}".strip() for b, a in reglas(catalogo, allowlist))
-    sistema = " ".join(sorted(_cuentas_del_sistema()))
+    # el usuario real del conector tampoco se bloquea nunca: dejaría al MDR fuera del equipo
+    sistema = " ".join(sorted(set(_cuentas_del_sistema()) | ({usuario} if usuario else set())))
     lineas = [
         "#!/bin/sh",
         "# mdr-accion: lo único que el conector del MDR puede ejecutar como root en este equipo.",
@@ -207,13 +210,14 @@ def envoltorio(catalogo, allowlist=None, path=PATH_SEGURO):
     return "\n".join(lineas) + "\n"
 
 
-def envoltorio_de_equipo(catalogo, acciones=None, servicios=(), cuentas=(), cuentas_cualquiera=False, path=PATH_SEGURO):
+def envoltorio_de_equipo(catalogo, acciones=None, servicios=(), cuentas=(), cuentas_cualquiera=False, path=PATH_SEGURO,
+                         usuario=None):
     """El envoltorio de un equipo según su papel: las mismas reglas que `reglas_de_equipo`."""
     if acciones is None:
-        return envoltorio(catalogo, path=path)
+        return envoltorio(catalogo, path=path, usuario=usuario)
     sub = {k: v for k, v in catalogo.items() if k in set(acciones_efectivas(acciones, servicios, cuentas, cuentas_cualquiera))}
     return envoltorio(sub, {"service": list(servicios or []), "passwd": [] if cuentas_cualquiera else list(cuentas or [])},
-                      path=path)
+                      path=path, usuario=usuario)
 
 
 def sudoers_envoltorio(usuario, ruta=ENVOLTORIO_RUTA):
@@ -259,7 +263,8 @@ def _main(argv):
     import os, sys
     if "--envoltorio" in argv:
         cat = cargar_catalogo(os.path.join(os.path.dirname(os.path.dirname(__file__)), "catalogo.yml"))
-        sys.stdout.write(envoltorio(cat, allowlist=_allowlist_de(argv) or None))
+        usuario = argv[argv.index("--usuario") + 1] if "--usuario" in argv else None
+        sys.stdout.write(envoltorio(cat, allowlist=_allowlist_de(argv) or None, usuario=usuario))
         return 0
     if "--sudoers" in argv:
         usuario = argv[argv.index("--sudoers") + 1]

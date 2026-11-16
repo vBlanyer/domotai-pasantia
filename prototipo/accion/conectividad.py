@@ -433,6 +433,30 @@ def _sq(texto):
     return "'" + str(texto).replace("'", "'\\''") + "'"
 
 
+# Aparta los sudoers anteriores del conector (paquete «script» y Ansible). Usa $U.
+_LIMPIEZA_SUDOERS = r"""# Sustituye cualquier sudoers anterior que da permisos SOLO al usuario del conector (el de este paquete,
+# el del aprovisionamiento del laboratorio o uno añadido a mano): sudo suma todos los ficheros, y uno
+# viejo dejaría permitido lo que el papel ya quitó. Se aparta con copia en /root, no se borra. Un fichero
+# que mezcla reglas de otros usuarios no se toca: solo se avisa.
+for f in /etc/sudoers.d/*; do
+  [ -f "$f" ] && [ "$f" != "/etc/sudoers.d/mdr-$U" ] || continue
+  tiene=$(grep -c "^$U[[:space:]]" "$f" || true)
+  otras=$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$f" | grep -vc "^$U[[:space:]]" || true)
+  if [ "$tiene" -gt 0 ] && [ "$otras" -eq 0 ]; then
+    mv "$f" "/root/mdr-sudoers-anterior.$(basename "$f")"; echo "  sudoers anterior apartado (copia en /root): $f"
+  elif [ "$tiene" -gt 0 ]; then
+    echo "  aviso: $f da permisos a $U junto a reglas de otros usuarios; revísalo a mano" >&2
+  fi
+done
+# Equipos antiguos (sudo sin sudoers.d): el aprovisionamiento clásico deja un bloque entre marcas en /etc/sudoers.
+if grep -q '^# >>> conector-triaje' /etc/sudoers 2>/dev/null; then
+  cp -p /etc/sudoers /root/mdr-sudoers-anterior.sudoers
+  sed -i '/^# >>> conector-triaje/,/^# <<< conector-triaje/d' /etc/sudoers && visudo -c >/dev/null
+  echo "  bloque anterior del conector quitado de /etc/sudoers (copia en /root)"
+fi
+"""
+
+
 def paquete(formato, equipo, usuario, publica, reglas, generado, envoltorio=None):
     """Paquete de alta de un equipo: «script» (sh idempotente), «ansible» o «sudoers». Instala el
     envoltorio /usr/local/sbin/mdr-accion (`envoltorio`, generado desde el catálogo para su papel) y un
@@ -473,6 +497,10 @@ def paquete(formato, equipo, usuario, publica, reglas, generado, envoltorio=None
             f"    - name: Envoltorio del MDR (valida cada argumento contra el catálogo)\n"
             f"      ansible.builtin.copy:\n        dest: {ENVOLTORIO_RUTA}\n        owner: root\n        group: root\n"
             f"        mode: \"0755\"\n        content: |\n{env_yaml}\n"
+            f"    - name: Apartar los sudoers anteriores del conector (copia en /root)\n"
+            f"      ansible.builtin.shell: |\n        U={usuario}\n"
+            + "".join(("        " + l) if l else "" for l in _LIMPIEZA_SUDOERS.splitlines(True))
+            + f"      changed_when: false\n"
             f"    - name: Sudo limitado al envoltorio\n"
             f"      ansible.builtin.copy:\n        dest: /etc/sudoers.d/mdr-{usuario}\n        mode: \"0440\"\n"
             f"        validate: visudo -cf %s\n        content: |\n          # Generado por el MDR. No editar a mano.\n"
@@ -488,6 +516,8 @@ def paquete(formato, equipo, usuario, publica, reglas, generado, envoltorio=None
 # solo la clave PÚBLICA del conector. Al final imprime la huella de la clave del host para la plataforma.
 set -eu
 U={usuario}
+E=""; T=""
+trap 'rm -f "$E" "$T"' EXIT
 # Portable (Debian/Ubuntu, RHEL y equipos mínimos con BusyBox): useradd o adduser, usermod o la línea
 # del shadow, y el directorio del usuario leído de /etc/passwd.
 if ! id "$U" >/dev/null 2>&1; then
@@ -508,9 +538,14 @@ cat > "$E" <<'MDR_ACCION_FIN'
 {env}
 MDR_ACCION_FIN
 sh -n "$E"
-install -d -m 755 /usr/local/sbin
+D=$(dirname {ENVOLTORIO_RUTA})
+[ -d "$D" ] || install -d -m 755 -o root -g root "$D"
+# Quien pueda escribir en el directorio puede sustituir el envoltorio: tiene que ser solo de root.
+if [ -n "$(find "$D" -maxdepth 0 \\( ! -user root -o -perm -g+w -o -perm -o+w \\))" ]; then
+  echo "  aviso: $D es escribible por otros usuarios (o no es de root): se deja de root y sin escritura para el grupo ni otros (antes: $(stat -c '%A %U:%G' "$D" 2>/dev/null))" >&2
+  chown root "$D"; chmod g-w,o-w "$D"
+fi
 install -m 755 -o root -g root "$E" {ENVOLTORIO_RUTA}
-rm -f "$E"
 for b in {binarios}; do
   command -v "$b" >/dev/null 2>&1 || echo "  aviso: $b no está instalado; las acciones que lo usan fallarán" >&2
 done
@@ -520,28 +555,7 @@ cat > "$T" <<'MDR_SUDOERS_FIN'
 {linea_sudo}
 MDR_SUDOERS_FIN
 visudo -cf "$T" >/dev/null
-# Sustituye cualquier sudoers anterior que da permisos SOLO al usuario del conector (el de este paquete,
-# el del aprovisionamiento del laboratorio o uno añadido a mano): sudo suma todos los ficheros, y uno
-# viejo dejaría permitido lo que el papel ya quitó. Se aparta con copia en /root, no se borra. Un fichero
-# que mezcla reglas de otros usuarios no se toca: solo se avisa.
-for f in /etc/sudoers.d/*; do
-  [ -f "$f" ] && [ "$f" != "/etc/sudoers.d/mdr-$U" ] || continue
-  tiene=$(grep -c "^$U[[:space:]]" "$f" || true)
-  otras=$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$f" | grep -vc "^$U[[:space:]]" || true)
-  if [ "$tiene" -gt 0 ] && [ "$otras" -eq 0 ]; then
-    mv "$f" "/root/mdr-sudoers-anterior.$(basename "$f")"; echo "  sudoers anterior apartado (copia en /root): $f"
-  elif [ "$tiene" -gt 0 ]; then
-    echo "  aviso: $f da permisos a $U junto a reglas de otros usuarios; revísalo a mano" >&2
-  fi
-done
-# Equipos antiguos (sudo sin sudoers.d): el aprovisionamiento clásico deja un bloque entre marcas en /etc/sudoers.
-if grep -q '^# >>> conector-triaje' /etc/sudoers 2>/dev/null; then
-  cp -p /etc/sudoers /root/mdr-sudoers-anterior.sudoers
-  sed -i '/^# >>> conector-triaje/,/^# <<< conector-triaje/d' /etc/sudoers && visudo -c >/dev/null
-  echo "  bloque anterior del conector quitado de /etc/sudoers (copia en /root)"
-fi
-install -m 440 -o root -g root "$T" /etc/sudoers.d/mdr-$U
-rm -f "$T"
+{_LIMPIEZA_SUDOERS}install -m 440 -o root -g root "$T" /etc/sudoers.d/mdr-$U
 echo "Alta lista. Huella de la clave del host (compárala en la plataforma):"
 for f in /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_rsa_key.pub; do [ -f "$f" ] && ssh-keygen -lf "$f" || true; done
 """

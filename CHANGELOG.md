@@ -17,6 +17,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
   Conectividad exige que sudo solo permita el envoltorio y compara `mdr-accion --reglas` con el papel. Los
   equipos dados de alta antes salen como privilegio de más o sin aprovisionar hasta volver a ejecutar su
   paquete de alta.
+- Endurecimiento del envoltorio y del alta (revisión final): las IP solo sin prefijo (nada de `/0`);
+  el usuario real del conector nunca se bloquea; los valores de servicio/cuenta no pueden empezar
+  por «-»; `continuidad.limite_banda` se valida al cargar el perfil y se normaliza a minúsculas; el
+  script de alta borra sus temporales si falla y avisa (y cierra) si `/usr/local/sbin` es escribible
+  por otros; el playbook de Ansible aparta los sudoers antiguos del conector como el script.
 - La consola envía `X-Frame-Options: DENY` y `Content-Security-Policy: frame-ancestors 'none'` (#14), y
   el arranque avisa si la consola no tiene autenticación (#15).
 

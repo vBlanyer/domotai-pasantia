@@ -58,7 +58,8 @@ def construir(decision, alerta, perfil=None):
         interfaz = perfilm.interfaz_de(perfil, activo) if perfil else None
         if not interfaz:
             return None
-        rate = ((perfil or {}).get("continuidad") or {}).get("limite_banda") or "1mbit"
+        # en minúsculas: es como tc la entiende y como la admite el envoltorio (validar() avisa si no vale)
+        rate = str(((perfil or {}).get("continuidad") or {}).get("limite_banda") or "1mbit").lower()
         return {
             "decision_id": decision.get("id_decision"), "accion_id": accion,
             "nodo_objetivo": activo,          # el host cuyo enlace se acota (corre en él mismo)

@@ -626,7 +626,7 @@ def paquete(srv, equipo, formato, operador):
     generado = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC") + (f" por {operador}" if operador else "")
     try:
         env = catalogom.envoltorio_de_equipo(cat, e.get("acciones") if e.get("papel") else None, e.get("servicios"),
-                                             e.get("cuentas"), e.get("cuentas_cualquiera") is True)
+                                             e.get("cuentas"), e.get("cuentas_cualquiera") is True, usuario=usuario)
         nombre, contenido = cx.paquete(formato, e, usuario, pub if rc == 0 else "", reglas, generado, envoltorio=env)
     except ValueError as ex:
         return 400, {"error": str(ex)}

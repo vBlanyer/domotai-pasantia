@@ -1,5 +1,6 @@
 """El perfil de cliente (V3/V4) y el filtro permite/degrada/veta (RNF-14, RF-17/18/19)."""
 import ipaddress
+import re
 import yaml
 from prototipo.motor import actores, impacto as impactom
 
@@ -106,6 +107,10 @@ def validar(perfil):
     nr = (perfil.get("continuidad") or {}).get("revisar_no_soportada_nivel")
     if nr is not None and not (isinstance(nr, int) and not isinstance(nr, bool) and nr > 0):
         avisos.append(f"continuidad.revisar_no_soportada_nivel debe ser un entero positivo: {nr!r}")
+    lb = (perfil.get("continuidad") or {}).get("limite_banda")
+    if lb is not None and not re.fullmatch(r"[0-9]{1,9}(bit|kbit|mbit|gbit)", str(lb).lower()):
+        avisos.append(f"continuidad.limite_banda debe ser un número con bit/kbit/mbit/gbit (p. ej. 1mbit): {lb!r}; "
+                      "la limitación de banda fallaría en el equipo")
     avisos.extend(_avisos_posturas(perfil, activos))
     avisos.extend(avisos_topologia(perfil))
     return avisos

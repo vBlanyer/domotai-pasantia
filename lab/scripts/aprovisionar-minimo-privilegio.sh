@@ -54,7 +54,7 @@ echo "== 3. Envoltorio mdr-accion y sudoers que solo lo permite =="
 # de sudoers con comodines, y un `*` de sudoers admite espacios: `iptables -A INPUT -s * -j DROP`
 # dejaba pasar `--modprobe=<programa>` (root). #13 de la revision del 15/11.
 ENVOLTORIO=/usr/local/sbin/mdr-accion
-(cd "$HERE" && python3 -m prototipo.accion.catalogo --envoltorio) | docker exec -i $NODO sh -c "
+(cd "$HERE" && python3 -m prototipo.accion.catalogo --envoltorio --usuario "$USUARIO") | docker exec -i $NODO sh -c "
   mkdir -p /usr/local/sbin && cat > $ENVOLTORIO.tmp && sh -n $ENVOLTORIO.tmp &&
   chown root:root $ENVOLTORIO.tmp && chmod 755 $ENVOLTORIO.tmp && mv $ENVOLTORIO.tmp $ENVOLTORIO"
 SUDOERS="$USUARIO ALL=(root) NOPASSWD: $ENVOLTORIO"

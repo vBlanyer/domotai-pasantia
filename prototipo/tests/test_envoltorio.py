@@ -48,7 +48,7 @@ class TestEnvoltorio(_Base):
     def test_envoltorio_permite_lo_legitimo(self):
         casos = [
             ("iptables", "-A", "INPUT", "-s", "1.2.3.4", "-j", "DROP"),
-            ("iptables", "-D", "INPUT", "-s", "10.0.0.0/24", "-j", "DROP"),
+            ("iptables", "-D", "INPUT", "-s", "10.0.0.7", "-j", "DROP"),
             ("iptables", "-A", "FORWARD", "-d", "198.51.100.10", "-j", "DROP"),
             ("iptables", "-A", "INPUT", "-p", "tcp", "--dport", "5432", "-j", "DROP"),
             ("tc", "qdisc", "replace", "dev", "eth0", "root", "tbf", "rate", "1mbit", "burst", "32kbit", "latency", "400ms"),
@@ -123,9 +123,6 @@ class TestEnvoltorio(_Base):
         self.assertEqual(cp.returncode, 0, cp.stdout)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TestCLI(unittest.TestCase):
     def test_cli_imprime_el_envoltorio_con_allowlist(self):
@@ -145,3 +142,7 @@ class TestListaSoloDeCuentasDelSistema(unittest.TestCase):
     def test_no_reabre_el_comodin(self):
         reglas = catm.reglas(CAT, {"passwd": ["root", "daemon"]})
         self.assertFalse([r for r in reglas if r[0] == "passwd"], reglas)
+
+
+if __name__ == "__main__":
+    unittest.main()
