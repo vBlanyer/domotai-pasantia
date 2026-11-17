@@ -5,7 +5,11 @@
 > **Estado (17/11/2026): propuesto, pendiente de aprobación.** Sin cuenta de AWS ni coste. Commits
 > locales en `main`, sin push.
 
-**Goal:** Ejecutar `tofu plan`, `apply` y `destroy` de `infra/aws/` contra **AWS Emulator** (un emulador local de la API de AWS) para comprobar lo que hoy nadie ha probado: que el **grafo de recursos** se crea entero y en orden, y que las precondiciones y los `count` se comportan como dice el código.
+**Goal:** Ejecutar `tofu plan`, `apply` y `destroy` de `infra/aws/` contra **AWS Emulator** (un emulador local de la API de AWS) para comprobar lo que hoy nadie ha probado: que el **grafo de recursos** se crea entero y en orden, y que las precondiciones y los `count` se comportan como dice el código. Y dejar listo lo que necesita el **despliegue oficial**: el inventario de lo que se crea (JSON), la estimación de costes, la plantilla de variables de producción, el estado remoto y la guía paso a paso con las cuotas.
+
+**Entregables para producción:** el código de `infra/aws/` (ya existe; es lo que se aplica), más
+`produccion.tfvars.ejemplo`, `backend.tf.ejemplo`, `inventario/*.json`, `COSTES.md` y `DESPLIEGUE.md`.
+Lo que crea el emulador (estado, identificadores) no sirve para producción y se descarta.
 
 **Architecture:** Tres capas de prueba, cada una con lo suyo. (1) `tofu validate` y las pruebas estáticas: sintaxis y contenido (hecho). (2) El simulacro en `amazonlinux:2023`: el **script de arranque** de verdad (hecho). (3) **Nuevo:** el emulador: la **API de control** de AWS (crear VPC, roles, instancias, discos, endpoints) con el mismo `infra/aws/` sin modificar. Un guion lanza el emulador, apunta OpenTofu a él con un fichero `override` que **solo vive en una copia temporal**, y recorre cuatro escenarios.
 
@@ -49,9 +53,9 @@ Requisitos: Linux de 64 bits, glibc ≥ 2.17. WSL2 no aparece en la documentaci�
 
 **Files:** Create `infra/aws/emulador/probar.sh`
 
-- [ ] Arrancar `aws-emulator --telemetry off --idle-timeout 900` en segundo plano; esperar a `curl --cacert ~/.aws/emulator/9297/ca.pem https://127.0.0.1:9297/__admin/health`; `aws sts get-caller-identity` debe dar la cuenta `000000000000`.
-- [ ] Copiar `infra/aws/*.tf` y `templates/` a una carpeta temporal y generar en ella `override.tf`: proveedor con `endpoints` de los servicios usados (ec2, iam, sts, s3, secretsmanager, ssm), `custom_ca_bundle` con el `ca.pem` del emulador, `skip_credentials_validation`/`skip_requesting_account_id` si hicieran falta, y la AMI de prueba en lugar de la búsqueda.
-- [ ] Comprobar si el proveedor de OpenTofu también acepta `AWS_ENDPOINT_URL`; si sí, usarlo y simplificar el `override`. Anotar lo que funcionó.
+- [ ] Arrancar `aws-emulator --telemetry off --idle-timeout 900` en segundo plano; esperar a `curl --cacert ~/.aws/emulator/9297/ca.pem https://127.0.0.1:9297/__admin/health`.
+- [ ] Copiar `infra/aws/*.tf` y `templates/` a una carpeta temporal y generar en ella `override.tf`: proveedor con `shared_credentials_files` = `~/.aws/emulator/9297/emulator_credentials`, `custom_ca_bundle` = su `ca.pem` y un bloque `endpoints` (ec2, iam, sts, s3, secretsmanager, ssm) a `https://127.0.0.1:9297`; `AWS_CONFIG_FILE=/dev/null` y `AWS_EC2_METADATA_DISABLED=true` en el entorno. **Comprobado el 17/11** con una prueba mínima (VPC, subred y rol IAM: `apply` y `destroy` correctos, cuenta `000000000000`). Más la AMI de prueba en lugar de la búsqueda.
+- [ ] Las comprobaciones del `user_data` y de las políticas del rol de la GPU se hacen con la AWS CLI v2 instalada en `~/.local` (sin `sudo`) o, si no, con fuentes de datos de OpenTofu (`data "aws_instance"`, `data "aws_iam_role_policies"`) en el `override`.
 - [ ] Al salir (trap): `tofu destroy`, parar el emulador y borrar la carpeta temporal.
 
 ### Tarea 2: cuatro escenarios
@@ -67,10 +71,43 @@ Requisitos: Linux de 64 bits, glibc ≥ 2.17. WSL2 no aparece en la documentaci�
 - [ ] En D, `aws iam list-role-policies` del rol de la GPU no incluye `leer-secretos`.
 - [ ] Cada fallo se clasifica: **del emulador** (501, operación ausente) → se anota; **de nuestro código** → se arregla en `infra/aws/` con su prueba estática, y se repite.
 
-### Tarea 3: documentar
+### Tarea 3: inventario de lo que se crea (JSON)
 
-- [ ] `infra/aws/README.md`: la tabla de las tres capas (qué prueba cada una), cómo ejecutar `probar.sh`, el resultado de los escenarios y **qué no prueba** el emulador.
-- [ ] Commit `test(aws): plan, apply y destroy contra AWS Emulator`.
+**Files:** Create `infra/aws/inventario/escenario-{a,b,d}.json` y `infra/aws/inventario/README.md`
+
+- [ ] Por cada escenario que aplica (A, B, D): `tofu plan -out` contra el emulador y `tofu show -json` filtrado a lo que sirve para revisar: por recurso, `address`, `type` y la configuración que importa (tipo de instancia, tamaño y cifrado de discos, puertos de los SG, acciones de las políticas IAM, servicios de los endpoints). Sin identificadores del emulador ni el `user_data` (se resume como «plantilla de arranque, N líneas»).
+- [ ] `inventario/README.md`: la misma lista como tabla legible, por escenario, con una línea de «por qué existe» por recurso.
+- [ ] Prueba `test_inventario_al_dia`: los tipos de recurso del inventario coinciden con los `resource` de los `.tf` (un recurso nuevo sin inventariar falla).
+
+### Tarea 4: estimación de costes
+
+**Files:** Create `infra/aws/COSTES.md`
+
+- [ ] Por cada recurso del inventario que se cobra (instancias, EBS, NAT y su IP, endpoints de interfaz, Secrets Manager, GPU), el precio **oficial actual** de la región por defecto (`eu-west-1`) y de `us-east-1`, consultado en las páginas de precios de AWS o su API pública de precios **el día de hacerlo**, con fecha y fuente. Nunca de memoria.
+- [ ] Tabla por escenario: solo MDR con egreso, solo MDR sin egreso, MDR + GPU; coste por hora, por día de prueba (8 h y 24 h) y por mes. Y lo que se paga aunque esté apagado (discos, secretos, IP).
+- [ ] Una línea de comparación con el equipo local de ~3000 $ (cuántos días de GPU en AWS equivalen), marcada como orientativa.
+
+### Tarea 5: plantilla de variables de producción
+
+**Files:** Create `infra/aws/produccion.tfvars.ejemplo`, `infra/aws/backend.tf.ejemplo`
+
+- [ ] `produccion.tfvars.ejemplo`: **todas** las variables de `variables.tf`, cada una con su valor de ejemplo o `<rellenar>` y un comentario de una línea; agrupadas (región y red, versión y paquete, perfil, secretos, GPU).
+- [ ] `backend.tf.ejemplo`: el estado de OpenTofu en S3 con bloqueo, para producción (hoy es local).
+- [ ] Prueba `test_tfvars_cubre_las_variables`: cada `variable` de `variables.tf` aparece en la plantilla. Y `tofu validate` con la plantilla copiada a `.tfvars` (valores de ejemplo válidos).
+
+### Tarea 6: cuotas y guía de despliegue en producción
+
+**Files:** Create `infra/aws/DESPLIEGUE.md`
+
+- [ ] **Cuotas** a revisar en la cuenta real antes del primer `apply`, con el comando exacto (`aws service-quotas get-service-quota …`) y lo mínimo que hace falta: vCPU de instancias G (la GPU; en cuentas nuevas suele ser 0 y la ampliación tarda), vCPU estándar, IP elásticas, VPC y endpoints de interfaz por VPC.
+- [ ] **Pasos en orden:** cuotas → secretos en Secrets Manager → paquete (y perfil) a S3 con su huella → estado en S3 (`backend.tf`) → `produccion.tfvars` → `tofu plan` (revisar contra el inventario) → `apply` → leer el token y abrir el túnel → comprobar `/healthz` y la consola → cómo apagar (`destroy`) y qué queda cobrándose.
+- [ ] Enlaces a `COSTES.md`, `inventario/` y a la lista de «Qué no prueba» de este plan.
+
+### Tarea 7: documentar
+
+- [ ] `infra/aws/README.md`: la tabla de las tres capas (qué prueba cada una), cómo ejecutar `probar.sh`, el resultado de los escenarios, **qué no prueba** el emulador y los enlaces a `DESPLIEGUE.md`, `COSTES.md`, `inventario/` y la plantilla de variables.
+- [ ] `CHANGELOG.md` ([Sin publicar]).
+- [ ] Commits: `test(aws): plan, apply y destroy contra AWS Emulator`, `docs(aws): inventario, costes, plantilla de variables y guía de despliegue`.
 
 ## Qué no prueba (ni el emulador ni el simulacro): solo un despliegue real
 
