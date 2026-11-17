@@ -9,12 +9,18 @@ actúa. Diseño: `archivo/proceso-desarrollo/superpowers/specs/2026-09-21-labora
     sh lab/banco/construir-imagen.sh      # una vez
     sh lab/lab.sh up banco                # no convive con la red pequeña
     sh lab/banco/banco.sh aprovisionar    # minimo privilegio del conector (hace falta tras cada up)
-    sh lab/banco/banco.sh test            # conectividad y salud
+    sh lab/banco/banco.sh test            # conectividad y salud (termina con error si algo falla)
+    sh lab/banco/banco.sh comprobar-alertas  # Wazuh de punta a punta: una alerta 100200 de prueba
     sh lab/banco/banco.sh cascada core-db # ver una cascada real y su recuperación
     sh lab/banco/banco.sh vigilar         # panel en vivo: servicios en verde/rojo
     sh lab/banco/banco.sh atacar          # lanzador de ataques por número (para demos)
     sh lab/banco/banco.sh atacar continuo # SOAK: ataques variados sin fin, para probar el MDR en continuo
     sh lab/lab.sh down banco
+
+`comprobar-alertas` abre desde el auditor una conexión sin banner SSH a `web-banking:22`, espera
+(hasta `ALERTAS_ESPERA_MAX` s, 120 por defecto) a que Wazuh levante la regla 100200 y falla si no llega.
+Es inofensiva aunque el MDR esté en marcha: el auditor es un activo de gestión del perfil y el motor la
+clasifica como actividad legítima (`fp_actividad_legitima`), sin contener nada.
 
 Prueba manual completa (casos, limpieza y reinicio): [`docs/pruebas/08-laboratorio-banco.md`](../../docs/pruebas/08-laboratorio-banco.md).
 

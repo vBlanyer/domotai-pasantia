@@ -96,5 +96,62 @@ class TestEsperaWazuh(unittest.TestCase):
             self.assertIn("esperar_wazuh", t, rel)
 
 
+# docker falso para `comprobar-alertas`: un alerts.json de verdad en FALSO_DIR. El disparo (nc desde el
+# auditor) añade una alerta 100200 si FALSO_LLEGA=1; las lecturas del fichero se ejecutan sobre la copia.
+DOCKER_ALERTAS = r"""#!/bin/sh
+A="$FALSO_DIR/alerts.json"
+[ -f "$A" ] || printf '%b' "${FALSO_PREVIA:-}" > "$A"
+for ultimo; do :; done
+case "$ultimo" in
+  *"| nc "*) [ "${FALSO_LLEGA:-0}" = 1 ] && echo '{"rule":{"level":6,"id":"100200"},"data":{"srcip":"10.100.0.20"}}' >> "$A"; exit 0 ;;
+  *alerts.json*) eval "$(printf '%s' "$ultimo" | sed "s#/var/ossec/logs/alerts/alerts.json#$A#g")" ;;
+esac
+"""
+PREVIA_SIN_100200 = '{"rule":{"id":"5715"}}\\n{"rule":{"id":"5402"}}\\n'
+PREVIA_CON_100200 = '{"rule":{"id":"100200"},"data":{"srcip":"10.100.0.20"}}\\n'
+
+
+class TestComprobarAlertas(unittest.TestCase):
+    def test_falla_si_la_alerta_no_llega(self):
+        r = _ejecutar(["comprobar-alertas"], DOCKER_ALERTAS,
+                      {"FALSO_PREVIA": PREVIA_SIN_100200, "ALERTAS_ESPERA_MAX": "2"})
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+
+    def test_ok_cuando_llega(self):
+        r = _ejecutar(["comprobar-alertas"], DOCKER_ALERTAS,
+                      {"FALSO_PREVIA": PREVIA_SIN_100200, "FALSO_LLEGA": "1", "ALERTAS_ESPERA_MAX": "6"})
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("OK: Wazuh generó la alerta 100200", r.stdout)
+
+    def test_no_cuenta_alertas_anteriores(self):
+        r = _ejecutar(["comprobar-alertas"], DOCKER_ALERTAS,
+                      {"FALSO_PREVIA": PREVIA_CON_100200, "ALERTAS_ESPERA_MAX": "2"})
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+
+    def test_origen_del_evento(self):
+        # El disparo sale del auditor (activo de gestión del perfil): con el MDR en marcha, el motor lo
+        # trata como actividad legítima y no contiene nada.
+        with open(BANCO, encoding="utf-8") as f:
+            banco = f.read()
+        orden = banco[banco.index("  comprobar-alertas)"):]
+        orden = orden[:orden.index(";;")]
+        self.assertIn("$P-auditor", orden)
+        import json
+        from lab.banco import pruebas
+        from prototipo.motor import perfil as perfilm, triaje
+        from prototipo.accion import catalogo as catm
+        perfil = perfilm.cargar(pruebas.PERFIL)
+        catalogo = catm.cargar_catalogo(os.path.join(RAIZ, "prototipo", "catalogo.yml"))
+        with open(pruebas.HALLAZGOS, encoding="utf-8") as f:
+            hallazgos = json.load(f)
+        a = {"familia": "reconocimiento", "activo": "web-banking", "servicio": "ssh", "origen_ip": "10.100.0.20",
+             "regla_id": "100200", "mitre": ["T1046"], "timestamp": "2026-11-17T00:00:00Z", "id_alerta": "x"}
+        t = triaje.procesar(a, hallazgos, perfil, "bancario", catalogo, id_decision="x", timestamp=a["timestamp"])
+        self.assertEqual(t["clase"], "fp_actividad_legitima")
+        self.assertIsNone(t["accion_final"])
+        with open(os.path.join(RAIZ, "lab", "banco", "README.md"), encoding="utf-8") as f:
+            self.assertIn("comprobar-alertas", f.read())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -4,7 +4,8 @@
 #   sh lab/banco/banco.sh up              despliega, arranca servicios/sshd/reenviadores/monitor y Wazuh
 #   sh lab/banco/banco.sh down            lo baja
 #   sh lab/banco/banco.sh status          estado de nodos y salud
-#   sh lab/banco/banco.sh test            prueba de humo: conectividad y todos los servicios sanos
+#   sh lab/banco/banco.sh test            prueba de humo: conectividad y todos los servicios sanos (error si falla)
+#   sh lab/banco/banco.sh comprobar-alertas  Wazuh de punta a punta: una alerta 100200 de prueba (error si no llega)
 #   sh lab/banco/banco.sh cascada core-db tumba un servicio, muestra que cae y lo restaura
 #   sh lab/banco/banco.sh restaurar       quita los bloqueos de ataque y reinicia los servicios
 #                                         caidos (deja el banco sano tras una demo, sin down/up)
@@ -96,6 +97,26 @@ case "${1:-up}" in
     sleep 3
     salud | python3 -c "import sys,json; d=json.loads(sys.stdin.read() or '{}').get('estados',{}); m=[k for k,v in d.items() if v!='ok']; print('   OK' if d and not m else f'   CAIDOS: {m or \"sin datos\"}'); sys.exit(0 if d and not m else 1)" || FALLOS=$((FALLOS+1))
     if [ "$FALLOS" -gt 0 ]; then echo "banco.sh test: $FALLOS comprobación(es) fallida(s)" >&2; exit 1; fi
+    ;;
+  comprobar-alertas)
+    # Wazuh de punta a punta: una conexión sin banner SSH desde el auditor a web-banking (sshd la registra,
+    # el reenviador la manda a Wazuh) tiene que acabar en alerts.json como regla 100200. Inofensivo: el
+    # auditor es un activo de gestión del perfil, y el MDR, si está en marcha, lo trata como legítimo.
+    W=clab-red-cliente-wazuh
+    MAX=${ALERTAS_ESPERA_MAX:-120}
+    ANTES=$(docker exec $W sh -c 'wc -l < /var/ossec/logs/alerts/alerts.json')
+    ANTES=$((ANTES + 0))
+    echo "-- conexion de prueba: auditor -> web-banking:22 (sin banner SSH)"
+    docker exec $P-auditor sh -c "printf 'comprobar-alertas\r\n' | nc -w3 10.10.0.10 22 >/dev/null 2>&1; true"
+    T=0
+    until docker exec $W sh -c "tail -n +$((ANTES + 1)) /var/ossec/logs/alerts/alerts.json" | grep -q '"id":"100200"'; do
+      if [ "$T" -ge "$MAX" ]; then
+        echo "comprobar-alertas: Wazuh no generó la alerta 100200 en $MAX s (revisa el reenviador de web-banking y Wazuh)" >&2
+        exit 1
+      fi
+      sleep 2; T=$((T + 2))
+    done
+    echo "OK: Wazuh generó la alerta 100200"
     ;;
   cascada)
     S="${2:?uso: banco.sh cascada <servicio>}"
