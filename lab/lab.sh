@@ -7,6 +7,7 @@
 #   sh lab/lab.sh test    ejecuta la prueba de humo de extremo a extremo
 set -e
 HERE=$(dirname "$0")
+. "$HERE/scripts/esperar-wazuh.sh"
 # Segundo argumento = topologia (default red-cliente). Todas conservan name: red-cliente,
 # asi que los contenedores mantienen el prefijo clab-red-cliente-* que usan los scripts.
 #   sh lab/lab.sh up [topologia]     p. ej. red-cliente-firewall (escalada host->firewall real)
@@ -29,7 +30,7 @@ case "${1:-up}" in
     echo "== 2. Arrancando Wazuh manager =="
     sh "$HERE/scripts/wazuh-run.sh" up
     echo "   esperando a que Wazuh este listo..."
-    until docker exec clab-red-cliente-wazuh sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-analysisd is running"' 2>/dev/null; do sleep 4; done
+    esperar_wazuh clab-red-cliente-wazuh
     echo "== 3. Activando el reenvio de syslog =="
     sh "$HERE/scripts/reenvio-syslog.sh"
     echo "== Laboratorio en marcha. Prueba con: sh lab/lab.sh test =="

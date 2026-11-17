@@ -58,5 +58,43 @@ class TestTest(unittest.TestCase):
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
 
 
+ESPERA = os.path.join(RAIZ, "lab", "scripts", "esperar-wazuh.sh")
+
+
+def _esperar(docker, env):
+    """Carga esperar-wazuh.sh y llama a esperar_wazuh con un docker falso."""
+    with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False) as f:
+        f.write(f'. "{ESPERA}"\nesperar_wazuh prueba-wazuh\n')
+    try:
+        return _ejecutar([], docker, env, script=f.name)
+    finally:
+        os.unlink(f.name)
+
+
+class TestEsperaWazuh(unittest.TestCase):
+    def test_se_agota_con_error(self):
+        nunca = "#!/bin/sh\ncase \"$1\" in logs) echo 'ultima linea del registro';; esac\nexit 1\n"
+        t0 = time.monotonic()
+        r = _esperar(nunca, {"WAZUH_ESPERA_MAX": "2", "WAZUH_ESPERA_PASO": "1"})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertLess(time.monotonic() - t0, 10)
+        self.assertIn("no arrancó", r.stderr)
+        self.assertIn("ultima linea del registro", r.stderr)
+
+    def test_termina_cuando_wazuh_arranca(self):
+        vivo = "#!/bin/sh\necho 'wazuh-analysisd is running...'\nexit 0\n"
+        r = _esperar(vivo, {"WAZUH_ESPERA_MAX": "5", "WAZUH_ESPERA_PASO": "1"})
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_las_tres_esperas_usan_la_funcion(self):
+        for rel in ("lab/scripts/wazuh-run.sh", "lab/lab.sh"):
+            with open(os.path.join(RAIZ, rel), encoding="utf-8") as g:
+                t = g.read()
+            # ninguna espera a Wazuh sin tope (la del FTP de lab.sh test ya tiene el suyo)
+            self.assertNotRegex(t, r"until docker exec[^\n]*wazuh-control", rel)
+            self.assertIn("esperar-wazuh.sh", t, rel)
+            self.assertIn("esperar_wazuh", t, rel)
+
+
 if __name__ == "__main__":
     unittest.main()

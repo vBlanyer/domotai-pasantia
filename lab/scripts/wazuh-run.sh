@@ -9,6 +9,7 @@
 #
 # Uso:   sh lab/scripts/wazuh-run.sh up | down | logs | alerts | mem
 set -e
+. "$(dirname "$0")/esperar-wazuh.sh"
 IMG=wazuh/wazuh-manager:4.14.7
 # Parametrizable para reusarlo FUERA del laboratorio clab (única fuente del arranque del manager:
 # la demo portátil lo llama con WAZUH_NOMBRE=portatil-wazuh WAZUH_RED=portatil_default
@@ -31,7 +32,7 @@ case "${1:-up}" in
     echo "Wazuh manager arrancando..."
     # Esperar a analysisd y HABILITAR la recepcion de syslog remoto (no viene
     # activa de fabrica). Sin esto, el manager ignora todo el syslog del lab.
-    until docker exec "$NAME" sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-analysisd is running"' 2>/dev/null; do sleep 4; done
+    esperar_wazuh "$NAME"
     docker cp "$(dirname "$0")/../wazuh/local_decoder_telnetd.xml" "$NAME":/tmp/local_decoder_telnetd.xml
     docker cp "$(dirname "$0")/../wazuh/local_rules_banco.xml" "$NAME":/tmp/local_rules_banco.xml
     docker cp "$(dirname "$0")/../wazuh/local_decoder_banco.xml" "$NAME":/tmp/local_decoder_banco.xml
@@ -68,7 +69,7 @@ XML
       grep -q "sshd-banner-scan" /var/ossec/etc/decoders/local_decoder.xml || cat /tmp/local_decoder_banco.xml >> /var/ossec/etc/decoders/local_decoder.xml
       /var/ossec/bin/wazuh-control restart >/dev/null 2>&1
     '
-    until docker exec "$NAME" sh -c '/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-analysisd is running"' 2>/dev/null; do sleep 4; done
+    esperar_wazuh "$NAME"
     echo "Wazuh listo, recepcion de syslog activa. IP de gestion:"
     docker inspect "$NAME" --format "  {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}"
     ;;
