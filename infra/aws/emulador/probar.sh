@@ -46,6 +46,7 @@ preparar() { # preparar ESCENARIO → copia de infra/aws con el override que apu
   d="$TRABAJO/esc-$1"
   mkdir -p "$d"
   cp "$INFRA"/*.tf "$d/"
+  rm -f "$d/backend.tf" # el backend de producción (DESPLIEGUE.md, paso 3) no se usa contra el emulador
   cp -r "$INFRA/templates" "$d/"
   cat > "$d/override.tf" <<EOF
 # Solo en la copia temporal: el proveedor apunta al emulador.

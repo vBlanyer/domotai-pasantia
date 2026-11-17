@@ -44,11 +44,17 @@ Con GPU, sube también los dos modelos (`.gguf` del generador y de bge-m3) y ano
 ## 2. Secretos
 
 ```sh
+umask 077
+openssl rand -hex 32 > traza-clave.txt
+printf '{"%s":"ana"}' "$(openssl rand -hex 24)" > operadores.json   # un token por analista
 aws secretsmanager create-secret --region <region> --name mdr/traza-clave \
-    --secret-string "$(openssl rand -hex 32)"
+    --secret-string file://traza-clave.txt
 aws secretsmanager create-secret --region <region> --name mdr/operadores \
-    --secret-string '{"<token-de-ana>":"ana"}'          # un token por analista (openssl rand -hex 24)
+    --secret-string file://operadores.json
 ```
+
+Los valores van por fichero (`file://`) para que no queden en el historial del shell. Entrega a cada
+analista su token por un canal seguro y borra los ficheros (`shred -u traza-clave.txt operadores.json`).
 
 Anota los **ARN completos** que devuelven. La clave de la traza no debe perderse nunca: sin ella la
 traza firmada deja de poder verificarse. Si cifras los secretos con una clave KMS propia, el rol del MDR
@@ -85,11 +91,11 @@ El arranque de la instancia tarda unos minutos (instala paquetes y el MDR). Su r
 ## 6. Entrar a la consola
 
 ```sh
-tofu output comando_tunel_visor        # túnel SSM a http://127.0.0.1:8787
+tofu output -raw comando_tunel_visor   # imprime la orden del túnel SSM a http://127.0.0.1:8787
 ```
 
 Abre la consola y entra con el token de un analista (el que pusiste en `mdr/operadores`; sin ese secreto,
-`tofu output comando_token_admin` dice cómo leer el del admin). Comprueba:
+`tofu output -raw comando_token_admin` dice cómo leer el del admin). Comprueba:
 
 - `/healthz` responde y el Panel muestra la plataforma operativa;
 - Trazas: «Cadena íntegra»;
@@ -104,9 +110,15 @@ receptor del daemon (`TRIAJE_ESCUCHAR`; ver el manual de producción).
 tofu destroy -var-file=produccion.tfvars
 ```
 
-Apaga la instancia antes de soltar el disco de la traza. **El disco de la traza se borra con `destroy`**:
-haz antes una instantánea si hay que conservar la evidencia
-(`aws ec2 create-snapshot --volume-id <id> --description "traza MDR"`). Lo que sigue cobrándose después
+`destroy` apaga la instancia antes de soltar el disco de la traza (no hace falta hacerlo a mano).
+**El disco de la traza se borra con `destroy`**: haz antes una instantánea si hay que conservar la
+evidencia:
+
+```sh
+tofu state show aws_ebs_volume.traza | grep ' id '      # el id del disco (vol-…)
+aws ec2 create-snapshot --region <region> --volume-id <vol-…> --description "traza MDR"
+```
+ Lo que sigue cobrándose después
 de `destroy`: los secretos, los buckets de S3 (artefactos y estado) y las instantáneas que hagas.
 
 ## Qué se comprueba por primera vez en el despliegue real

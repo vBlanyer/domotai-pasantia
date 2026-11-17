@@ -15,7 +15,7 @@
   {
    "direccion": "aws_iam_instance_profile.gpu",
    "tipo": "aws_iam_instance_profile",
-   "por_que": "Perfil que asocia el rol de la GPU a su instancia.",
+   "por_que": "Perfil que asocia el rol de la GPU a su instancia. Se crea aunque no haya GPU (sin coste).",
    "config": {}
   },
   {
@@ -27,7 +27,7 @@
   {
    "direccion": "aws_iam_role.gpu",
    "tipo": "aws_iam_role",
-   "por_que": "Rol propio de la GPU (sin acceso a los secretos del MDR).",
+   "por_que": "Rol propio de la GPU (sin acceso a los secretos del MDR). Se crea aunque no haya GPU (sin coste).",
    "config": {}
   },
   {
@@ -70,7 +70,7 @@
   {
    "direccion": "aws_iam_role_policy_attachment.gpu_ssm",
    "tipo": "aws_iam_role_policy_attachment",
-   "por_que": "La GPU se gestiona por SSM.",
+   "por_que": "La GPU se gestiona por SSM. Se crea aunque no haya GPU (sin coste).",
    "config": {
     "policy_arn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
    }
@@ -149,7 +149,7 @@
   {
    "direccion": "aws_security_group.llm",
    "tipo": "aws_security_group",
-   "por_que": "Cortafuegos de la GPU: solo el MDR entra, al 8080 y al 8082.",
+   "por_que": "Cortafuegos de la GPU: solo el MDR entra, al 8080 y al 8082. Se crea aunque no haya GPU (sin coste).",
    "config": {
     "description": "LLM justificador (solo desde el MDR)",
     "ingress": [

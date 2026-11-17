@@ -22,11 +22,11 @@ mdr_disco_gb = 20         # EBS cifrado de la traza (/var/lib/mdr)
 
 # --- Qué se instala: el paquete del release, verificado por su huella ---
 mdr_version        = "1.9.1"                                                            # >= 1.9.2 si se activa la GPU
-mdr_paquete_url    = "s3://<bucket>/mdr-1.9.1.tar.gz"                                   # o vacío = el release de GitHub (necesita egreso)
+mdr_paquete_url    = "s3://<rellenar: bucket>/mdr-1.9.1.tar.gz"                          # o vacío = el release de GitHub (necesita egreso)
 mdr_paquete_sha256 = "7c686657021aba4041d6eede34808a08831b832534b151736a42c1022adda519" # sha256sum del paquete
 
 # --- Perfil del cliente ---
-perfil_url        = "s3://<bucket>/perfil.yml" # vacío = perfil mínimo para empezar con el asistente de red
+perfil_url        = ""                         # o "s3://<rellenar: bucket>/perfil.yml" si lo subiste (paso 1); vacío = perfil mínimo
 red_cliente_cidrs = []                         # rangos para el perfil mínimo; vacío = la VPC
 
 # --- Secretos (ARN completo de Secrets Manager; ver DESPLIEGUE.md, paso 2) ---

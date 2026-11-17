@@ -50,7 +50,11 @@ def comprobaciones(escenario, estado):
         mira("disco raíz cifrado", v["root_block_device"][0]["encrypted"] is True)
         ud = _user_data(mdr)
         vol = rs.get("aws_ebs_volume.traza", {}).get("values", {}).get("id", "").replace("-", "")
-        if len(ud) == 40 and all(c in "0123456789abcdef" for c in ud):
+        api = rs.get("data.aws_instance.comprobar_mdr")
+        if api is not None and not api.get("values", {}).get("user_data_base64"):
+            # la fuente de datos existe pero no devolvió el script: sin él no se comprueba nada del arranque
+            mira("script de arranque leído de la API (comprobar_mdr no lo devolvió)", False)
+        elif len(ud) == 40 and all(c in "0123456789abcdef" for c in ud):
             mira("script de arranque: el estado solo guarda su huella (se comprueba en el simulacro)", True)
         else:
             mira("script de arranque guardado y sin errores de sintaxis (bash -n)", ud and _bash_n(ud))

@@ -8,3 +8,5 @@
 crash.log
 override.tf
 override.tf.json
+# planes guardados con tofu plan -out (DESPLIEGUE.md, paso 5)
+*.plan

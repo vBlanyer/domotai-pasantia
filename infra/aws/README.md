@@ -169,8 +169,8 @@ Paso a paso, con cuotas, secretos y estado remoto: [DESPLIEGUE.md](DESPLIEGUE.md
 export AWS_PROFILE=<perfil-de-la-empresa>
 tofu plan  -var 'region=<region>' -var 'egreso_bootstrap=true'
 tofu apply -var 'region=<region>' -var 'egreso_bootstrap=true'
-tofu output comando_tunel_visor     # abre la consola por SSM en http://127.0.0.1:8787
-tofu output comando_token_admin     # cómo leer el token del analista admin
+tofu output -raw comando_tunel_visor # abre la consola por SSM en http://127.0.0.1:8787
+tofu output -raw comando_token_admin # cómo leer el token del analista admin
 # Con el modelo (coste GPU): -var 'llm_habilitado=true' -var 'llm_tipo=g4dn.xlarge'
 #   -var 'llm_modelo_url=…' -var 'llm_modelo_sha256=…' -var 'embed_modelo_url=…' -var 'embed_modelo_sha256=…'
 tofu destroy …                      # apaga la instancia antes de soltar el disco de la traza

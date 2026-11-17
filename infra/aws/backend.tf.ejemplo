@@ -4,6 +4,7 @@
 # El bucket se crea UNA vez, aparte y antes (no con esta configuración), con versionado y cifrado:
 #     aws s3api create-bucket --bucket <bucket> --region <region> \
 #         --create-bucket-configuration LocationConstraint=<region>
+#     (en us-east-1, sin --create-bucket-configuration: allí LocationConstraint da error)
 #     aws s3api put-bucket-versioning --bucket <bucket> --versioning-configuration Status=Enabled
 #     aws s3api put-public-access-block --bucket <bucket> --public-access-block-configuration \
 #         BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true

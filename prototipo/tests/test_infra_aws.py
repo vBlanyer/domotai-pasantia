@@ -191,5 +191,50 @@ class TestDespliegueProduccion(unittest.TestCase):
         self.assertIn("encrypt", b)
 
 
+class TestRevisionEmulador(unittest.TestCase):
+    """Hallazgos de la revisión final del plan del emulador (17/11)."""
+
+    def test_salidas_con_raw(self):                              # sin -raw, las comillas salen escapadas
+        for doc in ("DESPLIEGUE.md", "README.md"):
+            self.assertIsNone(re.search(r"tofu output (?!-raw)comando_", _leer(doc)), doc)
+
+    def test_emulador_no_copia_el_backend_de_produccion(self):
+        self.assertIn('rm -f "$d/backend.tf"', _leer("emulador/probar.sh"))
+
+    def test_comprobar_no_da_verde_sin_el_arranque(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("comprobar", os.path.join(INFRA, "emulador", "comprobar.py"))
+        comprobar = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(comprobar)
+        estado = {"values": {"root_module": {"resources": [
+            {"address": "aws_instance.mdr", "type": "aws_instance",
+             "values": {"associate_public_ip_address": False, "metadata_options": [{"http_tokens": "required"}],
+                        "root_block_device": [{"encrypted": True}], "user_data": "a" * 40}},
+            {"address": "data.aws_instance.comprobar_mdr", "type": "aws_instance", "values": {}},
+        ]}}}
+        fallos = [n for n, ok in comprobar.comprobaciones("A", estado) if not ok]
+        self.assertTrue(any("arranque" in n for n in fallos), fallos)
+
+    def test_bucket_del_estado_en_us_east_1(self):               # allí LocationConstraint da error
+        self.assertIn("us-east-1", _leer("backend.tf.ejemplo"))
+
+    def test_plantilla_sin_marcadores_que_rompan_el_arranque(self):
+        t = _leer("produccion.tfvars.ejemplo")
+        self.assertNotIn("<bucket>", t)                          # todo lo que hay que rellenar dice <rellenar…>
+        self.assertRegex(t, r'(?m)^perfil_url\s*=\s*""')         # opcional: vacío salvo que se suba un perfil
+
+    def test_nat_no_es_solo_del_primer_arranque(self):           # se cobra mientras egreso_bootstrap = true
+        for f in ("emulador/inventario.py", "inventario/README.md"):
+            self.assertNotIn("solo primer arranque", _leer(f), f)
+        self.assertIn("aunque no haya GPU", _leer("inventario/README.md"))
+
+    def test_instantanea_de_la_traza_reproducible(self):
+        d = _leer("DESPLIEGUE.md")
+        self.assertRegex(d, r"create-snapshot --region")
+        self.assertIn("tofu state show aws_ebs_volume.traza", d)
+        self.assertIn("file://", d)                              # los tokens no van en la línea de órdenes
+        self.assertIn("*.plan", _leer(".gitignore"))
+
+
 if __name__ == "__main__":
     unittest.main()
