@@ -84,13 +84,18 @@ case "${1:-up}" in
     echo "== Salud (ultima muestra) =="; salud
     ;;
   test)
+    # Termina con error si falla alguna comprobación: el arranque desatendido (servicio-mdr.sh) se para.
+    FALLOS=0
     echo "-- 1. internet -> web-banking (a traves de fw-edge y fw-core)"
-    docker exec $P-internet curl -s -m 3 -o /dev/null -w '   HTTP %{http_code}\n' http://10.10.0.10:443/ || echo "   FALLO"
+    docker exec $P-internet curl -s -m 3 -o /dev/null -w '   HTTP %{http_code}\n' http://10.10.0.10:443/ || { echo "   FALLO"; FALLOS=$((FALLOS+1)); }
     echo "-- 2. mdr-siem llega a los dos cortafuegos"
-    for ip in 10.0.0.1 10.0.0.254; do docker exec $P-mdr-siem ping -c1 -W2 $ip >/dev/null 2>&1 && echo "   $ip OK" || echo "   $ip FALLO"; done
+    for ip in 10.0.0.1 10.0.0.254; do
+      if docker exec $P-mdr-siem ping -c1 -W2 $ip >/dev/null 2>&1; then echo "   $ip OK"; else echo "   $ip FALLO"; FALLOS=$((FALLOS+1)); fi
+    done
     echo "-- 3. Todos los servicios sanos"
     sleep 3
-    salud | python3 -c "import sys,json; d=json.loads(sys.stdin.read() or '{}').get('estados',{}); m=[k for k,v in d.items() if v!='ok']; print('   OK' if d and not m else f'   CAIDOS: {m or \"sin datos\"}')"
+    salud | python3 -c "import sys,json; d=json.loads(sys.stdin.read() or '{}').get('estados',{}); m=[k for k,v in d.items() if v!='ok']; print('   OK' if d and not m else f'   CAIDOS: {m or \"sin datos\"}'); sys.exit(0 if d and not m else 1)" || FALLOS=$((FALLOS+1))
+    if [ "$FALLOS" -gt 0 ]; then echo "banco.sh test: $FALLOS comprobación(es) fallida(s)" >&2; exit 1; fi
     ;;
   cascada)
     S="${2:?uso: banco.sh cascada <servicio>}"
