@@ -7,6 +7,8 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [Sin publicar]
 
+## [1.9.2] — 2026-11-17 · despliegue en AWS: MDR y laboratorio
+
 ### Añadido
 - **Prueba del despliegue contra AWS Emulator** (`infra/aws/emulador/`): `plan`, `apply` y `destroy` de
   los `.tf` reales en cuatro escenarios (con egreso, sin egreso con secretos, GPU con 1.9.1 rechazada,
@@ -15,12 +17,15 @@ capítulo de resultados, y `evaluacion/resultados/`).
   (`inventario/`, JSON y tabla), costes con precios oficiales de `eu-west-1` y `us-east-1`
   (`COSTES.md`), plantilla de variables (`produccion.tfvars.ejemplo`), estado remoto en S3
   (`backend.tf.ejemplo`) y guía paso a paso con las cuotas (`DESPLIEGUE.md`).
-
 - **Variante «laboratorio» del despliegue en AWS** (`variante = "laboratorio"`): la instancia del MDR
   levanta el laboratorio del banco, su Wazuh y el MDR para probar el MDR antes de un cliente, y lo rehace
   en cada encendido (`lab/banco/servicio-mdr.sh`, unidad `mdr-laboratorio`). Escenarios E, F y G en el
   emulador; costes y guía. Necesita un MDR ≥ 1.9.2.
 - `banco.sh comprobar-alertas`: comprueba que Wazuh genera alertas de punta a punta.
+- Al rehacer el laboratorio, las contenciones de la sesión anterior se anotan en la traza como revertidas
+  (`revertir.anotar_desaparecidas`, `lab.banco.rehecho`): el MDR vuelve a decidir los ataques repetidos y
+  la consola no lista contenciones que ya no existen. Probado en vivo con dos arranques sobre la misma
+  traza.
 
 ### Corregido
 - **Identificadores de decisión repetidos tras reiniciar**: cada arranque del daemon volvía a `s1` y,
