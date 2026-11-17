@@ -712,7 +712,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
              resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
-             latido=None, actividad=None, perfil_fn=None, al_arrancar=()):
+             latido=None, actividad=None, perfil_fn=None, al_arrancar=(), seq_previo=0):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -796,7 +796,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         estado_web.fijar_auditor(escribir_traza)
         # El desalojo por el tope de la cola (M3) también se encadena: nada desaparece en silencio.
         estado_web.fijar_descartador(lambda entrada: escribir_traza(_registro_descarte(entrada)))
-    seq = [0]
+    seq = [seq_previo]      # retomando una traza, sigue la numeración (traza.ultima_secuencia)
     ventana_rafaga = rafaga.Ventana()
     ventana_larga = rafaga.Ventana(ventana_s=rafaga.VENTANA_LARGA_S)   # señal de vigilancia 'low-and-slow'
     def _suprimir(inc, previa):
@@ -1477,7 +1477,7 @@ def main(argv):
                      justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
                      salida_traza=traza_f, escribir=escribir_fn, leer=leer_fn,
                      mitigar_fn=mitigar_fn, suprimir=not cfg["sin_supresion"],
-                     hash_previo=hash_previo, n_previos=n_previos,
+                     hash_previo=hash_previo, n_previos=n_previos, seq_previo=traza.ultima_secuencia(previos),
                      nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
                      estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
                      lector_incidente=lector_incidente, memoria=memoria,

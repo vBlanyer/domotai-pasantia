@@ -84,6 +84,21 @@ def leer_registros(ruta):
     with open(ruta, encoding="utf-8") as f:
         return [json.loads(l) for l in f if l.strip()]
 
+_SECUENCIA = re.compile(r"^s(\d+)(?:~|$)")
+
+
+def ultima_secuencia(registros):
+    """El mayor N de los `id_decision` del daemon (`s<N>`, también los derivados `s<N>~sup`) en
+    `registros`; 0 si no hay. Al retomar una traza, el daemon sigue numerando desde ahí: sin esto cada
+    arranque volvía a `s1` y la misma traza acababa con identificadores repetidos."""
+    n = 0
+    for reg in registros:
+        m = _SECUENCIA.match(str(reg.get("id_decision") or ""))
+        if m:
+            n = max(n, int(m.group(1)))
+    return n
+
+
 def familia(ruta):
     """Segmentos de una traza en orden cronológico (#6): los archivados `<base>.<N>.jsonl` (N
     ascendente, más antiguos primero) y por último el activo `<base>.jsonl`. Hoy, sin rotación en

@@ -1750,3 +1750,24 @@ class TestRutaConectividad(unittest.TestCase):
         for ruta in ("/tmp/otro.yml", "/var/lib/mdr/../../etc/x.yml", "/var/lib/mdr-otro/c.yml"):
             with self.assertRaises(SystemExit):
                 stream.validar_ruta_conectividad(ruta, "/var/lib/mdr/trazas-cliente.jsonl")
+
+
+class TestSecuenciaTrasReinicio(unittest.TestCase):
+    """Los id_decision (`s<N>`) no se repiten al retomar una traza existente (producción escribe
+    siempre en el mismo fichero; antes cada arranque volvía a `s1`)."""
+
+    def test_ultima_secuencia(self):
+        from prototipo.servicio import traza as traza_mod
+        regs = [{"id_decision": "s3"}, {"id_decision": "s7~sup"}, {"id_decision": "d12"},
+                {"tipo": "actualizacion_caso"}, {"id_decision": None}, {"id_decision": "s5"}]
+        self.assertEqual(traza_mod.ultima_secuencia(regs), 7)
+        self.assertEqual(traza_mod.ultima_secuencia([]), 0)
+
+    def test_ejecutar_sigue_la_secuencia(self):
+        buf = io.StringIO()
+        stream.ejecutar([_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
+                        justificar_fn=None, ventana_agrupacion=0, salida_traza=buf, seq_previo=41,
+                        escribir=lambda *a, **k: None, leer=lambda *_: "2")
+        ids = [json.loads(l)["id_decision"] for l in buf.getvalue().splitlines() if l.strip()]
+        self.assertEqual(ids, ["s42"])
