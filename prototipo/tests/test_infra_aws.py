@@ -281,6 +281,21 @@ class TestLaboratorio(unittest.TestCase):
         self.assertIn("exit 1", tramo)
         self.assertNotIn("docker", t[t.index("git clone"):t.index("exit 1", i)])
 
+    def test_costes_del_laboratorio(self):
+        c = _leer("COSTES.md")
+        self.assertIn("t3.xlarge", c)
+        for uso in ("Encendido 24/7", "Parar y encender", "destroy"):
+            self.assertIn(uso, c)
+        self.assertIn("E · laboratorio", c)
+
+    def test_guia_del_laboratorio(self):
+        d = _leer("DESPLIEGUE.md")
+        self.assertIn("## Variante laboratorio", d)
+        s = d[d.index("## Variante laboratorio"):]
+        for txt in ("no se conecta a ningún cliente", "stop-instances", "banco.sh atacar", "comprobar-alertas",
+                    "journalctl -u mdr-laboratorio", "laboratorio_commit"):
+            self.assertIn(txt.lower(), s.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

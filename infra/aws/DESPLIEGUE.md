@@ -13,7 +13,7 @@ Compruébalas **antes** del primer `apply`: una ampliación de cuota puede tarda
 
 | Cuota | Código | Mínimo necesario |
 |---|---|---|
-| Instancias bajo demanda estándar (vCPU) | `ec2` · `L-1216C47A` | 2 (MDR `t3.small`) |
+| Instancias bajo demanda estándar (vCPU) | `ec2` · `L-1216C47A` | 2 (MDR `t3.small`); 4 con la variante laboratorio (`t3.xlarge`) |
 | Instancias bajo demanda G y VT (vCPU) — solo con GPU | `ec2` · `L-DB2E81BA` | 4 (`g4dn.xlarge`). **En cuentas nuevas suele ser 0** |
 | IP elásticas — solo con `egreso_bootstrap` | `ec2` · `L-0263D0A3` | 1 |
 | VPC por región | `vpc` · `L-F678F1CE` | 1 libre |
@@ -120,6 +120,66 @@ aws ec2 create-snapshot --region <region> --volume-id <vol-…> --description "t
 ```
  Lo que sigue cobrándose después
 de `destroy`: los secretos, los buckets de S3 (artefactos y estado) y las instantáneas que hagas.
+
+## Variante laboratorio (entorno de pruebas de la empresa)
+
+Con `variante = "laboratorio"` la misma instancia levanta **el laboratorio del banco** (15 equipos en
+Containerlab), **su Wazuh** y **el MDR**, como en local, para probar el MDR antes de ponerlo delante de un
+cliente. **No se conecta a ningún cliente**: los ataques, las alertas y las contenciones ocurren dentro de
+la máquina. Qué se crea: escenario E del [inventario](inventario/); coste: [COSTES.md](COSTES.md) (E).
+
+Requisitos, además de los pasos 0 y 3:
+
+- un MDR **≥ 1.9.2** publicado (la 1.9.1 no trae los arreglos del laboratorio; `tofu plan` lo rechaza);
+- `laboratorio_commit`, el commit de su etiqueta: `git rev-parse v1.9.2^{commit}` en el repositorio. El
+  arranque clona la etiqueta y **se para** si el commit no es ese;
+- 4 vCPU de cuota estándar (`t3.xlarge`) y `egreso_bootstrap = true` (descarga Docker, Containerlab y
+  la imagen de Wazuh). Sin GPU.
+
+En `produccion.tfvars` (o un `laboratorio.tfvars` aparte): `variante = "laboratorio"`,
+`egreso_bootstrap = true`, `mdr_version = "1.9.2"`, `mdr_paquete_sha256` del paquete, `mdr_paquete_url = ""`
+(el release de GitHub) y `laboratorio_commit`. Los secretos son opcionales, como en la variante MDR.
+
+```sh
+tofu plan  -var-file=laboratorio.tfvars -out laboratorio.plan     # compáralo con el escenario E
+tofu apply laboratorio.plan
+```
+
+**Esperar a que esté listo.** El arranque instala lo necesario y deja en marcha la unidad
+`mdr-laboratorio`, que levanta el banco, aprovisiona el conector, comprueba que todo está sano y que Wazuh
+genera alertas (`banco.sh test` y `banco.sh comprobar-alertas`) y arranca el MDR. Tarda unos minutos:
+
+```sh
+aws ssm start-session --region <region> --target "$(tofu output -raw mdr_instance_id)"
+sudo journalctl -u mdr-laboratorio -f        # listo cuando aparece «MDR en marcha»
+```
+
+**Entrar a la consola**: igual que en el paso 6 (`tofu output -raw comando_tunel_visor` y el token).
+
+**Atacar y observar** (en la sesión SSM, como root, desde `/opt/mdr-laboratorio`):
+
+```sh
+sudo -i
+cd /opt/mdr-laboratorio
+sh lab/banco/banco.sh atacar             # menú de ataques de las 10 familias
+sh lab/banco/banco.sh atacar continuo    # ataques variados sin fin (Ctrl+C para parar)
+sh lab/banco/banco.sh vigilar            # servicios en verde/rojo
+sh lab/banco/banco.sh restaurar          # deja el banco sano tras una prueba
+sh lab/banco/banco.sh comprobar-alertas  # Wazuh sigue generando alertas
+```
+
+**Parar y encender** para ahorrar (el disco de la traza se conserva y la cadena continúa):
+
+```sh
+aws ec2 stop-instances  --region <region> --instance-ids "$(tofu output -raw mdr_instance_id)"
+aws ec2 start-instances --region <region> --instance-ids "$(tofu output -raw mdr_instance_id)"
+```
+
+Al encender, `mdr-laboratorio` rehace el laboratorio desde cero (la red de Containerlab y Wazuh no
+sobreviven a un reinicio) antes de arrancar el MDR: unos minutos. Si algo falla, la unidad lo reintenta
+cada 30 s y el motivo queda en `journalctl -u mdr-laboratorio`.
+
+**Apagar del todo**: `tofu destroy -var-file=laboratorio.tfvars`, como en el paso 7.
 
 ## Qué se comprueba por primera vez en el despliegue real
 

@@ -48,11 +48,22 @@ Para el despliegue oficial: [DESPLIEGUE.md](DESPLIEGUE.md) (cuotas y pasos), [CO
 > desde S3 en cada región, a través del endpoint de S3 de la VPC; **sin comprobar aquí** (no hay cuenta).
 > Las descargas se reintentan cinco veces antes de parar.
 
+## Dos variantes
+
+- **`variante = "mdr"`** (por defecto): la de producción. El MDR se conecta al SIEM y a la red reales del
+  cliente (hace falta un enlace privado con su red: VPN o similar).
+- **`variante = "laboratorio"`**: el entorno de pruebas de la empresa. La misma instancia (`t3.xlarge`)
+  levanta el **laboratorio del banco**, su **Wazuh** y el **MDR**, como en local, y en cada encendido lo
+  rehace solo (unidad `mdr-laboratorio`, `lab/banco/servicio-mdr.sh`). **No se conecta a ningún
+  cliente.** Necesita un MDR ≥ 1.9.2, `egreso_bootstrap = true` y `laboratorio_commit`; sin GPU. Guía:
+  [DESPLIEGUE.md](DESPLIEGUE.md), «Variante laboratorio».
+
 ## Variables principales (`variables.tf`)
 
 | Variable | Por defecto | Para qué |
 |---|---|---|
 | `region` | `eu-west-1` | Región |
+| `variante` | `mdr` | `mdr` (producción) o `laboratorio` (banco, Wazuh y MDR en una máquina; ver abajo) |
 | `egreso_bootstrap` | `false` | NAT para el primer arranque |
 | `mdr_version` | `1.9.1` | Versión del release a instalar |
 | `mdr_paquete_url` | (release de GitHub) | `https://` o `s3://` del `mdr-<versión>.tar.gz` |
@@ -135,6 +146,9 @@ sh infra/aws/emulador/probar.sh B          # solo uno
 | B | MDR sin egreso, paquete en S3, dos secretos | 23 recursos; 12/12 |
 | C | GPU con el paquete 1.9.1 | rechazado por la precondición, como debe |
 | D | MDR + GPU (MDR ≥ 1.9.2) | 29 recursos; 14/14 |
+| E | Variante laboratorio (MDR ≥ 1.9.2, con egreso) | 27 recursos; 16/16 |
+| F | Laboratorio sin egreso | rechazado por la precondición |
+| G | Laboratorio con el paquete 1.9.1 | rechazado por la precondición |
 
 Las comprobaciones (`emulador/comprobar.py`) leen el estado y el script de arranque tal como lo
 devuelve la API: rutas y NAT, endpoints, permisos de cada rol, puertos de la GPU y que el arranque del

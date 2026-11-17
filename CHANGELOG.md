@@ -16,7 +16,18 @@ capítulo de resultados, y `evaluacion/resultados/`).
   (`COSTES.md`), plantilla de variables (`produccion.tfvars.ejemplo`), estado remoto en S3
   (`backend.tf.ejemplo`) y guía paso a paso con las cuotas (`DESPLIEGUE.md`).
 
+- **Variante «laboratorio» del despliegue en AWS** (`variante = "laboratorio"`): la instancia del MDR
+  levanta el laboratorio del banco, su Wazuh y el MDR para probar el MDR antes de un cliente, y lo rehace
+  en cada encendido (`lab/banco/servicio-mdr.sh`, unidad `mdr-laboratorio`). Escenarios E, F y G en el
+  emulador; costes y guía. Necesita un MDR ≥ 1.9.2.
+- `banco.sh comprobar-alertas`: comprueba que Wazuh genera alertas de punta a punta.
+
 ### Corregido
+- **Identificadores de decisión repetidos tras reiniciar**: cada arranque del daemon volvía a `s1` y,
+  como producción escribe siempre en la misma traza, un reinicio dejaba identificadores repetidos (la
+  cadena seguía siendo válida). Ahora sigue la numeración de la traza que retoma.
+- Laboratorio preparado para arrancar sin nadie delante: `banco.sh test` termina con error si falla una
+  comprobación, y las esperas a Wazuh tienen tope (10 min) y enseñan el motivo.
 - **Despliegue en AWS** (`infra/aws/`, puntos #6–#12, #18 y #19 de la revisión del 15/11): el arranque
   instala el paquete del release verificado por su huella con `instalar.sh` (consola incluida, código de
   root), exige el disco de la traza, firma la traza y protege la consola con token (Secrets Manager o
