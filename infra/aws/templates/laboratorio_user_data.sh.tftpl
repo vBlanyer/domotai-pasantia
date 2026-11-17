@@ -1,0 +1,131 @@
+#!/bin/bash
+# Arranque (cloud-init) de la variante «laboratorio», Amazon Linux 2023: la misma instancia del MDR levanta
+# el laboratorio del banco (Containerlab), su Wazuh y el MDR, como en local, para que la empresa pruebe el
+# MDR antes de un cliente. NO se conecta a ningún cliente. Fail-closed como el arranque del MDR: si el
+# disco de la traza no aparece, una huella o el commit no cuadran o un secreto indicado no se puede leer,
+# el arranque se para (registro en /var/log/mdr-arranque.log). cloud-init lo ejecuta una vez; el
+# laboratorio se rehace en CADA encendido con la unidad mdr-laboratorio (lab/banco/servicio-mdr.sh).
+#
+# Plantilla de OpenTofu: lo que va entre llaves con un solo dólar lo rellena templatefile; las variables
+# de shell con llaves llevan dos dólares. Nunca dos dólares sin llave.
+set -euo pipefail
+exec > >(tee -a /var/log/mdr-arranque.log) 2>&1
+
+ESTADO=/var/lib/mdr
+ENTORNO=/etc/mdr/triaje.env
+REGION="${region}"
+LAB=/opt/mdr-laboratorio
+
+# reintentar ORDEN…: hasta 5 intentos con espera creciente (2, 4, 8, 16 s) ante fallos pasajeros (red,
+# permisos de IAM recién creados que aún no se han propagado). Tras el último, el arranque se para.
+reintentar() {
+  local n=1 espera=2
+  until "$@"; do
+    if [ "$n" -ge 5 ]; then return 1; fi
+    sleep "$espera"
+    n=$((n + 1))
+    espera=$((espera * 2))
+  done
+}
+
+# 1. Dependencias: Docker y git para el laboratorio, Python + PyYAML para el MDR.
+dnf install -y docker git python3 python3-pyyaml openssh-clients tar openssl xfsprogs util-linux
+systemctl enable --now docker
+
+# 2. Disco de la traza: obligatorio, y es ESE volumen EBS (por su identificador), nunca un disco efímero
+#    de la instancia. Se monta en el directorio de estado del MDR antes de instalar, y la unidad exige el
+#    montaje (paso 4). En fstab va con nofail: si un día falta el disco, la instancia arranca (y se llega
+#    por SSM) pero el MDR no. MDR_DISCOS y MDR_ESPERA_DISCO solo los usa el simulacro.
+DISCO=""
+for _ in $(seq 1 "$${MDR_ESPERA_DISCO:-60}"); do
+  for d in $${MDR_DISCOS:-/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${volumen} /dev/sdf /dev/xvdf}; do
+    if [ -b "$d" ]; then DISCO="$d"; break; fi
+  done
+  [ -n "$DISCO" ] && break
+  sleep 2
+done
+if [ -z "$DISCO" ]; then
+  echo "ERROR: el disco de la traza no apareció; el MDR no arranca sin él." >&2
+  exit 1
+fi
+blkid "$DISCO" >/dev/null 2>&1 || mkfs -t xfs "$DISCO"
+mkdir -p "$ESTADO"
+grep -q " $ESTADO " /etc/fstab || echo "UUID=$(blkid -s UUID -o value "$DISCO") $ESTADO xfs defaults,nofail 0 2" >> /etc/fstab
+mountpoint -q "$ESTADO" || mount "$ESTADO"
+TRAZA_PREVIA=no
+[ -s "$ESTADO/trazas-laboratorio.jsonl" ] && TRAZA_PREVIA=si
+
+# 3. Containerlab, versión fija y verificada por su huella oficial (checksums.txt del release).
+TMP=$(mktemp -d)
+reintentar curl -fsSL -o "$TMP/containerlab.rpm" \
+  https://github.com/srl-labs/containerlab/releases/download/v0.79.0/containerlab_0.79.0_linux_amd64.rpm
+echo "70fe210596b71b65ad6e79323faab304da6661105e727af5f6da933949dd4dce  $TMP/containerlab.rpm" | sha256sum -c -
+dnf install -y "$TMP/containerlab.rpm"
+
+# 4. El código del laboratorio: el repositorio en la etiqueta de la versión, y SOLO si es el commit
+#    esperado (como el paquete se comprueba por su huella). Si no cuadra, no se construye nada.
+clonar() {
+  rm -rf "$LAB"
+  git clone --depth 1 --branch v${mdr_version} https://github.com/vBlanyer/domotai-pasantia.git "$LAB"
+}
+reintentar clonar
+COMMIT=$(cd "$LAB" && git rev-parse HEAD)
+if [ "$COMMIT" != "${laboratorio_commit}" ]; then
+  echo "ERROR: v${mdr_version} apunta a $COMMIT y se esperaba ${laboratorio_commit}; el laboratorio no se instala." >&2
+  exit 1
+fi
+
+# 5. La consola compilada no está en git: sale del paquete del release, verificado por su huella (misma
+#    versión que el clon).
+case "${paquete_url}" in
+  s3://*) reintentar aws s3 cp --region "$REGION" "${paquete_url}" "$TMP/mdr.tar.gz" ;;
+  *) reintentar curl -fsSL -o "$TMP/mdr.tar.gz" "${paquete_url}" ;;
+esac
+echo "${paquete_sha256}  $TMP/mdr.tar.gz" | sha256sum -c -
+tar -xzf "$TMP/mdr.tar.gz" -C "$TMP"
+rm -rf "$LAB/visor/dist"
+mkdir -p "$LAB/visor"
+cp -a "$TMP"/mdr-*/visor/dist "$LAB/visor/"
+rm -rf "$TMP"
+
+# 6. La imagen de los nodos del banco (una vez; el laboratorio se levanta en cada encendido).
+sh "$LAB/lab/banco/construir-imagen.sh"
+
+# 7. Entorno del servicio (/etc/mdr/triaje.env, 0600): clave de la traza y acceso a la consola.
+install -d -m 0755 /etc/mdr
+# poner CLAVE VALOR: escribe en triaje.env con el mismo formato que «mdr configurar» (0600).
+poner() {
+  (cd "$LAB" && MDR_K="$1" MDR_V="$2" python3 -c 'import os
+from prototipo.herramientas import entorno
+entorno.escribir(os.environ["MDR_ENTORNO"], {os.environ["MDR_K"]: os.environ["MDR_V"]})')
+}
+export MDR_ENTORNO="$ENTORNO"
+
+# 8. Firma de la traza: la clave de Secrets Manager si se indicó (un fallo al leerla para el arranque),
+#    o una nueva. Con una traza anterior en el disco, una clave nueva no verifica la cadena vieja.
+if [ -n "${secreto_traza_arn}" ]; then
+  CLAVE=$(reintentar aws secretsmanager get-secret-value --region "$REGION" --secret-id "${secreto_traza_arn}" --query SecretString --output text)
+else
+  CLAVE=$(openssl rand -hex 32)
+  if [ "$TRAZA_PREVIA" = si ]; then
+    echo "AVISO: el disco ya tiene una traza y la clave HMAC es nueva: la cadena anterior no se verificará con ella. Guarda la clave en Secrets Manager (secreto_traza_arn)." >&2
+  fi
+fi
+poner TRIAJE_TRAZA_CLAVE "$CLAVE"
+unset CLAVE
+
+# 9. Acceso a la consola: los analistas del secreto indicado, o un analista «admin» con su token en
+#    /root/mdr-token-admin (0600), que se lee por SSM. Nunca una consola abierta.
+if [ -n "${secreto_operadores_arn}" ]; then
+  OPERADORES=$(reintentar aws secretsmanager get-secret-value --region "$REGION" --secret-id "${secreto_operadores_arn}" --query SecretString --output text)
+  poner TRIAJE_CONSOLA_OPERADORES "$OPERADORES"
+  unset OPERADORES
+else
+  (umask 077 && MDR_ENV="$ENTORNO" "$LAB/bin/mdr" analista alta admin > /root/mdr-token-admin)
+fi
+
+# 10. El laboratorio y el MDR como servicio: rehace el banco en cada encendido y arranca el daemon.
+install -m 0644 "$LAB/lab/banco/mdr-laboratorio.service" /etc/systemd/system/mdr-laboratorio.service
+systemctl daemon-reload
+systemctl enable --now mdr-laboratorio
+echo "Arranque terminado: el laboratorio se está levantando (journalctl -u mdr-laboratorio)."

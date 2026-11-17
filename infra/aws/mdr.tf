@@ -22,11 +22,39 @@ locals {
     "https://github.com/vBlanyer/domotai-pasantia/releases/download/v${var.mdr_version}/mdr-${var.mdr_version}.tar.gz"
   )
   red_cidrs = length(var.red_cliente_cidrs) > 0 ? var.red_cliente_cidrs : [var.vpc_cidr]
+
+  # Variante laboratorio: la misma instancia, otro tipo, otro disco y otro arranque (el banco, Wazuh y
+  # el MDR, como en local). Con "mdr", todo queda exactamente como antes.
+  laboratorio = var.variante == "laboratorio"
+  volumen     = replace(aws_ebs_volume.traza.id, "-", "")
+  arranque_mdr = local.laboratorio ? "" : templatefile("${path.module}/templates/mdr_user_data.sh.tftpl", {
+    region                 = var.region
+    paquete_url            = local.paquete_url
+    paquete_sha256         = var.mdr_paquete_sha256
+    perfil_url             = var.perfil_url
+    rangos                 = join(" ", [for c in local.red_cidrs : "--rango ${c}"])
+    secreto_traza_arn      = var.secreto_traza_arn
+    secreto_operadores_arn = var.secreto_operadores_arn
+    llm_url                = local.llm_url
+    llm_embed_url          = local.llm_embed_url
+    # El arranque busca el EBS de la traza por su id (/dev/disk/by-id/…vol0123…), nunca un disco efímero.
+    volumen = local.volumen
+  })
+  arranque_laboratorio = local.laboratorio ? templatefile("${path.module}/templates/laboratorio_user_data.sh.tftpl", {
+    region                 = var.region
+    mdr_version            = var.mdr_version
+    laboratorio_commit     = var.laboratorio_commit
+    paquete_url            = local.paquete_url
+    paquete_sha256         = var.mdr_paquete_sha256
+    secreto_traza_arn      = var.secreto_traza_arn
+    secreto_operadores_arn = var.secreto_operadores_arn
+    volumen                = local.volumen
+  }) : ""
 }
 
 resource "aws_instance" "mdr" {
   ami                    = data.aws_ami.al2023.id
-  instance_type          = var.mdr_tipo
+  instance_type          = local.laboratorio ? var.laboratorio_tipo : var.mdr_tipo
   subnet_id              = aws_subnet.privada.id
   vpc_security_group_ids = [aws_security_group.mdr.id]
   iam_instance_profile   = aws_iam_instance_profile.instancia.name
@@ -39,21 +67,9 @@ resource "aws_instance" "mdr" {
   root_block_device {
     encrypted   = true
     volume_type = "gp3"
-    volume_size = 12
+    volume_size = local.laboratorio ? var.laboratorio_disco_gb : 12
   }
-  user_data = templatefile("${path.module}/templates/mdr_user_data.sh.tftpl", {
-    region                 = var.region
-    paquete_url            = local.paquete_url
-    paquete_sha256         = var.mdr_paquete_sha256
-    perfil_url             = var.perfil_url
-    rangos                 = join(" ", [for c in local.red_cidrs : "--rango ${c}"])
-    secreto_traza_arn      = var.secreto_traza_arn
-    secreto_operadores_arn = var.secreto_operadores_arn
-    llm_url                = local.llm_url
-    llm_embed_url          = local.llm_embed_url
-    # El arranque busca el EBS de la traza por su id (/dev/disk/by-id/…vol0123…), nunca un disco efímero.
-    volumen = replace(aws_ebs_volume.traza.id, "-", "")
-  })
+  user_data = local.laboratorio ? local.arranque_laboratorio : local.arranque_mdr
   # Cambiar el arranque (otra versión, otro perfil) recrea la instancia; la traza sigue en su EBS. Lo que
   # vive en /etc/mdr (perfil, clave, analistas) se rehace: para algo más que una demo, perfil_url y los
   # dos secretos (README).
@@ -68,8 +84,25 @@ resource "aws_instance" "mdr" {
       condition     = var.egreso_bootstrap || startswith(local.paquete_url, "s3://") && (var.perfil_url == "" || startswith(var.perfil_url, "s3://"))
       error_message = "Sin egreso_bootstrap, mdr_paquete_url (y perfil_url, si se indica) deben ser s3://: el arranque no sale a Internet."
     }
+    # Variante laboratorio (diseno-aws-laboratorio.md).
+    precondition {
+      condition     = !local.laboratorio || var.egreso_bootstrap
+      error_message = "La variante laboratorio necesita egreso_bootstrap = true (descarga Docker, Containerlab y la imagen de Wazuh)."
+    }
+    precondition {
+      condition     = !local.laboratorio || var.mdr_version != "1.9.1"
+      error_message = "La variante laboratorio necesita un MDR >= 1.9.2: la 1.9.1 no trae los arreglos del laboratorio."
+    }
+    precondition {
+      condition     = !local.laboratorio || !var.llm_habilitado
+      error_message = "La variante laboratorio no lleva GPU (llm_habilitado = false)."
+    }
+    precondition {
+      condition     = !local.laboratorio || can(regex("^[0-9a-f]{40}$", var.laboratorio_commit))
+      error_message = "laboratorio_commit: los 40 caracteres hexadecimales del commit de la etiqueta v<mdr_version>."
+    }
   }
-  tags = { Name = "${var.proyecto}-mdr" }
+  tags = { Name = local.laboratorio ? "${var.proyecto}-laboratorio" : "${var.proyecto}-mdr" }
 }
 
 # EBS cifrado para la traza (--salida fija). Snapshots = retención/backup (#9).

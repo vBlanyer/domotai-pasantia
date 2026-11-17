@@ -236,5 +236,51 @@ class TestRevisionEmulador(unittest.TestCase):
         self.assertIn("*.plan", _leer(".gitignore"))
 
 
+class TestLaboratorio(unittest.TestCase):
+    """Variante «laboratorio» (plan-aws-laboratorio.md): el banco, Wazuh y el MDR en una máquina."""
+    T = "templates/laboratorio_user_data.sh.tftpl"
+    MENSAJES = (
+        "La variante laboratorio necesita egreso_bootstrap = true (descarga Docker, Containerlab y la imagen de Wazuh).",
+        "La variante laboratorio necesita un MDR >= 1.9.2: la 1.9.1 no trae los arreglos del laboratorio.",
+        "La variante laboratorio no lleva GPU (llm_habilitado = false).",
+        "laboratorio_commit: los 40 caracteres hexadecimales del commit de la etiqueta v<mdr_version>.",
+    )
+
+    def test_variables_y_valores_por_defecto(self):
+        v = _leer("variables.tf")
+        self.assertRegex(v, r'variable "variante"[^}]*default\s*=\s*"mdr"')
+        self.assertRegex(v, r'variable "variante"(.|\n)*?contains\(\["mdr", "laboratorio"\], var\.variante\)')
+        self.assertRegex(v, r'variable "laboratorio_tipo"[^}]*default\s*=\s*"t3\.xlarge"')
+        self.assertRegex(v, r'variable "laboratorio_disco_gb"[^}]*default\s*=\s*40\b')
+        self.assertRegex(v, r'variable "laboratorio_commit"[^}]*default\s*=\s*""')
+
+    def test_precondiciones(self):
+        mdr = _leer("mdr.tf")
+        for m in self.MENSAJES:
+            self.assertIn(m, mdr)
+
+    def test_arranque_del_laboratorio(self):
+        t = _leer(self.T)
+        self.assertIn("set -euo pipefail", t)
+        self.assertNotIn("|| true", t)
+        for s in ("--branch v${mdr_version}", "git rev-parse HEAD", "${laboratorio_commit}", "sha256sum -c",
+                  "visor/dist", "0.79.0", "construir-imagen.sh", "systemctl enable --now mdr-laboratorio",
+                  "/root/mdr-token-admin", "mdr-laboratorio.service"):
+            self.assertIn(s, t)
+        self.assertLess(t.index("git rev-parse HEAD"), t.index("construir-imagen.sh"))
+
+    def test_mismo_disco_que_el_mdr(self):
+        def bloque(texto):
+            return texto[texto.index('DISCO=""'):texto.index('mountpoint -q "$ESTADO" || mount "$ESTADO"')]
+        self.assertEqual(bloque(_leer(self.T)), bloque(_leer("templates/mdr_user_data.sh.tftpl")))
+
+    def test_commit_distinto_para(self):
+        t = _leer(self.T)
+        i = t.index("git rev-parse HEAD")
+        tramo = t[i:i + 400]
+        self.assertIn("exit 1", tramo)
+        self.assertNotIn("docker", t[t.index("git clone"):t.index("exit 1", i)])
+
+
 if __name__ == "__main__":
     unittest.main()

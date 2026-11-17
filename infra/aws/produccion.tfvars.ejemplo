@@ -42,3 +42,10 @@ llm_modelo_sha256   = "" # su SHA-256
 embed_modelo_url    = "" # s3:// o https:// del .gguf de bge-m3
 embed_modelo_sha256 = "" # su SHA-256
 llama_cpp_ref       = "b12445"
+
+# --- Variante: "mdr" es la de producción. "laboratorio" es el entorno de pruebas completo (banco,
+#     Wazuh y MDR en una máquina; no se conecta a ningún cliente; DESPLIEGUE.md, «Variante laboratorio»)
+variante             = "mdr"
+laboratorio_tipo     = "t3.xlarge"
+laboratorio_disco_gb = 40
+laboratorio_commit   = "" # con laboratorio: el commit de la etiqueta v<mdr_version> (git rev-parse v1.9.2^{commit})

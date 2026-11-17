@@ -162,3 +162,36 @@ variable "secretos_arns" {
   type        = list(string)
   default     = []
 }
+
+# --- Variante: solo el MDR (producción) o el laboratorio completo (pruebas de la empresa) ---
+variable "variante" {
+  description = "\"mdr\" (def.): el MDR de producción, conectado al SIEM y la red del cliente. \"laboratorio\": la misma instancia levanta el banco, Wazuh y el MDR como en local, para probar el MDR antes de un cliente; no se conecta a ninguno (diseno-aws-laboratorio.md)."
+  type        = string
+  default     = "mdr"
+  validation {
+    condition     = contains(["mdr", "laboratorio"], var.variante)
+    error_message = "variante debe ser \"mdr\" o \"laboratorio\"."
+  }
+}
+
+variable "laboratorio_tipo" {
+  description = "Tipo de instancia de la variante laboratorio (4 vCPU y 16 GB, como el portátil donde se validó)."
+  type        = string
+  default     = "t3.xlarge"
+}
+
+variable "laboratorio_disco_gb" {
+  description = "Disco raíz de la variante laboratorio, en GB (imágenes de Docker: la de Wazuh ocupa 2,5 GB)."
+  type        = number
+  default     = 40
+}
+
+variable "laboratorio_commit" {
+  description = "Commit (40 caracteres) de la etiqueta v<mdr_version> del repositorio: el arranque clona la etiqueta y para si el commit no es este. Obligatorio con variante = \"laboratorio\"."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.laboratorio_commit == "" || can(regex("^[0-9a-f]{40}$", var.laboratorio_commit))
+    error_message = "laboratorio_commit debe ser un commit completo en hexadecimal (40 caracteres)."
+  }
+}
