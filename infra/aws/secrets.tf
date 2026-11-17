@@ -1,9 +1,8 @@
-# Secretos del MDR (#9): clave HMAC de la traza (TRIAJE_TRAZA_CLAVE), token del visor (#6) y clave SSH
-# del conector. Se gestionan FUERA de este código, en AWS Secrets Manager (o SSM Parameter Store), para
-# que sus VALORES nunca queden en la IaC ni en el estado de OpenTofu.
+# Secretos del MDR (#19): la clave HMAC de la traza y los analistas de la consola se pasan como ARNs de
+# AWS Secrets Manager (`secreto_traza_arn`, `secreto_operadores_arn`); la clave SSH del conector u otros,
+# en `secretos_arns`. Sus VALORES nunca quedan en la IaC ni en el estado de OpenTofu.
 #
-# Aquí solo se concede el PERMISO DE LECTURA a las instancias: pasa los ARNs de los secretos en la
-# variable `secretos_arns` y `iam.tf` crea la política `secretsmanager:GetSecretValue` sobre ellos.
-# El arranque (cloud-init) los recupera en la instancia con el rol (ver la nota en
-# templates/mdr_user_data.sh.tftpl). Sin ARNs, el MDR arranca con el justificador de plantilla y sin
-# conector (fail-closed), útil para una demo.
+# iam.tf concede a las instancias solo `secretsmanager:GetSecretValue` sobre esos ARNs, y el arranque
+# (templates/mdr_user_data.sh.tftpl) los lee con el rol de la instancia. Si un secreto indicado no se
+# puede leer, el arranque se para. Sin ARNs, el arranque genera la clave de la traza y da de alta a un
+# analista «admin» (su token queda en /root/mdr-token-admin, legible por SSM): vale para una demo.

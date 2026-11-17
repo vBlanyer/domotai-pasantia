@@ -1,8 +1,8 @@
 # Despliegue del MDR (daemon + visor) + LLM justificador opcional en AWS, con OpenTofu.
 # Plano: documentacion/04-fase4-diseno-de-arquitectura/despliegue-aws-opentofu.md
 #
-# ESTADO: fase 1 (IaC escrita, pendiente de `tofu validate`/LocalStack; ver README.md). NO aplicar en
-# una cuenta real sin acordar alcance/coste con el tutor industrial (la GPU del LLM es el grueso).
+# ESTADO: validado (tofu validate, pruebas estáticas y simulacro del arranque; ver README.md). Sin apply
+# real. NO aplicar en una cuenta real sin acordar alcance/coste (la GPU del modelo es el grueso).
 #
 # Propiedades que se preservan en la nube: todo en SUBRED PRIVADA (sin IP pública, RNF-01 sin egreso),
 # traza en EBS cifrado, acceso del analista por SSM (sin puerto público), secretos fuera del código.

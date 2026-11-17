@@ -1,59 +1,106 @@
-# infra/aws — IaC del despliegue (OpenTofu)
+# infra/aws — despliegue en AWS (OpenTofu)
 
-Infraestructura para correr el **MDR (daemon + visor)** y, opcional, el **LLM justificador en GPU** en
-AWS. Implementa el plano de
+Infraestructura para correr el **MDR (daemon + consola)** y, opcional, el **modelo de lenguaje en GPU**
+en AWS. Implementa el plano de
 [despliegue-aws-opentofu.md](../../documentacion/04-fase4-diseno-de-arquitectura/despliegue-aws-opentofu.md).
 Briefing para la reunión con el tutor industrial:
 [briefing-reunion-despliegue-aws.md](../../documentacion/04-fase4-diseno-de-arquitectura/briefing-reunion-despliegue-aws.md).
 
-> **Estado:** IaC **validada** (fase 1 ✓) — `tofu init` + `tofu validate` → *Success! The configuration
-> is valid* (OpenTofu 1.13.2, proveedor AWS 5.100.0, 2026-10-28). Falta decidir el `apply` real con el
-> tutor industrial. **No hacer `apply` en una cuenta real** sin acordar alcance/coste (la GPU del LLM es
-> el grueso del coste; por eso `llm_habilitado = false` por defecto).
+> **Estado (17/11/2026):** corregido según los puntos #6–#12, #18 y #19 de
+> [OBSERVACIONES-REVISION.md](../../OBSERVACIONES-REVISION.md) y el plan
+> [plan-despliegue-aws.md](../../documentacion/05-fase5-implementacion-del-prototipo/plan-despliegue-aws.md).
+> Comprobado: `tofu validate`, pruebas estáticas (`prototipo/tests/test_infra_aws.py`) y el
+> **simulacro** del arranque del MDR en `amazonlinux:2023` (más abajo). **No probado:** un `apply` en una
+> cuenta real y el arranque de la GPU (compilar llama.cpp con CUDA necesita una GPU). **No hacer `apply`
+> en una cuenta real** sin acordar alcance y coste (la GPU es el grueso del coste; por eso
+> `llm_habilitado = false` por defecto).
 
 ## Qué crea
-- VPC con **subred privada** (sin IP pública), SG mínimos y **endpoints VPC** (SSM + S3): nada expuesto
-  a Internet. El acceso del analista es por **SSM** (túnel), no por un puerto abierto.
 
-> **Runtime vs bootstrap (importante):** el *runtime* del daemon no llama a Internet (RNF-01, propiedad
-> del producto). Pero el *primer arranque* (dnf, git clone, descarga del modelo) **sí necesita egreso**.
-> Por eso `egreso_bootstrap` (def. `false`): con `true` se crea IGW + subred pública + NAT para ese
-> arranque; con `false` hay que desplegar desde una **AMI horneada** (repo+deps+modelo ya dentro) o
-> **artefactos en S3** (el `git clone`/`curl` del cloud-init no funcionará sin egreso).
-- EC2 **MDR** (daemon + visor, `systemd` de `deploy/`) + **EBS cifrado** para la traza (`--salida` fija).
-- EC2 **GPU** con el LLM justificador — **solo si `llm_habilitado = true`** (`count` en `llm.tf`).
-- Rol IAM mínimo (SSM + lectura de los secretos que se indiquen). Secretos y pesos del modelo: fuera del
-  código (Secrets Manager); aquí solo el permiso de lectura.
+- VPC con **subred privada** (sin IP pública), grupos de seguridad mínimos y **endpoints VPC** (SSM y S3):
+  nada expuesto a Internet. El analista entra por **SSM** (túnel), no por un puerto abierto.
+- EC2 **MDR**. Su arranque instala el MDR **como en un cliente**:
+  1. monta el **EBS cifrado** de la traza en `/var/lib/mdr` (si no aparece, el arranque se para, y la
+     unidad del servicio exige ese montaje);
+  2. descarga el **paquete del release** (`mdr-<versión>.tar.gz`, con la consola compilada), comprueba su
+     **SHA-256** y ejecuta `instalar.sh`: el código queda de root y en solo lectura;
+  3. escribe el perfil (el indicado o un perfil mínimo para empezar con el asistente de red), la clave
+     que **firma la traza** y el acceso a la **consola con token**, y arranca el servicio.
+- EC2 **GPU** (solo si `llm_habilitado = true`): AMI de AWS con el driver NVIDIA y CUDA, llama.cpp en
+  una etiqueta fija compilado con CUDA, y dos servicios en la red privada: el **generador** (8080) y
+  **bge-m3**, el embedder del RAG (8082). Los dos modelos se comprueban por su huella.
+- Rol IAM mínimo: SSM, lectura de los secretos indicados y de los objetos de S3 indicados.
+
+> **Primer arranque y egreso.** El *runtime* del daemon no llama a Internet (RNF-01). El primer arranque
+> sí descarga (dnf, el paquete, los modelos): con `egreso_bootstrap = true` se crea un NAT para ese
+> arranque; con `false` (por defecto), sube el paquete (y los modelos) a S3 y pásalos como `s3://…`.
+
+## Variables principales (`variables.tf`)
+
+| Variable | Por defecto | Para qué |
+|---|---|---|
+| `region` | `eu-west-1` | Región |
+| `egreso_bootstrap` | `false` | NAT para el primer arranque |
+| `mdr_version` | `1.9.1` | Versión del release a instalar |
+| `mdr_paquete_url` | (release de GitHub) | `https://` o `s3://` del `mdr-<versión>.tar.gz` |
+| `mdr_paquete_sha256` | huella de `mdr-1.9.1.tar.gz` | Si no coincide, el arranque se para. Cámbiala junto con la versión |
+| `perfil_url` | (perfil mínimo) | Perfil del cliente, `https://` o `s3://` |
+| `red_cliente_cidrs` | (la VPC) | Rangos para el perfil mínimo |
+| `secreto_traza_arn` | (se genera) | Secreto con la clave HMAC de la traza |
+| `secreto_operadores_arn` | (un admin) | Secreto con los analistas `{"<token>": "<nombre>"}` |
+| `llm_habilitado` | `false` | Crea la GPU |
+| `llm_modelo_url`, `llm_modelo_sha256` | — | El `.gguf` del generador (obligatorias con GPU) |
+| `embed_modelo_url`, `embed_modelo_sha256` | — | El `.gguf` de bge-m3 (obligatorias con GPU) |
+| `llama_cpp_ref` | `b12445` | Etiqueta de llama.cpp |
+
+## Secretos (recomendado para algo más que una demo)
+
+Sin secretos, el arranque **genera** la clave de la traza y da de alta a un analista `admin`. Para una
+demo vale; pero si se recrea la instancia, la clave nueva no verifica la traza anterior (el arranque lo
+avisa en `/var/log/mdr-arranque.log`). Con Secrets Manager:
+
+```sh
+aws secretsmanager create-secret --name mdr/traza-clave --secret-string "$(openssl rand -hex 32)"
+aws secretsmanager create-secret --name mdr/operadores --secret-string '{"<token-de-ana>":"ana"}'
+tofu apply -var 'secreto_traza_arn=<ARN de mdr/traza-clave>' -var 'secreto_operadores_arn=<ARN de mdr/operadores>' …
+```
+
+Si un secreto indicado no se puede leer, el arranque **se para**: nunca genera uno nuevo por su cuenta.
 
 ## Validación offline (sin cuenta AWS, sin coste)
-```sh
-# 1. Instalar OpenTofu (binario único): https://opentofu.org/docs/intro/install/
-tofu init
-tofu fmt -check
-tofu validate                      # correctitud de la configuración contra el esquema del proveedor
 
-# 2. (Opcional) plan simulado contra LocalStack (AWS de mentira sobre Docker):
-docker run -d -p 4566:4566 localstack/localstack
-pip install terraform-local        # da el wrapper `tflocal` (o fija endpoints del proveedor a mano)
-tflocal init && tflocal plan        # apply simulado de lo soportado (VPC/EC2/IAM/SG)
+```sh
+cd infra/aws
+tofu init -backend=false && tofu fmt -check -recursive && tofu validate
+cd ../.. && python3 -m unittest prototipo.tests.test_infra_aws
+
+# Simulacro del arranque del MDR (docker, tofu y red para dnf; ~5 min):
+sh deploy/empaquetar.sh                      # o usa el mdr-<versión>.tar.gz del release
+sh infra/aws/simulacro/simulacro.sh dist/mdr-1.9.1.tar.gz
 ```
 
-## Aplicar de verdad (fase 2 — con la cuenta de la empresa)
+El simulacro renderiza la plantilla con OpenTofu y la ejecuta en `amazonlinux:2023` (la distribución de
+la AMI) con un disco de bucle y dobles de `systemctl` y `aws`. Cuatro casos: el normal (instalado, traza
+firmada, consola con token, disco montado, servicio habilitado), sin disco (se para), paquete con otra
+huella (se para sin instalar) y secreto ilegible (se para). No ejerce la GPU.
+
+## Aplicar de verdad (con la cuenta de la empresa)
+
 ```sh
-export AWS_PROFILE=<perfil-de-la-empresa>        # credenciales del tutor industrial
-# egreso_bootstrap=true permite que el primer arranque instale deps y clone el repo (crea NAT):
-tofu plan  -var 'region=<region>' -var 'llm_habilitado=false' -var 'egreso_bootstrap=true'
-tofu apply -var 'region=<region>' -var 'llm_habilitado=false' -var 'egreso_bootstrap=true'
-tofu output comando_tunel_visor                  # abre el visor por SSM en 127.0.0.1:8787
-# Para incluir el LLM (coste GPU): -var 'llm_habilitado=true' -var 'llm_tipo=g4dn.xlarge'
-tofu destroy ...                                 # apagar y no seguir pagando (incluido el NAT)
+export AWS_PROFILE=<perfil-de-la-empresa>
+tofu plan  -var 'region=<region>' -var 'egreso_bootstrap=true'
+tofu apply -var 'region=<region>' -var 'egreso_bootstrap=true'
+tofu output comando_tunel_visor     # abre la consola por SSM en http://127.0.0.1:8787
+tofu output comando_token_admin     # cómo leer el token del analista admin
+# Con el modelo (coste GPU): -var 'llm_habilitado=true' -var 'llm_tipo=g4dn.xlarge'
+#   -var 'llm_modelo_url=…' -var 'llm_modelo_sha256=…' -var 'embed_modelo_url=…' -var 'embed_modelo_sha256=…'
+tofu destroy …                      # apaga la instancia antes de soltar el disco de la traza
 ```
 
-## Variables clave (`variables.tf`)
-`region`, `proyecto`, `entorno`, `vpc_cidr`, `mdr_tipo`, `mdr_disco_gb`, `repo_url`/`repo_rama`
-(qué desplegar), `llm_habilitado` (GPU on/off), `llm_tipo`, `llm_modelo_url`, `secretos_arns`
-(ARNs de Secrets Manager a los que la instancia tendrá lectura).
+Las alertas del SIEM llegan a `/var/lib/mdr/alerts.json` (o, con `TRIAJE_ESCUCHAR` en
+`/etc/mdr/triaje.env`, por el receptor de red del daemon); ver el manual de producción.
 
 ## Estado de OpenTofu
-Local por defecto (tesis). Para equipo/producción, configurar un backend `s3` con bloqueo en `main.tf`.
+
+Local por defecto. Para un equipo o producción, configurar un backend `s3` con bloqueo en `main.tf`.
 El `.gitignore` de esta carpeta evita commitear el estado y `.terraform/`.

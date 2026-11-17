@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Estado (16/11/2026): pendiente.** Alcance acordado con el usuario: los puntos de AWS de
+> **Estado (17/11/2026): hecho** (commits `75dc63e`..HEAD). Alcance acordado con el usuario: los puntos de AWS de
 > [`OBSERVACIONES-REVISION.md`](../../OBSERVACIONES-REVISION.md) (#6–#12, #18, #19), «por si se prueba
 > en AWS». Sin `apply` real: no hay cuenta. Commits locales en `main`, sin push.
 

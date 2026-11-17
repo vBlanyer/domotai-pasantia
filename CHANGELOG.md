@@ -7,6 +7,17 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [Sin publicar]
 
+### Corregido
+- **Despliegue en AWS** (`infra/aws/`, puntos #6–#12, #18 y #19 de la revisión del 15/11): el arranque
+  instala el paquete del release verificado por su huella con `instalar.sh` (consola incluida, código de
+  root), exige el disco de la traza, firma la traza y protege la consola con token (Secrets Manager o
+  generados) y, con GPU, conecta el modelo y el embedder del RAG; la GPU compila llama.cpp con CUDA y
+  sirve los dos modelos verificados. El arranque anterior fallaba por sintaxis (un doble dólar que
+  `templatefile` no escapa) y no instalaba `openssh-clients`. Simulacro del arranque en
+  `amazonlinux:2023` (`infra/aws/simulacro/`). Sin `apply` real.
+- `TRIAJE_CON_LLM=1` en `triaje.env` arranca el daemon con el modelo de lenguaje (también en el
+  equipo local).
+
 ## [1.9.1] — 2026-11-16 · revisión final de la consola
 
 ### Corregido

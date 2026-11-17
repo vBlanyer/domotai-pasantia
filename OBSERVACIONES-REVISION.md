@@ -48,7 +48,14 @@ Aplicado en `main` (commits locales) según el plan
 | 22 | **Hecho**: cuerpo que no es un objeto (o JSON inválido) → 400 | `ee810e4` |
 | — | **Revisión final de la rama** (revisor independiente): sin críticos; 3 importantes corregidos (alta antigua mal diagnosticada, testigo de sudo y ruta exacta del envoltorio) y los 8 menores también (IP sin prefijo, usuario del conector protegido, valores sin «-», `limite_banda` validado, temporales del alta, permisos de `/usr/local/sbin`, Ansible aparta sudoers antiguos) | `56f301d`, `56cc1d8` |
 | 3, 5, 16, 20, 21, 23 | Recomendación, sin cambios | — |
-| 6–12, 18, 19 | Para la fase de AWS, sin cambios | — |
+| 6 | **Hecho**: `TRIAJE_CON_LLM=1` arranca el daemon con `--con-llm`; el arranque de AWS escribe `LLAMA_URL`, `LLAMA_EMBED_URL` y `TRIAJE_CON_LLM` si hay GPU | `75dc63e`, `82a4edd` |
+| 7 | **Hecho**: se instala el release `mdr_version` (por defecto 1.9.1), con su huella SHA-256 | `82a4edd` |
+| 8, 9 | **Hecho**: la GPU parte de la AMI con driver NVIDIA, compila llama.cpp (etiqueta fija) con CUDA y sirve el generador (8080) y bge-m3 (8082), modelos verificados; sin modelos no se crea. **No probado** sin GPU | `40dec6a` |
+| 10 | **Hecho**: el disco de la traza es obligatorio (si no aparece, el arranque se para) y la unidad exige el montaje | `82a4edd` |
+| 11, 18 | **Hecho**: el arranque instala el paquete del release con `instalar.sh` (consola incluida, código de root en solo lectura) | `82a4edd` |
+| 12 | **Hecho**: `stop_instance_before_detaching = true` | `82a4edd` |
+| 19 | **Hecho**: clave de la traza y analistas de Secrets Manager (un fallo al leerlos para el arranque) o generados, con el token de admin en `/root/mdr-token-admin` | `82a4edd` |
+| — | **Además**: el arranque anterior fallaba por sintaxis en el bucle del disco (doble dólar que `templatefile` no escapa), y no instalaba `openssh-clients`, que `instalar.sh` exige (lo destapó el simulacro). Simulacro del arranque en `amazonlinux:2023` en `infra/aws/simulacro/` | `82a4edd`, tarea 4 |
 
 ## Prioridades recomendadas
 
