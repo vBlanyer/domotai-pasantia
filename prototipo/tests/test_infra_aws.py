@@ -8,7 +8,8 @@ import unittest
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 INFRA = os.path.join(RAIZ, "infra", "aws")
-SHA_1_9_1 = "7c686657021aba4041d6eede34808a08831b832534b151736a42c1022adda519"
+SHA_1_9_2 = "e35afcd4f4e70725ffb59585ed4353a3ebed273dcf6a29fe5dee4a676983aba0"
+COMMIT_1_9_2 = "2c64820df320f0eab32583f7de1b4f2d99546d78"   # el de la etiqueta v1.9.2
 
 
 def _leer(rel):
@@ -34,8 +35,12 @@ class TestArranqueMdr(unittest.TestCase):
         v = _leer("variables.tf")
         self.assertNotIn("v1.4", v)                          # #7
         self.assertNotIn("repo_rama", v)
-        self.assertRegex(v, r'variable "mdr_version"[^}]*default\s*=\s*"1\.9\.1"')
-        self.assertIn(SHA_1_9_1, v)
+        self.assertRegex(v, r'variable "mdr_version"[^}]*default\s*=\s*"1\.9\.2"')
+        self.assertIn(SHA_1_9_2, v)
+        plantilla = _leer("produccion.tfvars.ejemplo")
+        self.assertRegex(plantilla, r'(?m)^mdr_version\s*=\s*"1\.9\.2"')
+        self.assertIn(SHA_1_9_2, plantilla)
+        self.assertIn(COMMIT_1_9_2, plantilla)
 
     def test_disco_obligatorio(self):
         t = _leer(self.T)
@@ -294,7 +299,7 @@ class TestLaboratorio(unittest.TestCase):
         s = d[d.index("## Variante laboratorio"):]
         for txt in ("no se conecta a ningún cliente", "stop-instances", "banco.sh atacar", "comprobar-alertas",
                     "journalctl -u mdr-laboratorio", "laboratorio_commit", "systemctl restart mdr-laboratorio",
-                    "reiniciar.sh", "se anotan como revertidas"):
+                    "reiniciar.sh", "se anotan como revertidas", COMMIT_1_9_2):
             self.assertIn(txt.lower(), s.lower())
 
 

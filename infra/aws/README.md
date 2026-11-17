@@ -65,9 +65,9 @@ Para el despliegue oficial: [DESPLIEGUE.md](DESPLIEGUE.md) (cuotas y pasos), [CO
 | `region` | `eu-west-1` | Región |
 | `variante` | `mdr` | `mdr` (producción) o `laboratorio` (banco, Wazuh y MDR en una máquina; ver abajo) |
 | `egreso_bootstrap` | `false` | NAT para el primer arranque |
-| `mdr_version` | `1.9.1` | Versión del release a instalar |
+| `mdr_version` | `1.9.2` | Versión del release a instalar |
 | `mdr_paquete_url` | (release de GitHub) | `https://` o `s3://` del `mdr-<versión>.tar.gz` |
-| `mdr_paquete_sha256` | huella de `mdr-1.9.1.tar.gz` | Si no coincide, el arranque se para. Cámbiala junto con la versión |
+| `mdr_paquete_sha256` | huella de `mdr-1.9.2.tar.gz` | Si no coincide, el arranque se para. Cámbiala junto con la versión |
 | `perfil_url` | (perfil mínimo) | Perfil del cliente, `https://` o `s3://` |
 | `red_cliente_cidrs` | (la VPC) | Rangos para el perfil mínimo |
 | `secreto_traza_arn` | (se genera) | Secreto con la clave HMAC de la traza |
@@ -121,7 +121,7 @@ cd ../.. && python3 -m unittest prototipo.tests.test_infra_aws
 
 # Simulacro del arranque del MDR (docker, tofu y red para dnf; ~5 min):
 sh deploy/empaquetar.sh                      # o usa el mdr-<versión>.tar.gz del release
-sh infra/aws/simulacro/simulacro.sh dist/mdr-1.9.1.tar.gz
+sh infra/aws/simulacro/simulacro.sh dist/mdr-1.9.2.tar.gz
 ```
 
 El simulacro renderiza la plantilla con OpenTofu y la ejecuta en `amazonlinux:2023` (la distribución de

@@ -62,7 +62,7 @@ variable "mdr_disco_gb" {
 variable "mdr_version" {
   description = "Versión del MDR a instalar (release de GitHub vX.Y.Z)."
   type        = string
-  default     = "1.9.1"
+  default     = "1.9.2"
 }
 
 variable "mdr_paquete_url" {
@@ -72,9 +72,9 @@ variable "mdr_paquete_url" {
 }
 
 variable "mdr_paquete_sha256" {
-  description = "SHA-256 del paquete. El arranque se para si no coincide. El valor por defecto es el de mdr-1.9.1.tar.gz publicado en el release v1.9.1: cámbialo junto con mdr_version."
+  description = "SHA-256 del paquete. El arranque se para si no coincide. El valor por defecto es el de mdr-1.9.2.tar.gz publicado en el release v1.9.2: cámbialo junto con mdr_version."
   type        = string
-  default     = "7c686657021aba4041d6eede34808a08831b832534b151736a42c1022adda519"
+  default     = "e35afcd4f4e70725ffb59585ed4353a3ebed273dcf6a29fe5dee4a676983aba0"
   validation {
     condition     = can(regex("^[0-9a-f]{64}$", var.mdr_paquete_sha256))
     error_message = "mdr_paquete_sha256 debe ser un SHA-256 en hexadecimal (64 caracteres)."
@@ -187,7 +187,7 @@ variable "laboratorio_disco_gb" {
 }
 
 variable "laboratorio_commit" {
-  description = "Commit (40 caracteres) de la etiqueta v<mdr_version> del repositorio: el arranque clona la etiqueta y para si el commit no es este. Obligatorio con variante = \"laboratorio\"."
+  description = "Commit (40 caracteres) de la etiqueta v<mdr_version> del repositorio: el arranque clona la etiqueta y para si el commit no es este. Obligatorio con variante = \"laboratorio\". El de v1.9.2 es 2c64820df320f0eab32583f7de1b4f2d99546d78."
   type        = string
   default     = ""
   validation {

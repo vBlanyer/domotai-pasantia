@@ -33,8 +33,8 @@ Comprueba los códigos en la consola de *Service Quotas* si AWS los cambia.
 
 ```sh
 aws s3 mb s3://<bucket-artefactos> --region <region>
-aws s3 cp mdr-1.9.1.tar.gz s3://<bucket-artefactos>/          # del release de GitHub
-sha256sum mdr-1.9.1.tar.gz                                     # → mdr_paquete_sha256
+aws s3 cp mdr-1.9.2.tar.gz s3://<bucket-artefactos>/          # del release de GitHub
+sha256sum mdr-1.9.2.tar.gz                                     # → mdr_paquete_sha256
 aws s3 cp perfil.yml s3://<bucket-artefactos>/                 # el perfil del cliente (opcional)
 ```
 
@@ -131,8 +131,8 @@ la máquina. Qué se crea: escenario E del [inventario](inventario/); coste: [CO
 Requisitos, además de los pasos 0 y 3:
 
 - un MDR **≥ 1.9.2** publicado (la 1.9.1 no trae los arreglos del laboratorio; `tofu plan` lo rechaza);
-- `laboratorio_commit`, el commit de su etiqueta: `git rev-parse v1.9.2^{commit}` en el repositorio. El
-  arranque clona la etiqueta y **se para** si el commit no es ese;
+- `laboratorio_commit`, el commit de su etiqueta (`git rev-parse v1.9.2^{commit}` en el repositorio);
+  para la v1.9.2 es `2c64820df320f0eab32583f7de1b4f2d99546d78`. El arranque clona la etiqueta y **se para** si el commit no es ese;
 - 4 vCPU de cuota estándar (`t3.xlarge`) y `egreso_bootstrap = true` (descarga Docker, Containerlab y
   la imagen de Wazuh). Sin GPU.
 

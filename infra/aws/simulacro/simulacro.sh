@@ -12,7 +12,7 @@
 # Necesita docker (contenedor --privileged para el disco de bucle), tofu y red para dnf.
 set -eu
 RAIZ=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
-PAQ=$(realpath "${1:-$RAIZ/dist/mdr-1.9.1.tar.gz}")
+PAQ=$(realpath "${1:-$RAIZ/dist/mdr-1.9.2.tar.gz}")
 [ -f "$PAQ" ] || { echo "falta el paquete $PAQ (genéralo con sh deploy/empaquetar.sh)"; exit 2; }
 SHA=$(sha256sum "$PAQ" | cut -d' ' -f1)
 NOMBRE=$(basename "$PAQ")
