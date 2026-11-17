@@ -53,9 +53,16 @@ resource "aws_security_group" "llm" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description     = "llama-server desde el MDR"
+    description     = "generador (llama-server) desde el MDR"
     from_port       = 8080
     to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.mdr.id]
+  }
+  ingress {
+    description     = "embedder bge-m3 del RAG desde el MDR"
+    from_port       = 8082
+    to_port         = 8082
     protocol        = "tcp"
     security_groups = [aws_security_group.mdr.id]
   }

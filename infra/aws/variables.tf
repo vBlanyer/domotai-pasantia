@@ -120,9 +120,41 @@ variable "llm_tipo" {
 }
 
 variable "llm_modelo_url" {
-  description = "URL de los pesos del modelo que el arranque de la GPU descarga (vacío = se aporta aparte)."
+  description = "URL (https:// o s3://) del .gguf del generador, p. ej. Foundation-Sec-8B-Instruct Q4_K_M. Obligatoria con llm_habilitado."
   type        = string
   default     = ""
+}
+
+variable "llm_modelo_sha256" {
+  description = "SHA-256 del .gguf del generador. Obligatoria con llm_habilitado."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.llm_modelo_sha256 == "" || can(regex("^[0-9a-f]{64}$", var.llm_modelo_sha256))
+    error_message = "llm_modelo_sha256 debe ser un SHA-256 en hexadecimal (64 caracteres)."
+  }
+}
+
+variable "embed_modelo_url" {
+  description = "URL (https:// o s3://) del .gguf de bge-m3, el embedder del RAG. Obligatoria con llm_habilitado."
+  type        = string
+  default     = ""
+}
+
+variable "embed_modelo_sha256" {
+  description = "SHA-256 del .gguf de bge-m3. Obligatoria con llm_habilitado."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.embed_modelo_sha256 == "" || can(regex("^[0-9a-f]{64}$", var.embed_modelo_sha256))
+    error_message = "embed_modelo_sha256 debe ser un SHA-256 en hexadecimal (64 caracteres)."
+  }
+}
+
+variable "llama_cpp_ref" {
+  description = "Etiqueta de llama.cpp que se compila en la GPU (fija: nunca master)."
+  type        = string
+  default     = "b12445"
 }
 
 variable "secretos_arns" {

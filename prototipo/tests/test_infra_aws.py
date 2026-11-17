@@ -75,5 +75,32 @@ class TestArranqueMdr(unittest.TestCase):
                 self.assertIsNone(re.search(r"\$\$(?!\{)", g.read()), f)
 
 
+class TestGpu(unittest.TestCase):
+    T = "templates/llm_user_data.sh.tftpl"
+
+    def test_gpu_sin_fallos_silenciosos(self):
+        t = _leer(self.T)                                    # #9
+        self.assertIn("set -euo pipefail", t)
+        self.assertNotIn("|| true", t)
+        self.assertIn("-DGGML_CUDA=ON", t)
+        self.assertIn("sha256sum -c", t)
+        self.assertIn("--port 8080", t)                      # el generador
+        self.assertIn("--port 8082", t)                      # #8: el embedder del RAG
+        self.assertIn("--pooling cls", t)
+        self.assertIn("systemctl enable --now llama-gen llama-embed", t)
+
+    def test_gpu_exige_modelos(self):
+        llm = _leer("llm.tf")
+        self.assertIn("precondition", llm)
+        for v in ("llm_modelo_url", "llm_modelo_sha256", "embed_modelo_url", "embed_modelo_sha256"):
+            self.assertIn(f"var.{v}", llm)
+            self.assertRegex(_leer("variables.tf"), rf'variable "{v}"')
+        self.assertIn("Deep Learning Base OSS Nvidia Driver GPU AMI (Amazon Linux 2023)", llm)
+
+    def test_sg_embedder(self):
+        net = _leer("network.tf")
+        self.assertRegex(net, r"from_port\s*=\s*8082\s*\n\s*to_port\s*=\s*8082")
+
+
 if __name__ == "__main__":
     unittest.main()

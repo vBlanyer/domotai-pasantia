@@ -26,7 +26,8 @@ resource "aws_iam_role_policy_attachment" "ssm" {
 locals {
   secretos = compact(concat(var.secretos_arns, [var.secreto_traza_arn, var.secreto_operadores_arn]))
   # Objetos de S3 que lee el arranque (paquete y perfil), si vienen de S3.
-  objetos_s3 = [for u in [local.paquete_url, var.perfil_url] : replace(u, "s3://", "arn:aws:s3:::") if startswith(u, "s3://")]
+  objetos_s3 = [for u in [local.paquete_url, var.perfil_url, var.llm_modelo_url, var.embed_modelo_url] :
+  replace(u, "s3://", "arn:aws:s3:::") if startswith(u, "s3://")]
 }
 
 data "aws_iam_policy_document" "leer_secretos" {

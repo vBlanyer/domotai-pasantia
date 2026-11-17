@@ -1,39 +1,63 @@
 #!/bin/bash
-# cloud-init de la instancia GPU del LLM justificador. La variable de plantilla modelo_url la rellena
-# OpenTofu con templatefile; las variables de SHELL van con doble dólar. Es un ESQUEMA del arranque; en
-# producción conviene partir de una AMI con drivers NVIDIA (p. ej. Deep Learning AMI) para no compilar
-# el driver en el arranque.
-# REQUISITO: los git clone/curl de abajo necesitan egreso de bootstrap (var.egreso_bootstrap=true) o
-# una AMI horneada / pesos en S3; la subred privada no sale a Internet por defecto.
-set -euxo pipefail
+# Arranque (cloud-init) de la instancia GPU del modelo de lenguaje. Parte de la AMI «Deep Learning Base
+# OSS Nvidia Driver GPU AMI (Amazon Linux 2023)», que ya trae el driver NVIDIA y CUDA. Compila llama.cpp
+# (etiqueta fija) con CUDA y sirve dos modelos en la red privada: el generador (8080) para la
+# justificación y bge-m3 (8082) para el RAG. Fail-closed: cualquier paso que falla para el arranque
+# (registro en /var/log/llm-arranque.log); los modelos se comprueban por su huella.
+#
+# Plantilla de OpenTofu: lo que va entre llaves con un solo dólar lo rellena templatefile. Nunca dos
+# dólares sin llave (templatefile no los escapa).
+set -euo pipefail
+exec > >(tee -a /var/log/llm-arranque.log) 2>&1
+export PATH=/usr/local/cuda/bin:$PATH
 
-# 1. Toolchain + driver NVIDIA (en una AMI de Deep Learning este paso sobra).
-dnf install -y gcc make kernel-devel-$(uname -r) git || true
-# (driver NVIDIA: instalar según la AMI elegida; omitido aquí por depender de la familia g4/g5)
+# 1. Herramientas de compilación.
+dnf install -y git cmake gcc-c++
 
-# 2. llama.cpp (servidor de inferencia con endpoint HTTP + embeddings para el RAG).
-dnf install -y cmake gcc-c++ || true
-git clone --depth 1 https://github.com/ggml-org/llama.cpp /opt/llama.cpp || true
+# 2. llama.cpp en una etiqueta fija, compilado con CUDA (solo el servidor).
+git clone --branch "${llama_cpp_ref}" --depth 1 https://github.com/ggml-org/llama.cpp /opt/llama.cpp
+cmake -S /opt/llama.cpp -B /opt/llama.cpp/build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build /opt/llama.cpp/build -j "$(nproc)" --target llama-server
 
-# 3. Pesos del modelo (desde ${modelo_url} si se indicó; si no, se aportan aparte).
-mkdir -p /opt/modelos
-if [ -n "${modelo_url}" ]; then
-  curl -fsSL -o /opt/modelos/modelo.gguf "${modelo_url}" || true
-fi
+# 3. Modelos, verificados por su huella.
+descargar() { # descargar URL SHA256 DESTINO
+  case "$1" in
+    s3://*) aws s3 cp --region "${region}" "$1" "$3" ;;
+    *) curl -fsSL -o "$3" "$1" ;;
+  esac
+  echo "$2  $3" | sha256sum -c -
+}
+install -d /opt/modelos
+descargar "${modelo_url}" "${modelo_sha256}" /opt/modelos/generador.gguf
+descargar "${embed_url}" "${embed_sha256}" /opt/modelos/bge-m3.gguf
 
-# 4. Arrancar llama-server en la red privada (lo consume el MDR por http://<ip-privada>:8080).
-#    --embedding habilita los vectores para el RAG local del justificador.
-cat > /etc/systemd/system/llama.service <<'EOF'
+# 4. Dos servicios con un usuario sin privilegios. --pooling cls es como se entrenó bge-m3 (y lo que
+#    usa el índice del RAG): otra agrupación daría vectores distintos en silencio.
+id llama >/dev/null 2>&1 || useradd --system --no-create-home --shell /sbin/nologin llama
+cat > /etc/systemd/system/llama-gen.service <<'EOF'
 [Unit]
-Description=llama-server (LLM justificador del MDR)
+Description=llama-server: generador del MDR (justificación)
 After=network-online.target
 Wants=network-online.target
 [Service]
-ExecStart=/opt/llama.cpp/build/bin/llama-server --host 0.0.0.0 --port 8080 --embedding -m /opt/modelos/modelo.gguf
-Restart=always
+User=llama
+ExecStart=/opt/llama.cpp/build/bin/llama-server -m /opt/modelos/generador.gguf --host 0.0.0.0 --port 8080 -ngl 99
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target
+EOF
+cat > /etc/systemd/system/llama-embed.service <<'EOF'
+[Unit]
+Description=llama-server: embedder bge-m3 del RAG del MDR
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=llama
+ExecStart=/opt/llama.cpp/build/bin/llama-server -m /opt/modelos/bge-m3.gguf --embedding --pooling cls --host 0.0.0.0 --port 8082 -ngl 99
+Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-systemctl enable llama.service || true
-# El `start` real se deja para cuando el modelo y el driver estén listos (evita un bucle de reinicios).
+systemctl enable --now llama-gen llama-embed
+echo "Modelo y embedder en marcha (8080 y 8082)."
