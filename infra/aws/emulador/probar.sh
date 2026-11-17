@@ -4,7 +4,7 @@
 # el grafo de recursos se crea entero y en orden y que las precondiciones frenan lo que deben. NO es un
 # despliegue real: no arranca máquinas ni evalúa IAM (ver infra/aws/README.md, «Qué prueba cada capa»).
 #
-# Uso:  sh infra/aws/emulador/probar.sh            los cuatro escenarios (A, B, C y D)
+# Uso:  sh infra/aws/emulador/probar.sh            todos los escenarios (A–G)
 #       sh infra/aws/emulador/probar.sh A C        solo esos
 #       MDR_INVENTARIO=<dir> sh …                  además guarda el plan en JSON de cada escenario
 # Necesita aws-emulator (se arranca si no está en marcha, sin telemetría) y tofu.
@@ -13,7 +13,7 @@ RAIZ=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 INFRA="$RAIZ/infra/aws"
 EMU="$HOME/.aws/emulator/9297"
 URL=https://127.0.0.1:9297
-ESCENARIOS=${*:-A B C D}
+ESCENARIOS=${*:-A B C D E F G}
 
 salud() { curl -s -m 3 --cacert "$EMU/ca.pem" "$URL/__admin/health" 2>/dev/null | grep -q ok; }
 
@@ -93,6 +93,7 @@ EOF
 }
 
 ZEROS=0000000000000000000000000000000000000000000000000000000000000000
+LAB="-var variante=laboratorio -var laboratorio_commit=0000000000000000000000000000000000000000"
 COMUNES="-var region=us-east-1"
 vars_de() {
   case "$1" in
@@ -106,24 +107,41 @@ vars_de() {
     D) echo "$COMUNES -var egreso_bootstrap=true -var llm_habilitado=true -var mdr_version=1.9.2 -var mdr_paquete_sha256=$ZEROS \
 -var llm_modelo_url=s3://mdr-prueba/generador.gguf -var llm_modelo_sha256=$ZEROS \
 -var embed_modelo_url=s3://mdr-prueba/bge-m3.gguf -var embed_modelo_sha256=$ZEROS" ;;
+    E) echo "$COMUNES -var egreso_bootstrap=true $LAB -var mdr_version=1.9.2 -var mdr_paquete_sha256=$ZEROS" ;;
+    F) echo "$COMUNES -var egreso_bootstrap=false $LAB -var mdr_version=1.9.2 -var mdr_paquete_sha256=$ZEROS \
+-var mdr_paquete_url=s3://mdr-prueba/mdr-1.9.2.tar.gz" ;;
+    G) echo "$COMUNES -var egreso_bootstrap=true $LAB -var mdr_version=1.9.1" ;;
   esac
+}
+
+# Escenarios que la configuración debe RECHAZAR en el plan (precondición), sin crear nada.
+rechazo_de() {
+  case "$1" in
+    C) echo "El paquete 1.9.1 no activa el modelo" ;;
+    F) echo "La variante laboratorio necesita egreso_bootstrap = true" ;;
+    G) echo "La variante laboratorio necesita un MDR >= 1.9.2" ;;
+  esac
+}
+rechazado() { # rechazado ESCENARIO "mensaje" (en el directorio del escenario, con $v)
+  if tofu plan -input=false -no-color $v > plan.log 2>&1; then
+    echo "== $1: NO como se esperaba (el plan pasó)"; FALLOS=1
+  # OpenTofu parte los mensajes largos en varias líneas con «│»: se buscan en el texto aplanado.
+  elif sed 's/^[│ ]*//' plan.log | tr '\n' ' ' | tr -s ' ' | grep -qF "$2"; then
+    echo "== $1: rechazado como se esperaba ($2)"
+  else
+    echo "== $1: NO como se esperaba (falló por otra cosa)"; tail -15 plan.log; FALLOS=1
+  fi
 }
 
 FALLOS=0
 for e in $ESCENARIOS; do
+  case "$e" in [A-G]) ;; *) echo "== $e: escenario desconocido (A–G)"; FALLOS=1; continue ;; esac
   d=$(preparar "$e")
   v=$(vars_de "$e")
   echo "$v" > "$d/vars"
   cd "$d"
-  if [ "$e" = C ]; then
-    # Debe fallar en plan, sin crear nada.
-    if tofu plan -input=false -no-color $v > plan.log 2>&1; then
-      echo "== C. GPU con el paquete 1.9.1: NO como se esperaba (el plan pasó)"; FALLOS=1
-    elif grep -q "El paquete 1.9.1 no activa el modelo" plan.log; then
-      echo "== C. GPU con el paquete 1.9.1: como se esperaba (la precondición lo rechaza)"
-    else
-      echo "== C. GPU con el paquete 1.9.1: NO como se esperaba (falló por otra cosa)"; tail -15 plan.log; FALLOS=1
-    fi
+  if [ -n "$(rechazo_de "$e")" ]; then
+    rechazado "$e" "$(rechazo_de "$e")"
     cd "$RAIZ"; continue
   fi
   if ! tofu plan -input=false -no-color -out plan.bin $v > plan.log 2>&1; then

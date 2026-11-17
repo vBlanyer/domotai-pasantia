@@ -103,3 +103,37 @@ Como A, más la GPU con el modelo y el embedder (MDR >= 1.9.2).
 | `aws_vpc_endpoint.ssm["ec2messages"]` | `aws_vpc_endpoint` | Endpoints de SSM: el analista entra por túnel, sin puertos abiertos. |
 | `aws_vpc_endpoint.ssm["ssm"]` | `aws_vpc_endpoint` | Endpoints de SSM: el analista entra por túnel, sin puertos abiertos. |
 | `aws_vpc_endpoint.ssm["ssmmessages"]` | `aws_vpc_endpoint` | Endpoints de SSM: el analista entra por túnel, sin puertos abiertos. |
+
+## Escenario E · 27 recursos
+
+Variante laboratorio: la instancia del MDR levanta el banco, Wazuh y el MDR (t3.xlarge, con egreso, MDR >= 1.9.2). No se conecta a ningún cliente.
+
+| Recurso | Tipo | Por qué existe |
+|---|---|---|
+| `aws_ebs_volume.traza` | `aws_ebs_volume` | Disco cifrado de la traza y del estado del MDR (/var/lib/mdr). |
+| `aws_eip.nat[0]` | `aws_eip` | IP pública del NAT (solo con egreso). |
+| `aws_iam_instance_profile.gpu` | `aws_iam_instance_profile` | Perfil que asocia el rol de la GPU a su instancia. Se crea aunque no haya GPU (sin coste). |
+| `aws_iam_instance_profile.instancia` | `aws_iam_instance_profile` | Perfil que asocia el rol a la instancia del MDR. |
+| `aws_iam_role.gpu` | `aws_iam_role` | Rol propio de la GPU (sin acceso a los secretos del MDR). Se crea aunque no haya GPU (sin coste). |
+| `aws_iam_role.instancia` | `aws_iam_role` | Rol del MDR. |
+| `aws_iam_role_policy_attachment.gpu_ssm` | `aws_iam_role_policy_attachment` | La GPU se gestiona por SSM. Se crea aunque no haya GPU (sin coste). |
+| `aws_iam_role_policy_attachment.ssm` | `aws_iam_role_policy_attachment` | El MDR se gestiona por SSM. |
+| `aws_instance.mdr` | `aws_instance` | El MDR (daemon y consola). |
+| `aws_internet_gateway.igw[0]` | `aws_internet_gateway` | Salida a Internet de la subred pública (solo con egreso). |
+| `aws_nat_gateway.nat[0]` | `aws_nat_gateway` | NAT para que el primer arranque descargue paquetes (solo con egreso); se cobra mientras exista. |
+| `aws_route.privada_egreso[0]` | `aws_route` | Salida de la subred privada por el NAT: la usa el primer arranque, y queda mientras egreso_bootstrap = true. |
+| `aws_route_table.privada` | `aws_route_table` | Rutas de la subred privada (sin salida a Internet salvo el NAT). |
+| `aws_route_table.publica[0]` | `aws_route_table` | Rutas de la subred pública hacia el internet gateway. |
+| `aws_route_table_association.privada` | `aws_route_table_association` | Asocia la subred privada a sus rutas. |
+| `aws_route_table_association.publica[0]` | `aws_route_table_association` | Asocia la subred pública a sus rutas. |
+| `aws_security_group.endpoints` | `aws_security_group` | Cortafuegos de los endpoints: 443 desde la VPC. |
+| `aws_security_group.llm` | `aws_security_group` | Cortafuegos de la GPU: solo el MDR entra, al 8080 y al 8082. Se crea aunque no haya GPU (sin coste). |
+| `aws_security_group.mdr` | `aws_security_group` | Cortafuegos del MDR: sin entradas; salida libre. |
+| `aws_subnet.privada` | `aws_subnet` | Subred sin IP pública donde viven las instancias. |
+| `aws_subnet.publica[0]` | `aws_subnet` | Subred pública que solo aloja el NAT del primer arranque. |
+| `aws_volume_attachment.traza` | `aws_volume_attachment` | Engancha el disco de la traza al MDR (destroy apaga antes de soltarlo). |
+| `aws_vpc.main` | `aws_vpc` | Red privada del MDR. |
+| `aws_vpc_endpoint.s3` | `aws_vpc_endpoint` | Endpoint de S3: paquete, perfil y modelos sin salir a Internet. |
+| `aws_vpc_endpoint.ssm["ec2messages"]` | `aws_vpc_endpoint` | Endpoints de SSM: el analista entra por túnel, sin puertos abiertos. |
+| `aws_vpc_endpoint.ssm["ssm"]` | `aws_vpc_endpoint` | Endpoints de SSM: el analista entra por túnel, sin puertos abiertos. |
+| `aws_vpc_endpoint.ssm["ssmmessages"]` | `aws_vpc_endpoint` | Endpoints de SSM: el analista entra por túnel, sin puertos abiertos. |

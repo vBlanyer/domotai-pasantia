@@ -14,6 +14,7 @@ ESCENARIOS = {
     "A": "Con egreso para el primer arranque (NAT), paquete del release de GitHub, sin secretos ni GPU.",
     "B": "Sin egreso: paquete en S3, los dos secretos en Secrets Manager; sin NAT ni GPU. El de producción recomendado.",
     "D": "Como A, más la GPU con el modelo y el embedder (MDR >= 1.9.2).",
+    "E": "Variante laboratorio: la instancia del MDR levanta el banco, Wazuh y el MDR (t3.xlarge, con egreso, MDR >= 1.9.2). No se conecta a ningún cliente.",
 }
 
 # Por qué existe cada recurso (por dirección sin índice).

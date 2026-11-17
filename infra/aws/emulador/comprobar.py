@@ -101,6 +101,20 @@ def comprobaciones(escenario, estado):
             if not (len(ud) == 40 and all(c in "0123456789abcdef" for c in ud)):
                 mira("el arranque del MDR apunta al modelo y al embedder de la GPU",
                      f"http://{ip}:8080" in ud and f"http://{ip}:8082" in ud)
+    if escenario == "E":
+        v = (mdr or {}).get("values", {})
+        mira("laboratorio: t3.xlarge", v.get("instance_type") == "t3.xlarge")
+        raiz = (v.get("root_block_device") or [{}])[0]
+        mira("laboratorio: raíz de 40 GB gp3 cifrada",
+             raiz.get("volume_size") == 40 and raiz.get("volume_type") == "gp3" and raiz.get("encrypted") is True)
+        mira("laboratorio: el nombre lo dice", str(v.get("tags", {}).get("Name", "")).endswith("-laboratorio"))
+        mira("laboratorio: sin GPU", "aws_instance.llm[0]" not in rs)
+        mira("laboratorio: con egreso (NAT)", "aws_nat_gateway" in tipos)
+        ud = _user_data(mdr) if mdr else ""
+        mira("el arranque clona v1.9.2 y comprueba el commit", "--branch v1.9.2" in ud and "0" * 40 in ud)
+        mira("el arranque instala la unidad mdr-laboratorio", "systemctl enable --now mdr-laboratorio" in ud)
+        # AWS rechaza al crear la instancia un user_data de más de 16 KB.
+        mira("el script de arranque cabe en 16 KB", 0 < len(ud.encode()) < 16384)
     return out
 
 
