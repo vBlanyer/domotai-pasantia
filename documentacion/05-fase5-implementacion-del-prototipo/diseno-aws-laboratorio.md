@@ -152,6 +152,8 @@ Parada sigue cobrando unos 68 $/mes (sobre todo el NAT y los endpoints de SSM).
 - La variante laboratorio ignora `perfil_url` y `red_cliente_cidrs` (usa el perfil del banco).
 - El nombre de los recursos y las etiquetas llevan «laboratorio» cuando `variante = "laboratorio"`.
 
+Plan de implementación: [plan-aws-laboratorio.md](plan-aws-laboratorio.md).
+
 ## Lo que queda al constructor
 
 - La forma exacta de instalar Containerlab en Amazon Linux 2023 (repositorio RPM oficial o su script),
