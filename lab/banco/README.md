@@ -42,6 +42,15 @@ nominales del banco, p. ej. 1521/9000/48002). Recuerda hacer `unset AUDITOR_PUER
 una sesión del banco, antes de volver a auditar la red pequeña — si no, el auditor de la red
 pequeña escanearía también esos puertos.
 
+## Como servicio (sin nadie delante)
+
+`servicio-mdr.sh` hace en un solo paso lo que se hace a mano arriba, preparado para systemd (la unidad
+`mdr-laboratorio.service`, que instala la variante «laboratorio» del despliegue en AWS, `infra/aws`):
+baja y vuelve a levantar el banco, aprovisiona, comprueba (`test` y `comprobar-alertas`, que terminan
+con error si algo falla) y arranca el daemon con las mismas variables que `reiniciar.sh`. La traza va a
+un fichero fijo (`/var/lib/mdr/trazas-laboratorio.jsonl`), así que la cadena continúa entre arranques.
+**Baja el banco y el Wazuh**: no lo ejecutes en un equipo donde los estés usando.
+
 ## Qué hay
 
 | Pieza | Dónde |

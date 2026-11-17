@@ -1,0 +1,22 @@
+[Unit]
+Description=Laboratorio del banco + MDR (variante laboratorio: no se conecta a ningún cliente)
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+# La traza vive en el EBS: sin él montado, no se arranca (escribiría en el disco raíz).
+RequiresMountsFor=/var/lib/mdr
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/mdr/triaje.env
+WorkingDirectory=/opt/mdr-laboratorio
+# Corre como root: necesita docker (Containerlab, Wazuh y el conector por docker exec en mdr-siem).
+ExecStart=/bin/bash /opt/mdr-laboratorio/lab/banco/servicio-mdr.sh
+# Como en producción: si la cola de alertas se corta, el proceso sale limpio y on-failure lo dejaría
+# parado. Cada reinicio rehace el laboratorio (unos minutos).
+Restart=always
+RestartSec=30
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

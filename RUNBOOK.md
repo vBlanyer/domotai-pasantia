@@ -42,6 +42,10 @@ sh lab/banco/banco.sh test
 
 Si `aprovisionar` o `test` fallan, ve a [§7 Problemas](#7-solución-de-problemas).
 
+`sh lab/banco/banco.sh comprobar-alertas` comprueba además que Wazuh genera alertas de punta a punta
+(útil antes de una demo). Para dejarlo todo como servicio, sin nadie delante: `lab/banco/servicio-mdr.sh`
+(ver [lab/banco/README.md](lab/banco/README.md)).
+
 **El daemon (el motor MDR)** lee las alertas de Wazuh por stdin y decide. Antes, exporta el nodo de
 gestión para que el conector ejecute desde `mdr-siem`:
 

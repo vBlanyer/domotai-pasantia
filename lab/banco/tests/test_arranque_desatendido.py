@@ -153,5 +153,66 @@ class TestComprobarAlertas(unittest.TestCase):
             self.assertIn("comprobar-alertas", f.read())
 
 
+SERVICIO = os.path.join(RAIZ, "lab", "banco", "servicio-mdr.sh")
+UNIDAD = os.path.join(RAIZ, "lab", "banco", "mdr-laboratorio.service")
+
+
+def _leer(ruta):
+    with open(ruta, encoding="utf-8") as f:
+        return f.read()
+
+
+class TestServicio(unittest.TestCase):
+    def test_rehace_el_laboratorio_en_orden(self):
+        s = _leer(SERVICIO)
+        pasos = ["banco.sh down", "lab.sh up banco", "banco.sh aprovisionar", "banco.sh test",
+                 "banco.sh comprobar-alertas", "prototipo.servicio.stream"]
+        posiciones = [s.index(p) for p in pasos]
+        self.assertEqual(posiciones, sorted(posiciones))
+
+    def test_mismas_variables_que_reiniciar(self):
+        import re
+        s = _leer(SERVICIO)
+        exports = re.findall(r"^export (TRIAJE_\w+=\S+)", _leer(os.path.join(RAIZ, "reiniciar.sh")), re.M)
+        self.assertGreaterEqual(len(exports), 4)
+        for e in exports:
+            self.assertIn(f"export {e}", s)
+
+    def test_traza_fija_en_el_disco(self):
+        self.assertIn("/var/lib/mdr/trazas-laboratorio.jsonl", _leer(SERVICIO))
+
+    def test_bash_estricto(self):
+        s = _leer(SERVICIO)
+        self.assertTrue(s.startswith("#!/bin/bash"))
+        self.assertIn("set -euo pipefail", s)
+        self.assertEqual(subprocess.run(["bash", "-n", SERVICIO]).returncode, 0)
+
+    def test_unidad(self):
+        u = _leer(UNIDAD)
+        for linea in ("EnvironmentFile=/etc/mdr/triaje.env", "WorkingDirectory=/opt/mdr-laboratorio",
+                      "ExecStart=/bin/bash /opt/mdr-laboratorio/lab/banco/servicio-mdr.sh",
+                      "Requires=docker.service", "RequiresMountsFor=/var/lib/mdr", "Restart=always",
+                      "RestartSec=30", "WantedBy=multi-user.target"):
+            self.assertIn(linea, u)
+        self.assertRegex(u, r"After=.*docker\.service")
+
+    def test_traza_fija_sin_ids_repetidos_tras_reinicio(self):
+        import json
+        from prototipo.servicio import traza
+        with tempfile.TemporaryDirectory() as d:
+            salida = os.path.join(d, "trazas-laboratorio.jsonl")
+            for _ in range(2):                       # dos arranques sobre la misma traza
+                subprocess.run(["python3", "-m", "prototipo.servicio.stream", "lab/portatil/alerta-muestra.jsonl",
+                                "prototipo/perfiles/bancario.yml",
+                                "lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json",
+                                "--sin-lab", "--una-vez", "--salida", salida],
+                               cwd=RAIZ, stdin=subprocess.DEVNULL, capture_output=True, timeout=120, check=True)
+            regs = traza.leer_registros(salida)
+            ids = [r["id_decision"] for r in regs if str(r.get("id_decision") or "").startswith("s")]
+            self.assertEqual(len(ids), 2)
+            self.assertEqual(len(set(ids)), len(ids), ids)
+            self.assertTrue(traza.verificar(regs)["valida"])
+
+
 if __name__ == "__main__":
     unittest.main()
