@@ -293,7 +293,8 @@ class TestLaboratorio(unittest.TestCase):
         self.assertIn("## Variante laboratorio", d)
         s = d[d.index("## Variante laboratorio"):]
         for txt in ("no se conecta a ningún cliente", "stop-instances", "banco.sh atacar", "comprobar-alertas",
-                    "journalctl -u mdr-laboratorio", "laboratorio_commit"):
+                    "journalctl -u mdr-laboratorio", "laboratorio_commit", "systemctl restart mdr-laboratorio",
+                    "reiniciar.sh", "se anotan como revertidas"):
             self.assertIn(txt.lower(), s.lower())
 
 

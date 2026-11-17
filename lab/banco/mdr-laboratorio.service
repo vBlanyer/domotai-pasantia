@@ -5,6 +5,9 @@ Requires=docker.service
 Wants=network-online.target
 # La traza vive en el EBS: sin él montado, no se arranca (escribiría en el disco raíz).
 RequiresMountsFor=/var/lib/mdr
+# Un fallo persistente no rehace el banco sin fin: tras 5 intentos en 2 h, se para (ver journalctl).
+StartLimitIntervalSec=2h
+StartLimitBurst=5
 
 [Service]
 Type=simple

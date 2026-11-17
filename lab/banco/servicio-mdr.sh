@@ -19,12 +19,15 @@ sh lab/lab.sh up banco
 sh lab/banco/banco.sh aprovisionar
 sh lab/banco/banco.sh test
 sh lab/banco/banco.sh comprobar-alertas
+SALIDA="${TRIAJE_SALIDA:-/var/lib/mdr/trazas-laboratorio.jsonl}"
+# Lo que la traza daba por contenido ya no existe (equipos recreados): se anota como revertido, o el MDR
+# suprimiría los ataques repetidos y la consola listaría contenciones fantasma.
+python3 -m lab.banco.rehecho "$SALIDA"
 
 export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
 export TRIAJE_SALUD_CONTENEDOR=clab-banco-mdr-siem:/var/log/banco/salud.jsonl
 export TRIAJE_GEOIP="${TRIAJE_GEOIP:-lab/geo_demo/geoip-muestra.csv}"
 export TRIAJE_ASN="${TRIAJE_ASN:-lab/geo_demo/asn-muestra.csv}"
-SALIDA="${TRIAJE_SALIDA:-/var/lib/mdr/trazas-laboratorio.jsonl}"
 
 echo "== MDR en marcha (traza: $SALIDA; consola en http://127.0.0.1:8787) =="
 docker exec "$WAZUH" sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \

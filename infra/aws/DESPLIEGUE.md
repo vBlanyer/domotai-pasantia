@@ -176,8 +176,14 @@ aws ec2 start-instances --region <region> --instance-ids "$(tofu output -raw mdr
 ```
 
 Al encender, `mdr-laboratorio` rehace el laboratorio desde cero (la red de Containerlab y Wazuh no
-sobreviven a un reinicio) antes de arrancar el MDR: unos minutos. Si algo falla, la unidad lo reintenta
-cada 30 s y el motivo queda en `journalctl -u mdr-laboratorio`.
+sobreviven a un reinicio) antes de arrancar el MDR: unos minutos. Las contenciones de la sesión anterior
+ya no existen (los equipos se recrean), así que se anotan como revertidas en la traza: el MDR vuelve a
+decidir los ataques repetidos y la consola no las lista como activas. Si algo falla, la unidad lo
+reintenta (cada 30 s, hasta 5 veces en 2 h) y el motivo queda en `journalctl -u mdr-laboratorio`.
+
+**En la instancia, no uses `reiniciar.sh`, `lab.sh up`/`down` ni `banco.sh down`**: el servicio ya
+gestiona el laboratorio y el daemon, y esas órdenes lo cortan a medias. Para reiniciarlo todo:
+`sudo systemctl restart mdr-laboratorio`.
 
 **Apagar del todo**: `tofu destroy -var-file=laboratorio.tfvars`, como en el paso 7.
 

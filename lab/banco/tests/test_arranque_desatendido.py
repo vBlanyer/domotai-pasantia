@@ -100,7 +100,7 @@ class TestEsperaWazuh(unittest.TestCase):
 # auditor) añade una alerta 100200 si FALSO_LLEGA=1; las lecturas del fichero se ejecutan sobre la copia.
 DOCKER_ALERTAS = r"""#!/bin/sh
 A="$FALSO_DIR/alerts.json"
-[ -f "$A" ] || printf '%b' "${FALSO_PREVIA:-}" > "$A"
+[ -f "$A" ] || [ "${FALSO_SIN_FICHERO:-0}" = 1 ] || printf '%b' "${FALSO_PREVIA:-}" > "$A"
 for ultimo; do :; done
 case "$ultimo" in
   *"| nc "*) [ "${FALSO_LLEGA:-0}" = 1 ] && echo '{"rule":{"level":6,"id":"100200"},"data":{"srcip":"10.100.0.20"}}' >> "$A"; exit 0 ;;
@@ -127,6 +127,12 @@ class TestComprobarAlertas(unittest.TestCase):
         r = _ejecutar(["comprobar-alertas"], DOCKER_ALERTAS,
                       {"FALSO_PREVIA": PREVIA_CON_100200, "ALERTAS_ESPERA_MAX": "2"})
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+
+    def test_sin_alerts_json_todavia(self):
+        # Un Wazuh recién levantado puede no haber escrito aún ninguna alerta: no es un fallo.
+        r = _ejecutar(["comprobar-alertas"], DOCKER_ALERTAS,
+                      {"FALSO_SIN_FICHERO": "1", "FALSO_LLEGA": "1", "ALERTAS_ESPERA_MAX": "6"})
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_origen_del_evento(self):
         # El disparo sale del auditor (activo de gestión del perfil): con el MDR en marcha, el motor lo
@@ -166,7 +172,7 @@ class TestServicio(unittest.TestCase):
     def test_rehace_el_laboratorio_en_orden(self):
         s = _leer(SERVICIO)
         pasos = ["banco.sh down", "lab.sh up banco", "banco.sh aprovisionar", "banco.sh test",
-                 "banco.sh comprobar-alertas", "prototipo.servicio.stream"]
+                 "banco.sh comprobar-alertas", "lab.banco.rehecho", "prototipo.servicio.stream"]
         posiciones = [s.index(p) for p in pasos]
         self.assertEqual(posiciones, sorted(posiciones))
 
@@ -195,6 +201,9 @@ class TestServicio(unittest.TestCase):
                       "RestartSec=30", "WantedBy=multi-user.target"):
             self.assertIn(linea, u)
         self.assertRegex(u, r"After=.*docker\.service")
+        # un fallo persistente no rehace el banco sin fin (coste de CPU en AWS)
+        self.assertIn("StartLimitIntervalSec=2h", u)
+        self.assertIn("StartLimitBurst=5", u)
 
     def test_traza_fija_sin_ids_repetidos_tras_reinicio(self):
         import json
@@ -212,6 +221,51 @@ class TestServicio(unittest.TestCase):
             self.assertEqual(len(ids), 2)
             self.assertEqual(len(set(ids)), len(ids), ids)
             self.assertTrue(traza.verificar(regs)["valida"])
+
+
+class TestRehecho(unittest.TestCase):
+    """Tras rehacer el laboratorio (encender la máquina), las contenciones de la traza ya no existen:
+    se anotan como revertidas para que el MDR no suprima los ataques repetidos ni la consola las muestre."""
+
+    def _traza(self, d):
+        from prototipo.servicio import traza
+        ruta = os.path.join(d, "trazas-laboratorio.jsonl")
+        bloqueo = {"tipo": "decision", "id_decision": "s7", "activo": "web-banking", "accion_final": "BLOQUEAR_IP",
+                   "orden": {"accion_id": "BLOQUEAR_IP", "nodo_objetivo": "web-banking", "nodo_ip": "10.10.0.10",
+                             "params": {"ip": "198.51.100.10"}},
+                   "ejecucion": {"accion_id": "BLOQUEAR_IP", "nodo": "web-banking", "exito": True},
+                   "verificacion": {"verificado": True},
+                   "contexto": {"origen_ip": "198.51.100.10", "familia": "acceso_credenciales"},
+                   "timestamp": "2026-11-17T10:00:00Z"}
+        with traza.abrir_append(ruta) as f:
+            traza.Cadena(f, traza.GENESIS, n=0, nombre=os.path.basename(ruta), ruta=ruta).escribir(bloqueo)
+        return ruta
+
+    def test_retira_las_contenciones_del_laboratorio_anterior(self):
+        from prototipo.servicio import traza, stream
+        from prototipo.accion import contenciones, catalogo as catm
+        cat = catm.cargar_catalogo(os.path.join(RAIZ, "prototipo", "catalogo.yml"))
+        with tempfile.TemporaryDirectory() as d:
+            ruta = self._traza(d)
+            self.assertEqual(len(contenciones.activas(traza.leer_registros(ruta), cat)), 1)
+            r = subprocess.run(["python3", "-m", "lab.banco.rehecho", ruta], cwd=RAIZ, capture_output=True,
+                               text=True, timeout=60)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            regs = traza.leer_registros(ruta)
+            self.assertEqual(contenciones.activas(regs, cat), [])
+            mem = stream.MemoriaDecisiones.desde_traza(regs)
+            self.assertIsNone(mem.buscar(("198.51.100.10", "web-banking", "acceso_credenciales")))
+            self.assertTrue(traza.verificar(regs)["valida"])
+            self.assertIn("laboratorio rehecho", regs[-1]["motivo"])
+            self.assertIsNone(regs[-1]["comando_ejecutado"])      # no se ejecutó nada: el equipo se recreó
+
+    def test_sin_traza_no_hace_nada(self):
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "no-existe.jsonl")
+            r = subprocess.run(["python3", "-m", "lab.banco.rehecho", ruta], cwd=RAIZ, capture_output=True,
+                               text=True, timeout=60)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertFalse(os.path.exists(ruta))
 
 
 if __name__ == "__main__":

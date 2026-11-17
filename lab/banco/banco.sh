@@ -104,7 +104,8 @@ case "${1:-up}" in
     # auditor es un activo de gestión del perfil, y el MDR, si está en marcha, lo trata como legítimo.
     W=clab-red-cliente-wazuh
     MAX=${ALERTAS_ESPERA_MAX:-120}
-    ANTES=$(docker exec $W sh -c 'wc -l < /var/ossec/logs/alerts/alerts.json')
+    # un Wazuh recién levantado puede no haber escrito aún ninguna alerta: entonces son 0 líneas
+    ANTES=$(docker exec $W sh -c 'wc -l < /var/ossec/logs/alerts/alerts.json 2>/dev/null || echo 0')
     ANTES=$((ANTES + 0))
     echo "-- conexion de prueba: auditor -> web-banking:22 (sin banner SSH)"
     docker exec $P-auditor sh -c "printf 'comprobar-alertas\r\n' | nc -w3 10.10.0.10 22 >/dev/null 2>&1; true"

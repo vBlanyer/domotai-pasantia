@@ -104,6 +104,31 @@ def revertir_todas(ruta, catalogo, ejecutor, motivo="", operador=None, _ahora=No
     return {"revertidas": revertidas, "fallidas": fallidas, "detalle": detalle}
 
 
+def anotar_desaparecidas(ruta, catalogo, motivo, _ahora=None):
+    """Anota como revertidas, SIN ejecutar nada, todas las contenciones activas de la traza: para cuando
+    se sabe que el estado de los equipos ya no existe (p. ej. el laboratorio se recreó desde cero al
+    arrancar). Sin esto, el MDR seguiría creyendo contenidos esos ataques: suprimiría su repetición y la
+    consola listaría contenciones fantasma. Cada registro va a la MISMA cadena (fichero bloqueado y
+    releído), con `indice_revertido`, `comando_ejecutado: None` y el motivo. Devuelve cuántas anotó."""
+    from prototipo.accion import contenciones
+    if not os.path.exists(ruta):
+        return 0
+    activas = contenciones.activas(traza.leer_registros(ruta), catalogo)
+    if not activas:
+        return 0
+    ts = _ahora or (datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000")
+    with traza.abrir_append(ruta) as f:
+        previos = traza.leer_registros(ruta)
+        cadena = traza.Cadena(f, traza.ultimo_hash(ruta), n=len(previos),
+                              nombre=os.path.basename(ruta), linaje=traza.linaje_de(previos), ruta=ruta)
+        for a in activas:
+            cadena.escribir({"tipo": "reversion", "id_decision_revertida": a["id_decision"],
+                             "indice_revertido": a["indice"], "accion_id": a["accion_id"], "nodo": a["nodo"],
+                             "comando_ejecutado": None, "codigo_salida": None, "salida": motivo,
+                             "exito": True, "motivo": motivo, "timestamp": ts})
+    return len(activas)
+
+
 def revertir_una(ruta, indice, catalogo, ejecutor, motivo="", operador=None, _ahora=None):
     """Revierte UNA contención concreta por su índice de traza (el botón por fila del panel), sin
     tocar las demás. `indice` debe apuntar a una contención ACTIVA (misma lista que /api/contenciones
