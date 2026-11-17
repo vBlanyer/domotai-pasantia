@@ -18,13 +18,15 @@ data "aws_ami" "gpu" {
 }
 
 resource "aws_instance" "llm" {
-  count                       = var.llm_habilitado ? 1 : 0
-  ami                         = data.aws_ami.gpu[0].id
-  instance_type               = var.llm_tipo
-  subnet_id                   = aws_subnet.privada.id
-  vpc_security_group_ids      = [aws_security_group.llm.id]
-  iam_instance_profile        = aws_iam_instance_profile.instancia.name
+  count                  = var.llm_habilitado ? 1 : 0
+  ami                    = data.aws_ami.gpu[0].id
+  instance_type          = var.llm_tipo
+  subnet_id              = aws_subnet.privada.id
+  vpc_security_group_ids = [aws_security_group.llm.id]
+  # Rol propio: SSM y los modelos de S3, nunca los secretos del MDR (clave de la traza, tokens).
+  iam_instance_profile        = aws_iam_instance_profile.gpu.name
   associate_public_ip_address = false
+  depends_on                  = [aws_iam_role_policy.gpu_s3]
 
   metadata_options {
     http_tokens = "required"
@@ -49,6 +51,16 @@ resource "aws_instance" "llm" {
     precondition {
       condition     = alltrue([for v in [var.llm_modelo_url, var.llm_modelo_sha256, var.embed_modelo_url, var.embed_modelo_sha256] : v != ""])
       error_message = "Con llm_habilitado = true hacen falta llm_modelo_url, llm_modelo_sha256, embed_modelo_url y embed_modelo_sha256."
+    }
+    # El paquete 1.9.1 no lee TRIAJE_CON_LLM (llegó después): con él la GPU se pagaría sin usarse.
+    precondition {
+      condition     = var.mdr_version != "1.9.1"
+      error_message = "El paquete 1.9.1 no activa el modelo de lenguaje: usa una versión del MDR >= 1.9.2 (mdr_version y mdr_paquete_sha256)."
+    }
+    # El arranque de la GPU clona y compila llama.cpp: necesita salir a Internet.
+    precondition {
+      condition     = var.egreso_bootstrap
+      error_message = "La GPU necesita egreso_bootstrap = true (clona llama.cpp de GitHub en su primer arranque)."
     }
   }
   tags = { Name = "${var.proyecto}-llm" }

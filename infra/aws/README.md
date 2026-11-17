@@ -20,20 +20,29 @@ Briefing para la reunión con el tutor industrial:
 - VPC con **subred privada** (sin IP pública), grupos de seguridad mínimos y **endpoints VPC** (SSM y S3):
   nada expuesto a Internet. El analista entra por **SSM** (túnel), no por un puerto abierto.
 - EC2 **MDR**. Su arranque instala el MDR **como en un cliente**:
-  1. monta el **EBS cifrado** de la traza en `/var/lib/mdr` (si no aparece, el arranque se para, y la
-     unidad del servicio exige ese montaje);
+  1. monta el **EBS cifrado** de la traza, buscado por su identificador (nunca un disco efímero), en
+     `/var/lib/mdr`. Si no aparece, el arranque se para, y la unidad del servicio exige ese montaje. En
+     `fstab` va con `nofail`, así que si un día falta el disco la instancia sigue accesible por SSM;
   2. descarga el **paquete del release** (`mdr-<versión>.tar.gz`, con la consola compilada), comprueba su
      **SHA-256** y ejecuta `instalar.sh`: el código queda de root y en solo lectura;
   3. escribe el perfil (el indicado o un perfil mínimo para empezar con el asistente de red), la clave
      que **firma la traza** y el acceso a la **consola con token**, y arranca el servicio.
 - EC2 **GPU** (solo si `llm_habilitado = true`): AMI de AWS con el driver NVIDIA y CUDA, llama.cpp en
-  una etiqueta fija compilado con CUDA, y dos servicios en la red privada: el **generador** (8080) y
-  **bge-m3**, el embedder del RAG (8082). Los dos modelos se comprueban por su huella.
-- Rol IAM mínimo: SSM, lectura de los secretos indicados y de los objetos de S3 indicados.
+  una etiqueta fija compilado con CUDA, y dos servicios en la red privada: el **generador** (8080, con
+  contexto de 8192) y **bge-m3**, el embedder del RAG (8082). Los dos modelos se comprueban por su
+  huella. Necesita `egreso_bootstrap = true` (clona llama.cpp) y una versión del MDR **≥ 1.9.2**: el
+  paquete 1.9.1 no activa el modelo, y `tofu plan` lo rechaza. La GPU tarda en estar lista (compila y
+  descarga): el MDR arranca antes, con la justificación de plantilla, y un vigilante
+  (`mdr-espera-modelo`) lo reinicia en cuanto responden el modelo y el embedder (hasta 90 min).
+- Dos roles IAM mínimos: el del MDR (SSM, los secretos indicados y el paquete y el perfil de S3) y el de
+  la GPU (SSM y los modelos de S3), que **no** puede leer los secretos del MDR.
 
 > **Primer arranque y egreso.** El *runtime* del daemon no llama a Internet (RNF-01). El primer arranque
 > sí descarga (dnf, el paquete, los modelos): con `egreso_bootstrap = true` se crea un NAT para ese
-> arranque; con `false` (por defecto), sube el paquete (y los modelos) a S3 y pásalos como `s3://…`.
+> arranque; con `false` (por defecto), sube el paquete y el perfil a S3 y pásalos como `s3://…`
+> (`tofu plan` lo exige). dnf tiene que llegar a los repositorios de Amazon Linux 2023, que AWS sirve
+> desde S3 en cada región, a través del endpoint de S3 de la VPC; **sin comprobar aquí** (no hay cuenta).
+> Las descargas se reintentan cinco veces antes de parar.
 
 ## Variables principales (`variables.tf`)
 
@@ -65,7 +74,28 @@ aws secretsmanager create-secret --name mdr/operadores --secret-string '{"<token
 tofu apply -var 'secreto_traza_arn=<ARN de mdr/traza-clave>' -var 'secreto_operadores_arn=<ARN de mdr/operadores>' …
 ```
 
-Si un secreto indicado no se puede leer, el arranque **se para**: nunca genera uno nuevo por su cuenta.
+Si un secreto indicado no se puede leer (tras cinco intentos), el arranque **se para**: nunca genera uno
+nuevo por su cuenta. Con secretos y sin egreso se crea un endpoint de Secrets Manager en la VPC. Usa el
+ARN completo del secreto; si está cifrado con una clave KMS propia, el rol necesita además `kms:Decrypt`.
+
+## Recrear la instancia (cambiar de versión)
+
+Cambiar `mdr_version`, el perfil o los secretos **recrea la instancia del MDR**. Activar o recrear la GPU
+también la recrea, porque cambia la IP privada del modelo. El arranque solo se ejecuta una vez en cada
+instancia. Al recrearla:
+
+- **se conserva** todo lo del disco de la traza (`/var/lib/mdr`): la traza, la clave del conector, lo
+  editado en la consola y la postura. El arranque reasigna a `triaje` los ficheros del disco aunque la
+  instancia nueva le dé otro UID;
+- **se rehace** lo que vive en `/etc/mdr`:
+  - el perfil vuelve a ser `perfil_url` o el perfil mínimo; lo adoptado con el asistente de red se pierde
+    si no está en `perfil_url`;
+  - la clave de la traza: si no está en Secrets Manager, se genera otra y la cadena anterior deja de
+    verificarse (el arranque lo avisa);
+  - el analista `admin` recibe un token nuevo;
+  - se pierden los cambios hechos a mano con `mdr configurar`, por ejemplo el receptor de red o TLS.
+
+Por eso, para algo más que una demo: el perfil en `perfil_url` (S3) y los dos secretos.
 
 ## Validación offline (sin cuenta AWS, sin coste)
 

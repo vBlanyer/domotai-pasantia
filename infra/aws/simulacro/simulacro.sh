@@ -23,7 +23,7 @@ cd "$RAIZ/infra/aws"
 tofu init -backend=false -input=false >/dev/null
 
 render() { # render SALIDA HUELLA SECRETO_TRAZA
-  printf 'templatefile("templates/mdr_user_data.sh.tftpl", {region="eu-west-1", paquete_url="file:///paquete/%s", paquete_sha256="%s", perfil_url="", rangos="--rango 10.90.0.0/16", secreto_traza_arn="%s", secreto_operadores_arn="", llm_url="", llm_embed_url=""})\n' \
+  printf 'templatefile("templates/mdr_user_data.sh.tftpl", {region="eu-west-1", paquete_url="file:///paquete/%s", paquete_sha256="%s", perfil_url="", rangos="--rango 10.90.0.0/16", secreto_traza_arn="%s", secreto_operadores_arn="", llm_url="", llm_embed_url="", volumen="vol0simulacro"})\n' \
     "$NOMBRE" "$2" "$3" | tofu console | sed '1d;$d' > "$1"
 }
 

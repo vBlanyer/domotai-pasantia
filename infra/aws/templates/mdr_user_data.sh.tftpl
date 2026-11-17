@@ -2,8 +2,8 @@
 # Arranque (cloud-init) de la instancia del MDR, Amazon Linux 2023. Instala el MDR como en un cliente:
 # el PAQUETE del release (con la consola compilada y el código de root en solo lectura), verificado por
 # su huella, con instalar.sh. Fail-closed: si el disco de la traza no aparece, la huella no cuadra o un
-# secreto indicado no se puede leer, el arranque se para y el MDR no arranca (registro en
-# /var/log/mdr-arranque.log).
+# secreto indicado no se puede leer (tras reintentar), el arranque se para y el MDR no arranca (registro
+# en /var/log/mdr-arranque.log). cloud-init lo ejecuta una vez por instancia.
 #
 # Plantilla de OpenTofu: lo que va entre llaves con un solo dólar lo rellena templatefile; las variables
 # de shell con llaves llevan dos dólares. Nunca dos dólares sin llave: templatefile no los escapa y bash
@@ -15,16 +15,29 @@ ESTADO=/var/lib/mdr
 ENTORNO=/etc/mdr/triaje.env
 REGION="${region}"
 
-# 1. Dependencias que exige instalar.sh (Python + PyYAML, cliente SSH del conector) y las de este arranque.
-dnf install -y python3 python3-pyyaml openssh-clients tar openssl xfsprogs shadow-utils util-linux
+# reintentar ORDEN…: hasta 5 intentos con espera creciente (2, 4, 8, 16 s) ante fallos pasajeros (red,
+# permisos de IAM recién creados que aún no se han propagado). Tras el último, el arranque se para.
+reintentar() {
+  local n=1 espera=2
+  until "$@"; do
+    if [ "$n" -ge 5 ]; then return 1; fi
+    sleep "$espera"
+    n=$((n + 1))
+    espera=$((espera * 2))
+  done
+}
 
-# 2. Disco de la traza: obligatorio. Se monta en el directorio de estado del MDR antes de instalar, y la
-#    unidad exige el montaje (paso 4): una traza en el disco raíz quedaría oculta al montar el disco.
-#    En instancias Nitro el disco adjunto aparece como /dev/nvmeXn1. MDR_DISCOS y MDR_ESPERA_DISCO solo
-#    los usa el simulacro (infra/aws/simulacro/).
+# 1. Dependencias que exige instalar.sh (Python + PyYAML, cliente SSH del conector), nmap para el
+#    asistente de red y las de este arranque.
+dnf install -y python3 python3-pyyaml openssh-clients nmap tar openssl xfsprogs shadow-utils util-linux
+
+# 2. Disco de la traza: obligatorio, y es ESE volumen EBS (por su identificador), nunca un disco efímero
+#    de la instancia. Se monta en el directorio de estado del MDR antes de instalar, y la unidad exige el
+#    montaje (paso 4). En fstab va con nofail: si un día falta el disco, la instancia arranca (y se llega
+#    por SSM) pero el MDR no. MDR_DISCOS y MDR_ESPERA_DISCO solo los usa el simulacro.
 DISCO=""
 for _ in $(seq 1 "$${MDR_ESPERA_DISCO:-60}"); do
-  for d in $${MDR_DISCOS:-/dev/nvme1n1 /dev/nvme2n1 /dev/sdf /dev/xvdf}; do
+  for d in $${MDR_DISCOS:-/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${volumen} /dev/sdf /dev/xvdf}; do
     if [ -b "$d" ]; then DISCO="$d"; break; fi
   done
   [ -n "$DISCO" ] && break
@@ -36,7 +49,7 @@ if [ -z "$DISCO" ]; then
 fi
 blkid "$DISCO" >/dev/null 2>&1 || mkfs -t xfs "$DISCO"
 mkdir -p "$ESTADO"
-grep -q " $ESTADO " /etc/fstab || echo "UUID=$(blkid -s UUID -o value "$DISCO") $ESTADO xfs defaults 0 2" >> /etc/fstab
+grep -q " $ESTADO " /etc/fstab || echo "UUID=$(blkid -s UUID -o value "$DISCO") $ESTADO xfs defaults,nofail 0 2" >> /etc/fstab
 mountpoint -q "$ESTADO" || mount "$ESTADO"
 TRAZA_PREVIA=no
 [ -s "$ESTADO/trazas-cliente.jsonl" ] && TRAZA_PREVIA=si
@@ -44,13 +57,16 @@ TRAZA_PREVIA=no
 # 3. Paquete del release, verificado por su huella, e instalación (código de root, solo lectura).
 TMP=$(mktemp -d)
 case "${paquete_url}" in
-  s3://*) aws s3 cp --region "$REGION" "${paquete_url}" "$TMP/mdr.tar.gz" ;;
-  *) curl -fsSL -o "$TMP/mdr.tar.gz" "${paquete_url}" ;;
+  s3://*) reintentar aws s3 cp --region "$REGION" "${paquete_url}" "$TMP/mdr.tar.gz" ;;
+  *) reintentar curl -fsSL -o "$TMP/mdr.tar.gz" "${paquete_url}" ;;
 esac
 echo "${paquete_sha256}  $TMP/mdr.tar.gz" | sha256sum -c -
 tar -xzf "$TMP/mdr.tar.gz" -C "$TMP"
 "$TMP"/mdr-*/instalar.sh
 rm -rf "$TMP"
+# Una instancia nueva puede dar a triaje otro UID que la que escribió el disco: todo lo del disco de
+# estado es de triaje (instalar.sh solo cambia el directorio, no su contenido).
+find "$ESTADO" -xdev ! -user triaje -exec chown triaje:triaje {} +
 
 # 4. La unidad no arranca sin el disco de la traza montado.
 install -d /etc/systemd/system/mdr-triaje.service.d
@@ -70,14 +86,14 @@ export MDR_ENTORNO="$ENTORNO"
 # 5. Perfil del cliente: el indicado, o el perfil mínimo para empezar con el asistente de red.
 if [ -n "${perfil_url}" ]; then
   case "${perfil_url}" in
-    s3://*) aws s3 cp --region "$REGION" "${perfil_url}" /etc/mdr/perfil.yml ;;
-    *) curl -fsSL -o /etc/mdr/perfil.yml "${perfil_url}" ;;
+    s3://*) reintentar aws s3 cp --region "$REGION" "${perfil_url}" /etc/mdr/perfil.yml ;;
+    *) reintentar curl -fsSL -o /etc/mdr/perfil.yml "${perfil_url}" ;;
   esac
 elif [ ! -f /etc/mdr/perfil.yml ]; then
   IP="$${MDR_IP:-}"
   if [ -z "$IP" ]; then
-    IMDS=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
-    IP=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS" http://169.254.169.254/latest/meta-data/local-ipv4)
+    IMDS=$(reintentar curl -fsS -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+    IP=$(reintentar curl -fsS -H "X-aws-ec2-metadata-token: $IMDS" http://169.254.169.254/latest/meta-data/local-ipv4)
   fi
   (cd /opt/mdr && python3 -m prototipo.herramientas.perfil_minimo --gestion "$IP" ${rangos} --salida /etc/mdr/perfil.yml)
 fi
@@ -94,10 +110,10 @@ poner TRIAJE_ALERTS "$ESTADO/alerts.json"
 # 7. Firma de la traza: la clave de Secrets Manager si se indicó (un fallo al leerla para el arranque),
 #    o una nueva. Con una traza anterior en el disco, una clave nueva no verifica la cadena vieja.
 if [ -n "${secreto_traza_arn}" ]; then
-  CLAVE=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id "${secreto_traza_arn}" --query SecretString --output text)
+  CLAVE=$(reintentar aws secretsmanager get-secret-value --region "$REGION" --secret-id "${secreto_traza_arn}" --query SecretString --output text)
 else
   CLAVE=$(openssl rand -hex 32)
-  if [ "$TRAZA_PREVIA" = si ] || [ -s "$ESTADO/trazas-cliente.jsonl" ]; then
+  if [ "$TRAZA_PREVIA" = si ]; then
     echo "AVISO: el disco ya tiene una traza y la clave HMAC es nueva: la cadena anterior no se verificará con ella. Guarda la clave en Secrets Manager (secreto_traza_arn)." >&2
   fi
 fi
@@ -107,7 +123,7 @@ unset CLAVE
 # 8. Acceso a la consola: los analistas del secreto indicado, o un analista «admin» con su token en
 #    /root/mdr-token-admin (0600), que se lee por SSM. Nunca una consola abierta.
 if [ -n "${secreto_operadores_arn}" ]; then
-  OPERADORES=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id "${secreto_operadores_arn}" --query SecretString --output text)
+  OPERADORES=$(reintentar aws secretsmanager get-secret-value --region "$REGION" --secret-id "${secreto_operadores_arn}" --query SecretString --output text)
   poner TRIAJE_CONSOLA_OPERADORES "$OPERADORES"
   unset OPERADORES
 else
@@ -124,4 +140,19 @@ fi
 # 10. Arranque del servicio.
 systemctl daemon-reload
 systemctl enable --now mdr-triaje
+
+# 11. El daemon comprueba el modelo una sola vez al arrancar, y la GPU tarda mucho más (compila llama.cpp
+#     y descarga los modelos): un vigilante espera hasta 90 min a que respondan el modelo y el embedder y
+#     entonces reinicia el MDR. Mientras, decide igual, con la justificación de plantilla.
+if [ -n "${llm_url}" ]; then
+  systemd-run --unit=mdr-espera-modelo --description="Espera al modelo del MDR" /bin/sh -c \
+    'for _ in $(seq 1 540); do
+       if curl -fsS -m 5 "$0/health" >/dev/null && curl -fsS -m 5 "$1/health" >/dev/null; then
+         systemctl restart mdr-triaje; exit 0
+       fi
+       sleep 10
+     done
+     echo "el modelo no respondió en 90 min: el MDR sigue con la justificación de plantilla" >&2; exit 1' \
+    "${llm_url}" "${llm_embed_url}"
+fi
 echo "MDR instalado y en marcha."

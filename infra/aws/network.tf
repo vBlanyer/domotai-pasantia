@@ -110,6 +110,19 @@ resource "aws_vpc_endpoint" "ssm" {
   tags                = { Name = "${var.proyecto}-vpce-${each.key}" }
 }
 
+# Endpoint de interfaz para Secrets Manager: el arranque del MDR lee la clave de la traza y los analistas
+# sin salir a Internet (solo si se indica algún secreto).
+resource "aws_vpc_endpoint" "secretsmanager" {
+  count               = length(local.secretos) > 0 ? 1 : 0
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.privada.id]
+  security_group_ids  = [aws_security_group.endpoints.id]
+  private_dns_enabled = true
+  tags                = { Name = "${var.proyecto}-vpce-secretsmanager" }
+}
+
 # Endpoint de gateway para S3 (artefactos/pesos desde S3 sin salir a Internet).
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.main.id

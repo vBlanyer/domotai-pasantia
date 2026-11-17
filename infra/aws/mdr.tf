@@ -51,10 +51,25 @@ resource "aws_instance" "mdr" {
     secreto_operadores_arn = var.secreto_operadores_arn
     llm_url                = local.llm_url
     llm_embed_url          = local.llm_embed_url
+    # El arranque busca el EBS de la traza por su id (/dev/disk/by-id/…vol0123…), nunca un disco efímero.
+    volumen = replace(aws_ebs_volume.traza.id, "-", "")
   })
-  # Cambiar el arranque (otra versión, otro perfil) recrea la instancia; la traza sigue en su EBS.
+  # Cambiar el arranque (otra versión, otro perfil) recrea la instancia; la traza sigue en su EBS. Lo que
+  # vive en /etc/mdr (perfil, clave, analistas) se rehace: para algo más que una demo, perfil_url y los
+  # dos secretos (README).
   user_data_replace_on_change = true
-  tags                        = { Name = "${var.proyecto}-mdr" }
+
+  # Los permisos que el arranque usa (secretos, S3) deben existir antes: el arranque se ejecuta una vez.
+  depends_on = [aws_iam_role_policy.leer_secretos, aws_iam_role_policy.leer_s3]
+
+  lifecycle {
+    # Sin egreso, lo que el arranque descarga tiene que venir de S3 (endpoint de la VPC).
+    precondition {
+      condition     = var.egreso_bootstrap || startswith(local.paquete_url, "s3://") && (var.perfil_url == "" || startswith(var.perfil_url, "s3://"))
+      error_message = "Sin egreso_bootstrap, mdr_paquete_url (y perfil_url, si se indica) deben ser s3://: el arranque no sale a Internet."
+    }
+  }
+  tags = { Name = "${var.proyecto}-mdr" }
 }
 
 # EBS cifrado para la traza (--salida fija). Snapshots = retención/backup (#9).
