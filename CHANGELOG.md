@@ -7,6 +7,15 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [Sin publicar]
 
+### Añadido
+- **Prueba del despliegue contra AWS Emulator** (`infra/aws/emulador/`): `plan`, `apply` y `destroy` de
+  los `.tf` reales en cuatro escenarios (con egreso, sin egreso con secretos, GPU con 1.9.1 rechazada,
+  GPU), con comprobaciones sobre el estado y el arranque. Sin cuenta ni coste.
+- **Para el despliegue oficial** (`infra/aws/`): inventario de lo que crea cada escenario
+  (`inventario/`, JSON y tabla), costes con precios oficiales de `eu-west-1` y `us-east-1`
+  (`COSTES.md`), plantilla de variables (`produccion.tfvars.ejemplo`), estado remoto en S3
+  (`backend.tf.ejemplo`) y guía paso a paso con las cuotas (`DESPLIEGUE.md`).
+
 ### Corregido
 - **Despliegue en AWS** (`infra/aws/`, puntos #6–#12, #18 y #19 de la revisión del 15/11): el arranque
   instala el paquete del release verificado por su huella con `instalar.sh` (consola incluida, código de

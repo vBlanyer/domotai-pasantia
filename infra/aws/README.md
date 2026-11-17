@@ -9,11 +9,15 @@ Briefing para la reunión con el tutor industrial:
 > **Estado (17/11/2026):** corregido según los puntos #6–#12, #18 y #19 de
 > [OBSERVACIONES-REVISION.md](../../OBSERVACIONES-REVISION.md) y el plan
 > [plan-despliegue-aws.md](../../documentacion/05-fase5-implementacion-del-prototipo/plan-despliegue-aws.md).
-> Comprobado: `tofu validate`, pruebas estáticas (`prototipo/tests/test_infra_aws.py`) y el
-> **simulacro** del arranque del MDR en `amazonlinux:2023` (más abajo). **No probado:** un `apply` en una
-> cuenta real y el arranque de la GPU (compilar llama.cpp con CUDA necesita una GPU). **No hacer `apply`
-> en una cuenta real** sin acordar alcance y coste (la GPU es el grueso del coste; por eso
+> Comprobado en tres capas (ver «Qué prueba cada capa»): `tofu validate` y pruebas estáticas, el
+> **simulacro** del arranque del MDR en `amazonlinux:2023`, y `plan`/`apply`/`destroy` contra **AWS
+> Emulator**. **No probado:** un `apply` en una cuenta real y el arranque de la GPU. **No hacer `apply` en
+> una cuenta real** sin acordar alcance y coste ([COSTES.md](COSTES.md); la GPU es el grueso, por eso
 > `llm_habilitado = false` por defecto).
+
+Para el despliegue oficial: [DESPLIEGUE.md](DESPLIEGUE.md) (cuotas y pasos), [COSTES.md](COSTES.md),
+[inventario/](inventario/) (lo que crea cada escenario) y
+[produccion.tfvars.ejemplo](produccion.tfvars.ejemplo) / [backend.tf.ejemplo](backend.tf.ejemplo).
 
 ## Qué crea
 
@@ -114,7 +118,52 @@ la AMI) con un disco de bucle y dobles de `systemctl` y `aws`. Cuatro casos: el 
 firmada, consola con token, disco montado, servicio habilitado), sin disco (se para), paquete con otra
 huella (se para sin instalar) y secreto ilegible (se para). No ejerce la GPU.
 
+## Prueba contra AWS Emulator (sin cuenta, sin coste)
+
+[AWS Emulator](https://docs.aws.amazon.com/emulator/) emula en local la API de AWS (en memoria, sin
+telemetría). `probar.sh` aplica los `.tf` de esta carpeta **sin tocarlos**: en una copia temporal añade
+un *override* que apunta el proveedor al emulador, y hace `plan`, `apply` y `destroy`.
+
+```sh
+sh infra/aws/emulador/probar.sh            # los cuatro escenarios
+sh infra/aws/emulador/probar.sh B          # solo uno
+```
+
+| Escenario | Qué es | Resultado (17/11) |
+|---|---|---|
+| A | MDR con egreso (NAT), paquete de GitHub | 27 recursos; 11/11 comprobaciones |
+| B | MDR sin egreso, paquete en S3, dos secretos | 23 recursos; 12/12 |
+| C | GPU con el paquete 1.9.1 | rechazado por la precondición, como debe |
+| D | MDR + GPU (MDR ≥ 1.9.2) | 29 recursos; 14/14 |
+
+Las comprobaciones (`emulador/comprobar.py`) leen el estado y el script de arranque tal como lo
+devuelve la API: rutas y NAT, endpoints, permisos de cada rol, puertos de la GPU y que el arranque del
+MDR apunte a la IP de la GPU. Con `MDR_INVENTARIO=<dir>` se guardan los planes, y
+`emulador/inventario.py` genera [inventario/](inventario/).
+
+El emulador (v1.0.492) tiene dos huecos que el *override* suple solo en la copia: `RunInstances` no
+hereda la zona de la subred, y no trae la Deep Learning AMI (en D se usa la de Amazon Linux 2023).
+
+## Qué prueba cada capa
+
+| Capa | Qué comprueba | Qué no |
+|---|---|---|
+| `tofu validate` + pruebas estáticas | Sintaxis, tipos, que las plantillas y los `.tf` dicen lo que deben | Nada se ejecuta |
+| Simulacro (`simulacro/`) | El arranque del MDR de verdad en `amazonlinux:2023`: instala, firma la traza, monta el disco, y se para cuando falta algo | AWS: ni red, ni IAM, ni la GPU |
+| AWS Emulator (`emulador/`) | El grafo de recursos entero, en orden, las precondiciones y lo que llega a cada instancia | No arranca máquinas ni evalúa IAM |
+
+**Qué no prueba ninguna** (solo un despliegue real):
+
+- que la búsqueda de la AMI encuentre Amazon Linux 2023 y la Deep Learning AMI en la región;
+- la evaluación real de IAM y su retraso de propagación;
+- el arranque en una instancia Nitro de verdad (nombres NVMe, cloud-init, systemd);
+- la red real: `dnf` sin egreso, el DNS privado de los endpoints, el túnel SSM;
+- la GPU: drivers, CUDA, la compilación de llama.cpp y la memoria;
+- las cuotas y los costes de la cuenta.
+
 ## Aplicar de verdad (con la cuenta de la empresa)
+
+Paso a paso, con cuotas, secretos y estado remoto: [DESPLIEGUE.md](DESPLIEGUE.md). En resumen:
 
 ```sh
 export AWS_PROFILE=<perfil-de-la-empresa>
@@ -132,5 +181,6 @@ Las alertas del SIEM llegan a `/var/lib/mdr/alerts.json` (o, con `TRIAJE_ESCUCHA
 
 ## Estado de OpenTofu
 
-Local por defecto. Para un equipo o producción, configurar un backend `s3` con bloqueo en `main.tf`.
+Local por defecto. Para un equipo o producción, copia [backend.tf.ejemplo](backend.tf.ejemplo) a
+`backend.tf` (estado en S3, cifrado y con bloqueo).
 El `.gitignore` de esta carpeta evita commitear el estado y `.terraform/`.

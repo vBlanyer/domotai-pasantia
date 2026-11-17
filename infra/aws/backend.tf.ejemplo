@@ -1,0 +1,20 @@
+# Estado de OpenTofu en S3, para producción (hoy el estado es local: si se pierde ese fichero, OpenTofu
+# ya no sabe qué creó). Copia este fichero a backend.tf, rellena el bucket y ejecuta `tofu init`.
+#
+# El bucket se crea UNA vez, aparte y antes (no con esta configuración), con versionado y cifrado:
+#     aws s3api create-bucket --bucket <bucket> --region <region> \
+#         --create-bucket-configuration LocationConstraint=<region>
+#     aws s3api put-bucket-versioning --bucket <bucket> --versioning-configuration Status=Enabled
+#     aws s3api put-public-access-block --bucket <bucket> --public-access-block-configuration \
+#         BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+#
+# El bloqueo (que dos personas no apliquen a la vez) va en el propio S3 (use_lockfile, OpenTofu >= 1.10).
+terraform {
+  backend "s3" {
+    bucket       = "<rellenar: bucket del estado>"
+    key          = "mdr-triaje/prod/terraform.tfstate"
+    region       = "<rellenar: región>"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
