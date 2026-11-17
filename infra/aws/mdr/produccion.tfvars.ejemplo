@@ -21,7 +21,7 @@ mdr_tipo     = "t3.small" # sin GPU; el motor decide unas 565 alertas/s en un po
 mdr_disco_gb = 20         # EBS cifrado de la traza (/var/lib/mdr)
 
 # --- Qué se instala: el paquete del release, verificado por su huella ---
-mdr_version        = "1.9.2"                                                            # >= 1.9.2 con la GPU o el laboratorio
+mdr_version        = "1.9.2"                                                            # >= 1.9.2 con la GPU
 mdr_paquete_url    = "s3://<rellenar: bucket>/mdr-1.9.2.tar.gz"                          # o vacío = el release de GitHub (necesita egreso)
 mdr_paquete_sha256 = "e35afcd4f4e70725ffb59585ed4353a3ebed273dcf6a29fe5dee4a676983aba0" # sha256sum del paquete
 
@@ -42,10 +42,3 @@ llm_modelo_sha256   = "" # su SHA-256
 embed_modelo_url    = "" # s3:// o https:// del .gguf de bge-m3
 embed_modelo_sha256 = "" # su SHA-256
 llama_cpp_ref       = "b12445"
-
-# --- Variante: "mdr" es la de producción. "laboratorio" es el entorno de pruebas completo (banco,
-#     Wazuh y MDR en una máquina; no se conecta a ningún cliente; DESPLIEGUE.md, «Variante laboratorio»)
-variante             = "mdr"
-laboratorio_tipo     = "t3.xlarge"
-laboratorio_disco_gb = 40
-laboratorio_commit   = "" # con laboratorio: el de la etiqueta v<mdr_version>; para v1.9.2, "2c64820df320f0eab32583f7de1b4f2d99546d78"

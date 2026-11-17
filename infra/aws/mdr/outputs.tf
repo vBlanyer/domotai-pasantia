@@ -1,6 +1,6 @@
 output "vpc_id" {
   description = "VPC creada."
-  value       = aws_vpc.main.id
+  value       = module.base.vpc_id
 }
 
 output "mdr_instance_id" {

@@ -1,3 +1,5 @@
+# Red común a las dos variantes (mdr/ y laboratorio/): VPC con subred privada, endpoints de SSM y S3,
+# el de Secrets Manager si hay secretos y, con egreso, el NAT del primer arranque.
 data "aws_availability_zones" "disponibles" {
   state = "available"
 }
@@ -30,7 +32,7 @@ resource "aws_route_table_association" "privada" {
 
 # --- Grupos de seguridad ---
 # MDR: sin ingreso público (el acceso del analista va por SSM, saliente). Egreso abierto para llegar
-# al LLM, a los endpoints VPC y al plano de gestión del cliente (por VPN/peering).
+# a la GPU (variante mdr), a los endpoints VPC y al plano de gestión del cliente (por VPN/peering).
 resource "aws_security_group" "mdr" {
   name_prefix = "${var.proyecto}-mdr-"
   description = "MDR daemon + visor (sin ingreso publico)"
@@ -44,35 +46,6 @@ resource "aws_security_group" "mdr" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   tags = { Name = "${var.proyecto}-sg-mdr" }
-}
-
-# LLM: solo acepta del SG del MDR (la URL privada del justificador). Nada público.
-resource "aws_security_group" "llm" {
-  name_prefix = "${var.proyecto}-llm-"
-  description = "LLM justificador (solo desde el MDR)"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description     = "generador (llama-server) desde el MDR"
-    from_port       = 8080
-    to_port         = 8080
-    protocol        = "tcp"
-    security_groups = [aws_security_group.mdr.id]
-  }
-  ingress {
-    description     = "embedder bge-m3 del RAG desde el MDR"
-    from_port       = 8082
-    to_port         = 8082
-    protocol        = "tcp"
-    security_groups = [aws_security_group.mdr.id]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = { Name = "${var.proyecto}-sg-llm" }
 }
 
 # Endpoints de interfaz (SSM): aceptan 443 desde la VPC. Permiten el acceso del analista por SSM y la
@@ -113,7 +86,7 @@ resource "aws_vpc_endpoint" "ssm" {
 # Endpoint de interfaz para Secrets Manager: el arranque del MDR lee la clave de la traza y los analistas
 # sin salir a Internet (solo si se indica algún secreto).
 resource "aws_vpc_endpoint" "secretsmanager" {
-  count               = length(local.secretos) > 0 ? 1 : 0
+  count               = length(var.secretos) > 0 ? 1 : 0
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.region}.secretsmanager"
   vpc_endpoint_type   = "Interface"
@@ -139,13 +112,13 @@ resource "aws_vpc_endpoint" "s3" {
 # RUNTIME del daemon sigue sin llamar a Internet (eso lo garantiza el producto, no la red). Con `false`
 # hay que desplegar desde una AMI horneada o artefactos en S3 (ver README y templates).
 resource "aws_internet_gateway" "igw" {
-  count  = var.egreso_bootstrap ? 1 : 0
+  count  = var.egreso ? 1 : 0
   vpc_id = aws_vpc.main.id
   tags   = { Name = "${var.proyecto}-igw" }
 }
 
 resource "aws_subnet" "publica" {
-  count             = var.egreso_bootstrap ? 1 : 0
+  count             = var.egreso ? 1 : 0
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.subred_publica_cidr
   availability_zone = data.aws_availability_zones.disponibles.names[0]
@@ -153,7 +126,7 @@ resource "aws_subnet" "publica" {
 }
 
 resource "aws_route_table" "publica" {
-  count  = var.egreso_bootstrap ? 1 : 0
+  count  = var.egreso ? 1 : 0
   vpc_id = aws_vpc.main.id
   route {
     cidr_block = "0.0.0.0/0"
@@ -163,26 +136,26 @@ resource "aws_route_table" "publica" {
 }
 
 resource "aws_route_table_association" "publica" {
-  count          = var.egreso_bootstrap ? 1 : 0
+  count          = var.egreso ? 1 : 0
   subnet_id      = aws_subnet.publica[0].id
   route_table_id = aws_route_table.publica[0].id
 }
 
 resource "aws_eip" "nat" {
-  count  = var.egreso_bootstrap ? 1 : 0
+  count  = var.egreso ? 1 : 0
   domain = "vpc"
   tags   = { Name = "${var.proyecto}-eip-nat" }
 }
 
 resource "aws_nat_gateway" "nat" {
-  count         = var.egreso_bootstrap ? 1 : 0
+  count         = var.egreso ? 1 : 0
   allocation_id = aws_eip.nat[0].id
   subnet_id     = aws_subnet.publica[0].id
   tags          = { Name = "${var.proyecto}-nat" }
 }
 
 resource "aws_route" "privada_egreso" {
-  count                  = var.egreso_bootstrap ? 1 : 0
+  count                  = var.egreso ? 1 : 0
   route_table_id         = aws_route_table.privada.id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.nat[0].id

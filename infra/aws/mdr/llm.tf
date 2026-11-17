@@ -21,10 +21,10 @@ resource "aws_instance" "llm" {
   count                  = var.llm_habilitado ? 1 : 0
   ami                    = data.aws_ami.gpu[0].id
   instance_type          = var.llm_tipo
-  subnet_id              = aws_subnet.privada.id
-  vpc_security_group_ids = [aws_security_group.llm.id]
+  subnet_id              = module.base.subred_privada_id
+  vpc_security_group_ids = [aws_security_group.llm[0].id]
   # Rol propio: SSM y los modelos de S3, nunca los secretos del MDR (clave de la traza, tokens).
-  iam_instance_profile        = aws_iam_instance_profile.gpu.name
+  iam_instance_profile        = aws_iam_instance_profile.gpu[0].name
   associate_public_ip_address = false
   depends_on                  = [aws_iam_role_policy.gpu_s3]
 
@@ -64,4 +64,80 @@ resource "aws_instance" "llm" {
     }
   }
   tags = { Name = "${var.proyecto}-llm" }
+}
+
+# LLM: solo acepta del SG del MDR (la URL privada del justificador). Nada público.
+resource "aws_security_group" "llm" {
+  count       = var.llm_habilitado ? 1 : 0
+  name_prefix = "${var.proyecto}-llm-"
+  description = "LLM justificador (solo desde el MDR)"
+  vpc_id      = module.base.vpc_id
+
+  ingress {
+    description     = "generador (llama-server) desde el MDR"
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [module.base.sg_instancia_id]
+  }
+  ingress {
+    description     = "embedder bge-m3 del RAG desde el MDR"
+    from_port       = 8082
+    to_port         = 8082
+    protocol        = "tcp"
+    security_groups = [module.base.sg_instancia_id]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = { Name = "${var.proyecto}-sg-llm" }
+}
+
+data "aws_iam_policy_document" "asume_ec2_gpu" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+# Rol de la GPU, aparte: SSM y los modelos de S3. Nunca los secretos del MDR: la GPU compila código de
+# GitHub y escucha en la red; si se comprometiera no debe poder leer la clave de la traza ni los tokens.
+resource "aws_iam_role" "gpu" {
+  count              = var.llm_habilitado ? 1 : 0
+  name_prefix        = "${var.proyecto}-gpu-"
+  assume_role_policy = data.aws_iam_policy_document.asume_ec2_gpu.json
+  tags               = { Name = "${var.proyecto}-rol-gpu" }
+}
+
+resource "aws_iam_role_policy_attachment" "gpu_ssm" {
+  count      = var.llm_habilitado ? 1 : 0
+  role       = aws_iam_role.gpu[0].name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+data "aws_iam_policy_document" "gpu_s3" {
+  count = var.llm_habilitado && length(local.objetos_s3_gpu) > 0 ? 1 : 0
+  statement {
+    actions   = ["s3:GetObject"]
+    resources = local.objetos_s3_gpu
+  }
+}
+
+resource "aws_iam_role_policy" "gpu_s3" {
+  count  = var.llm_habilitado && length(local.objetos_s3_gpu) > 0 ? 1 : 0
+  name   = "leer-modelos"
+  role   = aws_iam_role.gpu[0].id
+  policy = data.aws_iam_policy_document.gpu_s3[0].json
+}
+
+resource "aws_iam_instance_profile" "gpu" {
+  count       = var.llm_habilitado ? 1 : 0
+  name_prefix = "${var.proyecto}-gpu-"
+  role        = aws_iam_role.gpu[0].name
 }
