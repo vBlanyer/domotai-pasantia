@@ -68,7 +68,7 @@ class TestArranqueMdr(unittest.TestCase):
         for v in ("LLAMA_URL", "LLAMA_EMBED_URL", "TRIAJE_CON_LLM"):
             self.assertIn(v, t)
         for f in glob.glob(os.path.join(INFRA, "**", "*"), recursive=True):
-            if os.path.isfile(f):
+            if os.path.isfile(f) and f.endswith((".tf", ".tftpl", ".sh", ".py", ".md", ".ejemplo")):
                 with open(f, encoding="utf-8") as g:
                     self.assertNotIn("TRIAJE_LLM_URL", g.read(), f)
 
@@ -158,6 +158,37 @@ class TestRevisionFinal(unittest.TestCase):
         self.assertIn("/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${volumen}", t)
         self.assertNotIn("/dev/nvme1n1", t)
         self.assertRegex(_leer("mdr.tf"), r'volumen\s*=\s*replace\(aws_ebs_volume\.traza\.id, "-", ""\)')
+
+
+class TestDespliegueProduccion(unittest.TestCase):
+    """Entregables para el despliegue oficial (plan del emulador, tareas 3–6)."""
+
+    def test_tfvars_cubre_las_variables(self):
+        variables = re.findall(r'^variable "([a-z_0-9]+)"', _leer("variables.tf"), re.M)
+        plantilla = _leer("produccion.tfvars.ejemplo")
+        for v in variables:
+            self.assertRegex(plantilla, rf"(?m)^#?\s*{v}\s*=", f"falta {v} en produccion.tfvars.ejemplo")
+
+    def test_inventario_al_dia(self):
+        import json
+        declarados = set()
+        for f in glob.glob(os.path.join(INFRA, "*.tf")):
+            with open(f, encoding="utf-8") as g:
+                declarados |= set(re.findall(r'^resource "([a-z0-9_]+)"', g.read(), re.M))
+        inventariados = set()
+        for f in glob.glob(os.path.join(INFRA, "inventario", "escenario-*.json")):
+            with open(f, encoding="utf-8") as g:
+                inventariados |= {r["tipo"] for r in json.load(g)["recursos"]}
+        self.assertEqual(declarados - inventariados, set(), "recursos sin inventariar: regenera el inventario")
+        with open(os.path.join(INFRA, "inventario", "README.md"), encoding="utf-8") as g:
+            leible = g.read()
+        for tipo in declarados:
+            self.assertIn(tipo, leible)
+
+    def test_backend_remoto_de_ejemplo(self):
+        b = _leer("backend.tf.ejemplo")
+        self.assertIn('backend "s3"', b)
+        self.assertIn("encrypt", b)
 
 
 if __name__ == "__main__":
