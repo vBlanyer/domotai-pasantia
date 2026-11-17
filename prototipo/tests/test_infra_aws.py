@@ -25,6 +25,10 @@ class TestArranqueMdr(unittest.TestCase):
         self.assertIn("sha256sum -c", t)
         self.assertNotIn("git clone", t)                     # #11: la consola compilada no está en git
         self.assertNotIn("chown -R triaje", t)               # #18: el código es de root, en solo lectura
+        # lo que instalar.sh exige (lo destapó el simulacro: sin openssh-clients no instala)
+        dnf = re.search(r"^dnf install -y (.+)$", t, re.M).group(1).split()
+        for paquete in ("python3", "python3-pyyaml", "openssh-clients"):
+            self.assertIn(paquete, dnf)
 
     def test_version_actual(self):
         v = _leer("variables.tf")

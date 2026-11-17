@@ -15,14 +15,15 @@ ESTADO=/var/lib/mdr
 ENTORNO=/etc/mdr/triaje.env
 REGION="${region}"
 
-# 1. Dependencias del paquete (Python + PyYAML) y de este arranque.
-dnf install -y python3 python3-pyyaml tar openssl xfsprogs
+# 1. Dependencias que exige instalar.sh (Python + PyYAML, cliente SSH del conector) y las de este arranque.
+dnf install -y python3 python3-pyyaml openssh-clients tar openssl xfsprogs shadow-utils util-linux
 
 # 2. Disco de la traza: obligatorio. Se monta en el directorio de estado del MDR antes de instalar, y la
 #    unidad exige el montaje (paso 4): una traza en el disco raíz quedaría oculta al montar el disco.
-#    En instancias Nitro el disco adjunto aparece como /dev/nvmeXn1; MDR_DISCOS solo lo usa el simulacro.
+#    En instancias Nitro el disco adjunto aparece como /dev/nvmeXn1. MDR_DISCOS y MDR_ESPERA_DISCO solo
+#    los usa el simulacro (infra/aws/simulacro/).
 DISCO=""
-for _ in $(seq 1 60); do
+for _ in $(seq 1 "$${MDR_ESPERA_DISCO:-60}"); do
   for d in $${MDR_DISCOS:-/dev/nvme1n1 /dev/nvme2n1 /dev/sdf /dev/xvdf}; do
     if [ -b "$d" ]; then DISCO="$d"; break; fi
   done
@@ -30,7 +31,7 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 if [ -z "$DISCO" ]; then
-  echo "ERROR: el disco de la traza no apareció en 120 s; el MDR no arranca sin él." >&2
+  echo "ERROR: el disco de la traza no apareció; el MDR no arranca sin él." >&2
   exit 1
 fi
 blkid "$DISCO" >/dev/null 2>&1 || mkfs -t xfs "$DISCO"
