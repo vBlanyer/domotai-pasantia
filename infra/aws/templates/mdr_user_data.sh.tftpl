@@ -1,61 +1,126 @@
 #!/bin/bash
-# cloud-init del MDR (Amazon Linux 2023). Las variables de plantilla (repo_url, repo_rama, salida,
-# llm_url) las rellena OpenTofu con templatefile; las variables de SHELL van con doble dólar para que
-# templatefile las deje literales.
-# REQUISITO: dnf/git clone necesitan egreso de bootstrap (var.egreso_bootstrap=true) o una AMI
-# horneada / artefactos en S3; la subred privada no sale a Internet por defecto (ver README).
-set -euxo pipefail
+# Arranque (cloud-init) de la instancia del MDR, Amazon Linux 2023. Instala el MDR como en un cliente:
+# el PAQUETE del release (con la consola compilada y el código de root en solo lectura), verificado por
+# su huella, con instalar.sh. Fail-closed: si el disco de la traza no aparece, la huella no cuadra o un
+# secreto indicado no se puede leer, el arranque se para y el MDR no arranca (registro en
+# /var/log/mdr-arranque.log).
+#
+# Plantilla de OpenTofu: lo que va entre llaves con un solo dólar lo rellena templatefile; las variables
+# de shell con llaves llevan dos dólares. Nunca dos dólares sin llave: templatefile no los escapa y bash
+# los leería como el PID.
+set -euo pipefail
+exec > >(tee -a /var/log/mdr-arranque.log) 2>&1
 
-# 1. Dependencias (solo stdlib + PyYAML + git; sin nada más, como en el laboratorio).
-dnf install -y python3 python3-pyyaml git
+ESTADO=/var/lib/mdr
+ENTORNO=/etc/mdr/triaje.env
+REGION="${region}"
 
-# 2. Usuario de servicio y repo en /opt/mdr.
-id triaje >/dev/null 2>&1 || useradd --system --home /opt/mdr --shell /usr/sbin/nologin triaje
-git clone --branch "${repo_rama}" --depth 1 "${repo_url}" /opt/mdr
+# 1. Dependencias del paquete (Python + PyYAML) y de este arranque.
+dnf install -y python3 python3-pyyaml tar openssl xfsprogs
 
-# 3. EBS cifrado de la traza montado en /mnt/traza (ruta FIJA de --salida: retoma estado al reiniciar).
-#    /mnt/traza se crea SIEMPRE (así TRIAJE_SALIDA es válido aunque el disco tarde o no aparezca); si el
-#    disco de datos llega (puede tardar: el attach es un recurso aparte), se formatea y se monta encima.
-#    En instancias Nitro el disco adjunto aparece como /dev/nvmeXn1.
-mkdir -p /mnt/traza
+# 2. Disco de la traza: obligatorio. Se monta en el directorio de estado del MDR antes de instalar, y la
+#    unidad exige el montaje (paso 4): una traza en el disco raíz quedaría oculta al montar el disco.
+#    En instancias Nitro el disco adjunto aparece como /dev/nvmeXn1; MDR_DISCOS solo lo usa el simulacro.
 DISCO=""
-for _ in $$(seq 1 30); do
-  for d in /dev/nvme1n1 /dev/nvme2n1 /dev/sdf /dev/xvdf; do
-    if [ -b "$${d}" ]; then DISCO="$${d}"; break; fi
+for _ in $(seq 1 60); do
+  for d in $${MDR_DISCOS:-/dev/nvme1n1 /dev/nvme2n1 /dev/sdf /dev/xvdf}; do
+    if [ -b "$d" ]; then DISCO="$d"; break; fi
   done
-  [ -n "$${DISCO}" ] && break
+  [ -n "$DISCO" ] && break
   sleep 2
 done
-if [ -n "$${DISCO}" ]; then
-  blkid "$${DISCO}" >/dev/null 2>&1 || mkfs -t xfs "$${DISCO}"
-  grep -q "/mnt/traza" /etc/fstab || echo "$${DISCO} /mnt/traza xfs defaults,nofail 0 2" >> /etc/fstab
-  mount -a
+if [ -z "$DISCO" ]; then
+  echo "ERROR: el disco de la traza no apareció en 120 s; el MDR no arranca sin él." >&2
+  exit 1
 fi
-chown triaje:triaje /mnt/traza
+blkid "$DISCO" >/dev/null 2>&1 || mkfs -t xfs "$DISCO"
+mkdir -p "$ESTADO"
+grep -q " $ESTADO " /etc/fstab || echo "UUID=$(blkid -s UUID -o value "$DISCO") $ESTADO xfs defaults 0 2" >> /etc/fstab
+mountpoint -q "$ESTADO" || mount "$ESTADO"
+TRAZA_PREVIA=no
+[ -s "$ESTADO/trazas-cliente.jsonl" ] && TRAZA_PREVIA=si
 
-# 4. EnvironmentFile de la unidad systemd (deploy/triaje.env.ejemplo como base). La fuente de alertas
-#    (alerts.json del SIEM del cliente) llega por VPN/peering o la alimenta un generador de prueba;
-#    aquí se apunta a una ruta local que se sigue con tail -F.
-install -d -m 0750 -o triaje -g triaje /etc/mdr /opt/mdr/run
-: > /opt/mdr/run/alerts.json && chown triaje:triaje /opt/mdr/run/alerts.json
-cat > /etc/mdr/triaje.env <<EOF
-TRIAJE_ALERTS=/opt/mdr/run/alerts.json
-TRIAJE_PERFIL=prototipo/perfiles/bancario.yml
-TRIAJE_HALLAZGOS=lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json
-TRIAJE_SALIDA=${salida}
-TRIAJE_WEB_PUERTO=8787
-# LLM justificador (vacío => justificador de plantilla, determinista). El motor no depende del LLM.
-TRIAJE_LLM_URL=${llm_url}
+# 3. Paquete del release, verificado por su huella, e instalación (código de root, solo lectura).
+TMP=$(mktemp -d)
+case "${paquete_url}" in
+  s3://*) aws s3 cp --region "$REGION" "${paquete_url}" "$TMP/mdr.tar.gz" ;;
+  *) curl -fsSL -o "$TMP/mdr.tar.gz" "${paquete_url}" ;;
+esac
+echo "${paquete_sha256}  $TMP/mdr.tar.gz" | sha256sum -c -
+tar -xzf "$TMP/mdr.tar.gz" -C "$TMP"
+"$TMP"/mdr-*/instalar.sh
+rm -rf "$TMP"
+
+# 4. La unidad no arranca sin el disco de la traza montado.
+install -d /etc/systemd/system/mdr-triaje.service.d
+cat > /etc/systemd/system/mdr-triaje.service.d/traza.conf <<'EOF'
+[Unit]
+RequiresMountsFor=/var/lib/mdr
 EOF
-chmod 0640 /etc/mdr/triaje.env
-chown root:triaje /etc/mdr/triaje.env
 
-# NOTA (secretos, #9): la clave HMAC de la traza, el token del visor y la clave SSH del conector se
-# leen de Secrets Manager con el rol de instancia (permiso concedido en iam.tf). Aquí NO van en claro;
-# el fetch (p. ej. `aws secretsmanager get-secret-value`) se añade cuando se definan los ARNs.
+# poner CLAVE VALOR: escribe en triaje.env con el mismo formato que «mdr configurar» (0600).
+poner() {
+  (cd /opt/mdr && MDR_K="$1" MDR_V="$2" python3 -c 'import os
+from prototipo.herramientas import entorno
+entorno.escribir(os.environ["MDR_ENTORNO"], {os.environ["MDR_K"]: os.environ["MDR_V"]})')
+}
+export MDR_ENTORNO="$ENTORNO"
 
-# 5. Unidad systemd de deploy/ y arranque.
-chown -R triaje:triaje /opt/mdr
-cp /opt/mdr/deploy/mdr-triaje.service /etc/systemd/system/
+# 5. Perfil del cliente: el indicado, o el perfil mínimo para empezar con el asistente de red.
+if [ -n "${perfil_url}" ]; then
+  case "${perfil_url}" in
+    s3://*) aws s3 cp --region "$REGION" "${perfil_url}" /etc/mdr/perfil.yml ;;
+    *) curl -fsSL -o /etc/mdr/perfil.yml "${perfil_url}" ;;
+  esac
+elif [ ! -f /etc/mdr/perfil.yml ]; then
+  IP="$${MDR_IP:-}"
+  if [ -z "$IP" ]; then
+    IMDS=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+    IP=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS" http://169.254.169.254/latest/meta-data/local-ipv4)
+  fi
+  (cd /opt/mdr && python3 -m prototipo.herramientas.perfil_minimo --gestion "$IP" ${rangos} --salida /etc/mdr/perfil.yml)
+fi
+chown root:triaje /etc/mdr/perfil.yml
+chmod 0640 /etc/mdr/perfil.yml
+poner TRIAJE_PERFIL /etc/mdr/perfil.yml
+
+# 6. Fuente de alertas: un fichero en el disco de estado que alimenta el SIEM (o, con TRIAJE_ESCUCHAR,
+#    el receptor de red del propio daemon; ver infra/aws/README.md).
+touch "$ESTADO/alerts.json"
+chown triaje:triaje "$ESTADO/alerts.json"
+poner TRIAJE_ALERTS "$ESTADO/alerts.json"
+
+# 7. Firma de la traza: la clave de Secrets Manager si se indicó (un fallo al leerla para el arranque),
+#    o una nueva. Con una traza anterior en el disco, una clave nueva no verifica la cadena vieja.
+if [ -n "${secreto_traza_arn}" ]; then
+  CLAVE=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id "${secreto_traza_arn}" --query SecretString --output text)
+else
+  CLAVE=$(openssl rand -hex 32)
+  if [ "$TRAZA_PREVIA" = si ] || [ -s "$ESTADO/trazas-cliente.jsonl" ]; then
+    echo "AVISO: el disco ya tiene una traza y la clave HMAC es nueva: la cadena anterior no se verificará con ella. Guarda la clave en Secrets Manager (secreto_traza_arn)." >&2
+  fi
+fi
+poner TRIAJE_TRAZA_CLAVE "$CLAVE"
+unset CLAVE
+
+# 8. Acceso a la consola: los analistas del secreto indicado, o un analista «admin» con su token en
+#    /root/mdr-token-admin (0600), que se lee por SSM. Nunca una consola abierta.
+if [ -n "${secreto_operadores_arn}" ]; then
+  OPERADORES=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id "${secreto_operadores_arn}" --query SecretString --output text)
+  poner TRIAJE_CONSOLA_OPERADORES "$OPERADORES"
+  unset OPERADORES
+else
+  (umask 077 && MDR_ENV="$ENTORNO" /opt/mdr/bin/mdr analista alta admin > /root/mdr-token-admin)
+fi
+
+# 9. Modelo de lenguaje (si la GPU está habilitada): generador y embedder del RAG.
+if [ -n "${llm_url}" ]; then
+  poner LLAMA_URL "${llm_url}"
+  poner LLAMA_EMBED_URL "${llm_embed_url}"
+  poner TRIAJE_CON_LLM 1
+fi
+
+# 10. Arranque del servicio.
 systemctl daemon-reload
 systemctl enable --now mdr-triaje
+echo "MDR instalado y en marcha."

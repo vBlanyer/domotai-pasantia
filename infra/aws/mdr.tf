@@ -1,5 +1,5 @@
-# EC2 del daemon MDR + visor. Amazon Linux 2023; el arranque (cloud-init) instala dependencias, clona
-# el repo y levanta la unidad systemd de deploy/. El visor lo sirve el propio daemon (dist ya construido).
+# EC2 del daemon MDR + consola. Amazon Linux 2023; el arranque (cloud-init) instala el paquete del release
+# verificado con instalar.sh, monta el disco de la traza y configura firma y acceso (templates/).
 data "aws_ami" "al2023" {
   most_recent = true
   owners      = ["amazon"]
@@ -14,9 +14,14 @@ data "aws_ami" "al2023" {
 }
 
 locals {
-  # URL privada del LLM justificador (si está habilitado); vacío => el daemon usa el justificador de
-  # plantilla (determinista). El motor no depende del LLM.
-  llm_url = var.llm_habilitado ? "http://${aws_instance.llm[0].private_ip}:8080" : ""
+  # URLs privadas del modelo y del embedder del RAG (si la GPU está habilitada); vacías => justificación
+  # de plantilla (determinista). El motor no depende del modelo.
+  llm_url       = var.llm_habilitado ? "http://${aws_instance.llm[0].private_ip}:8080" : ""
+  llm_embed_url = var.llm_habilitado ? "http://${aws_instance.llm[0].private_ip}:8082" : ""
+  paquete_url = var.mdr_paquete_url != "" ? var.mdr_paquete_url : (
+    "https://github.com/vBlanyer/domotai-pasantia/releases/download/v${var.mdr_version}/mdr-${var.mdr_version}.tar.gz"
+  )
+  red_cidrs = length(var.red_cliente_cidrs) > 0 ? var.red_cliente_cidrs : [var.vpc_cidr]
 }
 
 resource "aws_instance" "mdr" {
@@ -37,12 +42,19 @@ resource "aws_instance" "mdr" {
     volume_size = 12
   }
   user_data = templatefile("${path.module}/templates/mdr_user_data.sh.tftpl", {
-    repo_url  = var.repo_url
-    repo_rama = var.repo_rama
-    salida    = "/mnt/traza/trazas-bancario.jsonl" # ruta FIJA en el EBS (retoma estado al reiniciar, #4)
-    llm_url   = local.llm_url
+    region                 = var.region
+    paquete_url            = local.paquete_url
+    paquete_sha256         = var.mdr_paquete_sha256
+    perfil_url             = var.perfil_url
+    rangos                 = join(" ", [for c in local.red_cidrs : "--rango ${c}"])
+    secreto_traza_arn      = var.secreto_traza_arn
+    secreto_operadores_arn = var.secreto_operadores_arn
+    llm_url                = local.llm_url
+    llm_embed_url          = local.llm_embed_url
   })
-  tags = { Name = "${var.proyecto}-mdr" }
+  # Cambiar el arranque (otra versión, otro perfil) recrea la instancia; la traza sigue en su EBS.
+  user_data_replace_on_change = true
+  tags                        = { Name = "${var.proyecto}-mdr" }
 }
 
 # EBS cifrado para la traza (--salida fija). Snapshots = retención/backup (#9).
@@ -58,4 +70,6 @@ resource "aws_volume_attachment" "traza" {
   device_name = "/dev/sdf"
   volume_id   = aws_ebs_volume.traza.id
   instance_id = aws_instance.mdr.id
+  # El MDR escribe ahí la traza: desmontarlo en caliente puede dejarlo «busy» y colgar el destroy (#12).
+  stop_instance_before_detaching = true
 }

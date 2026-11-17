@@ -23,3 +23,10 @@ output "comando_tunel_visor" {
     "--parameters '{\"portNumber\":[\"8787\"],\"localPortNumber\":[\"8787\"]}'",
   ])
 }
+
+# El token del analista «admin» (si no se indicó secreto_operadores_arn): se lee por SSM, nunca sale en
+# el estado de OpenTofu.
+output "comando_token_admin" {
+  description = "Cómo leer el token del analista admin de la consola."
+  value       = "aws ssm start-session --region ${var.region} --target ${aws_instance.mdr.id}   # y dentro: sudo cat /root/mdr-token-admin"
+}

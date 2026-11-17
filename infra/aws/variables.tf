@@ -58,16 +58,52 @@ variable "mdr_disco_gb" {
   default     = 20
 }
 
-variable "repo_url" {
-  description = "Repositorio a clonar en el arranque (cloud-init)."
+# --- Qué se instala: el PAQUETE del release, verificado por su huella (no un git clone: #7, #11, #18) ---
+variable "mdr_version" {
+  description = "Versión del MDR a instalar (release de GitHub vX.Y.Z)."
   type        = string
-  default     = "https://github.com/vBlanyer/domotai-pasantia.git"
+  default     = "1.9.1"
 }
 
-variable "repo_rama" {
-  description = "Rama/etiqueta a desplegar."
+variable "mdr_paquete_url" {
+  description = "URL del paquete mdr-<versión>.tar.gz (https:// o s3://). Vacío = el asset del release de GitHub de mdr_version (necesita egreso_bootstrap); sin egreso, súbelo a S3."
   type        = string
-  default     = "v1.4"
+  default     = ""
+}
+
+variable "mdr_paquete_sha256" {
+  description = "SHA-256 del paquete. El arranque se para si no coincide. El valor por defecto es el de mdr-1.9.1.tar.gz publicado en el release v1.9.1: cámbialo junto con mdr_version."
+  type        = string
+  default     = "7c686657021aba4041d6eede34808a08831b832534b151736a42c1022adda519"
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.mdr_paquete_sha256))
+    error_message = "mdr_paquete_sha256 debe ser un SHA-256 en hexadecimal (64 caracteres)."
+  }
+}
+
+variable "perfil_url" {
+  description = "Perfil del cliente (https:// o s3://). Vacío = perfil mínimo con la IP del MDR y red_cliente_cidrs, para empezar con el asistente de red."
+  type        = string
+  default     = ""
+}
+
+variable "red_cliente_cidrs" {
+  description = "Rangos de la red del cliente para el perfil mínimo. Vacío = la VPC."
+  type        = list(string)
+  default     = []
+}
+
+# --- Secretos (#19): solo ARNs; los valores viven en Secrets Manager, nunca aquí ni en el estado ---
+variable "secreto_traza_arn" {
+  description = "ARN del secreto con la clave HMAC de la traza (texto). Vacío = se genera una en la instancia (vale para una demo; si se recrea la instancia, la cadena anterior ya no se verifica)."
+  type        = string
+  default     = ""
+}
+
+variable "secreto_operadores_arn" {
+  description = "ARN del secreto con los analistas de la consola (JSON {\"<token>\": \"<nombre>\"}). Vacío = un analista «admin» con su token en /root/mdr-token-admin."
+  type        = string
+  default     = ""
 }
 
 # --- LLM justificador (OPCIONAL: es el grueso del coste; apagado por defecto) ---
