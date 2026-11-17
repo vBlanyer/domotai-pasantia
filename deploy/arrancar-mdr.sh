@@ -12,6 +12,10 @@ cd "$RAIZ"
 : "${TRIAJE_HALLAZGOS:?define TRIAJE_HALLAZGOS: hallazgos de postura del auditor (JSON)}"
 : "${TRIAJE_SALIDA:?define TRIAJE_SALIDA: ruta FIJA de la traza (retomar el estado al reiniciar)}"
 PUERTO="${TRIAJE_WEB_PUERTO:-8787}"
+# TRIAJE_CON_LLM=1: justificación con el modelo de lenguaje (LLAMA_URL) y el RAG (LLAMA_EMBED_URL).
+# Si el servidor del modelo no responde, el daemon avisa y sigue con la plantilla; la decisión no cambia.
+CON_LLM=""
+[ "${TRIAJE_CON_LLM:-}" = 1 ] && CON_LLM="--con-llm"
 
 # Recibir del SIEM por red: el receptor TCP/TLS del propio daemon, sin pipe.
 if [ -n "${TRIAJE_ESCUCHAR:-}" ]; then
@@ -20,9 +24,9 @@ if [ -n "${TRIAJE_ESCUCHAR:-}" ]; then
   [ -n "${TRIAJE_TLS_CERT:-}" ] && set -- "$@" --tls-cert "$TRIAJE_TLS_CERT" --tls-clave "${TRIAJE_TLS_CLAVE:?TRIAJE_TLS_CERT exige TRIAJE_TLS_CLAVE}"
   [ -n "${TRIAJE_TLS_CA:-}" ] && set -- "$@" --tls-ca "$TRIAJE_TLS_CA"
   exec python3 -m prototipo.servicio.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web "$PUERTO" \
-    --salida "$TRIAJE_SALIDA" "$@" </dev/null
+    --salida "$TRIAJE_SALIDA" ${CON_LLM:+"$CON_LLM"} "$@" </dev/null
 fi
 
 : "${TRIAJE_ALERTS:?define TRIAJE_ALERTS (alerts.json del SIEM) o TRIAJE_ESCUCHAR (recibir por red)}"
 tail -n0 -F "$TRIAJE_ALERTS" \
-  | python3 -m prototipo.servicio.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web "$PUERTO" --salida "$TRIAJE_SALIDA"
+  | python3 -m prototipo.servicio.stream - "$TRIAJE_PERFIL" "$TRIAJE_HALLAZGOS" --web "$PUERTO" --salida "$TRIAJE_SALIDA" ${CON_LLM:+"$CON_LLM"}
