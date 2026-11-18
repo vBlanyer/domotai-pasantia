@@ -77,15 +77,20 @@ class TestLaboratorio(unittest.TestCase):
             self.assertEqual(bloque(_leer(self.T)), bloque(f.read()))
 
     def test_costes_del_laboratorio(self):
-        c = _leer("../COSTES.md")
+        c = _leer("COSTES.md")
         self.assertIn("t3.xlarge", c)
         for uso in ("Encendido 24/7", "Parar y encender", "destroy"):
             self.assertIn(uso, c)
-        self.assertIn("E · laboratorio", c)
+        self.assertRegex(c, r"\| `eu-west-1` \| 0,276 \$")   # por hora, con la máquina, los discos, el NAT y los endpoints
+
+    def test_plantilla_de_variables(self):
+        t = _leer("laboratorio.tfvars.ejemplo")
+        for v in _variables():
+            self.assertRegex(t, rf"(?m)^#?\s*{v}\s*=", v)
+        self.assertIn(COMMIT_1_9_2, t)
 
     def test_guia_del_laboratorio(self):
-        d = _leer("../DESPLIEGUE.md")
-        s = d[d.index("## Variante laboratorio"):]
+        s = _leer("DESPLIEGUE.md")
         for txt in ("no se conecta a ningún cliente", "stop-instances", "banco.sh atacar", "comprobar-alertas",
                     "journalctl -u mdr-laboratorio", "laboratorio_commit", "systemctl restart mdr-laboratorio",
                     "reiniciar.sh", "se anotan como revertidas", COMMIT_1_9_2):

@@ -19,7 +19,7 @@ NOMBRE=$(basename "$PAQ")
 TRABAJO=$(mktemp -d)
 trap 'rm -rf -- "$TRABAJO"' EXIT
 
-cd "$RAIZ/infra/aws"
+cd "$RAIZ/infra/aws/mdr"
 tofu init -backend=false -input=false >/dev/null
 
 render() { # render SALIDA HUELLA SECRETO_TRAZA

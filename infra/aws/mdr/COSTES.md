@@ -1,4 +1,4 @@
-# Costes del despliegue en AWS
+# Costes de la variante MDR (producción) en AWS
 
 Estimación de lo que cuesta cada escenario del [inventario](inventario/), con los **precios oficiales
 bajo demanda consultados el 17/11/2026** (USD, sin impuestos, sin capa gratuita ni créditos, sin
@@ -10,7 +10,6 @@ descuentos por compromiso). Los precios cambian: vuelve a consultarlos antes de 
 |---|---|---|---|
 | MDR `t3.small` (Linux) | 0,0228 | 0,0208 | $/hora |
 | GPU `g4dn.xlarge` (Linux) | 0,587 | 0,526 | $/hora |
-| Laboratorio `t3.xlarge` (Linux) | 0,1824 | 0,1664 | $/hora |
 | Disco EBS `gp3` | 0,088 | 0,080 | $/GB-mes |
 | Instantánea EBS | 0,05 | 0,05 | $/GB-mes |
 | NAT Gateway | 0,048 | 0,045 | $/hora |
@@ -34,14 +33,13 @@ descuentos por compromiso). Los precios cambian: vuelve a consultarlos antes de 
 ## Qué se cobra en cada escenario
 
 Una sola zona de disponibilidad (una subred privada), así que cada endpoint de interfaz cuenta una vez.
-Discos: raíz del MDR 12 GB + traza 20 GB; raíz de la GPU 100 GB; raíz del laboratorio 40 GB.
+Discos: raíz del MDR 12 GB + traza 20 GB; raíz de la GPU 100 GB.
 
 | Escenario | Instancias | Discos | Red | Secretos |
 |---|---|---|---|---|
 | **A** · MDR con egreso | `t3.small` | 32 GB | NAT + su IP + 3 endpoints (SSM) | ninguno (se generan en la instancia) |
 | **B** · MDR sin egreso (recomendado) | `t3.small` | 32 GB | 4 endpoints (SSM + Secrets Manager) | 2 |
 | **D** · MDR + GPU | `t3.small` + `g4dn.xlarge` | 132 GB | NAT + su IP + 3 endpoints (SSM) | ninguno |
-| **E** · laboratorio (banco, Wazuh y MDR) | `t3.xlarge` | 60 GB | NAT + su IP + 3 endpoints (SSM) | ninguno |
 
 ## Coste por escenario
 
@@ -56,7 +54,6 @@ y los secretos **se siguen cobrando**.
 | A · MDR con egreso | 0,113 $ | 0,90 $ | 2,70 $ | 82 $ | 66 $ |
 | B · MDR sin egreso | 0,072 $ | 0,57 $ | 1,72 $ | 52 $ | 36 $ |
 | D · MDR + GPU | 0,712 $ | 5,69 $ | 17,08 $ | 520 $ | 74 $ |
-| E · laboratorio | 0,276 $ | 2,21 $ | 6,62 $ | 201 $ | 68 $ |
 
 ### `us-east-1`
 
@@ -65,21 +62,10 @@ y los secretos **se siguen cobrando**.
 | A · MDR con egreso | 0,104 $ | 0,83 $ | 2,50 $ | 76 $ | 61 $ |
 | B · MDR sin egreso | 0,065 $ | 0,52 $ | 1,57 $ | 48 $ | 33 $ |
 | D · MDR + GPU | 0,641 $ | 5,13 $ | 15,39 $ | 468 $ | 69 $ |
-| E · laboratorio | 0,253 $ | 2,02 $ | 6,07 $ | 185 $ | 63 $ |
 
 **Uso de oficina con GPU** (D, MDR y red 24/7, la GPU encendida solo 8 h × 22 días laborables):
 unos **194 $/mes** en `eu-west-1` y **177 $/mes** en `us-east-1`. La GPU se para y arranca con
 `aws ec2 stop-instances` / `start-instances`; parada solo cobra su disco (100 GB ≈ 8,80 $/mes).
-
-**Laboratorio (E): cómo usarlo y cuánto cuesta** (`eu-west-1` / `us-east-1`):
-
-| Uso | Coste | Cómo |
-|---|---|---|
-| Encendido 24/7 | ≈ 201 $ / 185 $ al mes | — |
-| Parar y encender (8 h × 22 días laborables) | ≈ 100 $ / 92 $ al mes | `aws ec2 stop-instances` / `start-instances`; al encender, el laboratorio se rehace solo en unos minutos |
-| `destroy` al terminar | 2,21 $ / 2,02 $ por prueba de 8 h | cada vez, arranque completo (descargas e instalación) y se pierde la traza |
-
-Parado sigue costando unos 68 $ / 63 $ al mes, casi todo el NAT y los endpoints de SSM.
 
 ### Dónde se va el dinero
 

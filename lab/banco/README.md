@@ -45,7 +45,7 @@ pequeña escanearía también esos puertos.
 ## Como servicio (sin nadie delante)
 
 `servicio-mdr.sh` hace en un solo paso lo que se hace a mano arriba, preparado para systemd (la unidad
-`mdr-laboratorio.service`, que instala la variante «laboratorio» del despliegue en AWS, `infra/aws`):
+`mdr-laboratorio.service`, que instala la variante laboratorio del despliegue en AWS, [`infra/aws/laboratorio`](../../infra/aws/laboratorio/README.md)):
 baja y vuelve a levantar el banco, aprovisiona, comprueba (`test` y `comprobar-alertas`, que terminan
 con error si algo falla) y arranca el daemon con las mismas variables que `reiniciar.sh`. La traza va a
 un fichero fijo (`/var/lib/mdr/trazas-laboratorio.jsonl`), así que la cadena continúa entre arranques.

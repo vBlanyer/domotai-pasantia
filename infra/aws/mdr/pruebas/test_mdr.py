@@ -23,6 +23,12 @@ def _base(rel):
 
 
 class TestEstructuraMdr(unittest.TestCase):
+    def test_simulacro_renderiza_desde_mdr(self):
+        # el simulacro del arranque usa la plantilla y la configuración de esta carpeta
+        s = _leer("../simulacro/simulacro.sh")
+        self.assertIn('cd "$RAIZ/infra/aws/mdr"', s)
+        self.assertTrue(os.path.exists(os.path.join(CARPETA, "templates", "mdr_user_data.sh.tftpl")))
+
     """La variante MDR en su carpeta, sobre el módulo común (plan-aws-dos-carpetas.md, tarea 1)."""
 
     def test_usa_el_modulo_base(self):
@@ -213,11 +219,11 @@ class TestDespliegueProduccion(unittest.TestCase):
             with open(f, encoding="utf-8") as g:
                 declarados |= set(re.findall(r'^resource "([a-z0-9_]+)"', g.read(), re.M))
         inventariados = set()
-        for f in glob.glob(os.path.join(INFRA, "..", "inventario", "escenario-*.json")):
+        for f in glob.glob(os.path.join(INFRA, "inventario", "escenario-*.json")):
             with open(f, encoding="utf-8") as g:
                 inventariados |= {r["tipo"] for r in json.load(g)["recursos"]}
         self.assertEqual(declarados - inventariados, set(), "recursos sin inventariar: regenera el inventario")
-        with open(os.path.join(INFRA, "..", "inventario", "README.md"), encoding="utf-8") as g:
+        with open(os.path.join(INFRA, "inventario", "README.md"), encoding="utf-8") as g:
             leible = g.read()
         for tipo in declarados:
             self.assertIn(tipo, leible)
@@ -232,22 +238,22 @@ class TestRevisionEmulador(unittest.TestCase):
     """Hallazgos de la revisión final del plan del emulador (17/11)."""
 
     def test_salidas_con_raw(self):                              # sin -raw, las comillas salen escapadas
-        for doc in ("../DESPLIEGUE.md", "../README.md"):
+        for doc in ("DESPLIEGUE.md", "README.md", "../INSTALAR.md"):
             self.assertIsNone(re.search(r"tofu output (?!-raw)comando_", _leer(doc)), doc)
 
     def test_emulador_no_copia_el_backend_de_produccion(self):
-        self.assertIn('rm -f "$d/backend.tf"', _leer("../emulador/probar.sh"))
+        self.assertIn('"$w/backend.tf"', _leer("../emulador/probar.sh"))
 
     def test_comprobar_no_da_verde_sin_el_arranque(self):
         import importlib.util
-        spec = importlib.util.spec_from_file_location("comprobar", os.path.join(INFRA, "..", "emulador", "comprobar.py"))
+        spec = importlib.util.spec_from_file_location("comprobar", os.path.join(INFRA, "emulador", "comprobar.py"))
         comprobar = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(comprobar)
         estado = {"values": {"root_module": {"resources": [
             {"address": "aws_instance.mdr", "type": "aws_instance",
              "values": {"associate_public_ip_address": False, "metadata_options": [{"http_tokens": "required"}],
                         "root_block_device": [{"encrypted": True}], "user_data": "a" * 40}},
-            {"address": "data.aws_instance.comprobar_mdr", "type": "aws_instance", "values": {}},
+            {"address": "data.aws_instance.comprobar", "type": "aws_instance", "values": {}},
         ]}}}
         fallos = [n for n, ok in comprobar.comprobaciones("A", estado) if not ok]
         self.assertTrue(any("arranque" in n for n in fallos), fallos)
@@ -261,12 +267,16 @@ class TestRevisionEmulador(unittest.TestCase):
         self.assertRegex(t, r'(?m)^perfil_url\s*=\s*""')         # opcional: vacío salvo que se suba un perfil
 
     def test_nat_no_es_solo_del_primer_arranque(self):           # se cobra mientras egreso_bootstrap = true
-        for f in ("../emulador/inventario.py", "../inventario/README.md"):
+        for f in ("../emulador/inventario.py", "inventario/README.md"):
             self.assertNotIn("solo primer arranque", _leer(f), f)
-        self.assertIn("aunque no haya GPU", _leer("../inventario/README.md"))
+        # la GPU (instancia, rol, perfil y grupo) solo existe en el escenario con GPU
+        import json
+        for e in ("a", "b"):
+            tipos = {r["direccion"] for r in json.loads(_leer(f"inventario/escenario-{e}.json"))["recursos"]}
+            self.assertFalse({d for d in tipos if "gpu" in d or "llm" in d}, e)
 
     def test_instantanea_de_la_traza_reproducible(self):
-        d = _leer("../DESPLIEGUE.md")
+        d = _leer("DESPLIEGUE.md")
         self.assertRegex(d, r"create-snapshot --region")
         self.assertIn("tofu state show aws_ebs_volume.traza", d)
         self.assertIn("file://", d)                              # los tokens no van en la línea de órdenes

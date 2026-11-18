@@ -3,64 +3,6 @@
  "descripcion": "Con egreso para el primer arranque (NAT), paquete del release de GitHub, sin secretos ni GPU.",
  "recursos": [
   {
-   "direccion": "aws_ebs_volume.traza",
-   "tipo": "aws_ebs_volume",
-   "por_que": "Disco cifrado de la traza y del estado del MDR (/var/lib/mdr).",
-   "config": {
-    "size": 20,
-    "type": "gp3",
-    "encrypted": true
-   }
-  },
-  {
-   "direccion": "aws_eip.nat[0]",
-   "tipo": "aws_eip",
-   "por_que": "IP pública del NAT (solo con egreso).",
-   "config": {
-    "domain": "vpc"
-   }
-  },
-  {
-   "direccion": "aws_iam_instance_profile.gpu",
-   "tipo": "aws_iam_instance_profile",
-   "por_que": "Perfil que asocia el rol de la GPU a su instancia. Se crea aunque no haya GPU (sin coste).",
-   "config": {}
-  },
-  {
-   "direccion": "aws_iam_instance_profile.instancia",
-   "tipo": "aws_iam_instance_profile",
-   "por_que": "Perfil que asocia el rol a la instancia del MDR.",
-   "config": {}
-  },
-  {
-   "direccion": "aws_iam_role.gpu",
-   "tipo": "aws_iam_role",
-   "por_que": "Rol propio de la GPU (sin acceso a los secretos del MDR). Se crea aunque no haya GPU (sin coste).",
-   "config": {}
-  },
-  {
-   "direccion": "aws_iam_role.instancia",
-   "tipo": "aws_iam_role",
-   "por_que": "Rol del MDR.",
-   "config": {}
-  },
-  {
-   "direccion": "aws_iam_role_policy_attachment.gpu_ssm",
-   "tipo": "aws_iam_role_policy_attachment",
-   "por_que": "La GPU se gestiona por SSM. Se crea aunque no haya GPU (sin coste).",
-   "config": {
-    "policy_arn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-   }
-  },
-  {
-   "direccion": "aws_iam_role_policy_attachment.ssm",
-   "tipo": "aws_iam_role_policy_attachment",
-   "por_que": "El MDR se gestiona por SSM.",
-   "config": {
-    "policy_arn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-   }
-  },
-  {
    "direccion": "aws_instance.mdr",
    "tipo": "aws_instance",
    "por_que": "El MDR (daemon y consola).",
@@ -84,51 +26,98 @@
    }
   },
   {
-   "direccion": "aws_internet_gateway.igw[0]",
+   "direccion": "aws_volume_attachment.traza",
+   "tipo": "aws_volume_attachment",
+   "por_que": "Engancha el disco de la traza al MDR (destroy apaga antes de soltarlo).",
+   "config": {
+    "device_name": "/dev/sdf",
+    "stop_instance_before_detaching": true
+   }
+  },
+  {
+   "direccion": "module.base.aws_ebs_volume.traza",
+   "tipo": "aws_ebs_volume",
+   "por_que": "Disco cifrado de la traza y del estado del MDR (/var/lib/mdr).",
+   "config": {
+    "size": 20,
+    "type": "gp3",
+    "encrypted": true
+   }
+  },
+  {
+   "direccion": "module.base.aws_eip.nat[0]",
+   "tipo": "aws_eip",
+   "por_que": "IP pública del NAT (solo con egreso).",
+   "config": {
+    "domain": "vpc"
+   }
+  },
+  {
+   "direccion": "module.base.aws_iam_instance_profile.instancia",
+   "tipo": "aws_iam_instance_profile",
+   "por_que": "Perfil que asocia el rol a la instancia del MDR.",
+   "config": {}
+  },
+  {
+   "direccion": "module.base.aws_iam_role.instancia",
+   "tipo": "aws_iam_role",
+   "por_que": "Rol del MDR.",
+   "config": {}
+  },
+  {
+   "direccion": "module.base.aws_iam_role_policy_attachment.ssm",
+   "tipo": "aws_iam_role_policy_attachment",
+   "por_que": "El MDR se gestiona por SSM.",
+   "config": {
+    "policy_arn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+   }
+  },
+  {
+   "direccion": "module.base.aws_internet_gateway.igw[0]",
    "tipo": "aws_internet_gateway",
    "por_que": "Salida a Internet de la subred pública (solo con egreso).",
    "config": {}
   },
   {
-   "direccion": "aws_nat_gateway.nat[0]",
+   "direccion": "module.base.aws_nat_gateway.nat[0]",
    "tipo": "aws_nat_gateway",
    "por_que": "NAT para que el primer arranque descargue paquetes (solo con egreso); se cobra mientras exista.",
    "config": {}
   },
   {
-   "direccion": "aws_route.privada_egreso[0]",
+   "direccion": "module.base.aws_route.privada_egreso[0]",
    "tipo": "aws_route",
-   "por_que": "Salida de la subred privada por el NAT: la usa el primer arranque, y queda mientras egreso_bootstrap = true.",
+   "por_que": "Salida de la subred privada por el NAT: la usa el primer arranque, y queda mientras haya egreso.",
    "config": {
     "destination_cidr_block": "0.0.0.0/0"
    }
   },
   {
-   "direccion": "aws_route_table.privada",
+   "direccion": "module.base.aws_route_table.privada",
    "tipo": "aws_route_table",
    "por_que": "Rutas de la subred privada (sin salida a Internet salvo el NAT).",
    "config": {}
   },
   {
-   "direccion": "aws_route_table.publica[0]",
+   "direccion": "module.base.aws_route_table.publica[0]",
    "tipo": "aws_route_table",
    "por_que": "Rutas de la subred pública hacia el internet gateway.",
    "config": {}
   },
   {
-   "direccion": "aws_route_table_association.privada",
+   "direccion": "module.base.aws_route_table_association.privada",
    "tipo": "aws_route_table_association",
    "por_que": "Asocia la subred privada a sus rutas.",
    "config": {}
   },
   {
-   "direccion": "aws_route_table_association.publica[0]",
+   "direccion": "module.base.aws_route_table_association.publica[0]",
    "tipo": "aws_route_table_association",
    "por_que": "Asocia la subred pública a sus rutas.",
    "config": {}
   },
   {
-   "direccion": "aws_security_group.endpoints",
+   "direccion": "module.base.aws_security_group.endpoints",
    "tipo": "aws_security_group",
    "por_que": "Cortafuegos de los endpoints: 443 desde la VPC.",
    "config": {
@@ -156,39 +145,7 @@
    }
   },
   {
-   "direccion": "aws_security_group.llm",
-   "tipo": "aws_security_group",
-   "por_que": "Cortafuegos de la GPU: solo el MDR entra, al 8080 y al 8082. Se crea aunque no haya GPU (sin coste).",
-   "config": {
-    "description": "LLM justificador (solo desde el MDR)",
-    "ingress": [
-     {
-      "puertos": "8082-8082",
-      "protocolo": "tcp",
-      "origen": "un grupo de seguridad (ver la descripción)",
-      "descripcion": "embedder bge-m3 del RAG desde el MDR"
-     },
-     {
-      "puertos": "8080-8080",
-      "protocolo": "tcp",
-      "origen": "un grupo de seguridad (ver la descripción)",
-      "descripcion": "generador (llama-server) desde el MDR"
-     }
-    ],
-    "egress": [
-     {
-      "puertos": "0-0",
-      "protocolo": "-1",
-      "origen": [
-       "0.0.0.0/0"
-      ],
-      "descripcion": null
-     }
-    ]
-   }
-  },
-  {
-   "direccion": "aws_security_group.mdr",
+   "direccion": "module.base.aws_security_group.mdr",
    "tipo": "aws_security_group",
    "por_que": "Cortafuegos del MDR: sin entradas; salida libre.",
    "config": {
@@ -206,7 +163,7 @@
    }
   },
   {
-   "direccion": "aws_subnet.privada",
+   "direccion": "module.base.aws_subnet.privada",
    "tipo": "aws_subnet",
    "por_que": "Subred sin IP pública donde viven las instancias.",
    "config": {
@@ -215,7 +172,7 @@
    }
   },
   {
-   "direccion": "aws_subnet.publica[0]",
+   "direccion": "module.base.aws_subnet.publica[0]",
    "tipo": "aws_subnet",
    "por_que": "Subred pública que solo aloja el NAT del primer arranque.",
    "config": {
@@ -224,16 +181,7 @@
    }
   },
   {
-   "direccion": "aws_volume_attachment.traza",
-   "tipo": "aws_volume_attachment",
-   "por_que": "Engancha el disco de la traza al MDR (destroy apaga antes de soltarlo).",
-   "config": {
-    "device_name": "/dev/sdf",
-    "stop_instance_before_detaching": true
-   }
-  },
-  {
-   "direccion": "aws_vpc.main",
+   "direccion": "module.base.aws_vpc.main",
    "tipo": "aws_vpc",
    "por_que": "Red privada del MDR.",
    "config": {
@@ -243,7 +191,7 @@
    }
   },
   {
-   "direccion": "aws_vpc_endpoint.s3",
+   "direccion": "module.base.aws_vpc_endpoint.s3",
    "tipo": "aws_vpc_endpoint",
    "por_que": "Endpoint de S3: paquete, perfil y modelos sin salir a Internet.",
    "config": {
@@ -252,7 +200,7 @@
    }
   },
   {
-   "direccion": "aws_vpc_endpoint.ssm[\"ec2messages\"]",
+   "direccion": "module.base.aws_vpc_endpoint.ssm[\"ec2messages\"]",
    "tipo": "aws_vpc_endpoint",
    "por_que": "Endpoints de SSM: el analista entra por túnel, sin puertos abiertos.",
    "config": {
@@ -262,7 +210,7 @@
    }
   },
   {
-   "direccion": "aws_vpc_endpoint.ssm[\"ssm\"]",
+   "direccion": "module.base.aws_vpc_endpoint.ssm[\"ssm\"]",
    "tipo": "aws_vpc_endpoint",
    "por_que": "Endpoints de SSM: el analista entra por túnel, sin puertos abiertos.",
    "config": {
@@ -272,7 +220,7 @@
    }
   },
   {
-   "direccion": "aws_vpc_endpoint.ssm[\"ssmmessages\"]",
+   "direccion": "module.base.aws_vpc_endpoint.ssm[\"ssmmessages\"]",
    "tipo": "aws_vpc_endpoint",
    "por_que": "Endpoints de SSM: el analista entra por túnel, sin puertos abiertos.",
    "config": {

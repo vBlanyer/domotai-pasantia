@@ -1,0 +1,26 @@
+# Variables del laboratorio en AWS. Copia este fichero a laboratorio.tfvars (git lo ignora) y aplica con:
+#     tofu apply -var-file=laboratorio.tfvars
+# Guía: DESPLIEGUE.md. Para la v1.9.2 solo hace falta revisar la región: lo demás ya está puesto.
+
+# --- Región, nombres y red ---
+region              = "eu-west-1"
+proyecto            = "mdr-laboratorio" # prefijo de nombres y etiquetas (distinto del de producción)
+entorno             = "pruebas"
+vpc_cidr            = "10.91.0.0/16"
+subred_privada_cidr = "10.91.1.0/24"
+subred_publica_cidr = "10.91.2.0/24" # aloja el NAT del primer arranque
+
+# --- Versión del MDR: de su etiqueta salen el laboratorio y la consola ---
+mdr_version        = "1.9.2"
+laboratorio_commit = "2c64820df320f0eab32583f7de1b4f2d99546d78"                         # el de la etiqueta v1.9.2 (obligatorio)
+mdr_paquete_url    = ""                                                                 # vacío = el release de GitHub
+mdr_paquete_sha256 = "e35afcd4f4e70725ffb59585ed4353a3ebed273dcf6a29fe5dee4a676983aba0" # huella de mdr-1.9.2.tar.gz
+
+# --- Máquina y discos ---
+laboratorio_tipo     = "t3.xlarge" # 4 vCPU, 16 GB
+laboratorio_disco_gb = 40          # raíz (imágenes de Docker)
+mdr_disco_gb         = 20          # traza (/var/lib/mdr)
+
+# --- Secretos (opcionales; vacíos = se generan en la máquina) ---
+secreto_traza_arn      = ""
+secreto_operadores_arn = ""
