@@ -20,6 +20,12 @@ capítulo de resultados, y `evaluacion/resultados/`).
   el servidor MCP de API de AWS, en local, solo lectura y sin telemetría, pregunta por lo creado en cada
   escenario (instancias, endpoints, NAT, perfiles, discos) y se le niega parar la instancia. Ensayo del
   diagnóstico del primer despliegue real; instrucciones en `infra/aws/README.md`.
+- **Simulacro del laboratorio** (`infra/aws/laboratorio/simulacro/simulacro.sh`): el arranque real de la
+  variante laboratorio en una «máquina» Amazon Linux 2023 vacía con `systemd`, aislada del equipo. Se monta
+  sola (Docker, Containerlab 0.79.0, la v1.9.2 verificada por su commit, disco, clave y token, unidad
+  `mdr-laboratorio`), levanta banco, Wazuh y MDR, contiene un ataque, se reinicia y lo vuelve a contener:
+  22 de 22. Es la primera vez que ese arranque se ejecuta entero. `--mantener` deja la consola en
+  `http://127.0.0.1:18787`.
 
 ## [1.9.2] — 2026-11-17 · despliegue en AWS: MDR y laboratorio
 

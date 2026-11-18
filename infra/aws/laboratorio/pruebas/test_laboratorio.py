@@ -111,5 +111,69 @@ class TestLaboratorio(unittest.TestCase):
             self.assertIn(txt.lower(), s.lower())
 
 
+
+class TestSimulacro(unittest.TestCase):
+    """Simulacro del laboratorio: el arranque de AWS ejecutado en un contenedor Amazon Linux 2023 con systemd
+    (simulacro/). Aislado de los contenedores del equipo y con la consola solo en 127.0.0.1."""
+    S = "simulacro/simulacro.sh"
+
+    def test_es_sh_valido(self):
+        import subprocess
+        self.assertEqual(subprocess.run(["sh", "-n", os.path.join(CARPETA, self.S)]).returncode, 0)
+
+    def test_ejecuta_la_plantilla_real(self):
+        s = _leer(self.S)
+        self.assertIn("templates/laboratorio_user_data.sh.tftpl", s)
+        self.assertIn(COMMIT_1_9_2, s)
+        self.assertIn("MDR_DISCOS=", s)             # el disco de la traza, como en el simulacro del MDR
+
+    def test_maquina_con_systemd_real(self):
+        d = _leer("simulacro/Dockerfile")
+        self.assertIn("FROM amazonlinux:2023", d)
+        self.assertIn('CMD ["/usr/sbin/init"]', d)
+
+    def test_aislado_del_equipo(self):
+        # nunca la red del equipo ni su Docker: el simulacro no puede tocar los contenedores del usuario
+        s = _leer(self.S)
+        self.assertNotIn("--network host", s)
+        self.assertNotIn("--net=host", s)
+        self.assertNotIn("docker.sock", s)
+
+    def test_consola_solo_en_localhost(self):
+        s = _leer(self.S)
+        # las publicaciones de puertos de docker run (no el «-p Propiedad=…» de systemd-run)
+        publicados = re.findall(r'-p\s+"?([0-9$][^"\s]*)', s)
+        self.assertTrue(publicados)
+        for p in publicados:
+            self.assertTrue(p.startswith("127.0.0.1:"), p)
+
+    def test_limpia_siempre(self):
+        s = _leer(self.S)
+        self.assertRegex(s, r"trap .*EXIT")
+        self.assertRegex(s, r"trap .*INT TERM")       # Ctrl-C también limpia (dash no corre EXIT con señales)
+        self.assertIn("losetup -d", s)                 # el disco de bucle vive en el núcleo del equipo
+
+    def test_instrucciones(self):
+        r = _leer("README.md")
+        s = r[r.index("## Cómo probarla"):]
+        self.assertIn("sh infra/aws/laboratorio/simulacro/simulacro.sh", s)
+        self.assertIn("--mantener", s)
+
+    def test_lee_solo_la_ejecucion_actual_de_la_unidad(self):
+        # dentro de un contenedor el «arranque» (-b) es el del núcleo del equipo y no cambia al reiniciar:
+        # se lee el diario de la ejecución en curso de la unidad, por su identificador de invocación
+        s = _leer(self.S)
+        self.assertIn("_SYSTEMD_INVOCATION_ID", s)
+        self.assertNotIn("journalctl -b", s)
+
+    def test_tras_reiniciar_hace_de_aviso_del_disco(self):
+        # en AWS systemd monta el disco y arranca la unidad al recibir el aviso del dispositivo; en el contenedor
+        # ese aviso no llega y el simulacro hace su papel: montar y arrancar la unidad
+        s = _leer(self.S)
+        tras = s[s.index("docker restart"):]
+        self.assertIn("mount /var/lib/mdr", tras)
+        self.assertIn("systemctl start --no-block mdr-laboratorio", tras)
+
+
 if __name__ == "__main__":
     unittest.main()

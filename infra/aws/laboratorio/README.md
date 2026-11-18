@@ -68,5 +68,26 @@ sh lab/banco/banco.sh comprobar-alertas                          # con el banco 
 TRIAJE_SALIDA=/tmp/prueba.jsonl bash lab/banco/servicio-mdr.sh   # lo que hará la máquina en AWS; Ctrl+C para parar
 ```
 
+**Simulacro del laboratorio: el arranque de AWS en una máquina vacía** (~30 min; red para dnf, GitHub y
+Docker Hub; unos 3–4 GB de memoria, así que baja antes el banco local si está levantado):
+
+```sh
+sh infra/aws/laboratorio/simulacro/simulacro.sh              # completo, y lo limpia al terminar
+sh infra/aws/laboratorio/simulacro/simulacro.sh --mantener   # deja la máquina: consola en http://127.0.0.1:18787
+sh infra/aws/laboratorio/simulacro/simulacro.sh down         # la limpia
+```
+
+Ejecuta el arranque **real** de AWS (la plantilla renderizada con OpenTofu, como en un `apply`) en un
+contenedor Amazon Linux 2023 con `systemd` de verdad, aislado del equipo (su propia red y su propio Docker).
+Comprueba que la máquina se monta sola: Docker y Containerlab 0.79.0, la v1.9.2 clonada y verificada por su
+commit, la consola, el disco de la traza, la clave y el token, la unidad `mdr-laboratorio` y, con ella, el
+banco, Wazuh y el MDR (`banco.sh test`, `comprobar-alertas`, `/healthz`). Después contiene un ataque, se
+reinicia y vuelve a contenerlo (contención anterior anotada como revertida, sin identificadores repetidos,
+cadena firmada válida). Resultado del 18/11: **22 de 22**, en unos 25 minutos.
+
+No prueba lo propio de AWS (IAM, la red, el túnel SSM). Hueco del contenedor: al encender, no le llega el
+aviso del disco de la traza, así que el simulacro lo monta y arranca la unidad, lo que en AWS hace `systemd`
+solo.
+
 Las comprobaciones del escenario están en [emulador/comprobar.py](emulador/comprobar.py) y sus variables
 en [emulador/escenarios.sh](emulador/escenarios.sh).

@@ -118,6 +118,7 @@ sustituido por el servidor MCP que aloja AWS; para el emulador, este es el que f
 |---|---|---|
 | `tofu validate` + pruebas estáticas | Sintaxis, tipos, que las plantillas y los `.tf` dicen lo que deben | Nada se ejecuta |
 | Simulacro (`simulacro/`) | El arranque del MDR de verdad en `amazonlinux:2023`: instala, firma la traza, monta el disco, y se para cuando falta algo | AWS: ni red, ni IAM, ni la GPU |
+| Simulacro del laboratorio (`laboratorio/simulacro/`) | El arranque de la variante laboratorio en una «máquina» Amazon Linux 2023 vacía con `systemd`: se monta sola, levanta banco, Wazuh y MDR, contiene un ataque y lo vuelve a contener tras reiniciar | AWS: ni IAM, ni red, ni túnel SSM |
 | AWS Emulator (`emulador/`) | El grafo de recursos entero, en orden, las precondiciones y lo que llega a cada instancia | No arranca máquinas ni evalúa IAM |
 
 **Qué no prueba ninguna** (solo un despliegue real):
