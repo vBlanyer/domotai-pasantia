@@ -961,6 +961,7 @@ toca».
 | `TRIAJE_CONECTIVIDAD_DESACTIVADA=1` | Apaga la vista Conectividad: solo muestra la configuración, sin probar ni cambiar nada |
 | `TRIAJE_NODO_GESTION` | Contenedor desde el que sale el SSH del conector. `reiniciar.sh` la fija en el banco |
 | `TRIAJE_SSH_MODO` | `clave` (vía el nodo de gestión), `directo` (desde este equipo) o `password` (laboratorio). Sin clave ni modo, no ejecuta nada |
+| `TRIAJE_SSH_PLAZO_CONEXION` | Segundos que espera el SSH a que el equipo acepte la conexión (1 a 20; por defecto 5). El banco lo sube a 15: bajo una fuerza bruta contra el sshd del equipo, 5 s no bastaban |
 | `TRIAJE_SSH_USUARIO`, `TRIAJE_SSH_CLAVE`, `TRIAJE_SSH_KNOWN_HOSTS` | Usuario, clave privada y huellas del conector |
 | `TRIAJE_TRAZA_CLAVE` | Firma la cadena de la traza con HMAC. Sin ella, el arranque avisa «SIN firma HMAC» |
 | `TRIAJE_ANCLA` | Ancla la traza en el syslog del SIEM |

@@ -1397,6 +1397,7 @@ es `/opt/mdr/deploy/triaje.env.ejemplo`.
 | `TRIAJE_ESCUCHAR`, `TRIAJE_PERMITIR` | Recibir del SIEM por red, y desde qué IPs |
 | `TRIAJE_TLS_CERT`, `TRIAJE_TLS_CLAVE`, `TRIAJE_TLS_CA` | TLS del receptor; con la CA, exige certificado al SIEM |
 | `TRIAJE_SSH_MODO` | `directo` |
+| `TRIAJE_SSH_PLAZO_CONEXION` | `5`: segundos que espera el SSH a que el equipo acepte la conexión (de 1 a 20). Súbelo si los equipos tardan en aceptar bajo carga, por ejemplo durante una fuerza bruta contra su SSH |
 | `TRIAJE_SSH_USUARIO` | `triaje` |
 | `TRIAJE_SSH_CLAVE`, `TRIAJE_SSH_KNOWN_HOSTS` | Bajo `/var/lib/mdr/conector/` |
 | `TRIAJE_TRAZA_CLAVE` | Firma de la traza. Recomendada: sin ella, el arranque avisa «SIN firma HMAC» |

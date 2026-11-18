@@ -184,6 +184,15 @@ class TestServicio(unittest.TestCase):
         for e in exports:
             self.assertIn(f"export {e}", s)
 
+    def test_el_banco_da_mas_margen_al_ssh_del_conector(self):
+        # Bajo una fuerza bruta contra el sshd del equipo, a los 5 s el MDR lo daba por caído (18/11).
+        for ruta in (SERVICIO, os.path.join(RAIZ, "reiniciar.sh")):
+            self.assertIn("export TRIAJE_SSH_PLAZO_CONEXION=15", _leer(ruta))
+
+    def test_la_imagen_trae_ss_para_cortar_sesiones(self):
+        # MATAR_CONEXION es `ss -K`: sin iproute2 fallaba siempre con «ss: not found» (18/11).
+        self.assertRegex(_leer(os.path.join(RAIZ, "lab", "banco", "Dockerfile")), r"apk add[^\n]*\biproute2\b")
+
     def test_traza_fija_en_el_disco(self):
         self.assertIn("/var/lib/mdr/trazas-laboratorio.jsonl", _leer(SERVICIO))
 

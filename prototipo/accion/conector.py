@@ -146,7 +146,16 @@ def nodo_gestion():
     el auditor de la red pequena; el banco usa TRIAJE_NODO_GESTION=clab-banco-mdr-siem (H3)."""
     return os.environ.get("TRIAJE_NODO_GESTION", _AUDITOR)
 
-PLAZO_SSH_S = 30     # ssh ya corta la conexión a los 5 s; esto acota un comando remoto colgado
+PLAZO_SSH_S = 30     # ssh ya corta la conexión (plazo_conexion()); esto acota un comando remoto colgado
+PLAZO_CONEXION_S = 5
+
+
+def plazo_conexion():
+    """ConnectTimeout de ssh en segundos: TRIAJE_SSH_PLAZO_CONEXION (entero de 1 a 20) o 5. El banco lo
+    sube a 15: bajo una fuerza bruta contra el sshd del equipo, el SYN del MDR se perdía y a los 5 s el
+    equipo se daba por inalcanzable. Por encima de 20 se comería el plazo total (PLAZO_SSH_S)."""
+    v = (os.environ.get("TRIAJE_SSH_PLAZO_CONEXION") or "").strip()
+    return int(v) if v.isdigit() and 1 <= int(v) <= 20 else PLAZO_CONEXION_S
 
 def _ssh_en_auditor(linea):
     import subprocess
@@ -160,7 +169,7 @@ def _ssh_en_auditor(linea):
     return (cp.returncode, cp.stdout + cp.stderr)
 
 def ejecutor_ssh_lab(nodo_ip, comando):  # el ejecutor del laboratorio (se valida en vivo, no en unittest)
-    ssh = ("ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 "
+    ssh = (f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout={plazo_conexion()} "
            "-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAuthentication=no "
            "-o PreferredAuthentications=password")
     remoto = f"echo msfadmin | sudo -S {comando}"
@@ -201,7 +210,7 @@ def comando_ssh_clave(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
     # ('iptables -L -n | grep ip') se lo llevaria el grep y dejaria la verificacion siempre falsa.
     ids = " ".join(f"-i {c}" for c in _claves(claves, clave))
     ssh = (f"ssh -n {ids} -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no "
-           f"-o StrictHostKeyChecking=yes -o UserKnownHostsFile={known_hosts} -o ConnectTimeout=5 "
+           f"-o StrictHostKeyChecking=yes -o UserKnownHostsFile={known_hosts} -o ConnectTimeout={plazo_conexion()} "
            "-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa"
            + "".join(f" {x}" for x in _opt_puerto(puerto)))
     # sin sudo: lo que el usuario del conector hace con su propia cuenta (listar sus permisos con
@@ -232,7 +241,7 @@ def _args_ssh_directo(nodo_ip, comando, usuario=SSH_USUARIO, clave=SSH_CLAVE, kn
     ids = [x for c in _claves(claves, clave) for x in ("-i", c)]
     return ["ssh", "-n", *ids, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes",
             "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=yes",
-            "-o", f"UserKnownHostsFile={known_hosts}", "-o", "ConnectTimeout=5",
+            "-o", f"UserKnownHostsFile={known_hosts}", "-o", f"ConnectTimeout={plazo_conexion()}",
             "-o", "HostKeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa",
             *_opt_puerto(puerto), f"{usuario}@{nodo_ip}", f"{_PREFIJO_SUDO} {comando}" if sudo else comando]
 

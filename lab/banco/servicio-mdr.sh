@@ -25,6 +25,7 @@ SALIDA="${TRIAJE_SALIDA:-/var/lib/mdr/trazas-laboratorio.jsonl}"
 python3 -m lab.banco.rehecho "$SALIDA"
 
 export TRIAJE_NODO_GESTION=clab-banco-mdr-siem
+export TRIAJE_SSH_PLAZO_CONEXION=15   # bajo fuerza bruta el sshd del equipo tarda en aceptar; 5 s no bastaban
 export TRIAJE_SALUD_CONTENEDOR=clab-banco-mdr-siem:/var/log/banco/salud.jsonl
 export TRIAJE_GEOIP="${TRIAJE_GEOIP:-lab/geo_demo/geoip-muestra.csv}"
 export TRIAJE_ASN="${TRIAJE_ASN:-lab/geo_demo/asn-muestra.csv}"

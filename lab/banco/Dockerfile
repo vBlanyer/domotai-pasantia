@@ -2,7 +2,8 @@
 # conector (minimo privilegio: lab/scripts/aprovisionar-minimo-privilegio.sh) e iptables para la
 # contencion. Se construye una vez: sh lab/banco/construir-imagen.sh
 FROM alpine:3.20
-RUN apk add --no-cache python3 openssh sudo iptables sshpass nmap curl busybox-extras \
+# iproute2: `ss`, que usa MATAR_CONEXION (ss -K) para cortar la sesión de un intruso
+RUN apk add --no-cache python3 openssh sudo iptables iproute2 sshpass nmap curl busybox-extras \
  && ssh-keygen -A \
  && mkdir -p /opt/banco /var/log/banco \
  && sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config \

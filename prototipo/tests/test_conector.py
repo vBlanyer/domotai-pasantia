@@ -355,3 +355,30 @@ class TestEjecutorDirecto(unittest.TestCase):
              mock.patch.object(conector, "SSH_CLAVE", clave.name):
             ej = conector.ejecutor_por_defecto(escribir=lambda *a: None)
         self.assertIs(ej, conector.ejecutor_ssh_directo)
+
+
+class TestPlazoDeConexionSsh(unittest.TestCase):
+    """ConnectTimeout de ssh: 5 s por defecto (producción); TRIAJE_SSH_PLAZO_CONEXION lo cambia (el banco
+    lo sube: bajo una fuerza bruta contra el sshd del equipo, el SYN del MDR se perdía y a los 5 s el
+    equipo se daba por inalcanzable)."""
+
+    def _plazos(self):
+        return (conector.comando_ssh_clave("10.0.0.1", "iptables -L -n"),
+                " ".join(conector._args_ssh_directo("10.0.0.1", "x")))
+
+    def test_por_defecto_cinco_segundos(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TRIAJE_SSH_PLAZO_CONEXION", None)
+            for linea in self._plazos():
+                self.assertIn("ConnectTimeout=5 ", linea)
+
+    def test_la_variable_lo_cambia_y_un_valor_raro_vuelve_al_defecto(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"TRIAJE_SSH_PLAZO_CONEXION": "15"}):
+            for linea in self._plazos():
+                self.assertIn("ConnectTimeout=15 ", linea)
+        for raro in ("0", "-3", "abc", "999", "5; reboot"):
+            with mock.patch.dict(os.environ, {"TRIAJE_SSH_PLAZO_CONEXION": raro}):
+                for linea in self._plazos():
+                    self.assertIn("ConnectTimeout=5 ", linea)
