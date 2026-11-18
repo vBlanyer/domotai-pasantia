@@ -169,5 +169,35 @@ class TestCiEInstalar(unittest.TestCase):
         self.assertIn('tofu destroy -var region="$REGION" -var egreso_bootstrap=true', g)
 
 
+class TestMcpContraElEmulador(unittest.TestCase):
+    """El servidor MCP de API de AWS contra el emulador (MDR_MCP=1 en probar.sh): nunca contra AWS real,
+    solo lectura y sin telemetría."""
+    CLIENTE = os.path.join(INFRA, "emulador", "mcp_cliente.py")
+
+    def test_cliente_apunta_al_emulador_en_solo_lectura(self):
+        with open(self.CLIENTE, encoding="utf-8") as f:
+            c = f.read()
+        for txt in ('"AWS_ENDPOINT_URL": "https://127.0.0.1:9297"', '"READ_OPERATIONS_ONLY": "true"',
+                    '"AWS_API_MCP_TELEMETRY": "false"', '"AWS_CONFIG_FILE": "/dev/null"', "emulator_credentials",
+                    "awslabs.aws-api-mcp-server"):
+            self.assertIn(txt, c)
+        # el entorno del servidor se construye entero: no hereda credenciales reales
+        self.assertNotIn("os.environ.copy()", c)
+        self.assertNotIn("**os.environ", c)
+
+    def test_probar_lo_lanza_con_mdr_mcp(self):
+        with open(PROBAR, encoding="utf-8") as f:
+            p = f.read()
+        self.assertIn("MDR_MCP", p)
+        self.assertIn("mcp_cliente.py", p)
+        self.assertLess(p.index("mcp_cliente.py"), p.index("tofu destroy -input=false"))   # antes de destruir
+
+    def test_instrucciones(self):
+        with open(os.path.join(INFRA, "README.md"), encoding="utf-8") as f:
+            r = f.read()
+        self.assertIn("MDR_MCP=1 sh infra/aws/emulador/probar.sh", r)
+        self.assertIn("READ_OPERATIONS_ONLY", r)
+
+
 if __name__ == "__main__":
     unittest.main()

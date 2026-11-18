@@ -15,6 +15,12 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `llm_habilitado = true`. El arranque de cada máquina no cambia. Guía corta de instalación:
   `infra/aws/INSTALAR.md`.
 
+### Añadido
+- **Consultar el despliegue por MCP contra el emulador** (`MDR_MCP=1 sh infra/aws/emulador/probar.sh`):
+  el servidor MCP de API de AWS, en local, solo lectura y sin telemetría, pregunta por lo creado en cada
+  escenario (instancias, endpoints, NAT, perfiles, discos) y se le niega parar la instancia. Ensayo del
+  diagnóstico del primer despliegue real; instrucciones en `infra/aws/README.md`.
+
 ## [1.9.2] — 2026-11-17 · despliegue en AWS: MDR y laboratorio
 
 ### Añadido

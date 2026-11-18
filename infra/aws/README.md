@@ -33,6 +33,56 @@ telemetría); `probar.sh` aplica los `.tf` reales en una copia temporal con un *
 proveedor al emulador, y suple dos huecos suyos (v1.0.492): `RunInstances` no hereda la zona de la
 subred, y no trae la Deep Learning AMI de la GPU.
 
+## Consultar el despliegue por MCP (como un asistente de IA)
+
+El servidor MCP de API de AWS (`awslabs.aws-api-mcp-server`, en local) permite que un asistente de IA
+consulte la cuenta con órdenes de la AWS CLI. Aquí se prueba **contra el emulador**: después de crear y
+comprobar cada escenario, se le pregunta por MCP por las instancias, los endpoints, el NAT, los perfiles
+IAM y los discos, y se intenta **parar** la instancia, que tiene que negarse.
+
+```sh
+# Una vez: uv (https://docs.astral.sh/uv/), el gestor con el que se lanza el servidor
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+MDR_MCP=1 sh infra/aws/emulador/probar.sh E      # el laboratorio, consultado por MCP (~4 min)
+MDR_MCP=1 sh infra/aws/emulador/probar.sh mdr    # o los escenarios de producción
+```
+
+Cada consulta sale como una línea `ok MCP …` con lo que respondió el emulador, y al final
+`ok MCP no deja parar … (solo lectura)`. El cliente está en [emulador/mcp_cliente.py](emulador/mcp_cliente.py):
+construye el entorno del servidor entero (sin heredar credenciales reales), con el endpoint, el
+certificado y las credenciales falsas del emulador, `READ_OPERATIONS_ONLY=true` y
+`AWS_API_MCP_TELEMETRY=false` (viene activada por defecto). El servidor alojado por AWS en la nube no
+puede ver el emulador: solo vale el local.
+
+**Qué demuestra y qué no:** que un asistente puede inspeccionar el despliegue por MCP, en solo lectura,
+con las mismas preguntas que el día del primer `apply` real. **No** demuestra que la máquina funcione:
+el emulador no ejecuta nada dentro de la instancia.
+
+**El día del despliegue real**, el mismo servidor sirve para diagnosticar con permisos de **solo lectura**
+(un perfil de AWS con la política `ReadOnlyAccess`). Configuración para un cliente MCP (Claude Code,
+Claude Desktop…):
+
+```json
+{
+  "mcpServers": {
+    "aws-api": {
+      "command": "uvx",
+      "args": ["awslabs.aws-api-mcp-server@latest"],
+      "env": {
+        "AWS_REGION": "<región del despliegue>",
+        "AWS_API_MCP_PROFILE_NAME": "<perfil de solo lectura>",
+        "READ_OPERATIONS_ONLY": "true",
+        "AWS_API_MCP_TELEMETRY": "false"
+      }
+    }
+  }
+}
+```
+
+Crear, cambiar y destruir lo sigue haciendo OpenTofu. La documentación del paquete lo marca como
+sustituido por el servidor MCP que aloja AWS; para el emulador, este es el que funciona.
+
 ## Qué prueba cada capa
 
 | Capa | Qué comprueba | Qué no |

@@ -14,6 +14,8 @@
 #       sh infra/aws/emulador/probar.sh --listar     las variantes y sus escenarios, sin arrancar nada
 #       MDR_INVENTARIO=<dir> sh …                    además guarda el plan en JSON de cada escenario
 #       MDR_ESTADOS=<dir> sh …                       además guarda el estado tras el apply
+#       MDR_MCP=1 sh …                               además consulta cada escenario por MCP (servidor de API
+#                                                    de AWS en solo lectura; necesita uv): emulador/mcp_cliente.py
 # Necesita aws-emulator (se arranca si no está en marcha, sin telemetría) y tofu.
 set -eu
 RAIZ=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
@@ -155,6 +157,15 @@ for e in $ESCENARIOS; do
   tofu show -json > estado.json
   [ -n "${MDR_ESTADOS:-}" ] && mkdir -p "$MDR_ESTADOS" && cp estado.json "$MDR_ESTADOS/estado-$e.json"
   if python3 "$INFRA/$var/emulador/comprobar.py" "$e" estado.json; then :; else FALLOS=1; fi
+  if [ -n "${MDR_MCP:-}" ]; then
+    # Lo creado, consultado por MCP como lo haría un asistente (solo lectura; nunca contra AWS real).
+    if command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv" ]; then
+      (PATH="$HOME/.local/bin:$PATH" uv run --quiet --python 3.12 --with mcp python "$INFRA/emulador/mcp_cliente.py" 2> mcp.log) || {
+        FALLOS=1; tail -5 mcp.log; }
+    else
+      echo "   FALLO  MDR_MCP=1 necesita uv (https://docs.astral.sh/uv/)"; FALLOS=1
+    fi
+  fi
   if tofu destroy -input=false -no-color -auto-approve $v > destroy.log 2>&1 && [ "$(tofu state list | wc -l)" -eq 0 ]; then
     echo "   ok     destroy lo quita todo"
     rm -f terraform.tfstate
