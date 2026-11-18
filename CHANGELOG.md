@@ -19,6 +19,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Políticas abre en «Resumen».** La pestaña «En castellano» pasa a llamarse «Resumen» y es la primera:
+  al entrar se ve la política entera en frases. Sobra el botón «Leer en castellano», que solo abría esa
+  pestaña.
 - **La nota del analista ya se ve donde se busca.** La nota opcional de Aprobaciones se guardaba en la
   traza, pero solo se veía dando un rodeo (cronología de Incidentes o grafo del incidente). Ahora sale en
   Decisiones, en el paso «Analista» (con quién la escribió y cuándo), y en Trazas el registro «Caso

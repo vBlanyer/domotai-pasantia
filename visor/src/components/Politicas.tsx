@@ -9,9 +9,9 @@ import { etiquetaClase, pasosRunbook } from "@/datos"
 import "./Politicas.css"
 
 type Valor = CambioPolitica["automatizacion"]
-type Pestana = "familias" | "zonas" | "confianza" | "intocables" | "castellano"
-const PESTANAS: [Pestana, string][] = [["familias", "Por tipo de ataque"], ["zonas", "Por zona y dispositivo"],
-  ["confianza", "Confianza"], ["intocables", "Intocables"], ["castellano", "En castellano"]]
+type Pestana = "resumen" | "familias" | "zonas" | "confianza" | "intocables"
+const PESTANAS: [Pestana, string][] = [["resumen", "Resumen"], ["familias", "Por tipo de ataque"],
+  ["zonas", "Por zona y dispositivo"], ["confianza", "Confianza"], ["intocables", "Intocables"]]
 
 const AUTO = "automatica_si_confianza"
 const HUMANO = "humano_siempre"
@@ -84,7 +84,7 @@ function descargar(nombre: string, texto: string) {
   URL.revokeObjectURL(url)
 }
 
-// «En castellano»: la política efectiva contada en frases (GET /api/politica/explicar), lo que firma Seguridad.
+// «Resumen»: la política efectiva contada en frases (GET /api/politica/explicar), lo que firma Seguridad.
 function Explicacion() {
   const [frases, setFrases] = useState<string[] | null>(null)
   const [fallo, setFallo] = useState<string | null>(null)
@@ -162,7 +162,7 @@ function Detalle({ sel }: { sel: Sel }) {
 // duro del catálogo. El sondeo refresca el estado y poda el valor optimista al confirmarlo.
 export function Politicas() {
   const t = useSondeo(getPolitica)
-  const [pestana, setPestana] = useState<Pestana>("familias")
+  const [pestana, setPestana] = useState<Pestana>("resumen")
   const [sel, setSel] = useState<Sel | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   // Valor elegido localmente hasta que el sondeo lo confirme (clave dimension:clave).
@@ -263,7 +263,6 @@ export function Politicas() {
             : <><b>Sin politica.yml</b><span>: las reglas vienen del perfil. <span className="mono">mdr migrar-politica</span> las pasa a un fichero propio.</span></>}
         </div>
         <div className="pol-banner-btns">
-          <button type="button" className="pol-btn" onClick={() => { setPestana("castellano"); setSel(null) }}>Leer en castellano</button>
           <button type="button" className="pol-btn pol-btn-p" onClick={exportar}>Exportar propuesta v{siguiente}</button>
         </div>
       </section>
@@ -301,7 +300,7 @@ export function Politicas() {
 
       {aviso && <p role="alert" className="pol-alert">{aviso}</p>}
 
-      {pestana === "castellano" && <Explicacion />}
+      {pestana === "resumen" && <Explicacion />}
 
       {pestana === "confianza" && (
         <div className="pol-panel">

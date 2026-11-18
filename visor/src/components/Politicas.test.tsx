@@ -11,6 +11,12 @@ vi.mock("@/api", async (orig) => ({
 }))
 import { Politicas } from "./Politicas"
 
+// La vista abre en «Resumen»; las pruebas de las tablas entran antes en su pestaña.
+const abrir = (pestana = "Por tipo de ataque") => {
+  render(<Politicas />)
+  fireEvent.click(screen.getByRole("tab", { name: pestana }))
+}
+
 const F = [
   { familia: "acceso_credenciales", clase_tipica: "vp_intento_acceso", accion: "BLOQUEAR_IP", impacto: "localizado",
     automatizacion: "automatica_si_confianza", automatizacion_efectiva: "automatica_si_confianza", mitre: ["T1110"],
@@ -30,10 +36,13 @@ const Z = [
 ]
 
 describe("Politicas", () => {
-  beforeEach(() => { h.act.mockReset(); h.act.mockResolvedValue(undefined); h.pol = { familias: F, zonas: Z } })
+  beforeEach(() => {
+    h.act.mockReset(); h.act.mockResolvedValue(undefined); h.pol = { familias: F, zonas: Z }
+    h.explicar.mockReset(); h.explicar.mockResolvedValue({ frases: [] })
+  })
 
   it("familias: toggles, destructiva bloqueada con razón y nota de interferencia", () => {
-    render(<Politicas />)
+    abrir()
     expect(screen.getByText("acceso_credenciales")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "acceso_credenciales HUMANO" })).toBeEnabled()
     expect(screen.getByRole("button", { name: "malware AUTO" })).toBeDisabled()
@@ -44,14 +53,14 @@ describe("Politicas", () => {
   })
 
   it("alternar una familia llama a actualizarPolitica", async () => {
-    render(<Politicas />)
+    abrir()
     fireEvent.click(screen.getByRole("button", { name: "acceso_credenciales HUMANO" }))
     await waitFor(() => expect(h.act).toHaveBeenCalledWith(
       { dimension: "familia", clave: "acceso_credenciales", automatizacion: "humano_siempre" }))
   })
 
   it("zonas: postura por zona, protegida sin control, override por dispositivo", async () => {
-    render(<Politicas />)
+    abrir()
     fireEvent.click(screen.getByRole("tab", { name: /Por zona y dispositivo/ }))
     expect(screen.getByText(/también depende de la familia/i)).toBeInTheDocument()
     expect(screen.getByText(/protegido · no_cortar_gestion/)).toBeInTheDocument()
@@ -68,7 +77,7 @@ describe("Politicas", () => {
   it("zona protegida: sus dispositivos no ofrecen override", () => {
     h.pol = { familias: F, zonas: [{ ...Z[1], dispositivos: [
       { activo: "jump-1", criticidad: "alta", override: null, postura_efectiva: "humano_siempre", cascada: [], radio: 0, cascada_posiblemente_incompleta: false }] }] }
-    render(<Politicas />)
+    abrir()
     fireEvent.click(screen.getByRole("tab", { name: /Por zona y dispositivo/ }))
     expect(screen.getByText("jump-1")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /jump-1 (HEREDA|AUTO|HUMANO)/ })).toBeNull()
@@ -76,6 +85,7 @@ describe("Politicas", () => {
 
   it("el valor optimista se poda al confirmarlo el servidor y no tapa cambios posteriores", async () => {
     const { rerender } = render(<Politicas />)
+    fireEvent.click(screen.getByRole("tab", { name: "Por tipo de ataque" }))
     fireEvent.click(screen.getByRole("button", { name: "acceso_credenciales HUMANO" }))
     await waitFor(() => expect(h.act).toHaveBeenCalled())
     const con = (a: string) => ({ familias: [{ ...F[0], automatizacion: a, automatizacion_efectiva: a }, F[1], F[2]], zonas: Z })
@@ -85,14 +95,14 @@ describe("Politicas", () => {
   })
 
   it("detalle de la familia seleccionada", () => {
-    render(<Politicas />)
+    abrir()
     fireEvent.click(screen.getByRole("button", { name: "Detalle malware" }))
     expect(screen.getByText(/alcanza_servicio/)).toBeInTheDocument()
   })
 
   it("403 muestra el mensaje de token de operador", async () => {
     h.act.mockRejectedValue(new Error("HTTP 403"))
-    render(<Politicas />)
+    abrir()
     fireEvent.click(screen.getByRole("button", { name: "acceso_credenciales HUMANO" }))
     expect(await screen.findByText(/editar requiere token de operador/i)).toBeInTheDocument()
   })
@@ -123,7 +133,7 @@ describe("Politicas con politica.yml", () => {
   })
 
   it("franja de la política vigente", () => {
-    render(<Politicas />)
+    abrir()
     expect(screen.getByText(/versión 3/)).toBeInTheDocument()
     expect(screen.getByText(/Dirección de Seguridad/)).toBeInTheDocument()
     expect(screen.getByText(/\/etc\/mdr\/politica.yml/)).toBeInTheDocument()
@@ -131,19 +141,19 @@ describe("Politicas con politica.yml", () => {
 
   it("sin politica.yml lo dice", () => {
     h.pol = conPolitica({ politica: null, diferencias: [] })
-    render(<Politicas />)
+    abrir()
     expect(screen.getByText(/Sin politica\.yml/)).toBeInTheDocument()
   })
 
   it("cada fila dice de dónde sale su valor", () => {
-    render(<Politicas />)
+    abrir()
     expect(screen.getByLabelText("acceso_credenciales: origen consola")).toBeInTheDocument()
     expect(screen.getByLabelText("malware: origen código")).toBeInTheDocument()
     expect(screen.getByLabelText("reconocimiento: origen política v3")).toBeInTheDocument()
   })
 
   it("aviso de cambios de consola y volver a la política", async () => {
-    render(<Politicas />)
+    abrir()
     expect(screen.getByText(/1 cambio hecho en la consola/)).toBeInTheDocument()
     expect(screen.getByText(/ana\.perez/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Volver a la política: acceso_credenciales" }))
@@ -151,7 +161,7 @@ describe("Politicas con politica.yml", () => {
   })
 
   it("pestaña Confianza", () => {
-    render(<Politicas />)
+    abrir()
     fireEvent.click(screen.getByRole("tab", { name: "Confianza" }))
     expect(screen.getByText("10.99.0.10")).toBeInTheDocument()
     expect(screen.getByText("203.0.113.7")).toBeInTheDocument()
@@ -159,7 +169,7 @@ describe("Politicas con politica.yml", () => {
   })
 
   it("pestaña Intocables", () => {
-    render(<Politicas />)
+    abrir()
     fireEvent.click(screen.getByRole("tab", { name: "Intocables" }))
     expect(screen.getByText(/db01 · 5432/)).toBeInTheDocument()
     expect(screen.getByText(/malware/)).toBeInTheDocument()       // los frenos duros del código también
@@ -172,21 +182,25 @@ describe("Politicas con politica.yml", () => {
     expect(screen.getByText(/bloquearlos exige un analista/)).toBeInTheDocument()
     unmount()
     h.pol = conPolitica({ confianza: { ...CONF, equipos_propios: "automatica_si_confianza", equipos_propios_origen: "fichero" } })
-    render(<Politicas />)
+    abrir()
     fireEvent.click(screen.getByRole("tab", { name: "Intocables" }))
     expect(screen.queryByText(/bloquearlos exige un analista/)).toBeNull()
   })
 
-  it("pestaña En castellano pide la explicación", async () => {
+  it("abre en «Resumen»: la política entera en frases, primera pestaña y sin botón aparte", async () => {
     render(<Politicas />)
-    fireEvent.click(screen.getByRole("tab", { name: "En castellano" }))
+    const pestanas = screen.getAllByRole("tab")
+    expect(pestanas[0]).toHaveTextContent("Resumen")
+    expect(pestanas[0]).toHaveAttribute("aria-selected", "true")
     expect(await screen.findByText(/Sobre db01, una contención espera siempre a un analista/)).toBeInTheDocument()
+    expect(screen.queryByRole("tab", { name: /castellano/i })).toBeNull()
+    expect(screen.queryByRole("button", { name: /castellano/i })).toBeNull()
   })
 
   it("exportar la propuesta descarga el YAML", async () => {
     const crear = vi.fn(() => "blob:x"); const soltar = vi.fn()
     Object.assign(URL, { createObjectURL: crear, revokeObjectURL: soltar })
-    render(<Politicas />)
+    abrir()
     fireEvent.click(screen.getByRole("button", { name: /Exportar propuesta/ }))
     await waitFor(() => expect(h.propuesta).toHaveBeenCalled())
     await waitFor(() => expect(crear).toHaveBeenCalled())

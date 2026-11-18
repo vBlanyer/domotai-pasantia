@@ -1092,6 +1092,8 @@ reiniciar.
 > **Quién puede:** cualquier analista. Cada clic se guarda al momento, **sin confirmación**, y queda
 > en la auditoría con su nombre.
 
+- **«Resumen».** La vista abre aquí: la política entera contada en frases (lo mismo que
+  `mdr explicar-politica`), para leerla sin abrir el YAML.
 - **«Por tipo de ataque».** Cada familia muestra su acción y un selector AUTO / HUMANO. Las que llevan
   candado («freno duro / nunca automática») no se pueden poner en automático; las que «se trían y
   enrutan» no tienen acción. «detalle» muestra el impacto, los vetos y el runbook.
@@ -1104,8 +1106,8 @@ reiniciar.
 - **Cambios pendientes.** Lo que la consola ha endurecido sobre la política aparece en una lista, con
   quién lo cambió y cuándo. «Volver a la política» lo deshace; «Exportar propuesta» descarga la
   versión siguiente de `politica.yml` con esos cambios, para que la apruebe Seguridad (sección 12).
-- **Confianza, Intocables y En castellano.** Los administradores y socios críticos, los servicios
-  que nunca se tocan solos, y la política entera contada en frases.
+- **Confianza e Intocables.** Los administradores y socios críticos, y los servicios que nunca se
+  tocan solos.
 
 > **Nota:** si la familia **o** la zona está en HUMANO, prevalece HUMANO. Lo que se edita en la
 > consola solo puede **quitar** automatización respecto a la política; nunca añadirla. Se conserva al
