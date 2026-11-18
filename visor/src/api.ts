@@ -176,6 +176,12 @@ export const ContencionSchema = z.object({
   regla: z.string().nullable().optional(), reversion_cmd: z.string().nullable().optional(),
 })
 export type Contencion = z.infer<typeof ContencionSchema>
+export const AnalisisAmpliadoSchema = z.object({
+  generado_por: z.string(),
+  secciones: z.array(z.object({ titulo: z.string(), lineas: z.array(z.string()) })),
+  comprobar: z.array(z.string()), fuentes: z.array(z.string()),
+})
+export type AnalisisAmpliado = z.infer<typeof AnalisisAmpliadoSchema>
 export const PendienteSchema = z.object({
   id: z.string(), tipo: z.string(), prompt: z.string(), lineas: z.array(z.string()),
   // cola no bloqueante: orden por severidad y cuántas repeticiones llegaron mientras espera.
@@ -197,6 +203,9 @@ export const PendienteSchema = z.object({
   id_decision: z.string().nullable().optional(), clase: z.string().nullable().optional(),
   confianza: z.number().nullable().optional(), tecnica_mitre: z.array(z.string()).nullable().optional(),
   motivo: z.string().nullable().optional(),
+  // análisis ampliado: contexto que el MDR arma POR REGLAS (lo previo del origen, el escaneo, el
+  // playbook) y qué comprobar antes de aprobar; solo informa, no cambia la decisión
+  analisis_ampliado: AnalisisAmpliadoSchema.nullable().optional(),
 })
 export const VerificacionSchema = z.object({
   ok: z.boolean(), roto_en: z.number().nullable().optional(), motivo: z.string().optional(),

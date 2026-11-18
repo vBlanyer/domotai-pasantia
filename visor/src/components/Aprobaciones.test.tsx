@@ -143,6 +143,35 @@ describe("Aprobaciones", () => {
     })
   })
 
+  describe("análisis ampliado", () => {
+    const AMPLIADO = {
+      generado_por: "reglas",
+      secciones: [
+        { titulo: "Este origen en la última hora", lineas: ["2 alertas más de este origen en la última hora, contra 2 equipos: objetivo-vuln, puesto."] },
+        { titulo: "Qué dice el playbook", lineas: ["Filtrado de tráfico entrante: BLOQUEAR_IP."] },
+      ],
+      comprobar: ["El origen tocó 2 equipos: valora contenerlo en el perímetro, no solo en este equipo."],
+      fuentes: ["alertas recibidas por el MDR en la última hora", "corpus del playbook: mapeo-acceso_credenciales"],
+    }
+
+    it("muestra las secciones, qué comprobar y de dónde sale, marcado como por reglas", () => {
+      h.pendientes = [tarjeta({ analisis_ampliado: AMPLIADO })]
+      render(vista())
+      const s = screen.getByRole("region", { name: "Análisis ampliado" })
+      expect(within(s).getByText("Este origen en la última hora")).toBeInTheDocument()
+      expect(within(s).getByText(/contra 2 equipos/)).toBeInTheDocument()
+      expect(within(s).getByText("Antes de aprobar, comprueba")).toBeInTheDocument()
+      expect(within(s).getByText(/valora contenerlo en el perímetro/)).toBeInTheDocument()
+      expect(within(s).getByText(/no cambia la decisión/)).toBeInTheDocument()
+      expect(within(s).getByText(/mapeo-acceso_credenciales/)).toBeInTheDocument()
+    })
+
+    it("sin análisis (daemon antiguo o falló), la tarjeta sale sin la sección", () => {
+      render(vista())
+      expect(screen.queryByRole("region", { name: "Análisis ampliado" })).not.toBeInTheDocument()
+    })
+  })
+
   it("una escalada (ruta bloqueante) aprueba sin paso", () => {
     h.aprobar.mockResolvedValue("ok")
     h.pendientes = [tarjeta({ tipo: "escalada", prompt: "¿aprobar? [s/N] ", lineas: [], paso: undefined })]

@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, type ReactNode } from "react"
 import { TriangleAlert, Clock, ChevronDown, ChevronRight } from "lucide-react"
-import { useSondeo, getPendientes, getTrazas, aprobar, actualizarCaso, parsearPendiente, operadorActual, operadorVerificado, ahoraServidor, type Pendiente, type Opcion, type Decision } from "@/api"
+import { useSondeo, getPendientes, getTrazas, aprobar, actualizarCaso, parsearPendiente, operadorActual, operadorVerificado, ahoraServidor, type Pendiente, type Opcion, type Decision, type AnalisisAmpliado } from "@/api"
 import { edadTexto, msDesde } from "@/alertas"
 import { etiquetaClase, ubicacionLabelDe, nivelPrioridad, paginar, TAM_PAGINA } from "@/datos"
 import { slaMs, ordenarPor, agruparPor, ORDENES, AGRUPACIONES, type Orden, type Agrupacion, saludCola, siguienteTras, historialOrigen, resueltasHoyPor, efectoAprobar } from "@/aprobaciones"
@@ -158,6 +158,36 @@ function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) 
   )
 }
 
+// Contexto que el MDR arma por reglas para decidir mejor (no es del motor: no cambia la decisión).
+function Ampliado({ a }: { a: AnalisisAmpliado }) {
+  return (
+    <section aria-label="Análisis ampliado" className="border-b border-border px-4 py-3">
+      <h4 className="mb-2 text-[11px] font-medium text-muted-foreground">Análisis ampliado</h4>
+      <div className="space-y-2.5">
+        {a.secciones.map((s) => (
+          <div key={s.titulo}>
+            <div className="text-xs font-semibold">{s.titulo}</div>
+            <ul className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
+              {s.lineas.map((l, i) => <li key={i}>{l}</li>)}
+            </ul>
+          </div>
+        ))}
+        {a.comprobar.length > 0 && (
+          <div className="rounded-md border border-border bg-muted px-3 py-2">
+            <div className="text-xs font-semibold">Antes de aprobar, comprueba</div>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
+              {a.comprobar.map((c, i) => <li key={i}>{c}</li>)}
+            </ul>
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground">
+          Generado por {a.generado_por} con datos del MDR; no cambia la decisión. Fuentes: {a.fuentes.join(" · ") || "—"}.
+        </p>
+      </div>
+    </section>
+  )
+}
+
 // El inspector de la pendiente elegida: «si apruebas» primero, luego el porqué, el origen con su
 // historia, y la decisión (botones con atajo, nota opcional para la traza).
 function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicacion }: {
@@ -221,6 +251,8 @@ function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicac
           {v.info.map((t, i) => <LineaInfo key={i} t={t} />)}
         </div>
       </Seccion>
+
+      {p.analisis_ampliado && <Ampliado a={p.analisis_ampliado} />}
 
       {(p.origen_ip || p.enriquecimiento_origen) && (
         <Seccion titulo="Origen">

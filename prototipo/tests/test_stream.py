@@ -136,6 +136,35 @@ class TestColaNoBloqueante(unittest.TestCase):
         r = json.loads(_sin_pendientes(buf)[0])
         self.assertEqual(p["accion_final"], r["accion_final"])
 
+    def test_la_tarjeta_lleva_el_analisis_ampliado_con_lo_previo_del_origen(self):
+        # El mismo origen ataca antes a otro equipo (decisión automática); cuando llega la que pide
+        # humano, la tarjeta cuenta lo previo y que el origen ya tocó dos equipos.
+        previa = json.loads(_linea_wazuh("203.0.113.7")); previa["id"] = "x1"
+        humana = json.loads(self._linea_humana()); humana["id"] = "x2"
+        humana["data"]["srcip"] = "203.0.113.7"; humana["timestamp"] = "2026-08-31T00:00:30Z"
+        estado = tablero.EstadoTablero()
+        stream.ejecutar([json.dumps(previa), json.dumps(humana), None], hallazgos=j("hallazgos.json"),
+                        perfil=y("perfil.yml"), perfil_nombre="prueba", catalogo=CAT,
+                        ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+                        salida_traza=io.StringIO(), escribir=lambda *a, **k: None, estado_web=estado)
+        p = estado.decisiones_pendientes()[0]
+        aa = tablero._vista_pendiente(p)["analisis_ampliado"]
+        self.assertEqual(aa["generado_por"], "reglas")
+        historial = next(s for s in aa["secciones"] if s["titulo"] == "Este origen en la última hora")
+        self.assertIn("1 alerta más", historial["lineas"][0])
+        self.assertIn("objetivo-vuln", historial["lineas"][0])
+        self.assertTrue(any("2 equipos" in c for c in aa["comprobar"]))
+        # y solo informa: la decisión de la tarjeta no lleva nada suyo
+        self.assertNotIn("analisis_ampliado", p["decision"])
+
+    def test_si_el_analisis_ampliado_falla_la_tarjeta_sale_igual(self):
+        from unittest import mock
+        estado = tablero.EstadoTablero()
+        with mock.patch("prototipo.explicacion.analisis_ampliado.construir", side_effect=RuntimeError("x")):
+            self._ejecutar(estado, io.StringIO())
+        p = estado.decisiones_pendientes()[0]
+        self.assertIsNone(p.get("analisis_ampliado"))
+
     def test_reclasificar_avanza_el_paso(self):
         estado, buf = tablero.EstadoTablero(), io.StringIO()
         self._ejecutar(estado, buf)

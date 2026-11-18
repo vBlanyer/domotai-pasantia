@@ -19,6 +19,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Añadido
+- **«Análisis ampliado» en la ficha de Aprobaciones**: al encolar una decisión para el analista, el MDR
+  reúne por reglas, sin modelo, el contexto que antes había que buscar a mano: qué más hizo ese origen en
+  la última hora (con el reconocimiento previo y los equipos tocados), qué tiene abierto el equipo atacado
+  según el último escaneo y su criticidad, la ficha del playbook de la familia, y una lista de «antes de
+  aprobar, comprueba» (origen interno, cascada, reconocimiento previo, varios equipos, servicio que no
+  figura abierto, acción vetada). Cita sus fuentes y **no cambia la decisión**; si falla, la ficha sale
+  igual, sin la sección (`prototipo/explicacion/analisis_ampliado.py`).
 - **Consultar el despliegue por MCP contra el emulador** (`MDR_MCP=1 sh infra/aws/emulador/probar.sh`):
   el servidor MCP de API de AWS, en local, solo lectura y sin telemetría, pregunta por lo creado en cada
   escenario (instancias, endpoints, NAT, perfiles, discos) y se le niega parar la instancia. Ensayo del

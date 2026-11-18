@@ -12,6 +12,7 @@ from prototipo.entrada import ingesta, adaptador_wazuh
 from prototipo.motor import analisis, agrupacion, rafaga
 from prototipo.servicio import casos, lazo, traza, validacion
 from prototipo.accion import fallos
+from prototipo.explicacion import analisis_ampliado, rag
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
 
@@ -517,9 +518,10 @@ def linea_pendientes_perdidas(perdidas):
             "revísalas en Trazas; si el ataque sigue, volverán a la cola")
 
 
-def _entrada_cola(decision, alerta):
+def _entrada_cola(decision, alerta, ampliado=None):
     """Construye la entrada de la cola: contexto para resolver + líneas para mostrar (mismas que el
-    prompt de la terminal, para que el visor las presente igual)."""
+    prompt de la terminal, para que el visor las presente igual). `ampliado`: el análisis ampliado
+    (contexto por reglas para el analista; no cambia la decisión)."""
     from prototipo.servicio import validacion
     menu = "¿Qué hacer con este incidente?\n" + "\n".join(
         f"  {i}) {e}" for i, e in enumerate(validacion._ETIQUETAS_VEREDICTO, 1))
@@ -532,10 +534,11 @@ def _entrada_cola(decision, alerta):
             # None = vetada sin sustituta (p. ej. el canal de gestión): aprobar no ejecuta nada, y el
             # visor no debe prometer una contención
             "accion_final": decision.get("accion_final"),
+            "analisis_ampliado": ampliado,
             "lineas": [incid, validacion.mostrar(decision, alerta), menu]}
 
 
-def _entrada_escalada(parcial, alerta, desde, lineas):
+def _entrada_escalada(parcial, alerta, desde, lineas, ampliado=None):
     """Entrada de cola para una escalada que pide humano (modo web): el activo no respondió y la
     contención debe subir al perímetro. El visor la pinta como tarjeta «escalada» (s / vacío)."""
     incid = (f"⚠ Incidente: {alerta.get('origen_ip')} -> {alerta.get('activo')} "
@@ -546,6 +549,7 @@ def _entrada_escalada(parcial, alerta, desde, lineas):
             "recibido_en": parcial.get("recibido_en") or time.time(),
             "tipo": "escalada", "prompt": "¿aprobar la ejecución? [s/N] ",
             "accion_final": parcial.get("accion_final"),
+            "analisis_ampliado": ampliado,
             "lineas": [incid, f"{desde} no respondió al MDR: la contención escala al perímetro.",
                        *(_legible(l) for l in lineas)]}
 
@@ -767,6 +771,22 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     # Modo web no bloqueante: encolar en vez de bloquear, y registrar cómo se resuelve (ejecuta+traza).
     encolar = diferir_escalada = None
     pausa = estado_web.pausada if estado_web is not None else None   # kill switch (#8)
+    # Análisis ampliado de las tarjetas (solo modo web): lo previo de cada origen, el escaneo, el perfil
+    # y el playbook, por reglas. Solo informa; si falla, la tarjeta sale sin él (nunca bloquea la cola).
+    recientes = analisis_ampliado.Recientes()
+    corpus = []
+    if estado_web is not None:
+        try:
+            corpus = rag.cargar_corpus()
+        except (OSError, ValueError) as e:
+            print(f"[aviso] análisis ampliado sin playbook: {type(e).__name__}: {e}", file=sys.stderr)
+    def _ampliado(decision, alerta):
+        try:
+            return analisis_ampliado.construir(alerta, decision, recientes=recientes, hallazgos=hallazgos,
+                                               perfil=perfil_fn(), corpus=corpus)
+        except Exception as e:
+            print(f"[aviso] análisis ampliado no disponible: {type(e).__name__}: {e}", file=sys.stderr)
+            return None
     if estado_web is not None:
         trazadas = set()          # tarjetas ya anotadas: una repetición que se suma a la tarjeta no repite
         def _anotar_pendiente(decision, pid):
@@ -774,11 +794,13 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 trazadas.add(pid)
                 escribir_traza(registro_pendiente(decision, pid, _ahora_iso()))
         def encolar(decision, alerta):
-            _anotar_pendiente(decision, estado_web.encolar_decision(_entrada_cola(decision, alerta)))
+            _anotar_pendiente(decision, estado_web.encolar_decision(
+                _entrada_cola(decision, alerta, _ampliado(decision, alerta))))
         # La escalada automática que pide humano tampoco puede bloquear el lazo: sin esto, la
         # pregunta esperaba sin plazo en una ruta que el visor no muestra y el daemon se congelaba.
         def diferir_escalada(parcial, alerta, desde, lineas):
-            _anotar_pendiente(parcial, estado_web.encolar_decision(_entrada_escalada(parcial, alerta, desde, lineas)))
+            _anotar_pendiente(parcial, estado_web.encolar_decision(
+                _entrada_escalada(parcial, alerta, desde, lineas, _ampliado(parcial, alerta))))
         estado_web.fijar_resolutor(
             _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir,
                                  diferir_escalada=diferir_escalada, al_resolver=al_resolver))
@@ -927,6 +949,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 if latido is not None:
                     latido.alerta()
                 resumen["alertas"] += 1; ventana_rafaga.registrar(alerta); ventana_larga.registrar(alerta)
+                recientes.registrar(alerta)
                 _procesa_lote([alerta])
                 continue
             # modo con ventana
@@ -937,6 +960,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                     if latido is not None:
                         latido.alerta()
                     resumen["alertas"] += 1; ventana_rafaga.registrar(alerta); ventana_larga.registrar(alerta)
+                    recientes.registrar(alerta)
                     if t0 is None:
                         t0 = ahora
                     buffer.append(alerta)
