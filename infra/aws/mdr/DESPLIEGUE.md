@@ -116,10 +116,10 @@ tofu destroy -var-file=produccion.tfvars
 evidencia:
 
 ```sh
-tofu state show aws_ebs_volume.traza | grep ' id '      # el id del disco (vol-…)
-aws ec2 create-snapshot --region <region> --volume-id <vol-…> --description "traza MDR"
+aws ec2 create-snapshot --region <region> --volume-id "$(tofu output -raw volumen_traza_id)" --description "traza MDR"
 ```
- Lo que sigue cobrándose después
+
+Lo que sigue cobrándose después
 de `destroy`: los secretos, los buckets de S3 (artefactos y estado) y las instantáneas que hagas.
 
 ## Qué se comprueba por primera vez en el despliegue real

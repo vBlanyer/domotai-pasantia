@@ -26,7 +26,8 @@ resource "aws_instance" "llm" {
   # Rol propio: SSM y los modelos de S3, nunca los secretos del MDR (clave de la traza, tokens).
   iam_instance_profile        = aws_iam_instance_profile.gpu[0].name
   associate_public_ip_address = false
-  depends_on                  = [aws_iam_role_policy.gpu_s3]
+  # Su primer arranque clona llama.cpp: necesita el NAT (y el resto de la red) ya creados.
+  depends_on = [module.base, aws_iam_role_policy.gpu_s3]
 
   metadata_options {
     http_tokens = "required"

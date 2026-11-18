@@ -53,12 +53,13 @@ jobs:
   iac:
     name: IaC (OpenTofu)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infra/aws
     steps:
       - uses: actions/checkout@v4
       - uses: opentofu/setup-opentofu@v1
       - run: tofu fmt -check -recursive
-      - run: tofu init -backend=false
-      - run: tofu validate
+        working-directory: infra/aws
+      # Cada variante es una configuración propia (infra/aws ya no tiene .tf): se valida cada una.
+      - run: tofu init -backend=false && tofu validate
+        working-directory: infra/aws/mdr
+      - run: tofu init -backend=false && tofu validate
+        working-directory: infra/aws/laboratorio

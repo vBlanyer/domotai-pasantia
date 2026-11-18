@@ -23,6 +23,20 @@ def _base(rel):
 
 
 class TestEstructuraMdr(unittest.TestCase):
+    def test_guia_sin_frases_cortadas(self):
+        # al repartir las guías quedaron frases sin su comienzo (líneas que empiezan por un espacio suelto)
+        self.assertEqual(re.findall(r"(?m)^ \S.*$", _leer("DESPLIEGUE.md")), [])
+
+    def test_salida_con_el_disco_de_la_traza(self):
+        # la instantánea antes de destroy necesita el id del disco (vive en el módulo común)
+        self.assertRegex(_leer("outputs.tf"), r'output "volumen_traza_id"(.|\n)*?module\.base\.volumen_traza_id')
+        self.assertIn("tofu output -raw volumen_traza_id", _leer("DESPLIEGUE.md"))
+        self.assertNotIn("tofu state show aws_ebs_volume.traza", _leer("DESPLIEGUE.md"))
+
+    def test_gpu_espera_a_la_red(self):
+        # su primer arranque clona llama.cpp: necesita el NAT ya creado
+        self.assertRegex(_leer("llm.tf"), r"depends_on\s*=\s*\[module\.base,")
+
     def test_simulacro_renderiza_desde_mdr(self):
         # el simulacro del arranque usa la plantilla y la configuración de esta carpeta
         s = _leer("../simulacro/simulacro.sh")
@@ -278,7 +292,6 @@ class TestRevisionEmulador(unittest.TestCase):
     def test_instantanea_de_la_traza_reproducible(self):
         d = _leer("DESPLIEGUE.md")
         self.assertRegex(d, r"create-snapshot --region")
-        self.assertIn("tofu state show aws_ebs_volume.traza", d)
         self.assertIn("file://", d)                              # los tokens no van en la línea de órdenes
         self.assertIn("*.plan", _leer("../.gitignore"))
 

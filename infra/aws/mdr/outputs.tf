@@ -30,3 +30,9 @@ output "comando_token_admin" {
   description = "Cómo leer el token del analista admin de la consola."
   value       = "aws ssm start-session --region ${var.region} --target ${aws_instance.mdr.id}   # y dentro: sudo cat /root/mdr-token-admin"
 }
+
+# Para la instantánea de la traza antes de un destroy (el disco vive en el módulo común).
+output "volumen_traza_id" {
+  description = "Disco cifrado de la traza (/var/lib/mdr)."
+  value       = module.base.volumen_traza_id
+}

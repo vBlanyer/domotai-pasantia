@@ -3,7 +3,7 @@
 Guía completa de la variante laboratorio (`infra/aws/laboratorio/`; la guía corta para empezar es
 [../INSTALAR.md](../INSTALAR.md)).
 
-Con `variante = "laboratorio"` la misma instancia levanta **el laboratorio del banco** (15 equipos en
+Esta variante levanta en una sola máquina **el laboratorio del banco** (15 equipos en
 Containerlab), **su Wazuh** y **el MDR**, como en local, para probar el MDR antes de ponerlo delante de un
 cliente. **No se conecta a ningún cliente**: los ataques, las alertas y las contenciones ocurren dentro de
 la máquina. Qué se crea: el [inventario](inventario/); cuánto cuesta: [COSTES.md](COSTES.md).
@@ -27,6 +27,7 @@ aws service-quotas get-service-quota --region <region> --service-code ec2 --quot
 
 ## 2. Requisitos y variables
 
+Lo que hace falta, además de las cuotas:
 
 - un MDR **≥ 1.9.2** publicado (la 1.9.1 no trae los arreglos del laboratorio; `tofu plan` lo rechaza);
 - `laboratorio_commit`, el commit de su etiqueta (`git rev-parse v1.9.2^{commit}` en el repositorio);
@@ -50,7 +51,7 @@ tofu apply laboratorio.plan
 
 ## 4. Esperar a que esté listo
 
- El arranque instala lo necesario y deja en marcha la unidad
+El arranque de la máquina instala lo necesario y deja en marcha la unidad
 `mdr-laboratorio`, que levanta el banco, aprovisiona el conector, comprueba que todo está sano y que Wazuh
 genera alertas (`banco.sh test` y `banco.sh comprobar-alertas`) y arranca el MDR. Tarda unos minutos:
 
@@ -68,7 +69,7 @@ tofu output -raw comando_token_admin              # cómo leer el token (o el de
 
 ## 6. Atacar y observar
 
- (en la sesión SSM, como root, desde `/opt/mdr-laboratorio`):
+En una sesión SSM (como en el paso 4), como root y desde `/opt/mdr-laboratorio`:
 
 ```sh
 sudo -i
@@ -82,7 +83,8 @@ sh lab/banco/banco.sh comprobar-alertas  # Wazuh sigue generando alertas
 
 ## 7. Parar y encender
 
- para ahorrar (el disco de la traza se conserva y la cadena continúa):
+Para ahorrar cuando no se usa, para la máquina y vuelve a encenderla después (el disco de la traza
+se conserva y la cadena firmada continúa):
 
 ```sh
 aws ec2 stop-instances  --region <region> --instance-ids "$(tofu output -raw laboratorio_instance_id)"
@@ -102,6 +104,8 @@ gestiona el laboratorio y el daemon, y esas órdenes lo cortan a medias. Para re
 ## 8. Apagar del todo
 
 ```sh
+# si quieres conservar la traza, antes una instantánea del disco:
+aws ec2 create-snapshot --region <region> --volume-id "$(tofu output -raw volumen_traza_id)" --description "traza laboratorio"
 tofu destroy -var-file=laboratorio.tfvars
 ```
 

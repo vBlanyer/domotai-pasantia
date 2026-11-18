@@ -151,5 +151,23 @@ class TestIndiceYAutosuficiencia(unittest.TestCase):
         self.assertEqual(len(set(claves)), len(claves), claves)
 
 
+class TestCiEInstalar(unittest.TestCase):
+    def test_ci_valida_cada_variante(self):
+        # infra/aws ya no tiene .tf: validar ahí daba verde en vacío
+        with open(os.path.join(RAIZ, ".github", "workflows", "ci.yml"), encoding="utf-8") as f:
+            ci = f.read()
+        iac = ci[ci.index("  iac:"):]
+        for v in variantes():
+            self.assertIn(f"infra/aws/{v}", iac, v)
+
+    def test_instalar_sin_region_fija(self):
+        # si se cambia la región, las órdenes y el destroy deben ir a la misma
+        with open(os.path.join(INFRA, "INSTALAR.md"), encoding="utf-8") as f:
+            g = f.read()
+        self.assertNotIn("--region eu-west-1", g)
+        self.assertIn('--region "$REGION"', g)
+        self.assertIn('tofu destroy -var region="$REGION" -var egreso_bootstrap=true', g)
+
+
 if __name__ == "__main__":
     unittest.main()

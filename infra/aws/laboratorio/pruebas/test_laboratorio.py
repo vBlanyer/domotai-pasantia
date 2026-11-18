@@ -21,6 +21,20 @@ def _variables():
 
 
 class TestLaboratorio(unittest.TestCase):
+    def test_guia_sin_frases_cortadas(self):
+        # al repartir las guías quedaron frases sin su comienzo (líneas que empiezan por un espacio suelto)
+        self.assertEqual(re.findall(r"(?m)^ \S.*$", _leer("DESPLIEGUE.md")), [])
+
+    def test_salida_con_el_disco_de_la_traza(self):
+        # la instantánea antes de destroy necesita el id del disco (vive en el módulo común)
+        self.assertRegex(_leer("outputs.tf"), r'output "volumen_traza_id"(.|\n)*?module\.base\.volumen_traza_id')
+        self.assertIn("tofu output -raw volumen_traza_id", _leer("DESPLIEGUE.md"))
+        self.assertNotIn("tofu state show aws_ebs_volume.traza", _leer("DESPLIEGUE.md"))
+
+    def test_sin_variante_en_los_documentos(self):
+        for doc in ("DESPLIEGUE.md", "README.md", "COSTES.md"):
+            self.assertNotIn("variante =", _leer(doc), doc)
+
     T = "templates/laboratorio_user_data.sh.tftpl"
     MENSAJES = (
         "La variante laboratorio necesita un MDR >= 1.9.2: la 1.9.1 no trae los arreglos del laboratorio.",

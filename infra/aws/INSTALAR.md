@@ -29,10 +29,11 @@ GitHub y comprueba su huella.
 
 ```sh
 cd domotai-pasantia/infra/aws/laboratorio
+REGION=eu-west-1                              # la región que vayas a usar: las órdenes de abajo la toman de aquí
 
 # 1. Variables: la región y el commit de la versión (el de v1.9.2)
-cat > laboratorio.tfvars <<'EOF'
-region             = "eu-west-1"
+cat > laboratorio.tfvars <<EOF
+region             = "$REGION"
 laboratorio_commit = "2c64820df320f0eab32583f7de1b4f2d99546d78"
 EOF
 
@@ -41,7 +42,7 @@ tofu init
 tofu apply -var-file=laboratorio.tfvars
 
 # 3. Esperar a que el laboratorio esté listo (unos 15–20 minutos la primera vez)
-aws ssm start-session --region eu-west-1 --target "$(tofu output -raw laboratorio_instance_id)"
+aws ssm start-session --region "$REGION" --target "$(tofu output -raw laboratorio_instance_id)"
 #    dentro de la sesión:
 sudo journalctl -u mdr-laboratorio -f        # listo cuando aparece «MDR en marcha»; Ctrl+C y «exit»
 
@@ -60,8 +61,8 @@ sh lab/banco/banco.sh atacar                 # menú con los ataques de las 10 f
 rehace solo al encender, en unos minutos):
 
 ```sh
-aws ec2 stop-instances  --region eu-west-1 --instance-ids "$(tofu output -raw laboratorio_instance_id)"
-aws ec2 start-instances --region eu-west-1 --instance-ids "$(tofu output -raw laboratorio_instance_id)"
+aws ec2 stop-instances  --region "$REGION" --instance-ids "$(tofu output -raw laboratorio_instance_id)"
+aws ec2 start-instances --region "$REGION" --instance-ids "$(tofu output -raw laboratorio_instance_id)"
 ```
 
 **Para borrarlo todo:** `tofu destroy -var-file=laboratorio.tfvars`. Más detalle (secretos, cuotas,
@@ -74,12 +75,16 @@ un analista `admin` generado en la máquina.
 
 ```sh
 cd domotai-pasantia/infra/aws/mdr
+REGION=eu-west-1
 tofu init
-tofu apply -var region=eu-west-1 -var egreso_bootstrap=true     # unos 3 minutos; escribe «yes»
+tofu apply -var region="$REGION" -var egreso_bootstrap=true     # unos 3 minutos; escribe «yes»
 
 # El arranque tarda unos minutos más. Después, la consola:
 eval "$(tofu output -raw comando_tunel_visor)"                  # y abre http://127.0.0.1:8787
 tofu output -raw comando_token_admin                            # cómo leer el token de acceso
+
+# Para borrarlo todo, con las MISMAS variables que en el apply:
+tofu destroy -var region="$REGION" -var egreso_bootstrap=true
 ```
 
 **Para producción de verdad** sigue [mdr/DESPLIEGUE.md](mdr/DESPLIEGUE.md): sin salida a Internet (el
@@ -98,4 +103,5 @@ del cliente (una VPN o un enlace privado), que esta configuración **no** crea.
   mira el registro: `sudo tail -50 /var/log/mdr-arranque.log` y, en el laboratorio,
   `sudo journalctl -u mdr-laboratorio`. El arranque se ejecuta una vez: tras corregir, se recrea la
   máquina con `tofu apply -replace=aws_instance.laboratorio …` (o `aws_instance.mdr`).
-- **Al terminar, no olvides el `destroy`**: lo que queda encendido se cobra por hora.
+- **Al terminar, no olvides el `destroy`**, con las mismas variables que en el `apply` (la misma región):
+  lo que queda encendido se cobra por hora.
