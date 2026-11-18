@@ -7,6 +7,14 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ## [Sin publicar]
 
+### Cambiado
+- **Las dos variantes de AWS en dos carpetas** (`infra/aws/mdr/`, producción, e `infra/aws/laboratorio/`,
+  pruebas), autosuficientes sobre un módulo común (`infra/aws/modulos/base/`): cada una con sus variables,
+  su estado, su guía, sus costes, su inventario, sus escenarios del emulador y sus pruebas. Desaparece la
+  variable `variante`. Lo propio de la GPU (rol, perfil, grupo de seguridad) solo se crea con
+  `llm_habilitado = true`. El arranque de cada máquina no cambia. Guía corta de instalación:
+  `infra/aws/INSTALAR.md`.
+
 ## [1.9.2] — 2026-11-17 · despliegue en AWS: MDR y laboratorio
 
 ### Añadido
