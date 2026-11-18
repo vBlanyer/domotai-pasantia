@@ -49,6 +49,12 @@ capas = código. Analizado con datos el 26/10 (13–15 citas vivas por fichero).
 |---|---|---|
 | **Límites aceptados de la vista Conectividad** (revisión de seguridad, 10/11): (2) el bloqueo de escritura es solo dentro del proceso; (5) la rotación de la clave escribe en el `authorized_keys` de los equipos; (6) «cualquier cuenta» deja la frontera de cuentas en el motor, no en sudo; (7) las reglas «que faltan» no distinguen un binario ausente de una regla quitada | Los puntos críticos (1, 3 y 4, más el `reemplazar: true` de la clave del host) se cerraron; estos cuatro son límites conocidos que se aceptan para la entrega, con su mitigación descrita | [revision-seguridad-conectividad.md](../05-fase5-implementacion-del-prototipo/revision-seguridad-conectividad.md) |
 
+## Motor de decisión
+
+| Qué | Por qué se aplazó | Detalle |
+|---|---|---|
+| **Escalar al analista los ataques lentos cuando salta el aviso de vigilancia**: hoy el aviso (ventana de 10 min contada como en vivo, umbral 15) solo informa y la alerta queda como actividad legítima; la propuesta es que, si salta, la alerta **se escale a un humano** (sin contención automática, para no castigar al administrador legítimo). Determinista y reproducible (RNF-03): usa una pieza ya medida | Es el mayor hueco medido de la evaluación vigente (n=417): los **61 ataques lentos son falsos negativos** (exhaustividad 0,667; F1 0,777, por debajo del 0,800 de Wazuh). El aviso marca 33 de las 61 y los dos ataques de la evaluación, con 2 avisos sobre las 17 alertas legítimas del administrador. Cambiarlo mueve las cifras canónicas: hay que fijar antes cómo cuenta la evaluación una alerta escalada por el aviso y recalcular (exhaustividad al alza, a costa de esos escalados de más). Propuesto el 18/11 al repasar qué mejoras serían funcionales | [ampliacion-dataset-2026-11.md §9–§10](../06-fase6-evaluacion-del-prototipo/ampliacion-dataset-2026-11.md) |
+
 ## Metodología de evaluación (opcional — descartado para la entrega el 21/10)
 
 | Qué | Por qué se aplazó | Detalle |
