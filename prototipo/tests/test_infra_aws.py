@@ -198,6 +198,15 @@ class TestMcpContraElEmulador(unittest.TestCase):
         self.assertIn("MDR_MCP=1 sh infra/aws/emulador/probar.sh", r)
         self.assertIn("READ_OPERATIONS_ONLY", r)
 
+    def test_instrucciones_de_la_cli_contra_el_emulador(self):
+        with open(os.path.join(INFRA, "README.md"), encoding="utf-8") as f:
+            r = f.read()
+        s = r[r.index("## Consultar el emulador a mano"):]
+        for txt in ('export PATH="$HOME/.local/bin:$PATH"', "aws-emulator --telemetry off",
+                    "AWS_ENDPOINT_URL=https://127.0.0.1:9297", "AWS_DEFAULT_REGION=us-east-1",
+                    "alias aws='uvx --quiet --from awscli aws'"):
+            self.assertIn(txt, s)
+
 
 if __name__ == "__main__":
     unittest.main()

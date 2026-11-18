@@ -33,6 +33,35 @@ telemetría); `probar.sh` aplica los `.tf` reales en una copia temporal con un *
 proveedor al emulador, y suple dos huecos suyos (v1.0.492): `RunInstances` no hereda la zona de la
 subred, y no trae la Deep Learning AMI de la GPU.
 
+## Consultar el emulador a mano (AWS CLI)
+
+`aws-emulator` solo arranca el emulador; para preguntarle (o crear algo) se usa la AWS CLI normal apuntada
+a él. Sin instalarla: `uvx` (de [uv](https://docs.astral.sh/uv/)) la descarga al vuelo.
+
+```sh
+# Terminal 1: el emulador (déjala abierta)
+aws-emulator --telemetry off
+
+# Terminal 2: la AWS CLI apuntando al emulador
+export PATH="$HOME/.local/bin:$PATH"          # donde instala uv (si no lo añadió a tu perfil)
+EMU=~/.aws/emulator/9297
+export AWS_ENDPOINT_URL=https://127.0.0.1:9297 AWS_CA_BUNDLE=$EMU/ca.pem \
+       AWS_SHARED_CREDENTIALS_FILE=$EMU/emulator_credentials \
+       AWS_CONFIG_FILE=/dev/null AWS_DEFAULT_REGION=us-east-1
+alias aws='uvx --quiet --from awscli aws'
+
+aws ec2 describe-vpcs --output table          # la VPC por defecto del emulador (172.31.0.0/16)
+aws ec2 create-vpc --cidr-block 10.99.0.0/16  # crear algo…
+aws ec2 describe-vpcs --output table          # …y verlo aparecer
+```
+
+- **No toca AWS de verdad:** todo va al emulador, con sus credenciales, que en AWS no valen.
+- **Todo es de un solo arranque:** el emulador crea sus credenciales y su certificado al arrancar y los
+  borra al apagarse, y lo creado vive en memoria. Al cerrarlo, se pierde; si una orden dice «Unable to
+  locate credentials», el emulador no está en marcha.
+- **Para ver lo que comprueban las pruebas:** con `probar.sh` en marcha, `aws ec2 describe-instances` en
+  otra terminal muestra la misma instancia que luego enseñan las comprobaciones y las líneas `ok MCP …`.
+
 ## Consultar el despliegue por MCP (como un asistente de IA)
 
 El servidor MCP de API de AWS (`awslabs.aws-api-mcp-server`, en local) permite que un asistente de IA
