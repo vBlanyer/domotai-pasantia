@@ -32,9 +32,9 @@ import { Incidentes } from "@/components/Incidentes"
 import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import { alertaMenuSalud } from "@/salud"
+import { vistaDeHash, hashDeVista, vistaVisible, type Vista } from "@/navegacion"
 import type { Decision } from "@/api"
 
-type Vista = "panel" | "metricas" | "salud" | "red" | "ubicaciones" | "incidentes" | "decisiones" | "aprobaciones" | "consola" | "trazas" | "contenciones" | "watchlist" | "politicas" | "asistente" | "conectividad" | "incidente" | "atacante"
 
 // Un pitido corto (WebAudio, sin fichero) cuando entra una decisión nueva. Best-effort: si el
 // navegador no lo permite, se ignora en silencio.
@@ -144,7 +144,8 @@ function Contador({ n, compacto }: { n: number; compacto: boolean }) {
 
 // La consola, ya dentro: menú, cabecera con la sesión y las vistas.
 function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion; onCerrarSesion: () => void; onCambiarNombre: () => void }) {
-  const [vista, setVista] = useState<Vista>("panel")
+  // La vista va en la URL (#/vista): recargar deja donde se estaba y atrás/adelante recorren las vistas.
+  const [vistaPedida, setVista] = useState<Vista>(() => vistaDeHash(window.location.hash))
   const [equipo, setEquipo] = useState<string | null>(null)
   const [textoDec, setTextoDec] = useState("")        // filtro de Decisiones sembrado al pivotar (p. ej. una IP)
   const [atacanteIp, setAtacanteIp] = useState<string | null>(null)   // perfil de atacante (drill-down)
@@ -153,6 +154,22 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
   const [incidenteSel, setIncidenteSel] = useState<{ clave: string; cidr: string } | null>(null)   // detalle de incidente
   const [incidente, setIncidente] = useState<Decision | null>(null)
   const [menu, setMenu] = useState(false)             // drawer de navegación en móvil (< md)
+  const vista = vistaVisible(vistaPedida, { atacante: !!atacanteIp, incidente: !!incidente })
+  useEffect(() => {
+    const h = hashDeVista(vista), actual = window.location.hash
+    if (actual === h) return
+    // Navegar entre vistas deja entrada en el historial; corregir la URL (primera carga sin #/…, o un
+    // detalle que tras recargar vuelve a su vista de origen) la sustituye, para que «atrás» no se atasque.
+    const deUnaVista = actual === hashDeVista(vistaDeHash(actual))
+    if (deUnaVista && vista === vistaPedida) window.history.pushState(null, "", h)
+    else window.history.replaceState(null, "", h)
+  }, [vista, vistaPedida])
+  useEffect(() => {
+    const alCambiar = () => setVista(vistaDeHash(window.location.hash))
+    window.addEventListener("hashchange", alCambiar)
+    window.addEventListener("popstate", alCambiar)
+    return () => { window.removeEventListener("hashchange", alCambiar); window.removeEventListener("popstate", alCambiar) }
+  }, [])
   const [plegado, setPlegado] = useState(leerPlegado) // menú plegado a iconos (escritorio)
   const compacto = plegado && !menu                   // el drawer móvil nunca va plegado
   const alternarPlegado = () => {

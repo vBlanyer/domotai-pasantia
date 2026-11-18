@@ -19,6 +19,10 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Recargar la página ya no devuelve al Panel.** La vista activa va en la URL (`#/politicas`,
+  `#/aprobaciones`…): al recargar se queda donde estaba, y atrás/adelante del navegador recorren las
+  vistas. Una vista de detalle (perfil del atacante, grafo del incidente) vuelve tras recargar a la vista
+  de la que sale, porque su contexto no viaja en la URL.
 - **Políticas abre en «Resumen».** La pestaña «En castellano» pasa a llamarse «Resumen» y es la primera:
   al entrar se ve la política entera en frases. Sobra el botón «Leer en castellano», que solo abría esa
   pestaña.

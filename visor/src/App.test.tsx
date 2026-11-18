@@ -54,6 +54,25 @@ describe("puerta de acceso", () => {
   })
 })
 
+describe("recargar la página", () => {
+  beforeEach(() => { cerrarSesion(); sessionStorage.clear(); fijarOperador("leo"); h.fuentes.clear() })
+
+  it("se queda en la vista en la que estaba y la URL sigue a la navegación", { timeout: 15000 }, async () => {
+    window.history.replaceState(null, "", "#/watchlist")
+    h.respuesta = { tipo: "ok", requiereToken: false, operador: null }
+    render(<App />)
+    expect(await screen.findByRole("heading", { level: 1, name: "Watchlist" }, { timeout: 5000 })).toBeInTheDocument()
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: /Trazas/ }))
+    expect(window.location.hash).toBe("#/trazas")
+    act(() => {
+      window.history.replaceState(null, "", "#/watchlist")
+      window.dispatchEvent(new HashChangeEvent("hashchange"))
+    })
+    expect(await screen.findByRole("heading", { level: 1, name: "Watchlist" })).toBeInTheDocument()
+    window.history.replaceState(null, "", "#")
+  })
+})
+
 describe("menú: icono de «Estado de servicios»", () => {
   beforeEach(() => { cerrarSesion(); sessionStorage.clear(); fijarOperador("ana"); h.fuentes.clear() })
   const entrar = async () => {
