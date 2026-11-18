@@ -28,6 +28,7 @@ describe("filtrarTipo: los chips Todo · Decisiones · Humano · Sistema", () =>
   it("decisiones = automáticas + humanas", () => expect(filtrarTipo(todos, "decisiones")).toEqual([auto, hum, pend]))
   it("humano = solo las que pasaron o esperan a un analista", () => expect(filtrarTipo(todos, "humano")).toEqual([hum, pend]))
   it("sistema = supresiones, actividad propia, reversiones, casos y errores", () => expect(filtrarTipo(todos, "sistema")).toEqual([sup, propia, rev, caso, err]))
+  it("reversiones = solo las reversiones", () => expect(filtrarTipo(todos, "reversiones")).toEqual([rev]))
 })
 
 describe("hashCorto", () => {

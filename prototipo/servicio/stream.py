@@ -653,10 +653,19 @@ def _construir_resolutor(estado, perfil, catalogo, ejecutor, escribir_traza, esc
                 estado.actualizar_decision(pid, {"esperando_clase": True, "clases": clases,
                                                  "lineas": entrada["lineas"][:1] + [menu],
                                                  "prompt": f"Elige [1-{len(clases)}]: ",
-                                                 "paso": entrada.get("paso", 0) + 1})
+                                                 "paso": entrada.get("paso", 0) + 1,
+                                                 # para «Volver»: el menú de veredicto tal como estaba
+                                                 "menu_previo": {"lineas": entrada["lineas"],
+                                                                 "prompt": entrada.get("prompt")}})
                 return True
             veredicto, clase = {"1": "aprobar", "2": "rechazar"}.get(respuesta, "rechazar"), None
         else:
+            previo = entrada.get("menu_previo")
+            if respuesta == "0" and previo:            # «Volver»: deshace el «Reclasificar», sin trazar
+                estado.actualizar_decision(pid, {"esperando_clase": False, "clases": None, "menu_previo": None,
+                                                 "lineas": previo["lineas"], "prompt": previo["prompt"],
+                                                 "paso": entrada.get("paso", 0) + 1})
+                return True
             clases = entrada.get("clases", [])
             if respuesta.isdigit() and 1 <= int(respuesta) <= len(clases):
                 veredicto, clase = "reclasificar", clases[int(respuesta) - 1]

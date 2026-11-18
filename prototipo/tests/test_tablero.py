@@ -745,6 +745,15 @@ class TestServidor(unittest.TestCase):
             ids = [r["id_decision"] for r in json.loads(self._get(puerto, "/api/trazas")[1])]
         self.assertEqual(ids, ["s2", "s3"])
 
+    def test_decisiones_ven_la_misma_ventana_que_trazas_y_red(self):
+        # Red cuenta los ataques de un equipo sobre /api/trazas (los últimos LIMITE_TRAZAS) y pivota a
+        # Decisiones: con una ventana de 50, faltaban ataques del equipo al pivotar (18/11).
+        _, puerto = self._servidor(ruta_traza=self._traza_n(60))
+        ids = lambda ruta: [r["id_decision"] for r in json.loads(self._get(puerto, ruta)[1])]
+        self.assertEqual(len(ids("/api/decisiones")), 60)
+        self.assertEqual(ids("/api/decisiones"), ids("/api/trazas"))
+        self.assertEqual(ids("/api/decisiones?limite=2"), ["s59", "s60"])
+
     def test_trazas_aceptan_limite_en_la_consulta(self):
         _, puerto = self._servidor(ruta_traza=self._traza_n(3))
         ids = lambda q: [r["id_decision"] for r in json.loads(self._get(puerto, "/api/trazas" + q)[1])]

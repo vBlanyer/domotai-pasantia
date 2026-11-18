@@ -52,7 +52,7 @@ export function colorClase(clase: string, paleta: string[]): string {
 
 // Vista «Consola»: clasificación PURA de cada línea del feed del daemon, por los prefijos reales
 // que emiten stream._resumen_incidente / _linea_* (los filtros de la vista agrupan por esto).
-export type TipoLinea = "incidente" | "decision" | "supresion" | "error" | "propia" | "aviso" | "ejecucion" | "detalle" | "otro"
+export type TipoLinea = "incidente" | "decision" | "supresion" | "error" | "propia" | "aviso" | "ejecucion" | "reversion" | "detalle" | "otro"
 export type LineaConsola = { n: number; t: string; linea: string }
 
 export function clasificarLinea(linea: string): TipoLinea {
@@ -65,8 +65,10 @@ export function clasificarLinea(linea: string): TipoLinea {
   if (linea.startsWith("✗")) return "error"
   if (linea.startsWith("↺")) return "propia"
   if (linea.startsWith("[aviso]") || linea.startsWith("[red]")) return "aviso"
-  // narración de la caja negra: ▶ orden ejecutada, ✔/⇪ verificación/escalada, ↶ reversión, · detalle
-  if (/^[▶✔⇪↶]/.test(linea)) return "ejecucion"
+  // narración de la caja negra: ▶ orden ejecutada, ✔/⇪ verificación/escalada, · detalle; ↶ reversión
+  // aparte, para filtrarla (y sigue saliendo en «Ejecución»)
+  if (linea.startsWith("↶")) return "reversion"
+  if (/^[▶✔⇪]/.test(linea)) return "ejecucion"
   // diario del operador: ✓/✋/↻ veredicto humano (↻ no es ↺, la actividad propia), ☰ ciclo de caso,
   // ⏻ kill switch y [inicio] el contexto del arranque
   if (/^[✓✋↻]/.test(linea)) return "decision"
@@ -80,7 +82,8 @@ export function clasificarLinea(linea: string): TipoLinea {
 const GRUPOS_CONSOLA: Record<string, TipoLinea[]> = {
   decisiones: ["decision", "supresion", "detalle"],
   incidentes: ["incidente"],
-  ejecucion: ["ejecucion"],
+  ejecucion: ["ejecucion", "reversion"],
+  reversiones: ["reversion"],
   avisos: ["aviso", "error"],
 }
 

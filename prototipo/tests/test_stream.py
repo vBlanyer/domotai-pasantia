@@ -165,6 +165,23 @@ class TestColaNoBloqueante(unittest.TestCase):
         p = estado.decisiones_pendientes()[0]
         self.assertIsNone(p.get("analisis_ampliado"))
 
+    def test_desde_el_submenu_de_clases_se_puede_volver_atras(self):
+        # «0» en el submenú de clases deshace el «Reclasificar»: vuelve el menú de veredicto, sin
+        # trazar nada; la decisión sigue en cola y se puede aprobar después.
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        self._ejecutar(estado, buf)
+        p0 = estado.decisiones_pendientes()[0]
+        pid = p0["id"]
+        self.assertTrue(estado.resolver_decision(pid, "3", paso=0))       # -> submenú de clases
+        self.assertTrue(estado.resolver_decision(pid, "0", paso=1))       # <- volver
+        p = estado.decisiones_pendientes()[0]
+        self.assertFalse(p.get("esperando_clase"))
+        self.assertEqual((p["lineas"], p["prompt"], p["paso"]), (p0["lineas"], p0["prompt"], 2))
+        self.assertNotIn("menu_previo", tablero._vista_pendiente(p))
+        self.assertEqual(_sin_pendientes(buf), [])                          # no se trazó nada
+        self.assertTrue(estado.resolver_decision(pid, "1", paso=2))       # y se aprueba con normalidad
+        self.assertEqual(json.loads(_sin_pendientes(buf)[0])["veredicto_humano"], "aprobar")
+
     def test_reclasificar_avanza_el_paso(self):
         estado, buf = tablero.EstadoTablero(), io.StringIO()
         self._ejecutar(estado, buf)

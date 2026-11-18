@@ -142,6 +142,9 @@ function Contador({ n, compacto }: { n: number; compacto: boolean }) {
   )
 }
 
+// Un único texto para el estado de la conexión: la cabecera y el pie del menú dicen lo mismo.
+const textoConexion = (conectado: boolean) => conectado ? "en vivo · cada 2 s" : "sin conexión con el daemon"
+
 // La consola, ya dentro: menú, cabecera con la sesión y las vistas.
 function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion; onCerrarSesion: () => void; onCambiarNombre: () => void }) {
   // La vista va en la URL (#/vista): recargar deja donde se estaba y atrás/adelante recorren las vistas.
@@ -280,8 +283,7 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
           <div className="flex flex-col gap-2 border-t border-sidebar-border px-5 py-3 text-xs">
             <div className="flex items-center gap-2">
               <Punto estado={conectado ? "ok" : "caido"} />
-              <span className={conectado ? "text-ok" : "text-critico"}>{conectado ? "en vivo" : "sin conexión"}</span>
-              {conectado && <span className="text-muted-foreground">· sondeo 2 s</span>}
+              <span className={conectado ? "text-ok" : "text-critico"}>{textoConexion(conectado)}</span>
               <button onClick={alternarPlegado} aria-label="Plegar el menú" title="Plegar el menú"
                 className="ml-auto hidden size-6 place-items-center rounded border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground md:grid">
                 <PanelLeftClose className="size-3.5" />
@@ -309,7 +311,7 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
           <div className="flex items-center gap-2 text-sm md:gap-4">
             <span className="flex items-center gap-2">
               <Punto estado={conectado ? "ok" : "caido"} />
-              <span className="hidden text-muted-foreground sm:inline">{conectado ? "datos en vivo" : "sin conexión con el daemon"}</span>
+              <span className="hidden text-muted-foreground sm:inline">{textoConexion(conectado)}</span>
             </span>
             <button
               onClick={() => alternarAvisos(avisos, setAvisos)}

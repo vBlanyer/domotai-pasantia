@@ -54,6 +54,17 @@ describe("puerta de acceso", () => {
   })
 })
 
+describe("estado de la conexión", () => {
+  beforeEach(() => { cerrarSesion(); sessionStorage.clear(); fijarOperador("leo"); h.fuentes.clear() })
+
+  it("la cabecera y el menú dicen lo mismo", { timeout: 15000 }, async () => {
+    h.fuentes.set(getSalud, { estados: {}, total: 0 })
+    h.respuesta = { tipo: "ok", requiereToken: false, operador: null }
+    render(<App />)
+    expect(await screen.findAllByText("en vivo · cada 2 s", undefined, { timeout: 5000 })).toHaveLength(2)
+  })
+})
+
 describe("recargar la página", () => {
   beforeEach(() => { cerrarSesion(); sessionStorage.clear(); fijarOperador("leo"); h.fuentes.clear() })
 

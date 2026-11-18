@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, type ReactNode } from "react"
-import { TriangleAlert, Clock, ChevronDown, ChevronRight } from "lucide-react"
+import { TriangleAlert, Clock, ChevronDown, ChevronRight, MessageSquareText } from "lucide-react"
 import { useSondeo, getPendientes, getTrazas, aprobar, actualizarCaso, parsearPendiente, operadorActual, operadorVerificado, ahoraServidor, type Pendiente, type Opcion, type Decision, type AnalisisAmpliado } from "@/api"
 import { edadTexto, msDesde } from "@/alertas"
 import { etiquetaClase, ubicacionLabelDe, nivelPrioridad, paginar, TAM_PAGINA } from "@/datos"
@@ -19,10 +19,11 @@ const HECHO: Record<string, string> = {
 
 // enviando: el POST está en vuelo · clases: «Reclasificar» aceptado, a la espera del submenú ·
 // hecho: veredicto aplicado, la tarjeta sale de la cola en el próximo refresco.
-type Estado = "listo" | "enviando" | "clases" | "hecho"
+type Estado = "listo" | "enviando" | "clases" | "volviendo" | "hecho"
 const MENSAJE: Record<Exclude<Estado, "listo">, string> = {
   enviando: "Enviando…",
   clases: "Cargando las clases…",
+  volviendo: "Volviendo al menú…",
   hecho: "Aplicado. Sale de la cola en el próximo refresco.",
 }
 
@@ -284,16 +285,27 @@ function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicac
 
       <div className="space-y-2.5 bg-muted px-4 py-3">
         {p.id_decision && !clasificando && (
-          <textarea value={nota} onChange={(e) => onNota(e.target.value)} rows={1} aria-label="Nota para la traza"
-            placeholder="Nota para la traza (opcional): por qué decides esto"
-            className="w-full resize-y rounded-md border border-border bg-card px-2.5 py-1.5 text-sm outline-none focus:border-ring" />
+          <div>
+            <div className="mb-1 flex flex-wrap items-baseline gap-x-1.5 text-xs">
+              <MessageSquareText className="size-3.5 self-center text-primary" aria-hidden="true" />
+              <span className="font-semibold text-foreground">Observación para la traza</span>
+              <span className="text-muted-foreground">opcional · queda firmada con tu nombre y se ve en Decisiones</span>
+            </div>
+            <textarea value={nota} onChange={(e) => onNota(e.target.value)} rows={3} aria-label="Nota para la traza"
+              placeholder="Por qué decides esto: lo que comprobaste, con quién hablaste…"
+              className="w-full resize-y rounded-md border-2 border-primary/35 bg-card px-3 py-2 text-sm outline-none focus:border-primary" />
+          </div>
         )}
         {clasificando && <div className="text-sm font-medium">Elige la clase correcta:</div>}
         <div className="flex flex-wrap gap-2">
           {escalada ? (
             <><BotonDecision {...comun} respuesta="s" etiqueta="Aprobar" variante="default" /><BotonDecision {...comun} respuesta="" etiqueta="Rechazar" variante="destructive" /></>
           ) : v.opciones.length > 0 ? (
-            v.opciones.map((op) => { const b = boton(op); return <BotonDecision {...comun} key={op.n} respuesta={op.n} etiqueta={b.etiqueta} variante={b.variante} /> })
+            <>
+              {v.opciones.map((op) => { const b = boton(op); return <BotonDecision {...comun} key={op.n} respuesta={op.n} etiqueta={b.etiqueta} variante={b.variante} /> })}
+              {/* «0» en el submenú de clases deshace el Reclasificar (vuelve el menú de veredicto) */}
+              {clasificando && <BotonDecision {...comun} respuesta="0" etiqueta="Volver" variante="outline" />}
+            </>
           ) : (
             // fallback: el prompt no trajo el menú (p. ej. daemon sin la última versión)
             <><BotonDecision {...comun} respuesta="1" etiqueta="Aprobar" variante="default" /><BotonDecision {...comun} respuesta="2" etiqueta="Rechazar" variante="destructive" /></>
@@ -408,6 +420,10 @@ export function Aprobaciones({ paisInicial = "", idInicial = null, onQuitarPais 
         description: r === "auth"
           ? "El daemon rechazó el token de la consola (401): revísalo arriba a la derecha."
           : "Ya no estaba vigente (la resolvió otro operador o cambió el menú) o se perdió la conexión con el daemon." })
+      return
+    }
+    if (clasificando && etiqueta === "Volver") {
+      setEstados((e) => ({ ...e, [k]: "volviendo" }))   // bloqueada hasta que vuelva el menú (paso nuevo)
       return
     }
     if (x.tipo !== "escalada" && !clasificando && etiqueta === "Reclasificar") {

@@ -39,6 +39,7 @@ function useConsola(ms = 2000) {
 const TONO: Record<TipoLinea, string> = {
   incidente: "text-aviso",
   ejecucion: "text-info",
+  reversion: "text-violeta",
   detalle: "text-muted-foreground",
   decision: "text-foreground",
   supresion: "text-muted-foreground",
@@ -50,7 +51,7 @@ const TONO: Record<TipoLinea, string> = {
 
 const GRUPOS: [string, string][] = [
   ["todo", "Todo"], ["decisiones", "Decisiones"], ["incidentes", "Incidentes"],
-  ["ejecucion", "Ejecución"], ["avisos", "Avisos"],
+  ["ejecucion", "Ejecución"], ["reversiones", "Reversiones"], ["avisos", "Avisos"],
 ]
 
 export function Consola() {

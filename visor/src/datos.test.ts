@@ -290,7 +290,7 @@ describe("clasificarLinea", () => {
     expect(clasificarLinea("▶ s12 BLOQUEAR_IP en objetivo-vuln (…): iptables -A …")).toBe("ejecucion")
     expect(clasificarLinea("✔ s12 verificada — contenida")).toBe("ejecucion")
     expect(clasificarLinea("⇪ s12 el activo no respondió → fw-core")).toBe("ejecucion")
-    expect(clasificarLinea("↶ des-bloqueo en masa: 3 revertida(s)")).toBe("ejecucion")
+    expect(clasificarLinea("↶ des-bloqueo en masa: 3 revertida(s)")).toBe("reversion")
     // la verificación FALLIDA es narración de la respuesta, no un error de proceso (revisión)
     expect(clasificarLinea("✗ s12 NO verificada: la contención no se confirmó")).toBe("ejecucion")
     expect(clasificarLinea("✗ s12 no se ejecutó en atm — equipo sin aprovisionar — dalo de alta")).toBe("ejecucion")
@@ -314,6 +314,11 @@ describe("clasificarLinea", () => {
 
 describe("filtrarConsola", () => {
   const L = (linea: string, n = 1) => ({ n, t: "16:02:11", linea })
+  it("«reversiones» deja solo las reversiones, que siguen saliendo también en «ejecución»", () => {
+    const ls = [L("▶ s1 BLOQUEAR_IP en atm", 1), L("↶ s1 revertida en atm por ana", 2), L("⚠ Incidente: x", 3)]
+    expect(filtrarConsola(ls, "reversiones", "").map((l) => l.n)).toEqual([2])
+    expect(filtrarConsola(ls, "ejecucion", "").map((l) => l.n)).toEqual([1, 2])
+  })
   const lineas = [L("⚠ Incidente: x", 1), L("  Clase: vp_x", 2), L("[aviso] y", 3)]
   it("filtra por grupo y por texto, y 'todo' no filtra", () => {
     expect(filtrarConsola(lineas, "todo", "").length).toBe(3)

@@ -3,10 +3,10 @@
 import type { Decision } from "@/api"
 
 export type TipoFila = "decision" | "humano" | "sistema" | "error"
-export type Chip = "todo" | "decisiones" | "humano" | "sistema"
+export type Chip = "todo" | "decisiones" | "humano" | "reversiones" | "sistema"
 export const CHIPS: { id: Chip; nombre: string }[] = [
   { id: "todo", nombre: "Todo" }, { id: "decisiones", nombre: "Decisiones" },
-  { id: "humano", nombre: "Humano" }, { id: "sistema", nombre: "Sistema" },
+  { id: "humano", nombre: "Humano" }, { id: "reversiones", nombre: "Reversiones" }, { id: "sistema", nombre: "Sistema" },
 ]
 const SISTEMA = new Set(["actividad_suprimida", "actividad_propia", "reversion", "actualizacion_caso", "auditoria_conectividad",
   "politica_cargada", "auditoria_asistente", "pendiente", "pendiente_perdida"])
@@ -20,6 +20,7 @@ export function tipoDe(r: Decision): TipoFila {
 
 export function filtrarTipo(regs: Decision[], chip: Chip): Decision[] {
   if (chip === "todo") return regs
+  if (chip === "reversiones") return regs.filter((r) => r.tipo === "reversion")
   return regs.filter((r) => {
     const t = tipoDe(r)
     return chip === "decisiones" ? t === "decision" || t === "humano"

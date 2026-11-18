@@ -85,6 +85,26 @@ describe("Aprobaciones", () => {
     expect(await screen.findByText("Reclasificada como «Falso positivo (legítimo)»")).toBeInTheDocument()
   })
 
+  it("desde el menú de clases, «Volver» deshace el Reclasificar sin decidir nada", async () => {
+    h.aprobar.mockResolvedValue("ok")
+    h.pendientes = [tarjeta({ paso: 1, lineas: [INCID, CLASES] })]
+    const { rerender } = render(vista())
+    fireEvent.click(boton("Volver"))
+    expect(h.aprobar).toHaveBeenLastCalledWith("7", "0", 1)
+    await screen.findByText(/Volviendo al menú/)
+    expect(screen.queryByText(/Reclasificada como/)).not.toBeInTheDocument()
+    h.pendientes = [tarjeta({ paso: 2 })]                             // el daemon devuelve el menú
+    rerender(vista())
+    expect(boton("Aprobar")).toBeEnabled()
+  })
+
+  it("la observación para la traza se ve con su rótulo", () => {
+    h.pendientes = [tarjeta({ id_decision: "d-1" })]
+    render(vista())
+    expect(screen.getByText("Observación para la traza")).toBeInTheDocument()
+    expect(screen.getByLabelText("Nota para la traza")).toHaveAttribute("rows", "3")
+  })
+
   describe("con riesgo de cascada", () => {
     const CONSEC = "Consecuencia: bloquea a 10.40.0.10 · en cascada: api-movil, middleware"
     beforeEach(() => { h.pendientes = [tarjeta({ lineas: [INCID, CONSEC, MENU] })] })

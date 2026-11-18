@@ -291,7 +291,7 @@ El botón del pie pliega el menú a iconos; la consola lo recuerda.
 
 ### La cabecera
 
-- **«datos en vivo»** o **«sin conexión con el daemon»**. Sin conexión, cada vista sigue mostrando
+- **«en vivo · cada 2 s»** o **«sin conexión con el daemon»** (lo mismo arriba y en el pie del menú). Sin conexión, cada vista sigue mostrando
   lo último que recibió, con la hora.
 - **La campana** activa los avisos del navegador. Cuando llega una decisión **nueva** que espera
   aprobación, el navegador lo notifica aunque estés en otra pestaña, con un pitido corto. La pestaña
@@ -373,14 +373,14 @@ acción tumbaría otros servicios) y «escalada» (es un salto al cortafuegos), 
    lista de equipos que caerían.
 3. **Lee «Por qué lo propone el motor».** La clase, la confianza, por qué necesita a un humano y la
    técnica ATT&CK, y debajo lo que ya pasó con ese origen.
-4. **Si quieres, escribe una nota** en «Nota para la traza…». Se guarda en el caso.
+4. **Si quieres, escribe una observación** en «Observación para la traza». Se guarda en el caso, firmada con tu nombre, y se ve en Decisiones (paso «Analista») y en Trazas.
 5. **Decide:**
 
 | Botón | Tecla | Qué hace |
 |---|---|---|
 | «Aprobar» | A | Ejecuta la acción. Con cascada, pide confirmar «Aprobar igualmente» |
 | «Rechazar» | R | No ejecuta nada. La amenaza queda registrada |
-| «Reclasificar» | C | La clase estaba mal: eliges la correcta. No ejecuta nada y queda como corrección del motor |
+| «Reclasificar» | C | La clase estaba mal: eliges la correcta. No ejecuta nada y queda como corrección del motor. «Volver» deshace el paso sin decidir nada |
 
 Tras decidir, el inspector salta a la siguiente pendiente.
 

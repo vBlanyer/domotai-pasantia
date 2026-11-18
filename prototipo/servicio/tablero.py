@@ -1107,7 +1107,9 @@ class _Manejador(BaseHTTPRequestHandler):
                 pend = s.estado.decisiones_pendientes() if getattr(s, "async_web", False) else []
                 return self._responder(estado_red(s.perfil, regs, pend, salud))
             if ruta == "/api/decisiones":
-                return self._responder(lista_trazas(s.ruta_traza, n=50, perfil=s.perfil))
+                # La misma ventana que /api/trazas (Red cuenta sobre ella y pivota aquí): con 50, faltaban
+                # ataques de un equipo al pivotar desde Red.
+                return self._responder(lista_trazas(s.ruta_traza, n=_limite(self.path), perfil=s.perfil))
             if ruta == "/api/pendientes":
                 if getattr(s, "async_web", False):     # cola no bloqueante: lista ordenada por severidad
                     return self._responder([_vista_pendiente(p, s.perfil) for p in s.estado.decisiones_pendientes()])
@@ -1346,7 +1348,7 @@ class _Manejador(BaseHTTPRequestHandler):
             return self._responder({"error": "error interno"}, 500)
 
 
-_INTERNO_PENDIENTE = ("decision", "alerta", "clave", "orden", "desde")   # no se serializan a la web
+_INTERNO_PENDIENTE = ("decision", "alerta", "clave", "orden", "desde", "menu_previo")   # no se serializan a la web
 
 
 def _vista_pendiente(p, perfil=None):

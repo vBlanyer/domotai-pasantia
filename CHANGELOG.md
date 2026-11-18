@@ -19,6 +19,19 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **La escalada al cortafuegos ya no se veta por el papel del equipo atacado.** Si contener en el propio
+  equipo fallaba (p. ej. el SSH no respondía a tiempo durante una fuerza bruta), la escalada a fw-core y
+  fw-edge comprobaba el papel de Conectividad del equipo ATACADO (un servidor, sin bloqueo en
+  cortafuegos) y salía vetada siempre: web-banking quedaba sin contener. Ahora cuenta el papel del
+  equipo donde se ejecuta cada salto (`perfil.filtrar(..., nodo_ejecucion=)`).
+- **Decisiones ve la misma ventana que Red y Trazas** (los últimos 500 registros, no 50): al pivotar
+  desde Red a las decisiones de un equipo ya no faltan sus ataques.
+- **Reclasificar tiene «Volver».** Desde el submenú de clases se vuelve al menú de veredicto sin decidir
+  nada. Antes, una respuesta que no era una clase **rechazaba** la decisión.
+- **Trazas: lo más reciente arriba** y chip **«Reversiones»**; la Consola también tiene el filtro
+  «Reversiones» (las reversiones siguen saliendo en «Ejecución»).
+- **La observación de Aprobaciones se ve mejor:** rótulo propio, más alta y con borde de color.
+- **El estado de la conexión dice lo mismo en la cabecera y en el menú** («en vivo · cada 2 s»).
 - **Recargar la página ya no devuelve al Panel.** La vista activa va en la URL (`#/politicas`,
   `#/aprobaciones`…): al recargar se queda donde estaba, y atrás/adelante del navegador recorren las
   vistas. Una vista de detalle (perfil del atacante, grafo del incidente) vuelve tras recargar a la vista

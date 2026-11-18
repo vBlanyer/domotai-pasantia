@@ -197,7 +197,7 @@ export function Trazas({ onVerDecision, onVerIncidente }: { onVerDecision?: (id:
   const enFiltro = new Set(filtrarTipo(filtrarDecisiones(regs, filtro), chip))
   // `i` es la posición en la cadena completa (el backend la anota): la ventana puede empezar a mitad.
   const todas = regs.map((r, k) => ({ r, k, i: r.indice ?? k }))
-  const filas = todas.filter(({ r }) => enFiltro.has(r))
+  const filas = todas.filter(({ r }) => enFiltro.has(r)).reverse()   // lo más reciente arriba
   const pag = paginar(filas, pagina, tam)
   const ventana = ventanaDe(regs)
   const rotoFuera = !!ventana && cadena?.roto != null && cadena.roto < ventana.desde

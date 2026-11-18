@@ -66,12 +66,29 @@ describe("Trazas", () => {
     h.verif = {}
     render(<Trazas />)
     const fila = (n: number) => document.querySelector(`[data-fila="${n}"]`)
-    expect(fila(101)).not.toBeNull()                                // página 1 (# = índice + 1)
-    expect(fila(130)).toBeNull()
+    expect(fila(130)).not.toBeNull()                                // página 1: lo más reciente (# = índice + 1)
+    expect(fila(101)).toBeNull()
     expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
-    expect(fila(130)).not.toBeNull()                                // página 2
-    expect(fila(101)).toBeNull()
+    expect(fila(101)).not.toBeNull()                                // página 2: lo más antiguo
+    expect(fila(130)).toBeNull()
+  })
+
+  it("lo más reciente va arriba", () => {
+    h.trazas = [reg(1, "s1"), reg(2, "s2"), reg(3, "s3")]
+    h.verif = {}
+    render(<Trazas />)
+    const orden = [...document.querySelectorAll("[data-fila]")].map((e) => e.getAttribute("data-fila"))
+    expect(orden.filter((x, i) => orden.indexOf(x) === i)).toEqual(["4", "3", "2"])
+  })
+
+  it("el chip «Reversiones» deja solo las reversiones", () => {
+    h.trazas = [reg(1, "s1"), { ...reg(2, "s1"), tipo: "reversion", id_decision_revertida: "s1", exito: true, nodo: "atm" }]
+    h.verif = {}
+    render(<Trazas />)
+    fireEvent.click(screen.getByRole("button", { name: "Reversiones" }))
+    expect(document.querySelector('[data-fila="3"]')).not.toBeNull()
+    expect(document.querySelector('[data-fila="2"]')).toBeNull()
   })
 
   it("permite elegir el tamaño de página (10/20/50)", () => {
@@ -82,10 +99,10 @@ describe("Trazas", () => {
     fireEvent.change(screen.getByLabelText("Filas por página"), { target: { value: "10" } })
     expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
     const fila = (n: number) => document.querySelector(`[data-fila="${n}"]`)
-    expect(fila(101)).not.toBeNull()
-    expect(fila(115)).toBeNull()
+    expect(fila(115)).not.toBeNull()                                // lo reciente, en la página 1
+    expect(fila(101)).toBeNull()
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
-    expect(fila(115)).not.toBeNull()
+    expect(fila(101)).not.toBeNull()
   })
 
   it("sin exceso de filas no hay paginador", () => {
