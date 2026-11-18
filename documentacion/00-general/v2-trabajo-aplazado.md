@@ -33,6 +33,12 @@ capas = código. Analizado con datos el 26/10 (13–15 citas vivas por fichero).
 | Segunda fuente de alertas (CEF) | Analizada y aparcada el 21/09; decisiones abiertas en su spec | `archivo/proceso-desarrollo/superpowers/specs/` |
 | **Despliegue en AWS con OpenTofu** (MDR + visor + LLM en GPU) — diseño y diagrama listos; **la IaC está escrita** (`infra/aws/`) y pasa `tofu init` + `tofu validate` (28/10); falta solo el `apply` real | Acordado con el tutor (27/10) como lo último del backlog; el `apply` (cuenta, coste, región) lo decide el tutor industrial | [despliegue-aws-opentofu.md](../04-fase4-diseno-de-arquitectura/despliegue-aws-opentofu.md) |
 
+## Integración con asistentes de IA (MCP)
+
+| Qué | Por qué se aplazó | Detalle |
+|---|---|---|
+| **Servidor MCP de solo lectura** sobre la API de la consola y el laboratorio: herramientas para consultar decisiones, contenciones activas, casos y salud; `verificar_traza()`; el corpus del RAG como recurso; `proponer_perfil(rango)` (propone, no adopta); y, solo en el laboratorio, `lanzar_ataque` / `restaurar` para demostraciones. Que un analista pregunte desde su asistente («¿qué está contenido ahora?») sin abrir la consola | No es parte del núcleo: el triaje y la contención son deterministas a propósito (RNF-03), con catálogo cerrado y aprobación humana, y sin salida a Internet en marcha (RNF-01). La contención y la reversión **no** se exponen por MCP (o solo con aprobación humana en el propio asistente). Sugerido en la conversación con los tutores (18/11) | La API ya existe (`prototipo/servicio/tablero.py`); el servidor solo la traduce. MCP: estándar abierto para conectar asistentes de IA con herramientas y datos |
+
 ## Conectividad y manejo de fallos de contención
 
 | Qué | Por qué se aplazó | Detalle |
