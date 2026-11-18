@@ -89,6 +89,8 @@ describe("describirSistema: los registros de sistema dicen qué pasó", () => {
     expect(describirSistema(rev)).toEqual({ titulo: "Reversión de s3", detalle: "aplicada en fw-core" })
     expect(describirSistema(d({ tipo: "reversion", id_decision_revertida: "s9", exito: false }))).toEqual({ titulo: "Reversión de s9", detalle: "falló" })
     expect(describirSistema(caso)).toEqual({ titulo: "Caso actualizado", detalle: "en revisión · asignado a Ana · por Blanyer" })
+    expect(describirSistema(d({ tipo: "actualizacion_caso", nota: "IP de un cliente conocido", operador: "Ana" })))
+      .toEqual({ titulo: "Caso actualizado", detalle: "nota: «IP de un cliente conocido» · por Ana" })
     expect(describirSistema(err)).toEqual({ titulo: "Error al procesar", detalle: "OSError: docker" })
   })
 })

@@ -72,7 +72,8 @@ export function describirSistema(r: Decision): { titulo: string; detalle: string
       return { titulo: `Reversión de ${r.id_decision_revertida ?? "—"}`, detalle: `${r.exito ? "aplicada" : "falló"}${r.nodo ? ` en ${r.nodo}` : ""}` }
     case "actualizacion_caso":
       return { titulo: "Caso actualizado",
-        detalle: [r.estado ? (ESTADO_CASO[r.estado] ?? r.estado) : null, r.asignado ? `asignado a ${r.asignado}` : null, r.operador ? `por ${r.operador}` : null]
+        detalle: [r.estado ? (ESTADO_CASO[r.estado] ?? r.estado) : null, r.asignado ? `asignado a ${r.asignado}` : null,
+                  r.nota ? `nota: «${r.nota}»` : null, r.operador ? `por ${r.operador}` : null]
           .filter(Boolean).join(" · ") }
     case "auditoria_conectividad":
       return { titulo: "Conectividad",

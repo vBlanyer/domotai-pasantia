@@ -18,6 +18,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
   «Cómo está organizado el repositorio») y las observaciones de la revisión del 15/11 pasan a
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
+### Corregido
+- **La nota del analista ya se ve donde se busca.** La nota opcional de Aprobaciones se guardaba en la
+  traza, pero solo se veía dando un rodeo (cronología de Incidentes o grafo del incidente). Ahora sale en
+  Decisiones, en el paso «Analista» (con quién la escribió y cuándo), y en Trazas el registro «Caso
+  actualizado» muestra su texto. Al decidir, el aviso confirma «Nota guardada en la traza» o, si no se
+  pudo guardar, lo dice y devuelve el texto para no perderlo.
+
 ### Añadido
 - **«Análisis ampliado» en la ficha de Aprobaciones**: al encolar una decisión para el analista, el MDR
   reúne por reglas, sin modelo, el contexto que antes había que buscar a mano: qué más hizo ese origen en

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState, type ReactNode } from "react"
 import { TriangleAlert } from "lucide-react"
 import { useSondeo, getDecisiones, getTrazaDetalle, operadorActual, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Cargando, SinConexion, Vacio, Prioridad, BarraFiltros, DatosCongelados, LineaCausa } from "./bits"
-import { filtrarDecisiones, clasesDe, claveDe, contencionDe, ventanaDe, paginar, pasosRunbook, estadoDeCasos, etiquetaClase, TAM_PAGINA, type Contencion, type EstadoContencion, type Filtro, quienDecidio } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, contencionDe, ventanaDe, paginar, pasosRunbook, estadoDeCasos, etiquetaClase, TAM_PAGINA, type CasoNota, type Contencion, type EstadoContencion, type Filtro, quienDecidio } from "@/datos"
 import { desenlaceDe, resumenDecisiones, pasaFiltro, pasosDe, FILTROS_DECISION, type FiltroDecision, type Paso, type Tono } from "@/decisiones"
 import { claveDia, etiquetaDia, horaLocal } from "@/trazas"
 import { Paginador } from "./Paginador"
@@ -81,8 +81,8 @@ function Recorrido({ pasos, extras }: { pasos: Paso[]; extras: (ReactNode | null
   )
 }
 
-export function InspectorDecision({ d, onVerIncidente, onVerTrazas, onVerAtacante, onVerContenciones }: {
-  d: Decision; onVerIncidente?: (d: Decision) => void; onVerTrazas?: () => void
+export function InspectorDecision({ d, notas = [], onVerIncidente, onVerTrazas, onVerAtacante, onVerContenciones }: {
+  d: Decision; notas?: CasoNota[]; onVerIncidente?: (d: Decision) => void; onVerTrazas?: () => void
   onVerAtacante?: (ip: string) => void; onVerContenciones?: () => void
 }) {
   const [det, setDet] = useState<Detalle | { error: string }>()
@@ -115,7 +115,17 @@ export function InspectorDecision({ d, onVerIncidente, onVerTrazas, onVerAtacant
         {detalle.veredicto_escalada && <p className={pequeno}>{`escalada ${detalle.veredicto_escalada === "aprobar" ? "aprobada" : "rechazada"} por el analista`}</p>}
       </Fragment>
     ) : null,
-    null,
+    // paso «Analista»: las notas del caso de esta decisión (la de Aprobaciones y las de después)
+    notas.length ? (
+      <ul key="notas" aria-label="Notas del analista" className="mt-1 space-y-1 text-xs">
+        {notas.map((n, i) => (
+          <li key={i} className="rounded border border-border bg-muted px-2 py-1">
+            <span>«{n.texto}»</span>
+            <span className="text-muted-foreground">{[n.operador, horaLocal(n.decidido_en)].filter(Boolean).map((t) => ` · ${t}`).join("")}</span>
+          </li>
+        ))}
+      </ul>
+    ) : null,
     c ? (
       <div key="ejecucion" className="mt-1 space-y-0.5 text-xs">
         <p className={cn("font-medium", c.estado === "contenida" ? "text-ok" : c.estado === "fallida" ? "text-critico" : "text-muted-foreground")}>{FRASE[c.estado](c)}</p>
@@ -365,7 +375,7 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
           <Paginador pagina={pag.pagina} paginas={pag.paginas} total={pag.total} tam={tam} onPagina={setPagina} onTam={elegirTam} />
         </div>
         {elegida
-          ? <InspectorDecision key={elegida.clave} d={elegida.x} onVerIncidente={onVerIncidente} onVerTrazas={onVerTrazas} onVerAtacante={onVerAtacante} onVerContenciones={onVerContenciones} />
+          ? <InspectorDecision key={elegida.clave} d={elegida.x} notas={casos[elegida.x.id_decision ?? ""]?.notas} onVerIncidente={onVerIncidente} onVerTrazas={onVerTrazas} onVerAtacante={onVerAtacante} onVerContenciones={onVerContenciones} />
           : <div className="rounded-lg border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">Selecciona una decisión para ver cómo se decidió.</div>}
       </div>
     </div>

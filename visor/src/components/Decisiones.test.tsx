@@ -302,6 +302,23 @@ describe("Decisiones: mi cola (asignadas a mí)", () => {
   })
 })
 
+describe("Decisiones: la nota del analista", () => {
+  it("el paso «Analista» muestra las notas del caso de la decisión, con quién las escribió", async () => {
+    h.detalle = { id_decision: "s1" }
+    h.decisiones = [
+      { indice: 1, id_decision: "s1", clase: "vp_intento_acceso", activo: "web-banking", prioridad: 3,
+        requiere_humano: true, veredicto_humano: "rechazar", veredicto_por: "ana" },
+      { indice: 2, id_decision: "s1", tipo: "actualizacion_caso", nota: "IP de un cliente conocido", operador: "ana" },
+      { indice: 3, id_decision: "s2", tipo: "actualizacion_caso", nota: "nota de otra decisión", operador: "luis" },
+    ]
+    render(<Decisiones />)
+    fireEvent.click(screen.getByRole("button", { name: /ver detalle de web-banking/i }))
+    expect(await screen.findByText(/IP de un cliente conocido/)).toBeInTheDocument()
+    expect(screen.getByText(/IP de un cliente conocido/).closest("li")).toHaveTextContent("ana")
+    expect(screen.queryByText(/nota de otra decisión/)).not.toBeInTheDocument()
+  })
+})
+
 describe("Decisiones: «mi cola» usa el nombre de la sesión", () => {
   it("sin operador la casilla está deshabilitada; con nombre de sesión se habilita y filtra", async () => {
     const { fijarOperador } = await import("@/api")

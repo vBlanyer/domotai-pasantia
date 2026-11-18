@@ -416,7 +416,15 @@ export function Aprobaciones({ paisInicial = "", idInicial = null, onQuitarPais 
     }
     setEstados((e) => ({ ...e, [k]: "hecho" }))
     const nota = (notas[x.id] ?? "").trim()
-    if (nota && x.id_decision) actualizarCaso(x.id_decision, { nota })
+    // La nota va al caso de la decisión (traza firmada). Se confirma aparte: el veredicto ya se aplicó, y
+    // si la nota no llega, el analista tiene que saberlo y conservar el texto.
+    if (nota) {
+      const guardada = x.id_decision ? actualizarCaso(x.id_decision, { nota }) : Promise.resolve(false)
+      guardada.then((ok) => toast(ok
+        ? { type: "success", title: "Nota guardada en la traza", description: "Se ve en Decisiones, en el paso «Analista»." }
+        : { type: "error", title: "La nota no se guardó",
+            description: `El veredicto sí se aplicó. Añádela al caso desde Incidentes: «${nota}»` }))
+    }
     const hechas = new Set(resueltas).add(x.id)
     setResueltas(hechas)
     const sig = siguienteTras(secuencia.map((y) => y.id), x.id, hechas)

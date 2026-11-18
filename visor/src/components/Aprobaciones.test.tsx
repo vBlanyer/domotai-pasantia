@@ -309,6 +309,26 @@ describe("Aprobaciones — bandeja e inspector", () => {
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Decisión" })).getByText("2.2.2.2")).toBeInTheDocument())   // el inspector avanzó
   })
 
+  it("confirma que la nota quedó en la traza", async () => {
+    h.aprobar.mockResolvedValue("ok")
+    h.pendientes = [tarjeta({ id: "1", id_decision: "d-1" })]
+    render(vista())
+    fireEvent.change(screen.getByLabelText("Nota para la traza"), { target: { value: "cliente conocido" } })
+    fireEvent.click(boton("Rechazar"))
+    expect(await screen.findByText(/Nota guardada en la traza/)).toBeInTheDocument()
+  })
+
+  it("si la nota no se guarda, lo avisa y devuelve el texto para no perderlo", async () => {
+    h.aprobar.mockResolvedValue("ok")
+    h.caso.mockResolvedValueOnce(false)
+    h.pendientes = [tarjeta({ id: "1", id_decision: "d-1" })]
+    render(vista())
+    fireEvent.change(screen.getByLabelText("Nota para la traza"), { target: { value: "cliente conocido" } })
+    fireEvent.click(boton("Rechazar"))
+    expect(await screen.findByText("La nota no se guardó")).toBeInTheDocument()
+    expect(screen.getByText(/«cliente conocido»/)).toBeInTheDocument()
+  })
+
   it("agrupa por campaña /24 y «seleccionar las N» marca el grupo entero", () => {
     h.pendientes = [tarjeta({ id: "1", origen_ip: "203.0.113.7" }), tarjeta({ id: "2", origen_ip: "203.0.113.88" }),
                     tarjeta({ id: "3", origen_ip: "198.51.100.2" })]
