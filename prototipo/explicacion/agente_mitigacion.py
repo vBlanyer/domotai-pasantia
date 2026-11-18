@@ -242,7 +242,9 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
     requiere_humano = True
     consecuencia = None
     if perfil is not None:
-        f = perfilm.filtrar(perfil, accion_id, {"ip": ip}, catalogo, activo, servicio, confianza)
+        # El papel que cuenta es el del equipo donde se ejecuta (este salto), no el del activo atacado.
+        f = perfilm.filtrar(perfil, accion_id, {"ip": ip}, catalogo, activo, servicio, confianza,
+                            nodo_ejecucion=dispositivo)
         # En este diseno 'veta' con accion_final es 'retenida para validacion humana'; el veto
         # duro (fuera del catalogo, corta gestion, sin reversion) es accion_final=None.
         if not f.get("accion_final"):

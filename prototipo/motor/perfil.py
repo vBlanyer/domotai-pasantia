@@ -212,13 +212,15 @@ CUENTAS_DEL_SISTEMA = frozenset({"root", "daemon", "bin", "sys", "sync", "sshd",
                                  "postgres", "mysql", "triaje"})
 
 
-def papel_deniega(perfil, accion, activo, params=None):
+def papel_deniega(perfil, accion, activo, params=None, nodo=None):
     """Motivo por el que el papel del equipo de ejecución no admite `accion`, o None si la admite o el
-    equipo no declara papel (comportamiento de siempre)."""
+    equipo no declara papel (comportamiento de siempre). `nodo`: el equipo donde se ejecuta, cuando no
+    es el activo atacado (un salto de la escalada se ejecuta en el cortafuegos, no en el activo)."""
     papeles = (perfil or {}).get("papeles_equipo") or {}
     if not papeles:
         return None
-    nodo = ejecutor_aislamiento(perfil, activo)[0] if accion in _EN_EL_BORDE else activo
+    if nodo is None:
+        nodo = ejecutor_aislamiento(perfil, activo)[0] if accion in _EN_EL_BORDE else activo
     pe = papeles.get(nodo)
     if not pe:
         return None
@@ -378,7 +380,8 @@ def postura_zona_activo(perfil, activo):
         return None
     return ((perfil.get("politicas_por_zona") or {}).get(zona) or {}).get("automatizacion")
 
-def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, hallazgos=None, familia=None):
+def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, hallazgos=None, familia=None,
+            nodo_ejecucion=None):
     """permite / degrada / veta. El resultado lleva `impacto`: el impacto DETERMINADO de la acción
     final (a quién bloquea y qué servicios detiene, `impacto.determinar`). Quien no lo use sigue
     funcionando igual. La conciencia de actores vive aquí (C5) para que ningún punto de decisión
@@ -506,7 +509,7 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
     # sudoers la denegaría: veto duro con el motivo, en vez de una contención que fallaría al ejecutarse.
     # Un equipo sin papel declarado (el perfil canónico) no cambia nada.
     if final.get("accion_final"):
-        motivo = papel_deniega(perfil, final["accion_final"], activo, params)
+        motivo = papel_deniega(perfil, final["accion_final"], activo, params, nodo=nodo_ejecucion)
         if motivo:
             return {**_res("veta", None, True), "impacto": {**det, "motivo": motivo}}
     # Compuertas de postura (política editable): por familia de ataque y por zona/dispositivo. SOLO

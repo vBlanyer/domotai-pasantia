@@ -377,6 +377,22 @@ class TestEscaladaDeterminista(unittest.TestCase):
         self.assertTrue(plan["escalado"])
         self.assertFalse(plan["degradado"])
 
+    def test_el_papel_que_cuenta_es_el_del_cortafuegos_que_ejecuta(self):
+        # Caso real del 18/11: web-banking tenía papel «servidor» en Conectividad (sin
+        # BLOQUEAR_IP_FIREWALL, que no se ejecuta en él) y TODA escalada automática salía vetada
+        # «por el papel de web-banking», aunque el bloqueo se ejecuta en el cortafuegos.
+        p = y_perfil()
+        p["papeles_equipo"] = {"objetivo-vuln": {"papel": "servidor", "acciones": ["BLOQUEAR_IP", "MATAR_CONEXION"]}}
+        plan = ag.escalar_determinista({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
+                                       "vp_intento_acceso", p, CAT, EjecutorEscalado(), autonomo=True, timestamp="t")
+        self.assertEqual((plan["resultado"], plan["dispositivo_ejecutor"]), ("mitigado", "gateway"))
+        # y si es el cortafuegos el que no lo admite, ese salto sí se veta, con su nombre
+        p["papeles_equipo"]["gateway"] = {"papel": "cortafuegos", "acciones": ["OBS_CONEXIONES"]}
+        plan = ag.escalar_determinista({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
+                                       "vp_intento_acceso", p, CAT, EjecutorEscalado(), autonomo=True, timestamp="t")
+        self.assertEqual(plan["resultado"], "fallido")
+        self.assertTrue(any("gateway" in (x.get("observacion") or "") for x in plan["pasos"]))
+
     def test_registra_la_reversion_de_lo_aplicado(self):
         plan = ag.escalar_determinista({"origen_ip": "192.168.1.10", "activo": "objetivo-vuln"},
                                        "vp_intento_acceso", y_perfil(), CAT, EjecutorEscalado(),

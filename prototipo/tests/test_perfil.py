@@ -649,6 +649,16 @@ class TestPapelDelEquipo(unittest.TestCase):
         self.assertIsNone(perfil.papel_deniega(p, "FORZAR_CAMBIO_PASS", "objetivo-vuln", {"usuario": "appqr"}))
         self.assertIn("root", perfil.papel_deniega(p, "FORZAR_CAMBIO_PASS", "objetivo-vuln", {"usuario": "root"}))
 
+    def test_con_nodo_de_ejecucion_se_mira_su_papel_y_no_el_del_activo(self):
+        p = {"papeles_equipo": {"web": {"papel": "servidor", "acciones": ["BLOQUEAR_IP"]},
+                                "fw": {"papel": "cortafuegos", "acciones": ["BLOQUEAR_IP_FIREWALL"]}}}
+        self.assertIsNone(perfil.papel_deniega(p, "BLOQUEAR_IP_FIREWALL", "web", nodo="fw"))
+        self.assertIsNone(perfil.papel_deniega(p, "BLOQUEAR_IP_FIREWALL", "web", nodo="sin-papel"))
+        self.assertIn("el papel de web", perfil.papel_deniega(p, "BLOQUEAR_IP_FIREWALL", "web"))
+        r = perfil.filtrar({**perfil_fx(), **p}, "BLOQUEAR_IP_FIREWALL", {"ip": "1.2.3.4"}, CAT, "web", "ssh", 1.0,
+                           nodo_ejecucion="fw")
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP_FIREWALL")
+
     def test_las_acciones_del_borde_miran_el_papel_del_cortafuegos(self):
         p = {"activos": {"web": {"ip": "10.0.0.5"}},
              "topologia": {"web": {"rol": "host_victima", "ip": "10.0.0.5", "gateway": "fw"},
