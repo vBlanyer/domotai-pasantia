@@ -34,7 +34,7 @@ Cada punto indica cómo se comprobó, porque no todos se han probado en vivo.
 ## Estado (16/11/2026)
 
 Aplicado en `main` (commits locales) según el plan
-[`plan-revision-15-11.md`](documentacion/05-fase5-implementacion-del-prototipo/plan-revision-15-11.md):
+[`plan-revision-15-11.md`](../../documentacion/05-fase5-implementacion-del-prototipo/plan-revision-15-11.md):
 
 | # | Estado | Commit |
 |---|---|---|
@@ -74,19 +74,19 @@ Aplicado en `main` (commits locales) según el plan
 ## 1. Las aprobaciones pendientes solo viven en memoria
 
 **Qué pasa.** En modo web, cuando una decisión necesita aprobación humana, va a una cola en memoria
-(`EstadoTablero._pendientes` / `_cola`, [tablero.py:49-66](prototipo/servicio/tablero.py#L49-L66)) y **no
+(`EstadoTablero._pendientes` / `_cola`, [tablero.py:49-66](../../prototipo/servicio/tablero.py#L49-L66)) y **no
 se escribe en la traza hasta que el analista la resuelve**:
 
-- [stream.py:454](prototipo/servicio/stream.py#L454): `if d.get("en_cola"): # … se resolverá y trazará al aprobar` → `return d` sin `cadena.escribir`.
-- [stream.py:723](prototipo/servicio/stream.py#L723): `encolar()` solo llama a `estado_web.encolar_decision(...)`.
+- [stream.py:454](../../prototipo/servicio/stream.py#L454): `if d.get("en_cola"): # … se resolverá y trazará al aprobar` → `return d` sin `cadena.escribir`.
+- [stream.py:723](../../prototipo/servicio/stream.py#L723): `encolar()` solo llama a `estado_web.encolar_decision(...)`.
 
 **Consecuencia.** Si el daemon se reinicia mientras hay tarjetas en *Aprobaciones*, esas decisiones
 desaparecen sin ningún registro: no están en la traza ni se reconstruyen al arrancar. La unidad systemd
-usa `Restart=always` ([mdr-triaje.service](deploy/mdr-triaje.service)), así que esto puede ocurrir solo
+usa `Restart=always` ([mdr-triaje.service](../../deploy/mdr-triaje.service)), así que esto puede ocurrir solo
 (por ejemplo, si se corta la fuente de alertas) sin que nadie lo note.
 
 Contrasta con el desalojo por el tope de la cola, que **sí** se traza "para que nada desaparezca en
-silencio" ([stream.py:744-745](prototipo/servicio/stream.py#L744-L745)).
+silencio" ([stream.py:744-745](../../prototipo/servicio/stream.py#L744-L745)).
 
 **Matiz.** Si el atacante sigue activo, sus alertas nuevas vuelven a generar tarjeta, porque las
 decisiones en cola tampoco entran en la memoria de supresión. El caso que se pierde es el de una alerta
@@ -106,7 +106,7 @@ sigue y si aparece en la traza.
 
 ## 2. El índice del RAG está desactualizado
 
-- [corpus.jsonl](prototipo/corpus/corpus.jsonl) tiene **35** fichas; [indice.json](prototipo/corpus/indice.json) tiene **32**.
+- [corpus.jsonl](../../prototipo/corpus/corpus.jsonl) tiene **35** fichas; [indice.json](../../prototipo/corpus/indice.json) tiene **32**.
 - Faltan en el índice: `mapeo-acceso_consumado`, `mapeo-denegacion_servicio` y `mapeo-integridad_fichero`.
 - Se añadieron al corpus el 14/10 junto con las familias 6.ª, 7.ª y 8.ª (commits `3bc615e`, `257cdd0` y
   `73309c8`), pero no se reindexó. El índice es del 10/09.
@@ -126,12 +126,12 @@ el desfase se habría detectado en la CI, porque comparar ids no necesita el mod
 ## 3. Huecos de cobertura MITRE/D3FEND en el corpus del RAG
 
 El corpus se construyó para las 4 familias originales. Las 6 que se añadieron después
-([familias.yml](prototipo/familias.yml)) tienen poca o ninguna ficha:
+([familias.yml](../../prototipo/familias.yml)) tienen poca o ninguna ficha:
 
 - **Técnicas ATT&CK sin ficha `mitre`:** T1548, T1136, T1098 (abuso_de_cuenta) · T1565, T1070
   (integridad_fichero) · T1498, T1499 (denegacion_servicio) · T1041, T1071 (exfiltracion) · T1014,
   T1486 (malware). La lista permitida `TECNICAS_PERIMETRO` de
-  [extraer_attack.py](prototipo/explicacion/extraer_attack.py) solo tiene las 15 técnicas originales.
+  [extraer_attack.py](../../prototipo/explicacion/extraer_attack.py) solo tiene las 15 técnicas originales.
 - **Familias sin ficha `mapeo`:** `abuso_de_cuenta`, `exfiltracion` y `malware`.
 - **Contramedidas sin ficha `d3fend`:** solo existen D3-NTF, D3-ITF, D3-AL y D3-NI. Faltan las que
   corresponden a `LIMITAR_BANDA` (DoS), `MATAR_CONEXION` (expulsar la sesión) y `BLOQUEAR_DESTINO`
@@ -144,23 +144,23 @@ que se cite una técnica ajena, y la decisión no cambia.
 **Arreglo.** Ampliar `TECNICAS_PERIMETRO`, regenerar las fichas `mitre` desde el bundle STIX, escribir
 en `curado.jsonl` los `mapeo` y `d3fend` que faltan y reindexar (punto 2). Conviene también un test
 que compruebe que **cada familia de `familias.yml` tiene su ficha `mapeo`**, igual que ya existe
-`verificar_cobertura_descarte` para las clases sin amenaza ([rag.py:47](prototipo/explicacion/rag.py#L47)).
+`verificar_cobertura_descarte` para las clases sin amenaza ([rag.py:47](../../prototipo/explicacion/rag.py#L47)).
 
 ---
 
 ## 4. Cifras desfasadas en la documentación
 
-- [README.md:73](README.md#L73) dice que el motor tiene **957 tests**. Hoy son **1290** (ejecutado:
+- [README.md:73](../../README.md#L73) dice que el motor tiene **957 tests**. Hoy son **1290** (ejecutado:
   `python3 -m unittest discover -s prototipo/tests` → `Ran 1290 tests … OK`), y la línea 23 del mismo
   README ya dice 1290.
-- [visor/src/attack.ts:4](visor/src/attack.ts#L4): el comentario habla de "las 8 familias", y las
+- [visor/src/attack.ts:4](../../visor/src/attack.ts#L4): el comentario habla de "las 8 familias", y las
   líneas 7 y 35 del mismo fichero dicen 10.
 
 ---
 
 ## 5. La reconstrucción al reiniciar solo lee el segmento activo de la traza (ya conocido)
 
-[stream.py:1352-1361](prototipo/servicio/stream.py#L1352-L1361) reconstruye la memoria de supresión
+[stream.py:1352-1361](../../prototipo/servicio/stream.py#L1352-L1361) reconstruye la memoria de supresión
 leyendo solo el fichero activo (`traza.leer_registros`), no la familia de segmentos
 (`traza.leer_familia`). Hoy no hay rotación en caliente, así que no tiene efecto práctico. El propio
 código lo deja anotado como pendiente ("Opción B de #6"). Se apunta aquí solo para tenerlo presente
@@ -168,7 +168,7 @@ si se activa la rotación de trazas.
 
 ---
 
-## 6–10. Infraestructura de AWS ([infra/aws/](infra/aws/))
+## 6–10. Infraestructura de AWS ([infra/aws/](../../infra/aws/))
 
 Encontrados al revisar si un emulador de AWS serviría para probar el despliegue. **Ninguno de estos
 fallos lo detectaría un emulador ni `tofu validate`**, porque están dentro del script de arranque
@@ -176,18 +176,18 @@ fallos lo detectaría un emulador ni `tofu validate`**, porque están dentro del
 
 ### 6. El LLM nunca se activaría aunque `llm_habilitado = true`
 
-- La plantilla [mdr_user_data.sh.tftpl](infra/aws/templates/mdr_user_data.sh.tftpl) escribe
+- La plantilla [mdr_user_data.sh.tftpl](../../infra/aws/mdr/templates/mdr_user_data.sh.tftpl) escribe
   `TRIAJE_LLM_URL=...` en `/etc/mdr/triaje.env`, pero el código lee **`LLAMA_URL`**
-  ([justificador_llm.py:286](prototipo/explicacion/justificador_llm.py#L286)). `TRIAJE_LLM_URL` no
+  ([justificador_llm.py:286](../../prototipo/explicacion/justificador_llm.py#L286)). `TRIAJE_LLM_URL` no
   aparece en ningún sitio de `prototipo/`.
-- Además, [arrancar-mdr.sh](deploy/arrancar-mdr.sh) nunca pasa `--con-llm` al daemon, así que aunque
+- Además, [arrancar-mdr.sh](../../deploy/arrancar-mdr.sh) nunca pasa `--con-llm` al daemon, así que aunque
   la variable fuera la correcta, el justificador seguiría siendo la plantilla.
 - **Arreglo:** escribir `LLAMA_URL` en la plantilla y que `arrancar-mdr.sh` añada `--con-llm` cuando
   esa variable venga definida (por ejemplo, con una variable `TRIAJE_CON_LLM=1`).
 
 ### 7. Despliega una versión antigua
 
-`repo_rama` tiene como valor por defecto **`v1.4`** ([variables.tf](infra/aws/variables.tf)), pero ya
+`repo_rama` tiene como valor por defecto **`v1.4`** ([variables.tf](../../infra/aws/mdr/variables.tf)), pero ya
 existen `v1.5` … `v1.8`, y los commits de cierre (seguridad de conectividad, instalación simplificada)
 son posteriores. Un `apply` sin `-var repo_rama=...` desplegaría el motor viejo. **Arreglo:** subir el
 valor por defecto a la última etiqueta o hacerlo obligatorio (sin valor por defecto).
@@ -203,7 +203,7 @@ abierto en el SG) y `LLAMA_EMBED_URL` apuntando a él.
 
 ### 9. La instancia GPU es un esquema, no un arranque funcional
 
-[llm_user_data.sh.tftpl](infra/aws/templates/llm_user_data.sh.tftpl) clona llama.cpp pero **no lo
+[llm_user_data.sh.tftpl](../../infra/aws/mdr/templates/llm_user_data.sh.tftpl) clona llama.cpp pero **no lo
 compila** (el `ExecStart` apunta a `build/bin/llama-server`, que no existe), no instala el driver
 NVIDIA y no arranca el servicio. Muchos pasos terminan en `|| true`, así que **falla en silencio**. El
 propio fichero dice que es un esquema. Hay que completarlo antes de activar la GPU (lo más sencillo:
@@ -218,16 +218,16 @@ fallar (`exit 1`) o que la unidad systemd exija el montaje (`RequiresMountsFor=/
 
 ### 11. La consola web compilada no está en el repositorio
 
-- `visor/dist` está en [.gitignore](.gitignore) (líneas 55 y 59) y en `visor/.gitignore`:
+- `visor/dist` está en [.gitignore](../../.gitignore) (líneas 55 y 59) y en `visor/.gitignore`:
   `git ls-files visor/dist` no devuelve nada, ni en `HEAD` ni en la etiqueta `v1.4`.
-- El daemon sirve la consola desde `visor/dist` ([tablero.py:817](prototipo/servicio/tablero.py#L817)).
+- El daemon sirve la consola desde `visor/dist` ([tablero.py:817](../../prototipo/servicio/tablero.py#L817)).
   Si no existe, responde `404 {"error": "no encontrado"}`
-  ([tablero.py:1040](prototipo/servicio/tablero.py#L1040)). La API y `/healthz` siguen funcionando.
+  ([tablero.py:1040](../../prototipo/servicio/tablero.py#L1040)). La API y `/healthz` siguen funcionando.
 - El arranque de AWS hace `git clone`, así que **la consola no cargaría en AWS**. Lo mismo le pasa a
   cualquiera que clone el repo y siga el camino "completo" del README, que dice
-  ([README.md:37](README.md#L37)) que el visor "ya viene construido en `visor/dist`": es cierto en tu
+  ([README.md:37](../../README.md#L37)) que el visor "ya viene construido en `visor/dist`": es cierto en tu
   máquina, no en un clon.
-- [empaquetar.sh](deploy/empaquetar.sh) sí incluye `visor/dist` en el paquete `.tar.gz`, así que la
+- [empaquetar.sh](../../deploy/empaquetar.sh) sí incluye `visor/dist` en el paquete `.tar.gz`, así que la
   instalación por paquete no tiene este problema. Solo lo tiene el camino `git clone`.
 - **Arreglos posibles:** (a) que el arranque de AWS instale el paquete de `empaquetar.sh` (subido a S3
   o adjuntado a una *release* de GitHub) en vez de clonar; (b) publicar `visor/dist` como artefacto de
@@ -236,7 +236,7 @@ fallar (`exit 1`) o que la unidad systemd exija el montaje (`RequiresMountsFor=/
 
 ### 12. `tofu destroy` puede colgarse al desmontar el disco de la traza (posible, no probado)
 
-`aws_volume_attachment.traza` ([mdr.tf](infra/aws/mdr.tf)) desmonta el EBS **con la instancia
+`aws_volume_attachment.traza` ([mdr.tf](../../infra/aws/mdr/mdr.tf)) desmonta el EBS **con la instancia
 encendida y el disco montado y en uso** (el MDR escribe ahí la traza). AWS puede dejar el volumen en
 estado `busy` y OpenTofu esperar hasta agotar el tiempo (`Error waiting for Volume … to detach`).
 **Arreglo:** añadir `stop_instance_before_detaching = true` al recurso, que apaga la instancia antes de
@@ -369,7 +369,7 @@ aproximados: comprobarlos en la calculadora de AWS.
 | `UnauthorizedOperation` | Pedir permisos de EC2/VPC |
 | `AccessDenied … iam:CreateRole` / `iam:PassRole` | Pedir el permiso o un rol ya creado |
 | `… explicit deny in a service control policy` | La empresa prohíbe esa región o ese tipo de máquina: cambiarlo |
-| Rechazo por etiquetas obligatorias (p. ej. `CostCenter`) | Añadirlas en `default_tags` de [main.tf](infra/aws/main.tf) |
+| Rechazo por etiquetas obligatorias (p. ej. `CostCenter`) | Añadirlas en `default_tags` de [main.tf](../../infra/aws/mdr/main.tf) |
 
 **Límites de la cuenta**
 
@@ -437,11 +437,11 @@ hicieron en contenedores desechables (`amazonlinux:2023`, `alpine:3.20`, ShellCh
 - **Permisos en disco:**
   - traza en 0600 (`abrir_append`), `/var/lib/mdr` en 0700 y `/etc/mdr` en 0750 `root:triaje`;
   - `triaje.env` en 0600 y `UMask=0077`;
-  - el código queda de root y en solo lectura para el servicio ([instalar.sh](deploy/instalar.sh)).
+  - el código queda de root y en solo lectura para el servicio ([instalar.sh](../../deploy/instalar.sh)).
 - **Cuentas de analista:** solo pueden abrir el túnel (`PermitOpen 127.0.0.1:<puerto>`,
   `ForceCommand /usr/sbin/nologin`, sin TTY ni reenvíos), y `sshd -t` se valida antes de recargar
-  ([analistas.py](prototipo/herramientas/analistas.py)).
-- **API web** ([tablero.py](prototipo/servicio/tablero.py)):
+  ([analistas.py](../../prototipo/herramientas/analistas.py)).
+- **API web** ([tablero.py](../../prototipo/servicio/tablero.py)):
   - escucha solo en 127.0.0.1 y comprueba el Host (anti DNS-rebinding) y el Origin en cada POST
     (anti-CSRF);
   - CORS restringido a su propio origen;
@@ -460,7 +460,7 @@ hicieron en contenedores desechables (`amazonlinux:2023`, `alpine:3.20`, ShellCh
   - las actualizaciones guardan la versión anterior en `/opt/mdr.anterior`;
   - `mdr estado`, `validar-perfil`, `verificar-traza` y `podar-trazas`;
   - la rotación de la clave del conector revoca la vieja (paso 4 de
-    [rotar-clave-conector.sh](lab/scripts/rotar-clave-conector.sh); la variable `PUB_VIEJA` sin usar
+    [rotar-clave-conector.sh](../../lab/scripts/rotar-clave-conector.sh); la variable `PUB_VIEJA` sin usar
     no tiene efecto).
 - **AWS:** rol de IAM mínimo (SSM y lectura de secretos), IMDSv2 obligatorio, EBS cifrado y sin IP
   pública.
@@ -500,7 +500,7 @@ denegados.
 ## 14. La consola no envía cabeceras anti-clickjacking — Media-baja
 
 No hay `X-Frame-Options` ni `Content-Security-Policy: frame-ancestors` (`grep` sin resultados en
-[tablero.py](prototipo/servicio/tablero.py)). Una página maliciosa que el analista visite podría
+[tablero.py](../../prototipo/servicio/tablero.py)). Una página maliciosa que el analista visite podría
 cargar `http://127.0.0.1:8787` dentro de un *iframe* invisible y engañarle para que pulse "aprobar" o
 el *kill switch*. Los clics dentro del iframe son del mismo origen, así que la comprobación del Origin
 no lo frena. **Arreglo:** enviar `X-Frame-Options: DENY` y `Content-Security-Policy: frame-ancestors
@@ -509,7 +509,7 @@ no lo frena. **Arreglo:** enviar `X-Frame-Options: DENY` y `Content-Security-Pol
 ## 15. El daemon no avisa al arrancar si la consola está abierta — Baja
 
 El banner de arranque avisa si la traza no tiene firma HMAC o ancla
-([stream.py:1222-1226](prototipo/servicio/stream.py#L1222-L1226)), pero no si no hay
+([stream.py:1222-1226](../../prototipo/servicio/stream.py#L1222-L1226)), pero no si no hay
 `TRIAJE_CONSOLA_TOKEN` ni `TRIAJE_CONSOLA_OPERADORES` (la consola queda sin autenticación). Solo lo
 detecta `mdr estado`. **Arreglo:** una línea `[inicio] consola SIN autenticación` en el banner.
 
@@ -520,7 +520,7 @@ detecta `mdr estado`. **Arreglo:** una línea `[inicio] consola SIN autenticaci�
 - `retener_trazas` solo poda **otros** ficheros `trazas-*.jsonl` y nunca el activo. Con un único
   fichero no poda **nada**.
 - La API vuelve a leer y cargar en memoria **toda** la traza cada vez que cambia
-  ([tablero.py:719](prototipo/servicio/tablero.py#L719)), es decir, con cada decisión nueva.
+  ([tablero.py:719](../../prototipo/servicio/tablero.py#L719)), es decir, con cada decisión nueva.
 
 **Consecuencia:** tras meses de uso, más disco, más memoria y una consola cada vez más lenta.
 **Arreglo:** rotación por tamaño o por fecha (el sistema ya está preparado para segmentos
@@ -530,7 +530,7 @@ detecta `mdr estado`. **Arreglo:** una línea `[inicio] consola SIN autenticaci�
 
 Run `43795604398` (el push del 15/11, que solo añadía este `.md`): falla
 `test_receptor.TestAgotamientoDeSlots.test_una_ip_no_monopoliza_los_slots`
-([test_receptor.py:108](prototipo/tests/test_receptor.py#L108)). La prueba cierra la primera conexión
+([test_receptor.py:108](../../prototipo/tests/test_receptor.py#L108)). La prueba cierra la primera conexión
 y envía la segunda **sin esperar** a que el receptor libere el cupo de esa IP. En los servidores de
 GitHub, más lentos, a veces aún no lo ha liberado. En local pasa 8 de 8 veces. **Arreglo:** que la
 prueba reintente el envío hasta un plazo en lugar de suponer que la liberación es instantánea.
@@ -538,9 +538,9 @@ prueba reintente el envío hasta un plazo en lugar de suponer que la liberación
 
 ## 18. AWS: el código queda en manos del usuario del servicio — Media
 
-[mdr_user_data.sh.tftpl](infra/aws/templates/mdr_user_data.sh.tftpl) hace `chown -R triaje:triaje
+[mdr_user_data.sh.tftpl](../../infra/aws/mdr/templates/mdr_user_data.sh.tftpl) hace `chown -R triaje:triaje
 /opt/mdr`. Así el servicio puede **modificar su propio código** (persistencia si se compromete). Es
-justo lo que [instalar.sh](deploy/instalar.sh) evita (código de root y en solo lectura). **Arreglo:**
+justo lo que [instalar.sh](../../deploy/instalar.sh) evita (código de root y en solo lectura). **Arreglo:**
 que el arranque de AWS use `instalar.sh` con el paquete de `empaquetar.sh`, lo que de paso resuelve
 el punto 11.
 
@@ -549,7 +549,7 @@ el punto 11.
 El arranque de AWS no define `TRIAJE_TRAZA_CLAVE` ni analistas (`mdr configurar` y `mdr analista` no
 se ejecutan). La traza queda sin HMAC y la consola abierta a cualquiera que tenga acceso SSM a la
 instancia. **Arreglo:** leer la clave y los tokens de Secrets Manager (el permiso ya existe en
-[iam.tf](infra/aws/iam.tf)), o ejecutar `mdr configurar` en el arranque.
+[iam.tf](../../infra/aws/modulos/base/iam.tf)), o ejecutar `mdr configurar` en el arranque.
 
 ## 20. Unidad systemd poco endurecida — Baja-media
 
@@ -562,10 +562,10 @@ cada restricción hay que probarla con el banco antes de darla por buena.
 
 ## 21. Sin copias de seguridad, sonda de salud ni retención automatizadas — Baja-media
 
-- Los *snapshots* del EBS de la traza solo aparecen como comentario en [mdr.tf](infra/aws/mdr.tf); no
+- Los *snapshots* del EBS de la traza solo aparecen como comentario en [mdr.tf](../../infra/aws/mdr/mdr.tf); no
   hay `aws_dlm_lifecycle_policy` ni copia de seguridad en la instalación local.
 - La sonda de `/healthz` y el cron de retención solo existen como **ejemplos** en
-  [deploy/README.md](deploy/README.md) (líneas 92 y 110-120); `instalar.sh` no los instala. Si el
+  [deploy/README.md](../../deploy/README.md) (líneas 92 y 110-120); `instalar.sh` no los instala. Si el
   daemon se queda en bucle de reinicios, nadie recibe aviso.
 - En AWS no hay agente de CloudWatch: los logs (journald) se pierden si se pierde la instancia (la
   traza, en el EBS, sí se conserva).
@@ -577,19 +577,19 @@ y en AWS una política de snapshots (DLM).
 
 En el log de la CI: `error interno en /api/pausa: AttributeError: 'list' object has no attribute
 'get'`. Está controlado (no tumba nada), pero debería ser un 400. Otros endpoints ya lo comprueban
-(`isinstance(cuerpo, dict)`, [tablero.py:1153](prototipo/servicio/tablero.py#L1153)). **Arreglo:**
+(`isinstance(cuerpo, dict)`, [tablero.py:1153](../../prototipo/servicio/tablero.py#L1153)). **Arreglo:**
 comprobarlo una sola vez, justo después del `json.loads` del POST.
 
 ## 23. Huecos en la CI — Baja
 
-[ci.yml](.github/workflows/ci.yml) ejecuta pruebas, typecheck, build y `tofu validate`, pero no tiene:
+[ci.yml](../../.github/workflows/ci.yml) ejecuta pruebas, typecheck, build y `tofu validate`, pero no tiene:
 - lint de Python (por ejemplo ruff);
 - ShellCheck (hoy pasa limpio, pero nada lo vigila);
 - escaneo de secretos (por ejemplo gitleaks);
 - auditoría de dependencias (`npm audit`).
 
 Además, las pruebas emiten `ResourceWarning` por ficheros sin cerrar (por ejemplo
-[test_triaje.py:308](prototipo/tests/test_triaje.py#L308)).
+[test_triaje.py:308](../../prototipo/tests/test_triaje.py#L308)).
 
 ## No revisado (requiere red o entorno real)
 

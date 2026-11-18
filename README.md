@@ -98,7 +98,28 @@ Así el sistema **dice la verdad** en el borde de su competencia en vez de inven
 
 ## Cómo está organizado el repositorio
 
-El mapa completo, carpeta a carpeta, está en **[`STRUCTURE.md`](STRUCTURE.md)**. En resumen:
+```
+.
+├── prototipo/          Producto: motor de triaje MDR (paquete Python por capas: entrada/ motor/
+│                       accion/ explicacion/ servicio/ herramientas/ + datos en la raíz; stdlib + yaml)
+├── visor/              Producto: consola web (React/TS/Vite) que sirve el daemon
+├── deploy/             Producto: despliegue en producción (instalar.sh, empaquetar.sh, unidad systemd,
+│                       triaje.env.ejemplo, perfil.ejemplo.yml, politica.ejemplo.yml)
+├── bin/                Producto: la herramienta de administración `mdr` (configurar, estado, analista…)
+├── infra/aws/          Despliegue en AWS (OpenTofu): mdr/ (producción) y laboratorio/ (pruebas), con su
+│                       módulo común; probado sin cuenta (emulador, simulacros), sin apply real
+├── evaluacion/         Arnés de evaluación contra el baseline + resultados medidos
+├── lab/                Laboratorio: banco y oficina en Containerlab, dataset etiquetado, topologías, campañas
+├── documentacion/      El diseño por fases (00-general … 07-fase7) + material-superado/
+├── docs/               Guías de prueba y evidencia (docs/pruebas/)
+├── archivo/            Archivo del PROCESO de desarrollo (planes/specs); no es diseño vigente
+├── README.md           Qué es el proyecto y qué hay construido
+├── CHANGELOG.md        Qué cambió en cada versión
+├── RUNBOOK.md          Cómo arrancar y operar todo, paso a paso
+└── reiniciar.sh        Reinicia el daemon en vivo sobre el banco levantado
+```
+
+En detalle:
 
 - **[`prototipo/`](prototipo/)** — el motor de triaje, el daemon y la API (Fase 5). *Producto.*
 - **[`visor/`](visor/)** — la consola web (React/TS) que sirve el daemon. *Producto.*

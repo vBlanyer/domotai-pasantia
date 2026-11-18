@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Estado (17/11/2026): hecho** (commits `75dc63e`..HEAD). Alcance acordado con el usuario: los puntos de AWS de
-> [`OBSERVACIONES-REVISION.md`](../../OBSERVACIONES-REVISION.md) (#6–#12, #18, #19), «por si se prueba
+> [`OBSERVACIONES-REVISION.md`](observaciones-revision-15-11.md) (#6–#12, #18, #19), «por si se prueba
 > en AWS». Sin `apply` real: no hay cuenta. Commits locales en `main`, sin push.
 
 **Goal:** Que `tofu apply` en `infra/aws/` levante un MDR que funcione a la primera: la versión actual, instalada como en un cliente, con la traza firmada, la consola con token, la traza en su disco y, si se activa, el modelo de lenguaje con su embedder en GPU.
@@ -12,7 +12,7 @@
 
 **Tech Stack:** OpenTofu ≥ 1.6, proveedor AWS ~> 5.60, bash (cloud-init en Amazon Linux 2023), sh POSIX (`deploy/`), Python 3 unittest.
 
-**Spec:** [`OBSERVACIONES-REVISION.md`](../../OBSERVACIONES-REVISION.md), puntos 6–12, 18 y 19, y su anexo «simulacro de despliegue en AWS».
+**Spec:** [`OBSERVACIONES-REVISION.md`](observaciones-revision-15-11.md), puntos 6–12, 18 y 19, y su anexo «simulacro de despliegue en AWS».
 
 ## Global Constraints
 

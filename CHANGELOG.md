@@ -14,6 +14,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   variable `variante`. Lo propio de la GPU (rol, perfil, grupo de seguridad) solo se crea con
   `llm_habilitado = true`. El arranque de cada máquina no cambia. Guía corta de instalación:
   `infra/aws/INSTALAR.md`.
+- **Raíz del repositorio más limpia:** el mapa de carpetas de `STRUCTURE.md` pasa al README (sección
+  «Cómo está organizado el repositorio») y las observaciones de la revisión del 15/11 pasan a
+  `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Añadido
 - **Consultar el despliegue por MCP contra el emulador** (`MDR_MCP=1 sh infra/aws/emulador/probar.sh`):

@@ -199,7 +199,7 @@ el papel del equipo (la deriva).
 Por qué no reglas de sudoers con comodines (como hasta el 16/11/2026, `--sudoers`): en sudoers un `*` admite
 espacios, así que `iptables -A INPUT -s * -j DROP` dejaba pasar `-s 1.2.3.4 --modprobe=/tmp/x -j DROP`, que
 iptables ejecuta como root, y `passwd -l *` admitía `passwd -l root` (#13 de
-[OBSERVACIONES-REVISION.md](../../OBSERVACIONES-REVISION.md)). El usuario del conector **solo puede ejecutar lo
+[OBSERVACIONES-REVISION.md](../05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md)). El usuario del conector **solo puede ejecutar lo
 que el catálogo define**, argumento a argumento.
 
 ### 2.4 El conector y las credenciales — `prototipo/accion/conector.py`

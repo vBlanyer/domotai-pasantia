@@ -1,4 +1,4 @@
-"""Arreglos rápidos de la revisión del 15/11 (OBSERVACIONES-REVISION.md #14, #15, #22)."""
+"""Arreglos rápidos de la revisión del 15/11 (observaciones-revision-15-11.md #14, #15, #22)."""
 import http.client
 import json
 import os
