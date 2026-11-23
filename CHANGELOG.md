@@ -90,6 +90,12 @@ capítulo de resultados, y `evaluacion/resultados/`).
   pudo guardar, lo dice y devuelve el texto para no perderlo.
 
 ### Añadido
+- **La cola de Aprobaciones sobrevive al reinicio.** Al encolar, el registro `pendiente` de la traza guarda
+  la tarjeta: la decisión, la alerta y, en una escalada, desde dónde se escala. Al arrancar, las tarjetas
+  sin resolver vuelven a la cola con su id y su hora de encolado (el SLA no vuelve a cero), y se
+  resuelven igual que antes del reinicio. Solo se restaura con la consola web y desde una traza que
+  verifica; si no, se anotan como «pendiente perdida», como antes (fail-closed). Las pendientes escritas
+  antes de este cambio no llevan la tarjeta y se siguen perdiendo.
 - **La reversión se ve donde se cuenta la historia de la decisión.** En Decisiones, una decisión
   revertida ya no sale como «contenida»: tiene el desenlace «revertida», su filtro, y el paso «Ejecución»
   dice cuándo, quién y por qué se revirtió. En Trazas, el inspector de una reversión enseña quién, por

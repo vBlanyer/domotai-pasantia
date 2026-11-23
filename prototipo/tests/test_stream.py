@@ -866,6 +866,69 @@ class TestTopeLineaStdin(unittest.TestCase):
         self.assertFalse(any(len(l) > stream._MAX_LINEA for l in lineas))   # la gigante se descartó
 
 
+class TestColaQueSobreviveAlReinicio(unittest.TestCase):
+    """La cola de Aprobaciones vive en memoria: un reinicio la vaciaba (23/11: 9 tarjetas perdidas). Al
+    encolar, el registro `pendiente` guarda lo necesario para reconstruir la tarjeta; al arrancar, las que
+    nadie resolvió vuelven a la cola con su id y su hora, si la traza es íntegra."""
+
+    def _primera_sesion(self):
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        TestColaNoBloqueante._ejecutar(TestColaNoBloqueante(), estado, buf)
+        return estado, [json.loads(l) for l in buf.getvalue().splitlines()]
+
+    def test_el_registro_pendiente_guarda_la_tarjeta(self):
+        _, regs = self._primera_sesion()
+        [p] = [r for r in regs if r.get("tipo") == "pendiente"]
+        self.assertEqual(p["restaurar"]["tipo"], "menu")
+        self.assertEqual(p["restaurar"]["decision"]["id_decision"], p["id_decision"])
+        self.assertEqual(p["restaurar"]["alerta"]["activo"], "fantasma")
+        self.assertEqual(p["restaurar"]["encolado_en"], p["timestamp"])
+
+    def test_tras_reiniciar_la_tarjeta_vuelve_y_se_resuelve(self):
+        estado1, regs = self._primera_sesion()
+        encolado = estado1.decisiones_pendientes()[0]["encolado_en"]
+        restaurables, perdidas = stream.pendientes_restaurables(regs)
+        self.assertEqual((len(restaurables), perdidas), (1, []))
+        estado2, buf2 = tablero.EstadoTablero(), io.StringIO()
+        stream.ejecutar([None], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"), perfil_nombre="prueba",
+                        catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+                        salida_traza=buf2, escribir=lambda *a, **k: None, estado_web=estado2,
+                        restaurar=restaurables)
+        [p] = estado2.decisiones_pendientes()
+        self.assertEqual(p["decision"]["id_decision"], restaurables[0]["id_decision"])
+        self.assertEqual(p["encolado_en"], restaurables[0]["restaurar"]["encolado_en"])   # el SLA no vuelve a cero
+        self.assertTrue(estado2.resolver_decision(p["id"], "1"))
+        todo = regs + [json.loads(l) for l in buf2.getvalue().splitlines()]
+        self.assertEqual(stream.pendientes_sin_resolver(todo), [])        # resuelta, ya no está abierta
+        self.assertEqual(json.loads(_sin_pendientes(buf2)[0])["veredicto_humano"], "aprobar")
+        self.assertIsNotNone(encolado)
+
+    def test_solo_se_restaura_desde_una_traza_integra_y_con_la_consola_web(self):
+        # Una traza manipulada no puede colar una tarjeta que alguien apruebe: si la cadena no verifica,
+        # nada se restaura (todas quedan como perdidas). Sin consola web no hay cola a la que volver.
+        from prototipo.servicio import traza as tz
+        _, regs = self._primera_sesion()
+        cadena = []
+        h = tz.GENESIS
+        for r in regs:
+            r = tz.encadenar({k: v for k, v in r.items() if k not in ("hash", "hash_previo")}, h)
+            h = r["hash"]; cadena.append(r)
+        rest, perd = stream.restaurar_al_arrancar(cadena, web=True)
+        self.assertEqual((len(rest), len(perd)), (1, 0))
+        rest, perd = stream.restaurar_al_arrancar(cadena, web=False)
+        self.assertEqual((len(rest), len(perd)), (0, 1))
+        alterada = [dict(r) for r in cadena]
+        p = next(r for r in alterada if r.get("tipo") == "pendiente")
+        p["restaurar"] = {**p["restaurar"], "alerta": {**p["restaurar"]["alerta"], "activo": "otro"}}
+        rest, perd = stream.restaurar_al_arrancar(alterada, web=True)
+        self.assertEqual((len(rest), len(perd)), (0, 1))
+
+    def test_una_pendiente_antigua_sin_tarjeta_sigue_siendo_perdida(self):
+        viejo = {"id_decision": "s5", "tipo": "pendiente", "timestamp": "t", "id_cola": "1", "activo": "web"}
+        restaurables, perdidas = stream.pendientes_restaurables([viejo])
+        self.assertEqual((restaurables, [p["id_decision"] for p in perdidas]), ([], ["s5"]))
+
+
 class TestReversionYSupresion(unittest.TestCase):
     def test_tras_revertir_en_la_consola_el_mismo_ataque_se_vuelve_a_decidir(self):
         estado, buf = tablero.EstadoTablero(), io.StringIO()

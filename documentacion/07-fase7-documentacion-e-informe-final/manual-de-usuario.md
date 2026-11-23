@@ -230,7 +230,8 @@ familias. `atacar auto` los lanza todos una vez y `atacar continuo` sin fin.
 
 Al reiniciar el MDR **se pierden** el estado operativo de Conectividad y la memoria de fallos: viven
 en memoria. La traza, las políticas, el inventario, las contenciones activas y la pausa de la
-automatización se conservan.
+automatización se conservan. Las **aprobaciones pendientes vuelven a la cola** con su hora original,
+siempre que la traza esté íntegra; si no lo está, quedan anotadas en Trazas como «pendiente perdida».
 
 ## 5. Entrar y salir de la consola
 

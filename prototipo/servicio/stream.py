@@ -495,11 +495,19 @@ def _linea_en_cola(d):
 _CAMPOS_PENDIENTE = ("activo", "origen_ip", "clase", "accion_final", "prioridad")
 
 
-def registro_pendiente(decision, id_cola, ts):
+def registro_pendiente(decision, id_cola, ts, restaurar=None):
+    """`restaurar`: lo necesario para reconstruir la tarjeta tras un reinicio ({tipo: menu|escalada,
+    decision, alerta, [desde, lineas], encolado_en}). Si no es serializable, no se guarda (se perdería)."""
     r = {"id_decision": decision.get("id_decision"), "tipo": "pendiente", "timestamp": ts, "id_cola": id_cola,
          **{k: decision.get(k) for k in _CAMPOS_PENDIENTE}}
     if not r.get("origen_ip"):          # la decisión lo guarda en su contexto
         r["origen_ip"] = (decision.get("contexto") or {}).get("origen_ip")
+    if restaurar:
+        try:
+            json.dumps(restaurar)
+            r["restaurar"] = {**restaurar, "encolado_en": restaurar.get("encolado_en") or ts}
+        except (TypeError, ValueError):
+            pass
     return r
 
 
@@ -518,6 +526,44 @@ def pendientes_sin_resolver(registros):
             if str(idd).endswith("~tope"):
                 abiertas.pop(str(idd)[:-len("~tope")], None)
     return list(abiertas.values())
+
+
+def pendientes_restaurables(registros):
+    """(restaurables, perdidas) de las pendientes sin resolver: restaurable si su registro guarda la
+    tarjeta (`restaurar`); las antiguas, sin ella, se siguen anotando como perdidas."""
+    restaurables, perdidas = [], []
+    for p in pendientes_sin_resolver(registros):
+        r = p.get("restaurar") or {}
+        ok = (r.get("tipo") in ("menu", "escalada") and isinstance(r.get("decision"), dict)
+              and isinstance(r.get("alerta"), dict))
+        (restaurables if ok else perdidas).append(p)
+    return restaurables, perdidas
+
+
+def restaurar_al_arrancar(registros, web=True):
+    """(restaurables, perdidas) al arrancar. Solo se restaura con la consola web (la cola a la que volver)
+    y desde una traza íntegra: una cadena que no verifica podría colar una tarjeta manipulada que alguien
+    aprobara, así que entonces todas se anotan como perdidas (fail-closed)."""
+    restaurables, perdidas = pendientes_restaurables(registros)
+    if not restaurables:
+        return [], perdidas
+    if not web or not traza.verificar(registros)["valida"]:
+        return [], perdidas + restaurables
+    return restaurables, perdidas
+
+
+def linea_pendientes_recuperadas(recuperadas):
+    cuales = ", ".join(f"{p.get('activo')} ← {p.get('origen_ip')}" for p in recuperadas[:5])
+    mas = f" y {len(recuperadas) - 5} más" if len(recuperadas) > 5 else ""
+    return f"[inicio] {len(recuperadas)} aprobación(es) pendiente(s) recuperada(s) tras el reinicio ({cuales}{mas})"
+
+
+def _epoch(iso):
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return time.time()
 
 
 def registro_pendiente_perdida(p, ts):
@@ -740,7 +786,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
              resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
-             latido=None, actividad=None, perfil_fn=None, al_arrancar=(), seq_previo=0):
+             latido=None, actividad=None, perfil_fn=None, al_arrancar=(), seq_previo=0, restaurar=()):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -813,18 +859,26 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             return None
     if estado_web is not None:
         trazadas = set()          # tarjetas ya anotadas: una repetición que se suma a la tarjeta no repite
-        def _anotar_pendiente(decision, pid):
+        def _anotar_pendiente(decision, pid, tarjeta=None):
             if pid is not None and pid not in trazadas:
                 trazadas.add(pid)
-                escribir_traza(registro_pendiente(decision, pid, _ahora_iso()))
-        def encolar(decision, alerta):
-            _anotar_pendiente(decision, estado_web.encolar_decision(
-                _entrada_cola(decision, alerta, _ampliado(decision, alerta))))
+                escribir_traza(registro_pendiente(decision, pid, _ahora_iso(), restaurar=tarjeta))
+        def encolar(decision, alerta, encolado_en=None):
+            pid = estado_web.encolar_decision(_entrada_cola(decision, alerta, _ampliado(decision, alerta)))
+            _conservar_hora(pid, encolado_en)
+            _anotar_pendiente(decision, pid, {"tipo": "menu", "decision": decision, "alerta": alerta,
+                                              "encolado_en": encolado_en})
+        def _conservar_hora(pid, encolado_en):
+            # una tarjeta recuperada conserva su hora de encolado: el SLA del analista no vuelve a cero
+            if pid is not None and encolado_en:
+                estado_web.actualizar_decision(pid, {"encolado_en": encolado_en, "recibido_en": _epoch(encolado_en)})
         # La escalada automática que pide humano tampoco puede bloquear el lazo: sin esto, la
         # pregunta esperaba sin plazo en una ruta que el visor no muestra y el daemon se congelaba.
-        def diferir_escalada(parcial, alerta, desde, lineas):
-            _anotar_pendiente(parcial, estado_web.encolar_decision(
-                _entrada_escalada(parcial, alerta, desde, lineas, _ampliado(parcial, alerta))))
+        def diferir_escalada(parcial, alerta, desde, lineas, encolado_en=None):
+            pid = estado_web.encolar_decision(_entrada_escalada(parcial, alerta, desde, lineas, _ampliado(parcial, alerta)))
+            _conservar_hora(pid, encolado_en)
+            _anotar_pendiente(parcial, pid, {"tipo": "escalada", "decision": parcial, "alerta": alerta,
+                                             "desde": desde, "lineas": list(lineas or []), "encolado_en": encolado_en})
         estado_web.fijar_resolutor(
             _construir_resolutor(estado_web, perfil, catalogo, ejecutor, escribir_traza, escribir,
                                  diferir_escalada=diferir_escalada, al_resolver=al_resolver))
@@ -844,6 +898,16 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         estado_web.fijar_descartador(lambda entrada: escribir_traza(_registro_descarte(entrada)))
         # Una contención revertida en la consola deja de suprimir sus repeticiones (se vuelven a decidir).
         estado_web.fijar_olvido(memoria.olvidar)
+        # Las tarjetas que esperaban a un analista antes del reinicio vuelven a la cola, con su id y su hora.
+        for p in restaurar or ():
+            t = p["restaurar"]
+            if t["tipo"] == "escalada":
+                diferir_escalada(t["decision"], t["alerta"], t.get("desde"), t.get("lineas") or [], t.get("encolado_en"))
+            else:
+                encolar(t["decision"], t["alerta"], t.get("encolado_en"))
+        if restaurar:
+            aviso = linea_pendientes_recuperadas(list(restaurar))
+            escribir(aviso)
     seq = [seq_previo]      # retomando una traza, sigue la numeración (traza.ultima_secuencia)
     ventana_rafaga = rafaga.Ventana()
     ventana_larga = rafaga.Ventana(ventana_s=rafaga.VENTANA_LARGA_S)   # señal de vigilancia 'low-and-slow'
@@ -1516,7 +1580,8 @@ def main(argv):
         # segmentos (traza.leer_familia) queda para la Opción B de #6, que además debe pasar la
         # exclusión de revertidas a basarse en el hash del registro (único al concatenar), no en el índice.
         memoria = MemoriaDecisiones.desde_traza(previos, perfil)
-        perdidas = pendientes_sin_resolver(previos)          # #1: la cola en memoria no sobrevive al reinicio
+        # #1: la cola vive en memoria; las tarjetas sin resolver vuelven a ella si la traza es íntegra
+        restaurables, perdidas = restaurar_al_arrancar(previos, web=bool(cfg["web"]))
         if perdidas:
             aviso = linea_pendientes_perdidas(perdidas)
             print(aviso)
@@ -1534,7 +1599,8 @@ def main(argv):
                      latido=(servidor.latido if servidor else None), actividad=actividad,
                      perfil_fn=((lambda: servidor.perfil) if servidor else None),
                      al_arrancar=(([registro_politica(politica_info, _ahora_iso())] if politica_info else [])
-                                  + [registro_pendiente_perdida(p, _ahora_iso()) for p in perdidas]))
+                                  + [registro_pendiente_perdida(p, _ahora_iso()) for p in perdidas]),
+                     restaurar=restaurables)
     except KeyboardInterrupt:                        # Ctrl+C / SIGINT: cierre limpio con resumen
         pass
     print(_resumen_final(resumen))
