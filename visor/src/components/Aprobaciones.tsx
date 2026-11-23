@@ -3,13 +3,13 @@ import { TriangleAlert, Clock, ChevronDown, ChevronRight, MessageSquareText } fr
 import { useSondeo, getPendientes, getTrazas, aprobar, actualizarCaso, parsearPendiente, operadorActual, operadorVerificado, ahoraServidor, type Pendiente, type Opcion, type Decision, type AnalisisAmpliado } from "@/api"
 import { edadTexto, msDesde } from "@/alertas"
 import { etiquetaClase, ubicacionLabelDe, nivelPrioridad, paginar, TAM_PAGINA } from "@/datos"
-import { slaMs, ordenarPor, agruparPor, ORDENES, AGRUPACIONES, type Orden, type Agrupacion, saludCola, siguienteTras, historialOrigen, resueltasHoyPor, efectoAprobar } from "@/aprobaciones"
+import { slaMs, ordenarPor, agruparPor, ORDENES, AGRUPACIONES, type Orden, type Agrupacion, saludCola, siguienteTras, resueltasHoyPor, efectoAprobar } from "@/aprobaciones"
 import { cn } from "@/lib/utils"
 import { Paginador } from "@/components/Paginador"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Cargando, SinConexion, Vacio, Prioridad, DatosCongelados } from "./bits"
-import { OrigenBadges } from "./OrigenBadges"
+import { BloqueOrigen } from "./BloqueOrigen"
 
 // Lo que el aviso confirma tras un veredicto aplicado (mismo vocabulario que el menú del daemon).
 const HECHO: Record<string, string> = {
@@ -201,8 +201,6 @@ function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicac
   const conCascada = efecto.cascada.length > 0
   const clasificando = (v.titulo ?? "").startsWith("Nueva clase")
   const fuera = edadMs >= slaMs(p)
-  const ubic = p.enriquecimiento_origen ? ubicacionLabelDe(p) : null
-  const historia = historialOrigen(trazas, p.origen_ip)
   const bloqueada = estado !== "listo"
   const comun = { bloqueada, atajos: !clasificando, onPulsar }
   return (
@@ -255,33 +253,7 @@ function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicac
 
       {p.analisis_ampliado && <Ampliado a={p.analisis_ampliado} />}
 
-      {(p.origen_ip || p.enriquecimiento_origen) && (
-        <Seccion titulo="Origen">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            {p.origen_ip && <b className="font-mono text-sm font-semibold">{p.origen_ip}</b>}
-            {p.activo && <span className="text-muted-foreground">→ {p.activo}</span>}
-            <OrigenBadges e={p.enriquecimiento_origen} />
-            {ubic && (
-              <button onClick={() => onUbicacion(ubic)} title={`Filtrar la cola por ${ubic}`}
-                className="rounded bg-muted px-1.5 py-0.5 hover:underline">📍 {ubic} · filtrar</button>
-            )}
-          </div>
-          {historia.length > 0 && (
-            <>
-              <h4 className="mb-1.5 mt-3 text-[11px] font-medium text-muted-foreground">Lo que ya pasó con este origen</h4>
-              <ul className="space-y-1 text-xs">
-                {historia.map((h, i) => (
-                  <li key={i} className="grid grid-cols-[72px_1fr_auto] gap-2">
-                    <span className="font-mono text-[11px] text-muted-foreground">{new Date(h.ts).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>
-                    <span className="truncate">{h.texto} · {h.quien}</span>
-                    <span className={h.desenlace === "contenida" ? "text-ok" : "text-muted-foreground"}>{h.desenlace ?? ""}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </Seccion>
-      )}
+      <BloqueOrigen d={p} trazas={trazas} onUbicacion={onUbicacion} />
 
       <div className="space-y-2.5 bg-muted px-4 py-3">
         {p.id_decision && !clasificando && (

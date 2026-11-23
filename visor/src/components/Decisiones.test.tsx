@@ -276,6 +276,34 @@ describe("Decisiones: filtro sembrado por navegación", () => {
   })
 })
 
+describe("Detalle: el origen, igual que en Aprobaciones", () => {
+  it("IP, equipo atacado, ubicación y lo que ya pasó con ese origen", async () => {
+    h.detalle = { id_decision: "s2" }
+    const enr = { alcance: "externo", inventariado: false, clasificacion_ip: "documentacion", geolocalizable: false, geo: null }
+    h.decisiones = [
+      { indice: 1, id_decision: "s1", activo: "atm", clase: "vp_intento_acceso", origen_ip: "198.51.100.7", timestamp: "2026-11-23T10:00:00Z", enriquecimiento_origen: enr },
+      { indice: 2, id_decision: "s2", activo: "web-banking", clase: "vp_intento_acceso", origen_ip: "198.51.100.7", timestamp: "2026-11-23T11:00:00Z", enriquecimiento_origen: enr },
+    ]
+    render(<Decisiones />)
+    fireEvent.click(screen.getByRole("button", { name: /ver detalle de web-banking/i }))
+    const origen = await screen.findByRole("region", { name: "Origen" })
+    expect(within(origen).getByText("198.51.100.7")).toBeInTheDocument()
+    expect(within(origen).getByText("→ web-banking")).toBeInTheDocument()
+    expect(within(origen).getByText(/📍/)).toBeInTheDocument()
+    expect(within(origen).getByText("Lo que ya pasó con este origen")).toBeInTheDocument()
+    expect(within(origen).getByText(/^atm · /)).toBeInTheDocument()          // la otra decisión, no esta misma
+    expect(within(origen).queryByText(/^web-banking · /)).toBeNull()
+  })
+
+  it("sin enriquecimiento, el origen sale igual (como en Aprobaciones)", async () => {
+    h.detalle = { id_decision: "s3" }
+    h.decisiones = [{ indice: 3, id_decision: "s3", activo: "atm", clase: "vp_intento_acceso", origen_ip: "203.0.113.9" }]
+    render(<Decisiones />)
+    fireEvent.click(screen.getByRole("button", { name: /ver detalle de atm/i }))
+    expect(within(await screen.findByRole("region", { name: "Origen" })).getByText("203.0.113.9")).toBeInTheDocument()
+  })
+})
+
 describe("Detalle: runbook de la familia", () => {
   it("muestra los pasos recomendados de respuesta de la clase", async () => {
     h.detalle = { id_decision: "s1", justificacion: "x" }

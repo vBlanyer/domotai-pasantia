@@ -6,7 +6,7 @@ import { filtrarDecisiones, clasesDe, claveDe, contencionDe, ventanaDe, paginar,
 import { desenlaceDe, resumenDecisiones, pasaFiltro, pasosDe, FILTROS_DECISION, type FiltroDecision, type Paso, type Tono } from "@/decisiones"
 import { claveDia, etiquetaDia, horaLocal } from "@/trazas"
 import { Paginador } from "./Paginador"
-import { OrigenBadges } from "./OrigenBadges"
+import { BloqueOrigen } from "./BloqueOrigen"
 import { cn } from "@/lib/utils"
 
 // Vista «Decisiones»: cómo razonó el motor en cada caso y en qué acabó. Aprobaciones es lo que espera a
@@ -81,8 +81,9 @@ function Recorrido({ pasos, extras }: { pasos: Paso[]; extras: (ReactNode | null
   )
 }
 
-export function InspectorDecision({ d, notas = [], onVerIncidente, onVerTrazas, onVerAtacante, onVerContenciones }: {
-  d: Decision; notas?: CasoNota[]; onVerIncidente?: (d: Decision) => void; onVerTrazas?: () => void
+export function InspectorDecision({ d, notas = [], otras = [], onVerIncidente, onVerTrazas, onVerAtacante, onVerContenciones }: {
+  // `otras`: los demás registros a la vista, para el historial del origen (el mismo bloque que Aprobaciones)
+  d: Decision; notas?: CasoNota[]; otras?: Decision[]; onVerIncidente?: (d: Decision) => void; onVerTrazas?: () => void
   onVerAtacante?: (ip: string) => void; onVerContenciones?: () => void
 }) {
   const [det, setDet] = useState<Detalle | { error: string }>()
@@ -182,11 +183,7 @@ export function InspectorDecision({ d, notas = [], onVerIncidente, onVerTrazas, 
         </Seccion>
       )}
 
-      {d.enriquecimiento_origen && (
-        <Seccion titulo="Origen">
-          <div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs">{d.origen_ip ?? "—"}</span><OrigenBadges e={d.enriquecimiento_origen} /></div>
-        </Seccion>
-      )}
+      <BloqueOrigen d={d} trazas={otras} />
 
       {(runbook.length > 0 || detalle?.recomendacion?.respuesta) && (
         <Seccion titulo="Qué hacer después">
@@ -375,7 +372,7 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
           <Paginador pagina={pag.pagina} paginas={pag.paginas} total={pag.total} tam={tam} onPagina={setPagina} onTam={elegirTam} />
         </div>
         {elegida
-          ? <InspectorDecision key={elegida.clave} d={elegida.x} notas={casos[elegida.x.id_decision ?? ""]?.notas} onVerIncidente={onVerIncidente} onVerTrazas={onVerTrazas} onVerAtacante={onVerAtacante} onVerContenciones={onVerContenciones} />
+          ? <InspectorDecision key={elegida.clave} d={elegida.x} notas={casos[elegida.x.id_decision ?? ""]?.notas} otras={ds.filter((x) => x !== elegida.x)} onVerIncidente={onVerIncidente} onVerTrazas={onVerTrazas} onVerAtacante={onVerAtacante} onVerContenciones={onVerContenciones} />
           : <div className="rounded-lg border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">Selecciona una decisión para ver cómo se decidió.</div>}
       </div>
     </div>

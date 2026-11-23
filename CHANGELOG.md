@@ -28,6 +28,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **El origen se ve igual en Aprobaciones y en Decisiones** (componente común `BloqueOrigen`): IP, equipo
+  atacado, alcance, ubicación y «lo que ya pasó con este origen». Antes Decisiones solo mostraba la IP y
+  sus distintivos, y la sección desaparecía sin enriquecimiento.
 - **Banco: `MATAR_CONEXION` ya funciona.** La imagen `banco-nodo:1` no traía `ss` (iproute2) y cortar la
   sesión de un intruso fallaba siempre con «ss: not found». Además, el plazo de conexión SSH del
   conector es configurable (`TRIAJE_SSH_PLAZO_CONEXION`, 5 s por defecto) y el banco lo sube a 15 s:
