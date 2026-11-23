@@ -47,12 +47,28 @@ def perfil_minimo(ip_gestion, redes):
             "red": {"zonas": {"Gestión": ["mdr"]}},
             "continuidad": {"reversibilidad_obligatoria": True, "no_cortar_gestion": True}}
 
+_PREFIJO_ID = re.compile(r"^[A-Z0-9]{1,8}$")
+
+
+def prefijo_id(perfil):
+    """El prefijo de los ids de decisión (`prefijo_id`, p. ej. «BCO» en BCO-20261123-0042), en mayúsculas, o
+    None si falta o no vale."""
+    p = (perfil or {}).get("prefijo_id")
+    if not isinstance(p, str):
+        return None
+    p = p.strip().upper()
+    return p if _PREFIJO_ID.match(p) else None
+
+
 def validar(perfil):
     """Revisa el perfil al cargarlo y devuelve una lista de avisos (vacía = coherente), SIN romper:
     un perfil mal escrito debe verse al arrancar, no fallar en silencio en la primera alerta. No
     cambia ninguna decisión; es un chequeo de cordura (B11)."""
     perfil = perfil or {}
     avisos = []
+    if "prefijo_id" in perfil and prefijo_id(perfil) is None:
+        avisos.append(f"prefijo_id: {perfil.get('prefijo_id')!r} no vale (de 1 a 8 letras o cifras); "
+                      "los ids de decisión irán sin prefijo")
     activos = perfil.get("activos")
     if activos is not None and not isinstance(activos, dict):
         avisos.append("activos: se esperaba un mapa de equipos")

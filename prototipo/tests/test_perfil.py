@@ -640,6 +640,13 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestPrefijoDeIds(unittest.TestCase):
+    def test_un_prefijo_invalido_se_avisa_y_uno_valido_no(self):
+        self.assertTrue(any("prefijo_id" in a for a in perfil.validar({"activos": {}, "prefijo_id": "BANCO-SUR"})))
+        self.assertFalse(any("prefijo_id" in a for a in perfil.validar({"activos": {}, "prefijo_id": "BCO"})))
+        self.assertFalse(any("prefijo_id" in a for a in perfil.validar({"activos": {}})))
+
+
 class TestCuarentenaSinCortarLaGestion(unittest.TestCase):
     def test_sin_ip_de_gestion_valida_no_hay_cuarentena(self):
         # La cuarentena deja pasar el tráfico hacia el MDR (ip_gestion): sin una IPv4 de gestión declarada,

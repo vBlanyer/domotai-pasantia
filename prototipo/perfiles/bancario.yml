@@ -2,6 +2,7 @@
 # las joyas de la corona (HSM, SWIFT, core DB) ni el plano de gestion; el unico automatismo posible
 # es un bloqueo de IP de origen (localizado y reversible) y solo con confianza muy alta (Opcion A).
 version: v0
+prefijo_id: BCO          # ids de decision BCO-AAAAMMDD-NNNN (diseno-identificadores-estructurados.md)
 
 # Inventario (RF-17): criticidad gobierna la prioridad (critica/alta suben); servicios_prestados son
 # los puertos del servicio; ip y funcion dicen a quien toca cada accion. IPs con el patron

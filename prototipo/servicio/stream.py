@@ -14,6 +14,7 @@ from prototipo.motor import perfil as perfilm
 from prototipo.servicio import casos, lazo, traza, validacion
 from prototipo.accion import fallos
 from prototipo.explicacion import analisis_ampliado, rag
+from prototipo.servicio import identificador
 
 _ADAPTADOR = adaptador_wazuh.adaptador("tiempo-real")
 
@@ -808,7 +809,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
              resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
-             latido=None, actividad=None, perfil_fn=None, al_arrancar=(), seq_previo=0, restaurar=()):
+             latido=None, actividad=None, perfil_fn=None, al_arrancar=(), numerador=None, restaurar=()):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -930,7 +931,9 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         if restaurar:
             aviso = linea_pendientes_recuperadas(list(restaurar))
             escribir(aviso)
-    seq = [seq_previo]      # retomando una traza, sigue la numeración (traza.ultima_secuencia)
+    # ids PREFIJO-AAAAMMDD-NNNN; retomando una traza, `main` pasa el numerador que sigue su numeración del día
+    if numerador is None:
+        numerador = identificador.Numerador(identificador.prefijo_de(perfil))
     ventana_rafaga = rafaga.Ventana()
     ventana_larga = rafaga.Ventana(ventana_s=rafaga.VENTANA_LARGA_S)   # señal de vigilancia 'low-and-slow'
     def _suprimir(inc, previa):
@@ -985,7 +988,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         for inc in _ordenar_por_severidad(agrupacion.agrupar(lote, ventana_seg=max(ventana_agrupacion, 1))):
             if _es_actividad_propia(inc["representante"], perfil, actividad):
                 resumen["propias"] += 1
-                reg = _registro_propio(inc, f"p{resumen['propias']}")
+                reg = _registro_propio(inc, numerador.siguiente("P"))
                 escribir(_linea_propia(reg))
                 escribir_traza(reg)
                 continue
@@ -1014,8 +1017,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             if previa is not None and _misma_clase(inc["representante"], previa):
                 _suprimir(inc, previa)
                 continue
-            seq[0] += 1
-            id_decision = f"s{seq[0]}"
+            id_decision = numerador.siguiente()
             if lector_incidente is not None:
                 with _en_vuelo_lock:
                     _en_vuelo[clave] = id_decision
@@ -1614,7 +1616,7 @@ def main(argv):
                      justificar_fn=justificar_fn, ventana_agrupacion=cfg["ventana"],
                      salida_traza=traza_f, escribir=escribir_fn, leer=leer_fn,
                      mitigar_fn=mitigar_fn, suprimir=not cfg["sin_supresion"],
-                     hash_previo=hash_previo, n_previos=n_previos, seq_previo=traza.ultima_secuencia(previos),
+                     hash_previo=hash_previo, n_previos=n_previos, numerador=identificador.desde_traza(previos, identificador.prefijo_de(perfil)),
                      nombre_traza=os.path.basename(cfg["salida"]), linaje=linaje,
                      estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
                      lector_incidente=lector_incidente, memoria=memoria,

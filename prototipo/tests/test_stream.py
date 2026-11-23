@@ -1396,7 +1396,8 @@ class TestRevertirConElDaemonVivo(unittest.TestCase):
                 yield _linea("1.1.1.1")
                 with mock.patch("prototipo.accion.conector.ejecutor_por_defecto",
                                 lambda *a, **k: NodoIptables(drop_input=["1.1.1.1"])), mock.patch("builtins.print"):
-                    self.assertEqual(revertir._main([ruta, "s1"]), 0)
+                    primera = tm.leer_registros(ruta)[0]["id_decision"]      # BCO-AAAAMMDD-0001 o similar
+                    self.assertEqual(revertir._main([ruta, primera]), 0)
                 yield _linea("2.2.2.2", seg=5)
             with open(ruta, "a", encoding="utf-8") as f:
                 stream.ejecutar(fuente(), hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
@@ -1948,10 +1949,27 @@ class TestSecuenciaTrasReinicio(unittest.TestCase):
         self.assertEqual(traza_mod.ultima_secuencia([]), 0)
 
     def test_ejecutar_sigue_la_secuencia(self):
+        # El id es PREFIJO-AAAAMMDD-NNNN (diseno-identificadores-estructurados.md): retomando una traza del
+        # mismo día, sigue desde el mayor número de ese día.
+        import datetime
+        from prototipo.servicio import identificador
+        hoy = datetime.datetime(2026, 11, 23, 15, 0, tzinfo=datetime.timezone.utc)
+        num = identificador.desde_traza([{"id_decision": "BCO-20261123-0041"}], "BCO", reloj=lambda: hoy)
         buf = io.StringIO()
         stream.ejecutar([_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"),
                         perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
-                        justificar_fn=None, ventana_agrupacion=0, salida_traza=buf, seq_previo=41,
+                        justificar_fn=None, ventana_agrupacion=0, salida_traza=buf, numerador=num,
                         escribir=lambda *a, **k: None, leer=lambda *_: "2")
         ids = [json.loads(l)["id_decision"] for l in buf.getvalue().splitlines() if l.strip()]
-        self.assertEqual(ids, ["s42"])
+        self.assertEqual(ids, ["BCO-20261123-0042"])
+
+    def test_sin_numerador_usa_el_prefijo_del_perfil(self):
+        import re
+        p = {**y("perfil.yml"), "prefijo_id": "bco"}
+        buf = io.StringIO()
+        stream.ejecutar([_linea_wazuh(), None], hallazgos=j("hallazgos.json"), perfil=p,
+                        perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(),
+                        justificar_fn=None, ventana_agrupacion=0, salida_traza=buf,
+                        escribir=lambda *a, **k: None, leer=lambda *_: "2")
+        [r] = [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
+        self.assertRegex(r["id_decision"], r"^BCO-\d{8}-0001$")

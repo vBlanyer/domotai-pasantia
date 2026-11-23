@@ -8,6 +8,16 @@ capítulo de resultados, y `evaluacion/resultados/`).
 ## [Sin publicar]
 
 ### Cambiado
+- **Identificadores de decisión estructurados: `BCO-20261123-0042`** (prefijo del cliente, día en UTC y
+  orden en ese día), en lugar de `s23`.
+  - **No se repiten** entre ficheros de traza ni entre instalaciones, y dicen de qué cliente y de qué día
+    son.
+  - **Prefijo:** `prefijo_id` en el perfil (el del banco, `BCO`); sin él, `20261123-0042`.
+  - **Secuencia:** vuelve a 0001 cada día y continúa al retomar la traza.
+  - **Actividad propia del MDR:** `BCO-20261123-P0005`, con su propia secuencia; los derivados conservan
+    su sufijo (`~sup`, `~tope`).
+  - **Trazas antiguas:** con `s23`, se siguen leyendo.
+  - **Evaluación:** su `d4` no cambia; las cifras canónicas no se mueven.
 - **Políticas: el Resumen en tres columnas y los intocables con candado.** El Resumen cuenta la
   política con una frase y tres columnas: lo que el MDR contiene solo, lo que espera a un analista y lo
   que nunca hace solo. Usa nombres legibles («Fuerza bruta», «core-db · base de datos del core»), y el

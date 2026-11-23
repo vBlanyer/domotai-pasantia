@@ -6,6 +6,9 @@
 # datos) y dos cortafuegos: fw-dmz delante de los servidores y fw-borde hacia internet. Las IPs son de
 # ejemplo: sustitúyelas por las reales.
 version: v0
+# Prefijo de los ids de decisión (de 1 a 8 letras o cifras): EMP-20261123-0042 dice de qué cliente es
+# cada decisión. Sin él, los ids son 20261123-0042.
+prefijo_id: EMP
 
 # --- Inventario --------------------------------------------------------------------------------
 # Un equipo por entrada. El NOMBRE debe ser el nombre de host con el que el equipo aparece en las

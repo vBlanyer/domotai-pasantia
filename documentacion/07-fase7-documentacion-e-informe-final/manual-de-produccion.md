@@ -361,6 +361,7 @@ y dónde se contiene. Qué se automatiza y en quién se confía no van aquí: so
 | `red` | Para el mapa: nodos extra (internet, switches), enlaces y zonas |
 | `ip_gestion`, `redes_internas` | El plano de gestión, que nunca se corta, y las redes propias |
 | `rutas` | Adónde se deriva lo que no se contiene (por ejemplo, appsec) |
+| `prefijo_id` | El prefijo de los ids de decisión, de 1 a 8 letras o cifras: con `EMP`, `EMP-20261123-0042` (cliente, día en UTC y orden en ese día) |
 
 **Las dependencias** deciden la cascada: si `app01` depende de `db01` y cae `db01`, `app01` cae con
 él. El MDR usa este dato para no aislar algo que tumbe servicios sin aprobación, y el mapa lo dibuja

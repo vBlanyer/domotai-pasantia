@@ -226,7 +226,10 @@ class TestServicio(unittest.TestCase):
                                 "--sin-lab", "--una-vez", "--salida", salida],
                                cwd=RAIZ, stdin=subprocess.DEVNULL, capture_output=True, timeout=120, check=True)
             regs = traza.leer_registros(salida)
-            ids = [r["id_decision"] for r in regs if str(r.get("id_decision") or "").startswith("s")]
+            # lo que numera el MDR en cada arranque (aquí, la decisión que pide analista y no puede preguntar
+            # sin terminal queda como error con su id): BCO-AAAAMMDD-NNNN, el prefijo del perfil del banco
+            import re
+            ids = [r["id_decision"] for r in regs if re.match(r"^BCO-\d{8}-\d{4,}$", str(r.get("id_decision") or ""))]
             self.assertEqual(len(ids), 2)
             self.assertEqual(len(set(ids)), len(ids), ids)
             self.assertTrue(traza.verificar(regs)["valida"])
