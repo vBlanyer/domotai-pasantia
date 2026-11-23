@@ -55,6 +55,35 @@ describe("Trazas", () => {
     expect(screen.getByText(/error al procesar/i)).toBeInTheDocument()
   })
 
+  it("una reversión enseña su registro completo: quién, por qué, el comando y su resultado", () => {
+    h.trazas = [{ ...reg(0, "s7"), activo: "atm", accion_final: "BLOQUEAR_IP" },
+                { ...reg(1, "r"), id_decision: null, tipo: "reversion", id_decision_revertida: "s7", indice_revertido: 0,
+                  exito: true, nodo: "atm", operador: "ana", motivo_reversion: "des-bloqueo individual",
+                  accion_id: "BLOQUEAR_IP", comando_ejecutado: "iptables -D INPUT -s 198.51.100.14 -j DROP", codigo_salida: 0, salida: "" }]
+    h.verif = {}
+    render(<Trazas />)
+    fireEvent.click(document.querySelector('[data-fila="2"]')!)
+    expect(screen.getByText("Quién")).toBeInTheDocument()
+    expect(screen.getAllByText(/ana/).length).toBeGreaterThan(0)
+    expect(screen.getByText("des-bloqueo individual")).toBeInTheDocument()
+    expect(screen.getByText("iptables -D INPUT -s 198.51.100.14 -j DROP")).toBeInTheDocument()
+    expect(screen.getByText(/código 0/)).toBeInTheDocument()
+  })
+
+  it("la decisión revertida enlaza su reversión por la posición en la cadena, no por el id", () => {
+    h.trazas = [{ ...reg(0, "s7"), activo: "atm", accion_final: "BLOQUEAR_IP" },
+                { ...reg(1, "s7"), activo: "web", accion_final: "BLOQUEAR_IP" },               // mismo id tras reiniciar
+                { ...reg(2, "r"), id_decision: null, tipo: "reversion", id_decision_revertida: "s7", indice_revertido: 1, exito: true }]
+    h.verif = {}
+    const { unmount } = render(<Trazas />)
+    fireEvent.click(document.querySelector('[data-fila="1"]')!)
+    expect(screen.queryByText("Revertida por")).toBeNull()
+    unmount()
+    render(<Trazas />)
+    fireEvent.click(document.querySelector('[data-fila="2"]')!)
+    expect(screen.getByText("Revertida por")).toBeInTheDocument()
+  })
+
   it("rotula la actividad propia del MDR en el registro", () => {
     h.trazas = [{ ...reg(0, "p1"), tipo: "actividad_propia", activo: "web-banking" }]
     render(<Trazas />)

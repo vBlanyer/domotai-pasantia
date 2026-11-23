@@ -41,6 +41,25 @@ describe("resumen y filtros", () => {
   })
 })
 
+describe("una decisión revertida cuenta su final", () => {
+  const rev = { timestamp: "2026-11-23T14:48:22Z", operador: "ana", motivo: "des-bloqueo individual", indice: 18 }
+  it("su desenlace es «revertida», no «contenida»", () => {
+    expect(desenlaceDe(d({ contencion: "contenida", reversion: rev }))).toMatchObject({ id: "revertida", texto: "revertida" })
+  })
+  it("sale en «Revertidas» y ya no en «Contenidas»", () => {
+    const x = d({ contencion: "contenida", reversion: rev })
+    expect(pasaFiltro(x, "revertidas")).toBe(true)
+    expect(pasaFiltro(x, "contenidas")).toBe(false)
+    expect(pasaFiltro(d({ contencion: "contenida" }), "revertidas")).toBe(false)
+    expect(FILTROS_DECISION.map((f) => f.nombre)).toContain("Revertidas")
+  })
+  it("el paso «Ejecución» dice cuándo, quién y por qué se revirtió", () => {
+    const ej = pasosDe(d({ contencion: "contenida", dispositivo: "core-db", reversion: rev }), null).at(-1)!
+    expect(ej.etiqueta).toBe("revertida")
+    expect(ej.texto).toMatch(/^contenida en core-db y revertida a las .+ por ana \(des-bloqueo individual\)$/)
+  })
+})
+
 describe("pasosDe: el recorrido de la decisión en seis pasos", () => {
   it("con el detalle: alerta, clasificación, propuesta, política, analista y ejecución", () => {
     const det = {

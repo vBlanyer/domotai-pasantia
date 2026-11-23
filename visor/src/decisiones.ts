@@ -20,6 +20,8 @@ export function desenlaceDe(d: Decision): Desenlace {
   if (d.veredicto_humano === "rechazar") return r("rechazada", "rechazada", "aviso")
   if (d.resultado_filtro === "veta" && !d.accion_final) return r("vetada", "vetada", "critico")
   if (d.requiere_humano && !d.veredicto_humano) return r("pendiente", "pendiente", "aviso")
+  // la contención se deshizo después: es el final de su historia (la reversión, en Trazas)
+  if (d.reversion) return r("revertida", "revertida", "violeta")
   if (d.contencion === "contenida") return r("contenida", "contenida", "ok")
   if (degradada) return r("degradada", "degradada", "aviso")
   if (d.contencion === "enrutada") return r("enrutada", "enrutada", "neutro")
@@ -45,9 +47,10 @@ export function resumenDecisiones(ds: Decision[]) {
   }
 }
 
-export type FiltroDecision = "todas" | "contenidas" | "pendientes" | "frenadas" | "corregidas" | "fallidas" | "falsos" | "decididas_por_mi"
+export type FiltroDecision = "todas" | "contenidas" | "revertidas" | "pendientes" | "frenadas" | "corregidas" | "fallidas" | "falsos" | "decididas_por_mi"
 export const FILTROS_DECISION: { id: FiltroDecision; nombre: string }[] = [
-  { id: "todas", nombre: "Todas" }, { id: "contenidas", nombre: "Contenidas" }, { id: "pendientes", nombre: "Pendientes" },
+  { id: "todas", nombre: "Todas" }, { id: "contenidas", nombre: "Contenidas" }, { id: "revertidas", nombre: "Revertidas" },
+  { id: "pendientes", nombre: "Pendientes" },
   { id: "frenadas", nombre: "Frenadas por la política" }, { id: "corregidas", nombre: "Corregidas por el analista" },
   { id: "fallidas", nombre: "Fallidas" }, { id: "falsos", nombre: "Falsos positivos" },
   { id: "decididas_por_mi", nombre: "Decididas por mí" },
@@ -57,7 +60,8 @@ export function pasaFiltro(d: Decision, f: FiltroDecision, yo = ""): boolean {
   if (f === "todas") return true
   if (!esDecision(d)) return false
   switch (f) {
-    case "contenidas": return d.contencion === "contenida"
+    case "contenidas": return d.contencion === "contenida" && !d.reversion
+    case "revertidas": return !!d.reversion
     case "pendientes": return !!d.requiere_humano && !d.veredicto_humano
     case "frenadas": return d.resultado_filtro === "degrada" || (d.resultado_filtro === "veta" && !d.accion_final)
     case "corregidas": return d.veredicto_humano === "rechazar" || d.veredicto_humano === "reclasificar"
@@ -111,7 +115,13 @@ export function pasosDe(d: Decision, det: Detalle | null): Paso[] {
       : humano
         ? { titulo: "Analista", estado: "aviso", etiqueta: "pendiente", texto: "espera la decisión de un analista (ver Aprobaciones)" }
         : { titulo: "Analista", estado: "neutro", etiqueta: "no hizo falta", texto: "la política permitía decidir sin humano" },
-    { titulo: "Ejecución", estado: ej.estado, etiqueta: ej.texto,
+    d.reversion
+      ? { titulo: "Ejecución", estado: "violeta", etiqueta: "revertida",
+          texto: `contenida${d.dispositivo ? ` en ${d.dispositivo}` : ""} y revertida` +
+            [horaLocal(d.reversion.timestamp) ? ` a las ${horaLocal(d.reversion.timestamp)}` : "",
+             d.reversion.operador ? ` por ${d.reversion.operador}` : "",
+             d.reversion.motivo ? ` (${d.reversion.motivo})` : ""].join("") }
+      : { titulo: "Ejecución", estado: ej.estado, etiqueta: ej.texto,
       // con el detalle cargado, el inspector cuenta la contención con su propia frase: aquí no se repite
       texto: c ? ""
         : estadoC === "fallida" ? "no se pudo contener ni verificar"

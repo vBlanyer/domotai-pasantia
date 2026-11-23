@@ -105,6 +105,15 @@ function Inspector({ r, i, anterior, cadena, revertidaPor, revierte, enCampana, 
           <div className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-1">
             <KV k="Qué pasó">{sistema.detalle || "—"}</KV>
             {revierte && <KV k="Revierte">#{(revierte.indice ?? 0) + 1} · {revierte.activo ?? "—"} · {revierte.accion_final ?? "—"}</KV>}
+            {r.tipo === "reversion" && <>
+              <KV k="Quién">{r.operador ?? "—"}{r.timestamp && <span className="text-muted-foreground"> · {horaLocal(r.timestamp)}</span>}</KV>
+              {r.motivo_reversion && <KV k="Por qué">{r.motivo_reversion}</KV>}
+              {r.accion_id && <KV k="Deshace">{r.accion_id}{r.nodo && <> en {r.nodo}</>}</KV>}
+              {r.comando_ejecutado && <KV k="Comando"><span className="font-mono text-xs">{r.comando_ejecutado}</span></KV>}
+              <KV k="Resultado"><span className={r.exito ? "text-ok" : "text-critico"}>{r.exito ? "aplicada" : "falló"}</span>
+                {r.codigo_salida != null && <span className="text-muted-foreground"> · código {r.codigo_salida}</span>}</KV>
+              {!r.exito && r.salida && <KV k="Salida"><span className="font-mono text-xs text-critico">{r.salida}</span></KV>}
+            </>}
             {r.tipo === "error" && r.error && <KV k="Error"><span className="font-mono text-xs text-critico">{r.error}</span></KV>}
           </div>
         </Seccion>
@@ -292,7 +301,8 @@ export function Trazas({ onVerDecision, onVerIncidente }: { onVerDecision?: (id:
           {/* inspector */}
           {seleccionada ? (
             <Inspector r={seleccionada.r} i={seleccionada.i} anterior={porIndice.get(seleccionada.i - 1)?.r} cadena={cadena}
-              revertidaPor={seleccionada.r.id_decision ? todas.find((f) => f.r.tipo === "reversion" && f.r.id_decision_revertida === seleccionada.r.id_decision) : undefined}
+              // por la posición en la cadena: los id_decision se repiten entre reinicios
+              revertidaPor={todas.find((f) => f.r.tipo === "reversion" && f.r.indice_revertido === seleccionada.i)}
               revierte={seleccionada.r.tipo === "reversion" && seleccionada.r.indice_revertido != null ? porIndice.get(seleccionada.r.indice_revertido)?.r : undefined}
               enCampana={!!campanaDe(seleccionada.r.origen_ip) && prefijos.has(campanaDe(seleccionada.r.origen_ip)!.prefijo)}
               onVerDecision={onVerDecision} onVerIncidente={onVerIncidente} />

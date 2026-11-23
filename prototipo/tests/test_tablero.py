@@ -197,6 +197,32 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertEqual(r["tipo"], "actividad_suprimida")
         self.assertEqual(r["alertas_suprimidas"], 3)
 
+    def test_la_reversion_trae_su_registro_completo(self):
+        # Trazas enseña quién, por qué, el comando exacto y su resultado (antes, solo «aplicada en X»).
+        ruta = self._traza_tmp([{"tipo": "reversion", "id_decision_revertida": "s7", "motivo": "des-bloqueo individual",
+                                 "timestamp": "t9", "accion_id": "BLOQUEAR_IP", "nodo": "atm",
+                                 "comando_ejecutado": "iptables -D INPUT -s 198.51.100.14 -j DROP",
+                                 "codigo_salida": 0, "salida": "x" * 900, "exito": True, "indice_revertido": 0,
+                                 "operador": "ana"}])
+        r = tablero.lista_trazas(ruta)[0]
+        self.assertEqual((r["motivo_reversion"], r["comando_ejecutado"], r["codigo_salida"], r["operador"]),
+                         ("des-bloqueo individual", "iptables -D INPUT -s 198.51.100.14 -j DROP", 0, "ana"))
+        self.assertLessEqual(len(r["salida"]), 500)                 # acotada: la fila no carga megas
+
+    def test_la_decision_revertida_lleva_su_reversion(self):
+        # Decisiones dice «contenida y revertida a las … por …». Se casa por el ÍNDICE de la cadena (los
+        # id_decision se repiten entre reinicios); una reversión fallida no la da por revertida.
+        ruta = self._traza_tmp([
+            {"id_decision": "s7", "activo": "atm", "accion_final": "BLOQUEAR_IP"},
+            {"id_decision": "s7", "activo": "web", "accion_final": "BLOQUEAR_IP"},          # mismo id, otro índice
+            {"tipo": "reversion", "id_decision_revertida": "s7", "indice_revertido": 0, "exito": False, "timestamp": "t2"},
+            {"tipo": "reversion", "id_decision_revertida": "s7", "indice_revertido": 0, "exito": True, "timestamp": "t3",
+             "operador": "ana", "motivo": "des-bloqueo individual"}])
+        lst = tablero.lista_trazas(ruta)
+        self.assertEqual(lst[0]["reversion"], {"timestamp": "t3", "operador": "ana", "motivo": "des-bloqueo individual", "indice": 3})
+        self.assertIsNone(lst[1].get("reversion"))
+        self.assertEqual(lst[0]["contencion"], lst[1]["contencion"])      # el desenlace del motor no se toca
+
     def test_estado_salud_convierte_y_decora_dependencias(self):
         muestra = {"t": "2026-09-22T10:00:00Z", "estados": {"core-db": "ok", "middleware": "caido"}}
         r = tablero.estado_salud(muestra, {"middleware": ["core-db"]})

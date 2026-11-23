@@ -70,6 +70,11 @@ export const DecisionSchema = z.object({
   indice: z.number().nullable().optional(),
   // registro de reversión (qué deshizo, dónde, si se aplicó) y de error (por qué no se procesó)
   id_decision_revertida: z.string().nullable().optional(), indice_revertido: z.number().nullable().optional(),
+  // registro completo de una reversión (inspector de Trazas) y, en una decisión, la reversión que la deshizo
+  motivo_reversion: z.string().nullable().optional(), comando_ejecutado: z.string().nullable().optional(),
+  codigo_salida: z.number().nullable().optional(), salida: z.string().nullable().optional(),
+  reversion: z.object({ timestamp: z.string().nullable().optional(), operador: z.string().nullable().optional(),
+    motivo: z.string().nullable().optional(), indice: z.number().nullable().optional() }).nullable().optional(),
   exito: z.boolean().nullable().optional(), accion_id: z.string().nullable().optional(),
   nodo: z.string().nullable().optional(), error: z.string().nullable().optional(),
   // relaciones evento-equipo en la red y dispositivo de contención

@@ -425,7 +425,27 @@ def _resumen_traza(reg, ips=None, externos=(), perfil=None):
             # ciclo de vida del caso (registro `actualizacion_caso`): el visor pliega estos campos
             # (datos.estadoDeCasos). None en una decisión normal (no estorba).
             "estado": reg.get("estado"), "asignado": reg.get("asignado"), "nota": reg.get("nota"),
-            "operador": reg.get("operador"), "decidido_en": reg.get("decidido_en")}
+            "operador": reg.get("operador"), "decidido_en": reg.get("decidido_en"),
+            # reversión: su registro completo para el inspector de Trazas (por qué, comando y resultado;
+            # la salida acotada para que la fila no cargue megas)
+            **({"motivo_reversion": reg.get("motivo"), "comando_ejecutado": reg.get("comando_ejecutado"),
+                "codigo_salida": reg.get("codigo_salida"), "salida": (reg.get("salida") or "")[:500]}
+               if reg.get("tipo") == "reversion" else {})}
+
+
+def _anotar_reversiones(resumenes):
+    """A cada decisión revertida (con éxito) le añade `reversion` {timestamp, operador, motivo, indice}: la
+    decisión cuenta su historia entera en Decisiones. Se casa por el índice de la cadena (los id_decision se
+    repiten entre reinicios). No toca `contencion`: el desenlace del motor y las métricas no cambian."""
+    revs = {}
+    for s in resumenes:
+        if s.get("tipo") == "reversion" and s.get("exito") and s.get("indice_revertido") is not None:
+            revs[s["indice_revertido"]] = {"timestamp": s.get("timestamp"), "operador": s.get("operador"),
+                                           "motivo": s.get("motivo_reversion"), "indice": s.get("indice")}
+    for s in resumenes:
+        if s.get("indice") in revs and s.get("tipo") in (None, "decision"):
+            s["reversion"] = revs[s["indice"]]
+    return resumenes
 
 
 # Registros de la traza que no son decisiones: repeticiones suprimidas, el eco de gestión del MDR,
@@ -760,7 +780,8 @@ def lista_trazas(ruta, n=None, perfil=None):
     if perfil:
         ips = ips_de(perfil)
         externos = [nm for nm, v in _red_segura(perfil)[0]["nodos"].items() if v.get("tipo") == "externo"]
-    return [{**_resumen_traza(r, ips, externos, perfil), "indice": inicio + k} for k, r in enumerate(regs[inicio:])]
+    return _anotar_reversiones(
+        [{**_resumen_traza(r, ips, externos, perfil), "indice": inicio + k} for k, r in enumerate(regs[inicio:])])
 
 
 _CORPUS_POR_ID = None

@@ -71,6 +71,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
   pudo guardar, lo dice y devuelve el texto para no perderlo.
 
 ### Añadido
+- **La reversión se ve donde se cuenta la historia de la decisión.** En Decisiones, una decisión
+  revertida ya no sale como «contenida»: tiene el desenlace «revertida», su filtro, y el paso «Ejecución»
+  dice cuándo, quién y por qué se revirtió. En Trazas, el inspector de una reversión enseña quién, por
+  qué, qué deshace, el comando exacto y su resultado (y la salida si falló), y la decisión enlaza su
+  reversión por la posición en la cadena, no por el id.
 - **«Análisis ampliado» en la ficha de Aprobaciones**: al encolar una decisión para el analista, el MDR
   reúne por reglas, sin modelo, el contexto que antes había que buscar a mano: qué más hizo ese origen en
   la última hora (con el reconocimiento previo y los equipos tocados), qué tiene abierto el equipo atacado
