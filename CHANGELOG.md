@@ -99,6 +99,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   - **Cómo llega al motor:** en el perfil (`origenes_vigilados`), que el servicio rellena desde
     `watchlist.json` en cada incidente; el motor no lee ficheros.
   - **Dónde se ve:** el Resumen de Políticas y `mdr explicar-politica` lo cuentan.
+  - **Activado en el perfil del banco y recomendado en `deploy/politica.ejemplo.yml`:** si el analista
+    revirtió un bloqueo porque dudaba, lo coherente es que el MDR le pregunte antes de volver a bloquear.
+    Con la Watchlist vacía no cambia nada, y las cifras de la evaluación no se mueven.
 - **La cola de Aprobaciones sobrevive al reinicio.** Al encolar, el registro `pendiente` de la traza guarda
   la tarjeta: la decisión, la alerta y, en una escalada, desde dónde se escala. Al arrancar, las tarjetas
   sin resolver vuelven a la cola con su id y su hora de encolado (el SLA no vuelve a cero), y se

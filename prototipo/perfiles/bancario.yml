@@ -47,6 +47,9 @@ continuidad:
   # IP legitima SUPLANTADA via srcip/XFF forjado -> auto-DoS). Descomentar para retenerlo a humano.
   # El control recomendado es poblar `terceros_confiables` con los socios criticos (abajo).
   # contener_externos_desconocidos: humano_siempre
+  # «Revertir y vigilar»: si el analista revirtió un bloqueo y puso la IP en la Watchlist, lo siguiente de
+  # esa IP no se bloquea solo: lo decide una persona. (Con la Watchlist vacía no cambia nada.)
+  vigilados:                  humano_siempre
   umbral_confianza:           0.9                   # barra alta para cualquier automatismo (RF-07)
   # Un no_soportada de SEVERIDAD alta (nivel Wazuh >= este valor) no se queda en el log: se escala a
   # REVISION humana (sin accion). Un desconocido grave merece ojo humano; el ruido de plataforma

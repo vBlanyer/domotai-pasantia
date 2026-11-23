@@ -37,7 +37,9 @@ class TestPlantillas(unittest.TestCase):
             "impacto_ninguno": "humano_siempre", "impacto_localizado": "humano_siempre",
             "impacto_alcanza_servicio": "humano_siempre", "reversibilidad_obligatoria": True,
             "no_cortar_gestion": True, "umbral_confianza": 0.9, "revisar_no_soportada_nivel": 10,
-            "actores": {"activo_interno": "humano_siempre", "dispositivo_red": "humano_siempre"}})
+            "actores": {"activo_interno": "humano_siempre", "dispositivo_red": "humano_siempre"},
+            # recomendado de serie (23/11): tras «Revertir y vigilar», lo siguiente de esa IP lo decide una persona
+            "vigilados": "humano_siempre"})
         self.assertEqual(f["excepciones"], [{"activo": "db01", "servicio": 5432, "regla": "nunca_automatica"}])
 
 
