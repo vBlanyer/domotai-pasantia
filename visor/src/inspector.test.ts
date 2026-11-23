@@ -7,7 +7,7 @@ import { join } from "node:path"
 // (sticky + altura máxima del área visible + overflow), ninguno el sticky suelto de antes.
 const SRC = join(__dirname)
 const leer = (f: string) => readFileSync(join(SRC, f), "utf-8")
-const VISTAS = ["Aprobaciones", "Decisiones", "Trazas", "Contenciones", "Incidentes", "Conectividad"]
+const VISTAS = ["Aprobaciones", "Decisiones", "Trazas", "Contenciones", "Incidentes", "Conectividad", "Red"]
 
 describe("paneles derechos con scroll propio", () => {
   it.each(VISTAS)("%s usa la clase inspector y no el sticky suelto", (v) => {

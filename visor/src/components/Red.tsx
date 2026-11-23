@@ -158,12 +158,15 @@ export function Red({ onVerDecisiones, onVerAtacante, onVerAprobaciones, onVerSa
           <MapaRed red={red} seleccionado={sel} onSeleccionar={setSel} dependencias={capas.dependencias} ataques={capas.ataques} cascada={capas.cascada}
             origenes={origenes} plegadas={plegadasEfectivas} onPlegar={plegar} onVerOrigen={onVerAtacante} />
         </div>
-        {nodo
-          ? <PanelEquipo nodo={nodo} eventos={eventos} todos={trazasArr} watchlist={watchlist}
-              onVerDecisiones={() => onVerDecisiones(nodo.nombre)}
-              onVerOrigen={(texto) => onVerDecisiones(null, texto)}
-              onVerAtacante={onVerAtacante} />
-          : <ResumenRed red={red} nOrigenes={origenes.total} onVerAprobaciones={onVerAprobaciones} onVerSalud={onVerSalud} />}
+        {/* panel derecho con scroll propio, como en las demás vistas (.inspector + useAjusteInspectores) */}
+        <div className="inspector min-w-0 self-start">
+          {nodo
+            ? <PanelEquipo nodo={nodo} eventos={eventos} todos={trazasArr} watchlist={watchlist}
+                onVerDecisiones={() => onVerDecisiones(nodo.nombre)}
+                onVerOrigen={(texto) => onVerDecisiones(null, texto)}
+                onVerAtacante={onVerAtacante} />
+            : <ResumenRed red={red} nOrigenes={origenes.total} onVerAprobaciones={onVerAprobaciones} onVerSalud={onVerSalud} />}
+        </div>
       </div>
     </div>
   )
