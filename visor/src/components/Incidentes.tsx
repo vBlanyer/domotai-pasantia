@@ -60,7 +60,7 @@ function Caso({ e, regs, ahora, bloqueos, onVerDecisiones, onVerRed, onVerAtacan
   const max = Math.max(1, ...e.objetivos.map((o) => o.n))
   const estado = ESTADO_CASO[e.caso.estado] ?? ESTADO_CASO.nuevo
   return (
-    <section aria-label="Incidente" className="overflow-hidden rounded-lg border border-border bg-card text-sm lg:sticky lg:top-3">
+    <section aria-label="Incidente" className="inspector overflow-hidden rounded-lg border border-border bg-card text-sm">
       <div className="border-b border-border px-4 py-3">
         <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
           <span className="font-mono">{e.cidr}</span>

@@ -337,7 +337,7 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
             <ChipSesion sesion={sesion} nombre={operadorActual()} onCerrar={onCerrarSesion} onCambiarNombre={onCambiarNombre} />
           </div>
         </header>
-        <main className="flex-1 overflow-auto px-4 py-6 md:px-8 print:overflow-visible print:p-0">
+        <main className="flex-1 overflow-auto px-4 py-6 md:px-8 [container-type:size] print:overflow-visible print:p-0 print:[container-type:normal]">
           {pausada && (
             <div className="mb-4 flex items-center gap-2 rounded-md border border-critico/50 bg-critico/10 px-4 py-2.5 text-sm font-medium text-critico print:hidden">
               ⏸ Automatización en pausa — toda contención automática espera aprobación humana.

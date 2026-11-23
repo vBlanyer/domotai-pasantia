@@ -28,6 +28,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **El panel derecho de cada vista tiene su propio scroll** (Aprobaciones, Decisiones, Trazas,
+  Contenciones, Incidentes y Conectividad): se queda a la vista y no alarga la página. Clase común
+  `inspector`; el área principal es el contenedor de su altura.
 - **Banco: las tandas ya no dejan web-banking sin acceso para el MDR.** El caso E1 corta a propósito el
   SSH del MDR hacia web-banking para probar la escalada, y las tandas automática y continua lo lanzaban
   sin deshacerlo: todos los ataques siguientes a web-banking fallaban en el equipo. Ahora las tandas

@@ -142,7 +142,7 @@ export function InspectorDecision({ d, notas = [], otras = [], onVerIncidente, o
     ) : null,
   ]
   return (
-    <section aria-label="Decisión" className="overflow-hidden rounded-lg border border-border bg-card text-sm lg:sticky lg:top-3">
+    <section aria-label="Decisión" className="inspector overflow-hidden rounded-lg border border-border bg-card text-sm">
       <div className="border-b border-border px-4 py-3">
         <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
           <span>{d.activo ?? "—"} · {d.clase ? etiquetaClase(d.clase) : "—"} → {d.accion_final ?? "ninguna"}</span>

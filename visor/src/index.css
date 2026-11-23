@@ -201,3 +201,18 @@
   /* evita cortar una tarjeta/sección del informe entre dos páginas */
   .break-inside-avoid { break-inside: avoid; }
 }
+
+/* Panel derecho de cada vista (inspector): se queda a la vista con su PROPIO scroll, sin alargar la página.
+   El <main> es el contenedor de tamaño (container-type: size): 100cqh = su alto, y el panel no lo pasa. */
+@media (min-width: 64rem) {
+  .inspector {
+    position: sticky;
+    top: 0.75rem;
+    max-height: calc(100cqh - 0.75rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+@media print {
+  .inspector { position: static; max-height: none; overflow: visible; }
+}

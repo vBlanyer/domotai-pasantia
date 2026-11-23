@@ -204,7 +204,7 @@ function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicac
   const bloqueada = estado !== "listo"
   const comun = { bloqueada, atajos: !clasificando, onPulsar }
   return (
-    <section aria-label="Decisión" className="overflow-hidden rounded-lg border border-border bg-card text-sm lg:sticky lg:top-3">
+    <section aria-label="Decisión" className="inspector overflow-hidden rounded-lg border border-border bg-card text-sm">
       <div className="border-b border-border px-4 py-3">
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
           {!!p.severidad && <Prioridad n={p.severidad} />}

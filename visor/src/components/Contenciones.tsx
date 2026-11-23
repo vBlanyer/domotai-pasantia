@@ -97,7 +97,7 @@ function Inspector({ e, trazas, ahora, onRevertir }: {
   const serie = c.ip && e.intentos != null ? serieIntentos(trazas, c.ip, c.ts, ahora) : []
   const sirve = e.intentos == null ? null : e.intentos > 0
   return (
-    <section aria-label="Contención" className="overflow-hidden rounded-lg border border-border bg-card text-sm lg:sticky lg:top-3">
+    <section aria-label="Contención" className="inspector overflow-hidden rounded-lg border border-border bg-card text-sm">
       <div className="border-b border-border px-4 py-3">
         <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
           <span className={c.ip ? "font-mono" : ""}>{objetivoDe(e)}</span>

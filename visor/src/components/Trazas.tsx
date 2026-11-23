@@ -86,7 +86,7 @@ function Inspector({ r, i, anterior, cadena, revertidaPor, revierte, enCampana, 
     : marca === "roto" ? <span className="text-critico">{cadena?.motivo ?? "El contenido no produce el hash guardado"}: fue modificado después de escribirse. Todo lo posterior cuelga de un eslabón alterado.</span>
     : <span className="text-aviso">Posterior a la rotura en #{(cadena?.roto ?? 0) + 1}: enlaza con su anterior, pero cuelga de un eslabón alterado.</span>
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card text-sm lg:sticky lg:top-3">
+    <div className="inspector overflow-hidden rounded-lg border border-border bg-card text-sm">
       <div className="border-b border-border bg-muted px-4 py-3">
         <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
           <span>Registro <span className="font-mono text-foreground">#{i + 1}</span></span><span>·</span>
@@ -297,7 +297,7 @@ export function Trazas({ onVerDecision, onVerIncidente }: { onVerDecision?: (id:
               enCampana={!!campanaDe(seleccionada.r.origen_ip) && prefijos.has(campanaDe(seleccionada.r.origen_ip)!.prefijo)}
               onVerDecision={onVerDecision} onVerIncidente={onVerIncidente} />
           ) : (
-            <div className="rounded-lg border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground lg:sticky lg:top-3">
+            <div className="inspector rounded-lg border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">
               {sel != null ? `El registro #${sel + 1} no está en la ventana mostrada.` : "Selecciona un registro para ver su detalle y la prueba de la cadena."}
             </div>
           )}

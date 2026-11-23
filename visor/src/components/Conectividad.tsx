@@ -104,7 +104,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
   const campo = "h-[30px] rounded-[7px] border border-border bg-card px-2.5 text-[13px] outline-none focus:border-ring disabled:bg-muted disabled:text-muted-foreground"
   const reglas = prueba?.reglas
   return (
-    <section aria-label="Equipo" className="overflow-hidden rounded-lg border border-border bg-card text-sm lg:sticky lg:top-3">
+    <section aria-label="Equipo" className="inspector overflow-hidden rounded-lg border border-border bg-card text-sm">
       <div className="border-b border-border px-4 py-3">
         <div className="flex flex-wrap items-center gap-2 text-base font-semibold">{e.nombre}
           <span className={cn("rounded px-1.5 text-[11px] font-medium", PILDORA[est.tono])}>{est.texto}</span>
