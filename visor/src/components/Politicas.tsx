@@ -6,12 +6,15 @@ import {
 } from "@/api"
 import { Cargando, SinConexion, Vacio } from "@/components/bits"
 import { etiquetaClase, pasosRunbook } from "@/datos"
+import { resumenPolitica, intocablesDe, type Item } from "@/politicas"
 import "./Politicas.css"
 
 type Valor = CambioPolitica["automatizacion"]
-type Pestana = "resumen" | "familias" | "zonas" | "confianza" | "intocables"
+// Sin pestaña «Intocables»: lo general va al Resumen y cada servicio intocable lleva un candado en la
+// fila de su equipo (diseno-politicas-resumen-intocables.md).
+type Pestana = "resumen" | "familias" | "zonas" | "confianza"
 const PESTANAS: [Pestana, string][] = [["resumen", "Resumen"], ["familias", "Por tipo de ataque"],
-  ["zonas", "Por zona y dispositivo"], ["confianza", "Confianza"], ["intocables", "Intocables"]]
+  ["zonas", "Por zona y dispositivo"], ["confianza", "Confianza"]]
 
 const AUTO = "automatica_si_confianza"
 const HUMANO = "humano_siempre"
@@ -84,7 +87,50 @@ function descargar(nombre: string, texto: string) {
   URL.revokeObjectURL(url)
 }
 
-// «Resumen»: la política efectiva contada en frases (GET /api/politica/explicar), lo que firma Seguridad.
+// «Resumen»: la política en tres columnas (lo que hace solo / lo que espera a un analista / lo que nunca
+// hace solo), con nombres legibles; el texto completo que firma Seguridad, en un desplegable.
+function Columna({ titulo, nota, tono, items, vacio }: { titulo: string; nota: string; tono: "ok" | "warn" | "crit"; items: Item[]; vacio: string }) {
+  return (
+    <section aria-label={titulo} className={`pol-res-col ${tono}`}>
+      <h3>{titulo}</h3>
+      <p className="pol-res-nota">{nota}</p>
+      {items.length === 0 ? <p className="pol-res-nota">{vacio}</p> : (
+        <ul>
+          {items.map((it) => (
+            <li key={`${it.titulo}:${it.detalle ?? ""}`}><b>{it.titulo}</b>{it.detalle && <span>{it.detalle}</span>}</li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function Resumen({ est, onIr }: { est: PoliticaEstado; onIr: (p: Pestana) => void }) {
+  const r = resumenPolitica(est)
+  const certeza = r.certeza != null ? `Con certeza de ${String(r.certeza).replace(".", ",")} o más` : "Si está seguro"
+  return (
+    <div className="pol-res">
+      <p className="pol-res-frase">{r.frase}</p>
+      <div className="pol-res-grid">
+        <Columna titulo="Lo contiene solo" nota={certeza} tono="ok" items={r.solo} vacio="Nada: todo pasa por un analista." />
+        <Columna titulo="Espera a un analista" nota="El MDR propone; una persona decide" tono="warn" items={r.humano} vacio="Nada." />
+        <Columna titulo="Nunca lo hace solo" nota="Fijado en el código: la política no lo cambia" tono="crit" items={r.nunca} vacio="Nada." />
+      </div>
+      {r.solo.length > 0 && <p className="pol-res-nota">Lo que contiene solo pasa a un analista si la acción toca un servicio o un equipo propio.</p>}
+      <div className="pol-res-pie">
+        {r.confianza && <span>{r.confianza}</span>}
+        <button type="button" className="pol-enlace" onClick={() => onIr("confianza")}>Ver Confianza →</button>
+        <button type="button" className="pol-enlace" onClick={() => onIr("familias")}>Ver cada tipo de ataque →</button>
+      </div>
+      <details className="pol-res-texto">
+        <summary>Ver la política en texto</summary>
+        <Explicacion />
+      </details>
+    </div>
+  )
+}
+
+// El texto completo de la política efectiva (GET /api/politica/explicar), lo que firma Seguridad.
 function Explicacion() {
   const [frases, setFrases] = useState<string[] | null>(null)
   const [fallo, setFallo] = useState<string | null>(null)
@@ -300,7 +346,7 @@ export function Politicas() {
 
       {aviso && <p role="alert" className="pol-alert">{aviso}</p>}
 
-      {pestana === "resumen" && <Explicacion />}
+      {pestana === "resumen" && <Resumen est={est} onIr={(p) => { setPestana(p); setSel(null) }} />}
 
       {pestana === "confianza" && (
         <div className="pol-panel">
@@ -315,25 +361,6 @@ export function Politicas() {
               <dt>Desconocidos graves</dt><dd>{est.confianza.revisar_desde_nivel != null ? `a revisión desde el nivel ${est.confianza.revisar_desde_nivel}` : "solo se registran"}</dd>
             </dl>
           </> : <Vacio>El servicio no informa de la confianza.</Vacio>}
-        </div>
-      )}
-
-      {pestana === "intocables" && (
-        <div className="pol-panel">
-          <ul className="pol-frases">
-            {(est.intocables ?? []).map((i) => (
-              <li key={`${i.activo}:${i.servicio}`}><span className="mono">{i.activo} · {String(i.servicio)}</span> — nunca en automático
-                <Origen sujeto={`${i.activo} ${i.servicio}`} origen={i.origen} version={version} /></li>
-            ))}
-            <li><span className="mono">plano de gestión</span> — ninguna contención lo corta <Origen sujeto="plano de gestión" origen="codigo" /></li>
-            {(est.confianza?.equipos_propios ?? "humano_siempre") !== "automatica_si_confianza" && (
-              <li><span className="mono">equipos propios</span> — bloquearlos exige un analista{" "}
-                <Origen sujeto="equipos propios" origen={est.confianza?.equipos_propios_origen ?? "codigo"} version={version} /></li>
-            )}
-            {est.familias.filter((f) => f.automatizacion === "nunca_automatica").map((f) => (
-              <li key={f.familia}><span className="mono">{f.familia}</span> — freno duro: nunca se contiene solo <Origen sujeto={`freno ${f.familia}`} origen="codigo" /></li>
-            ))}
-          </ul>
         </div>
       )}
 
@@ -400,6 +427,9 @@ export function Politicas() {
                               <div className="pol-main">
                                 <div className="pol-fam">{d.activo} <span className={`pol-sev ${d.criticidad ?? "na"}`}>{d.criticidad ?? "—"}</span></div>
                                 <div className="pol-sub">radio {d.radio}{d.cascada.length > 0 && <> <span className="arw">·</span> cascada: {d.cascada.join(", ")}</>}</div>
+                                {intocablesDe(est, d.activo).map((puerto) => (
+                                  <span key={String(puerto)} className="pol-candado">{ICON_LOCK}puerto {String(puerto)}: siempre con analista</span>
+                                ))}
                               </div>
                               <div className="pol-ctl">
                                 <Origen sujeto={d.activo} origen={d.origen} version={version} />

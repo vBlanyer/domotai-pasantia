@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 
 const h = vi.hoisted(() => ({ pol: {} as unknown, act: vi.fn(), explicar: vi.fn(), propuesta: vi.fn() }))
 vi.mock("@/api", async (orig) => ({
@@ -168,33 +168,57 @@ describe("Politicas con politica.yml", () => {
     expect(screen.getByText(/9 alertas en 60 s/)).toBeInTheDocument()
   })
 
-  it("pestaña Intocables", () => {
-    abrir()
-    fireEvent.click(screen.getByRole("tab", { name: "Intocables" }))
-    expect(screen.getByText(/db01 · 5432/)).toBeInTheDocument()
-    expect(screen.getByText(/malware/)).toBeInTheDocument()       // los frenos duros del código también
-  })
-
-  it("Intocables solo dice que los equipos propios exigen analista si es verdad", () => {
-    h.pol = conPolitica({ confianza: { ...CONF, equipos_propios: "humano_siempre", equipos_propios_origen: "codigo" } })
-    const { unmount } = render(<Politicas />)
-    fireEvent.click(screen.getByRole("tab", { name: "Intocables" }))
-    expect(screen.getByText(/bloquearlos exige un analista/)).toBeInTheDocument()
-    unmount()
-    h.pol = conPolitica({ confianza: { ...CONF, equipos_propios: "automatica_si_confianza", equipos_propios_origen: "fichero" } })
-    abrir()
-    fireEvent.click(screen.getByRole("tab", { name: "Intocables" }))
-    expect(screen.queryByText(/bloquearlos exige un analista/)).toBeNull()
-  })
-
-  it("abre en «Resumen»: la política entera en frases, primera pestaña y sin botón aparte", async () => {
+  it("las pestañas: sin «Intocables», y abre en «Resumen»", () => {
     render(<Politicas />)
     const pestanas = screen.getAllByRole("tab")
-    expect(pestanas[0]).toHaveTextContent("Resumen")
+    expect(pestanas.map((t) => t.textContent)).toEqual(["Resumen", "Por tipo de ataque", "Por zona y dispositivo", "Confianza"])
     expect(pestanas[0]).toHaveAttribute("aria-selected", "true")
-    expect(await screen.findByText(/Sobre db01, una contención espera siempre a un analista/)).toBeInTheDocument()
-    expect(screen.queryByRole("tab", { name: /castellano/i })).toBeNull()
     expect(screen.queryByRole("button", { name: /castellano/i })).toBeNull()
+  })
+
+  it("el Resumen cuenta la política en tres columnas, con nombres legibles", () => {
+    render(<Politicas />)
+    expect(screen.getByText(/De 3 tipos de ataque, el MDR contiene 1 solo/)).toBeInTheDocument()
+    const col = (titulo: string) => screen.getByRole("region", { name: titulo })
+    expect(within(col("Lo contiene solo")).getByText("Fuerza bruta")).toBeInTheDocument()
+    expect(within(col("Lo contiene solo")).getByText("bloquea el origen")).toBeInTheDocument()
+    expect(within(col("Espera a un analista")).getByText("Reconocimiento (escaneo)")).toBeInTheDocument()
+    expect(within(col("Espera a un analista")).getByText("db01")).toBeInTheDocument()       // sin zona: sale aquí
+    expect(within(col("Espera a un analista")).getByText("puerto 5432")).toBeInTheDocument()
+    expect(within(col("Nunca lo hace solo")).getByText("Malware")).toBeInTheDocument()
+    expect(within(col("Nunca lo hace solo")).getByText("Cortar la conexión del MDR con los equipos")).toBeInTheDocument()
+    expect(screen.getByText(/Se fía de 10\.99\.0\.10/)).toBeInTheDocument()
+  })
+
+  it("los equipos propios solo salen como espera si la política lo exige", () => {
+    h.pol = conPolitica({ confianza: { ...CONF, equipos_propios: "humano_siempre", equipos_propios_origen: "codigo" } })
+    const { unmount } = render(<Politicas />)
+    expect(screen.getByText("Bloquear un equipo propio")).toBeInTheDocument()
+    unmount()
+    h.pol = conPolitica({ confianza: { ...CONF, equipos_propios: "automatica_si_confianza", equipos_propios_origen: "fichero" } })
+    render(<Politicas />)
+    expect(screen.queryByText("Bloquear un equipo propio")).toBeNull()
+  })
+
+  it("el texto completo de la política, en un desplegable", async () => {
+    render(<Politicas />)
+    fireEvent.click(screen.getByText("Ver la política en texto"))
+    expect(await screen.findByText(/Sobre db01, una contención espera siempre a un analista/)).toBeInTheDocument()
+  })
+
+  it("los enlaces del pie llevan a su pestaña", () => {
+    render(<Politicas />)
+    fireEvent.click(screen.getByRole("button", { name: "Ver Confianza →" }))
+    expect(screen.getByRole("tab", { name: "Confianza" })).toHaveAttribute("aria-selected", "true")
+    fireEvent.click(screen.getByRole("tab", { name: "Resumen" }))
+    fireEvent.click(screen.getByRole("button", { name: "Ver cada tipo de ataque →" }))
+    expect(screen.getByRole("tab", { name: "Por tipo de ataque" })).toHaveAttribute("aria-selected", "true")
+  })
+
+  it("en «Por zona y dispositivo», el equipo con un servicio intocable lleva su candado", () => {
+    h.pol = conPolitica({ intocables: [{ activo: "srv-web", servicio: 443, origen: "perfil", funcion: "portal" }] })
+    abrir("Por zona y dispositivo")
+    expect(screen.getByText("puerto 443: siempre con analista")).toBeInTheDocument()
   })
 
   it("exportar la propuesta descarga el YAML", async () => {

@@ -154,3 +154,30 @@
 .pol-dl dt { color: var(--pol-muted); } .pol-dl dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .pol-ip { background: var(--pol-surface2); border-radius: 6px; padding: 1px 7px; font-size: .76rem; }
 @media (max-width: 640px) { .pol-dl { grid-template-columns: 1fr; } }
+
+/* Resumen en tres columnas (mockup A) */
+.pol-res { display: flex; flex-direction: column; gap: 12px; }
+.pol-res-frase { margin: 0; font-size: .95rem; line-height: 1.5; }
+.pol-res-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .pol-res-grid { grid-template-columns: minmax(0, 1fr); } }
+.pol-res-col { background: var(--pol-surface); border: 1px solid var(--pol-border); border-top-width: 3px; border-radius: 11px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pol-res-col.ok { border-top-color: var(--pol-ok); } .pol-res-col.ok h3 { color: var(--pol-ok); }
+.pol-res-col.warn { border-top-color: var(--pol-warn); } .pol-res-col.warn h3 { color: var(--pol-warn); }
+.pol-res-col.crit { border-top-color: var(--pol-crit); } .pol-res-col.crit h3 { color: var(--pol-crit); }
+.pol-res-col h3 { margin: 0; font-size: .92rem; font-weight: 600; }
+.pol-res-col ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; font-size: .82rem; line-height: 1.4; }
+.pol-res-col li b { font-weight: 600; display: block; }
+.pol-res-col li span { color: var(--pol-muted); }
+.pol-res-nota { margin: 0; font-size: .76rem; color: var(--pol-muted); }
+.pol-res-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; background: var(--pol-surface);
+  border: 1px solid var(--pol-border); border-radius: 11px; padding: 10px 14px; font-size: .8rem; }
+.pol-enlace { font: inherit; border: 0; background: none; padding: 0; color: var(--pol-accent); cursor: pointer; }
+.pol-enlace:hover { text-decoration: underline; }
+.pol-enlace:focus-visible { outline: 2px solid var(--pol-accent); outline-offset: 2px; border-radius: 3px; }
+.pol-res-texto summary { cursor: pointer; font-size: .8rem; color: var(--pol-muted); }
+.pol-res-texto[open] summary { margin-bottom: 8px; }
+/* candado de un servicio intocable en la fila de su equipo (mockup C) */
+.pol-candado { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; font-size: .72rem; padding: 2px 8px;
+  border-radius: 999px; background: var(--pol-warnbg); color: var(--pol-warn); }
+.pol-candado svg { width: 11px; height: 11px; }
