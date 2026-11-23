@@ -311,8 +311,8 @@ export function AsistenteRed() {
   const pasos: [Paso, string][] = [[1, "Escanear"], [2, "Revisar lo encontrado"], [3, "Validar y exportar"]]
   return (
     <div className="asr">
+      {/* el título ya está en la barra superior, como en las demás vistas */}
       <header className="asr-cab">
-        <h1>Asistente de red</h1>
         <p>Describe una red nueva a partir de un escaneo. Propone el perfil para que lo revises; no lo aplica.</p>
       </header>
       <div role="tablist" aria-label="Pasos del asistente" className="asr-pasos">
