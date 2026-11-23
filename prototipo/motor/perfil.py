@@ -451,6 +451,12 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
     # veto duro (el humano recibe la alerta, sin una acción que no correría). Va al final: no pisa un
     # veto previo (p. ej. gestión, que ya anuló `accion_final`).
     if final.get("accion_final") == "AISLAR_NODO":
+        if not actores.es_ipv4((perfil or {}).get("ip_gestion")):
+            # la cuarentena deja pasar lo que va al MDR (`! -d ip_gestion`); sin esa IP aislaría también al
+            # MDR, que no podría verificarla ni deshacerla
+            return {**_res("veta", None, True),
+                    "impacto": {**det, "motivo": "no se puede aislar el host sin cortar también al MDR: el perfil no "
+                                "declara una IP de gestión (IPv4) a la que dejar pasar"}}
         _ejec, ejec_ip = ejecutor_aislamiento(perfil, activo)
         if not actores.es_ipv4(ip_de(perfil, activo)) or not ejec_ip:
             return {**_res("veta", None, True),

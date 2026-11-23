@@ -42,13 +42,16 @@ def construir(decision, alerta, perfil=None):
         # orden (el filtro del perfil ya lo veta; esto es el cinturón del constructor).
         objetivo = perfilm.ip_de(perfil, activo) if perfil else None
         _ejec, ejec_ip = perfilm.ejecutor_aislamiento(perfil, activo) if perfil else (None, None)
-        if not objetivo or not ejec_ip:
+        gestion = (perfil or {}).get("ip_gestion")
+        # la cuarentena deja pasar lo que va al MDR: sin IP de gestión válida no hay cuarentena (el filtro la veta)
+        if not objetivo or not ejec_ip or not actores.es_ipv4(gestion):
             return None
         return {
             "decision_id": decision.get("id_decision"), "accion_id": accion,
             "nodo_objetivo": activo,          # el host en cuarentena (lo que lee el operador)
             "nodo_ip": ejec_ip,               # dónde se ejecuta: el cortafuegos de borde
-            "params": {"ip_nodo": objetivo},  # a quién corta el reenvío: la IP del host
+            "params": {"ip_nodo": objetivo,   # a quién corta el reenvío: la IP del host
+                       "ip_gestion": gestion},  # salvo hacia el MDR: así puede verificarla y deshacerla
             "impacto": decision.get("impacto"), "justificacion": decision.get("justificacion"),
         }
     if accion == "LIMITAR_BANDA":

@@ -400,7 +400,8 @@ Si `mdr configurar` escribió el perfil mínimo, el servicio ya está en marcha 
    que lo protege, y cada cortafuegos con el siguiente hacia internet. Sin ella, la contención sube a
    los cortafuegos perimetrales.
 4. **Declara el plano de gestión** en `ip_gestion` y las redes propias en `redes_internas`. El MDR
-   nunca corta el plano de gestión.
+   nunca corta el plano de gestión: la cuarentena de un equipo deja pasar lo que va a esa IP, para
+   poder verificarla y deshacerla. Sin `ip_gestion` (una IPv4), el MDR no aísla ningún equipo.
 5. **No escribas aquí las reglas de la empresa.** Quién es de confianza, qué se automatiza y qué
    no se toca nunca van en `politica.yml` (sección 12). Si una regla está en los dos ficheros, el
    servicio no arranca.

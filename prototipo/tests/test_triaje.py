@@ -28,6 +28,7 @@ class TestProcesar(unittest.TestCase):
         a = {**j("alerta_vp.json"), "familia": "integridad_fichero"}   # activo = objetivo-vuln
         p = {**y("perfil.yml"),
              "activos": {"objetivo-vuln": {"ip": "192.168.1.30"}, "borde": {"ip": "192.168.1.1"}},
+             "ip_gestion": "192.168.1.100",
              "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
                            "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
         r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
@@ -85,6 +86,7 @@ class TestProcesar(unittest.TestCase):
         a = {**j("alerta_vp.json"), "familia": "exfiltracion", "destino_ip": "203.0.113.66"}  # activo = objetivo-vuln
         p = {**y("perfil.yml"),
              "activos": {"objetivo-vuln": {"ip": "192.168.1.30"}, "borde": {"ip": "192.168.1.1"}},
+             "ip_gestion": "192.168.1.100",
              "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
                            "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
         r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
@@ -98,6 +100,7 @@ class TestProcesar(unittest.TestCase):
         a = {**j("alerta_vp.json"), "familia": "exfiltracion"}   # sin destino_ip
         p = {**y("perfil.yml"),
              "activos": {"objetivo-vuln": {"ip": "192.168.1.30"}, "borde": {"ip": "192.168.1.1"}},
+             "ip_gestion": "192.168.1.100",
              "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
                            "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
         r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")
@@ -111,6 +114,7 @@ class TestProcesar(unittest.TestCase):
         a = {**j("alerta_vp.json"), "familia": "malware"}   # activo = objetivo-vuln
         p = {**y("perfil.yml"),
              "activos": {"objetivo-vuln": {"ip": "192.168.1.30"}, "borde": {"ip": "192.168.1.1"}},
+             "ip_gestion": "192.168.1.100",
              "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "borde"},
                            "borde": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
         r = triaje.procesar(a, j("hallazgos.json"), p, "prueba", CAT, id_decision="d1", timestamp="t")

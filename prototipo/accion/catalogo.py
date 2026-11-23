@@ -47,7 +47,7 @@ def comandos_privilegiados(catalogo):
             vistos.add(clave); salida.append(clave)
     binarios_de_accion = set()
     for accion in catalogo.values():
-        for campo in ("comando", "reversion_cmd"):
+        for campo in ("comando", "reversion_cmd", "reversion_cmd_anterior"):
             for clave in _tramos(accion.get(campo)):
                 binarios_de_accion.add(clave[0]); anadir(clave)
     for accion in catalogo.values():
@@ -127,7 +127,7 @@ def reglas_de_equipo(catalogo, acciones=None, servicios=(), cuentas=(), cuentas_
 # catálogo. Es sh POSIX: sirve con cualquier sudo (también el 1.6.9 de Metasploitable).
 ENVOLTORIO_RUTA = "/usr/local/sbin/mdr-accion"
 PATH_SEGURO = "/usr/sbin:/usr/bin:/sbin:/bin"
-_TIPO_PARAMETRO = {"ip": "ip", "ip_nodo": "ip", "puerto": "puerto", "if": "iface", "rate": "rate",
+_TIPO_PARAMETRO = {"ip": "ip", "ip_nodo": "ip", "ip_gestion": "ip", "puerto": "puerto", "if": "iface", "rate": "rate",
                    "servicio": "nombre", "usuario": "cuenta"}          # el resto: nombre
 _VALIDADORES = r"""_una_linea() { case "$1" in *'
 '*) return 1 ;; esac; return 0; }
@@ -153,7 +153,7 @@ def _plantillas_tipadas(catalogo, allowlist=None):
     import shlex
     crudas = {}
     for accion in catalogo.values():
-        for campo in ("comando", "reversion_cmd", "verificacion"):
+        for campo in ("comando", "reversion_cmd", "reversion_cmd_anterior", "verificacion"):
             for tramo in (accion.get(campo) or "").split(";"):
                 partes = tramo.split("|", 1)[0].split()
                 if partes and _BINARIO.match(partes[0]):

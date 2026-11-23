@@ -78,6 +78,9 @@ def activas(registros, catalogo):
             "activo": reg.get("activo"), "nodo": nodo, "accion_id": accion_id,
             "ts": reg.get("decidido_en") or reg.get("timestamp"), "via_escalada": via_escalada,
             # la regla aplicada y la que la quita (para enseñarlas antes de revertir)
-            "regla": _render(acc.get("comando"), params), "reversion_cmd": _render(acc.get("reversion_cmd"), params),
+            # (una contención de antes de un cambio de plantilla: la regla y la reversión de entonces)
+            "regla": _render(acc.get("comando"), params) or (_render(acc.get("comando_anterior"), params) if acc.get("comando_anterior") else None),
+            "reversion_cmd": _render(acc.get("reversion_cmd"), params)
+                or (_render(acc.get("reversion_cmd_anterior"), params) if acc.get("reversion_cmd_anterior") else None),
         }
     return list(vivas.values())

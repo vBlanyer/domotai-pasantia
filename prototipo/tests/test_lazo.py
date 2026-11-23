@@ -328,7 +328,9 @@ class TestEscaladaPorDefecto(unittest.TestCase):
         self.assertEqual(r["clase"], "vp_integridad")
         self.assertEqual(r["orden"]["accion_id"], "AISLAR_NODO")
         self.assertEqual(r["orden"]["nodo_ip"], "192.168.1.1")               # el cortafuegos de borde
-        self.assertEqual(r["orden"]["params"], {"ip_nodo": "192.168.1.30"})  # la IP del host, del inventario
+        # la IP del host (del inventario) y la de gestión, que la cuarentena deja pasar: sin ella, el MDR no
+        # podría ni verificar ni deshacer nada en el equipo aislado (23/11, web-banking)
+        self.assertEqual(r["orden"]["params"], {"ip_nodo": "192.168.1.30", "ip_gestion": "192.168.1.100"})
         self.assertEqual(r["veredicto_humano"], "aprobar")
         self.assertTrue(r["ejecucion"]["exito"])
         self.assertIsNone(r["escalada"])                 # verificada: no hace falta escalar

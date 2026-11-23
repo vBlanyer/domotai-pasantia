@@ -243,3 +243,38 @@ class TestRevertirUna(unittest.TestCase):
         res2 = revertir.revertir_una(ruta, 0, CAT, EjecutorFalso())  # ya no está activa
         self.assertFalse(res2["revertida"])
         self.assertIn("error", res2)
+
+
+class TestCuarentenaConGestion(unittest.TestCase):
+    """La cuarentena (AISLAR_NODO) deja pasar el tráfico hacia la IP de gestión; una cuarentena anterior al
+    cambio (sin ip_gestion en la orden) se sigue pudiendo revertir con su comando de entonces."""
+    from prototipo.accion import catalogo as _c
+    import os as _os
+    CAT = _c.cargar_catalogo(_os.path.join(_os.path.dirname(__file__), "..", "catalogo.yml"))
+
+    def _reg(self, params):
+        return {"id_decision": "s9", "orden": {"accion_id": "AISLAR_NODO", "nodo_objetivo": "web-banking",
+                "nodo_ip": "10.10.0.1", "params": params}, "ejecucion": {"exito": True}}
+
+    def _comandos(self, params):
+        llamadas = []
+        def ej(ip, cmd):
+            llamadas.append(cmd)
+            return (1, "") if "grep" in cmd else (0, "")
+        r = revertir.revertir(self._reg(params), self.CAT, ej, "t")
+        return r, llamadas
+
+    def test_la_nueva_se_revierte_con_su_excepcion(self):
+        r, ll = self._comandos({"ip_nodo": "10.10.0.10", "ip_gestion": "10.100.0.10"})
+        self.assertEqual(ll[0], "iptables -D FORWARD -s 10.10.0.10 ! -d 10.100.0.10 -j DROP")
+        self.assertTrue(r["exito"])
+
+    def test_la_anterior_se_revierte_con_el_comando_de_entonces(self):
+        r, ll = self._comandos({"ip_nodo": "10.10.0.10"})
+        self.assertEqual(ll[0], "iptables -D FORWARD -s 10.10.0.10 -j DROP")
+        self.assertTrue(r["exito"])
+
+    def test_la_plantilla_deja_pasar_la_gestion(self):
+        a = self.CAT["AISLAR_NODO"]
+        self.assertEqual(a["comando"], "iptables -A FORWARD -s {ip_nodo} ! -d {ip_gestion} -j DROP")
+        self.assertEqual(a["reversion_cmd"], "iptables -D FORWARD -s {ip_nodo} ! -d {ip_gestion} -j DROP")

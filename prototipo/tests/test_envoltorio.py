@@ -50,6 +50,10 @@ class TestEnvoltorio(_Base):
             ("iptables", "-A", "INPUT", "-s", "1.2.3.4", "-j", "DROP"),
             ("iptables", "-D", "INPUT", "-s", "10.0.0.7", "-j", "DROP"),
             ("iptables", "-A", "FORWARD", "-d", "198.51.100.10", "-j", "DROP"),
+            # cuarentena que deja pasar la gestión, su reversión, y la reversión de una cuarentena antigua
+            ("iptables", "-A", "FORWARD", "-s", "10.10.0.10", "!", "-d", "10.100.0.10", "-j", "DROP"),
+            ("iptables", "-D", "FORWARD", "-s", "10.10.0.10", "!", "-d", "10.100.0.10", "-j", "DROP"),
+            ("iptables", "-D", "FORWARD", "-s", "10.10.0.10", "-j", "DROP"),
             ("iptables", "-A", "INPUT", "-p", "tcp", "--dport", "5432", "-j", "DROP"),
             ("tc", "qdisc", "replace", "dev", "eth0", "root", "tbf", "rate", "1mbit", "burst", "32kbit", "latency", "400ms"),
             ("tc", "qdisc", "del", "dev", "eth1", "root"),

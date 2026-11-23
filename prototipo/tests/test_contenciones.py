@@ -141,5 +141,21 @@ class TestReglaYReversion(unittest.TestCase):
         [b] = contenciones.activas([_accion("s2", "CERRAR_SERVICIO", {"servicio": "ftp"})], cat)
         self.assertIsNone(b["reversion_cmd"])
 
+
+class TestCuarentenaAnterior(unittest.TestCase):
+    def test_una_cuarentena_de_antes_del_cambio_muestra_su_reversion_de_entonces(self):
+        # La cuarentena de web-banking del 23/11 se creó sin ip_gestion: la plantilla nueva no se puede
+        # rellenar y la consola la mostraba sin comando de reversión (aunque revertir sí funciona).
+        cat = {"AISLAR_NODO": {"reversion": "definida",
+                               "comando": "iptables -A FORWARD -s {ip_nodo} ! -d {ip_gestion} -j DROP",
+                               "reversion_cmd": "iptables -D FORWARD -s {ip_nodo} ! -d {ip_gestion} -j DROP",
+                               "reversion_cmd_anterior": "iptables -D FORWARD -s {ip_nodo} -j DROP"}}
+        [c] = contenciones.activas([_accion("s1", "AISLAR_NODO", {"ip_nodo": "10.10.0.10"}, activo="web-banking")], cat)
+        self.assertEqual(c["reversion_cmd"], "iptables -D FORWARD -s 10.10.0.10 -j DROP")
+        [n] = contenciones.activas([_accion("s2", "AISLAR_NODO", {"ip_nodo": "10.10.0.10", "ip_gestion": "10.100.0.10"},
+                                            activo="web-banking")], cat)
+        self.assertEqual(n["reversion_cmd"], "iptables -D FORWARD -s 10.10.0.10 ! -d 10.100.0.10 -j DROP")
+
+
 if __name__ == "__main__":
     unittest.main()

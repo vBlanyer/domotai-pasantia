@@ -57,6 +57,9 @@ def revertir(registro, catalogo, ejecutor, timestamp, motivo=""):
         return {**base, "comando_ejecutado": None, "codigo_salida": -1, "exito": False,
                 "salida": "nodo_ip rechazado: no es una IP valida"}
     cmd = _render(acc["reversion_cmd"], params)
+    if cmd is None and acc.get("reversion_cmd_anterior"):
+        # una contención anterior a un cambio de plantilla (p. ej. la cuarentena sin la excepción de gestión)
+        cmd = _render(acc["reversion_cmd_anterior"], params)
     verif = _render(acc.get("verificacion", ""), params)
     if cmd is None:
         return {**base, "comando_ejecutado": None, "codigo_salida": -1, "exito": False,

@@ -28,6 +28,15 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **La cuarentena (`AISLAR_NODO`) ya no deja al MDR sin acceso al equipo aislado.** Cortaba todo lo que
+  salía del equipo, también sus respuestas al MDR, así que el MDR no podía verificar la cuarentena ni
+  deshacer nada en él (23/11: dos reversiones de web-banking fallaron así). Ahora es
+  `iptables -A FORWARD -s {ip_nodo} ! -d {ip_gestion} -j DROP`. Sin una IPv4 en `ip_gestion`, se veta.
+  - Una cuarentena creada antes del cambio se revierte con su comando de entonces
+    (`reversion_cmd_anterior`).
+  - **Tras actualizar, el envoltorio `mdr-accion` de los cortafuegos debe reinstalarse:** Conectividad
+    lo marca como deriva; en el banco, `banco.sh aprovisionar`.
+  - Probado en vivo: la cuarentena aísla web-banking de api-movil, pero no del MDR.
 - **El panel derecho de cada vista tiene su propio scroll** (Aprobaciones, Decisiones, Trazas,
   Contenciones, Incidentes y Conectividad): se queda a la vista y no alarga la página. Su alto es lo
   que queda visible desde donde empieza (debajo de las cifras y los filtros), así su final se alcanza sin

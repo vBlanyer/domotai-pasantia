@@ -625,6 +625,22 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestCuarentenaSinCortarLaGestion(unittest.TestCase):
+    def test_sin_ip_de_gestion_valida_no_hay_cuarentena(self):
+        # La cuarentena deja pasar el tráfico hacia el MDR (ip_gestion): sin una IPv4 de gestión declarada,
+        # aislar cortaría también al MDR y no podría verificarla ni deshacerla -> veto duro, con el motivo.
+        p = {"activos": {"web": {"ip": "10.0.0.5"}},
+             "topologia": {"web": {"rol": "host_victima", "ip": "10.0.0.5", "gateway": "fw"},
+                           "fw": {"rol": "firewall_perimetral", "ip": "10.0.0.1"}}}
+        for gestion in (None, "10.100.0.0/24", "no-es-ip"):
+            pp = {**p, **({"ip_gestion": gestion} if gestion else {})}
+            r = perfil.filtrar(pp, "AISLAR_NODO", {}, CAT, "web", None, 1.0)
+            self.assertEqual((r["resultado"], r["accion_final"]), ("veta", None), gestion)
+            self.assertIn("gestión", r["impacto"]["motivo"])
+        r = perfil.filtrar({**p, "ip_gestion": "10.100.0.10"}, "AISLAR_NODO", {}, CAT, "web", None, 1.0)
+        self.assertEqual(r["accion_final"], "AISLAR_NODO")
+
+
 class TestPapelDelEquipo(unittest.TestCase):
     """El papel del equipo (inventario operativo) veta lo que su sudoers denegaría; sin papel, nada cambia."""
 
