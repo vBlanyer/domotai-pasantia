@@ -22,6 +22,23 @@ una para todos). En un banco levantado antes de esto, `sh lab/banco/banco.sh cla
 `aprovisionar`, que fija las huellas nuevas. `restaurar` quita también las IP que añaden los ataques con origen
 rotado (antes se acumulaban y el asistente de red las encontraba como equipos).
 
+## El banco como un cliente nuevo
+
+Para ensayar la instalación desde cero sobre el banco (como el laboratorio oficina, pero con su red):
+
+    sh lab/banco/banco.sh desaprovisionar   # equipos sin usuario triaje ni sudoers; sin clave del conector
+    sh lab/banco/banco.sh mdr-nuevo         # perfil mínimo y traza propia en run/banco-nuevo/ (:8787)
+
+1. **Conectividad → «Generar la clave del conector»** (se crea en mdr-siem).
+2. **Asistente de red → Escanear** (las 8 redes del banco vienen precargadas; dirección de fuera
+   `198.51.100.10`), revisar y **Validar y exportar**.
+3. Copia `perfil.yml`, `postura.json` y `politica.yml` a `run/banco-nuevo/` y vuelve a ejecutar `mdr-nuevo`.
+4. **Conectividad, equipo por equipo:** paquete de alta → `docker exec -i clab-banco-<equipo> sh < alta-<equipo>.sh`,
+   «Leer la clave del host», comparar la huella, fijarla y «Probar».
+5. Un ataque (`sh lab/banco/banco.sh atacar`) para ver la contención con el acceso dado a mano.
+
+Para volver al banco de siempre: `sh lab/banco/banco.sh aprovisionar` y `sh reiniciar.sh` (perfil `bancario.yml`).
+
 `comprobar-alertas` abre desde el auditor una conexión sin banner SSH a `web-banking:22`, espera
 (hasta `ALERTAS_ESPERA_MAX` s, 120 por defecto) a que Wazuh levante la regla 100200 y falla si no llega.
 Es inofensiva aunque el MDR esté en marcha: el auditor es un activo de gestión del perfil y el motor la

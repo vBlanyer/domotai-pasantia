@@ -38,6 +38,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Banco como cliente nuevo:** `banco.sh desaprovisionar` deshace `aprovisionar` (equipos sin usuario `triaje`,
+  sudoers ni envoltorio, y mdr-siem sin clave del conector) y `banco.sh mdr-nuevo` arranca el MDR con un perfil
+  mínimo y traza propia en `run/banco-nuevo/`, para dar de alta el banco con el asistente de red y Conectividad.
 - **Banco: los ataques rotados ya no dejan IPs pegadas, y cada nodo tiene su clave SSH de host.**
   - **IPs pegadas:** el lanzador añadía una IP por ataque con origen rotado (`ip addr add`) y nadie la quitaba.
     Había 409 acumuladas en taquilla, middleware e internet, y el asistente de red las encontraba como

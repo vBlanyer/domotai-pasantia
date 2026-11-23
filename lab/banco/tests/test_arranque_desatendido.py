@@ -377,3 +377,37 @@ class TestClavesPropias(unittest.TestCase):
         up = texto[texto.index("\n  up)"):texto.index("\n    ;;", texto.index("\n  up)"))]
         self.assertIn("claves_propias", up)
         self.assertLess(up.index("claves_propias"), up.index("/usr/sbin/sshd"))
+
+
+class TestClienteNuevo(unittest.TestCase):
+    """El banco como un cliente nuevo (23/11): sin aprovisionar, y el MDR con un perfil mínimo, para darlo de
+    alta con el asistente de red y Conectividad como en el laboratorio oficina."""
+
+    def test_desaprovisionar_deshace_lo_que_instala_aprovisionar(self):
+        r, ordenes = _ordenes(["desaprovisionar"])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        equipos = {o.split()[1] for o in ordenes if "deluser triaje" in o}
+        for n in ("web-banking", "core-db", "atm", "taquilla", "fw-core", "fw-edge", "pagos-qr"):
+            self.assertIn(f"clab-banco-{n}", equipos)
+        for o in ordenes:
+            if "deluser triaje" in o:
+                self.assertIn("/etc/sudoers.d/conector-triaje", o)
+                self.assertIn("/usr/local/sbin/mdr-accion", o)
+                self.assertIn(">>> conector-triaje", o)               # el bloque de /etc/sudoers, si lo hay
+        gestion = [o for o in ordenes if o.split()[1:2] == ["clab-banco-mdr-siem"] and "known_hosts_triaje" in o]
+        self.assertTrue(gestion, ordenes)
+        self.assertIn("/root/.ssh/triaje", gestion[0])                # la clave del conector también
+
+    def test_mdr_nuevo_arranca_con_perfil_minimo_y_los_permisos_de_laboratorio(self):
+        texto = open(BANCO, encoding="utf-8").read()
+        i = texto.index("\n  mdr-nuevo)")
+        bloque = texto[i:texto.index("\n    ;;", i)]
+        self.assertIn("perfil_minimo --gestion 10.100.0.10", bloque)
+        for r in ("10.10.0.0/24", "10.20.0.0/24", "10.30.0.0/24", "10.40.0.0/24", "10.50.0.0/24", "10.60.0.0/24",
+                  "10.200.0.0/24", "10.210.0.0/24"):
+            self.assertIn(f"--rango {r}", bloque)
+        for v in ("TRIAJE_ASISTENTE_ABIERTO=1", "TRIAJE_CONECTIVIDAD_ABIERTA=1", "TRIAJE_POLITICA_ABIERTA=1",
+                  "TRIAJE_NODO_GESTION=clab-banco-mdr-siem"):
+            self.assertIn(v, bloque)
+        self.assertIn("run/banco-nuevo", bloque)
+        self.assertNotIn("bancario.yml", bloque)                      # no parte del perfil que ya lo sabe todo

@@ -16,6 +16,10 @@
 #   sh lab/banco/banco.sh vigilar         panel en vivo: servicios en verde/rojo y ultimos cambios
 #   sh lab/banco/banco.sh claves-propias  una clave SSH de host propia en cada nodo (una sola vez por
 #                                         contenedor); despues, 'aprovisionar' para fijar las huellas nuevas
+#   sh lab/banco/banco.sh desaprovisionar deshace 'aprovisionar' (equipos sin usuario triaje ni sudoers, y
+#                                         sin clave del conector): para darlos de alta a mano en Conectividad
+#   sh lab/banco/banco.sh mdr-nuevo       el MDR como en un cliente NUEVO: perfil minimo y traza propia en
+#                                         run/banco-nuevo/; la red se describe con el asistente de red
 #   sh lab/banco/banco.sh aprovisionar    minimo privilegio del conector en los nodos del banco
 #                                         (hace falta despues de cada 'up': containerlab recrea
 #                                         los contenedores y el usuario/sudoers no sobreviven)
@@ -151,6 +155,48 @@ case "${1:-up}" in
     sleep 6; echo "Salud con $S caido:"; salud
     CMD=$(red servicio $S); docker exec -d $P-$S sh -c "$CMD"
     sleep 6; echo "Salud tras restaurar:"; salud
+    ;;
+  desaprovisionar)
+    # Lo contrario de 'aprovisionar' (lab/scripts/aprovisionar-minimo-privilegio.sh): el banco como un cliente
+    # al que aún no se ha dado de alta. El acceso se vuelve a dar desde Conectividad (paquete de alta).
+    echo "== Desaprovisionando: sin usuario triaje, sudoers ni envoltorio en los equipos =="
+    for par in $(red nodos) fw-core:10.0.0.1 fw-edge:10.0.0.254 pagos-qr:10.70.0.10; do
+      n=${par%%:*}
+      [ "$n" = mdr-siem ] && continue
+      docker exec $P-$n sh -c 'deluser triaje 2>/dev/null; rm -rf /home/triaje; rm -f /etc/sudoers.d/conector-triaje /usr/local/sbin/mdr-accion; sed -i "/^# >>> conector-triaje/,/^# <<< conector-triaje/d" /etc/sudoers 2>/dev/null; true' || true
+      echo "   $n"
+    done
+    echo "== Sin clave del conector ni huellas fijadas en el nodo de gestión (mdr-siem) =="
+    docker exec $P-mdr-siem sh -c 'rm -f /root/.ssh/triaje /root/.ssh/triaje.pub /root/.ssh/known_hosts_triaje' || true
+    echo "Hecho. Para volver al banco aprovisionado: sh lab/banco/banco.sh aprovisionar"
+    ;;
+  mdr-nuevo)
+    # Como un cliente nuevo (mismo recorrido que 'oficina.sh mdr'): el servicio arranca con el perfil mínimo y
+    # la red se describe con el asistente de red. Lo que exporta el asistente se copia a run/banco-nuevo/
+    # (perfil.yml, postura.json, politica.yml) y se vuelve a ejecutar. Retoma la traza más reciente de ahí.
+    cd "$RAIZ"
+    D=run/banco-nuevo
+    mkdir -p $D
+    [ -f $D/perfil.yml ] || python3 -m prototipo.herramientas.perfil_minimo --gestion 10.100.0.10 \
+      --rango 10.10.0.0/24 --rango 10.20.0.0/24 --rango 10.30.0.0/24 --rango 10.40.0.0/24 \
+      --rango 10.50.0.0/24 --rango 10.60.0.0/24 --rango 10.200.0.0/24 --rango 10.210.0.0/24 --salida $D/perfil.yml
+    [ -f $D/postura.json ] || echo '{"nodos": {}}' > $D/postura.json
+    W=clab-red-cliente-wazuh
+    docker ps --format '{{.Names}}' | grep -q "^$W$" || { echo "Wazuh no está en marcha: sh lab/lab.sh up banco"; exit 1; }
+    pkill -9 -f "python3 -m prototipo(\.servicio)?\.stream" 2>/dev/null || true
+    docker exec "$W" pkill -f "tail -n0 -F /var/ossec/logs/alerts/alerts.json" 2>/dev/null || true
+    sleep 1
+    export TRIAJE_NODO_GESTION=clab-banco-mdr-siem            # el escaneo y el conector salen de mdr-siem
+    export TRIAJE_SSH_PLAZO_CONEXION=15
+    export TRIAJE_SALUD_CONTENEDOR=clab-banco-mdr-siem:/var/log/banco/salud.jsonl
+    export TRIAJE_ASISTENTE_ABIERTO=1 TRIAJE_CONECTIVIDAD_ABIERTA=1 TRIAJE_POLITICA_ABIERTA=1   # laboratorio
+    if [ -f $D/politica.yml ]; then export TRIAJE_POLITICA=$D/politica.yml; fi
+    SALIDA=$(ls -t $D/trazas-*.jsonl 2>/dev/null | head -n 1)
+    [ -n "$SALIDA" ] || SALIDA="$D/trazas-$(date +%F-%H%M).jsonl"
+    echo "→ MDR del banco como cliente nuevo: perfil $D/perfil.yml · traza $SALIDA"
+    echo "  Consola: http://127.0.0.1:8787  ·  Ctrl+C para detener"
+    docker exec "$W" sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
+      | python3 -m prototipo.servicio.stream - $D/perfil.yml $D/postura.json --salida "$SALIDA" --web
     ;;
   claves-propias)
     echo "== Clave SSH de host propia en cada nodo (solo en los que aún tienen la de la imagen) =="
