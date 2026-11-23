@@ -30,6 +30,20 @@ MAX_PUERTOS = 100
 PLAZO_EQUIPO = "120s"
 PLAZO_ORDEN_S = 1200
 _RITMO = {"suave": ["-T3", "--max-rate", "100"], "normal": ["-T4"]}
+# Las redes de un cliente: privadas (RFC 1918) y el espacio compartido de los operadores (RFC 6598). Un /22 de
+# loopback, 0/8, 240/4 o enlace local NO es la red del cliente aunque `is_private` lo diga.
+_REDES_CLIENTE = tuple(ipaddress.IPv4Network(r) for r in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"))
+
+
+def _de_cliente(red):
+    return any(red.subnet_of(c) for c in _REDES_CLIENTE)
+
+
+def _externo_valido(a):
+    """Una dirección DE FUERA: ni de las redes del cliente ni especial (loopback, multicast, reservada…). Las de
+    documentación (198.51.100.0/24…) valen: son las del laboratorio."""
+    return not (any(a in c for c in _REDES_CLIENTE) or a.is_loopback or a.is_link_local or a.is_multicast
+                or a.is_unspecified or a.is_reserved or a == ipaddress.IPv4Address("255.255.255.255"))
 
 
 def validar_peticion(cuerpo):
@@ -47,15 +61,19 @@ def validar_peticion(cuerpo):
             red = ipaddress.IPv4Network(str(r), strict=False)
         except ValueError:
             raise ValueError(f"rango no válido: {r}")
-        if not red.is_private or red.prefixlen == 0:
+        if not _de_cliente(red):
             raise ValueError(f"rango {red}: solo redes privadas del cliente")
         if red.prefixlen < PREFIJO_MINIMO:
             raise ValueError(f"rango {red}: demasiado grande (como mucho /{PREFIJO_MINIMO})")
         normalizados.append(str(red))
     try:
-        externo = str(ipaddress.IPv4Address(str(cuerpo.get("externo"))))
+        ext = ipaddress.IPv4Address(str(cuerpo.get("externo")))
     except ValueError:
         raise ValueError("externo: una dirección IPv4")
+    # Una dirección interna invertiría la cadena de cortafuegos (el borde saldría dentro), sin aviso.
+    if not _externo_valido(ext) or any(ext in ipaddress.IPv4Network(r) for r in normalizados):
+        raise ValueError(f"externo {ext}: tiene que ser una dirección de internet, fuera de la red del cliente")
+    externo = str(ext)
     ritmo = cuerpo.get("ritmo", "suave")
     if ritmo not in _RITMO:
         raise ValueError("ritmo: suave o normal")
@@ -91,7 +109,8 @@ def argumentos_huellas(ips):
     return ["ssh-keyscan", "-T", "5", "-t", "ed25519", *ips]
 
 
-def _saltos(host, ip):
+def _traza(host):
+    """{ttl: ip} de la traza del equipo; None si Nmap no trazó."""
     traza = host.find("trace")
     if traza is None:
         return None
@@ -101,6 +120,39 @@ def _saltos(host, ip):
             por_ttl[int(h.get("ttl"))] = h.get("ipaddr")
         except (TypeError, ValueError):
             continue
+    return por_ttl
+
+
+def _completar_omitidos(trazas):
+    """Nmap no repite en el XML los saltos que ya trazó para otro equipo («hop sharing»): con muchos equipos
+    detrás del mismo cortafuegos, la mayoría llegan sin sus primeros saltos (escaneo del banco, 23/11: 121 de
+    185). Esos saltos son los de OTRO equipo trazado entero; se toman de los de su subred si los hay y, por
+    TTL, solo si todos los candidatos coinciden. Si no, el hueco se queda: no se inventa un camino."""
+    completas = {ip: t for ip, t in trazas.items() if t and min(t) == 1}
+
+    def sirve(o, c, k):
+        # Sus saltos 1..k-1 son intermedios: ni huecos ni el propio equipo (la puerta de enlace de una subred se
+        # alcanza en el TTL 1 y su «salto» es ella misma).
+        return all(c.get(n) and c.get(n) != o for n in range(1, k))
+    for ip, t in trazas.items():
+        if not t or min(t) == 1:
+            continue
+        k = min(t)
+        cand = [c for o, c in completas.items() if o != ip and sirve(o, c, k)]
+        misma = [c for o, c in completas.items() if o != ip and _misma_24(o, ip) and sirve(o, c, k)]
+        for n in range(1, k):
+            vistos = {c[n] for c in (misma or cand)}
+            if len(vistos) == 1:
+                t[n] = vistos.pop()
+
+
+def _misma_24(a, b):
+    return a.rsplit(".", 1)[0] == b.rsplit(".", 1)[0]
+
+
+def _saltos(por_ttl, ip):
+    if por_ttl is None:
+        return None
     if not por_ttl:
         return []
     ultimo = max(por_ttl)
@@ -113,7 +165,7 @@ def _saltos(host, ip):
 def parsear_xml(texto):
     """Equipos «up» de una salida XML de Nmap (-oX -)."""
     raiz = ET.fromstring(texto)
-    equipos = []
+    equipos, trazas = [], {}
     for host in raiz.findall("host"):
         estado = host.find("status")
         if estado is None or estado.get("state") != "up":
@@ -136,8 +188,12 @@ def parsear_xml(texto):
             puertos.append({"puerto": int(p.get("portid")), "servicio": s.get("name") if s is not None else None,
                             "producto": s.get("product") if s is not None else None,
                             "version": s.get("version") if s is not None else None})
+        trazas[ip] = _traza(host)
         equipos.append({"ip": ip, "dns": dns, "mac": mac, "fabricante": fabricante, "puertos": puertos,
-                        "huella_ssh": None, "saltos": _saltos(host, ip)})
+                        "huella_ssh": None, "saltos": None})
+    _completar_omitidos(trazas)
+    for e in equipos:
+        e["saltos"] = _saltos(trazas[e["ip"]], e["ip"])
     return equipos
 
 

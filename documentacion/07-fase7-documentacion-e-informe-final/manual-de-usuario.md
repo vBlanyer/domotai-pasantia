@@ -896,6 +896,14 @@ y el conector. **Nada está preparado para el MDR**: el acceso a cada equipo se 
    - **Las zonas** (por ejemplo, `DMZ` e `Interna`), la **criticidad**, qué equipo **no se toca
      directamente** (la base de datos) y **de qué depende** cada uno (`srv-web01` de `srv-app01`, y este de
      `srv-db01`).
+   - **«Llega por»**: el cortafuegos por el que se sale desde cada equipo. Si el traceroute no lo vio («sin
+     camino») o lo dedujo, elígelo aquí. Si al descartar un cortafuegos (o cambiarle el papel) quedan equipos
+     que salían por él, se enganchan a su siguiente salto. Un router del proveedor que aparezca en el camino
+     de salida se **descarta**, y su red sale de las redes internas.
+
+   Cada cambio se guarda solo. Si uno no vale (por ejemplo, un nombre con espacios), se queda escrito y
+   marcado en rojo con el motivo, y los demás sí se guardan. Volver a escanear conserva lo que hayas escrito
+   para los equipos que sigan en la red.
 
    El mapa de abajo se dibuja con lo que vas aceptando, y «Falta para exportar» dice qué queda.
 6. **Validar y exportar.** Sin errores, descarga `perfil.yml`, `postura.json` y `politica.yml`. Los avisos

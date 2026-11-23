@@ -28,7 +28,7 @@ const BORRADOR = {
   },
 }
 const ESTADO = {
-  escaneando: false, error: null, borrador: BORRADOR, nombres_siem: ["nas01", "srv-web01"],
+  escaneando: false, error_escaneo: null, aviso_lectura: null, borrador: BORRADOR, nombres_siem: ["nas01", "srv-web01"],
   descubrimiento: { fecha: "2026-11-11T15:00:00+00:00", operador: "ana", rangos: ["10.20.0.0/24"], externo: "198.51.100.10", equipos: [] },
   por_defecto: { gestion: "10.99.0.10", rangos: ["10.20.0.0/24", "172.16.10.0/24"] },
 }
@@ -40,7 +40,7 @@ const PROP = (errores: string[] = [], avisos: string[] = []) => ({
 
 beforeEach(() => {
   h.escanear.mockReset(); h.escanear.mockResolvedValue(undefined)
-  h.guardar.mockReset(); h.guardar.mockResolvedValue(BORRADOR)
+  h.guardar.mockReset(); h.guardar.mockResolvedValue({ borrador: BORRADOR, rechazados: [] })
   h.propuesta.mockReset(); h.propuesta.mockResolvedValue(PROP())
   h.est = ESTADO
 })
@@ -69,7 +69,7 @@ describe("AsistenteRed · Escanear", () => {
   })
 
   it("muestra el error del último escaneo y el escaneo en marcha", () => {
-    h.est = { ...ESTADO, borrador: null, descubrimiento: null, error: "nmap falló (1): QUITTING!" }
+    h.est = { ...ESTADO, borrador: null, descubrimiento: null, error_escaneo: "nmap falló (1): QUITTING!" }
     const { unmount } = render(<AsistenteRed />)
     expect(screen.getByText(/QUITTING/)).toBeInTheDocument()
     unmount()
@@ -108,7 +108,7 @@ describe("AsistenteRed · lo revisado llega a la propuesta", () => {
   it("tras guardar, la propuesta se vuelve a pedir y refleja el cambio", async () => {
     h.propuesta.mockResolvedValueOnce(PROP(["10.20.0.30: falta su nombre en el SIEM"])).mockResolvedValue(PROP())
     const guardado = { ...BORRADOR, equipos: { ...BORRADOR.equipos, "10.20.0.30": { ...BORRADOR.equipos["10.20.0.30"], nombre: "nas01" } } }
-    h.guardar.mockResolvedValue(guardado)
+    h.guardar.mockResolvedValue({ borrador: guardado, rechazados: [] })
     render(<AsistenteRed />)
     expect(await screen.findByText(/falta su nombre en el SIEM/)).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText("Nombre en el SIEM de 10.20.0.30"), { target: { value: "nas01" } })
@@ -151,5 +151,92 @@ describe("AsistenteRed · Exportar", () => {
     render(<AsistenteRed />)
     fireEvent.click(screen.getByRole("tab", { name: /Validar y exportar/ }))
     expect(await screen.findByText(/srv-db01 está fuera de la cadena/)).toBeInTheDocument()
+  })
+})
+
+describe("AsistenteRed · revisión del 23/11", () => {
+  const conNombre = (ip: string, nombre: string) =>
+    ({ ...BORRADOR, equipos: { ...BORRADOR.equipos, [ip]: { ...BORRADOR.equipos[ip as keyof typeof BORRADOR.equipos], nombre } } })
+
+  it("el estado del asistente no se confunde con un fallo del sondeo", async () => {
+    const { AsistenteEstadoSchema } = await vi.importActual<typeof import("@/api")>("@/api")
+    const r = AsistenteEstadoSchema.parse({ ...ESTADO, error_escaneo: undefined, aviso_lectura: undefined, error: "QUITTING" })
+    expect("error" in r).toBe(false)
+    expect(r.error_escaneo).toBe("QUITTING")
+  })
+
+  it("si no hay datos y el sondeo falla, lo dice en vez de quedarse cargando", () => {
+    h.est = { error: "HTTP 500", causa: "http" }
+    render(<AsistenteRed />)
+    expect(screen.getByText(/No se pudo cargar el asistente/)).toBeInTheDocument()
+    expect(screen.queryByText(/Cargando el asistente/)).not.toBeInTheDocument()
+  })
+
+  it("enseña por qué no puede leer el descubrimiento", () => {
+    h.est = { ...ESTADO, borrador: null, descubrimiento: null, aviso_lectura: "no se puede leer asistente-descubrimiento.json: permiso" }
+    render(<AsistenteRed />)
+    expect(screen.getByRole("alert")).toHaveTextContent(/no se puede leer/)
+  })
+
+  it("un campo rechazado se queda marcado con lo escrito y el resto se guarda", async () => {
+    h.guardar.mockResolvedValue({ borrador: conNombre("10.20.0.10", "srv-app02"),
+      rechazados: [{ ip: "10.20.0.30", campo: "nombre", error: "10.20.0.30.nombre: letras, números…" }] })
+    render(<AsistenteRed />)
+    fireEvent.change(screen.getByLabelText("Nombre en el SIEM de 10.20.0.30"), { target: { value: "nas 01" } })
+    fireEvent.change(screen.getByLabelText("Nombre en el SIEM de 10.20.0.10"), { target: { value: "srv-app02" } })
+    await waitFor(() => expect(h.guardar).toHaveBeenCalled(), { timeout: 2000 })
+    const malo = await screen.findByDisplayValue("nas 01")
+    await waitFor(() => expect(malo).toHaveAttribute("aria-invalid", "true"))
+    expect(screen.getByDisplayValue("srv-app02")).toBeInTheDocument()
+    expect(screen.getByText(/No se guardó/)).toHaveTextContent(/10\.20\.0\.30/)
+  })
+
+  it("un fallo de red no pierde lo escrito: va en el siguiente envío", async () => {
+    h.guardar.mockRejectedValueOnce(new Error("HTTP 502")).mockResolvedValue({ borrador: BORRADOR, rechazados: [] })
+    render(<AsistenteRed />)
+    fireEvent.change(screen.getByLabelText("Nombre en el SIEM de 10.20.0.30"), { target: { value: "nas01" } })
+    expect(await screen.findByText(/HTTP 502/, undefined, { timeout: 2000 })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Nombre en el SIEM de 10.20.0.10"), { target: { value: "srv-app02" } })
+    await waitFor(() => expect(h.guardar).toHaveBeenLastCalledWith({
+      "10.20.0.30": { nombre: "nas01" }, "10.20.0.10": { nombre: "srv-app02" } }), { timeout: 2000 })
+  })
+
+  it("pasar a «Validar y exportar» guarda antes lo pendiente", async () => {
+    render(<AsistenteRed />)
+    fireEvent.change(screen.getByLabelText("Nombre en el SIEM de 10.20.0.30"), { target: { value: "nas01" } })
+    fireEvent.click(screen.getByRole("tab", { name: /Validar y exportar/ }))
+    await waitFor(() => expect(h.guardar).toHaveBeenCalledWith({ "10.20.0.30": { nombre: "nas01" } }), { timeout: 300 })
+  })
+
+  it("«Llega por» deja indicar el cortafuegos de un equipo", async () => {
+    h.est = { ...ESTADO, borrador: { ...BORRADOR, equipos: { ...BORRADOR.equipos,
+      "10.20.0.30": { ...BORRADOR.equipos["10.20.0.30"], gateway: null, sin_camino: true } } } }
+    render(<AsistenteRed />)
+    const sel = screen.getByLabelText("Llega por (10.20.0.30)") as HTMLSelectElement
+    expect([...sel.options].map((o) => o.textContent)).toEqual(expect.arrayContaining(["fw-borde", "fw-interno"]))
+    expect(screen.getByText(/sin camino/)).toBeInTheDocument()
+    fireEvent.change(sel, { target: { value: "10.0.0.2" } })
+    await waitFor(() => expect(h.guardar).toHaveBeenCalledWith({ "10.20.0.30": { gateway: "10.0.0.2" } }), { timeout: 2000 })
+  })
+
+  it("un cortafuegos no se ofrece a sí mismo como salida y puede ser el borde", () => {
+    render(<AsistenteRed />)
+    const sel = screen.getByLabelText("Llega por (10.0.0.2)") as HTMLSelectElement
+    const textos = [...sel.options].map((o) => o.textContent)
+    expect(textos).not.toContain("fw-interno")
+    expect(textos).toContain("— (borde)")
+  })
+
+  it("si la propuesta falla lo dice en vez de quedarse comprobando", async () => {
+    h.propuesta.mockResolvedValue({ error: "HTTP 409", causa: "http" })
+    render(<AsistenteRed />)
+    fireEvent.click(screen.getByRole("tab", { name: /Validar y exportar/ }))
+    expect(await screen.findByText(/No se pudo preparar la propuesta/)).toBeInTheDocument()
+  })
+
+  it("avisa en Revisar de que hay un escaneo en marcha", () => {
+    h.est = { ...ESTADO, escaneando: true }
+    render(<AsistenteRed />)
+    expect(screen.getByText(/escaneo en marcha/)).toHaveTextContent(/conserva/)
   })
 })

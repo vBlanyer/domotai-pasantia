@@ -196,3 +196,122 @@ class TestCLIAutorizacion(unittest.TestCase):
         with open(salida, encoding="utf-8") as f:
             r = json.load(f)
         self.assertEqual((r["origen"], r["autorizado"]), ("cli", True))
+
+
+def _xml_trazas(*hosts):
+    """Un -oX mínimo con el formato REAL de nmap: (ip, [(ttl, ipaddr), …]) por equipo."""
+    cuerpo = "".join(
+        f'<host><status state="up"/><address addr="{ip}" addrtype="ipv4"/><trace port="22" proto="tcp">'
+        + "".join(f'<hop ttl="{t}" ipaddr="{h}" rtt="0.1"/>' for t, h in saltos) + "</trace></host>"
+        for ip, saltos in hosts)
+    return f"<nmaprun>{cuerpo}</nmaprun>"
+
+
+class TestSaltosCompartidos(unittest.TestCase):
+    """Escaneo grande del banco (23/11): con muchos equipos detrás del mismo salto, nmap NO repite en el XML
+    los saltos que ya trazó para otro equipo («hop sharing»): 121 de 185 equipos salían «sin camino»."""
+
+    def test_el_salto_que_nmap_omite_se_toma_del_equipo_que_lo_trazo(self):
+        xml = _xml_trazas(("10.40.0.10", [(1, "10.100.0.1"), (2, "10.40.0.10")]),
+                          ("10.40.0.16", [(2, "10.40.0.16")]))
+        eq = {e["ip"]: e for e in d.parsear_xml(xml)}
+        self.assertEqual(eq["10.40.0.16"]["saltos"], ["10.100.0.1"])
+
+    def test_tambien_entre_subredes_si_el_prefijo_es_el_mismo_para_todos(self):
+        xml = _xml_trazas(("10.40.0.10", [(1, "10.100.0.1"), (2, "10.40.0.10")]),
+                          ("10.50.0.10", [(1, "10.100.0.1"), (2, "10.50.0.10")]),
+                          ("10.60.0.10", [(2, "10.60.0.10")]))
+        self.assertEqual({e["ip"]: e for e in d.parsear_xml(xml)}["10.60.0.10"]["saltos"], ["10.100.0.1"])
+
+    def test_si_los_candidatos_no_coinciden_prefiere_su_subred(self):
+        xml = _xml_trazas(("10.40.0.10", [(1, "10.100.0.1"), (2, "10.0.0.2"), (3, "10.40.0.10")]),
+                          ("10.50.0.10", [(1, "10.100.0.1"), (2, "10.0.0.9"), (3, "10.50.0.10")]),
+                          ("10.40.0.20", [(3, "10.40.0.20")]))
+        self.assertEqual({e["ip"]: e for e in d.parsear_xml(xml)}["10.40.0.20"]["saltos"], ["10.100.0.1", "10.0.0.2"])
+
+    def test_si_no_se_puede_saber_no_se_inventa(self):
+        xml = _xml_trazas(("10.40.0.10", [(1, "10.100.0.1"), (2, "10.0.0.2"), (3, "10.40.0.10")]),
+                          ("10.50.0.10", [(1, "10.100.0.1"), (2, "10.0.0.9"), (3, "10.50.0.10")]),
+                          ("10.60.0.20", [(3, "10.60.0.20")]))
+        self.assertEqual({e["ip"]: e for e in d.parsear_xml(xml)}["10.60.0.20"]["saltos"], ["10.100.0.1", None])
+
+    def test_la_puerta_de_enlace_de_la_subred_no_es_candidata(self):
+        # Escaneo del banco, 2.ª vuelta: 10.40.0.1 (interfaz del cortafuegos) se alcanza en el TTL 1; su «salto» es
+        # ella misma. Contarla rompía el acuerdo (10.40.0.x seguían sin camino) o, sola, daba un camino falso (hsm).
+        xml = _xml_trazas(("10.40.0.1", [(1, "10.40.0.1")]),
+                          ("10.40.0.10", [(1, "10.100.0.1"), (2, "10.40.0.10")]),
+                          ("10.40.0.16", [(2, "10.40.0.16")]),
+                          ("10.60.0.1", [(1, "10.60.0.1")]),
+                          ("10.60.0.10", [(2, "10.60.0.10")]))
+        eq = {e["ip"]: e for e in d.parsear_xml(xml)}
+        self.assertEqual(eq["10.40.0.16"]["saltos"], ["10.100.0.1"])
+        self.assertEqual(eq["10.60.0.10"]["saltos"], ["10.100.0.1"])          # de las demás subredes, no de 10.60.0.1
+        self.assertEqual(eq["10.40.0.1"]["saltos"], [])
+
+    def test_un_hueco_intermedio_sigue_siendo_hueco(self):
+        xml = _xml_trazas(("10.40.0.10", [(1, "10.100.0.1"), (3, "10.40.0.10")]))
+        self.assertEqual(d.parsear_xml(xml)[0]["saltos"], ["10.100.0.1", None])
+
+
+class TestPeticionDirecciones(unittest.TestCase):
+    def _p(self, **cambios):
+        return d.validar_peticion({**PETICION, **cambios})
+
+    def test_la_direccion_de_fuera_no_puede_ser_interna_ni_especial(self):
+        for externo in ("10.20.0.10", "192.168.1.1", "172.16.10.10", "100.64.0.1", "127.0.0.1", "0.0.0.0",
+                        "224.0.0.1", "255.255.255.255", "169.254.1.1", "240.0.0.1"):
+            with self.assertRaises(ValueError, msg=externo) as cm:
+                self._p(externo=externo)
+            self.assertIn("externo", str(cm.exception))
+
+    def test_la_direccion_de_fuera_publica_o_de_documentacion_vale(self):
+        for externo in ("198.51.100.10", "203.0.113.5", "8.8.8.8"):
+            self.assertEqual(self._p(externo=externo)["externo"], externo)
+
+    def test_solo_rangos_de_red_privada_de_verdad(self):
+        for r in ("127.0.0.0/22", "0.0.0.0/22", "240.0.0.0/22", "169.254.0.0/22", "255.255.255.252/30", "192.0.2.0/24"):
+            with self.assertRaises(ValueError, msg=r):
+                self._p(rangos=[r])
+        self.assertEqual(self._p(rangos=["100.64.0.0/22"])["rangos"], ["100.64.0.0/22"])
+
+
+class TestCLIDueño(unittest.TestCase):
+    def test_como_root_deja_el_fichero_al_dueno_del_directorio(self):
+        # `sudo mdr descubrir --salida /var/lib/mdr/…`: el servicio corre como triaje y debe poder leerlo.
+        import io, tempfile
+        from contextlib import redirect_stdout
+        from prototipo.herramientas import descubrir as cli
+        dirx = tempfile.mkdtemp()
+        salida = os.path.join(dirx, "d.json")
+        cambios = []
+        with mock.patch.object(d, "ejecutor_nmap", return_value=_correr_falso()), \
+                mock.patch.object(cli.os, "geteuid", return_value=0), \
+                mock.patch.object(cli.os, "chown", side_effect=lambda *a: cambios.append(a)), \
+                redirect_stdout(io.StringIO()):
+            rc = cli.main(["--gestion", "10.99.0.10", "--rango", "10.20.0.0/24", "--externo", "198.51.100.10",
+                           "--salida", salida, "--autorizado"])
+        st = os.stat(dirx)
+        self.assertEqual(rc, 0)
+        self.assertEqual(cambios, [(salida, st.st_uid, st.st_gid)])
+
+    def test_sin_root_no_toca_el_dueno(self):
+        import io, tempfile
+        from contextlib import redirect_stdout
+        from prototipo.herramientas import descubrir as cli
+        salida = os.path.join(tempfile.mkdtemp(), "d.json")
+        with mock.patch.object(d, "ejecutor_nmap", return_value=_correr_falso()), \
+                mock.patch.object(cli.os, "chown", side_effect=AssertionError("no debe cambiar el dueño")), \
+                redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(["--gestion", "10.99.0.10", "--rango", "10.20.0.0/24", "--externo", "198.51.100.10",
+                                       "--salida", salida, "--autorizado"]), 0)
+
+    def test_puertos_invalidos_se_explican_en_castellano(self):
+        import io, tempfile
+        from contextlib import redirect_stdout
+        from prototipo.herramientas import descubrir as cli
+        with redirect_stdout(io.StringIO()) as out:
+            rc = cli.main(["--gestion", "10.99.0.10", "--rango", "10.20.0.0/24", "--externo", "198.51.100.10",
+                           "--puertos", "22,abc", "--salida", os.path.join(tempfile.mkdtemp(), "d.json"), "--autorizado"])
+        self.assertEqual(rc, 1)
+        self.assertIn("puertos", out.getvalue())
+        self.assertNotIn("invalid literal", out.getvalue())

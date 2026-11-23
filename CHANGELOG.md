@@ -38,6 +38,33 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Asistente de red: los fallos de la prueba completa del 23/11.** Se probó con un escaneo real del banco
+  (8 subredes, 185 equipos).
+  - **Caminos:** cuando muchos equipos comparten camino, nmap no repite en el XML los saltos que ya trazó
+    para otro, y 121 de 185 salían «sin camino». Ahora se completan con los del equipo que los trazó, solo si
+    todos los candidatos coinciden y prefiriendo su subred; si no, el hueco se queda. En vivo: 177 de 177
+    con camino.
+  - **«Llega por» se puede editar:** el técnico indica el cortafuegos de un equipo. Descartar un cortafuegos,
+    o cambiarle el papel, reengancha lo que salía por él a su siguiente salto. No se admite un ciclo ni que
+    un cortafuegos salga por sí mismo.
+  - **La tabla ya no enseña lo que no se guardó:** cada campo válido se guarda y el inválido se queda escrito y
+    marcado con su motivo. Antes un campo malo tiraba el lote entero sin que la tabla lo reflejara. Además, un
+    fallo de red reintenta con el siguiente cambio, y pasar a «Validar y exportar» o salir de la vista guarda
+    antes lo pendiente.
+  - **`sudo mdr descubrir` deja el fichero al dueño del directorio**, el usuario del servicio, conservando el
+    0600. Antes quedaba de root y la consola lo ignoraba sin avisar. Un fichero del asistente ilegible o
+    dañado se explica en la vista y no da 500.
+  - **«Validar» aplica las reglas de `mdr validar-perfil`:** los avisos del mapa cuentan como errores y un
+    ciclo entre cortafuegos se señala.
+  - **La dirección de fuera tiene que ser de internet** y los rangos, redes del cliente (RFC 1918 o 100.64/10).
+    Antes una dirección interna invertía la cadena sin avisar. Un router del proveedor en el camino de salida
+    se avisa y, si se descarta, su red sale de las redes internas.
+  - **Reescanear conserva lo escrito** para las mismas IPs, también lo editado durante el escaneo, y la vista
+    avisa del escaneo en marcha.
+  - **La vista ya no se queda en «Cargando…»:** el estado traía una clave `error` y el sondeo tomaba cada
+    respuesta buena por un fallo. Un error de la propuesta se dice en vez de «Comprobando…».
+  - **Sin rastro en la traza no se escanea, y el escaneo no queda «en marcha» para siempre.**
+  - **Una IP ya no es interfaz de dos cortafuegos a la vez.**
 - **Una contención que desaparece del equipo ya no silencia al atacante.** El MDR daba por contenido lo
   que había contenido alguna vez: si la regla desaparecía fuera del MDR (un reinicio del equipo, alguien
   que vacía el cortafuegos, `banco.sh restaurar`), las repeticiones del ataque se suprimían como «ya

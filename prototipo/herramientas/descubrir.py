@@ -39,7 +39,10 @@ def main(argv=None):
         print(f"no se escanea: --gestion no es una IPv4: {a.gestion}")
         return 1
     try:
-        puertos = "comunes" if not a.puertos else [int(x) for x in a.puertos.split(",")]
+        try:
+            puertos = "comunes" if not a.puertos else [int(x) for x in a.puertos.split(",")]
+        except ValueError:
+            raise ValueError("puertos: números separados por comas, sin espacios ni intervalos (22,80,443)")
         peticion = d.validar_peticion({"rangos": a.rango, "externo": a.externo, "ritmo": a.ritmo, "puertos": puertos})
     except ValueError as e:
         print(f"no se escanea: {e}")
@@ -56,6 +59,11 @@ def main(argv=None):
     with os.fdopen(os.open(a.salida, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w", encoding="utf-8") as f:
         json.dump(r, f, ensure_ascii=False, indent=2)
     os.chmod(a.salida, 0o600)
+    if os.geteuid() == 0:
+        # Con sudo el fichero sería de root y el servicio (usuario triaje) no podría leerlo: se le da al dueño
+        # del directorio donde se deja (/var/lib/mdr es del servicio), conservando el 0600.
+        st = os.stat(os.path.dirname(os.path.abspath(a.salida)))
+        os.chown(a.salida, st.st_uid, st.st_gid)
     aviso = "" if r["traceroute"] else " · SIN caminos (traceroute necesita privilegios: usa sudo)"
     print(f"{len(r['equipos'])} equipos -> {a.salida}{aviso}")
     return 0

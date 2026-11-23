@@ -456,17 +456,22 @@ const EquipoBorradorSchema = z.object({
 export type EquipoBorrador = z.infer<typeof EquipoBorradorSchema>
 export const BorradorRedSchema = z.object({
   gestion: z.string().nullable(), redes_internas: z.array(z.string()), salida: z.array(z.string()),
+  rangos: z.array(z.string()).optional(), fuera_de_rangos: z.array(z.string()).optional(),
   traceroute: z.boolean(), equipos: z.record(z.string(), EquipoBorradorSchema), basado_en: z.string().nullable().optional(),
 })
 export type BorradorRed = z.infer<typeof BorradorRedSchema>
+// El servidor llama `error` al fallo del ÚLTIMO ESCANEO; aquí pasa a `error_escaneo`. Con la clave `error`, el
+// sondeo tomaba cada respuesta buena por un fallo, nunca recordaba los últimos datos buenos y la vista se
+// quedaba en «Cargando…» ante cualquier corte.
 export const AsistenteEstadoSchema = z.object({
   escaneando: z.boolean(), error: z.string().nullable(),
   descubrimiento: z.object({ fecha: z.string(), operador: z.string().nullable(), rangos: z.array(z.string()),
                              externo: z.string() }).passthrough().nullable(),
   borrador: BorradorRedSchema.nullable(), nombres_siem: z.array(z.string()),
+  aviso_lectura: z.string().nullable().optional(),       // un fichero del asistente que no se puede leer, y por qué
   por_defecto: z.object({ gestion: z.string().nullable(), rangos: z.array(z.string()) }),
-})
-export type AsistenteEstado = z.infer<typeof AsistenteEstadoSchema>
+}).transform(({ error, ...resto }) => ({ ...resto, error_escaneo: error }))
+export type AsistenteEstado = z.output<typeof AsistenteEstadoSchema>
 export const getAsistente = () => pedir("/api/asistente", AsistenteEstadoSchema)
 export const PropuestaRedSchema = z.object({
   perfil_yaml: z.string(), postura_json: z.string(), politica_yaml: z.string(),
@@ -490,8 +495,12 @@ async function postAsistente(ruta: string, cuerpo: Record<string, unknown>): Pro
 export async function escanearRed(p: PeticionEscaneo): Promise<void> {
   await postAsistente("/api/asistente/escanear", p)
 }
-export async function guardarBorrador(cambios: Record<string, Partial<EquipoBorrador>>): Promise<BorradorRed> {
-  return BorradorRedSchema.parse(await postAsistente("/api/asistente/borrador", { cambios }))
+// El servidor guarda cada campo que vale y devuelve los que no (campo a campo): uno mal escrito no tira el resto.
+const RechazadoSchema = z.object({ ip: z.string(), campo: z.string().nullable(), error: z.string() })
+export type CampoRechazado = z.infer<typeof RechazadoSchema>
+const GuardadoSchema = z.object({ borrador: BorradorRedSchema, rechazados: z.array(RechazadoSchema) })
+export async function guardarBorrador(cambios: Record<string, Partial<EquipoBorrador>>): Promise<z.infer<typeof GuardadoSchema>> {
+  return GuardadoSchema.parse(await postAsistente("/api/asistente/borrador", { cambios }))
 }
 
 export type CambioPolitica = {

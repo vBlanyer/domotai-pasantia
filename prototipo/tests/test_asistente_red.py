@@ -143,7 +143,8 @@ class TestPropuesta(unittest.TestCase):
             "sin nombre": {"10.20.0.30": {"nombre": ""}},
             "repetido": {"10.20.0.30": {"nombre": "srv-app01"}},
             "dependencia": {"10.20.0.77": {"incluido": False}, "10.20.0.10": {"depende_de": ["nadie"]}},
-            "gateway": {"10.0.0.2": {"incluido": False}},
+            # «gateway» (descartar fw-interno) ya no bloquea: lo que salía por él se reengancha a su siguiente
+            # salto (TestCambiosDelTecnico.test_descartar_un_cortafuegos_reengancha_lo_que_salia_por_el).
         }
         for nombre, cambios in casos.items():
             with self.subTest(caso=nombre):
@@ -220,3 +221,166 @@ class TestCasosReales(unittest.TestCase):
                         {"10.20.0.30": {"zona": "Gestión"}}):
             with self.subTest(cambios=cambios):
                 self.assertTrue(a.validar(a.aplicar_cambios(_oficina(), cambios), CAT)["errores"])
+
+
+def _sin_camino(b, ip):
+    b = copy.deepcopy(b)
+    b["equipos"][ip].update({"gateway": None, "sin_camino": True})
+    return b
+
+
+class TestCambiosDelTecnico(unittest.TestCase):
+    """Revisión del 23/11: lo que la consola tiene que dejar corregir sin tocar el fichero a mano."""
+
+    def setUp(self):
+        self.b = _oficina()
+
+    def test_zona_vacia_es_sin_zona(self):
+        self.assertIsNone(a.aplicar_cambios(self.b, {"10.20.0.10": {"zona": ""}})["equipos"]["10.20.0.10"]["zona"])
+
+    def test_indicar_el_cortafuegos_quita_sin_camino_y_deducido(self):
+        b = _sin_camino(self.b, "10.20.0.10")
+        b["equipos"]["10.20.0.10"]["deducido"] = True
+        e = a.aplicar_cambios(b, {"10.20.0.10": {"gateway": "10.0.0.2"}})["equipos"]["10.20.0.10"]
+        self.assertEqual((e["gateway"], e["sin_camino"], e["deducido"]), ("10.0.0.2", False, False))
+        self.assertFalse([x for x in a.validar(a.aplicar_cambios(b, {"10.20.0.10": {"gateway": "10.0.0.2"}}), CAT)["avisos"]
+                          if "srv-app01: sin camino" in x])
+
+    def test_un_cortafuegos_no_puede_ser_su_propio_gateway_ni_cerrar_un_ciclo(self):
+        with self.assertRaises(ValueError):
+            a.aplicar_cambios(self.b, {"10.0.0.2": {"gateway": "10.0.0.2"}})
+        with self.assertRaises(ValueError) as cm:
+            a.aplicar_cambios(self.b, {"10.99.0.1": {"gateway": "10.0.0.2"}})     # fw-interno ya sale por fw-borde
+        self.assertIn("ciclo", str(cm.exception))
+
+    def test_descartar_un_cortafuegos_reengancha_lo_que_salia_por_el(self):
+        b = a.aplicar_cambios(self.b, {"10.0.0.2": {"incluido": False}})
+        for ip in ("10.20.0.10", "10.20.0.20", "10.20.0.30"):
+            self.assertEqual(b["equipos"][ip]["gateway"], "10.99.0.1", ip)
+        self.assertFalse([x for x in a.validar(b, CAT)["errores"] if "descartado" in x])
+
+    def test_un_cortafuegos_que_pasa_a_servidor_tambien_reengancha(self):
+        b = a.aplicar_cambios(self.b, {"10.0.0.2": {"papel": "servidor"}})
+        self.assertEqual(b["equipos"]["10.20.0.10"]["gateway"], "10.99.0.1")
+
+    def test_pasar_a_cortafuegos_vacia_sus_dependencias(self):
+        b = a.aplicar_cambios(self.b, {"10.20.0.10": {"papel": "cortafuegos"}})
+        self.assertEqual(b["equipos"]["10.20.0.10"]["depende_de"], [])
+
+
+class TestCambiosParciales(unittest.TestCase):
+    def test_lo_valido_se_guarda_y_lo_invalido_se_devuelve(self):
+        b = a.borrador_inicial(DESC)
+        nuevo, rechazados = a.aplicar_cambios_parcial(
+            b, {"10.99.0.1": {"nombre": "fw core ñ", "criticidad": "alta"}, "10.0.0.2": {"nombre": "fw-interno"},
+                "1.2.3.4": {"nombre": "x"}})
+        self.assertEqual(nuevo["equipos"]["10.0.0.2"]["nombre"], "fw-interno")
+        self.assertEqual(nuevo["equipos"]["10.99.0.1"]["criticidad"], "alta")
+        self.assertEqual(nuevo["equipos"]["10.99.0.1"]["nombre"], "")
+        self.assertEqual(sorted((r["ip"], r["campo"]) for r in rechazados), [("1.2.3.4", None), ("10.99.0.1", "nombre")])
+        self.assertTrue(all(r["error"] for r in rechazados))
+
+
+class TestSaltosDelProveedor(unittest.TestCase):
+    """Doble NAT: el traceroute hacia fuera cruza routers privados del proveedor después del borde."""
+
+    def setUp(self):
+        desc = copy.deepcopy(DESC)
+        desc["salida"] = ["10.99.0.1", "192.168.1.1", "10.255.0.1"]
+        self.b = a.borrador_inicial(desc)
+
+    def test_avisa_de_que_un_salto_de_fuera_puede_ser_del_proveedor(self):
+        avisos = a.validar(self.b, CAT)["avisos"]
+        self.assertTrue(any("192.168.1.1" in x and "proveedor" in x for x in avisos), avisos)
+
+    def test_descartarlos_deja_el_borde_del_cliente_y_saca_sus_redes(self):
+        cambios = {ip: {"nombre": n} for ip, n in NOMBRES.items()}
+        cambios.update({"192.168.1.1": {"incluido": False}, "10.255.0.1": {"incluido": False}})
+        b = a.aplicar_cambios(self.b, cambios)
+        self.assertIsNone(b["equipos"]["10.99.0.1"]["gateway"])            # fw-borde vuelve a ser el borde
+        v = a.validar(b, CAT)
+        self.assertEqual(v["errores"], [])
+        redes = a.perfil_desde_borrador(b)["redes_internas"]
+        self.assertNotIn("192.168.1.0/24", redes)
+        self.assertNotIn("10.255.0.0/24", redes)
+        self.assertIn("10.20.0.0/24", redes)
+
+
+class TestValidarComoValidarPerfil(unittest.TestCase):
+    """«Validar» promete las mismas reglas que `mdr validar-perfil`: sin errores aquí, sin avisos allí."""
+
+    def _validar_perfil(self, b):
+        from prototipo.servicio import stream
+        perfil = a.perfil_desde_borrador(b)
+        return list(perfilm.validar(perfil)) + stream.lineas_avisos_red(perfil)
+
+    def test_el_caso_de_la_oficina_pasa_las_dos(self):
+        b = _oficina()
+        self.assertEqual(a.validar(b, CAT)["errores"], [])
+        self.assertEqual(self._validar_perfil(b), [])
+
+    def test_un_ciclo_entre_cortafuegos_es_un_error(self):
+        b = _oficina()
+        b["equipos"]["10.99.0.1"]["gateway"] = "10.0.0.2"                   # rutas asimétricas (o fichero a mano)
+        errores = a.validar(b, CAT)["errores"]
+        self.assertTrue(any("ciclo" in x for x in errores), errores)
+        self.assertTrue(self._validar_perfil(b))
+
+    def test_los_avisos_del_mapa_cuentan_como_errores(self):
+        # validar-perfil sale con 1 ante cualquier aviso del mapa (tablero.estado_red): aquí no puede ser «sin errores».
+        from unittest import mock
+        from prototipo.servicio import tablero
+        real = tablero.estado_red
+        with mock.patch.object(tablero, "estado_red", lambda p, *x: {**real(p, *x), "avisos": ["enlace a un nodo que no existe"]}):
+            errores = a.validar(_oficina(), CAT)["errores"]
+        self.assertTrue(any("enlace a un nodo que no existe" in x for x in errores), errores)
+
+    def test_sin_salida_trazada_se_avisa(self):
+        b = _oficina()
+        b["salida"] = []
+        self.assertTrue(any("salida" in x and "internet" in x for x in a.validar(b, CAT)["avisos"]))
+
+
+class TestConservarAlReescanear(unittest.TestCase):
+    def test_lo_escrito_para_las_mismas_ips_se_conserva(self):
+        viejo = _oficina()
+        nuevo = a.conservar_trabajo(viejo, a.borrador_inicial(DESC))
+        for ip, n in NOMBRES.items():
+            self.assertEqual(nuevo["equipos"][ip]["nombre"], n, ip)
+        self.assertEqual(nuevo["equipos"]["10.20.0.20"]["criticidad"], "critica")
+        self.assertTrue(nuevo["equipos"]["10.20.0.20"]["no_tocar"])
+        self.assertEqual(nuevo["equipos"]["10.20.0.10"]["depende_de"], ["srv-db01"])
+        self.assertEqual(nuevo["equipos"]["172.16.10.10"]["zona"], "DMZ")
+        self.assertEqual(a.validar(nuevo, CAT)["errores"], [])
+
+    def test_lo_que_ya_no_esta_no_se_inventa_y_lo_nuevo_queda_como_viene(self):
+        viejo = _oficina()
+        desc = copy.deepcopy(DESC)
+        desc["equipos"] = [e for e in desc["equipos"] if e["ip"] != "10.20.0.30"]
+        nuevo = a.conservar_trabajo(viejo, a.borrador_inicial(desc))
+        self.assertNotIn("10.20.0.30", nuevo["equipos"])
+        self.assertEqual(a.conservar_trabajo(None, a.borrador_inicial(DESC)), a.borrador_inicial(DESC))
+
+    def test_un_gateway_que_ya_no_es_cortafuegos_no_se_arrastra(self):
+        viejo = a.aplicar_cambios(_oficina(), {"10.20.0.10": {"gateway": "10.99.0.1"}})
+        desc = copy.deepcopy(DESC)
+        desc["salida"] = []
+        desc["equipos"] = [e for e in desc["equipos"] if e["ip"] != "10.99.0.1"]
+        for e in desc["equipos"]:
+            e["saltos"] = [s for s in (e.get("saltos") or []) if s != "10.99.0.1"] if e.get("saltos") is not None else None
+        nuevo = a.conservar_trabajo(viejo, a.borrador_inicial(desc))
+        self.assertNotEqual(nuevo["equipos"]["10.20.0.10"].get("gateway"), "10.99.0.1")
+
+
+class TestInterfacesUnSoloDueno(unittest.TestCase):
+    def test_una_ip_no_es_interfaz_de_dos_cortafuegos(self):
+        # Banco (23/11): todos los nodos comparten clave SSH; dos «cortafuegos» se quedaban las MISMAS 52 IPs.
+        desc = copy.deepcopy(DESC)
+        huella = next(e["huella_ssh"] for e in desc["equipos"] if e["ip"] == "10.99.0.1")
+        for e in desc["equipos"]:
+            if e["ip"] == "10.0.0.2":
+                e["huella_ssh"] = huella
+                e["puertos"] = [p for p in next(x for x in desc["equipos"] if x["ip"] == "10.99.0.1")["puertos"]]
+        b = a.borrador_inicial(desc)
+        todas = [i for e in b["equipos"].values() for i in e["interfaces"]]
+        self.assertEqual(len(todas), len(set(todas)), todas)

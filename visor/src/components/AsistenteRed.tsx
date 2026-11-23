@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
   useSondeo, getAsistente, escanearRed, guardarBorrador, getPropuestaRed,
-  type AsistenteEstado, type BorradorRed, type EquipoBorrador, type PropuestaRed, type FalloCon,
+  type AsistenteEstado, type BorradorRed, type EquipoBorrador, type PropuestaRed, type FalloCon, type Fallo,
+  type CampoRechazado,
 } from "@/api"
 import { MapaRed } from "@/components/MapaRed"
 import "./AsistenteRed.css"
@@ -20,6 +21,31 @@ function descargar(nombre: string, texto: string, tipo: string) {
   a.href = url; a.download = nombre
   document.body.appendChild(a); a.click(); a.remove()
   URL.revokeObjectURL(url)
+}
+
+// El borrador del servidor, con lo escrito en los campos RECHAZADOS encima: la tabla enseña lo que se tecleó
+// (marcado), no un valor que desaparece; lo demás es lo guardado de verdad.
+function conRechazos(b: BorradorRed, cambios: Record<string, Partial<EquipoBorrador>>, rechazados: CampoRechazado[]): BorradorRed {
+  if (!rechazados.length) return b
+  const equipos = { ...b.equipos }
+  for (const r of rechazados) {
+    if (!r.campo || !equipos[r.ip]) continue
+    const escrito = (cambios[r.ip] as Record<string, unknown> | undefined)?.[r.campo]
+    if (escrito !== undefined) equipos[r.ip] = { ...equipos[r.ip], [r.campo]: escrito }
+  }
+  return { ...b, equipos }
+}
+
+// Rechazos vigentes: los de este envío, y los anteriores salvo los campos que este envío sí guardó.
+function juntarRechazos(prev: Record<string, Record<string, string>>, cambios: Record<string, Partial<EquipoBorrador>>,
+  rechazados: CampoRechazado[]) {
+  const sig: Record<string, Record<string, string>> = {}
+  for (const [ip, campos] of Object.entries(prev)) {
+    const quedan = Object.fromEntries(Object.entries(campos).filter(([c]) => !(c in (cambios[ip] ?? {}))))
+    if (Object.keys(quedan).length) sig[ip] = quedan
+  }
+  for (const r of rechazados) if (r.campo) sig[r.ip] = { ...(sig[r.ip] ?? {}), [r.campo]: r.error }
+  return sig
 }
 
 function porIp(a: string, b: string) {
@@ -124,7 +150,7 @@ function Escanear({ est }: { est: AsistenteEstado }) {
             <span className="asr-ayuda">Tarda unos minutos a ritmo suave.</span>
           </div>
           {est.escaneando && <p className="asr-estado" role="status">Escaneando… la página se actualiza sola al terminar.</p>}
-          {(fallo || est.error) && <p className="asr-error" role="alert">{fallo ?? `El último escaneo falló: ${est.error}`}</p>}
+          {(fallo || est.error_escaneo) && <p className="asr-error" role="alert">{fallo ?? `El último escaneo falló: ${est.error_escaneo}`}</p>}
           {est.descubrimiento && (
             <p className="asr-ayuda">Último escaneo: {new Date(est.descubrimiento.fecha).toLocaleString("es")} por {est.descubrimiento.operador ?? "—"}.</p>
           )}
@@ -134,8 +160,11 @@ function Escanear({ est }: { est: AsistenteEstado }) {
   )
 }
 
-function Revisar({ borrador, nombres, propuesta, onCambio }: {
-  borrador: BorradorRed; nombres: string[]; propuesta: PropuestaRed | null
+type Rechazos = Record<string, Record<string, string>>
+
+function Revisar({ borrador, nombres, propuesta, falloPropuesta, rechazos, onCambio }: {
+  borrador: BorradorRed; nombres: string[]; propuesta: PropuestaRed | null; falloPropuesta: string | null
+  rechazos: Rechazos
   onCambio: (ip: string, campo: keyof EquipoBorrador, valor: unknown) => void
 }) {
   // «Depende de» se escribe como texto (con sus comas) y se guarda como lista: si el campo mostrara la lista
@@ -143,8 +172,24 @@ function Revisar({ borrador, nombres, propuesta, onCambio }: {
   const [depTexto, setDepTexto] = useState<Record<string, string>>({})
   const ips = Object.keys(borrador.equipos).sort(porIp)
   const nombreDe = (ip: string) => borrador.equipos[ip]?.nombre || ip
-  const llegaPor = (e: EquipoBorrador) =>
-    e.sin_camino ? "sin camino" : e.gateway ? nombreDe(e.gateway) : e.papel === "cortafuegos" ? "— (borde)" : "directo"
+  const cortafuegos = ips.filter((ip) => borrador.equipos[ip].papel === "cortafuegos" && borrador.equipos[ip].incluido)
+  const malo = (ip: string, campo: string) => rechazos[ip]?.[campo]
+  // «Llega por»: el cortafuegos por el que se sale desde el equipo (el técnico lo indica si el traceroute no lo vio).
+  const llegaPor = (ip: string, e: EquipoBorrador) => {
+    const opciones = cortafuegos.filter((f) => f !== ip)
+    if (e.gateway && !opciones.includes(e.gateway)) opciones.push(e.gateway)
+    return (
+      <>
+        <select className={`asr-input${e.sin_camino && !e.gateway ? " asr-falta" : ""}`} aria-label={`Llega por (${ip})`}
+          value={e.gateway ?? ""} onChange={(x) => onCambio(ip, "gateway", x.target.value || null)}>
+          <option value="">{e.papel === "cortafuegos" ? "— (borde)" : "directo"}</option>
+          {opciones.map((f) => <option key={f} value={f}>{nombreDe(f)}</option>)}
+        </select>
+        {e.sin_camino && !e.gateway && <span className="asr-nota asr-ojo">sin camino: indica su cortafuegos</span>}
+        {e.deducido && <span className="asr-nota">deducido: confírmalo</span>}
+      </>
+    )
+  }
   return (
     <>
       <section className="asr-tarjeta" aria-labelledby="asr-equipos">
@@ -163,15 +208,18 @@ function Revisar({ borrador, nombres, propuesta, onCambio }: {
                   <tr key={ip} className={e.incluido ? "" : "asr-descartado"}>
                     <td><input type="checkbox" aria-label={`Incluir ${ip}`} checked={e.incluido} onChange={(x) => onCambio(ip, "incluido", x.target.checked)} /></td>
                     <td>
-                      <input className={`asr-input asr-nombre${e.incluido && !e.nombre ? " asr-falta" : ""}`} list="nombres-siem"
+                      <input className={`asr-input asr-nombre${(e.incluido && !e.nombre) || malo(ip, "nombre") ? " asr-falta" : ""}`} list="nombres-siem"
                         aria-label={`Nombre en el SIEM de ${ip}`} placeholder="escribe el nombre" value={e.nombre}
+                        aria-invalid={malo(ip, "nombre") ? true : undefined} title={malo(ip, "nombre")}
                         onChange={(x) => onCambio(ip, "nombre", x.target.value)} />
                       {e.interfaces.length > 0 && <span className="asr-nota">también {e.interfaces.join(", ")}</span>}
                     </td>
                     <td className="asr-mono">{ip}</td>
                     <td><span className="asr-serv">{e.servicios.length ? e.servicios.map((p) => <span key={p} className="asr-p">{p}</span>) : <span className="asr-nota">ninguno</span>}</span></td>
-                    <td className={e.sin_camino ? "asr-ojo" : ""}>{llegaPor(e)}{e.deducido && <span className="asr-nota">deducido: confírmalo</span>}</td>
-                    <td>{fw ? "—" : <input className="asr-input asr-zona" aria-label={`Zona de ${ip}`} value={e.zona ?? ""} onChange={(x) => onCambio(ip, "zona", x.target.value)} />}</td>
+                    <td>{llegaPor(ip, e)}</td>
+                    <td>{fw ? "—" : <input className={`asr-input asr-zona${malo(ip, "zona") ? " asr-falta" : ""}`} aria-label={`Zona de ${ip}`}
+                      aria-invalid={malo(ip, "zona") ? true : undefined} title={malo(ip, "zona")}
+                      value={e.zona ?? ""} onChange={(x) => onCambio(ip, "zona", x.target.value)} />}</td>
                     <td><select className="asr-input" aria-label={`Papel de ${ip}`} value={e.papel} onChange={(x) => onCambio(ip, "papel", x.target.value)}>
                       {PAPELES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></td>
                     <td><select className="asr-input" aria-label={`Criticidad de ${ip}`} value={e.criticidad} onChange={(x) => onCambio(ip, "criticidad", x.target.value)}>
@@ -194,11 +242,13 @@ function Revisar({ borrador, nombres, propuesta, onCambio }: {
         <section className="asr-tarjeta" aria-labelledby="asr-mapa">
           <h2 id="asr-mapa">Así queda el mapa</h2>
           {propuesta ? <MapaRed red={propuesta.red} seleccionado={null} onSeleccionar={() => {}} dependencias ataques={false} cascada={false} />
+            : falloPropuesta ? <p className="asr-error">No se pudo preparar la propuesta: {falloPropuesta}</p>
             : <p className="asr-ayuda">Dibujando…</p>}
         </section>
         <section className="asr-tarjeta" aria-labelledby="asr-falta">
           <h2 id="asr-falta">Falta para exportar</h2>
-          {!propuesta ? <p className="asr-ayuda">Comprobando…</p>
+          {!propuesta ? (falloPropuesta ? <p className="asr-error">No se pudo preparar la propuesta: {falloPropuesta}</p>
+            : <p className="asr-ayuda">Comprobando…</p>)
             : propuesta.validacion.errores.length === 0 ? <p className="asr-ok">Nada: puedes validar y exportar.</p>
             : <ul className="asr-lista">{propuesta.validacion.errores.map((x) => <li key={x}>{x}</li>)}</ul>}
         </section>
@@ -207,9 +257,11 @@ function Revisar({ borrador, nombres, propuesta, onCambio }: {
   )
 }
 
-function Exportar({ propuesta }: { propuesta: PropuestaRed | null }) {
+function Exportar({ propuesta, falloPropuesta }: { propuesta: PropuestaRed | null; falloPropuesta: string | null }) {
   const [vista, setVista] = useState<"perfil" | "postura" | "politica">("perfil")
-  if (!propuesta) return <p className="asr-ayuda">Comprobando la propuesta…</p>
+  if (!propuesta) return falloPropuesta
+    ? <p className="asr-error" role="alert">No se pudo preparar la propuesta: {falloPropuesta}</p>
+    : <p className="asr-ayuda">Comprobando la propuesta…</p>
   const { errores, avisos } = propuesta.validacion
   const bloqueado = errores.length > 0
   const ficheros: [typeof vista, string, string, string][] = [
@@ -261,12 +313,15 @@ function Exportar({ propuesta }: { propuesta: PropuestaRed | null }) {
 
 export function AsistenteRed() {
   const t = useSondeo(getAsistente, 3000)
-  // El estado trae su propio `error` (el del último escaneo): el fallo del sondeo se distingue por no traer `escaneando`.
-  const est: AsistenteEstado | undefined = t && "escaneando" in t ? t : (t as FalloCon<AsistenteEstado> | undefined)?.datos
+  // El fallo del último escaneo viaja como `error_escaneo`: aquí `error` es solo el del sondeo.
+  const est: AsistenteEstado | undefined = t && !("error" in t) ? t : (t as FalloCon<AsistenteEstado> | undefined)?.datos
+  const falloSondeo = t && "error" in t ? (t as Fallo).error : null
   const [paso, setPaso] = useState<Paso | null>(null)
   const [local, setLocal] = useState<BorradorRed | null>(null)
   const [propuesta, setPropuesta] = useState<PropuestaRed | null>(null)
+  const [falloPropuesta, setFalloPropuesta] = useState<string | null>(null)
   const [fallo, setFallo] = useState<string | null>(null)
+  const [rechazos, setRechazos] = useState<Rechazos>({})
   const [guardados, setGuardados] = useState(0)
   const pendiente = useRef<Record<string, Partial<EquipoBorrador>>>({})
   const reloj = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -281,13 +336,42 @@ export function AsistenteRed() {
   useEffect(() => {
     if (!borrador) return
     let vivo = true
-    getPropuestaRed().then((r) => { if (vivo && !("error" in r)) setPropuesta(r) })
+    getPropuestaRed().then((r) => {
+      if (!vivo) return
+      if ("error" in r) { setPropuesta(null); setFalloPropuesta(r.error) }
+      else { setPropuesta(r); setFalloPropuesta(null) }
+    })
     return () => { vivo = false }
   }, [claveRemota, guardados])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => () => { if (reloj.current) clearTimeout(reloj.current) }, [])
+  // Envía lo pendiente YA. Lo rechazado se queda en la tabla con lo escrito y marcado (no se finge guardado);
+  // un fallo de red devuelve lo enviado a la cola para el siguiente envío.
+  const enviar = async () => {
+    if (reloj.current) { clearTimeout(reloj.current); reloj.current = null }
+    const cambios = pendiente.current
+    if (!Object.keys(cambios).length) return
+    pendiente.current = {}
+    try {
+      const { borrador: guardado, rechazados } = await guardarBorrador(cambios)
+      setLocal(conRechazos(guardado, cambios, rechazados))
+      setRechazos((prev) => juntarRechazos(prev, cambios, rechazados))
+      setFallo(rechazados.length ? `No se guardó: ${rechazados.map((r) => r.error).join(" · ")}` : null)
+      setGuardados((n) => n + 1)
+    } catch (e) {
+      const nuevos = pendiente.current
+      pendiente.current = { ...cambios }
+      for (const [ip, c] of Object.entries(nuevos)) pendiente.current[ip] = { ...(pendiente.current[ip] ?? {}), ...c }
+      setFallo(`No se guardó (se reintentará con el siguiente cambio): ${(e as Error).message}`)
+    }
+  }
+  const enviarRef = useRef(enviar)
+  enviarRef.current = enviar
+  // Al salir de la vista, lo pendiente se envía (antes se cancelaba y el último cambio se perdía).
+  useEffect(() => () => { void enviarRef.current() }, [])
 
-  if (!est) return <p className="asr-ayuda">Cargando el asistente…</p>
+  if (!est) return falloSondeo
+    ? <p className="asr-error" role="alert">No se pudo cargar el asistente ({falloSondeo}). Se reintenta solo.</p>
+    : <p className="asr-ayuda">Cargando el asistente…</p>
 
   const cambiar = (ip: string, campo: keyof EquipoBorrador, valor: unknown) => {
     if (!borrador) return
@@ -295,17 +379,11 @@ export function AsistenteRed() {
     setLocal(nuevo)
     pendiente.current = { ...pendiente.current, [ip]: { ...(pendiente.current[ip] ?? {}), [campo]: valor } }
     if (reloj.current) clearTimeout(reloj.current)
-    reloj.current = setTimeout(async () => {
-      const cambios = pendiente.current
-      pendiente.current = {}
-      try {
-        setLocal(await guardarBorrador(cambios))
-        setFallo(null)
-        setGuardados((n) => n + 1)
-      } catch (e) {
-        setFallo(`No se guardó: ${(e as Error).message}`)
-      }
-    }, RETARDO_MS)
+    reloj.current = setTimeout(() => { void enviar() }, RETARDO_MS)
+  }
+  const irA = async (n: Paso) => {
+    await enviar()                     // la propuesta del paso 3 sale de lo guardado: primero se guarda
+    setPaso(n)
   }
 
   const pasos: [Paso, string][] = [[1, "Escanear"], [2, "Revisar lo encontrado"], [3, "Validar y exportar"]]
@@ -318,13 +396,20 @@ export function AsistenteRed() {
       <div role="tablist" aria-label="Pasos del asistente" className="asr-pasos">
         {pasos.map(([n, nombre]) => (
           <button key={n} type="button" role="tab" aria-selected={actual === n} className={actual === n ? "on" : ""}
-            disabled={n > 1 && !borrador} onClick={() => setPaso(n)}><b>{n}</b>{nombre}</button>
+            disabled={n > 1 && !borrador} onClick={() => { void irA(n) }}><b>{n}</b>{nombre}</button>
         ))}
       </div>
+      {est.aviso_lectura && <p className="asr-error" role="alert">{est.aviso_lectura}</p>}
+      {falloSondeo && <p className="asr-ayuda">Sin conexión con el MDR ({falloSondeo}): enseña lo último recibido.</p>}
+      {est.escaneando && actual !== 1 && (
+        <p className="asr-estado" role="status">Hay un escaneo en marcha: al terminar se rehace el borrador y se conserva lo
+          que hayas escrito para los equipos que sigan en la red.</p>
+      )}
       {fallo && <p className="asr-error" role="alert">{fallo}</p>}
       {actual === 1 && <Escanear est={est} />}
-      {actual === 2 && borrador && <Revisar borrador={borrador} nombres={est.nombres_siem} propuesta={propuesta} onCambio={cambiar} />}
-      {actual === 3 && <Exportar propuesta={propuesta} />}
+      {actual === 2 && borrador && <Revisar borrador={borrador} nombres={est.nombres_siem} propuesta={propuesta}
+        falloPropuesta={falloPropuesta} rechazos={rechazos} onCambio={cambiar} />}
+      {actual === 3 && <Exportar propuesta={propuesta} falloPropuesta={falloPropuesta} />}
     </div>
   )
 }

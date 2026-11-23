@@ -67,8 +67,8 @@ def borrador_inicial(desc):
         puertos_f = {p["puerto"] for p in (equipos.get(f) or {}).get("puertos") or []}
         otras = []
         for ip, e in sorted(equipos.items()):
-            if not huella or ip == f or ip in fws or e.get("huella_ssh") != huella:
-                continue
+            if not huella or ip == f or ip in fws or ip in absorbidas or e.get("huella_ssh") != huella:
+                continue                  # (una IP ya asignada a otro cortafuegos no es de dos a la vez)
             if f in (e.get("saltos") or []) or {p["puerto"] for p in e.get("puertos") or []} != puertos_f:
                 compartida[ip] = f
             else:
@@ -97,7 +97,8 @@ def borrador_inicial(desc):
         if ip in absorbidas:
             continue
         puertos = sorted(p["puerto"] for p in e.get("puertos") or [])
-        base = {"incluido": True, "nombre": (e.get("dns") or "").split(".")[0] if e.get("dns") else "",
+        ptr = (e.get("dns") or "").split(".")[0]
+        base = {"incluido": True, "nombre": ptr if _NOMBRE.match(ptr or "") else "",
                 "criticidad": "media", "no_tocar": False, "depende_de": [], "funcion": "", "servicios": puertos,
                 "interfaces": [], "deducido": False, "sin_camino": False, "huella": bool(e.get("huella_ssh"))}
         if ip in fws:
@@ -123,46 +124,160 @@ def borrador_inicial(desc):
             salida_b[f] = {"incluido": True, "nombre": "", "criticidad": "media", "no_tocar": False, "depende_de": [],
                            "funcion": "", "servicios": [], "interfaces": [], "papel": "cortafuegos", "zona": None,
                            "gateway": gw_fw[f], "deducido": deducido[f], "sin_camino": False, "huella": False}
-    redes = list(rangos) + sorted({_subred(f) for f in fuera} - set(rangos))
-    return {"version": 1, "basado_en": desc.get("fecha"), "gestion": gestion, "redes_internas": redes,
-            "salida": salida, "traceroute": bool(desc.get("traceroute")), "equipos": salida_b, "fuera_de_rangos": fuera}
+    b = {"version": 1, "basado_en": desc.get("fecha"), "gestion": gestion, "rangos": list(rangos),
+         "salida": salida, "traceroute": bool(desc.get("traceroute")), "equipos": salida_b, "fuera_de_rangos": fuera}
+    b["redes_internas"] = _redes_internas(b)
+    return b
+
+
+def _redes_internas(b):
+    """Los rangos escaneados más el segmento de cada cortafuegos de fuera de ellos que siga INCLUIDO: descartar
+    un router del proveedor saca también su red (antes se quedaba en el perfil exportado)."""
+    if "rangos" not in b:                       # borrador anterior al 23/11
+        return list(b.get("redes_internas") or [])
+    eq = b.get("equipos") or {}
+    fuera = {_subred(f) for f in b.get("fuera_de_rangos") or []
+             if (eq.get(f) or {}).get("incluido") and (eq.get(f) or {}).get("papel") == "cortafuegos"}
+    return list(b["rangos"]) + sorted(fuera - set(b["rangos"]))
+
+
+def _cierra_ciclo(eq, ip, gw):
+    """¿Poner `gw` como salida del cortafuegos `ip` cierra un ciclo? (siguiendo la cadena desde `gw`)"""
+    visto, actual = set(), gw
+    while actual and actual not in visto:
+        if actual == ip:
+            return True
+        visto.add(actual)
+        actual = (eq.get(actual) or {}).get("gateway")
+    return False
+
+
+def _normalizar(ip, k, v):
+    if k in ("incluido", "no_tocar") and not isinstance(v, bool):
+        raise ValueError(f"{ip}.{k}: verdadero o falso")
+    if k == "nombre" and not (v == "" or (isinstance(v, str) and _NOMBRE.match(v))):
+        raise ValueError(f"{ip}.nombre: letras, números, puntos, guiones y guiones bajos (hasta 63)")
+    if k == "zona":
+        if v == "":
+            return None                                  # vaciar el campo en la consola: sin zona
+        if not (v is None or (isinstance(v, str) and 0 < len(v.strip()) <= 40)):
+            raise ValueError(f"{ip}.zona: un nombre de hasta 40 caracteres")
+        return v.strip() if v is not None else None
+    if k == "papel" and v not in PAPELES:
+        raise ValueError(f"{ip}.papel: {', '.join(PAPELES)}")
+    if k == "criticidad" and v not in CRITICIDADES:
+        raise ValueError(f"{ip}.criticidad: {', '.join(CRITICIDADES)}")
+    if k == "depende_de" and not (isinstance(v, list) and all(isinstance(x, str) for x in v)):
+        raise ValueError(f"{ip}.depende_de: una lista de nombres")
+    if k == "funcion":
+        if not isinstance(v, str):
+            raise ValueError(f"{ip}.funcion: texto")
+        return re.sub(r"[\x00-\x1f\x7f]", "", v).strip()[:80]
+    return v
+
+
+def _aplicar_uno(eq, ip, k, v):
+    """Aplica UN campo sobre `eq` (in situ). ValueError si no vale; entonces no toca nada."""
+    v = _normalizar(ip, k, v)
+    e = eq[ip]
+    if k == "gateway" and v is not None:
+        fws = {x for x, o in eq.items() if o["papel"] == "cortafuegos"}
+        if v == ip:
+            raise ValueError(f"{ip}.gateway: un equipo no puede salir por sí mismo")
+        if v not in fws:
+            raise ValueError(f"{ip}.gateway: debe ser un cortafuegos del borrador")
+        if e["papel"] == "cortafuegos" and _cierra_ciclo(eq, ip, v):
+            raise ValueError(f"{ip}.gateway: {v} ya sale por {ip}; cerraría un ciclo")
+    era_fw = e["papel"] == "cortafuegos" and e["incluido"]
+    e[k] = v
+    if k == "gateway":                       # lo ha indicado el técnico: ni «sin camino» ni «deducido»
+        e["sin_camino"] = e["deducido"] = False
+    if k == "papel" and v == "cortafuegos":
+        e["depende_de"] = []                 # la consola no los enseña para un cortafuegos
+    if era_fw and not (e["papel"] == "cortafuegos" and e["incluido"]):
+        # Sale de la cadena (descartado o ya no es cortafuegos): lo que salía por él sale por su siguiente salto.
+        for otro, o in eq.items():
+            if otro != ip and o.get("gateway") == ip:
+                o["gateway"] = e.get("gateway") if e.get("gateway") != otro else None
 
 
 def aplicar_cambios(borrador, cambios):
     """Borrador NUEVO con los cambios del técnico ({ip: {campo: valor}}). ValueError si algo no vale."""
     if not isinstance(cambios, dict):
         raise ValueError("cambios: se esperaba {ip: {campo: valor}}")
+    nuevo, rechazados = aplicar_cambios_parcial(borrador, cambios)
+    if rechazados:
+        raise ValueError(rechazados[0]["error"])
+    return nuevo
+
+
+def aplicar_cambios_parcial(borrador, cambios):
+    """(borrador NUEVO, rechazados): aplica cada campo que vale y devuelve los que no, como
+    [{ip, campo, error}]. Así un nombre mal escrito no se lleva por delante los cambios buenos que viajaban
+    con él (antes el lote entero se rechazaba y la consola seguía enseñándolos como guardados)."""
+    if not isinstance(cambios, dict):
+        raise ValueError("cambios: se esperaba {ip: {campo: valor}}")
     nuevo = copy.deepcopy(borrador)
-    eq = nuevo["equipos"]
-    fws = {ip for ip, e in eq.items() if e["papel"] == "cortafuegos"}
+    eq, rechazados = nuevo["equipos"], []
     for ip, campos in cambios.items():
         if ip not in eq:
-            raise ValueError(f"{ip}: no es un equipo del borrador")
-        if not isinstance(campos, dict) or set(campos) - _CAMPOS:
-            raise ValueError(f"{ip}: campos admitidos: {', '.join(sorted(_CAMPOS))}")
+            rechazados.append({"ip": ip, "campo": None, "error": f"{ip}: no es un equipo del borrador"})
+            continue
+        if not isinstance(campos, dict):
+            rechazados.append({"ip": ip, "campo": None, "error": f"{ip}: se esperaba {{campo: valor}}"})
+            continue
         for k, v in campos.items():
-            if k in ("incluido", "no_tocar") and not isinstance(v, bool):
-                raise ValueError(f"{ip}.{k}: verdadero o falso")
-            if k == "nombre" and not (v == "" or (isinstance(v, str) and _NOMBRE.match(v))):
-                raise ValueError(f"{ip}.nombre: letras, números, puntos, guiones y guiones bajos (hasta 63)")
-            if k == "zona" and not (v is None or (isinstance(v, str) and 0 < len(v.strip()) <= 40)):
-                raise ValueError(f"{ip}.zona: un nombre de hasta 40 caracteres")
-            if k == "papel" and v not in PAPELES:
-                raise ValueError(f"{ip}.papel: {', '.join(PAPELES)}")
-            if k == "criticidad" and v not in CRITICIDADES:
-                raise ValueError(f"{ip}.criticidad: {', '.join(CRITICIDADES)}")
-            if k == "depende_de" and not (isinstance(v, list) and all(isinstance(x, str) for x in v)):
-                raise ValueError(f"{ip}.depende_de: una lista de nombres")
-            if k == "gateway" and v is not None and v not in fws:
-                raise ValueError(f"{ip}.gateway: debe ser un cortafuegos del borrador")
-            if k == "funcion":
-                if not isinstance(v, str):
-                    raise ValueError(f"{ip}.funcion: texto")
-                v = re.sub(r"[\x00-\x1f\x7f]", "", v).strip()[:80]
-            if k == "zona" and v is not None:
-                v = v.strip()
-            eq[ip][k] = v
-    return nuevo
+            if k not in _CAMPOS:
+                rechazados.append({"ip": ip, "campo": k, "error": f"{ip}: campos admitidos: {', '.join(sorted(_CAMPOS))}"})
+                continue
+            try:
+                _aplicar_uno(eq, ip, k, v)
+            except ValueError as e:
+                rechazados.append({"ip": ip, "campo": k, "error": str(e)})
+    nuevo["redes_internas"] = _redes_internas(nuevo)
+    return nuevo, rechazados
+
+
+_CONSERVABLES = ("nombre", "zona", "criticidad", "no_tocar", "depende_de", "funcion", "incluido")
+
+
+def conservar_trabajo(viejo, nuevo):
+    """El borrador de un escaneo NUEVO con lo que el técnico ya había escrito para las mismas IPs (nombre, zona,
+    criticidad, dependencias…), y el cortafuegos que indicó si el nuevo no lo ve y sigue siendo cortafuegos.
+    Antes reescanear borraba todo el trabajo sin avisar."""
+    if not viejo or not isinstance(viejo.get("equipos"), dict):
+        return nuevo
+    b = copy.deepcopy(nuevo)
+    eq = b["equipos"]
+    fws = {ip for ip, e in eq.items() if e["papel"] == "cortafuegos"}
+    for ip, v in viejo["equipos"].items():
+        if ip not in eq or not isinstance(v, dict):
+            continue
+        e = eq[ip]
+        for k in _CONSERVABLES:
+            if k in v and not (k == "zona" and (v[k] is None or e["papel"] == "cortafuegos")):
+                e[k] = copy.deepcopy(v[k])
+        if e["papel"] == "cortafuegos":
+            e["depende_de"] = []
+        gw = v.get("gateway")
+        if gw in fws and gw != ip and e.get("gateway") is None and not (e["papel"] == "cortafuegos" and _cierra_ciclo(eq, ip, gw)):
+            e.update({"gateway": gw, "sin_camino": False, "deducido": False})
+    b["redes_internas"] = _redes_internas(b)
+    return b
+
+
+def _ciclos(inc, fws):
+    """Ciclos en la cadena de cortafuegos incluidos (cada uno una vez)."""
+    vistos, ciclos = set(), []
+    for f in sorted(fws):
+        camino, actual = [], f
+        while actual in fws and actual not in camino and actual not in vistos:
+            camino.append(actual)
+            actual = inc[actual].get("gateway")
+        if actual in camino:
+            ciclos.append(camino[camino.index(actual):] + [actual])
+        vistos.update(camino)
+    return ciclos
 
 
 def _incluidos(b):
@@ -177,7 +292,7 @@ def perfil_desde_borrador(b):
     """El perfil.yml propuesto: la red, sin reglas de política (van en politica.yml)."""
     inc = _incluidos(b)
     fws = {ip for ip, e in inc.items() if e["papel"] == "cortafuegos"}
-    p = perfilm.perfil_minimo(b["gestion"], b["redes_internas"])
+    p = perfilm.perfil_minimo(b["gestion"], _redes_internas(b))
     activos, topologia, enlaces, zonas = p["activos"], {}, {}, {}
     for ip, e in sorted(inc.items()):
         nombre = e["nombre"]
@@ -251,11 +366,16 @@ def validar(b, catalogo):
         for dep in e["depende_de"]:
             if dep not in nombres:
                 errores.append(f"{e['nombre'] or ip}: depende de {dep}, que no está entre los equipos incluidos")
+    for ciclo in _ciclos(inc, fws):
+        errores.append(f"ciclo de cortafuegos: {' → '.join(_nombre_de(b, f) or f for f in ciclo)}: "
+                       "cambia el de alguno en «Llega por»")
     if fws and not any(not inc[f].get("gateway") for f in fws):
         errores.append("ningún cortafuegos es el de borde (sin gateway): la cadena no llega a internet")
     if not errores:
+        from prototipo.servicio import tablero       # lo mismo que mira «mdr validar-perfil»
         perfil = perfil_desde_borrador(b)
         errores += [f"perfil: {x}" for x in perfilm.validar(perfil)]
+        errores += [f"perfil: mapa de la red: {x}" for x in tablero.estado_red(perfil, [])["avisos"]]
         errores += [f"política: {x}" for x in pe.validar_politica(politica_desde(b, "2026-01-01"), perfil, catalogo)]
         en_cadena = set((perfil.get("topologia") or {}))
         perimetrales = ", ".join(sorted(n for n, t in perfil["topologia"].items()
@@ -266,7 +386,7 @@ def validar(b, catalogo):
                               f"cortafuegos perimetrales ({perimetrales}), sin tocar el equipo")
     for ip, e in sorted(inc.items()):
         n = e["nombre"] or ip
-        if e["sin_camino"]:
+        if e["sin_camino"] and not e.get("gateway"):
             avisos.append(f"{n}: sin camino (el traceroute no lo vio): indica su cortafuegos")
         if e["deducido"]:
             avisos.append(f"{n}: su salida hacia el borde está deducida del traceroute: confírmala")
@@ -275,7 +395,7 @@ def validar(b, catalogo):
     for f in b.get("fuera_de_rangos") or []:
         if f in inc:
             avisos.append(f"{inc[f]['nombre'] or f}: cortafuegos fuera de los rangos escaneados; se propone su red "
-                          f"{_subred(f)} en redes_internas")
+                          f"{_subred(f)} en redes_internas. Si es un router del proveedor, descártalo")
     for ip, e in sorted(inc.items()):
         if e.get("huella_compartida_con"):
             avisos.append(f"{e['nombre'] or ip} comparte huella SSH con el cortafuegos {e['huella_compartida_con']} "
@@ -283,6 +403,9 @@ def validar(b, catalogo):
     for ip, e in sorted(b["equipos"].items()):
         if not e["incluido"] and e["servicios"]:
             avisos.append(f"{ip} descartado con puertos abiertos ({', '.join(map(str, e['servicios']))})")
+    if b.get("traceroute") and not b.get("salida"):
+        avisos.append("la salida a internet no se trazó (la dirección de fuera no respondió): el cortafuegos de "
+                      "borde está deducido; confírmalo")
     if not b.get("traceroute"):
         avisos.append("el escaneo no trazó caminos (traceroute sin privilegios): los cortafuegos no se deducen; "
                       "repítelo con «sudo mdr descubrir»")

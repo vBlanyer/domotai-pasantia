@@ -124,9 +124,10 @@ class TestAsistenteWeb(_Base):
         self._req(srv, "POST", "/api/asistente/escanear", PETICION)
         self._esperar(srv)
         st, b = self._req(srv, "POST", "/api/asistente/borrador", {"cambios": {"10.0.0.2": {"nombre": "fw-interno"}}})
-        self.assertEqual((st, b["equipos"]["10.0.0.2"]["nombre"]), (200, "fw-interno"))
+        self.assertEqual((st, b["borrador"]["equipos"]["10.0.0.2"]["nombre"], b["rechazados"]), (200, "fw-interno", []))
         st, r = self._req(srv, "POST", "/api/asistente/borrador", {"cambios": {"10.0.0.2": {"papel": "dios"}}})
-        self.assertEqual(st, 400)
+        self.assertEqual((st, [x["campo"] for x in r["rechazados"]]), (200, ["papel"]))
+        self.assertEqual(r["borrador"]["equipos"]["10.0.0.2"]["papel"], "cortafuegos")
         otro = self._srv()
         _, est = self._req(otro, "GET", "/api/asistente")
         self.assertEqual(est["borrador"]["equipos"]["10.0.0.2"]["nombre"], "fw-interno")
@@ -189,7 +190,7 @@ class TestAsistenteWeb(_Base):
         _, est = self._req(srv, "GET", "/api/asistente")
         self.assertIn("10.0.0.2", est["borrador"]["equipos"])
         st, b = self._req(srv, "POST", "/api/asistente/borrador", {"cambios": {"10.0.0.2": {"nombre": "fw-interno"}}})
-        self.assertEqual((st, b["equipos"]["10.0.0.2"]["nombre"]), (200, "fw-interno"))
+        self.assertEqual((st, b["borrador"]["equipos"]["10.0.0.2"]["nombre"]), (200, "fw-interno"))
         self.assertEqual(self._req(srv, "GET", "/api/asistente/propuesta")[0], 200)
 
     def test_un_escaneo_importado_queda_en_la_traza_una_vez(self):
@@ -225,3 +226,104 @@ class TestAsistenteWeb(_Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRevision23_11(_Base):
+    """Errores de la prueba completa del 23/11 (asistente de red)."""
+
+    def _escaneado(self, **kw):
+        srv = self._srv(**kw)
+        self._req(srv, "POST", "/api/asistente/escanear", PETICION)
+        self._esperar(srv)
+        return srv
+
+    def test_un_lote_con_un_campo_malo_guarda_los_buenos(self):
+        srv = self._escaneado()
+        st, r = self._req(srv, "POST", "/api/asistente/borrador",
+                          {"cambios": {"10.99.0.1": {"nombre": "fw core ñ"}, "10.0.0.2": {"nombre": "fw-interno"}}})
+        self.assertEqual(st, 200)
+        self.assertEqual(r["borrador"]["equipos"]["10.0.0.2"]["nombre"], "fw-interno")
+        self.assertEqual([(x["ip"], x["campo"]) for x in r["rechazados"]], [("10.99.0.1", "nombre")])
+        _, est = self._req(srv, "GET", "/api/asistente")
+        self.assertEqual(est["borrador"]["equipos"]["10.0.0.2"]["nombre"], "fw-interno")
+
+    def test_cambios_mal_formados_400(self):
+        srv = self._escaneado()
+        st, _ = self._req(srv, "POST", "/api/asistente/borrador", {"cambios": ["x"]})
+        self.assertEqual(st, 400)
+
+    def test_un_descubrimiento_que_el_servicio_no_puede_leer_se_dice(self):
+        # «sudo mdr descubrir» sin el arreglo dejaba el fichero de root en 0600: la consola lo ignoraba en silencio.
+        srv = self._escaneado()
+        ruta = os.path.join(self.d, "asistente-descubrimiento.json")
+        os.chmod(ruta, 0)
+        self.addCleanup(os.chmod, ruta, 0o600)
+        if os.access(ruta, os.R_OK):
+            self.skipTest("como root se puede leer igual")
+        st, est = self._req(srv, "GET", "/api/asistente")
+        self.assertEqual(st, 200)
+        self.assertIn("no se puede leer", est["aviso_lectura"])
+        st, p = self._req(srv, "GET", "/api/asistente/propuesta")
+        self.assertEqual(st, 409)
+        self.assertIn("no se puede leer", p["error"])
+
+    def test_ficheros_danados_no_dan_500(self):
+        srv = self._escaneado()
+        rb = os.path.join(self.d, "asistente-borrador.json")
+        rd = os.path.join(self.d, "asistente-descubrimiento.json")
+        for basura in ([], {"basado_en": "x"}, {"equipos": {"10.0.0.2": {"nombre": "x"}}}):
+            with open(rb, "w", encoding="utf-8") as f:
+                json.dump(basura, f)
+            st, est = self._req(srv, "GET", "/api/asistente")
+            self.assertEqual(st, 200, basura)
+            self.assertIn("10.0.0.2", est["borrador"]["equipos"])       # se rehace desde el descubrimiento
+            self.assertEqual(self._req(srv, "GET", "/api/asistente/propuesta")[0], 200, basura)
+            self.assertEqual(self._req(srv, "POST", "/api/asistente/borrador",
+                                       {"cambios": {"10.0.0.2": {"nombre": "fw-interno"}}})[0], 200, basura)
+        with open(rd, "w", encoding="utf-8") as f:
+            json.dump({"equipos": [{"puertos": []}]}, f)
+        st, est = self._req(srv, "GET", "/api/asistente")
+        self.assertEqual(st, 200)
+        self.assertIsNone(est["descubrimiento"])
+        self.assertIn("dañado", est["aviso_lectura"])
+        self.assertEqual(self._req(srv, "GET", "/api/asistente/propuesta")[0], 409)
+
+    def test_reescanear_conserva_lo_escrito(self):
+        srv = self._escaneado()
+        self._req(srv, "POST", "/api/asistente/borrador", {"cambios": {"10.0.0.2": {"nombre": "fw-interno", "criticidad": "alta"}}})
+        self._req(srv, "POST", "/api/asistente/escanear", PETICION)
+        est = self._esperar(srv)
+        e = est["borrador"]["equipos"]["10.0.0.2"]
+        self.assertEqual((e["nombre"], e["criticidad"]), ("fw-interno", "alta"))
+
+    def test_lo_editado_durante_el_escaneo_tambien_se_conserva(self):
+        suelta = threading.Event()
+        base = _correr_falso()
+        lento = {"si": False}
+
+        def correr(args):
+            if lento["si"]:
+                suelta.wait(5)
+            return base(args)
+        srv = self._escaneado(correr=correr)
+        lento["si"] = True
+        self._req(srv, "POST", "/api/asistente/escanear", PETICION)
+        st, _ = self._req(srv, "POST", "/api/asistente/borrador", {"cambios": {"10.0.0.2": {"nombre": "fw-interno"}}})
+        self.assertEqual(st, 200)
+        suelta.set()
+        est = self._esperar(srv)
+        self.assertEqual(est["borrador"]["equipos"]["10.0.0.2"]["nombre"], "fw-interno")
+
+    def test_si_no_se_puede_anotar_en_la_traza_no_se_escanea_ni_se_queda_colgado(self):
+        llamadas = []
+        srv = self._srv(correr=_correr_falso(llamadas))
+
+        def falla(_reg):
+            raise OSError("disco lleno")
+        srv.estado.fijar_auditor(falla)
+        st, r = self._req(srv, "POST", "/api/asistente/escanear", PETICION)
+        self.assertEqual(st, 500)
+        self.assertIn("traza", r["error"])
+        self.assertEqual(llamadas, [])
+        _, est = self._req(srv, "GET", "/api/asistente")
+        self.assertFalse(est["escaneando"])
