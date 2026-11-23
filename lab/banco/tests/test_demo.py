@@ -282,6 +282,29 @@ class TestDemo(unittest.TestCase):
         self.assertIn("a. Ataque a medida", demo.menu(demo.casos_vivos()) + demo.LINEA_A_MEDIDA)
 
 
+class TestTandasSinSabotaje(unittest.TestCase):
+    """E1 corta a propósito el SSH del MDR hacia web-banking (para probar la escalada). En una tanda
+    nadie lo deshacía y TODOS los ataques siguientes a web-banking fallaban en el equipo (23/11)."""
+
+    def _cmds(self, tanda, **kw):
+        llamadas = []
+        def ejecutar(args, **k):
+            llamadas.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+        tanda(ejecutar=ejecutar, dormir=lambda *_: None, gap=0, escribir=lambda *a: None, **kw)
+        return [a[-1] for a in llamadas]
+
+    def test_las_tandas_no_lanzan_casos_que_preparan_un_fallo(self):
+        self.assertNotIn("E1", [c["id"] for c in demo.casos_de_tanda()])
+        self.assertTrue(all(not c.get("preparar") for c in demo.casos_de_tanda()))
+        for cmds in (self._cmds(demo.tanda_automatica, repeticiones=1),
+                     self._cmds(demo.tanda_continua, vueltas=2, restaurar_cada=0, semilla=1)):
+            self.assertFalse(any("10.100.0.10 -p tcp --dport 22 -j DROP" in c for c in cmds))
+
+    def test_e1_sigue_en_el_menu(self):
+        self.assertIn("E1", [c["id"] for c in demo.casos_vivos()])
+
+
 class TestTandaAutomatica(unittest.TestCase):
     def _fake(self):
         llamadas = []
@@ -295,7 +318,7 @@ class TestTandaAutomatica(unittest.TestCase):
         dormidas = []
         demo.tanda_automatica(ejecutar=ejecutar, dormir=dormidas.append, repeticiones=1, gap=6,
                               escribir=lambda *a: None)
-        rotables = [c for c in demo.casos_vivos() if demo.rotable(c)]
+        rotables = demo.casos_de_tanda()
         cmds = [a[-1] for a in llamadas]
         rotados = [c for c in cmds if "ip addr add" in c]      # cada ataque rotado lleva el alias
         self.assertEqual(len(rotados), len(rotables))          # un ataque rotado por caso rotable
@@ -310,7 +333,7 @@ class TestTandaAutomatica(unittest.TestCase):
         llamadas, ejecutar = self._fake()
         demo.tanda_automatica(ejecutar=ejecutar, dormir=lambda *_: None, repeticiones=2, gap=0,
                               escribir=lambda *a: None)
-        rotables = [c for c in demo.casos_vivos() if demo.rotable(c)]
+        rotables = demo.casos_de_tanda()
         rotados = [a[-1] for a in llamadas if "ip addr add" in a[-1]]
         self.assertEqual(len(rotados), 2 * len(rotables))
 
@@ -338,7 +361,7 @@ class TestTandaContinua(unittest.TestCase):
         return [m.group(1) for l in lineas for m in [re.search(r"· (\S+) —", l)] if m]
 
     def _pool_por_vuelta(self):
-        rotables = [c for c in demo.casos_vivos() if demo.rotable(c)]
+        rotables = demo.casos_de_tanda()
         return len(rotables) + len(demo.ATAQUES_HOST)
 
     def test_para_tras_las_vueltas_pedidas_y_cubre_todas_las_familias(self):
@@ -352,9 +375,8 @@ class TestTandaContinua(unittest.TestCase):
         # una vuelta cubre TODAS las familias: los seis ataques de host y los casos de red rotables.
         for h in demo.ATAQUES_HOST:
             self.assertIn(h["id"], ids, h["id"])
-        for c in demo.casos_vivos():
-            if demo.rotable(c):
-                self.assertIn(c["id"], ids, c["id"])
+        for c in demo.casos_de_tanda():       # los rotables, sin los que preparan un fallo (E1)
+            self.assertIn(c["id"], ids, c["id"])
 
     def test_rota_la_ip_sin_repetir_entre_vueltas(self):
         import re

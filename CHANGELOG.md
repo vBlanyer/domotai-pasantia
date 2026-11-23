@@ -28,6 +28,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Banco: las tandas ya no dejan web-banking sin acceso para el MDR.** El caso E1 corta a propósito el
+  SSH del MDR hacia web-banking para probar la escalada, y las tandas automática y continua lo lanzaban
+  sin deshacerlo: todos los ataques siguientes a web-banking fallaban en el equipo. Ahora las tandas
+  dejan fuera los casos que preparan un fallo (`demo.casos_de_tanda`). E1 sigue en el menú, y si no se
+  deshace, el lanzador avisa.
 - **El origen se ve igual en Aprobaciones y en Decisiones** (componente común `BloqueOrigen`): IP, equipo
   atacado, alcance, ubicación y «lo que ya pasó con este origen». Antes Decisiones solo mostraba la IP y
   sus distintivos, y la sección desaparecía sin enriquecimiento.

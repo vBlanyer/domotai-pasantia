@@ -63,6 +63,13 @@ def rotable(caso):
     return bool(caso.get("ataque") and caso.get("origen"))
 
 
+def casos_de_tanda():
+    """Los casos que lanzan las tandas (automática y continua): los rotables que NO preparan un fallo.
+    E1 corta a propósito el SSH del MDR hacia web-banking para probar la escalada; en una tanda nadie lo
+    deshacía y TODOS los ataques siguientes a web-banking fallaban en el equipo. Sigue en el menú."""
+    return [c for c in casos_vivos() if rotable(c) and not c.get("preparar")]
+
+
 def ip_rotada(base_ip, n):
     """Una IP nueva en la /24 de `base_ip`, hosts 11.. para no pisar el gateway (.1), el nodo base
     (.10) ni la difusión (.255). Determinista: el n-ésimo lanzamiento usa .{11+n}."""
@@ -367,7 +374,7 @@ def tanda_automatica(ejecutar=subprocess.run, dormir=time.sleep, repeticiones=1,
     distinto en el tablero. La clase del origen se conserva (interno→retenido, externo→auto), así que
     la batería ejercita ambos caminos y la plantilla justifica cada decisión. NO deshace: el daemon
     decide y, al terminar, se restaura con `sh lab/banco/banco.sh restaurar`. `repeticiones` vueltas."""
-    vivos = [c for c in casos_vivos() if rotable(c)]
+    vivos = casos_de_tanda()
     # +len(ATAQUES_HOST): los ataques de host (cuenta/FIM/DoS), sin origen de red, se lanzan al final.
     contadores, total, hecho = {}, repeticiones * len(vivos) + len(ATAQUES_HOST), 0
     escribir(f"== Tanda automática: {total} ataque(s), IP de origen rotada (ve el tablero) ==")
@@ -398,7 +405,7 @@ def tanda_continua(ejecutar=subprocess.run, dormir=time.sleep, gap=6, restaurar_
     = sin fin. Devuelve {lanzados, vueltas, tally} al parar. NO deshace los ataques de host: al
     terminar, `sh lab/banco/banco.sh restaurar`."""
     rng = random.Random(semilla)
-    rotables = [c for c in casos_vivos() if rotable(c)]
+    rotables = casos_de_tanda()
     contadores, tally, lanzados, vuelta = {}, {}, 0, 0
     limite = "sin fin (Ctrl+C para parar)" if vueltas is None else f"{vueltas} vuelta(s)"
     escribir(f"== Tanda CONTINUA — {limite}: ataques variados, IP de origen rotada, "
@@ -566,6 +573,10 @@ def main(argv=None, leer=input, ejecutar=subprocess.run, dormir=time.sleep):
                 if src is None:
                     sin_deshacer.pop(origen, None)
                 print("  restaurado")
+            elif caso.get("preparar"):
+                equipos = ", ".join(sorted({n for n, _ in caso["preparar"]}))
+                print(f"  ⚠ {caso['id']} deja {equipos} preparado para fallar: hasta deshacerlo (o "
+                      "sh lab/banco/banco.sh restaurar), los ataques a ese equipo no se contendrán en él")
     except (KeyboardInterrupt, EOFError):
         print()
         return 0
