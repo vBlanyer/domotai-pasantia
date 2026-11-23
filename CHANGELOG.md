@@ -28,6 +28,10 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Cortar una sesión ya no suprime la siguiente intrusión del mismo atacante.** `MATAR_CONEXION` es
+  transitoria: corta la sesión de ese momento, no impide la siguiente. La memoria de supresión la
+  recordaba como una contención, y un nuevo login exitoso del mismo origen salía «ya decidido» sin
+  cortarse (tanda del 23/11, `s19~sup`). Ahora las acciones transitorias no se recuerdan.
 - **Revertir una contención en la consola ya no deja al atacante «ya decidido» sin bloquear.** La
   memoria de supresión solo excluía lo revertido al arrancar; una reversión hecha durante la sesión no
   le llegaba, y las repeticiones del mismo origen se suprimían sin que hubiera bloqueo (tanda del 23/11:

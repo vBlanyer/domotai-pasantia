@@ -920,6 +920,21 @@ class TestMemoriaDecisiones(unittest.TestCase):
         self.assertIsNone(m.buscar(("198.51.100.11", "otro", "acceso_credenciales")))   # tampoco la perimetral
         self.assertIsNotNone(m.buscar(("10.9.9.9", "web", "acceso_credenciales")))      # las demás siguen
 
+    def test_un_corte_de_sesion_no_suprime_el_siguiente_acceso(self):
+        # MATAR_CONEXION es transitoria: corta la sesión de ahora, no impide la siguiente. Si se recordara,
+        # un nuevo login exitoso del mismo atacante saldría «ya decidido» y su sesión no se cortaría
+        # (tanda del 23/11: s19~sup).
+        m = stream.MemoriaDecisiones()
+        corte = {"id_decision": "s19", "clase": "vp_acceso_consumado", "accion_final": "MATAR_CONEXION",
+                 "orden": {"accion_id": "MATAR_CONEXION", "nodo_objetivo": "web"}, "ejecucion": {"exito": True},
+                 "verificacion": {"verificado": True}}
+        clave = ("198.51.100.10", "web", "acceso_consumado")
+        m.recordar(clave, corte)
+        self.assertIsNone(m.buscar(clave))
+
+    def test_las_transitorias_son_las_del_catalogo(self):
+        self.assertEqual(stream._TRANSITORIAS, {k for k, v in CAT.items() if v.get("reversion") == "transitoria"})
+
     def test_memoria_acota_por_lru(self):
         # #13: un flood de orígenes distintos no hace crecer la memoria de supresión sin límite.
         m = stream.MemoriaDecisiones(max_entradas=3)

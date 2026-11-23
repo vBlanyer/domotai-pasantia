@@ -94,6 +94,11 @@ def _clave_supresion(fuente):
     return (c.get("origen_ip"), c.get("activo"), c.get("familia"))
 
 
+# Acciones `reversion: transitoria` del catálogo: actúan sobre lo de ahora (cortar la sesión abierta) y no
+# impiden que se repita. No se recuerdan para suprimir: el siguiente acceso del mismo origen se vuelve a decidir.
+_TRANSITORIAS = {"MATAR_CONEXION"}
+
+
 def _desenlace(d, perfil):
     """(texto, perimetral) de una decisión cerrada, o (None, False) si no está cerrada: una contención
     que no se aplicó ni se verificó no se recuerda, para que la repetición se vuelva a decidir en vez
@@ -115,6 +120,8 @@ def _desenlace(d, perfil):
         if plan.get("resultado") == "cancelado_por_humano":
             return "escalada rechazada por el analista", False
     orden = d.get("orden")
+    if orden and orden.get("accion_id") in _TRANSITORIAS:
+        return None, False                     # cortó la sesión de entonces; la siguiente se vuelve a cortar
     if orden:
         if (d.get("ejecucion") or {}).get("exito") and (d.get("verificacion") or {}).get("verificado"):
             return f"contenida en {orden.get('nodo_objetivo')}", False
