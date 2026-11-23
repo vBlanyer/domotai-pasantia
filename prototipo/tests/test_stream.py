@@ -929,6 +929,32 @@ class TestColaQueSobreviveAlReinicio(unittest.TestCase):
         self.assertEqual((restaurables, [p["id_decision"] for p in perdidas]), ([], ["s5"]))
 
 
+class TestOrigenVigilado(unittest.TestCase):
+    """«Revertir y vigilar»: la Consola marca los incidentes de un origen vigilado y, si la política lo pide,
+    el motor lo deja a un analista. La watchlist llega al motor dentro del perfil."""
+
+    def test_el_perfil_lleva_la_watchlist(self):
+        import tempfile
+        from prototipo.servicio import watchlist
+        ruta = os.path.join(tempfile.mkdtemp(), "watchlist.json")
+        watchlist.agregar(ruta, "198.51.100.11", nota="revertida s4")
+        p = stream.perfil_con_vigilancia({"activos": {}}, ruta)
+        self.assertEqual([e["indicador"] for e in p["origenes_vigilados"]], ["198.51.100.11"])
+        self.assertEqual(stream.perfil_con_vigilancia({"activos": {}}, None)["origenes_vigilados"], [])
+
+    def test_la_consola_marca_el_incidente_y_la_politica_lo_retiene(self):
+        lineas, estado, buf = [], tablero.EstadoTablero(), io.StringIO()
+        p = y("perfil.yml")
+        p["origenes_vigilados"] = [{"indicador": "1.1.1.1", "nota": "revertida s4"}]
+        p["continuidad"] = {**p["continuidad"], "vigilados": "humano_siempre"}
+        stream.ejecutar([_linea("1.1.1.1"), None], hallazgos=j("hallazgos.json"), perfil=p, perfil_nombre="prueba",
+                        catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+                        salida_traza=buf, escribir=lambda t, *a, **k: lineas.append(t), estado_web=estado)
+        self.assertTrue(any(l.startswith("⚑ origen en vigilancia: 1.1.1.1 → objetivo-vuln · revertida s4") for l in lineas), lineas)
+        [pend] = estado.decisiones_pendientes()                     # no se contuvo solo: espera a un analista
+        self.assertIn("vigilancia", tablero._vista_pendiente(pend)["motivo"])
+
+
 class TestReversionYSupresion(unittest.TestCase):
     def test_tras_revertir_en_la_consola_el_mismo_ataque_se_vuelve_a_decidir(self):
         estado, buf = tablero.EstadoTablero(), io.StringIO()

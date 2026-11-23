@@ -90,6 +90,15 @@ capítulo de resultados, y `evaluacion/resultados/`).
   pudo guardar, lo dice y devuelve el texto para no perderlo.
 
 ### Añadido
+- **«Revertir y vigilar» cumple lo que promete.** Una IP en la Watchlist sale marcada ⚑ en Aprobaciones y
+  en Decisiones (en la fila y, con su nota, en el bloque de origen). La Consola avisa con
+  `⚑ origen en vigilancia: IP → equipo · nota` cada vez que vuelve.
+  - **Opcional, apagado por defecto:** con `respuesta_automatica.origenes_vigilados: con_analista` en
+    `politica.yml` (perfil: `continuidad.vigilados`), todo lo que venga de una IP vigilada espera a un
+    analista, con el motivo en la tarjeta.
+  - **Cómo llega al motor:** en el perfil (`origenes_vigilados`), que el servicio rellena desde
+    `watchlist.json` en cada incidente; el motor no lee ficheros.
+  - **Dónde se ve:** el Resumen de Políticas y `mdr explicar-politica` lo cuentan.
 - **La cola de Aprobaciones sobrevive al reinicio.** Al encolar, el registro `pendiente` de la traza guarda
   la tarjeta: la decisión, la alerta y, en una escalada, desde dónde se escala. Al arrancar, las tarjetas
   sin resolver vuelven a la cola con su id y su hora de encolado (el SLA no vuelve a cero), y se

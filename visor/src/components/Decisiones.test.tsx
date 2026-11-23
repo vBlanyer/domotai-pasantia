@@ -3,12 +3,15 @@ import { render, screen, fireEvent, within } from "@testing-library/react"
 import type { Decision } from "@/api"
 
 // El detalle se pide a /api/traza/<id>: aquí lo sirve un doble.
-const h = vi.hoisted(() => ({ detalle: {} as unknown, decisiones: [] as unknown[], pedidos: [] as unknown[][] }))
-vi.mock("@/api", async (orig) => ({
-  ...(await orig<typeof import("@/api")>()),
-  getTrazaDetalle: async (...a: unknown[]) => { h.pedidos.push(a); return h.detalle },
-  useSondeo: () => h.decisiones,
-}))
+const h = vi.hoisted(() => ({ detalle: {} as unknown, decisiones: [] as unknown[], watch: [] as unknown[], pedidos: [] as unknown[][] }))
+vi.mock("@/api", async (orig) => {
+  const real = await orig<typeof import("@/api")>()
+  return {
+    ...real,
+    getTrazaDetalle: async (...a: unknown[]) => { h.pedidos.push(a); return h.detalle },
+    useSondeo: (fn: unknown) => (fn === real.getWatchlist ? h.watch : h.decisiones),
+  }
+})
 import { InspectorDecision, Decisiones } from "./Decisiones"
 
 // El detalle de una decisión vive en el inspector (antes, en la fila desplegada).
@@ -273,6 +276,22 @@ describe("Decisiones: filtro sembrado por navegación", () => {
     render(<Decisiones textoInicial="9.9.9.9" />)
     expect(screen.getByRole("button", { name: /ver detalle de web-banking/i })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /ver detalle de core-db/i })).not.toBeInTheDocument()
+  })
+})
+
+describe("Decisiones: origen en vigilancia", () => {
+  it("la fila y el bloque de origen lo dicen", async () => {
+    h.detalle = { id_decision: "s24" }
+    h.watch = [{ indicador: "198.51.100.11", nota: "revertida s4" }]
+    h.decisiones = [{ indice: 1, id_decision: "s24", clase: "vp_intento_acceso", activo: "web-banking", origen_ip: "198.51.100.11" }]
+    render(<Decisiones />)
+    const fila = screen.getByRole("button", { name: /ver detalle de web-banking/i })
+    expect(fila.textContent).toContain("⚑")
+    fireEvent.click(fila)
+    const origen = await screen.findByRole("region", { name: "Origen" })
+    expect(within(origen).getByText("⚑ en vigilancia")).toBeInTheDocument()
+    expect(within(origen).getByText(/revertida s4/)).toBeInTheDocument()
+    h.watch = []
   })
 })
 

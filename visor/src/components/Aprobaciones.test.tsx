@@ -4,13 +4,16 @@ import { Toaster } from "@/components/ui/toast"
 import type { Pendiente } from "@/api"
 
 // Capa de datos simulada: la cola que "devuelve" el sondeo y el POST de aprobar.
-const h = vi.hoisted(() => ({ pendientes: [] as unknown[], aprobar: vi.fn(), caso: vi.fn(async () => true) }))
-vi.mock("@/api", async (orig) => ({
-  ...(await orig<typeof import("@/api")>()),
-  useSondeo: () => h.pendientes,
+const h = vi.hoisted(() => ({ pendientes: [] as unknown[], watch: [] as unknown[], aprobar: vi.fn(), caso: vi.fn(async () => true) }))
+vi.mock("@/api", async (orig) => {
+  const real = await orig<typeof import("@/api")>()
+  return {
+  ...real,
+  useSondeo: (fn: unknown) => (fn === real.getWatchlist ? h.watch : h.pendientes),
   aprobar: h.aprobar,
   actualizarCaso: h.caso,
-}))
+  }
+})
 import { Aprobaciones } from "./Aprobaciones"
 
 const INCID = "⚠ Incidente: 192.168.1.10 -> objetivo-vuln (ssh)"
@@ -25,6 +28,19 @@ const vista = () => <Toaster><Aprobaciones /></Toaster>
 const boton = (nombre: string) => screen.getByRole("button", { name: nombre })
 // ids de las pendientes que la bandeja muestra en esta página
 const enBandeja = () => [...document.querySelectorAll("[data-pendiente]")].map((e) => e.getAttribute("data-pendiente"))
+
+describe("Aprobaciones: origen en vigilancia", () => {
+  it("la tarjeta y su fila lo dicen, con la nota", () => {
+    h.watch = [{ indicador: "198.51.100.11", nota: "revertida la contención BLOQUEAR_IP (s4)", agregado_en: "2026-11-23T16:00:00Z" }]
+    h.pendientes = [tarjeta({ origen_ip: "198.51.100.11", activo: "web-banking" })]
+    render(vista())
+    const origen = screen.getByRole("region", { name: "Origen" })
+    expect(within(origen).getByText("⚑ en vigilancia")).toBeInTheDocument()
+    expect(within(origen).getByText(/revertida la contención BLOQUEAR_IP \(s4\)/)).toBeInTheDocument()
+    expect(document.querySelector("[data-pendiente]")?.textContent).toContain("⚑")
+    h.watch = []
+  })
+})
 
 describe("Aprobaciones", () => {
   beforeEach(() => { h.aprobar.mockReset(); h.pendientes = [tarjeta()] })

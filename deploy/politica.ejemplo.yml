@@ -41,6 +41,7 @@ respuesta_automatica:
   si_afecta_a_un_servicio: con_analista
   solo_observar: con_analista          # acciones sin impacto
   equipos_propios: con_analista        # bloquear un equipo interno o de red (si_hay_certeza o con_analista)
+  # origenes_vigilados: con_analista   # lo que venga de una IP de la Watchlist («Revertir y vigilar») espera a un analista
   # Excepciones que endurecen la regla general (con_analista), p. ej. cuando por_defecto ya se abrió:
   # por_tipo_de_ataque: { reconocimiento: con_analista }
   # por_zona:           { Interna: con_analista }

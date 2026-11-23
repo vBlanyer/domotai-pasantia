@@ -17,7 +17,7 @@ _CLAVES = {
     "politica": None,                                    # cabecera: version, aprobada_por, fecha
     "confianza": {"administradores", "socios_criticos", "sospechar_si_rafaga"},
     "respuesta_automatica": {"certeza_minima", "por_defecto", "si_afecta_a_un_servicio", "solo_observar",
-                             "equipos_propios", "externos_desconocidos", "por_tipo_de_ataque", "por_zona",
+                             "equipos_propios", "externos_desconocidos", "origenes_vigilados", "por_tipo_de_ataque", "por_zona",
                              "por_equipo"},
     "nunca_tocar_en_automatico": None,
     "desconocidos_graves": {"revisar_desde_nivel"},
@@ -56,6 +56,8 @@ def traducir_politica(pol):
         cont["actores"] = {"activo_interno": v, "dispositivo_red": v}
     if "externos_desconocidos" in ra:
         cont["contener_externos_desconocidos"] = VALORES.get(ra["externos_desconocidos"], ra["externos_desconocidos"])
+    if "origenes_vigilados" in ra:      # lo que venga de un origen en la watchlist («Revertir y vigilar»)
+        cont["vigilados"] = VALORES.get(ra["origenes_vigilados"], ra["origenes_vigilados"])
     graves = pol.get("desconocidos_graves") or {}
     if "revisar_desde_nivel" in graves:
         cont["revisar_no_soportada_nivel"] = graves["revisar_desde_nivel"]
@@ -204,7 +206,7 @@ def validar_politica(pol, perfil, catalogo):
         c = ra["certeza_minima"]
         if isinstance(c, bool) or not isinstance(c, (int, float)) or not 0 <= c <= 1:
             avisos.append(f"respuesta_automatica.certeza_minima debe estar entre 0 y 1: {c!r}")
-    for clave in list(_NIVEL) + ["externos_desconocidos"]:
+    for clave in list(_NIVEL) + ["externos_desconocidos", "origenes_vigilados"]:
         if clave in ra and not (isinstance(ra[clave], str) and ra[clave] in VALORES):
             avisos.append(f"respuesta_automatica.{clave}: valor no reconocido ({ra[clave]!r}); "
                           f"usa {', '.join(VALORES)}")
@@ -284,6 +286,8 @@ def explicar(perfil, catalogo):
     if cont.get("contener_externos_desconocidos"):
         frases.append("Una contención contra un origen externo desconocido "
                       + _EN_PALABRAS.get(cont["contener_externos_desconocidos"], "") + ".")
+    if cont.get("vigilados") == "humano_siempre":
+        frases.append("Una contención contra un origen en vigilancia (la watchlist) espera siempre a un analista.")
     # Por tipo de ataque, zona o equipo solo se ENDURECE (perfil.filtrar): con_analista obliga a un
     # analista; si_hay_certeza no añade restricción y no puede automatizar nada por sí sola.
     for fam, pol in sorted((perfil.get("automatizacion_por_familia") or {}).items()):
@@ -332,6 +336,8 @@ def extraer_politica(perfil):
         cont.pop("actores")
     if cont.get("contener_externos_desconocidos") in _INVERSO:
         ra["externos_desconocidos"] = _INVERSO[cont.pop("contener_externos_desconocidos")]
+    if cont.get("vigilados") in _INVERSO:
+        ra["origenes_vigilados"] = _INVERSO[cont.pop("vigilados")]
     graves = {}
     if "revisar_no_soportada_nivel" in cont:
         graves["revisar_desde_nivel"] = cont.pop("revisar_no_soportada_nivel")

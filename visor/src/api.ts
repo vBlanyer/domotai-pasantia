@@ -424,6 +424,8 @@ export const ConfianzaPoliticaSchema = z.object({
   equipos_propios: z.string().nullable().optional(), equipos_propios_origen: z.string().nullable().optional(),
   // «humano_siempre»: todo bloqueo de un atacante externo no inventariado espera a un analista
   externos_desconocidos: z.string().nullable().optional(),
+  // «humano_siempre»: lo que venga de un origen en la watchlist espera a un analista
+  vigilados: z.string().nullable().optional(),
 })
 export type ConfianzaPolitica = z.infer<typeof ConfianzaPoliticaSchema>
 export const PoliticaEstadoSchema = z.object({

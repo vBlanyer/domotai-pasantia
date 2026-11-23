@@ -7,10 +7,13 @@ import { OrigenBadges } from "./OrigenBadges"
 
 type ConOrigen = Pick<Decision, "origen_ip" | "activo" | "enriquecimiento_origen">
 
-export function BloqueOrigen({ d, trazas, onUbicacion }: {
+export type Vigilancia = { indicador: string; nota?: string | null; agregado_en?: string | null }
+
+export function BloqueOrigen({ d, trazas, onUbicacion, vigilancia }: {
   d: ConOrigen
   trazas: Decision[]                    // de donde sale el historial (sin el propio registro)
   onUbicacion?: (u: string) => void     // con él, la ubicación filtra (Aprobaciones)
+  vigilancia?: Vigilancia | null        // el origen está en la watchlist («Revertir y vigilar»)
 }) {
   if (!d.origen_ip && !d.enriquecimiento_origen) return null
   const ubic = d.enriquecimiento_origen ? ubicacionLabelDe(d) : null
@@ -26,7 +29,14 @@ export function BloqueOrigen({ d, trazas, onUbicacion }: {
           ? <button onClick={() => onUbicacion(ubic)} title={`Filtrar la cola por ${ubic}`}
               className="rounded bg-muted px-1.5 py-0.5 hover:underline">📍 {ubic} · filtrar</button>
           : <span className="rounded bg-muted px-1.5 py-0.5">📍 {ubic}</span>)}
+        {vigilancia && <span className="rounded bg-aviso/15 px-1.5 py-0.5 font-medium text-aviso">⚑ en vigilancia</span>}
       </div>
+      {vigilancia && (vigilancia.nota || vigilancia.agregado_en) && (
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {vigilancia.nota}{vigilancia.agregado_en ? `${vigilancia.nota ? " · " : ""}desde ${new Date(vigilancia.agregado_en).toLocaleString()}` : ""}
+          {vigilancia.indicador !== d.origen_ip && ` · por ${vigilancia.indicador}`}
+        </p>
+      )}
       {historia.length > 0 && (
         <>
           <h4 className="mb-1.5 mt-3 text-[11px] font-medium text-muted-foreground">Lo que ya pasó con este origen</h4>

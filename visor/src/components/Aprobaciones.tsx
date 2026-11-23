@@ -1,15 +1,15 @@
 import { useRef, useState, useEffect, type ReactNode } from "react"
 import { TriangleAlert, Clock, ChevronDown, ChevronRight, MessageSquareText } from "lucide-react"
-import { useSondeo, getPendientes, getTrazas, aprobar, actualizarCaso, parsearPendiente, operadorActual, operadorVerificado, ahoraServidor, type Pendiente, type Opcion, type Decision, type AnalisisAmpliado } from "@/api"
+import { useSondeo, getPendientes, getTrazas, getWatchlist, aprobar, actualizarCaso, parsearPendiente, operadorActual, operadorVerificado, ahoraServidor, type Pendiente, type Opcion, type Decision, type AnalisisAmpliado } from "@/api"
 import { edadTexto, msDesde } from "@/alertas"
-import { etiquetaClase, ubicacionLabelDe, nivelPrioridad, paginar, TAM_PAGINA } from "@/datos"
+import { etiquetaClase, ubicacionLabelDe, nivelPrioridad, paginar, enWatchlist, TAM_PAGINA } from "@/datos"
 import { slaMs, ordenarPor, agruparPor, ORDENES, AGRUPACIONES, type Orden, type Agrupacion, saludCola, siguienteTras, resueltasHoyPor, efectoAprobar } from "@/aprobaciones"
 import { cn } from "@/lib/utils"
 import { Paginador } from "@/components/Paginador"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Cargando, SinConexion, Vacio, Prioridad, DatosCongelados } from "./bits"
-import { BloqueOrigen } from "./BloqueOrigen"
+import { BloqueOrigen, type Vigilancia } from "./BloqueOrigen"
 
 // Lo que el aviso confirma tras un veredicto aplicado (mismo vocabulario que el menú del daemon).
 const HECHO: Record<string, string> = {
@@ -92,8 +92,8 @@ function Kpi({ k, children, cls }: { k: string; children: ReactNode; cls?: strin
 }
 
 // Una línea de la bandeja: gravedad, activo · familia → acción, origen, edad y barra de SLA.
-function Fila({ p, edadMs, activa, estado, seleccionada, onSeleccion, onAbrir }: {
-  p: Pendiente; edadMs: number; activa: boolean; estado: Estado; seleccionada: boolean
+function Fila({ p, edadMs, activa, estado, seleccionada, vigilada, onSeleccion, onAbrir }: {
+  p: Pendiente; edadMs: number; activa: boolean; estado: Estado; seleccionada: boolean; vigilada?: boolean
   onSeleccion: (c: boolean) => void; onAbrir: () => void
 }) {
   const v = parsearPendiente(p)
@@ -119,6 +119,7 @@ function Fila({ p, edadMs, activa, estado, seleccionada, onSeleccion, onAbrir }:
           </span>
           <span className="block truncate text-xs text-muted-foreground">
             {[p.origen_ip, p.enriquecimiento_origen?.geo?.pais].filter(Boolean).join(" · ") || "sin origen"}
+            {vigilada && <span className="ml-1.5 font-medium text-aviso" title="Origen en vigilancia (watchlist)">⚑</span>}
             {!!p.suprimidas && <span className="font-medium text-critico"> · sigue atacando +{p.suprimidas}</span>}
             {estado === "hecho" && " · aplicada"}
           </span>
@@ -191,9 +192,9 @@ function Ampliado({ a }: { a: AnalisisAmpliado }) {
 
 // El inspector de la pendiente elegida: «si apruebas» primero, luego el porqué, el origen con su
 // historia, y la decisión (botones con atajo, nota opcional para la traza).
-function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicacion }: {
+function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicacion, vigilancia }: {
   p: Pendiente; edadMs: number; estado: Estado; trazas: Decision[]; nota: string; onNota: (t: string) => void
-  onPulsar: (respuesta: string, etiqueta: string) => void; onUbicacion: (u: string) => void
+  onPulsar: (respuesta: string, etiqueta: string) => void; onUbicacion: (u: string) => void; vigilancia?: Vigilancia | null
 }) {
   const v = parsearPendiente(p)
   const escalada = p.tipo === "escalada"
@@ -253,7 +254,7 @@ function Inspector({ p, edadMs, estado, trazas, nota, onNota, onPulsar, onUbicac
 
       {p.analisis_ampliado && <Ampliado a={p.analisis_ampliado} />}
 
-      <BloqueOrigen d={p} trazas={trazas} onUbicacion={onUbicacion} />
+      <BloqueOrigen d={p} trazas={trazas} onUbicacion={onUbicacion} vigilancia={vigilancia} />
 
       <div className="space-y-2.5 bg-muted px-4 py-3">
         {p.id_decision && !clasificando && (
@@ -308,6 +309,8 @@ export function Aprobaciones({ paisInicial = "", idInicial = null, onQuitarPais 
 } = {}) {
   const p = useSondeo(getPendientes)
   const tr = useSondeo(getTrazas, 10000)          // memoria del origen y ritmo del operador
+  const wl = useSondeo(getWatchlist, 10000)        // orígenes en vigilancia («Revertir y vigilar»)
+  const vigilados = Array.isArray(wl) ? (wl as Vigilancia[]) : []
   const ahora = useAhora()   // hook incondicional (antes de cualquier return); 1 Hz para el SLA en vivo
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [confirmarBloque, setConfirmarBloque] = useState(false)
@@ -511,7 +514,7 @@ export function Aprobaciones({ paisInicial = "", idInicial = null, onQuitarPais 
                   )}
                   {e.x && (
                     <ul>
-                      <Fila p={e.x} edadMs={edad(e.x)} activa={elegida?.id === e.x.id} estado={estados[clave(e.x)] ?? "listo"}
+                      <Fila p={e.x} vigilada={!!enWatchlist(e.x.origen_ip, vigilados)} edadMs={edad(e.x)} activa={elegida?.id === e.x.id} estado={estados[clave(e.x)] ?? "listo"}
                         seleccionada={sel.has(e.x.id)} onSeleccion={(c) => alternar(e.x!.id, c)} onAbrir={() => setActual(e.x!.id)} />
                     </ul>
                   )}
@@ -543,7 +546,7 @@ export function Aprobaciones({ paisInicial = "", idInicial = null, onQuitarPais 
           <Paginador pagina={pag.pagina} paginas={pag.paginas} total={pag.total} tam={tam} onPagina={setPagina} onTam={elegirTam} />
         </div>
         {elegida
-          ? <Inspector key={clave(elegida)} p={elegida} edadMs={edad(elegida)} estado={estados[clave(elegida)] ?? "listo"} trazas={trazas}
+          ? <Inspector key={clave(elegida)} p={elegida} vigilancia={enWatchlist(elegida.origen_ip, vigilados) as Vigilancia | null} edadMs={edad(elegida)} estado={estados[clave(elegida)] ?? "listo"} trazas={trazas}
               nota={notas[elegida.id] ?? ""} onNota={(t) => setNotas((n) => ({ ...n, [elegida.id]: t }))}
               onPulsar={(respuesta, etiqueta) => pulsar(elegida, respuesta, etiqueta)} onUbicacion={filtrar} />
           : <div className="rounded-lg border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">Selecciona una pendiente para decidir.</div>}

@@ -81,6 +81,12 @@ describe("resumenPolitica", () => {
     expect(titulos(viejo.humano)).toEqual(["Explotación conocida", "Bloquear un equipo propio"])
   })
 
+  it("si la política lo pide, lo que venga de un origen en vigilancia espera a un analista", () => {
+    const r = resumenPolitica({ ...BANCO, confianza: { ...BANCO.confianza!, vigilados: "humano_siempre" } })
+    expect(titulos(r.humano)).toContain("Lo que venga de un origen en vigilancia")
+    expect(titulos(resumenPolitica(BANCO).humano)).not.toContain("Lo que venga de un origen en vigilancia")
+  })
+
   it("si la política deja los equipos propios con certeza, no salen como espera", () => {
     const abierta = resumenPolitica({ ...BANCO, confianza: { ...BANCO.confianza!, equipos_propios: "automatica_si_confianza" } })
     expect(titulos(abierta.humano)).not.toContain("Bloquear un equipo propio")

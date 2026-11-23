@@ -359,6 +359,21 @@ def _aplicar_actor(res, perfil, det):
         return _res("degrada" if res["resultado"] == "degrada" else "veta", res["accion_final"], True)
     return res
 
+def origen_vigilado(ip, perfil):
+    """La entrada de la watchlist (`perfil.origenes_vigilados`, IP o CIDR) que cubre `ip`, o None."""
+    if not ip:
+        return None
+    for e in (perfil or {}).get("origenes_vigilados") or []:
+        ind = e.get("indicador") if isinstance(e, dict) else e
+        try:
+            dentro = ipaddress.ip_address(ip) in ipaddress.ip_network(str(ind), strict=False)
+        except ValueError:
+            dentro = False
+        if dentro:
+            return e if isinstance(e, dict) else {"indicador": ind}
+    return None
+
+
 def zona_de(perfil, activo):
     """Zona de red (`red.zonas`) a la que pertenece el activo, o None si no está en ninguna."""
     for zona, activos in ((perfil.get("red") or {}).get("zonas") or {}).items():
@@ -440,6 +455,18 @@ def filtrar(perfil, accion_id, params, catalogo, activo, servicio, confianza, ha
         final = {**final, "requiere_humano": True}
         det = {**det, "motivo": f"{det.get('motivo') or ''} · externo desconocido: "
                                 "no se bloquea en automático (política del perfil)".strip()}
+    # Origen en vigilancia («Revertir y vigilar», la watchlist): si la política lo pide (continuidad.vigilados:
+    # humano_siempre), lo siguiente contra ese origen lo decide una persona. La lista llega en el perfil
+    # (`origenes_vigilados`, que el servicio rellena desde la watchlist): el motor no lee ficheros.
+    if (accion_id in impactom.ACCIONES_SOBRE_IP and final.get("accion_final")
+            and not final.get("requiere_humano")
+            and perfil.get("continuidad", {}).get("vigilados") == "humano_siempre"):
+        vig = origen_vigilado((params or {}).get("ip"), perfil)
+        if vig:
+            final = {**final, "requiere_humano": True}
+            nota = f": {vig['nota']}" if vig.get("nota") else ""
+            det = {**det, "motivo": f"{det.get('motivo') or ''} · origen en vigilancia{nota} — "
+                                    "lo decide un analista (política)".strip()}
     # Acciones marcadas `nunca_automatica` en el catálogo (REINICIAR_NODO/AISLAR_NODO): guard duro,
     # jamás se auto-ejecutan aunque el perfil del cliente las autorizara. Un atacante que forje una
     # alerta de alta confianza no puede disparar un reinicio/aislamiento de una joya de la corona.

@@ -64,7 +64,7 @@ export function clasificarLinea(linea: string): TipoLinea {
   if (/^✗ \S+ (NO verificada|no se ejecutó)/.test(linea)) return "ejecucion"
   if (linea.startsWith("✗")) return "error"
   if (linea.startsWith("↺")) return "propia"
-  if (linea.startsWith("[aviso]") || linea.startsWith("[red]")) return "aviso"
+  if (linea.startsWith("[aviso]") || linea.startsWith("[red]") || linea.startsWith("⚑")) return "aviso"
   // narración de la caja negra: ▶ orden ejecutada, ✔/⇪ verificación/escalada, · detalle; ↶ reversión
   // aparte, para filtrarla (y sigue saliendo en «Ejecución»)
   if (linea.startsWith("↶")) return "reversion"

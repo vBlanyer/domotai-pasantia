@@ -1,12 +1,12 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react"
 import { TriangleAlert } from "lucide-react"
-import { useSondeo, getDecisiones, getTrazaDetalle, operadorActual, type Decision, type Detalle, type Pasaje } from "@/api"
+import { useSondeo, getDecisiones, getTrazaDetalle, getWatchlist, operadorActual, type Decision, type Detalle, type Pasaje } from "@/api"
 import { Cargando, SinConexion, Vacio, Prioridad, BarraFiltros, DatosCongelados, LineaCausa } from "./bits"
-import { filtrarDecisiones, clasesDe, claveDe, contencionDe, ventanaDe, paginar, pasosRunbook, estadoDeCasos, etiquetaClase, TAM_PAGINA, type CasoNota, type Contencion, type EstadoContencion, type Filtro, quienDecidio } from "@/datos"
+import { filtrarDecisiones, clasesDe, claveDe, contencionDe, ventanaDe, paginar, pasosRunbook, estadoDeCasos, etiquetaClase, enWatchlist, TAM_PAGINA, type CasoNota, type Contencion, type EstadoContencion, type Filtro, quienDecidio } from "@/datos"
 import { desenlaceDe, resumenDecisiones, pasaFiltro, pasosDe, FILTROS_DECISION, type FiltroDecision, type Paso, type Tono } from "@/decisiones"
 import { claveDia, etiquetaDia, horaLocal } from "@/trazas"
 import { Paginador } from "./Paginador"
-import { BloqueOrigen } from "./BloqueOrigen"
+import { BloqueOrigen, type Vigilancia } from "./BloqueOrigen"
 import { cn } from "@/lib/utils"
 
 // Vista «Decisiones»: cómo razonó el motor en cada caso y en qué acabó. Aprobaciones es lo que espera a
@@ -81,9 +81,9 @@ function Recorrido({ pasos, extras }: { pasos: Paso[]; extras: (ReactNode | null
   )
 }
 
-export function InspectorDecision({ d, notas = [], otras = [], onVerIncidente, onVerTrazas, onVerAtacante, onVerContenciones }: {
+export function InspectorDecision({ d, notas = [], otras = [], vigilancia = null, onVerIncidente, onVerTrazas, onVerAtacante, onVerContenciones }: {
   // `otras`: los demás registros a la vista, para el historial del origen (el mismo bloque que Aprobaciones)
-  d: Decision; notas?: CasoNota[]; otras?: Decision[]; onVerIncidente?: (d: Decision) => void; onVerTrazas?: () => void
+  d: Decision; notas?: CasoNota[]; otras?: Decision[]; vigilancia?: Vigilancia | null; onVerIncidente?: (d: Decision) => void; onVerTrazas?: () => void
   onVerAtacante?: (ip: string) => void; onVerContenciones?: () => void
 }) {
   const [det, setDet] = useState<Detalle | { error: string }>()
@@ -199,7 +199,7 @@ export function InspectorDecision({ d, notas = [], otras = [], onVerIncidente, o
         </Seccion>
       )}
 
-      <BloqueOrigen d={d} trazas={otras} />
+      <BloqueOrigen d={d} trazas={otras} vigilancia={vigilancia} />
 
       {(runbook.length > 0 || detalle?.recomendacion?.respuesta) && (
         <Seccion titulo="Qué hacer después">
@@ -256,7 +256,7 @@ function LineaSistema({ d }: { d: Decision }) {
   )
 }
 
-function LineaDecision({ d, activa, onAbrir }: { d: Decision; activa: boolean; onAbrir: () => void }) {
+function LineaDecision({ d, activa, vigilada, onAbrir }: { d: Decision; activa: boolean; vigilada?: boolean; onAbrir: () => void }) {
   const des = desenlaceDe(d)
   const quien = quienDecidio(d) ?? (d.requiere_humano ? "espera a un analista" : "automática")
   return (
@@ -278,6 +278,7 @@ function LineaDecision({ d, activa, onAbrir }: { d: Decision; activa: boolean; o
         <span className="block truncate text-[11.5px] text-muted-foreground">
           {d.clase_reclasificada ? `reclasificada: ${d.clase} → ${d.clase_reclasificada}`
             : [d.origen_ip, d.enriquecimiento_origen?.geo?.pais, quien, d.cascada?.length ? `tumba en cascada: ${d.cascada.join(", ")}` : null].filter(Boolean).join(" · ")}
+          {vigilada && <span className="ml-1.5 font-medium text-aviso" title="Origen en vigilancia (watchlist)">⚑</span>}
         </span>
       </span>
       <span className="flex flex-col items-end gap-1">
@@ -293,6 +294,8 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
   onVerTrazas?: () => void; onVerAtacante?: (ip: string) => void; onVerContenciones?: () => void
 } = {}) {
   const r = useSondeo(getDecisiones)
+  const wl = useSondeo(getWatchlist, 10000)        // orígenes en vigilancia («Revertir y vigilar»)
+  const vigilados = Array.isArray(wl) ? (wl as Vigilancia[]) : []
   const [actual, setActual] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>({ texto: textoInicial, clase: "" })
   // Al pivotar desde otra vista (p. ej. clic en una IP atacante) se siembra el filtro de texto.
@@ -380,7 +383,7 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
                   {cabecera && <div className="border-b border-border bg-muted px-3.5 py-1 text-[11px] text-muted-foreground">{cabecera}</div>}
                   {x.tipo && x.tipo !== "decision"
                     ? <LineaSistema d={x} />
-                    : <LineaDecision d={x} activa={elegida?.clave === clave} onAbrir={() => setActual(clave)} />}
+                    : <LineaDecision d={x} vigilada={!!enWatchlist(x.origen_ip, vigilados)} activa={elegida?.clave === clave} onAbrir={() => setActual(clave)} />}
                 </div>
               )
             })}
@@ -388,7 +391,7 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
           <Paginador pagina={pag.pagina} paginas={pag.paginas} total={pag.total} tam={tam} onPagina={setPagina} onTam={elegirTam} />
         </div>
         {elegida
-          ? <InspectorDecision key={elegida.clave} d={elegida.x} notas={casos[elegida.x.id_decision ?? ""]?.notas} otras={ds.filter((x) => x !== elegida.x)} onVerIncidente={onVerIncidente} onVerTrazas={onVerTrazas} onVerAtacante={onVerAtacante} onVerContenciones={onVerContenciones} />
+          ? <InspectorDecision key={elegida.clave} d={elegida.x} notas={casos[elegida.x.id_decision ?? ""]?.notas} otras={ds.filter((x) => x !== elegida.x)} vigilancia={enWatchlist(elegida.x.origen_ip, vigilados) as Vigilancia | null} onVerIncidente={onVerIncidente} onVerTrazas={onVerTrazas} onVerAtacante={onVerAtacante} onVerContenciones={onVerContenciones} />
           : <div className="rounded-lg border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">Selecciona una decisión para ver cómo se decidió.</div>}
       </div>
     </div>

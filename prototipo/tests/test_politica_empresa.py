@@ -22,6 +22,7 @@ POLITICA = {
     "respuesta_automatica": {
         "certeza_minima": 0.9, "por_defecto": "si_hay_certeza", "si_afecta_a_un_servicio": "con_analista",
         "solo_observar": "sola", "equipos_propios": "con_analista", "externos_desconocidos": "con_analista",
+        "origenes_vigilados": "con_analista",
         "por_tipo_de_ataque": {"acceso_credenciales": "si_hay_certeza", "integridad_fichero": "con_analista"},
         "por_zona": {"Interna": "con_analista"},
         "por_equipo": {"db01": "con_analista"},
@@ -48,6 +49,7 @@ class TestTraducir(unittest.TestCase):
         self.assertEqual(c["impacto_ninguno"], "automatica")
         self.assertEqual(c["actores"], {"activo_interno": "humano_siempre", "dispositivo_red": "humano_siempre"})
         self.assertEqual(c["contener_externos_desconocidos"], "humano_siempre")
+        self.assertEqual(c["vigilados"], "humano_siempre")
         self.assertEqual(c["revisar_no_soportada_nivel"], 10)
 
     def test_dimensiones(self):
@@ -257,3 +259,16 @@ class TestSemanticaReal(unittest.TestCase):
         for nombre in ("acceso_credenciales", "DMZ", "web01"):
             frase = next(f for f in frases if nombre in f)
             self.assertNotIn("se ejecuta sola", frase, frase)
+
+
+
+class TestOrigenesVigilados(unittest.TestCase):
+    def test_se_explica_y_vuelve_a_la_propuesta(self):
+        perfil = pe.fusionar_perfil_y_politica({"activos": {}}, {"respuesta_automatica": {"origenes_vigilados": "con_analista"}})
+        self.assertEqual(perfil["continuidad"]["vigilados"], "humano_siempre")
+        frases = " ".join(pe.explicar(perfil, {}))
+        self.assertIn("origen en vigilancia", frases)
+
+    def test_un_valor_raro_avisa(self):
+        avisos = pe.validar_politica({"respuesta_automatica": {"origenes_vigilados": "a_veces"}}, PERFIL, CAT)
+        self.assertTrue(any("origenes_vigilados" in a for a in avisos))

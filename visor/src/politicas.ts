@@ -73,6 +73,9 @@ export function resumenPolitica(est: PoliticaEstado): ResumenPolitica {
     esperan.push({ titulo: [i.activo ?? "—", i.funcion].filter(Boolean).join(" · "),
       detalle: [`no se cierra el puerto ${i.servicio ?? "—"} en automático`, ORIGEN[i.origen]].filter(Boolean).join(" · ") })
   }
+  if (conf?.vigilados === "humano_siempre") {
+    esperan.push({ titulo: "Lo que venga de un origen en vigilancia", detalle: "la watchlist («Revertir y vigilar»)" })
+  }
   if (conf?.revisar_desde_nivel != null) {
     esperan.push({ titulo: `Alertas que no reconoce, de nivel ${conf.revisar_desde_nivel} o más`, detalle: "a revisión, sin acción" })
   }

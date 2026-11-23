@@ -1589,6 +1589,8 @@ def politica_con_origenes(s):
         "equipos_propios": actores.politica(perfil, "activo_interno"),
         # Con «con_analista», todo bloqueo de un atacante externo no inventariado espera a un analista.
         "externos_desconocidos": cont.get("contener_externos_desconocidos"),
+        # Con «humano_siempre», lo que venga de un origen en la watchlist espera a un analista.
+        "vigilados": cont.get("vigilados"),
         "equipos_propios_origen": ("fichero" if "equipos_propios" in (pol.get("respuesta_automatica") or {})
                                    else "perfil" if (cont.get("actores") or {}).get("activo_interno") else "codigo")}
     del_fichero = {(e.get("equipo"), e.get("servicio")) for e in pol.get("nunca_tocar_en_automatico") or []}

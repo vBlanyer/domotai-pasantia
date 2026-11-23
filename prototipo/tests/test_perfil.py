@@ -43,6 +43,21 @@ class TestFiltro(unittest.TestCase):
         ri = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "192.168.1.10"}, CAT, "objetivo-vuln", "ssh", 1.0)
         self.assertTrue(ri["requiere_humano"])               # interno: humano por su propia regla
 
+    def test_un_origen_vigilado_espera_a_un_analista_si_la_politica_lo_pide(self):
+        # «Revertir y vigilar»: si el analista lo puso en vigilancia, la política puede exigir que lo
+        # siguiente que venga de ese origen lo decida una persona. Apagado por defecto (métricas intactas).
+        p = perfil_fx()
+        p["origenes_vigilados"] = [{"indicador": "1.2.3.4", "nota": "revertida s4"}, {"indicador": "198.51.100.0/24"}]
+        sin = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertFalse(sin["requiere_humano"])                          # sin la política: como siempre
+        p["continuidad"]["vigilados"] = "humano_siempre"
+        r = perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)
+        self.assertEqual(r["accion_final"], "BLOQUEAR_IP")                # la acción no cambia
+        self.assertTrue(r["requiere_humano"])                             # la decide una persona
+        self.assertIn("vigilancia", r["impacto"]["motivo"])
+        self.assertTrue(perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "198.51.100.77"}, CAT, "objetivo-vuln", "ssh", 1.0)["requiere_humano"])
+        self.assertFalse(perfil.filtrar(p, "BLOQUEAR_IP", {"ip": "5.6.7.8"}, CAT, "objetivo-vuln", "ssh", 1.0)["requiere_humano"])
+
     def test_externos_desconocidos_auto_por_defecto(self):
         # SIN el interruptor: comportamiento actual (auto) -> métricas canónicas intactas
         r = perfil.filtrar(self.p, "BLOQUEAR_IP", {"ip": "1.2.3.4"}, CAT, "objetivo-vuln", "ssh", 1.0)

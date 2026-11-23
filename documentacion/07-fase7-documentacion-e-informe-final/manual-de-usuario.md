@@ -464,7 +464,7 @@ intentos antes y después del bloqueo, la regla exacta y el comando que la quita
 | Botón | Qué hace |
 |---|---|
 | «Revertir…» | Quita una contención. Pide confirmación |
-| «Revertir y vigilar…» | La quita y añade la IP a la Watchlist |
+| «Revertir y vigilar…» | La quita y añade la IP a la Watchlist: lo que vuelva de ella sale marcado ⚑ y, si la política lo pide, espera a un analista |
 | «Revertir las N…» | Las seleccionadas |
 | «Revertir todas (N)…» / «Revertir las de más de 7 días (N)…» | En masa. **Hay que escribir el número de contenciones** para habilitar el botón |
 
@@ -587,9 +587,12 @@ bloques (`lab/geo_demo/geoip-muestra.csv`; en un cliente, DB-IP Lite). Tres mét
 y «Mitigados». Al pulsar un país, «En curso» lleva a Aprobaciones de ese país; las otras dos, a
 Decisiones. Las IPs internas, de documentación o sin geolocalizar solo salen en la tabla.
 
-**Watchlist** es tu lista de indicadores sospechosos: una IP o un bloque /24, con una nota. **Es solo
-una anotación**: no cambia ninguna decisión del motor. Las IPs vigiladas salen marcadas con ⚑ en la
-Red y en el perfil del atacante. «Quitar» no pide confirmación.
+**Watchlist** es tu lista de indicadores sospechosos: una IP o un bloque /24, con una nota. Las IPs
+vigiladas salen marcadas con ⚑ en Aprobaciones, Decisiones (con la nota, en el bloque de origen), la
+Red y el perfil del atacante, y la Consola avisa con una línea «⚑ origen en vigilancia» cada vez que una
+de ellas vuelve. **Por defecto no cambia ninguna decisión**; si la política de la empresa incluye
+`origenes_vigilados: con_analista`, todo lo que venga de una IP vigilada espera a un analista.
+«Quitar» no pide confirmación.
 
 > **Quién puede:** cualquier analista.
 

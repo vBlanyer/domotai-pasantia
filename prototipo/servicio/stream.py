@@ -10,6 +10,7 @@ import collections, hashlib, io, json, os, select, sys, threading, time
 import yaml
 from prototipo.entrada import ingesta, adaptador_wazuh
 from prototipo.motor import analisis, agrupacion, rafaga
+from prototipo.motor import perfil as perfilm
 from prototipo.servicio import casos, lazo, traza, validacion
 from prototipo.accion import fallos
 from prototipo.explicacion import analisis_ampliado, rag
@@ -446,12 +447,33 @@ def _linea_supresion(reg):
             f"· +{reg['alertas_suprimidas']} suprimida(s) [ref {reg['referencia']}]")
 
 
+def perfil_con_vigilancia(perfil, ruta_watchlist):
+    """El perfil con la watchlist en `origenes_vigilados` (IP o CIDR, con su nota): el motor no lee ficheros,
+    así que el servicio se la entrega en cada incidente (se lee entonces: refleja lo último que se añadió)."""
+    from prototipo.servicio import watchlist
+    return {**(perfil or {}), "origenes_vigilados": watchlist.cargar(ruta_watchlist) if ruta_watchlist else []}
+
+
+def _linea_vigilado(inc, perfil):
+    c = inc.get("clave") or {}
+    vig = perfilm.origen_vigilado(c.get("origen_ip"), perfil)
+    if not vig:
+        return None
+    v = validacion.texto_terminal
+    return (f"⚑ origen en vigilancia: {v(c.get('origen_ip'))} → {v(c.get('activo'))}"
+            + (f" · {v(vig['nota'])}" if vig.get("nota") else "")
+            + (f" (desde {vig['agregado_en']})" if vig.get("agregado_en") else ""))
+
+
 def _procesar_incidente(inc, hallazgos, perfil, perfil_nombre, catalogo, ejecutor, justificar_fn,
                         id_decision, cadena, escribir, leer, mitigar_fn=None, encolar=None,
                         escribir_traza=None, diferir_escalada=None, pausa=None):
     from prototipo.accion import conector
     rep = inc["representante"]
     escribir(_resumen_incidente(inc))
+    vig = _linea_vigilado(inc, perfil)          # «Revertir y vigilar»: que salte a la vista en la Consola
+    if vig:
+        escribir(vig)
     # Qué agrupa esta decisión (RF-11): va en el registro también si pasa por la cola.
     meta = {"incidente": {"conteo": inc.get("conteo"), "primera_ts": inc.get("primera_ts"),
                           "ultima_ts": inc.get("ultima_ts")}}
@@ -1597,7 +1619,9 @@ def main(argv):
                      estado_web=estado_web, resumen=resumen, ruta_traza=cfg["salida"],
                      lector_incidente=lector_incidente, memoria=memoria,
                      latido=(servidor.latido if servidor else None), actividad=actividad,
-                     perfil_fn=((lambda: servidor.perfil) if servidor else None),
+                     # el perfil vivo con la watchlist: «Revertir y vigilar» llega al motor y a la Consola
+                     perfil_fn=((lambda: perfil_con_vigilancia(servidor.perfil, servidor.watchlist_ruta))
+                                if servidor else None),
                      al_arrancar=(([registro_politica(politica_info, _ahora_iso())] if politica_info else [])
                                   + [registro_pendiente_perdida(p, _ahora_iso()) for p in perdidas]),
                      restaurar=restaurables)

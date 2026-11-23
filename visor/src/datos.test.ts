@@ -297,6 +297,7 @@ describe("clasificarLinea", () => {
     expect(clasificarLinea("⇪ s12 POSIBLE ATAQUE · fw-core: la clave del host cambió — posible suplantación")).toBe("ejecucion")
     expect(clasificarLinea("✗ e3: no se pudo procesar el incidente")).toBe("error")
     expect(clasificarLinea("· s12 política: retenida — bloquea a puesto")).toBe("detalle")
+    expect(clasificarLinea("⚑ origen en vigilancia: 198.51.100.11 → web-banking · revertida s4")).toBe("aviso")
     expect(clasificarLinea("cualquier otra cosa")).toBe("otro")
   })
 

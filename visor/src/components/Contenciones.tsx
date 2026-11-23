@@ -148,7 +148,7 @@ function Inspector({ e, trazas, ahora, onRevertir }: {
           <Boton tono="dan" onClick={() => onRevertir(false)} disabled={c.indice == null}>Revertir…</Boton>
           {c.ip && <Boton onClick={() => onRevertir(true)} disabled={c.indice == null}>Revertir y vigilar…</Boton>}
         </div>
-        {c.ip && <p className="text-[11.5px] text-muted-foreground">«Revertir y vigilar» la quita y añade la IP a la watchlist para que cualquier alerta nueva salte a la vista.</p>}
+        {c.ip && <p className="text-[11.5px] text-muted-foreground">«Revertir y vigilar» la quita y añade la IP a la watchlist: lo que vuelva de ella sale marcado ⚑ en Aprobaciones, Decisiones y la Consola y, si la política lo pide, espera a un analista.</p>}
       </div>
     </section>
   )
