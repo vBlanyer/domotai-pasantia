@@ -53,10 +53,15 @@ describe("una decisión revertida cuenta su final", () => {
     expect(pasaFiltro(d({ contencion: "contenida" }), "revertidas")).toBe(false)
     expect(FILTROS_DECISION.map((f) => f.nombre)).toContain("Revertidas")
   })
-  it("el paso «Ejecución» dice cuándo, quién y por qué se revirtió", () => {
-    const ej = pasosDe(d({ contencion: "contenida", dispositivo: "core-db", reversion: rev }), null).at(-1)!
-    expect(ej.etiqueta).toBe("revertida")
-    expect(ej.texto).toMatch(/^contenida en core-db y revertida a las .+ por ana \(des-bloqueo individual\)$/)
+  it("la ejecución sigue contando lo que pasó y un 7.º paso cuenta la reversión", () => {
+    const p = pasosDe(d({ contencion: "contenida", dispositivo: "core-db", reversion: rev }), null)
+    expect(p).toHaveLength(7)
+    expect(p[5]).toMatchObject({ titulo: "Ejecución", etiqueta: "contenida" })
+    expect(p[6]).toMatchObject({ titulo: "Reversión", estado: "violeta", etiqueta: "revertida" })
+    expect(p[6].texto).toMatch(/^revertida a las .+ por ana \(des-bloqueo individual\)$/)
+  })
+  it("sin reversión, seis pasos", () => {
+    expect(pasosDe(d({ contencion: "contenida" }), null)).toHaveLength(6)
   })
 })
 

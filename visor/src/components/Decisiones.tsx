@@ -104,6 +104,11 @@ export function InspectorDecision({ d, notas = [], otras = [], onVerIncidente, o
   const propuesta = detalle?.accion_propuesta, final = detalle?.accion_final
   const runbook = pasosRunbook(d.clase)
   const pequeno = "mt-1 text-xs text-muted-foreground"
+  // tras deshacerla, ¿el mismo origen volvió contra el mismo equipo y se contuvo otra vez? (la siguiente, no una anterior)
+  const recontenida = d.reversion ? otras
+    .filter((x) => (!x.tipo || x.tipo === "decision") && x.origen_ip === d.origen_ip && x.activo === d.activo
+      && x.contencion === "contenida" && (x.indice ?? -1) > (d.reversion?.indice ?? Infinity))
+    .sort((a, b) => (a.indice ?? 0) - (b.indice ?? 0))[0] : undefined
   const extras: (ReactNode | null)[] = [
     Object.keys(ev).length ? (
       <ul key="ev" className="mt-1 space-y-0.5 text-xs">{Object.entries(ev).map(([k, v]) => <li key={k}><span className="text-muted-foreground">{k}:</span> <span className="font-mono">{String(v)}</span></li>)}</ul>
@@ -140,6 +145,17 @@ export function InspectorDecision({ d, notas = [], otras = [], onVerIncidente, o
         {c.fallosEscalada?.map((f, i) => <LineaCausa key={`${f.dispositivo}-${i}`} causa={f.causa} equipo={f.dispositivo} prefijo="escalada en" />)}
       </div>
     ) : null,
+    // 7.º paso: la reversión (comando y resultado) y si el mismo origen volvió y se contuvo de nuevo
+    d.reversion ? (
+      <div key="reversion" className="mt-1 space-y-0.5 text-xs">
+        {d.reversion.comando && <p className="font-mono text-muted-foreground [overflow-wrap:anywhere]">{d.reversion.comando}</p>}
+        <p className="text-muted-foreground">{d.reversion.nodo ? `en ${d.reversion.nodo} · ` : ""}aplicada{d.reversion.codigo != null ? ` · código ${d.reversion.codigo}` : ""}</p>
+        {recontenida && (
+          <p className="text-ok">{`el mismo origen volvió a atacar y se contuvo de nuevo en ${recontenida.id_decision ?? "—"}`}{recontenida.timestamp ? ` a las ${horaLocal(recontenida.timestamp)}` : ""}</p>
+        )}
+        {onVerTrazas && <button onClick={onVerTrazas} className="font-medium text-info hover:underline">Ver la reversión en Trazas</button>}
+      </div>
+    ) : null,
   ]
   return (
     <section aria-label="Decisión" className="inspector overflow-hidden rounded-lg border border-border bg-card text-sm">
@@ -162,7 +178,7 @@ export function InspectorDecision({ d, notas = [], otras = [], onVerIncidente, o
         </div>
       )}
 
-      <Seccion titulo="Cómo se decidió" extra={<span>6 pasos</span>}>
+      <Seccion titulo="Cómo se decidió" extra={<span>{pasos.length} pasos</span>}>
         {!det ? <p className="mb-2 text-xs text-muted-foreground">cargando detalle…</p>
           : "error" in det ? <p className="mb-2 text-xs text-muted-foreground">no se pudo cargar el detalle de esta decisión; se enseña lo que trae la lista.</p> : null}
         <Recorrido pasos={pasos} extras={extras} />

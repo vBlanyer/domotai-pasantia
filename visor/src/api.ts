@@ -74,7 +74,9 @@ export const DecisionSchema = z.object({
   motivo_reversion: z.string().nullable().optional(), comando_ejecutado: z.string().nullable().optional(),
   codigo_salida: z.number().nullable().optional(), salida: z.string().nullable().optional(),
   reversion: z.object({ timestamp: z.string().nullable().optional(), operador: z.string().nullable().optional(),
-    motivo: z.string().nullable().optional(), indice: z.number().nullable().optional() }).nullable().optional(),
+    motivo: z.string().nullable().optional(), indice: z.number().nullable().optional(),
+    comando: z.string().nullable().optional(), nodo: z.string().nullable().optional(),
+    codigo: z.number().nullable().optional() }).nullable().optional(),
   exito: z.boolean().nullable().optional(), accion_id: z.string().nullable().optional(),
   nodo: z.string().nullable().optional(), error: z.string().nullable().optional(),
   // relaciones evento-equipo en la red y dispositivo de contención

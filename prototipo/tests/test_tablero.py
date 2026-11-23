@@ -217,9 +217,11 @@ class TestLectoresDeDatos(unittest.TestCase):
             {"id_decision": "s7", "activo": "web", "accion_final": "BLOQUEAR_IP"},          # mismo id, otro índice
             {"tipo": "reversion", "id_decision_revertida": "s7", "indice_revertido": 0, "exito": False, "timestamp": "t2"},
             {"tipo": "reversion", "id_decision_revertida": "s7", "indice_revertido": 0, "exito": True, "timestamp": "t3",
-             "operador": "ana", "motivo": "des-bloqueo individual"}])
+             "operador": "ana", "motivo": "des-bloqueo individual", "comando_ejecutado": "iptables -D INPUT -s 1.2.3.4 -j DROP",
+             "nodo": "atm", "codigo_salida": 0}])
         lst = tablero.lista_trazas(ruta)
-        self.assertEqual(lst[0]["reversion"], {"timestamp": "t3", "operador": "ana", "motivo": "des-bloqueo individual", "indice": 3})
+        self.assertEqual(lst[0]["reversion"], {"timestamp": "t3", "operador": "ana", "motivo": "des-bloqueo individual", "indice": 3,
+                                               "comando": "iptables -D INPUT -s 1.2.3.4 -j DROP", "nodo": "atm", "codigo": 0})
         self.assertIsNone(lst[1].get("reversion"))
         self.assertEqual(lst[0]["contencion"], lst[1]["contencion"])      # el desenlace del motor no se toca
 

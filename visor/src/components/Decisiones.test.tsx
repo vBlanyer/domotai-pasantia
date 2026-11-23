@@ -276,6 +276,34 @@ describe("Decisiones: filtro sembrado por navegación", () => {
   })
 })
 
+describe("Detalle: una decisión revertida", () => {
+  const rev = { timestamp: "2026-11-23T15:56:41Z", operador: "ana", motivo: "des-bloqueo individual", indice: 9,
+                comando: "iptables -D INPUT -s 10.200.0.11 -j DROP", nodo: "web-banking", codigo: 0 }
+  const base = { indice: 4, id_decision: "s22", clase: "vp_intento_acceso", activo: "web-banking", origen_ip: "10.200.0.11",
+                 contencion: "contenida", dispositivo: "web-banking", accion_final: "BLOQUEAR_IP", reversion: rev }
+
+  it("cuenta la reversión en su propio paso, con el comando y el enlace a Trazas", async () => {
+    h.detalle = { id_decision: "s22" }
+    const trazas = vi.fn()
+    render(<InspectorDecision d={base} onVerTrazas={trazas} />)
+    expect(await screen.findByText("7 pasos")).toBeInTheDocument()
+    expect(screen.getByText("iptables -D INPUT -s 10.200.0.11 -j DROP")).toBeInTheDocument()
+    expect(screen.getByText(/aplicada · código 0/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Ver la reversión en Trazas" }))
+    expect(trazas).toHaveBeenCalled()
+  })
+
+  it("si el mismo origen volvió a atacar y se contuvo, lo dice", async () => {
+    h.detalle = { id_decision: "s22" }
+    const despues = { indice: 12, id_decision: "s23", activo: "web-banking", origen_ip: "10.200.0.11",
+                      contencion: "contenida", timestamp: "2026-11-23T15:58:00Z" }
+    const antes = { ...despues, indice: 2, id_decision: "s20" }               // anterior a la reversión: no cuenta
+    render(<InspectorDecision d={base} otras={[antes, despues]} />)
+    expect(await screen.findByText(/volvió a atacar y se contuvo de nuevo en s23/)).toBeInTheDocument()
+    expect(screen.queryByText(/en s20/)).toBeNull()
+  })
+})
+
 describe("Detalle: el origen, igual que en Aprobaciones", () => {
   it("IP, equipo atacado, ubicación y lo que ya pasó con ese origen", async () => {
     h.detalle = { id_decision: "s2" }

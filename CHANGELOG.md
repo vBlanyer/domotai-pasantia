@@ -100,7 +100,10 @@ capítulo de resultados, y `evaluacion/resultados/`).
   revertida ya no sale como «contenida»: tiene el desenlace «revertida», su filtro, y el paso «Ejecución»
   dice cuándo, quién y por qué se revirtió. En Trazas, el inspector de una reversión enseña quién, por
   qué, qué deshace, el comando exacto y su resultado (y la salida si falló), y la decisión enlaza su
-  reversión por la posición en la cadena, no por el id.
+  reversión por la posición en la cadena, no por el id. En «Cómo se decidió», la reversión es un 7.º
+  paso propio: cuándo, quién, por qué, el comando y su resultado, un enlace a Trazas y, si el mismo
+  origen volvió a atacar el mismo equipo y se contuvo de nuevo, en qué decisión. El paso «Ejecución»
+  sigue contando solo lo que pasó al ejecutar.
 - **«Análisis ampliado» en la ficha de Aprobaciones**: al encolar una decisión para el analista, el MDR
   reúne por reglas, sin modelo, el contexto que antes había que buscar a mano: qué más hizo ese origen en
   la última hora (con el reconocimiento previo y los equipos tocados), qué tiene abierto el equipo atacado

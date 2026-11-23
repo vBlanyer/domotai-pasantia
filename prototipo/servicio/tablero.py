@@ -451,7 +451,9 @@ def _anotar_reversiones(resumenes):
     for s in resumenes:
         if s.get("tipo") == "reversion" and s.get("exito") and s.get("indice_revertido") is not None:
             revs[s["indice_revertido"]] = {"timestamp": s.get("timestamp"), "operador": s.get("operador"),
-                                           "motivo": s.get("motivo_reversion"), "indice": s.get("indice")}
+                                           "motivo": s.get("motivo_reversion"), "indice": s.get("indice"),
+                                           "comando": s.get("comando_ejecutado"), "nodo": s.get("nodo"),
+                                           "codigo": s.get("codigo_salida")}
     for s in resumenes:
         if s.get("indice") in revs and s.get("tipo") in (None, "decision"):
             s["reversion"] = revs[s["indice"]]

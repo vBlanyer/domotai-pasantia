@@ -115,17 +115,16 @@ export function pasosDe(d: Decision, det: Detalle | null): Paso[] {
       : humano
         ? { titulo: "Analista", estado: "aviso", etiqueta: "pendiente", texto: "espera la decisión de un analista (ver Aprobaciones)" }
         : { titulo: "Analista", estado: "neutro", etiqueta: "no hizo falta", texto: "la política permitía decidir sin humano" },
-    d.reversion
-      ? { titulo: "Ejecución", estado: "violeta", etiqueta: "revertida",
-          texto: `contenida${d.dispositivo ? ` en ${d.dispositivo}` : ""} y revertida` +
-            [horaLocal(d.reversion.timestamp) ? ` a las ${horaLocal(d.reversion.timestamp)}` : "",
-             d.reversion.operador ? ` por ${d.reversion.operador}` : "",
-             d.reversion.motivo ? ` (${d.reversion.motivo})` : ""].join("") }
-      : { titulo: "Ejecución", estado: ej.estado, etiqueta: ej.texto,
+    { titulo: "Ejecución", estado: ej.estado, etiqueta: ej.texto,
       // con el detalle cargado, el inspector cuenta la contención con su propia frase: aquí no se repite
       texto: c ? ""
         : estadoC === "fallida" ? "no se pudo contener ni verificar"
         : estadoC === "contenida" ? `aplicada en ${d.dispositivo ?? "—"} y comprobada después`
         : "no se ejecutó ninguna acción" },
+    // 7.º paso, solo si alguien deshizo la contención después: el final de la historia
+    ...(d.reversion ? [{ titulo: "Reversión", estado: "violeta" as const, etiqueta: "revertida",
+      texto: "revertida" + [horaLocal(d.reversion.timestamp) ? ` a las ${horaLocal(d.reversion.timestamp)}` : "",
+        d.reversion.operador ? ` por ${d.reversion.operador}` : "",
+        d.reversion.motivo ? ` (${d.reversion.motivo})` : ""].join("") }] : []),
   ]
 }
