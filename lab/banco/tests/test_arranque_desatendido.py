@@ -232,6 +232,44 @@ class TestServicio(unittest.TestCase):
             self.assertTrue(traza.verificar(regs)["valida"])
 
 
+class TestReiniciarRetomaLaTraza(unittest.TestCase):
+    """reiniciar.sh retoma la traza más reciente: la cola de Aprobaciones vuelve tras el reinicio (se
+    restaura desde la traza que se retoma) y la numeración continúa. `--traza-nueva` empieza otra."""
+
+    def _correr(self, *args, trazas=()):
+        import shutil, subprocess, tempfile
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        shutil.copy(os.path.join(RAIZ, "reiniciar.sh"), d)
+        os.makedirs(os.path.join(d, "run"))
+        for i, t in enumerate(trazas):
+            ruta = os.path.join(d, "run", t)
+            open(ruta, "w").close()
+            os.utime(ruta, (1000 + i, 1000 + i))           # la última de la lista es la más reciente
+        bin_ = os.path.join(d, "bin"); os.makedirs(bin_)
+        for nombre, cuerpo in (("docker", 'case "$*" in *"ps --format"*) echo clab-red-cliente-wazuh;; esac'),
+                               ("python3", 'echo "ARGS $*"'), ("pkill", "true")):
+            with open(os.path.join(bin_, nombre), "w") as f:
+                f.write(f"#!/bin/sh\n{cuerpo}\n")
+            os.chmod(os.path.join(bin_, nombre), 0o755)
+        cp = subprocess.run(["sh", "reiniciar.sh", *args], cwd=d, capture_output=True, text=True, timeout=20,
+                            env={**os.environ, "PATH": bin_ + os.pathsep + os.environ["PATH"]})
+        return next((l for l in cp.stdout.splitlines() if l.startswith("ARGS ")), cp.stdout + cp.stderr)
+
+    def test_retoma_la_traza_mas_reciente(self):
+        linea = self._correr(trazas=("trazas-2026-11-23-0823.jsonl", "trazas-2026-11-23-0955.jsonl"))
+        self.assertIn("--salida run/trazas-2026-11-23-0955.jsonl", linea)
+
+    def test_traza_nueva_empieza_otra_y_no_pasa_la_opcion_al_daemon(self):
+        linea = self._correr("--traza-nueva", "--con-llm", trazas=("trazas-2026-11-23-0955.jsonl",))
+        self.assertNotIn("0955", linea)
+        self.assertNotIn("--traza-nueva", linea)
+        self.assertIn("--con-llm", linea)
+
+    def test_sin_trazas_empieza_una(self):
+        self.assertRegex(self._correr(), r"--salida run/trazas-\d{4}-\d{2}-\d{2}-\d{4}\.jsonl")
+
+
 class TestRehecho(unittest.TestCase):
     """Tras rehacer el laboratorio (encender la máquina), las contenciones de la traza ya no existen:
     se anotan como revertidas para que el MDR no suprima los ataques repetidos ni la consola las muestre."""

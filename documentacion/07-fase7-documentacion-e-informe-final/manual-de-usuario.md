@@ -198,8 +198,9 @@ cd visor && npm install && npm run build && cd ..
    sh reiniciar.sh
    ```
 
-   Detiene el MDR anterior si lo había, lee las alertas de Wazuh con el perfil del banco y escribe
-   una traza nueva en `run/trazas-AAAA-MM-DD-HHMM.jsonl`.
+   Detiene el MDR anterior si lo había, lee las alertas de Wazuh con el perfil del banco y **retoma la
+   traza más reciente** de `run/` (si no hay ninguna, crea `run/trazas-AAAA-MM-DD-HHMM.jsonl`). Así la
+   numeración sigue y las aprobaciones pendientes vuelven a la cola.
 4. **Abre la consola** en el navegador del mismo equipo: **http://127.0.0.1:8787**.
 
 | Variante | Cuándo |
@@ -207,6 +208,7 @@ cd visor && npm install && npm run build && cd ..
 | `TRIAJE_CONECTIVIDAD_ABIERTA=1 sh reiniciar.sh` | Laboratorio sin tokens: deja probar y editar Conectividad |
 | `TRIAJE_CONSOLA_OPERADORES='{"tok-ana":"ana"}' sh reiniciar.sh` | Con un token por analista (sección 5) |
 | `sh reiniciar.sh --con-llm` | Experimental: justificación redactada por el modelo de lenguaje |
+| `sh reiniciar.sh --traza-nueva` | Empezar de cero con otra traza (la cola anterior no vuelve) |
 
 ### Lanzar ataques de prueba
 

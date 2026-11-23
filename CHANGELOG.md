@@ -96,6 +96,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   resuelven igual que antes del reinicio. Solo se restaura con la consola web y desde una traza que
   verifica; si no, se anotan como «pendiente perdida», como antes (fail-closed). Las pendientes escritas
   antes de este cambio no llevan la tarjeta y se siguen perdiendo.
+- **`reiniciar.sh` retoma la traza más reciente** en vez de empezar siempre otra: si no, la cola no
+  volvía (se restaura desde la traza que se retoma). La numeración ya continúa al retomar una traza, así
+  que los ids no se repiten. `--traza-nueva` empieza otra a propósito.
 - **La reversión se ve donde se cuenta la historia de la decisión.** En Decisiones, una decisión
   revertida ya no sale como «contenida»: tiene el desenlace «revertida», su filtro, y el paso «Ejecución»
   dice cuándo, quién y por qué se revirtió. En Trazas, el inspector de una reversión enseña quién, por

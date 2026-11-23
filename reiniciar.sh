@@ -1,8 +1,10 @@
 #!/bin/sh
 # Reinicia el daemon MDR (--web) de un solo comando: mata el anterior, libera el puerto 8787 y
-# relanza leyendo las alertas de Wazuh, con una traza NUEVA (evita id_decision duplicados).
+# relanza leyendo las alertas de Wazuh, RETOMANDO la traza más reciente de run/: la numeración sigue y
+# las aprobaciones pendientes vuelven a la cola (se restauran desde la traza que se retoma).
 #
 #   sh reiniciar.sh                 # modo plantilla (rápido, ideal para probar la UI)
+#   sh reiniciar.sh --traza-nueva   # empieza una traza nueva (la cola anterior no vuelve)
 #   sh reiniciar.sh --con-llm       # EXPERIMENTAL: justificador LLM + RAG (necesita el llama-server;
 #                                   #   sin GPU tarda minutos por alerta; sin servidor arranca sin LLM)
 #   sh reiniciar.sh --agente        # EXPERIMENTAL: mitigación con el agente ReAct (mismos requisitos)
@@ -17,7 +19,15 @@ PERFIL="prototipo/perfiles/bancario.yml"
 HALLAZGOS="lab/campañas/2026-09-22-banco-hallazgos/hallazgos.json"
 WAZUH="clab-red-cliente-wazuh"
 mkdir -p run
-SALIDA="run/trazas-$(date +%F-%H%M).jsonl"
+# --traza-nueva (en cualquier posición) se consume aquí; el resto de opciones pasa al daemon tal cual.
+NUEVA=0
+for a in "$@"; do
+  shift
+  if [ "$a" = "--traza-nueva" ]; then NUEVA=1; else set -- "$@" "$a"; fi
+done
+SALIDA=""
+[ "$NUEVA" = 1 ] || SALIDA=$(ls -t run/trazas-*.jsonl 2>/dev/null | head -n 1)
+[ -n "$SALIDA" ] || SALIDA="run/trazas-$(date +%F-%H%M).jsonl"
 
 echo "→ deteniendo el daemon anterior (si hay)…"
 # Patrón transicional (reorg 26/10): mata también un daemon arrancado con la ruta plana antigua.
