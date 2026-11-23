@@ -14,6 +14,8 @@
 #   sh lab/banco/banco.sh atacar continuo ataques variados SIN FIN para probar el MDR en continuo
 #                                         (Ctrl+C para parar; --gap/--restaurar-cada/--semilla/--vueltas)
 #   sh lab/banco/banco.sh vigilar         panel en vivo: servicios en verde/rojo y ultimos cambios
+#   sh lab/banco/banco.sh claves-propias  una clave SSH de host propia en cada nodo (una sola vez por
+#                                         contenedor); despues, 'aprovisionar' para fijar las huellas nuevas
 #   sh lab/banco/banco.sh aprovisionar    minimo privilegio del conector en los nodos del banco
 #                                         (hace falta despues de cada 'up': containerlab recrea
 #                                         los contenedores y el usuario/sudoers no sobreviven)
@@ -23,6 +25,28 @@ RAIZ=$(cd "$HERE/../.." && pwd)
 TOPO="$RAIZ/lab/topologias/banco.clab.yml"
 P=clab-banco
 red() { (cd "$RAIZ" && python3 -m lab.banco.red "$@"); }
+
+# Nodos con sshd (el conector, el auditor y el equipo por dar de alta entran por SSH).
+NODOS_SSH="web-banking api-movil swift-alliance middleware core-db hsm atm taquilla fw-core fw-edge mdr-siem auditor pagos-qr internet"
+
+# Una clave SSH de host PROPIA por nodo: la imagen trae una sola para todos, y con ella fijar la huella de un
+# equipo no lo distinguía de otro (ni el asistente de red sabía qué IPs son de la misma máquina). Una sola
+# vez por contenedor (marca /etc/ssh/.claves_propias): un 'up' sobre contenedores que siguen no las cambia.
+claves_propias() {
+  for n in $NODOS_SSH; do
+    # Tras matar el sshd viejo hay que ESPERAR a que suelte el puerto 22: si no, el nuevo muere al arrancar
+    # y el nodo se queda sin sshd (pasó en vivo el 23/11).
+    docker exec $P-$n sh -c 'if [ ! -f /etc/ssh/.claves_propias ]; then rm -f /etc/ssh/ssh_host_*; ssh-keygen -A >/dev/null && touch /etc/ssh/.claves_propias; pkill -f "^sshd: /usr/sbin/sshd" 2>/dev/null; i=0; while pgrep -f "^sshd: /usr/sbin/sshd" >/dev/null && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; fi; pgrep -f "^sshd: /usr/sbin/sshd" >/dev/null || /usr/sbin/sshd -E /var/log/banco/sshd.log' 2>/dev/null || true
+  done
+}
+
+# Las IP que añade el lanzador para rotar el origen de un ataque (`ip addr add` en la misma /24 que la del
+# nodo) quedan marcadas «secondary» por el kernel: se quitan todas. Las de Containerlab son primarias.
+quitar_alias() {
+  for c in $(docker ps --format '{{.Names}}' | grep "^$P-"); do
+    docker exec $c sh -c 'ip -4 -o addr show | awk "/ secondary / {print \$4, \$2}" | while read a d; do ip addr del "$a" dev "$d"; done' 2>/dev/null || true
+  done
+}
 
 salud() {
   docker exec $P-mdr-siem sh -c "tail -n1 /var/log/banco/salud.jsonl 2>/dev/null" || true
@@ -44,8 +68,9 @@ case "${1:-up}" in
     [ -n "$W" ] || { echo "Wazuh sin IP"; exit 1; }
     echo "== 3. sshd, servicios y reenviadores =="
     # pagos-qr: equipo nuevo por dar de alta desde la consola (sshd si; ni servicio ni aprovisionamiento)
+    claves_propias
     for n in web-banking api-movil swift-alliance middleware core-db hsm atm taquilla fw-core fw-edge mdr-siem auditor pagos-qr; do
-      docker exec $P-$n sh -c 'pgrep -x sshd >/dev/null || /usr/sbin/sshd -E /var/log/banco/sshd.log; touch /var/log/banco/access.log /var/log/banco/auth.log'
+      docker exec $P-$n sh -c 'pgrep -f "^sshd: /usr/sbin/sshd" >/dev/null || /usr/sbin/sshd -E /var/log/banco/sshd.log; touch /var/log/banco/access.log /var/log/banco/auth.log'
       # I2: sshd y los servicios HTTP escuchan en 0.0.0.0, es decir tambien en eth0 (gestion),
       # que no pasa por ningun cortafuegos del banco. Sin esta regla, alguien con acceso a la
       # red de gestion (p.ej. 'internet', que solo deberia llegar por el plano de datos 10.x a
@@ -127,6 +152,11 @@ case "${1:-up}" in
     CMD=$(red servicio $S); docker exec -d $P-$S sh -c "$CMD"
     sleep 6; echo "Salud tras restaurar:"; salud
     ;;
+  claves-propias)
+    echo "== Clave SSH de host propia en cada nodo (solo en los que aún tienen la de la imagen) =="
+    claves_propias
+    echo "Hecho. Las huellas han cambiado: fija las nuevas con  sh lab/banco/banco.sh aprovisionar"
+    ;;
   aprovisionar)
     # I6: minimo privilegio del conector en los nodos sobre los que actua. Hace falta despues
     # de cada 'up' porque containerlab recrea los contenedores (usuario 'triaje' y sudoers no
@@ -158,6 +188,8 @@ case "${1:-up}" in
       docker exec $P-$n sh -c "pkill -f 'servicio.py --nombre $n'" 2>/dev/null || true
       CMD=$(red servicio $n); docker exec -d $P-$n sh -c "$CMD"
     done
+    echo "== Quito las IP de origen que añadieron los ataques rotados =="
+    quitar_alias
     echo "== Servicios reiniciados; esperando al monitor... =="
     sleep 8
     echo "== Salud =="

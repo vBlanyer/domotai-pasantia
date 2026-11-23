@@ -38,6 +38,14 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Banco: los ataques rotados ya no dejan IPs pegadas, y cada nodo tiene su clave SSH de host.**
+  - **IPs pegadas:** el lanzador añadía una IP por ataque con origen rotado (`ip addr add`) y nadie la quitaba.
+    Había 409 acumuladas en taquilla, middleware e internet, y el asistente de red las encontraba como
+    equipos. Ahora las quita el «deshacer» del caso, y `banco.sh restaurar` quita todas las IP secundarias de
+    los nodos (las de Containerlab son primarias).
+  - **Claves de host:** todos los nodos compartían la clave de la imagen, así que fijar una huella no
+    distinguía un equipo de otro. `up` genera una por nodo, una sola vez por contenedor. Para un banco ya
+    levantado está `banco.sh claves-propias`, y después `aprovisionar` fija las huellas nuevas.
 - **Asistente de red: los fallos de la prueba completa del 23/11.** Se probó con un escaneo real del banco
   (8 subredes, 185 equipos).
   - **Caminos:** cuando muchos equipos comparten camino, nmap no repite en el XML los saltos que ya trazó

@@ -17,6 +17,11 @@ actúa. Diseño: `archivo/proceso-desarrollo/superpowers/specs/2026-09-21-labora
     sh lab/banco/banco.sh atacar continuo # SOAK: ataques variados sin fin, para probar el MDR en continuo
     sh lab/lab.sh down banco
 
+Cada nodo tiene su **propia clave SSH de host**: el `up` la genera una sola vez por contenedor (la imagen trae
+una para todos). En un banco levantado antes de esto, `sh lab/banco/banco.sh claves-propias` y después
+`aprovisionar`, que fija las huellas nuevas. `restaurar` quita también las IP que añaden los ataques con origen
+rotado (antes se acumulaban y el asistente de red las encontraba como equipos).
+
 `comprobar-alertas` abre desde el auditor una conexión sin banner SSH a `web-banking:22`, espera
 (hasta `ALERTAS_ESPERA_MAX` s, 120 por defecto) a que Wazuh levante la regla 100200 y falla si no llega.
 Es inofensiva aunque el MDR esté en marcha: el auditor es un activo de gestión del perfil y el motor la

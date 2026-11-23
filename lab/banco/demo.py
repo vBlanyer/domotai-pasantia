@@ -90,7 +90,11 @@ def deshacer_rotado(caso, src_ip):
     """Las reglas de deshacer del caso con la IP base sustituida por la rotada, para retirar el
     bloqueo que el MDR aplicó a `src_ip` (no a la IP base)."""
     base = caso.get("origen", "")
-    return [(nodo, cmd.replace(base, src_ip) if base else cmd) for nodo, cmd in caso.get("deshacer", [])]
+    reglas = [(nodo, cmd.replace(base, src_ip) if base else cmd) for nodo, cmd in caso.get("deshacer", [])]
+    if caso.get("ataque"):
+        # y el alias que añadió ataque_rotado en el nodo atacante (antes se quedaba para siempre)
+        reglas.append((caso["ataque"][0], f"ip addr del {src_ip}/24 dev {IFACE_DATOS} 2>/dev/null; true"))
+    return reglas
 
 
 def _exec(nodo, cmd, ejecutar=subprocess.run):

@@ -174,6 +174,16 @@ class TestDemo(unittest.TestCase):
         demo.deshacer(caso, ejecutar=ejecutar, src_ip="198.51.100.11")
         self.assertEqual(llamadas[0][-1], "iptables -D INPUT -s 198.51.100.11 -j DROP")
 
+    def test_deshacer_rotado_quita_tambien_la_ip_del_atacante(self):
+        # 23/11: el alias `ip addr add` del ataque rotado se quedaba para siempre en el nodo atacante.
+        llamadas, ejecutar = self._fake()
+        caso = {"origen": "198.51.100.10", "ataque": ("internet", "base"),
+                "deshacer": [("web-banking", "iptables -D INPUT -s 198.51.100.10 -j DROP")]}
+        demo.deshacer(caso, ejecutar=ejecutar, src_ip="198.51.100.11")
+        alias = [a for a in llamadas if "ip addr del 198.51.100.11/24" in a[-1]]
+        self.assertEqual(len(alias), 1)
+        self.assertIn("clab-banco-internet", alias[0])
+
     def test_main_con_rotacion_lanza_d1_desde_ip_nueva(self):
         # Enciende la rotación (r), lanza D1 (2), no deshace (N), sale (0).
         llamadas, ejecutar = self._fake()

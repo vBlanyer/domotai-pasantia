@@ -320,3 +320,60 @@ class TestRehecho(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# docker falso que apunta cada orden en $FALSO_DIR/ordenes y lista tres nodos del banco en `docker ps`.
+DOCKER_APUNTA = r"""#!/bin/sh
+echo "$*" >> "$FALSO_DIR/ordenes"
+case "$1" in
+  ps) printf 'clab-banco-taquilla\nclab-banco-internet\nclab-banco-web-banking\nclab-red-cliente-wazuh\n' ;;
+esac
+exit 0
+"""
+
+
+def _ordenes(args, env=None):
+    with tempfile.TemporaryDirectory() as d:
+        r = _ejecutar(args, DOCKER_APUNTA, dict(env or {}, FALSO_DIR=d))
+        ruta = os.path.join(d, "ordenes")
+        return r, (open(ruta).read().splitlines() if os.path.exists(ruta) else [])
+
+
+class TestAliasDeAtaque(unittest.TestCase):
+    """23/11: el lanzador añadía una IP por ataque rotado (`ip addr add`) y nadie la quitaba: 409 IPs pegadas
+    en taquilla, middleware e internet, que el asistente de red encontraba como equipos."""
+
+    def test_restaurar_quita_las_ip_secundarias_de_todos_los_nodos_del_banco(self):
+        r, ordenes = _ordenes(["restaurar"])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        quitar = [o for o in ordenes if "ip addr del" in o and "secondary" in o]
+        self.assertEqual(sorted(o.split()[1] for o in quitar),
+                         ["clab-banco-internet", "clab-banco-taquilla", "clab-banco-web-banking"])
+        self.assertFalse([o for o in quitar if "wazuh" in o])                  # el Wazuh compartido no se toca
+
+
+class TestClavesPropias(unittest.TestCase):
+    """23/11: todos los nodos del banco compartían la clave SSH de host de la imagen: fijar la huella de un
+    equipo no lo distinguía de otro, y el asistente no podía saber qué IPs son de la misma máquina."""
+
+    def test_cada_nodo_genera_la_suya_una_sola_vez(self):
+        r, ordenes = _ordenes(["claves-propias"])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        claves = [o for o in ordenes if "ssh-keygen -A" in o]
+        nodos = {o.split()[1] for o in claves}
+        for n in ("web-banking", "atm", "core-db", "fw-core", "fw-edge", "mdr-siem", "pagos-qr", "taquilla"):
+            self.assertIn(f"clab-banco-{n}", nodos)
+        for o in claves:
+            self.assertIn(".claves_propias", o)                # marca: un segundo `up` no las vuelve a cambiar
+            self.assertIn("rm -f /etc/ssh/ssh_host_", o)
+            # En vivo (23/11) el sshd nuevo arrancaba antes de que el viejo soltara el puerto 22 y moría: los
+            # 14 nodos se quedaron SIN sshd. Hay que esperar a que el viejo termine antes de arrancarlo.
+            self.assertLess(o.index("pkill"), o.index("while pgrep"))
+            self.assertLess(o.index("while pgrep"), o.index("/usr/sbin/sshd -E"))
+        self.assertIn("aprovisionar", r.stdout)                # recuerda volver a fijar las huellas
+
+    def test_up_las_genera_antes_de_arrancar_sshd(self):
+        texto = open(BANCO, encoding="utf-8").read()
+        up = texto[texto.index("\n  up)"):texto.index("\n    ;;", texto.index("\n  up)"))]
+        self.assertIn("claves_propias", up)
+        self.assertLess(up.index("claves_propias"), up.index("/usr/sbin/sshd"))
