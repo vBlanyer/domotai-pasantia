@@ -422,7 +422,8 @@ export const PoliticaEstadoSchema = z.object({
   politica: CabeceraPoliticaSchema.nullable().optional(),
   diferencias: z.array(DiferenciaPoliticaSchema).optional(),
   confianza: ConfianzaPoliticaSchema.optional(),
-  intocables: z.array(z.object({ activo: z.string().nullable(), servicio: z.union([z.number(), z.string()]).nullable(), origen: z.string() })).optional(),
+  intocables: z.array(z.object({ activo: z.string().nullable(), servicio: z.union([z.number(), z.string()]).nullable(), origen: z.string(),
+    funcion: z.string().nullable().optional() })).optional(),   // qué es el equipo (servicios anteriores no la mandan)
 })
 export type PoliticaEstado = z.infer<typeof PoliticaEstadoSchema>
 export const getPolitica = () => pedir("/api/politica", PoliticaEstadoSchema)
