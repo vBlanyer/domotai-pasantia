@@ -184,7 +184,7 @@ describe("Politicas con politica.yml", () => {
     expect(within(col("Lo contiene solo")).getByText("bloquea el origen")).toBeInTheDocument()
     expect(within(col("Espera a un analista")).getByText("Reconocimiento (escaneo)")).toBeInTheDocument()
     expect(within(col("Espera a un analista")).getByText("db01")).toBeInTheDocument()       // sin zona: sale aquí
-    expect(within(col("Espera a un analista")).getByText("puerto 5432")).toBeInTheDocument()
+    expect(within(col("Espera a un analista")).getByText("no se cierra el puerto 5432 en automático · de politica.yml")).toBeInTheDocument()
     expect(within(col("Nunca lo hace solo")).getByText("Malware")).toBeInTheDocument()
     expect(within(col("Nunca lo hace solo")).getByText("Cortar la conexión del MDR con los equipos")).toBeInTheDocument()
     expect(screen.getByText(/Se fía de 10\.99\.0\.10/)).toBeInTheDocument()
@@ -200,9 +200,11 @@ describe("Politicas con politica.yml", () => {
     expect(screen.queryByText("Bloquear un equipo propio")).toBeNull()
   })
 
-  it("el texto completo de la política, en un desplegable", async () => {
+  it("el texto completo de la política, en un desplegable que solo lo pide al abrirse", async () => {
     render(<Politicas />)
-    fireEvent.click(screen.getByText("Ver la política en texto"))
+    expect(h.explicar).not.toHaveBeenCalled()
+    expect(screen.queryByText(/Sobre db01, una contención espera siempre a un analista/)).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Ver la política en texto" }))
     expect(await screen.findByText(/Sobre db01, una contención espera siempre a un analista/)).toBeInTheDocument()
   })
 
@@ -215,10 +217,19 @@ describe("Politicas con politica.yml", () => {
     expect(screen.getByRole("tab", { name: "Por tipo de ataque" })).toHaveAttribute("aria-selected", "true")
   })
 
-  it("en «Por zona y dispositivo», el equipo con un servicio intocable lleva su candado", () => {
-    h.pol = conPolitica({ intocables: [{ activo: "srv-web", servicio: 443, origen: "perfil", funcion: "portal" }] })
+  it("en «Por zona y dispositivo», el candado va en la fila de su equipo, y solo en ella", () => {
+    h.pol = conPolitica({ intocables: [{ activo: "srv-web", servicio: 443, origen: "perfil", funcion: "portal" },
+                                       { activo: "sin-zona", servicio: 22, origen: "perfil" }] })
     abrir("Por zona y dispositivo")
-    expect(screen.getByText("puerto 443: siempre con analista")).toBeInTheDocument()
+    const candado = screen.getByText("puerto 443: no se cierra en automático")
+    expect(candado.closest("li")).toHaveTextContent("srv-web")
+    expect(screen.getAllByText(/no se cierra en automático/)).toHaveLength(1)    // el equipo sin zona no tiene fila
+  })
+
+  it("los enlaces del pie dejan el foco en la pestaña a la que llevan", async () => {
+    render(<Politicas />)
+    fireEvent.click(screen.getByRole("button", { name: "Ver Confianza →" }))
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Confianza" })).toHaveFocus())
   })
 
   it("exportar la propuesta descarga el YAML", async () => {

@@ -60,8 +60,9 @@ describe("resumenPolitica", () => {
   it("lo que espera a un analista: familias, equipos propios, intocables (con o sin zona) y lo no reconocido", () => {
     expect(titulos(r.humano)).toEqual(["Explotación conocida", "Bloquear un equipo propio",
       "core-db · base de datos del core bancario", "suelto", "Alertas que no reconoce, de nivel 10 o más"])
-    expect(r.humano[2].detalle).toBe("puerto 1521")
-    expect(r.humano[3].detalle).toBe("puerto 8443")
+    // lo exacto: la excepción impide CERRAR el puerto solo (bloquear al atacante sigue pudiendo ser automático)
+    expect(r.humano[2].detalle).toBe("no se cierra el puerto 1521 en automático · del perfil")
+    expect(r.humano[3].detalle).toBe("no se cierra el puerto 8443 en automático · del perfil")
   })
 
   it("lo que nunca hace solo acaba en su propia conexión", () => {
@@ -89,6 +90,34 @@ describe("resumenPolitica", () => {
     const todo = resumenPolitica({ ...BANCO, familias: [fam("reconocimiento", "humano_siempre", "BLOQUEAR_IP")] })
     expect(todo.solo).toEqual([])
     expect(todo.frase).toContain("contiene 0 solo")
+  })
+})
+
+describe("resumenPolitica: lo que el motor hace de verdad", () => {
+  it("un freno del código sigue en «nunca» aunque la política le ponga «con analista»", () => {
+    const r = resumenPolitica({ ...BANCO, familias: [{ ...fam("malware", "nunca_automatica", "AISLAR_NODO"), automatizacion_efectiva: "humano_siempre" }] })
+    expect(titulos(r.nunca)).toContain("Malware")
+    expect(titulos(r.humano)).not.toContain("Malware")
+  })
+
+  it("si los externos desconocidos esperan a un analista, el bloqueo del origen deja de ser automático", () => {
+    const r = resumenPolitica({ ...BANCO, confianza: { ...BANCO.confianza!, externos_desconocidos: "humano_siempre" } })
+    expect(r.solo).toEqual([])
+    expect(r.humano[0]).toEqual({ titulo: "Fuerza bruta", detalle: "bloquea el origen · con un atacante externo, espera a un analista" })
+    expect(r.frase).toContain("contiene 0 solo")
+  })
+
+  it("una zona o un equipo en HUMANO salen como espera", () => {
+    const r = resumenPolitica({ ...BANCO, zonas: [
+      { zona: "Core", automatizacion: "humano_siempre", protegida: false, dispositivos: [] },
+      { zona: "DMZ", automatizacion: "automatica_si_confianza", protegida: false, dispositivos: [
+        { activo: "web", override: "humano_siempre", cascada: [], radio: 0, cascada_posiblemente_incompleta: false },
+        { activo: "api", override: null, cascada: [], radio: 0, cascada_posiblemente_incompleta: false }] },
+      { zona: "SOC", automatizacion: "humano_siempre", protegida: true, dispositivos: [] }] })
+    expect(titulos(r.humano)).toContain("Zona Core: todo espera a un analista")
+    expect(titulos(r.humano)).toContain("Equipo web: todo espera a un analista")
+    expect(titulos(r.humano).join()).not.toContain("api")
+    expect(titulos(r.humano).join()).not.toContain("SOC")      // la de gestión ya sale en «nunca»
   })
 })
 

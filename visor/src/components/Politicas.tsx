@@ -107,6 +107,7 @@ function Columna({ titulo, nota, tono, items, vacio }: { titulo: string; nota: s
 
 function Resumen({ est, onIr }: { est: PoliticaEstado; onIr: (p: Pestana) => void }) {
   const r = resumenPolitica(est)
+  const [verTexto, setVerTexto] = useState(false)
   const certeza = r.certeza != null ? `Con certeza de ${String(r.certeza).replace(".", ",")} o más` : "Si está seguro"
   return (
     <div className="pol-res">
@@ -122,10 +123,13 @@ function Resumen({ est, onIr }: { est: PoliticaEstado; onIr: (p: Pestana) => voi
         <button type="button" className="pol-enlace" onClick={() => onIr("confianza")}>Ver Confianza →</button>
         <button type="button" className="pol-enlace" onClick={() => onIr("familias")}>Ver cada tipo de ataque →</button>
       </div>
-      <details className="pol-res-texto">
-        <summary>Ver la política en texto</summary>
-        <Explicacion />
-      </details>
+      {/* el texto completo se pide solo al abrirlo (no lanza peticiones ni avisos ocultos) */}
+      <div className="pol-res-texto">
+        <button type="button" className="pol-enlace" aria-expanded={verTexto} onClick={() => setVerTexto((v) => !v)}>
+          Ver la política en texto
+        </button>
+        {verTexto && <Explicacion />}
+      </div>
     </div>
   )
 }
@@ -346,7 +350,11 @@ export function Politicas() {
 
       {aviso && <p role="alert" className="pol-alert">{aviso}</p>}
 
-      {pestana === "resumen" && <Resumen est={est} onIr={(p) => { setPestana(p); setSel(null) }} />}
+      {pestana === "resumen" && <Resumen est={est} onIr={(p) => {
+        setPestana(p); setSel(null)
+        // el enlace desaparece al cambiar de pestaña: el foco pasa a la pestaña elegida, no al vacío
+        setTimeout(() => document.querySelector<HTMLElement>('.pol-tablist [role="tab"][aria-selected="true"]')?.focus(), 0)
+      }} />}
 
       {pestana === "confianza" && (
         <div className="pol-panel">
@@ -428,7 +436,7 @@ export function Politicas() {
                                 <div className="pol-fam">{d.activo} <span className={`pol-sev ${d.criticidad ?? "na"}`}>{d.criticidad ?? "—"}</span></div>
                                 <div className="pol-sub">radio {d.radio}{d.cascada.length > 0 && <> <span className="arw">·</span> cascada: {d.cascada.join(", ")}</>}</div>
                                 {intocablesDe(est, d.activo).map((puerto) => (
-                                  <span key={String(puerto)} className="pol-candado">{ICON_LOCK}puerto {String(puerto)}: siempre con analista</span>
+                                  <span key={String(puerto)} className="pol-candado">{ICON_LOCK}puerto {String(puerto)}: no se cierra en automático</span>
                                 ))}
                               </div>
                               <div className="pol-ctl">

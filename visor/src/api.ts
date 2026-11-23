@@ -415,6 +415,8 @@ export const ConfianzaPoliticaSchema = z.object({
   origen: z.string(),
   // bloquear un equipo propio: lo que aplica el motor (humano_siempre por defecto) y de dónde sale
   equipos_propios: z.string().nullable().optional(), equipos_propios_origen: z.string().nullable().optional(),
+  // «humano_siempre»: todo bloqueo de un atacante externo no inventariado espera a un analista
+  externos_desconocidos: z.string().nullable().optional(),
 })
 export type ConfianzaPolitica = z.infer<typeof ConfianzaPoliticaSchema>
 export const PoliticaEstadoSchema = z.object({

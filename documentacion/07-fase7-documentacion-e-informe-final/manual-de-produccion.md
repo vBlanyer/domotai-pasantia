@@ -1094,7 +1094,7 @@ reiniciar.
 
 - **«Resumen».** La vista abre aquí. Una frase con el recuento («de 10 tipos de ataque, el MDR contiene
   4 solo…») y tres columnas: **lo contiene solo** (con su acción y la certeza mínima), **espera a un
-  analista** (incluidos los servicios intocables, con el equipo y su puerto) y **nunca lo hace solo**
+  analista** (incluidos los servicios intocables, con el equipo y su puerto, y las zonas o equipos en HUMANO) y **nunca lo hace solo**
   (los frenos del código y su propia conexión con los equipos). Debajo, en quién confía y, en «Ver la
   política en texto», lo mismo que `mdr explicar-politica`.
 - **«Por tipo de ataque».** Cada familia muestra su acción y un selector AUTO / HUMANO. Las que llevan
@@ -1102,7 +1102,7 @@ reiniciar.
   enrutan» no tienen acción. «detalle» muestra el impacto, los vetos y el runbook.
 - **«Por zona y dispositivo».** Postura por zona (AUTO o HUMANO; el plano de gestión no se edita) y
   por equipo (HEREDA, AUTO o HUMANO), con su criticidad y cuántos equipos caerían en cascada. Un
-  equipo con un servicio intocable lleva un candado: «puerto 1521: siempre con analista».
+  equipo con un servicio intocable lleva un candado: «puerto 1521: no se cierra en automático» (bloquear al atacante puede seguir siendo automático).
 
 - **Origen de cada valor.** Cada fila dice de dónde sale: del código (freno duro), de la política de
   la empresa, de la consola o del perfil. Arriba se ve la versión de `politica.yml` vigente y quién

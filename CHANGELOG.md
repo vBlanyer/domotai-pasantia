@@ -13,7 +13,10 @@ capítulo de resultados, y `evaluacion/resultados/`).
   que nunca hace solo. Usa nombres legibles («Fuerza bruta», «core-db · base de datos del core»), y el
   texto de `mdr explicar-politica` pasa a un desplegable. La pestaña «Intocables» desaparece: cada
   servicio intocable lleva un candado en la fila de su equipo, y lo general va al Resumen.
-  `/api/politica` añade `funcion` a cada intocable.
+  `/api/politica` añade `funcion` a cada intocable y `externos_desconocidos` a la confianza.
+- **`automatizacion_efectiva` coincide con el motor.** La postura por familia solo endurece: «con certeza»
+  sobre una familia que de base espera a un analista ya no se pinta como automática, y un freno del
+  código con «con analista» sigue siendo un freno.
 - **Las dos variantes de AWS en dos carpetas** (`infra/aws/mdr/`, producción, e `infra/aws/laboratorio/`,
   pruebas), autosuficientes sobre un módulo común (`infra/aws/modulos/base/`): cada una con sus variables,
   su estado, su guía, sus costes, su inventario, sus escenarios del emulador y sus pruebas. Desaparece la

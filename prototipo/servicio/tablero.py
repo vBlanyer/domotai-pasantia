@@ -1422,6 +1422,17 @@ def politica_resumen(catalogo, perfil):
     return filas
 
 
+def _efectiva_familia(base, postura):
+    """Lo que el motor aplica de verdad a una familia: la postura solo ENDURECE (perfil.filtrar). Un freno
+    del código sigue siendo freno; «con analista» retiene lo automático; «con certeza» sobre algo que de base
+    espera a un analista no lo vuelve automático."""
+    if base == "nunca_automatica":
+        return base
+    if postura == "humano_siempre":
+        return postura
+    return base
+
+
 def politica_estado(catalogo, perfil):
     """Estado de las políticas de respuesta: `familias` (playbook estático + postura declarada y
     automatización efectiva) y `zonas` (postura por zona/dispositivo con radio de cascada). Solo lectura."""
@@ -1431,7 +1442,7 @@ def politica_estado(catalogo, perfil):
     for f in politica_resumen(catalogo, perfil):
         postura = perfilm.postura_familia(perfil, f["familia"])
         familias_.append({**f, "postura_familia": postura,
-                          "automatizacion_efectiva": postura or f["automatizacion"]})
+                          "automatizacion_efectiva": _efectiva_familia(f["automatizacion"], postura)})
     activos = perfil.get("activos") or {}
 
     def _deps(info):
@@ -1540,6 +1551,8 @@ def politica_con_origenes(s):
         "origen": "fichero" if pol.get("confianza") else "perfil",
         # Bloquear un equipo propio: lo que el motor aplica de verdad (sin declarar, exige analista).
         "equipos_propios": actores.politica(perfil, "activo_interno"),
+        # Con «con_analista», todo bloqueo de un atacante externo no inventariado espera a un analista.
+        "externos_desconocidos": cont.get("contener_externos_desconocidos"),
         "equipos_propios_origen": ("fichero" if "equipos_propios" in (pol.get("respuesta_automatica") or {})
                                    else "perfil" if (cont.get("actores") or {}).get("activo_interno") else "codigo")}
     del_fichero = {(e.get("equipo"), e.get("servicio")) for e in pol.get("nunca_tocar_en_automatico") or []}

@@ -40,20 +40,38 @@ export type ResumenPolitica = {
 }
 
 const SOLO = new Set(["automatica", "automatica_si_confianza"])
+// Acciones sobre la IP del atacante: las que `externos_desconocidos: con_analista` retiene (perfil.filtrar).
+const SOBRE_EL_ORIGEN = new Set(["BLOQUEAR_IP", "BLOQUEAR_IP_FIREWALL", "MATAR_CONEXION"])
+const ORIGEN: Record<string, string> = { fichero: "de politica.yml", perfil: "del perfil", consola: "de la consola", codigo: "del código" }
 
 export function resumenPolitica(est: PoliticaEstado): ResumenPolitica {
-  const item = (f: PoliticaEstado["familias"][number]): Item =>
-    ({ titulo: nombreFamilia(f.familia), detalle: accionEnPalabras(f.accion, f.ruta) })
-  const solo = est.familias.filter((f) => SOLO.has(f.automatizacion_efectiva))
-  const nunca = est.familias.filter((f) => f.automatizacion_efectiva === "nunca_automatica")
-  const humano = est.familias.filter((f) => !SOLO.has(f.automatizacion_efectiva) && f.automatizacion_efectiva !== "nunca_automatica")
   const conf = est.confianza
+  const externosConAnalista = conf?.externos_desconocidos === "humano_siempre"
+  const solo: Item[] = [], humano: Item[] = [], nunca: Item[] = []
+  for (const f of est.familias) {
+    const titulo = nombreFamilia(f.familia), accion = accionEnPalabras(f.accion, f.ruta)
+    // Un freno del código es freno aunque la política le ponga «con analista».
+    if (f.automatizacion === "nunca_automatica" || f.automatizacion_efectiva === "nunca_automatica") nunca.push({ titulo })
+    else if (!SOLO.has(f.automatizacion_efectiva)) humano.push({ titulo, detalle: accion })
+    else if (externosConAnalista && SOBRE_EL_ORIGEN.has(f.accion ?? "")) {
+      humano.push({ titulo, detalle: `${accion} · con un atacante externo, espera a un analista` })
+    } else solo.push({ titulo, detalle: accion })
+  }
 
-  const esperan: Item[] = humano.map(item)
+  const esperan: Item[] = [...humano]
   // Sin decirlo la política, bloquear lo propio exige analista (el motor lo aplica así por defecto).
   if (conf?.equipos_propios !== "automatica_si_confianza") esperan.push({ titulo: "Bloquear un equipo propio" })
+  // Lo endurecido por zona o por equipo (la zona de gestión, protegida, ya va en «nunca»).
+  for (const z of est.zonas) {
+    if (!z.protegida && z.automatizacion === "humano_siempre") esperan.push({ titulo: `Zona ${z.zona}: todo espera a un analista` })
+    for (const d of z.dispositivos) {
+      if (!z.protegida && d.override === "humano_siempre") esperan.push({ titulo: `Equipo ${d.activo}: todo espera a un analista` })
+    }
+  }
+  // Lo exacto de un intocable: no se CIERRA su puerto solo (bloquear al atacante puede seguir siendo automático).
   for (const i of est.intocables ?? []) {
-    esperan.push({ titulo: [i.activo ?? "—", i.funcion].filter(Boolean).join(" · "), detalle: `puerto ${i.servicio ?? "—"}` })
+    esperan.push({ titulo: [i.activo ?? "—", i.funcion].filter(Boolean).join(" · "),
+      detalle: [`no se cierra el puerto ${i.servicio ?? "—"} en automático`, ORIGEN[i.origen]].filter(Boolean).join(" · ") })
   }
   if (conf?.revisar_desde_nivel != null) {
     esperan.push({ titulo: `Alertas que no reconoce, de nivel ${conf.revisar_desde_nivel} o más`, detalle: "a revisión, sin acción" })
@@ -63,10 +81,9 @@ export function resumenPolitica(est: PoliticaEstado): ResumenPolitica {
   return {
     frase: `De ${est.familias.length} tipos de ataque, el MDR contiene ${solo.length} solo (si está seguro), ` +
       `deja ${humano.length} a un analista y ${nunca.length} nunca los toca solo. Todo lo que hace se puede deshacer.`,
-    solo: solo.map(item),
+    solo,
     humano: esperan,
-    nunca: [...nunca.map((f) => ({ titulo: nombreFamilia(f.familia) })),
-      { titulo: "Cortar la conexión del MDR con los equipos", detalle: "el canal de gestión" }],
+    nunca: [...nunca, { titulo: "Cortar la conexión del MDR con los equipos", detalle: "el canal de gestión" }],
     certeza: conf?.certeza_minima ?? null,
     confianza: conf?.administradores.length
       ? `Se fía de ${conf.administradores.join(", ")} (administradores)${rafaga}` : null,

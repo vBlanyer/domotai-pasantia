@@ -83,6 +83,27 @@ class TestApiPolitica(unittest.TestCase):
         _, sin = self._req(self._srv(), "GET", "/api/politica")
         self.assertEqual((sin["confianza"]["administradores"], sin["intocables"]), ([], []))
 
+    def test_la_automatizacion_efectiva_es_la_del_motor(self):
+        # La postura por familia solo ENDURECE (perfil.filtrar): «con certeza» sobre una familia que de
+        # base espera a un analista no la vuelve automática, y «con analista» sobre un freno del código
+        # sigue siendo un freno. Antes salía «postura o base» y el Resumen la pintaba en verde.
+        from prototipo.servicio import tablero as tb
+        perfil = copy.deepcopy(PERFIL)
+        perfil["automatizacion_por_familia"] = {"explotacion_conocida": {"automatizacion": "automatica_si_confianza"},
+                                                "malware": {"automatizacion": "humano_siempre"},
+                                                "reconocimiento": {"automatizacion": "humano_siempre"}}
+        fam = {f["familia"]: f["automatizacion_efectiva"] for f in tb.politica_estado(CAT, perfil)["familias"]}
+        self.assertEqual(fam["explotacion_conocida"], "requiere_humano")
+        self.assertEqual(fam["malware"], "nunca_automatica")
+        self.assertEqual(fam["reconocimiento"], "humano_siempre")
+
+    def test_la_confianza_dice_si_los_externos_desconocidos_esperan_a_un_analista(self):
+        pol = {**POL, "respuesta_automatica": {**POL.get("respuesta_automatica", {}), "externos_desconocidos": "con_analista"}}
+        _, est = self._req(self._srv(pol), "GET", "/api/politica")
+        self.assertEqual(est["confianza"]["externos_desconocidos"], "humano_siempre")
+        _, sin = self._req(self._srv(), "GET", "/api/politica")
+        self.assertIsNone(sin["confianza"]["externos_desconocidos"])
+
     def test_intocables_dicen_que_es_el_equipo(self):
         # El Resumen de Políticas dice «core-db · base de datos del core», no solo el nombre y el puerto.
         pol = {**POL, "nunca_tocar_en_automatico": [{"equipo": "srv", "servicio": 5432}]}
