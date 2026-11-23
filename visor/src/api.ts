@@ -76,7 +76,9 @@ export const DecisionSchema = z.object({
   reversion: z.object({ timestamp: z.string().nullable().optional(), operador: z.string().nullable().optional(),
     motivo: z.string().nullable().optional(), indice: z.number().nullable().optional(),
     comando: z.string().nullable().optional(), nodo: z.string().nullable().optional(),
-    codigo: z.number().nullable().optional() }).nullable().optional(),
+    codigo: z.number().nullable().optional(),
+    perdida: z.boolean().nullable().optional() }).nullable().optional(),   // la regla desapareció del equipo (la detectó el MDR)
+  perdida: z.boolean().nullable().optional(),             // registro de reversión: una contención perdida, no un operador
   exito: z.boolean().nullable().optional(), accion_id: z.string().nullable().optional(),
   nodo: z.string().nullable().optional(), error: z.string().nullable().optional(),
   // relaciones evento-equipo en la red y dispositivo de contención

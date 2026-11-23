@@ -35,7 +35,7 @@ function Pildora({ tono, children }: { tono: "auto" | "hum" | "sys" | "rev" | "e
 // Quién decidió: automática, o el veredicto del analista (no repudio) o la espera.
 function PildoraDecision({ r, tipo }: { r: Decision; tipo: TipoFila }) {
   if (tipo === "error") return <Pildora tono="err">error</Pildora>
-  if (tipo === "sistema") return r.tipo === "reversion" ? <Pildora tono="rev">{r.exito ? "aplicada" : "falló"}</Pildora> : <Pildora tono="sys">sistema</Pildora>
+  if (tipo === "sistema") return r.tipo === "reversion" ? <Pildora tono="rev">{r.perdida ? "perdida" : r.exito ? "aplicada" : "falló"}</Pildora> : <Pildora tono="sys">sistema</Pildora>
   if (tipo === "humano") return <Pildora tono="hum">{quienDecidio(r) ?? "pendiente de humano"}</Pildora>
   return <Pildora tono="auto">automática</Pildora>
 }
@@ -106,7 +106,7 @@ function Inspector({ r, i, anterior, cadena, revertidaPor, revierte, enCampana, 
             <KV k="Qué pasó">{sistema.detalle || "—"}</KV>
             {revierte && <KV k="Revierte">#{(revierte.indice ?? 0) + 1} · {revierte.activo ?? "—"} · {revierte.accion_final ?? "—"}</KV>}
             {r.tipo === "reversion" && <>
-              <KV k="Quién">{r.operador ?? "—"}{r.timestamp && <span className="text-muted-foreground"> · {horaLocal(r.timestamp)}</span>}</KV>
+              <KV k="Quién">{r.perdida ? "el MDR, al comprobar la regla en el equipo" : r.operador ?? "—"}{r.timestamp && <span className="text-muted-foreground"> · {horaLocal(r.timestamp)}</span>}</KV>
               {r.motivo_reversion && <KV k="Por qué">{r.motivo_reversion}</KV>}
               {r.accion_id && <KV k="Deshace">{r.accion_id}{r.nodo && <> en {r.nodo}</>}</KV>}
               {r.comando_ejecutado && <KV k="Comando"><span className="font-mono text-xs">{r.comando_ejecutado}</span></KV>}

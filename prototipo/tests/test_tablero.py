@@ -225,6 +225,18 @@ class TestLectoresDeDatos(unittest.TestCase):
         self.assertIsNone(lst[1].get("reversion"))
         self.assertEqual(lst[0]["contencion"], lst[1]["contencion"])      # el desenlace del motor no se toca
 
+    def test_una_contencion_perdida_se_distingue_de_la_que_revierte_un_operador(self):
+        # La anota el MDR al comprobar que la regla ya no está (sin comando ni operador): el visor lo cuenta así.
+        ruta = self._traza_tmp([
+            {"id_decision": "BCO-20261123-0004", "activo": "atm", "accion_final": "BLOQUEAR_IP"},
+            {"tipo": "reversion", "perdida": True, "id_decision_revertida": "BCO-20261123-0004", "indice_revertido": 0,
+             "exito": True, "timestamp": "t5", "comando_ejecutado": None, "nodo": "atm",
+             "motivo": "contención perdida: BLOQUEAR_IP 198.51.100.14 ya no está en atm"}])
+        lst = tablero.lista_trazas(ruta)
+        self.assertTrue(lst[0]["reversion"]["perdida"])
+        self.assertIsNone(lst[0]["reversion"]["operador"])
+        self.assertTrue(lst[1]["perdida"])
+
     def test_estado_salud_convierte_y_decora_dependencias(self):
         muestra = {"t": "2026-09-22T10:00:00Z", "estados": {"core-db": "ok", "middleware": "caido"}}
         r = tablero.estado_salud(muestra, {"middleware": ["core-db"]})

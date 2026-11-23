@@ -38,6 +38,25 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Una contención que desaparece del equipo ya no silencia al atacante.** El MDR daba por contenido lo
+  que había contenido alguna vez: si la regla desaparecía fuera del MDR (un reinicio del equipo, alguien
+  que vacía el cortafuegos, `banco.sh restaurar`), las repeticiones del ataque se suprimían como «ya
+  decidido (contenida)» aunque llegaran al equipo. En la tanda del 23/11, 198.51.100.10 (en vigilancia)
+  seguía probando contraseñas contra web-banking sin que nadie lo viera.
+  - **Ahora:** al repetirse algo contenido, el MDR vuelve a comprobar la regla en el equipo. Lo hace como
+    mucho una vez cada 5 minutos por decisión, y no en los 5 minutos siguientes a contener. Tras reiniciar
+    el daemon, comprueba en la primera repetición.
+  - **Si la regla ya no está**, la anota como contención **perdida** en la traza: es una reversión sin
+    comando, con `perdida: true`. Deja de listarse como activa y el ataque se decide de nuevo, con la
+    política vigente (un origen vigilado va al analista).
+  - **Si no se puede comprobar** (sin conexión, sin permisos), la supresión sigue como estaba.
+  - **En el visor**, Decisiones la marca «perdida» y el 7.º paso cuenta que la detectó el MDR. En Trazas,
+    «Quién» es el MDR.
+- **Las repeticiones sin IP de origen dejan rastro.** Un FIM, una DoS o un malware que se repetía mientras
+  su tarjeta esperaba al analista recibía un id. La Consola lo anunciaba «En cola» y la cola lo sumaba
+  sin decir nada a la tarjeta que ya había: ese id no existía en la traza y dejaba huecos en la
+  numeración (`BCO-20261123-0012`…`0021` en la tanda del 23/11). Ahora se suma a la tarjeta antes de
+  triarlo, queda como `actividad_suprimida` («pendiente del analista») y no gasta id.
 - **Cortar una sesión ya no suprime la siguiente intrusión del mismo atacante.** `MATAR_CONEXION` es
   transitoria: corta la sesión de ese momento, no impide la siguiente. La memoria de supresión la
   recordaba como una contención, y un nuevo login exitoso del mismo origen salía «ya decidido» sin

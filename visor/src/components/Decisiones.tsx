@@ -149,7 +149,9 @@ export function InspectorDecision({ d, notas = [], otras = [], vigilancia = null
     d.reversion ? (
       <div key="reversion" className="mt-1 space-y-0.5 text-xs">
         {d.reversion.comando && <p className="font-mono text-muted-foreground [overflow-wrap:anywhere]">{d.reversion.comando}</p>}
-        <p className="text-muted-foreground">{d.reversion.nodo ? `en ${d.reversion.nodo} · ` : ""}aplicada{d.reversion.codigo != null ? ` · código ${d.reversion.codigo}` : ""}</p>
+        <p className="text-muted-foreground">{d.reversion.nodo ? `en ${d.reversion.nodo} · ` : ""}{d.reversion.perdida
+          ? "no se ejecutó nada: la comprobación no encontró la regla"
+          : `aplicada${d.reversion.codigo != null ? ` · código ${d.reversion.codigo}` : ""}`}</p>
         {recontenida && (
           <p className="text-ok">{`el mismo origen volvió a atacar y se contuvo de nuevo en ${recontenida.id_decision ?? "—"}`}{recontenida.timestamp ? ` a las ${horaLocal(recontenida.timestamp)}` : ""}</p>
         )}
@@ -245,6 +247,7 @@ function Cifra({ k, v, sub, cls, f, actual, elegir }: {
 // Línea de un registro que no es una decisión (supresión, reversión, error, actividad propia).
 function LineaSistema({ d }: { d: Decision }) {
   const texto = d.tipo === "actividad_propia" ? `↺ actividad propia del MDR en ${d.activo}: login de gestión al aplicar o verificar una contención (no es un ataque)`
+    : d.tipo === "reversion" && d.perdida ? `↶ contención perdida de ${d.id_decision_revertida ?? "—"} en ${d.nodo ?? "—"}: la regla ya no estaba${d.accion_id ? ` (${d.accion_id})` : ""}`
     : d.tipo === "reversion" ? `↶ reversión de ${d.id_decision_revertida ?? "—"} en ${d.nodo ?? "—"}: ${d.exito ? "aplicada" : "falló"}${d.accion_id ? ` (${d.accion_id})` : ""}`
     : d.tipo === "error" ? `✗ ${d.id_decision}: error al procesar el incidente de ${d.origen_ip ?? "—"} → ${d.activo ?? "—"}: ${d.error}`
     : d.tipo === "actividad_suprimida" ? `↩ el ataque continúa · ${d.alertas_suprimidas} alerta(s) suprimida(s) (ya decidido)`

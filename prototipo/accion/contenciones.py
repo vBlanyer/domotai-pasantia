@@ -23,7 +23,7 @@ def revertidas(registros):
     return idx, ids
 
 
-def _orden_efectiva(reg):
+def orden_efectiva(reg):
     """La orden y el nodo donde el bloqueo quedó aplicado. Si el paso en el activo falló y la escalada
     (o el agente) contuvo aguas arriba, lo vigente es su `orden_efectiva` (mismo criterio que revertir)."""
     orden = reg.get("orden")
@@ -35,6 +35,31 @@ def _orden_efectiva(reg):
     if ejec.get("exito") and verif.get("verificado"):
         return orden, False
     return None, False                                # ni aplicada en el activo ni contenida arriba
+
+
+def comprobar_vigente(orden, catalogo, ejecutor):
+    """¿Sigue en el equipo la contención que dejó `orden`? Ejecuta la verificación del catálogo y devuelve
+    (vigente, rc, salida): True si está; False solo si la verificación CORRIÓ y no la encontró (rc 1 del
+    grep, sin rastro de un fallo de SSH o de sudo): la contención se perdió fuera del MDR (un reinicio del
+    equipo, alguien que vació el cortafuegos); None si no se pudo saber (sin conexión, permisos, una
+    acción sin estado que comprobar). Con None el llamador sigue como estaba: no se da por perdida una
+    contención que ni se pudo mirar."""
+    from prototipo.accion import conector, fallos
+    acc = catalogo.get((orden or {}).get("accion_id"), {})
+    if acc.get("reversion") not in _REVERSIBLES or not acc.get("verificacion"):
+        return None, None, ""
+    params = orden.get("params") or {}
+    if not conector.ip_valida(orden.get("nodo_ip")) or not conector._params_seguros(params):
+        return None, None, ""
+    cmd = _render(acc["verificacion"], params)
+    if cmd is None:
+        return None, None, ""
+    rc, salida = ejecutor(orden["nodo_ip"], cmd)
+    if rc == 0:
+        return True, rc, salida
+    if rc == 1 and fallos.patron(salida) is None:
+        return False, rc, salida
+    return None, rc, salida
 
 
 def _render(plantilla, params):
@@ -59,7 +84,7 @@ def activas(registros, catalogo):
             continue
         if i in rev_idx or reg.get("id_decision") in rev_id:
             continue
-        orden, via_escalada = _orden_efectiva(reg)
+        orden, via_escalada = orden_efectiva(reg)
         if not orden:
             continue
         accion_id = orden.get("accion_id")

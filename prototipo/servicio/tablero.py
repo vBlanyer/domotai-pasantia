@@ -439,7 +439,9 @@ def _resumen_traza(reg, ips=None, externos=(), perfil=None):
             # reversión: su registro completo para el inspector de Trazas (por qué, comando y resultado;
             # la salida acotada para que la fila no cargue megas)
             **({"motivo_reversion": reg.get("motivo"), "comando_ejecutado": reg.get("comando_ejecutado"),
-                "codigo_salida": reg.get("codigo_salida"), "salida": (reg.get("salida") or "")[:500]}
+                "codigo_salida": reg.get("codigo_salida"), "salida": (reg.get("salida") or "")[:500],
+                # la anotó el MDR al ver que la regla ya no estaba (no la pidió un operador)
+                "perdida": bool(reg.get("perdida"))}
                if reg.get("tipo") == "reversion" else {})}
 
 
@@ -453,7 +455,8 @@ def _anotar_reversiones(resumenes):
             revs[s["indice_revertido"]] = {"timestamp": s.get("timestamp"), "operador": s.get("operador"),
                                            "motivo": s.get("motivo_reversion"), "indice": s.get("indice"),
                                            "comando": s.get("comando_ejecutado"), "nodo": s.get("nodo"),
-                                           "codigo": s.get("codigo_salida")}
+                                           "codigo": s.get("codigo_salida"),
+                                           **({"perdida": True} if s.get("perdida") else {})}
     for s in resumenes:
         if s.get("indice") in revs and s.get("tipo") in (None, "decision"):
             s["reversion"] = revs[s["indice"]]

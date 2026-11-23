@@ -1123,11 +1123,11 @@ class TestLatido(unittest.TestCase):
 
 
 class TestSupresionEnVivo(unittest.TestCase):
-    def _correr(self, lineas, **kw):
+    def _correr(self, lineas, ejecutor=None, **kw):
         buf = io.StringIO()
         resumen = stream.ejecutar(
             lineas, hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"), perfil_nombre="prueba",
-            catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+            catalogo=CAT, ejecutor=ejecutor or lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
             salida_traza=buf, escribir=lambda *a, **k: None, leer=lambda *_: "2", **kw)
         registros = [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
         return resumen, registros
@@ -1160,10 +1160,13 @@ class TestSupresionEnVivo(unittest.TestCase):
 
     def test_reinicio_mantiene_la_supresion(self):
         # #4: run 1 decide; reconstruyo la memoria de su traza; run 2 (reinicio) suprime la repetición.
-        _, run1 = self._correr([_linea_wazuh("1.1.1.1")])
+        # El MISMO equipo en las dos: tras reiniciar, la primera repetición comprueba que la regla sigue
+        # (TestContencionPerdida); con un equipo nuevo, sin la regla, se decidiría otra vez.
+        equipo = lazo._EjecutorAuto()
+        _, run1 = self._correr([_linea_wazuh("1.1.1.1")], ejecutor=equipo)
         self.assertTrue(any(r.get("tipo") == "decision" for r in run1))
         mem = stream.MemoriaDecisiones.desde_traza(run1, perfil=y("perfil.yml"))
-        resumen, _ = self._correr([_linea_wazuh("1.1.1.1")], memoria=mem)
+        resumen, _ = self._correr([_linea_wazuh("1.1.1.1")], memoria=mem, ejecutor=equipo)
         self.assertEqual(resumen["incidentes"], 0)      # no re-decide tras el reinicio
         self.assertEqual(resumen["suprimidas"], 1)      # la repetición se suprime
 
@@ -1288,6 +1291,169 @@ class TestMemoriaDeSupresion(unittest.TestCase):
         cae = lambda ip, cmd: (255, "Connection refused")
         resumen, _ = self._correr([_linea(), _linea(seg=5)], ejecutor=cae)
         self.assertEqual((resumen["incidentes"], resumen["suprimidas"]), (2, 0))
+
+
+def _linea_fim(host="objetivo-vuln", seg=0):
+    # FIM (syscheck): sin IP de origen; familia integridad_fichero -> AISLAR_NODO, siempre con humano.
+    return json.dumps({
+        "id": "f1", "rule": {"id": "100400", "level": 12, "description": "fichero critico modificado",
+                             "groups": ["ossec", "syscheck"]},
+        "predecoder": {"hostname": host}, "data": {}, "location": "syscheck",
+        "timestamp": f"2026-08-31T00:00:{seg:02d}Z", "full_log": "File '/etc/passwd' modified"})
+
+
+class TestRepeticionesSinIpDeUnaTarjetaPendiente(unittest.TestCase):
+    """Tercera tanda del 23/11: un FIM/DoS/malware repetido mientras su tarjeta esperaba al analista se
+    numeraba, la consola lo anunciaba «En cola» con un id propio y la cola lo sumaba en silencio a la
+    tarjeta que ya había: ese id no existía en la traza y la repetición no dejaba rastro."""
+
+    def test_se_suman_a_la_tarjeta_y_quedan_en_la_traza_sin_gastar_id(self):
+        from prototipo.servicio import identificador
+        import datetime
+        estado, buf, lineas = tablero.EstadoTablero(), io.StringIO(), []
+        p = {**y("perfil.yml"), "ip_gestion": "192.168.1.100",
+             "topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
+                           "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
+        num = identificador.Numerador(
+            "T", reloj=lambda: datetime.datetime(2026, 8, 31, tzinfo=datetime.timezone.utc))
+        resumen = stream.ejecutar(
+            [_linea_fim(), _linea_fim(seg=5), _linea_fim(seg=9)], hallazgos={"nodos": {}}, perfil=p,
+            perfil_nombre="prueba", catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None,
+            ventana_agrupacion=0, salida_traza=buf, escribir=lineas.append, leer=lambda *_: "2",
+            estado_web=estado, numerador=num)
+        regs = [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
+        self.assertEqual(len(estado.decisiones_pendientes()), 1)
+        self.assertEqual(estado.decisiones_pendientes()[0]["suprimidas"], 2)
+        sup = [r for r in regs if r.get("tipo") == "actividad_suprimida"]
+        self.assertEqual(len(sup), 2)                                    # cada repetición deja rastro
+        self.assertEqual({r["desenlace"] for r in sup}, {"pendiente del analista"})
+        self.assertEqual({r["referencia"] for r in sup}, {"T-20260831-0001"})
+        self.assertIsNone(sup[0]["clave"]["origen_ip"])
+        self.assertEqual(resumen["incidentes"], 1)
+        self.assertEqual(num.siguiente(), "T-20260831-0002")             # las repeticiones no gastan id
+        self.assertEqual(sum("En cola" in t for t in lineas), 1)         # la consola no anuncia tarjetas fantasma
+
+    def test_sin_tarjeta_pendiente_un_fim_repetido_se_vuelve_a_decidir(self):
+        # Fuera de la web (o ya resuelta) no hay tarjeta a la que sumarse: sin IP no se suprime (como antes).
+        p = {**y("perfil.yml"), "ip_gestion": "192.168.1.100"}
+        buf = io.StringIO()
+        resumen = stream.ejecutar(
+            [_linea_fim(), _linea_fim(seg=5)], hallazgos={"nodos": {}}, perfil=p, perfil_nombre="prueba",
+            catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+            salida_traza=buf, escribir=lambda *a, **k: None, leer=lambda *_: "2")
+        self.assertEqual((resumen["incidentes"], resumen["suprimidas"]), (2, 0))
+
+
+class TestContencionPerdida(unittest.TestCase):
+    """Tercera tanda del 23/11: el MDR daba por contenidos ataques cuya regla ya no estaba en el equipo
+    (borrada fuera del MDR: `banco.sh restaurar`, un reinicio del equipo) y suprimía sus repeticiones.
+    Ahora, al repetirse algo «contenido», vuelve a comprobar la regla (como mucho cada 5 min por
+    decisión); si la comprobación corre y no la encuentra, anota la contención como perdida y decide."""
+
+    class Equipo:
+        """iptables de mentira: -A añade la regla, -D la quita, el grep de la verificación la busca."""
+        def __init__(self):
+            self.reglas, self.verificaciones, self.caido = set(), 0, False
+        def __call__(self, nodo_ip, cmd):
+            if self.caido:
+                return (255, "ssh: connect to host 192.168.1.30 port 22: Connection refused")
+            if "grep" in cmd:
+                self.verificaciones += 1
+                return (0, "DROP") if any(r in cmd for r in self.reglas) else (1, "")
+            ip = cmd.split(" -s ")[1].split()[0] if " -s " in cmd else None
+            if " -A " in cmd and ip:
+                self.reglas.add(ip)
+            return (0, "")
+        def borrar(self):
+            self.reglas.clear()
+
+    PERFIL = {"topologia": {"objetivo-vuln": {"rol": "host_victima", "ip": "192.168.1.30", "gateway": "gateway"},
+                            "gateway": {"rol": "firewall_perimetral", "ip": "192.168.1.1"}}}
+
+    def _correr(self, pasos, equipo):
+        """`pasos`: lista de (segundos_de_reloj, accion|None, linea). El reloj del lazo es de mentira."""
+        t = [0.0]
+        def fuente():
+            for seg, antes, linea in pasos:
+                t[0] = seg
+                if antes:
+                    antes()
+                yield linea
+        buf, lineas = io.StringIO(), []
+        resumen = stream.ejecutar(
+            fuente(), hallazgos=TestMemoriaDeSupresion.HALLAZGOS, perfil={**y("perfil.yml"), **self.PERFIL},
+            perfil_nombre="prueba", catalogo=CAT, ejecutor=equipo, justificar_fn=None, ventana_agrupacion=0,
+            salida_traza=buf, escribir=lineas.append, leer=lambda *_: "2", reloj_comprobacion=lambda: t[0])
+        return resumen, [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()], lineas
+
+    def test_una_regla_que_ya_no_esta_se_anota_perdida_y_el_ataque_se_decide_de_nuevo(self):
+        from prototipo.accion import contenciones
+        from prototipo.servicio import traza as tm
+        eq = self.Equipo()
+        resumen, regs, lineas = self._correr(
+            [(0, None, _linea()), (400, eq.borrar, _linea(seg=5))], eq)
+        decisiones = [(i, r) for i, r in enumerate(regs) if r.get("tipo") in (None, "decision")]
+        self.assertEqual(len(decisiones), 2)                              # se vuelve a decidir
+        self.assertEqual(resumen["suprimidas"], 0)
+        (i1, d1), (_, d2) = decisiones
+        perdida = [r for r in regs if r.get("tipo") == "reversion"]
+        self.assertEqual(len(perdida), 1)
+        r = perdida[0]
+        self.assertTrue(r["perdida"] and r["exito"])
+        self.assertEqual((r["id_decision_revertida"], r["indice_revertido"]), (d1["id_decision"], i1))
+        self.assertIsNone(r["comando_ejecutado"])                          # no se ejecutó nada para anotarla
+        self.assertIn("ya no está", r["motivo"])
+        self.assertTrue(regs.index(r) < regs.index(d2))                   # la pérdida va antes de la nueva
+        self.assertIn("1.1.1.1", eq.reglas)                               # y el bloqueo vuelve a estar
+        self.assertEqual([a["id_decision"] for a in contenciones.activas(regs, CAT)], [d2["id_decision"]])
+        linea = next(t for t in lineas if t.startswith("↶"))
+        self.assertEqual(linea.count("contención perdida"), 1, linea)
+        self.assertTrue(linea.endswith("se decide de nuevo"), linea)
+        self.assertTrue(tm.verificar(regs)["valida"])
+
+    def test_si_la_regla_sigue_en_el_equipo_la_repeticion_se_suprime(self):
+        eq = self.Equipo()
+        resumen, regs, _ = self._correr([(0, None, _linea()), (400, None, _linea(seg=5))], eq)
+        self.assertEqual((resumen["incidentes"], resumen["suprimidas"]), (1, 1))
+        self.assertFalse([r for r in regs if r.get("tipo") == "reversion"])
+
+    def test_no_se_comprueba_mas_de_una_vez_cada_cinco_minutos(self):
+        eq = self.Equipo()
+        self._correr([(0, None, _linea())], eq)
+        base = eq.verificaciones                                          # las del propio post-check
+        eq2 = self.Equipo()
+        resumen, _, _ = self._correr(
+            [(0, None, _linea()), (400, None, _linea(seg=5)), (450, None, _linea(seg=6)),
+             (650, None, _linea(seg=7))], eq2)
+        self.assertEqual(eq2.verificaciones - base, 1)                    # 400 comprueba; 450 y 650 no
+        self.assertEqual(resumen["suprimidas"], 3)
+
+    def test_justo_despues_de_decidir_no_se_comprueba(self):
+        # La ráfaga que sigue llegando tras contener: la regla se acaba de verificar.
+        eq = self.Equipo()
+        self._correr([(0, None, _linea())], eq)
+        base = eq.verificaciones
+        eq2 = self.Equipo()
+        resumen, _, _ = self._correr([(0, None, _linea()), (30, eq2.borrar, _linea(seg=5))], eq2)
+        self.assertEqual(eq2.verificaciones, base)
+        self.assertEqual(resumen["suprimidas"], 1)
+
+    def test_si_no_se_puede_comprobar_se_sigue_suprimiendo(self):
+        eq = self.Equipo()
+        def caer():
+            eq.borrar(); eq.caido = True
+        resumen, regs, _ = self._correr([(0, None, _linea()), (400, caer, _linea(seg=5))], eq)
+        self.assertEqual((resumen["incidentes"], resumen["suprimidas"]), (1, 1))
+        self.assertFalse([r for r in regs if r.get("tipo") == "reversion"])
+
+    def test_tras_reiniciar_la_primera_repeticion_se_comprueba(self):
+        eq = self.Equipo()
+        _, run1, _ = self._correr([(0, None, _linea())], eq)
+        mem = stream.MemoriaDecisiones.desde_traza(run1, perfil={**y("perfil.yml"), **self.PERFIL})
+        previa = mem.buscar(("1.1.1.1", "objetivo-vuln", "acceso_credenciales"))
+        self.assertEqual(previa["indice"], 0)
+        self.assertEqual(previa["orden"]["params"]["ip"], "1.1.1.1")
+        self.assertIsNone(previa["recordada_en"])                          # sin hora: se comprueba ya
 
 
 class TestCierreConCtrlC(unittest.TestCase):

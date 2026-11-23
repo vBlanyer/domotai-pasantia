@@ -21,7 +21,8 @@ export function desenlaceDe(d: Decision): Desenlace {
   if (d.resultado_filtro === "veta" && !d.accion_final) return r("vetada", "vetada", "critico")
   if (d.requiere_humano && !d.veredicto_humano) return r("pendiente", "pendiente", "aviso")
   // la contención se deshizo después: es el final de su historia (la reversión, en Trazas)
-  if (d.reversion) return r("revertida", "revertida", "violeta")
+  // (o se perdió: la regla desapareció del equipo y el MDR lo detectó al repetirse el ataque)
+  if (d.reversion) return d.reversion.perdida ? r("revertida", "perdida", "aviso") : r("revertida", "revertida", "violeta")
   if (d.contencion === "contenida") return r("contenida", "contenida", "ok")
   if (degradada) return r("degradada", "degradada", "aviso")
   if (d.contencion === "enrutada") return r("enrutada", "enrutada", "neutro")
@@ -122,7 +123,11 @@ export function pasosDe(d: Decision, det: Detalle | null): Paso[] {
         : estadoC === "contenida" ? `aplicada en ${d.dispositivo ?? "—"} y comprobada después`
         : "no se ejecutó ninguna acción" },
     // 7.º paso, solo si alguien deshizo la contención después: el final de la historia
-    ...(d.reversion ? [{ titulo: "Reversión", estado: "violeta" as const, etiqueta: "revertida",
+    ...(d.reversion?.perdida ? [{ titulo: "Reversión", estado: "aviso" as const, etiqueta: "perdida",
+      texto: "la regla ya no estaba en el equipo: lo comprobó el MDR"
+        + (horaLocal(d.reversion.timestamp) ? ` a las ${horaLocal(d.reversion.timestamp)}` : "")
+        + " al repetirse el ataque, y lo decidió de nuevo" }]
+    : d.reversion ? [{ titulo: "Reversión", estado: "violeta" as const, etiqueta: "revertida",
       texto: "revertida" + [horaLocal(d.reversion.timestamp) ? ` a las ${horaLocal(d.reversion.timestamp)}` : "",
         d.reversion.operador ? ` por ${d.reversion.operador}` : "",
         d.reversion.motivo ? ` (${d.reversion.motivo})` : ""].join("") }] : []),

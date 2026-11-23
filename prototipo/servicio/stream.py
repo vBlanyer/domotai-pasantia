@@ -151,7 +151,11 @@ class MemoriaDecisiones:
     - Lo resuelto por el analista en la web se recuerda igual que en la terminal.
     - Una contención que no se aplicó no se recuerda (la repetición se vuelve a decidir).
     - Contenido en un cortafuegos perimetral: cubre al atacante contra cualquier activo detrás.
-    - Sin IP de origen no hay a quién atribuir la repetición: nunca se suprime.
+    - Sin IP de origen no hay a quién atribuir la repetición: nunca se suprime (sí se suma a su tarjeta
+      mientras espera al analista: eso lo decide la cola, no esta memoria).
+    - Cada entrada guarda la orden efectiva y el índice de la decisión en la traza, para poder comprobar
+      más tarde que la contención sigue en el equipo (`recordada_en`: cuándo se verificó por última vez,
+      None si viene de la traza y no se sabe).
     - Se usa desde el lazo y desde el hilo HTTP (resolutor): lock."""
     MAX_ENTRADAS = 50000   # cota LRU: un flood de orígenes falsificados no agota memoria
 
@@ -178,7 +182,7 @@ class MemoriaDecisiones:
             ip, familia = ctx.get("origen_ip"), ctx.get("familia")
             if ip is None or familia is None:
                 continue
-            mem.recordar((ip, reg.get("activo"), familia), reg)
+            mem.recordar((ip, reg.get("activo"), familia), reg, indice=i)
         return mem
 
     def buscar(self, clave):
@@ -188,14 +192,16 @@ class MemoriaDecisiones:
         with self._lock:
             return self._decididas.get(clave) or self._decididas.get((ip, "*", familia))
 
-    def recordar(self, clave, d):
+    def recordar(self, clave, d, indice=None, ahora=None):
         if clave[0] is None:
             return
         desenlace, perimetral = _desenlace(d, self._perfil)
         if desenlace is None:
             return
+        from prototipo.accion import contenciones
         previa = {"id_decision": d.get("id_decision"), "veredicto": d.get("veredicto_humano"),
-                  "clase": d.get("clase"), "desenlace": desenlace}
+                  "clase": d.get("clase"), "desenlace": desenlace,
+                  "orden": contenciones.orden_efectiva(d)[0], "indice": indice, "recordada_en": ahora}
         with self._lock:
             self._decididas[clave] = previa
             if perimetral:
@@ -440,10 +446,38 @@ def _lineas_escalada(idd, esc):
     return lineas
 
 
+# Al repetirse un ataque «contenido», la regla se vuelve a comprobar en el equipo como mucho cada 5 min
+# por decisión (y no en los 5 min siguientes a verificarla al contener: la ráfaga que sigue llegando).
+REVERIFICAR_CONTENCION_S = 300.0
+
+
+def registro_contencion_perdida(previa, orden, rc, salida, ts):
+    """La contención de `previa` ya no está en el equipo (lo comprobó el MDR): se anota como una reversión
+    SIN comando (mismo registro que `revertir.anotar_desaparecidas`), así deja de listarse como activa, la
+    memoria la olvida y el visor la enseña en la historia de su decisión. `perdida` la distingue de la que
+    pide un operador."""
+    nodo, accion = orden.get("nodo_objetivo"), orden.get("accion_id")
+    params = orden.get("params") or {}
+    objetivo = params.get("ip") or params.get("ip_nodo") or params.get("usuario") or params.get("servicio") or ""
+    r = {"tipo": "reversion", "perdida": True, "id_decision_revertida": previa.get("id_decision"),
+         "accion_id": accion, "nodo": nodo, "comando_ejecutado": None, "codigo_salida": rc,
+         "salida": (salida or "")[:500], "exito": True, "timestamp": ts,
+         "motivo": (f"contención perdida: {accion} {objetivo} ya no está en {nodo} "
+                    "(lo comprobó el MDR al repetirse el ataque)").replace("  ", " ")}
+    if previa.get("indice") is not None:
+        r["indice_revertido"] = previa["indice"]
+    return r
+
+
+def _linea_perdida(reg):
+    v = validacion.texto_terminal
+    return f"↶ {v(reg.get('id_decision_revertida'))} {v(reg.get('motivo'))}; se decide de nuevo"
+
+
 def _linea_supresion(reg):
     c = reg["clave"]
     v = validacion.texto_terminal
-    return (f"↩ {v(c['origen_ip'])} → {v(c.get('activo'))} · {c['familia']} — ya decidido "
+    return (f"↩ {v(c['origen_ip'] or 'sin IP')} → {v(c.get('activo'))} · {c['familia']} — ya decidido "
             f"({reg.get('desenlace') or reg['veredicto_previo'] or 'auto'}) "
             f"· +{reg['alertas_suprimidas']} suprimida(s) [ref {reg['referencia']}]")
 
@@ -809,7 +843,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
              escribir=print, leer=input, reloj=time.monotonic, mitigar_fn=None, suprimir=True,
              hash_previo=traza.GENESIS, n_previos=0, nombre_traza="", linaje=None, estado_web=None,
              resumen=None, ruta_traza=None, lector_incidente=None, silencio_s=120, memoria=None,
-             latido=None, actividad=None, perfil_fn=None, al_arrancar=(), numerador=None, restaurar=()):
+             latido=None, actividad=None, perfil_fn=None, al_arrancar=(), numerador=None, restaurar=(),
+             reloj_comprobacion=time.monotonic):
     """Consume `fuente_lineas` (iterable de str crudas o None en reposo) y triaja cada incidente.
 
     `salida_traza` es un objeto fichero; los registros se escriben encadenados por hash (RF-09)
@@ -839,6 +874,9 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
     # La traza puede escribirse desde dos hilos (el lazo y el servidor web al resolver una decisión
     # en cola): un lock serializa la cadena de hashes.
     _traza_lock = threading.Lock()
+    # Posición en la cadena de cada decisión escrita: la memoria la guarda para que una contención
+    # perdida se anote contra SU decisión (el visor casa reversión y decisión por índice).
+    _indices = collections.OrderedDict()
     def escribir_traza(reg):
         with _traza_lock:
             if cadena is not None:
@@ -847,7 +885,13 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 except ValueError:
                     # Fichero ya cerrado en el apagado (un hilo del agente aprobado justo al salir):
                     # ese registro se pierde, pero la cadena no se corrompe (falla antes de escribir).
-                    pass
+                    return
+                if reg.get("tipo") in (None, "decision") and reg.get("id_decision"):
+                    _indices[reg["id_decision"]] = cadena.n - 1
+                    while len(_indices) > MemoriaDecisiones.MAX_ENTRADAS:
+                        _indices.popitem(last=False)
+    def _recordar(clave, d):
+        memoria.recordar(clave, d, indice=_indices.get(d.get("id_decision")), ahora=reloj_comprobacion())
     for reg in al_arrancar or ():          # p. ej. la política de la empresa cargada (politica_cargada)
         escribir_traza(reg)
     # `perfil_fn`: el perfil VIVO (el del servidor, que el editor de políticas reemplaza al editar).
@@ -860,7 +904,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         with _resumen_lock:
             _contar(resumen, r, incidente=False)
         if suprimir:
-            memoria.recordar(_clave_supresion(alerta), r)
+            _recordar(_clave_supresion(alerta), r)
     # Modo web no bloqueante: encolar en vez de bloquear, y registrar cómo se resuelve (ejecuta+traza).
     encolar = diferir_escalada = None
     pausa = estado_web.pausada if estado_web is not None else None   # kill switch (#8)
@@ -940,6 +984,27 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         reg = memoria.registro_supresion(inc, previa)
         escribir(_linea_supresion(reg))
         escribir_traza(reg)
+    def _contencion_perdida(previa):
+        # ¿La contención que suprime esta repetición sigue en el equipo? Solo para lo «contenido», como
+        # mucho cada REVERIFICAR_CONTENCION_S por decisión. Si la comprobación corre y no la encuentra, se
+        # anota perdida, se olvida y la repetición se decide de nuevo; si no se pudo mirar, se suprime.
+        from prototipo.accion import contenciones
+        orden = previa.get("orden")
+        if not orden or not str(previa.get("desenlace") or "").startswith("contenida"):
+            return False
+        ahora = reloj_comprobacion()
+        ultima = previa.get("recordada_en")
+        if ultima is not None and ahora - ultima < REVERIFICAR_CONTENCION_S:
+            return False
+        previa["recordada_en"] = ahora           # la entrada es la de la memoria: cuenta para la próxima
+        vigente, rc, salida = contenciones.comprobar_vigente(orden, catalogo, ejecutor)
+        if vigente is not False:
+            return False
+        reg = registro_contencion_perdida(previa, orden, rc, salida, _ahora_iso())
+        escribir_traza(reg)
+        escribir(_linea_perdida(reg))
+        memoria.olvidar([previa.get("id_decision")])
+        return True
     def _misma_clase(rep_, previa):
         # La decisión recordada solo vale si el motor la volvería a tomar: con la ráfaga de ahora,
         # un origen legítimo que no para deja de ser FP (6.ª regla) y hay que decidir de nuevo.
@@ -976,7 +1041,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                     _contar(resumen, d)
                 # Las decisiones en cola aún no se deciden: se recuerdan al resolverlas (al_resolver).
                 if suprimir and not d.get("en_cola"):
-                    memoria.recordar(clave, d)
+                    _recordar(clave, d)
         finally:
             # Quitar de `_en_vuelo` en finally (y DESPUÉS de recordar): sin esto, un fallo en el
             # apagado dejaría la clave atascada y suprimiría toda repetición futura como «en curso».
@@ -997,9 +1062,11 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
             inc["representante"][rafaga.CAMPO] = ventana_rafaga.contar(inc["representante"].get("origen_ip"))
             inc["representante"][rafaga.CAMPO_LARGO] = ventana_larga.contar(inc["representante"].get("origen_ip"))
             clave = _clave_supresion(inc)
-            if suprimir and estado_web is not None and clave[0] is not None:
+            if suprimir and estado_web is not None:
                 # Ya espera al analista: se suma a su tarjeta sin triar ni ejecutar otra vez (antes
-                # cada repetición repetía el SSH contra el host caído antes de deduplicar).
+                # cada repetición repetía el SSH contra el host caído antes de deduplicar). También sin
+                # IP de origen (FIM, DoS, malware): la cola ya las sumaba a su tarjeta, pero después de
+                # numerarlas y anunciarlas «En cola», sin dejar nada en la traza (tanda del 23/11).
                 ref = estado_web.sumar_repeticion({clave, ("escalada", *clave)}, inc["conteo"])
                 if ref is not None:
                     _suprimir(inc, {"id_decision": ref, "veredicto": None, "desenlace": "pendiente del analista"})
@@ -1014,7 +1081,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                                     "desenlace": "en curso (agente)"})
                     continue
             previa = memoria.buscar(clave) if suprimir else None
-            if previa is not None and _misma_clase(inc["representante"], previa):
+            if (previa is not None and _misma_clase(inc["representante"], previa)
+                    and not _contencion_perdida(previa)):
                 _suprimir(inc, previa)
                 continue
             id_decision = numerador.siguiente()

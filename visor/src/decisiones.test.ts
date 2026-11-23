@@ -60,6 +60,16 @@ describe("una decisión revertida cuenta su final", () => {
     expect(p[6]).toMatchObject({ titulo: "Reversión", estado: "violeta", etiqueta: "revertida" })
     expect(p[6].texto).toMatch(/^revertida a las .+ por ana \(des-bloqueo individual\)$/)
   })
+  it("una contención PERDIDA (la regla desapareció del equipo) se cuenta como tal, no como reversión de alguien", () => {
+    const perdida = { timestamp: "2026-11-23T18:20:00Z", motivo: "contención perdida: BLOQUEAR_IP 198.51.100.14 ya no está en atm",
+      indice: 30, perdida: true }
+    const x = d({ contencion: "contenida", reversion: perdida })
+    expect(desenlaceDe(x)).toMatchObject({ id: "revertida", texto: "perdida", tono: "aviso" })
+    expect(pasaFiltro(x, "revertidas")).toBe(true)
+    const p = pasosDe(x, null)
+    expect(p[6]).toMatchObject({ titulo: "Reversión", etiqueta: "perdida", estado: "aviso" })
+    expect(p[6].texto).toMatch(/^la regla ya no estaba en el equipo: lo comprobó el MDR a las .+ al repetirse el ataque, y lo decidió de nuevo$/)
+  })
   it("sin reversión, seis pasos", () => {
     expect(pasosDe(d({ contencion: "contenida" }), null)).toHaveLength(6)
   })
