@@ -194,6 +194,14 @@ class MemoriaDecisiones:
             while len(self._decididas) > self.max_entradas:
                 self._decididas.popitem(last=False)   # evicta la entrada menos reciente
 
+    def olvidar(self, ids):
+        """Olvida las decisiones `ids` (su contención se revirtió en la consola): sus repeticiones se
+        vuelven a decidir. Sin esto, el mismo atacante quedaba «ya decidido» sin bloqueo alguno."""
+        ids = set(ids or [])
+        with self._lock:
+            for k in [k for k, v in self._decididas.items() if v.get("id_decision") in ids]:
+                del self._decididas[k]
+
     def registro_supresion(self, inc, previa):
         ip, activo, familia = _clave_supresion(inc)
         with self._lock:
@@ -827,6 +835,8 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         estado_web.fijar_auditor(escribir_traza)
         # El desalojo por el tope de la cola (M3) también se encadena: nada desaparece en silencio.
         estado_web.fijar_descartador(lambda entrada: escribir_traza(_registro_descarte(entrada)))
+        # Una contención revertida en la consola deja de suprimir sus repeticiones (se vuelven a decidir).
+        estado_web.fijar_olvido(memoria.olvidar)
     seq = [seq_previo]      # retomando una traza, sigue la numeración (traza.ultima_secuencia)
     ventana_rafaga = rafaga.Ventana()
     ventana_larga = rafaga.Ventana(ventana_s=rafaga.VENTANA_LARGA_S)   # señal de vigilancia 'low-and-slow'

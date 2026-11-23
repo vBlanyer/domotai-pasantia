@@ -28,6 +28,12 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Revertir una contención en la consola ya no deja al atacante «ya decidido» sin bloquear.** La
+  memoria de supresión solo excluía lo revertido al arrancar; una reversión hecha durante la sesión no
+  le llegaba, y las repeticiones del mismo origen se suprimían sin que hubiera bloqueo (tanda del 23/11:
+  D1 desde 198.51.100.11 e INTRUSION desde 198.51.100.10, 10 alertas cada uno, sin contener). Ahora
+  `/api/revertir` y `/api/revertir-todo` avisan al lazo y la memoria olvida esas decisiones
+  (`MemoriaDecisiones.olvidar`).
 - **La cuarentena (`AISLAR_NODO`) ya no deja al MDR sin acceso al equipo aislado.** Cortaba todo lo que
   salía del equipo, también sus respuestas al MDR, así que el MDR no podía verificar la cuarentena ni
   deshacer nada en él (23/11: dos reversiones de web-banking fallaron así). Ahora es

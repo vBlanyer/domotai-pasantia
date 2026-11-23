@@ -908,10 +908,13 @@ class TestRevertirTodoAPI(unittest.TestCase):
                                      estaticos=tempfile.mkdtemp(), catalogo=self.CAT, ejecutor=self._ej)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        olvidadas = []
+        srv.estado.fijar_olvido(olvidadas.extend)
         estado, cuerpo = self._post(srv.server_address[1], "/api/revertir-todo",
                                     {"operador": "ana", "confirmar": True})
         self.assertEqual(estado, 200)
         self.assertEqual(cuerpo["revertidas"], 1)
+        self.assertEqual(olvidadas, ["s1"])
         self.assertEqual(cuerpo["fallidas"], 0)
         # y la Consola lo narra (caja negra): el des-bloqueo en masa deja su línea ↶ en el feed
         _, lineas = srv.estado.consola()
@@ -1000,10 +1003,13 @@ class TestRevertirUnaAPI(unittest.TestCase):
     def test_revierte_solo_el_indice_pedido_y_lo_narra(self):
         ruta = self._traza_dos_bloqueos()
         srv = self._srv(ruta)
+        olvidadas = []
+        srv.estado.fijar_olvido(olvidadas.extend)          # el lazo olvida la decisión: no suprime más
         estado, cuerpo = self._post(srv.server_address[1], "/api/revertir",
                                     {"indice": 1, "confirmar": True, "operador": "ana"})
         self.assertEqual(estado, 200)
         self.assertTrue(cuerpo["revertida"])
+        self.assertEqual(olvidadas, [cuerpo["detalle"]["id_decision"]])
         # solo la del índice 1; la del índice 0 sigue activa
         from prototipo.accion import contenciones
         activas = contenciones.activas(traza.leer_registros(ruta), self.CAT)

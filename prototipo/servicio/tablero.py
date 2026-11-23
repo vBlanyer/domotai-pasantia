@@ -112,6 +112,16 @@ class EstadoTablero:
         with self._lock:
             return self._pausada
 
+    def fijar_olvido(self, fn):
+        """El daemon registra cómo olvidar decisiones cuya contención se revirtió en la consola, para que
+        la memoria de supresión no siga dando por bloqueado a un atacante que ya no lo está."""
+        self._olvido = fn
+
+    def olvidar(self, ids):
+        fn = getattr(self, "_olvido", None)
+        if fn and ids:
+            fn(list(ids))
+
     def fijar_descartador(self, fn):
         """El daemon registra cómo trazar un desalojo por tope (RF-09): una tarjeta que el analista
         nunca verá no puede desaparecer del rastro auditado."""
@@ -1291,6 +1301,7 @@ class _Manejador(BaseHTTPRequestHandler):
                                                   operador=operador)
                 finally:
                     _revertir_todo_lock.release()
+                s.estado.olvidar([x.get("id_decision") for x in res.get("detalle") or [] if x.get("exito")])
                 # narración en la Consola (caja negra): el kill switch también deja su línea
                 s.estado.anotar_linea(f"↶ des-bloqueo en masa: {res.get('revertidas', 0)} revertida(s), "
                                       f"{res.get('fallidas', 0)} fallida(s)"
@@ -1317,6 +1328,8 @@ class _Manejador(BaseHTTPRequestHandler):
                 if "error" in res:   # el índice no era una contención activa (inexistente o ya revertida)
                     return self._responder(res, 409)
                 d = res.get("detalle") or {}
+                if res.get("revertida"):
+                    s.estado.olvidar([d.get("id_decision")])
                 s.estado.anotar_linea(
                     f"↶ des-bloqueo de {d.get('accion_id')} en {d.get('nodo')} ({d.get('objetivo')})"
                     + ("" if res.get("revertida") else " — FALLÓ")

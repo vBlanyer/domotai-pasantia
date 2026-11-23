@@ -866,6 +866,24 @@ class TestTopeLineaStdin(unittest.TestCase):
         self.assertFalse(any(len(l) > stream._MAX_LINEA for l in lineas))   # la gigante se descartó
 
 
+class TestReversionYSupresion(unittest.TestCase):
+    def test_tras_revertir_en_la_consola_el_mismo_ataque_se_vuelve_a_decidir(self):
+        estado, buf = tablero.EstadoTablero(), io.StringIO()
+        def fuente():
+            yield _linea("198.51.100.11", seg=0)
+            # lo que hace /api/revertir al deshacer con éxito la contención de la primera decisión
+            primera = [json.loads(l) for l in buf.getvalue().splitlines() if '"decision"' in l or "orden" in l]
+            estado.olvidar([primera[0]["id_decision"]])
+            yield _linea("198.51.100.11", seg=20)
+            yield None
+        stream.ejecutar(fuente(), hallazgos=j("hallazgos.json"), perfil=y("perfil.yml"), perfil_nombre="prueba",
+                        catalogo=CAT, ejecutor=lazo._EjecutorAuto(), justificar_fn=None, ventana_agrupacion=0,
+                        salida_traza=buf, escribir=lambda *a, **k: None, estado_web=estado)
+        regs = [json.loads(l) for l in buf.getvalue().splitlines()]
+        self.assertFalse([r for r in regs if r.get("tipo") == "actividad_suprimida"])
+        self.assertEqual(len([r for r in regs if r.get("tipo") in (None, "decision") and r.get("orden")]), 2)
+
+
 class TestMemoriaDecisiones(unittest.TestCase):
     def _inc(self, ip="10.200.0.10", familia="acceso_credenciales", conteo=1, nivel=10):
         return {"clave": {"origen_ip": ip, "activo": "web", "servicio": "ssh", "familia": familia},
@@ -885,6 +903,22 @@ class TestMemoriaDecisiones(unittest.TestCase):
         m = stream.MemoriaDecisiones()
         m.recordar(stream._clave_supresion(self._inc(familia="acceso_credenciales")), self.RECHAZADA)
         self.assertIsNone(m.buscar(stream._clave_supresion(self._inc(familia="reconocimiento"))))
+
+    def test_olvidar_quita_la_decision_tambien_la_perimetral(self):
+        # Tras revertir una contención en la consola, su decisión deja de suprimir las repeticiones:
+        # si no, el mismo atacante quedaba «ya decidido» sin bloqueo alguno (tanda del 23/11).
+        m = stream.MemoriaDecisiones()
+        d = {"id_decision": "s4", "clase": "vp_intento_acceso", "accion_final": "BLOQUEAR_IP_FIREWALL",
+             "orden": {"accion_id": "BLOQUEAR_IP_FIREWALL", "nodo_objetivo": "fw"}, "ejecucion": {"exito": True},
+             "verificacion": {"verificado": True}}
+        clave = ("198.51.100.11", "web", "acceso_credenciales")
+        m.recordar(clave, d)
+        m.recordar(("10.9.9.9", "web", "acceso_credenciales"), {**self.RECHAZADA, "id_decision": "s9"})
+        self.assertIsNotNone(m.buscar(clave))
+        m.olvidar(["s4"])
+        self.assertIsNone(m.buscar(clave))
+        self.assertIsNone(m.buscar(("198.51.100.11", "otro", "acceso_credenciales")))   # tampoco la perimetral
+        self.assertIsNotNone(m.buscar(("10.9.9.9", "web", "acceso_credenciales")))      # las demás siguen
 
     def test_memoria_acota_por_lru(self):
         # #13: un flood de orígenes distintos no hace crecer la memoria de supresión sin límite.
