@@ -8,6 +8,12 @@ capítulo de resultados, y `evaluacion/resultados/`).
 ## [Sin publicar]
 
 ### Cambiado
+- **Políticas: el Resumen en tres columnas y los intocables con candado.** El Resumen cuenta la
+  política con una frase y tres columnas: lo que el MDR contiene solo, lo que espera a un analista y lo
+  que nunca hace solo. Usa nombres legibles («Fuerza bruta», «core-db · base de datos del core»), y el
+  texto de `mdr explicar-politica` pasa a un desplegable. La pestaña «Intocables» desaparece: cada
+  servicio intocable lleva un candado en la fila de su equipo, y lo general va al Resumen.
+  `/api/politica` añade `funcion` a cada intocable.
 - **Las dos variantes de AWS en dos carpetas** (`infra/aws/mdr/`, producción, e `infra/aws/laboratorio/`,
   pruebas), autosuficientes sobre un módulo común (`infra/aws/modulos/base/`): cada una con sus variables,
   su estado, su guía, sus costes, su inventario, sus escenarios del emulador y sus pruebas. Desaparece la

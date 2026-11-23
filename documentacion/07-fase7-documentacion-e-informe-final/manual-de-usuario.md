@@ -644,13 +644,17 @@ Decide qué respuestas se ejecutan solas y cuáles esperan a un analista.
 > **Quién puede:** operador identificado (o `TRIAJE_POLITICA_ABIERTA=1` en el laboratorio). Cada clic
 > se guarda al momento, **sin confirmación**, y queda en la auditoría con su nombre.
 
-- **«Resumen».** La vista abre aquí: la política entera contada en frases (lo mismo que
-  `mdr explicar-politica`), para leerla sin abrir el YAML.
+- **«Resumen».** La vista abre aquí. Una frase con el recuento («de 10 tipos de ataque, el MDR contiene
+  4 solo…») y tres columnas: **lo contiene solo** (con su acción y la certeza mínima), **espera a un
+  analista** (incluidos los servicios intocables, con el equipo y su puerto) y **nunca lo hace solo**
+  (los frenos del código y su propia conexión con los equipos). Debajo, en quién confía y, en «Ver la
+  política en texto», lo mismo que `mdr explicar-politica`.
 - **«Por tipo de ataque».** Cada familia muestra su acción y un selector AUTO / HUMANO. Las que llevan
   candado («freno duro / nunca automática») no se pueden poner en automático; las que «se trían y
   enrutan» no tienen acción. «detalle» muestra el impacto, los vetos y el runbook.
 - **«Por zona y dispositivo».** Postura por zona (AUTO o HUMANO; el plano de gestión no se edita) y
-  por equipo (HEREDA, AUTO o HUMANO), con su criticidad y cuántos equipos caerían en cascada.
+  por equipo (HEREDA, AUTO o HUMANO), con su criticidad y cuántos equipos caerían en cascada. Un
+  equipo con un servicio intocable lleva un candado: «puerto 1521: siempre con analista».
 - **Origen de cada valor.** Un distintivo dice de dónde sale cada fila: del código (freno duro), de
   la política de la empresa (`politica.yml`), de la consola o del perfil. Si hay `politica.yml`, la
   cabecera muestra su versión y quién la aprobó.
@@ -658,8 +662,7 @@ Decide qué respuestas se ejecutan solas y cuáles esperan a un analista.
   lista con quién lo cambió y cuándo. «Volver a la política» lo deshace; «Exportar propuesta vN»
   descarga la versión siguiente del fichero con esos cambios, para que la apruebe Seguridad. La
   consola nunca reescribe `politica.yml`.
-- **Confianza e Intocables.** Los administradores y socios críticos, y los servicios que nunca se tocan
-  solos.
+- **«Confianza».** Los administradores y socios críticos, la ráfaga que los anula y la certeza mínima.
 
 > **Nota:** si la familia **o** la zona está en HUMANO, prevalece HUMANO. Lo que se edita en la
 > consola solo puede **quitar** automatización respecto a la política; nunca añadirla.
