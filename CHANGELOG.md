@@ -29,8 +29,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
 
 ### Corregido
 - **El panel derecho de cada vista tiene su propio scroll** (Aprobaciones, Decisiones, Trazas,
-  Contenciones, Incidentes y Conectividad): se queda a la vista y no alarga la página. Clase común
-  `inspector`; el área principal es el contenedor de su altura.
+  Contenciones, Incidentes y Conectividad): se queda a la vista y no alarga la página. Su alto es lo
+  que queda visible desde donde empieza (debajo de las cifras y los filtros), así su final se alcanza sin
+  bajar la página (`useAjusteInspectores`). Comprobado en Chromium: acaba a 12 px del borde inferior.
 - **Banco: las tandas ya no dejan web-banking sin acceso para el MDR.** El caso E1 corta a propósito el
   SSH del MDR hacia web-banking para probar la escalada, y las tandas automática y continua lo lanzaban
   sin deshacerlo: todos los ataques siguientes a web-banking fallaban en el equipo. Ahora las tandas

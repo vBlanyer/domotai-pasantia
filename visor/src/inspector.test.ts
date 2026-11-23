@@ -21,7 +21,13 @@ describe("paneles derechos con scroll propio", () => {
     expect(css).toMatch(/\.inspector\s*\{[^}]*position:\s*sticky[^}]*max-height:\s*calc\(100cqh[^}]*overflow-y:\s*auto/)
   })
 
+  it("la consola ajusta el alto de los paneles a lo que queda visible desde donde empiezan", () => {
+    const app = leer("App.tsx")
+    expect(app).toMatch(/useAjusteInspectores\(\w+\)/)
+    expect(app).toMatch(/<main ref=\{\w+\}/)
+  })
+
   it("el área principal es el contenedor de esa altura", () => {
-    expect(leer("App.tsx")).toMatch(/<main className="[^"]*\[container-type:size\]/)
+    expect(leer("App.tsx")).toMatch(/<main [^>]*className="[^"]*\[container-type:size\]/)
   })
 })

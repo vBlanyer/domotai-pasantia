@@ -33,6 +33,7 @@ import { VistaIncidente } from "@/components/VistaIncidente"
 import { Punto } from "@/components/bits"
 import { alertaMenuSalud } from "@/salud"
 import { vistaDeHash, hashDeVista, vistaVisible, type Vista } from "@/navegacion"
+import { useAjusteInspectores } from "@/ajusteInspector"
 import type { Decision } from "@/api"
 
 
@@ -149,6 +150,9 @@ const textoConexion = (conectado: boolean) => conectado ? "en vivo · cada 2 s" 
 function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion; onCerrarSesion: () => void; onCambiarNombre: () => void }) {
   // La vista va en la URL (#/vista): recargar deja donde se estaba y atrás/adelante recorren las vistas.
   const [vistaPedida, setVista] = useState<Vista>(() => vistaDeHash(window.location.hash))
+  // El panel derecho de cada vista acaba en el borde de abajo de esta área (su final, sin bajar la página).
+  const areaRef = useRef<HTMLElement>(null)
+  useAjusteInspectores(areaRef)
   const [equipo, setEquipo] = useState<string | null>(null)
   const [textoDec, setTextoDec] = useState("")        // filtro de Decisiones sembrado al pivotar (p. ej. una IP)
   const [atacanteIp, setAtacanteIp] = useState<string | null>(null)   // perfil de atacante (drill-down)
@@ -337,7 +341,7 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
             <ChipSesion sesion={sesion} nombre={operadorActual()} onCerrar={onCerrarSesion} onCambiarNombre={onCambiarNombre} />
           </div>
         </header>
-        <main className="flex-1 overflow-auto px-4 py-6 md:px-8 [container-type:size] print:overflow-visible print:p-0 print:[container-type:normal]">
+        <main ref={areaRef} className="flex-1 overflow-auto px-4 py-6 md:px-8 [container-type:size] print:overflow-visible print:p-0 print:[container-type:normal]">
           {pausada && (
             <div className="mb-4 flex items-center gap-2 rounded-md border border-critico/50 bg-critico/10 px-4 py-2.5 text-sm font-medium text-critico print:hidden">
               ⏸ Automatización en pausa — toda contención automática espera aprobación humana.
