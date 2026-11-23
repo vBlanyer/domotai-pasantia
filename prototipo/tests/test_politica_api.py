@@ -79,9 +79,17 @@ class TestApiPolitica(unittest.TestCase):
         self.assertEqual(est["confianza"]["administradores"], ["10.0.0.1"])
         self.assertEqual(est["confianza"]["rafaga"], {"alertas": 9, "en_segundos": 60})
         self.assertEqual(est["confianza"]["origen"], "fichero")
-        self.assertEqual(est["intocables"], [{"activo": "srv", "servicio": 5432, "origen": "fichero"}])
+        self.assertEqual(est["intocables"], [{"activo": "srv", "servicio": 5432, "origen": "fichero", "funcion": None}])
         _, sin = self._req(self._srv(), "GET", "/api/politica")
         self.assertEqual((sin["confianza"]["administradores"], sin["intocables"]), ([], []))
+
+    def test_intocables_dicen_que_es_el_equipo(self):
+        # El Resumen de Políticas dice «core-db · base de datos del core», no solo el nombre y el puerto.
+        pol = {**POL, "nunca_tocar_en_automatico": [{"equipo": "srv", "servicio": 5432}]}
+        srv = self._srv(pol)
+        srv.perfil["activos"]["srv"]["funcion"] = "base de datos"
+        _, est = self._req(srv, "GET", "/api/politica")
+        self.assertEqual(est["intocables"][0]["funcion"], "base de datos")
 
     def test_la_confianza_dice_si_los_equipos_propios_exigen_analista(self):
         _, sin = self._req(self._srv(), "GET", "/api/politica")

@@ -1543,8 +1543,11 @@ def politica_con_origenes(s):
         "equipos_propios_origen": ("fichero" if "equipos_propios" in (pol.get("respuesta_automatica") or {})
                                    else "perfil" if (cont.get("actores") or {}).get("activo_interno") else "codigo")}
     del_fichero = {(e.get("equipo"), e.get("servicio")) for e in pol.get("nunca_tocar_en_automatico") or []}
+    activos = perfil.get("activos") or {}
     est["intocables"] = [{"activo": e.get("activo"), "servicio": e.get("servicio"),
-                          "origen": "fichero" if (e.get("activo"), e.get("servicio")) in del_fichero else "perfil"}
+                          "origen": "fichero" if (e.get("activo"), e.get("servicio")) in del_fichero else "perfil",
+                          # qué es el equipo, para el Resumen («core-db · base de datos del core»)
+                          "funcion": (activos.get(e.get("activo")) or {}).get("funcion")}
                          for e in perfil.get("excepciones") or [] if e.get("regla") == "nunca_automatica"]
     return est
 
