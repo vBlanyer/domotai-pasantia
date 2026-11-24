@@ -2139,3 +2139,27 @@ class TestSecuenciaTrasReinicio(unittest.TestCase):
                         escribir=lambda *a, **k: None, leer=lambda *_: "2")
         [r] = [json.loads(l) for l in buf.getvalue().splitlines() if l.strip()]
         self.assertRegex(r["id_decision"], r"^BCO-\d{8}-0001$")
+
+
+class TestConectividadEsActividadPropia(unittest.TestCase):
+    """24/11: cada «Probar» de Conectividad entraba por SSH en el equipo y Wazuh registraba ese login (regla
+    5715 desde la IP de gestión); como no pasaba por ActividadMDR, el MDR lo triaba como ajeno y dejaba una
+    decisión «no soportada» por equipo probado."""
+
+    def test_los_ssh_de_conectividad_cuentan_como_actividad_del_mdr(self):
+        llamadas = []
+
+        class Srv:
+            pass
+        srv = Srv()
+        srv.conectividad_ejecutor = lambda modo, **kw: (lambda ip, cmd: llamadas.append((modo, kw, ip, cmd)) or (0, ""))
+        actividad = stream.ActividadMDR()
+        stream.marcar_conectividad(srv, actividad)
+        self.assertFalse(actividad.reciente("10.20.0.10"))
+        rc, _ = srv.conectividad_ejecutor("clave", usuario="triaje", puerto=22, sudo=False)("10.20.0.10", "true")
+        self.assertEqual(rc, 0)
+        self.assertEqual(llamadas, [("clave", {"usuario": "triaje", "puerto": 22, "sudo": False}, "10.20.0.10", "true")])
+        self.assertTrue(actividad.reciente("10.20.0.10"))
+
+    def test_sin_servidor_no_hace_nada(self):
+        stream.marcar_conectividad(None, stream.ActividadMDR())

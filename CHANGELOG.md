@@ -38,6 +38,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Las pruebas de Conectividad ya no dejan decisiones fantasma.** Cada «Probar» entra por SSH en el equipo
+  y Wazuh registra ese login (regla 5715 desde la IP de gestión). Como no pasaba por el registro de actividad
+  del MDR, se triaba como ajeno y quedaba una decisión «no soportada» por cada equipo probado (alta del banco
+  como cliente nuevo, 24/11). Ahora los SSH de Conectividad cuentan como actividad propia, igual que los de una
+  contención.
 - **Asistente de red: «Depende de» se elige entre los equipos escaneados.** Antes se escribían nombres a mano,
   separados por comas. Ahora cada dependencia es una etiqueta (nombre en el SIEM o, si aún no lo tiene, la IP)
   y se añade desde un desplegable con los equipos incluidos. Se guarda por IP y el perfil exportado lleva el

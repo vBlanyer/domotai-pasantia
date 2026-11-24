@@ -249,6 +249,16 @@ class ActividadMDR:
         return t is not None and self._reloj() - t <= self.VENTANA_SEG
 
 
+def marcar_conectividad(servidor, actividad):
+    """Los SSH que lanza la vista Conectividad (probar, leer reglas, rotar la clave) también son actividad del
+    MDR: su login llega a Wazuh como cualquier otro. Sin esto, cada «Probar» dejaba una decisión «no
+    soportada» del equipo probado (24/11, alta del banco como cliente nuevo)."""
+    if servidor is None or not hasattr(servidor, "conectividad_ejecutor"):
+        return
+    fabrica = servidor.conectividad_ejecutor
+    servidor.conectividad_ejecutor = lambda *a, **kw: actividad.envolver(fabrica(*a, **kw))
+
+
 class Latido:
     """Señal de vida del daemon para el healthcheck (#5). El lazo principal llama a `tick()` en cada
     iteración (incluidos los ticks de reposo), así que `lazo_quietud_s` mide si el lazo sigue vivo:
@@ -1628,6 +1638,7 @@ def main(argv):
         estado, servidor, escribir_fn, leer_fn = construir_web(cfg, perfil, catalogo,
                                                                actividad.envolver(ejecutor))
         servidor.politica_info = politica_info      # la vista Políticas la enseña (versión, origen de cada valor)
+        marcar_conectividad(servidor, actividad)    # sus SSH (probar, leer reglas…) también son actividad del MDR
         for linea in lineas_avisos_red(perfil):
             print(linea)
         if not cfg["agente"]:
