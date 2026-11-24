@@ -576,10 +576,10 @@ por `sudo`, los comandos de su papel. Todo se hace desde la vista **Conectividad
 
 1. **Genera la clave del conector.** En Conectividad, «Generar la clave del conector» (ed25519). Se
    crea en el equipo MDR; la privada no sale de allí. No hace falta reiniciar.
-2. **Para cada equipo del perfil**, ábrelo en Conectividad:
+2. **Para cada equipo del perfil**, ábrelo en Conectividad y pulsa «Dar de alta» («Alta pendiente»):
    1. En «Papel y reglas», elige su papel (servidor, cortafuegos o puesto) y los servicios y cuentas
-      que se pueden tocar. Las cuentas del sistema nunca se bloquean. Pulsa «Guardar y generar el
-      paquete de corrección».
+      que se pueden tocar. Las cuentas del sistema nunca se bloquean. Pulsa «Generar el paquete de
+      alta».
    2. Entrega el paquete a quien administra el equipo: un script, un playbook de Ansible o solo el
       sudoers. Lo ejecuta en el equipo como root: crea el usuario `triaje`, instala la clave pública,
       el envoltorio `/usr/local/sbin/mdr-accion` (root, 0755) y un sudoers de una línea en
@@ -587,9 +587,13 @@ por `sudo`, los comandos de su papel. Todo se hace desde la vista **Conectividad
       del equipo. No lleva secretos ni pide contraseñas. El envoltorio comprueba cada argumento (una IP,
       un puerto, una interfaz, un servicio o una cuenta de la lista del papel, nunca una cuenta del
       sistema) y ejecuta exactamente la acción del catálogo; cualquier otra cosa sale con el código 126.
-   3. «Leer la clave del equipo», compara la huella con la que imprimió el paquete y «Fijar esta
-      clave».
-   4. Prueba la conexión. Debe quedar **verificada**.
+      **Antes de tocar nada comprueba que está en su equipo**: si la máquina no tiene la IP del equipo
+      para el que se generó, se para sin instalar nada. Si el MDR lo ve por otra IP (NAT), se repite con
+      `MDR_SIN_COMPROBAR_IP=1` delante. Al final imprime **una** huella, la que se compara, marcada
+      (ED25519).
+   3. «Leer la clave del equipo», compara la huella (la consola dice su tipo) con la que imprimió el
+      paquete, marca «Coincide…» y pulsa «Dar de alta»: fija la huella y prueba la conexión. Debe quedar
+      **verificada**.
 3. **Para un equipo que no está en el perfil**, pulsa «+ Añadir equipo» y sigue el asistente:
    inventario (nombre, IP, zona, función, criticidad, interfaz y dependencias), papel y reglas,
    paquete de alta y, al final, «Leer la clave del equipo», «Coincide con la que imprimió el equipo»
@@ -1160,13 +1164,16 @@ anterior no lo tapa. Se quita con una contención correcta o con una prueba nuev
 
 ### Un equipo que ya existe
 
-- **«Fijar la clave del host»**, para uno que nunca se conectó: «Leer la clave del equipo», compara
-  la huella y «Fijar esta clave».
+- **«Alta pendiente»**, para un equipo del perfil al que el MDR aún no tiene acceso (por ejemplo, uno
+  exportado por el asistente de red): «Dar de alta» abre los pasos en orden, papel y reglas → paquete de
+  alta → verificar. En el último, compara la huella que enseña la consola, que dice su tipo (ED25519), con
+  la que imprimió el paquete; marca «Coincide…» y pulsa «Dar de alta»: fija la huella y prueba la conexión.
 - **«Clave del host cambiada»:** muestra la fijada frente a la que presenta ahora. **Compruébalo por
   otro canal** antes de «Aceptar la nueva clave…».
 - **«Papel y reglas»:** cambia el papel o quítalo. Si lo que admite el envoltorio del equipo (o su sudoers) no es su papel, verás lo que
   **sobra** (rojo) y lo que **falta** (ámbar), y podrás «Generar paquete de corrección».
-- **«Cómo entra el conector»:** puerto y usuario. «Probar y guardar» solo guarda si la prueba pasa.
+- **«Cómo entra el conector»:** puerto y usuario. Sin cambios, «Probar la conexión». Al cambiar el
+  puerto o el usuario, «Probar y guardar» (solo guarda si la prueba pasa) o «Probar sin guardar».
 
 > **Nota:** la consola solo quita altas pendientes y papeles. Un equipo ya dado de alta lo quita la
 > administración (sección 32).

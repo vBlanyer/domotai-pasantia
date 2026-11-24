@@ -748,8 +748,10 @@ no actúa en él.
 
 ### Un equipo que ya existe
 
-- **«Fijar la clave del host»**, para uno que nunca se conectó: «Leer la clave del equipo», compara
-  la huella y «Fijar esta clave».
+- **«Alta pendiente»**, para un equipo del perfil al que el MDR aún no tiene acceso (por ejemplo, uno
+  exportado por el asistente de red): «Dar de alta» abre los pasos en orden, papel y reglas → paquete de
+  alta → verificar. En el último, compara la huella que enseña la consola, que dice su tipo (ED25519), con
+  la que imprimió el paquete; marca «Coincide…» y pulsa «Dar de alta»: fija la huella y prueba la conexión.
 - **«Clave del host cambiada»:** muestra la fijada frente a la que presenta ahora. **Compruébalo por
   otro canal** antes de «Aceptar la nueva clave…».
 - **«Papel y reglas»:** cambia el papel o quítalo. La prueba pide al envoltorio la lista de lo que
@@ -757,7 +759,8 @@ no actúa en él.
   «Generar paquete de corrección». Si sudo permite algo además del envoltorio (un sudoers antiguo con
   reglas sueltas), sale como privilegio de más; si el equipo no tiene envoltorio (alta anterior al
   16/11/2026), sale «sin aprovisionar»: vuelve a ejecutar su paquete de alta.
-- **«Cómo entra el conector»:** puerto y usuario. «Probar y guardar» solo guarda si la prueba pasa.
+- **«Cómo entra el conector»:** puerto y usuario. Sin cambios, «Probar la conexión». Al cambiar el
+  puerto o el usuario, «Probar y guardar» (solo guarda si la prueba pasa) o «Probar sin guardar».
 
 > **Nota:** la consola solo quita altas pendientes y papeles. Un equipo ya dado de alta se quita de
 > `run/inventario-operativo.yml` y reiniciando el MDR.
