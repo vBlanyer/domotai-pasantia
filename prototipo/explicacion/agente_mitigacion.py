@@ -27,7 +27,7 @@ reproducible); el agente es su envoltura segura para un backend con modelo capaz
 pendiente.
 """
 import json, re
-from prototipo.motor import actores, impacto, politica
+from prototipo.motor import actores, impacto, politica, servicios
 from prototipo.accion import conector, fallos
 from prototipo.explicacion import rag
 from prototipo.motor import perfil as perfilm
@@ -253,11 +253,22 @@ def herramienta_ejecutar_comando(topo, catalogo, ejecutor, dispositivo, accion, 
         accion_id = f["accion_final"]              # la misma, o la degradada
         requiere_humano = bool(f.get("requiere_humano"))
         consecuencia = (f.get("impacto") or {}).get("motivo")
-        alcance = alcance_en(topo, dispositivo)
+        actor = actores.quien_es(ip, perfil) or {}
+        propio = actor.get("nombre") if actor.get("tipo") == "activo_interno" else None
+        alcance = [n for n in alcance_en(topo, dispositivo) if n != propio]
         if alcance:
             # El impacto del filtro mira a quién se bloquea, no dónde: en un dispositivo que enruta a
             # otros, el bloqueo corta al atacante hacia todos ellos, no solo hacia el activo atacado.
             texto = f"en {dispositivo}: corta su tráfico hacia todo lo que enruta ({', '.join(alcance)})"
+            consecuencia = f"{consecuencia} · {texto}" if consecuencia else texto
+        if propio:
+            # El equipo bloqueado es del cliente: no se apaga, pero lo que sale de él (también las
+            # respuestas de sus servicios) deja de pasar por este dispositivo.
+            puertos = sorted(servicios.puertos_declarados(perfil, propio), key=str)
+            sus = (f"sus servicios (puerto{'s' if len(puertos) > 1 else ''} {', '.join(map(str, puertos))}) "
+                   f"dejan de responder a través de {dispositivo}") if puertos else \
+                f"deja de llegar a nada a través de {dispositivo}"
+            texto = f"{propio} sigue en marcha, pero {sus}"
             consecuencia = f"{consecuencia} · {texto}" if consecuencia else texto
     comando = catalogo[accion_id]["comando"].format(ip=ip)
     ok, motivo_invalido = validar_comando(comando, ip_gestion)

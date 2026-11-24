@@ -138,6 +138,10 @@ def _motivo_base(det, perfil):
             # Es un activo interno del que otros dependen: cortarlo arrastra su cadena (K1). Decir
             # "0 servicios detenidos" seria falso; el detalle en cascada lo añade _motivo.
             texto += " · aísla un activo del que otros dependen"
+        elif actor["tipo"] == "activo_interno":
+            # Un equipo propio: «0 servicios detenidos» se leía como «nada suyo cambia», y bloquear su IP
+            # corta también las respuestas de sus servicios. Lo cierto es que nadie depende de él.
+            texto += " · ningún equipo del perfil depende de él"
         elif actor["tipo"] != "dispositivo_red":
             # Un dispositivo de red no "detiene 0 servicios": puede cortar todo lo que enruta
             # (la frase que sigue cuando sube de nivel). Decir las dos cosas se contradice.

@@ -30,8 +30,10 @@ class TestAccionesSobreIP(unittest.TestCase):
         self.assertEqual(d["actor"]["nombre"], "puesto")
         self.assertEqual(d["nivel"], "localizado")            # un host interno no sube el nivel
         self.assertEqual(d["servicios_afectados"], [])
+        # Interno: «0 servicios detenidos» se leía como «nada suyo cambia»; lo cierto es que nadie depende de él.
         self.assertEqual(d["motivo"],
-                         "bloquea a puesto (activo interno: puesto de trabajo de un empleado) · 0 servicios detenidos")
+                         "bloquea a puesto (activo interno: puesto de trabajo de un empleado) · "
+                         "ningún equipo del perfil depende de él")
 
     def test_bloquear_la_ip_de_un_activo_del_que_otros_dependen_avisa_la_cascada(self):
         # K1: bloquear la IP del middleware (dependencia de web-banking/api-movil) en core-db lo aísla
@@ -52,10 +54,11 @@ class TestAccionesSobreIP(unittest.TestCase):
         self.assertIn("web-banking", d["motivo"])
 
     def test_bloquear_un_activo_interno_hoja_no_inventa_cascada(self):
-        # puesto es hoja: nadie depende de él -> sin cascada, sigue "0 servicios detenidos".
+        # puesto es hoja: nadie depende de él -> sin cascada, y se dice así.
         d = impacto.determinar("BLOQUEAR_IP", {"ip": "192.168.1.10"}, "objetivo-vuln", PERFIL, CAT)
         self.assertEqual(d["activos_afectados_en_cascada"], [])
-        self.assertIn("0 servicios detenidos", d["motivo"])
+        self.assertIn("ningún equipo del perfil depende de él", d["motivo"])
+        self.assertNotIn("0 servicios detenidos", d["motivo"])
 
     def test_bloquear_un_dispositivo_de_red_sube_a_alcanza_servicio(self):
         d = impacto.determinar("BLOQUEAR_IP", {"ip": "192.168.1.1"}, "objetivo-vuln", PERFIL, CAT)

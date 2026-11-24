@@ -64,7 +64,7 @@ def _resultado(orden, comando, rc, salida, exito, idempotente, timestamp):
 
 def resultado_omitido(orden, motivo, timestamp, omitido="sin_aprovisionar", **extra):
     """Registro de ejecución de una orden que NO se intentó (fases 4 y 5 del plan de fallos): ninguna
-    conexión salió; `omitido` dice por qué (sin_aprovisionar | sin_acceso)."""
+    conexión salió; `omitido` dice por qué (sin_aprovisionar | sin_acceso | no_ejecutable | fuera_de_perfil)."""
     return {**_resultado(orden, None, None, f"no se intentó: {motivo}", False, False, timestamp),
             "omitido": omitido, **extra}
 

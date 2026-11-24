@@ -620,6 +620,34 @@ class TestImpactoDelDispositivoQueContiene(unittest.TestCase):
         self.assertTrue(consecuencia and "todo lo que enruta" in consecuencia[0])
 
 
+    def _perfil_con_taquilla(self):
+        # El atacante es un equipo del perfil (taquilla, con SSH) detrás del mismo cortafuegos.
+        p = y_perfil_dos_hosts()
+        return {**p, "activos": {**(p.get("activos") or {}),
+                                 "taquilla": {"ip": "192.168.1.10", "criticidad": "media", "servicios_prestados": [22]}},
+                "topologia": {**p["topologia"],
+                              "taquilla": {"rol": "host_victima", "ip": "192.168.1.10", "gateway": "gateway"}}}
+
+    def test_un_atacante_interno_sigue_en_marcha_pero_sus_servicios_dejan_de_responder(self):
+        # Bloquear su IP en el cortafuegos no apaga el equipo: corta lo que sale de él, también las
+        # respuestas de sus servicios. «0 servicios detenidos» hacía creer que nada suyo cambiaba.
+        plan = ag.escalar_determinista(self.ALERTA, "vp_intento_acceso", self._perfil_con_taquilla(), CAT,
+                                       EjecutorEscalado(), autonomo=True, siempre_humano=False,
+                                       desde="objetivo-vuln")
+        motivo = plan["impacto_efectivo"]["motivo"]
+        self.assertNotIn("0 servicios detenidos", motivo)
+        self.assertIn("taquilla sigue en marcha, pero sus servicios (puerto 22) dejan de responder a través de gateway",
+                      motivo)
+        self.assertIn("(objetivo-vuln, otro-host)", motivo)      # no se cuenta a sí mismo en lo que enruta
+
+    def test_un_origen_externo_no_lleva_la_frase_de_sus_servicios(self):
+        a = {**self.ALERTA, "origen_ip": "203.0.113.9"}
+        plan = ag.escalar_determinista(a, "vp_intento_acceso", self._perfil_con_taquilla(), CAT,
+                                       EjecutorEscalado(), autonomo=True, siempre_humano=False,
+                                       desde="objetivo-vuln")
+        self.assertNotIn("sigue en marcha", plan["impacto_efectivo"]["motivo"])
+
+
 class TestComparacionExactaDeIps(unittest.TestCase):
     def test_verificar_en_el_cortafuegos_no_confunde_prefijos(self):
         from prototipo.tests.iptables_falso import NodoIptables

@@ -72,6 +72,8 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
     elif ej.get("omitido") == "no_ejecutable":
         clase = "F6"            # la última prueba vigente dice que falta la regla de esta acción en el sudoers
         ctx = {**ctx, "regla_falta": ctx.get("regla_falta") or ej.get("regla_falta")}
+    elif ej.get("omitido") == "fuera_de_perfil":
+        clase = "F1"            # no se intentó: el equipo que nombra el SIEM no está en el perfil (sin IP)
     elif ej.get("omitido") == "sin_acceso":
         clase = ej.get("clase_memoria") if ej.get("clase_memoria") in ("F4", "F5") else "F5"   # memoria de fallos
     elif rc == -1 and "rechazado" in salida:
@@ -95,7 +97,10 @@ def clasificar_fallo(ejecucion, verificacion=None, contexto=None):
     # cuando se verificó (es la deriva que Conectividad enseña), no algo que dejó de funcionar.
     regresion = bool(ctx.get("verificado")) and clase in _REGRESION and not (clase == "F6" and ctx.get("regla_falta"))
     descripcion, accion, ataque = CLASES[clase]
-    if clase == "F6" and ctx.get("regla_falta"):
+    if ej.get("omitido") == "fuera_de_perfil":
+        descripcion, accion = ("equipo fuera del perfil",
+                               "añádelo al perfil o corrige su nombre: tiene que ser el que envía el SIEM")
+    elif clase == "F6" and ctx.get("regla_falta"):
         descripcion, accion = "acción no ejecutable en este equipo", f"falta en su envoltorio: {ctx['regla_falta']} (fuera de su papel o alta antigua: vuelve a ejecutar su paquete de alta)"
     elif regresion:
         descripcion = {"F4": "el equipo dejó de aceptar la clave del conector",

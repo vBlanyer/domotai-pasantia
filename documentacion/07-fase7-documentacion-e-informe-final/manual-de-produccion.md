@@ -1529,6 +1529,7 @@ toca».
 | Clase | Qué pasó | Qué hacer |
 |---|---|---|
 | F1 | Orden rechazada antes de salir | Revisa la alerta: un parámetro no era válido |
+| F1 | Equipo fuera del perfil (el SIEM lo nombra, el perfil no lo tiene: no se sabe su IP) | Añádelo al perfil o corrige su nombre; el aviso propone el más parecido |
 | F2 | Equipo sin aprovisionar | Dalo de alta o fija su clave del host en Conectividad |
 | **F3** | **La clave del host cambió** | **Posible suplantación.** Compruébalo por otro canal antes de aceptar la clave |
 | F4 | El equipo no acepta la clave del conector | Ejecuta su paquete de alta |

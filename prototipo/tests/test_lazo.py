@@ -267,6 +267,56 @@ class TestIpDelActivoDesdeElPerfil(unittest.TestCase):
         self.assertIn("10.10.0.10", llamadas)
 
 
+class TestActivoFueraDelPerfil(unittest.TestCase):
+    """El SIEM nombra un equipo que el perfil no tiene (una errata en el perfil): sin su IP no se intenta
+    nada, y la causa lo dice con el parecido, no «nodo_ip rechazado»."""
+
+    def _perfil(self):
+        p = y("perfil.yml")
+        p["activos"] = {**p["activos"], "web-packing": {"ip": "10.10.0.10", "criticidad": "media"}}
+        return p
+
+    def _alerta(self):
+        a = dict(j("alerta_vp.json")); a["activo"] = "web-banking"
+        return a
+
+    def test_no_se_intenta_y_la_causa_nombra_el_equipo_y_el_parecido(self):
+        llamadas = []
+        r = lazo.aplicar_veredicto(lazo.decidir_incidente(self._alerta(), {"nodos": {}}, self._perfil(), "prueba",
+                                                          CAT, "d1", "t"),
+                                   self._alerta(), self._perfil(), CAT,
+                                   lambda ip, c: (llamadas.append(ip), (0, ""))[1], "d1", "t", veredicto="aprobar")
+        self.assertEqual(llamadas, [])                                   # ninguna conexión salió
+        self.assertEqual(r["ejecucion"]["omitido"], "fuera_de_perfil")
+        self.assertFalse(r["ejecucion"]["exito"])
+        self.assertIn("web-banking no está en el perfil", r["ejecucion"]["salida"])
+        self.assertIn("¿quizá «web-packing»?", r["ejecucion"]["salida"])
+        self.assertNotIn("nodo_ip", r["ejecucion"]["salida"])
+        self.assertEqual(r["verificacion"]["evidencia"], "sin verificar: no se intentó en el equipo")
+        self.assertEqual(r["causa_fallo"]["clase"], "F1")
+        self.assertEqual(r["causa_fallo"]["descripcion"], "equipo fuera del perfil")
+        self.assertIn("corrige su nombre", r["causa_fallo"]["accion"])
+        self.assertIn("¿quizá «web-packing»?", r["causa_fallo"]["evidencia"])
+
+    def test_la_consola_dice_el_motivo_sin_None(self):
+        from prototipo.servicio import stream
+        d = lazo.decidir_incidente(self._alerta(), {"nodos": {}}, self._perfil(), "prueba", CAT, "d1", "t")
+        r = lazo.aplicar_veredicto(d, self._alerta(), self._perfil(), CAT, lambda ip, c: (0, ""), "d1", "t",
+                                   veredicto="aprobar")
+        lineas = stream._lineas_ejecucion(r)
+        self.assertFalse(any("None" in l for l in lineas), lineas)
+        self.assertIn("(sin IP)", lineas[0])
+        self.assertTrue(any("equipo fuera del perfil" in l for l in lineas), lineas)
+        self.assertTrue(any("¿quizá «web-packing»?" in l for l in lineas), lineas)
+
+    def test_sin_parecido_no_inventa_uno(self):
+        a = self._alerta(); a["activo"] = "zz-desconocido"
+        d = lazo.decidir_incidente(a, {"nodos": {}}, self._perfil(), "prueba", CAT, "d1", "t")
+        r = lazo.aplicar_veredicto(d, a, self._perfil(), CAT, lambda ip, c: (0, ""), "d1", "t", veredicto="aprobar")
+        self.assertEqual(r["ejecucion"]["omitido"], "fuera_de_perfil")
+        self.assertNotIn("quizá", r["ejecucion"]["salida"])
+
+
 class TestEscaladaPorDefecto(unittest.TestCase):
     """Requisito del tutor industrial: si no se puede cortar en el host, saltar al cortafuegos."""
 

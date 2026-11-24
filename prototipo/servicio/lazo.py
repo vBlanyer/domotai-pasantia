@@ -80,6 +80,20 @@ def reanudar_escalada(parcial, alerta, perfil, catalogo, ejecutor, respuesta, de
     return {**base, "escalada": _fusionar(escalada, previa), "veredictos_escalada": previa["veredictos"]}
 
 
+def _fuera_del_perfil(orden, perfil):
+    """El motivo, si la orden no tiene IP porque su equipo no está en el perfil (o está sin IP); si no, None."""
+    if orden.get("nodo_ip"):
+        return None
+    nombre = orden.get("nodo_objetivo")
+    conocidos = sorted({*((perfil or {}).get("activos") or {}), *((perfil or {}).get("topologia") or {})})
+    if nombre in conocidos:
+        return f"{nombre} no tiene IP en el perfil del cliente: el MDR no sabe dónde ejecutar"
+    import difflib
+    parecido = difflib.get_close_matches(str(nombre), conocidos, n=1, cutoff=0.75)
+    return (f"{nombre} no está en el perfil del cliente: el MDR no sabe su IP"
+            + (f" (¿quizá «{parecido[0]}»?)" if parecido else ""))
+
+
 def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision, timestamp,
                       veredicto=None, clase_reclasificada=None, leer=input, diferir_escalada=None, pausa=None):
     """2ª fase: dado el veredicto (None=automático, 'aprobar', 'rechazar', 'reclasificar'), ejecuta la
@@ -103,7 +117,12 @@ def aplicar_veredicto(decision, alerta, perfil, catalogo, ejecutor, id_decision,
     # TRIAJE_MEMORIA_FALLOS (fase 5): tras 3 fallos F4/F5 seguidos no se intenta en el equipo (se escala
     # desde el principio o queda fallida a la vista del analista) hasta que el sondeo recupere el acceso.
     sin_acceso = fallos.sin_acceso(o.get("nodo_ip"))
-    if sin_acceso:
+    fuera = _fuera_del_perfil(o, perfil)
+    if fuera:
+        # El SIEM nombra un equipo que el perfil no tiene (una errata, casi siempre): sin su IP no sale
+        # ninguna conexión, y se dice cuál y a qué se parece (la escalada sigue como ante cualquier fallo).
+        ejecucion = conector.resultado_omitido(o, fuera, timestamp, omitido="fuera_de_perfil")
+    elif sin_acceso:
         ejecucion = conector.resultado_omitido(o, f"el MDR no tiene acceso al equipo desde {sin_acceso['desde']}",
                                                timestamp, omitido="sin_acceso", clase_memoria=sin_acceso.get("clase"))
     else:
