@@ -998,6 +998,18 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
         numerador = identificador.Numerador(identificador.prefijo_de(perfil))
     ventana_rafaga = rafaga.Ventana()
     ventana_larga = rafaga.Ventana(ventana_s=rafaga.VENTANA_LARGA_S)   # señal de vigilancia 'low-and-slow'
+    # Login correcto tras fuerza bruta del mismo origen (motor/correlacion): se anota al llegar cada alerta,
+    # antes de agrupar y suprimir. Encendida por defecto; TRIAJE_CORRELACION_LOGIN=0 la apaga. El nodo de
+    # gestión no se correlaciona: sus logins son actividad propia.
+    from prototipo.motor import correlacion
+    correlador = (correlacion.LoginTrasFuerzaBruta(excluir={(perfil or {}).get("ip_gestion")})
+                  if os.environ.get("TRIAJE_CORRELACION_LOGIN", "1") != "0" else None)
+
+    def _al_llegar(alerta):
+        if correlador is not None:
+            correlador.anotar(alerta)
+        ventana_rafaga.registrar(alerta)
+        ventana_larga.registrar(alerta)
     def _suprimir(inc, previa):
         reg = memoria.registro_supresion(inc, previa)
         escribir(_linea_supresion(reg))
@@ -1148,7 +1160,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                 _latido(True, ahora)
                 if latido is not None:
                     latido.alerta()
-                resumen["alertas"] += 1; ventana_rafaga.registrar(alerta); ventana_larga.registrar(alerta)
+                resumen["alertas"] += 1; _al_llegar(alerta)
                 recientes.registrar(alerta)
                 _procesa_lote([alerta])
                 continue
@@ -1159,7 +1171,7 @@ def ejecutar(fuente_lineas, hallazgos, perfil, perfil_nombre, catalogo, ejecutor
                     _latido(True, ahora)
                     if latido is not None:
                         latido.alerta()
-                    resumen["alertas"] += 1; ventana_rafaga.registrar(alerta); ventana_larga.registrar(alerta)
+                    resumen["alertas"] += 1; _al_llegar(alerta)
                     recientes.registrar(alerta)
                     if t0 is None:
                         t0 = ahora

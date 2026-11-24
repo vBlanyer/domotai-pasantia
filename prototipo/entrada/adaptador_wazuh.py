@@ -139,6 +139,9 @@ def normalizar_alerta(cruda, campaña):
         "evento_crudo": cruda.get("full_log"),
         "nivel_wazuh": _entero(rule.get("level")),   # se compara numéricamente (agrupación/severidad)
         "regla_id": _texto(rule.get("id")),           # clave de Counter en la agrupación -> hashable
+        # Un login correcto (5715…): el daemon lo correlaciona con los fallos previos del mismo origen
+        # (motor/correlacion). Solo en esas alertas: el resto del esquema no cambia.
+        **({"login_correcto": True} if "authentication_success" in set(rule.get("groups") or []) else {}),
     }
 
 def _ip_norm(ip):

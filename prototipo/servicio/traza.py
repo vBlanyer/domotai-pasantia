@@ -368,4 +368,6 @@ def construir(id_decision, timestamp, alerta, analisis_out, accion_prop, impacto
         "version_baseline": VERSION_BASELINE,
         "version_perfil": version_perfil,
         "contexto": _contexto(alerta, contexto),
+        # la familia la puso una correlación del MDR (motor/correlacion), no el SIEM; solo cuando la hay
+        **({"correlacion": alerta["correlacion"]} if alerta.get("correlacion") else {}),
     }

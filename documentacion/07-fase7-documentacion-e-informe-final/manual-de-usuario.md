@@ -960,6 +960,9 @@ y el conector. **Nada está preparado para el MDR**: el acceso a cada equipo se 
      escaneo en sí **no** genera alertas, así que las sugerencias aparecen a medida que hay actividad.
    - **Las zonas** (por ejemplo, `DMZ` e `Interna`), la **criticidad** y qué equipo **no se toca
      directamente** (la base de datos).
+   - **La interfaz** de datos de cada equipo (`eth0`, `ens18`…; en la oficina y en el banco, `eth1`). Sin
+     ella, una denegación de servicio contra ese equipo no se puede contener: la respuesta acota la banda de
+     esa interfaz. Mientras falte en alguno, «Falta para exportar» lo avisa con la lista de equipos.
    - **De qué depende** cada uno (`srv-web01` de `srv-app01`, y este de `srv-db01`): se elige en el
      desplegable «+ añadir…» entre los equipos escaneados, y sale con su nombre (o su IP si aún no lo tiene).
      Si renombras el equipo después, la dependencia lo sigue.
@@ -1017,6 +1020,18 @@ volver al banco de siempre: `sh lab/banco/banco.sh aprovisionar` y `sh reiniciar
 | acceso_consumado | MATAR_CONEXION (corta la sesión viva) | Según el perfil |
 | exfiltracion | BLOQUEAR_DESTINO en el borde | **Nunca** |
 | malware | AISLAR_NODO | **Nunca** |
+
+**Lo que necesita cada respuesta para poder ejecutarse.** LIMITAR_BANDA, la **interfaz** del equipo en el perfil
+(la pide el asistente). FORZAR_CAMBIO_PASS, **cuentas autorizadas** en el papel del equipo (Conectividad:
+«cualquier cuenta» o una lista) y su paquete de alta ejecutado después; sin ellas, la decisión lo dice
+(«no tiene cuentas autorizadas para bloquear»).
+
+**Acceso consumado que el SIEM no marca.** La regla de fuerza bruta de Wazuh calla 60 s para todos los
+orígenes después de dispararse, así que un segundo ataque dentro de ese minuto no deja la alerta de
+intrusión y su login llega suelto. El MDR lo correlaciona él: un login correcto con al menos 5 fallos de
+autenticación del mismo origen contra el mismo equipo en los 240 s anteriores pasa a acceso_consumado. La
+justificación termina con «…lo correlacionó el MDR». No toca los logins del propio MDR.
+`TRIAJE_CORRELACION_LOGIN=0` la apaga.
 
 Lo que no encaja en ninguna familia se marca «no soportada» y no se actúa. Si es grave y el perfil lo
 activa (`continuidad.revisar_no_soportada_nivel`, como `bancario.yml`), pasa a un analista.

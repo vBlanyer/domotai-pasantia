@@ -105,6 +105,17 @@ class TestTolerancia(unittest.TestCase):
         self.assertEqual(a["familia"], "acceso_consumado")
         self.assertEqual(a["origen_ip"], "198.51.100.10")   # MATAR_CONEXION necesita la IP del atacante
 
+    def test_un_login_correcto_se_marca_para_la_correlacion(self):
+        # El MDR correlaciona «login correcto tras fuerza bruta» (motor/correlacion): necesita saber que la
+        # alerta es un login correcto. Solo en esas alertas aparece la marca; el resto no cambia.
+        cruda = {"id": "l1", "timestamp": "t", "rule": {"id": "5715", "groups": ["syslog", "sshd", "authentication_success"]},
+                 "data": {"srcip": "198.51.100.10"}}
+        a = adaptador_wazuh.normalizar_alerta(cruda, "c")
+        self.assertIs(a["login_correcto"], True)
+        self.assertEqual(a["familia"], "otra")
+        fallo = adaptador_wazuh.normalizar_alerta({**cruda, "rule": {"id": "5760", "groups": ["sshd", "authentication_failed"]}}, "c")
+        self.assertNotIn("login_correcto", fallo)
+
     def test_login_exitoso_legitimo_no_es_acceso_consumado(self):
         # Invariante de orden: un login EXITOSO normal (authentication_success, SIN el contexto de
         # fuerza bruta -> sin grupo 'intrusion') NO cae en acceso_consumado (ni en credenciales): es 'otra'.

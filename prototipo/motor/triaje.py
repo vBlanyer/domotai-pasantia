@@ -1,5 +1,7 @@
 """El pipeline de decisión: análisis -> política -> perfil -> registro. Puro: sin ficheros ni red
 (el CLI por lotes que lo recorre vive en `servicio/triaje_lote`; el daemon, en `servicio/stream`)."""
+import re
+
 from prototipo.motor import analisis, politica, perfil as perfilm, correspondencia
 from prototipo.servicio import traza
 
@@ -17,6 +19,13 @@ def procesar(alerta, hallazgos, perfil_dict, perfil_nombre, catalogo, id_decisio
         just, version_just, pasajes = res, "plantilla-0", []
         consulta_rag, recuperacion_agentica = "", False
         descartada = None
+    correlacion = alerta.get("correlacion")
+    if correlacion and correlacion.get("texto"):
+        # La clase la decidió una correlación del MDR, no el SIEM (motor/correlacion): el analista lo lee.
+        # La frase va antes de la marca de origen del texto («[justificación de plantilla]»), si la hay.
+        frase = f"{correlacion['texto'][:1].upper()}{correlacion['texto'][1:]}."
+        cuerpo, marca = re.match(r"(.*?)\s*(\[[^\]]*\])?\s*$", just or "", re.S).groups()
+        just = " ".join(x for x in (f"{cuerpo.rstrip().rstrip('.')}." if cuerpo.strip() else "", frase, marca) if x)
     accion, params = politica.proponer(clas["clase"], alerta)
     impacto = catalogo[accion]["impacto"] if accion else "ninguno"
     filtro = perfilm.filtrar(perfil_dict, accion, params, catalogo, alerta.get("activo"),

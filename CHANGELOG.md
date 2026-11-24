@@ -38,6 +38,12 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Equipo fuera del perfil:** si el SIEM nombra un equipo que el perfil no tiene, la orden no se intenta
+  y la causa lo dice con el nombre más parecido, en vez de «nodo_ip rechazado».
+- **Bloquear a un atacante interno** ya no dice «0 servicios detenidos»: dice que nadie depende de él y,
+  en el cortafuegos, que sigue en marcha pero sus servicios dejan de responder a través de él.
+- **Bloqueo de cuenta sin cuentas autorizadas:** dice que faltan cuentas en Conectividad y que hay que
+  repetir el paquete de alta, en vez de «el papel no incluye FORZAR_CAMBIO_PASS».
 - **«Siguientes pasos» del asistente dice dónde lee ESTE MDR sus ficheros.** Decía `/etc/mdr/…` también en el
   laboratorio. Ahora enseña las rutas reales del perfil, la postura y la política del daemon que corre (en el banco
   como cliente nuevo, `run/banco-nuevo/…`).
@@ -221,6 +227,15 @@ capítulo de resultados, y `evaluacion/resultados/`).
   pudo guardar, lo dice y devuelve el texto para no perderlo.
 
 ### Añadido
+- **Login correcto tras fuerza bruta: lo correlaciona el MDR.** La regla de fuerza bruta de Wazuh (5763)
+  calla 60 s para todos los orígenes; un segundo ataque en ese minuto no dejaba la intrusión (100600) y su
+  login llegaba suelto como `no_soportada`. Ahora un login correcto con ≥ 5 fallos del mismo origen contra
+  el mismo equipo en 240 s pasa a `acceso_consumado` (MATAR_CONEXION). La decisión lleva `correlacion` y
+  la justificación lo dice. Solo en el daemon (`motor/correlacion.py`): las cifras canónicas no se mueven.
+  No toca los logins del nodo de gestión. `TRIAJE_CORRELACION_LOGIN=0` la apaga.
+- **Interfaz de datos en el asistente de red.** Columna «Interfaz» por equipo, que va al perfil: sin
+  ella, LIMITAR_BANDA no tiene orden y una denegación de servicio no se contiene. Avisa de los equipos
+  que no la tienen.
 - **«Revertir y vigilar» cumple lo que promete.** Una IP en la Watchlist sale marcada ⚑ en Aprobaciones y
   en Decisiones (en la fila y, con su nota, en el bloque de origen). La Consola avisa con
   `⚑ origen en vigilancia: IP → equipo · nota` cada vez que vuelve.

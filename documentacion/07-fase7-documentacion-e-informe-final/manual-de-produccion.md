@@ -381,7 +381,9 @@ Si `mdr configurar` escribió el perfil mínimo, el servicio ya está en marcha 
    con sus otras interfaces agrupadas por la huella SSH, también si el MDR los ve por una IP de fuera de los
    rangos), el camino de cada equipo («Llega por», editable), una zona por subred y un papel. Completa lo que
    el escaneo no sabe: el **nombre de cada equipo en el SIEM**, las zonas, la criticidad, qué equipo **no se
-   toca directamente** y de qué depende cada uno (se elige entre los equipos escaneados). El mapa se dibuja
+   toca directamente**, de qué depende cada uno (se elige entre los equipos escaneados) y su **interfaz** de
+   datos (`eth0`, `ens18`…: sin ella, una denegación de servicio contra él no se puede contener; el asistente
+   avisa de los que no la tienen). El mapa se dibuja
    mientras tanto. Cada cambio se guarda solo; uno que no vale se queda marcado con su motivo. Avisa de un
    nombre que el SIEM no ha enviado nunca (con el parecido: suele ser una errata) y de un equipo del que solo
    se ve el SSH (su servicio puede estar en un puerto poco común). Volver a escanear conserva lo escrito.
@@ -1459,6 +1461,7 @@ es `/opt/mdr/deploy/triaje.env.ejemplo`.
 | `TRIAJE_SLA_SEG` | Plazo de respuesta del analista, en segundos (900 por defecto) |
 | `TRIAJE_RDNS` | `1` permite el DNS inverso de IPs públicas desde el perfil del atacante |
 | Recortes ante fallos | Los cinco de la sección 27 |
+| `TRIAJE_CORRELACION_LOGIN` | `0` apaga la correlación «login correcto tras fuerza bruta» (Anexo D). Encendida por defecto |
 
 > **Nota:** no fijes `TRIAJE_CONSOLA_TOKEN` (un token compartido, sin nombre: nadie firmaría sus
 > acciones), `TRIAJE_SSH_MODO=password`, `TRIAJE_CONECTIVIDAD_ABIERTA`,
@@ -1517,6 +1520,18 @@ La consola (`8787`) **no** se abre en el cortafuegos: solo escucha en `127.0.0.1
 | acceso_consumado | MATAR_CONEXION (corta la sesión viva) | Según el perfil |
 | exfiltracion | BLOQUEAR_DESTINO en el borde | **Nunca** |
 | malware | AISLAR_NODO | **Nunca** |
+
+**Lo que necesita cada respuesta para poder ejecutarse.** LIMITAR_BANDA, la **interfaz** del equipo en el perfil
+(la pide el asistente). FORZAR_CAMBIO_PASS, **cuentas autorizadas** en el papel del equipo (Conectividad:
+«cualquier cuenta» o una lista) y su paquete de alta ejecutado después; sin ellas, la decisión lo dice
+(«no tiene cuentas autorizadas para bloquear»).
+
+**Acceso consumado que el SIEM no marca.** La regla de fuerza bruta de Wazuh calla 60 s para todos los
+orígenes después de dispararse, así que un segundo ataque dentro de ese minuto no deja la alerta de
+intrusión y su login llega suelto. El MDR lo correlaciona él: un login correcto con al menos 5 fallos de
+autenticación del mismo origen contra el mismo equipo en los 240 s anteriores pasa a acceso_consumado. La
+justificación termina con «…lo correlacionó el MDR». No toca los logins del propio MDR.
+`TRIAJE_CORRELACION_LOGIN=0` la apaga.
 
 Lo que no encaja en ninguna familia se marca «no soportada» y no se actúa. Si es grave (nivel del SIEM
 igual o mayor que `continuidad.revisar_no_soportada_nivel`, 10 en la plantilla), pasa a un analista.
