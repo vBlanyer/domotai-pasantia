@@ -38,6 +38,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Asistente de red: una fila por equipo.** El cortafuegos que el MDR ve por su red de gestión (en el banco,
+  fw-core por 10.100.0.1) queda fuera de los rangos escaneados, así que su huella SSH no se leía y sus puertas de
+  enlace en cada subred (10.x.0.1) salían como equipos sueltos: 18 filas para 10 equipos. Ahora se lee también
+  la huella de los saltos privados del camino, y sus otras IPs se agrupan como interfaces suyas. En vivo, el
+  banco sale con 10 filas.
 - **Banco como cliente nuevo:** `banco.sh desaprovisionar` deshace `aprovisionar` (equipos sin usuario `triaje`,
   sudoers ni envoltorio, y mdr-siem sin clave del conector) y `banco.sh mdr-nuevo` arranca el MDR con un perfil
   mínimo y traza propia en `run/banco-nuevo/`, para dar de alta el banco con el asistente de red y Conectividad.

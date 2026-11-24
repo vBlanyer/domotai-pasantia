@@ -384,3 +384,34 @@ class TestInterfacesUnSoloDueno(unittest.TestCase):
         b = a.borrador_inicial(desc)
         todas = [i for e in b["equipos"].values() for i in e["interfaces"]]
         self.assertEqual(len(todas), len(set(todas)), todas)
+
+
+class TestBancoDiezFilas(unittest.TestCase):
+    """Banco (24/11): 8 servidores, fw-core (visto por 10.100.0.1, fuera de los rangos) con una puerta de enlace
+    en cada subred, y fw-edge. Con la huella de 10.100.0.1 sus 8 IPs .1 se agrupan: 10 filas, una por equipo."""
+
+    def _desc(self, con_huella=True):
+        fwcore, otra = "SHA256:fwcore", "SHA256:"
+        redes = [10, 20, 30, 40, 50, 60, 200, 210]
+        equipos = []
+        for n in redes:
+            equipos.append({"ip": f"10.{n}.0.1", "puertos": [{"puerto": 22}], "huella_ssh": fwcore, "saltos": [], "dns": None})
+            equipos.append({"ip": f"10.{n}.0.10", "puertos": [{"puerto": 22}, {"puerto": 443}],
+                            "huella_ssh": f"{otra}{n}", "saltos": ["10.100.0.1"], "dns": None})
+        return {"fecha": "t", "gestion": "10.100.0.10", "rangos": [f"10.{n}.0.0/24" for n in redes],
+                "equipos": equipos, "salida": ["10.100.0.1", "10.0.0.254"], "traceroute": True,
+                "huellas_saltos": {"10.100.0.1": fwcore} if con_huella else {}}
+
+    def test_las_puertas_de_enlace_de_fw_core_son_sus_interfaces(self):
+        b = a.borrador_inicial(self._desc())
+        self.assertEqual(len(b["equipos"]), 10, sorted(b["equipos"]))
+        fw = b["equipos"]["10.100.0.1"]
+        self.assertEqual(fw["papel"], "cortafuegos")
+        self.assertTrue(fw["huella"])
+        self.assertEqual(sorted(fw["interfaces"]), sorted(f"10.{n}.0.1" for n in (10, 20, 30, 40, 50, 60, 200, 210)))
+        self.assertEqual(fw["gateway"], "10.0.0.254")
+        self.assertEqual(b["equipos"]["10.10.0.10"]["gateway"], "10.100.0.1")
+        self.assertFalse([x for x in a.validar(b, CAT)["avisos"] if "10.100.0.1: sin huella" in x])
+
+    def test_sin_esa_huella_como_antes(self):
+        self.assertEqual(len(a.borrador_inicial(self._desc(con_huella=False))["equipos"]), 18)

@@ -315,3 +315,35 @@ class TestCLIDueño(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("puertos", out.getvalue())
         self.assertNotIn("invalid literal", out.getvalue())
+
+
+class TestHuellaDeLosSaltosFueraDeRango(unittest.TestCase):
+    """Banco (24/11): fw-core se ve desde el MDR por 10.100.0.1, fuera de los rangos escaneados. Sin su huella,
+    sus 8 IPs de puerta de enlace (10.x.0.1) salían como equipos sueltos: 18 filas para 10 equipos."""
+
+    def test_lee_la_huella_de_los_cortafuegos_del_camino_aunque_no_se_escaneen(self):
+        llamadas = []
+        vivos = _xml_trazas(("10.10.0.1", []), ("10.10.0.10", []))
+        detalle = ("<nmaprun>"
+                   '<host><status state="up"/><address addr="10.10.0.1" addrtype="ipv4"/><ports><port protocol="tcp" portid="22">'
+                   '<state state="open"/><service name="ssh"/></port></ports><trace><hop ttl="1" ipaddr="10.10.0.1"/></trace></host>'
+                   '<host><status state="up"/><address addr="10.10.0.10" addrtype="ipv4"/><ports><port protocol="tcp" portid="22">'
+                   '<state state="open"/><service name="ssh"/></port></ports><trace><hop ttl="1" ipaddr="10.100.0.1"/>'
+                   '<hop ttl="2" ipaddr="10.10.0.10"/></trace></host></nmaprun>')
+        salida = _xml_trazas(("198.51.100.10", [(1, "10.100.0.1"), (2, "10.0.0.254"), (3, "198.51.100.10")]))
+        clave = "AAAAC3NzaC1lZDI1NTE5AAAAIDBn6KxgwPIHKOIfdsEc+T5rHOgjuko+xozpmrIvPQIB"
+
+        def correr(args):
+            llamadas.append(list(args))
+            if args[0] == "ssh-keyscan":
+                return 0, "".join(f"{ip} ssh-ed25519 {clave}\n" for ip in args if ip.count(".") == 3)
+            if "198.51.100.10" in args:
+                return 0, salida
+            return (0, vivos) if "-sn" in args else (0, detalle)
+        r = d.descubrir({**PETICION, "rangos": ["10.10.0.0/24"]}, correr, "10.100.0.10", "ana", "t")
+        escaneadas = next(a for a in llamadas if a[0] == "ssh-keyscan")
+        self.assertIn("10.100.0.1", escaneadas)
+        self.assertIn("10.0.0.254", escaneadas)
+        self.assertNotIn("10.100.0.10", escaneadas)                   # el propio MDR no
+        self.assertEqual(set(r["huellas_saltos"]), {"10.100.0.1", "10.0.0.254"})
+        self.assertNotIn("10.100.0.1", {e["ip"] for e in r["equipos"]})   # siguen sin ser equipos escaneados

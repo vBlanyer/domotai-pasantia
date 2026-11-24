@@ -62,14 +62,18 @@ def borrador_inicial(desc):
     # Interfaces de cada cortafuegos: las IPs con su misma huella SSH. No lo es una IP a la que se llega A TRAVÉS
     # de él, ni una con otros puertos (equipos clonados de una plantilla comparten huella): esas se avisan.
     interfaces, absorbidas, compartida = {}, set(), {}
+    huellas_saltos = desc.get("huellas_saltos") or {}
     for f in fws:
-        huella = (equipos.get(f) or {}).get("huella_ssh")
-        puertos_f = {p["puerto"] for p in (equipos.get(f) or {}).get("puertos") or []}
+        # Un cortafuegos fuera de los rangos no se escaneó: su huella viene aparte y sus puertos no se conocen
+        # (entonces basta la huella para reconocer sus otras patas).
+        huella = (equipos.get(f) or {}).get("huella_ssh") or huellas_saltos.get(f)
+        puertos_f = {p["puerto"] for p in equipos[f].get("puertos") or []} if f in equipos else None
         otras = []
         for ip, e in sorted(equipos.items()):
             if not huella or ip == f or ip in fws or ip in absorbidas or e.get("huella_ssh") != huella:
                 continue                  # (una IP ya asignada a otro cortafuegos no es de dos a la vez)
-            if f in (e.get("saltos") or []) or {p["puerto"] for p in e.get("puertos") or []} != puertos_f:
+            if f in (e.get("saltos") or []) or (puertos_f is not None
+                                                and {p["puerto"] for p in e.get("puertos") or []} != puertos_f):
                 compartida[ip] = f
             else:
                 otras.append(ip)
@@ -122,8 +126,9 @@ def borrador_inicial(desc):
     for f in fws:                     # un salto que no está en los rangos escaneados no se conoce más allá
         if f not in salida_b:
             salida_b[f] = {"incluido": True, "nombre": "", "criticidad": "media", "no_tocar": False, "depende_de": [],
-                           "funcion": "", "servicios": [], "interfaces": [], "papel": "cortafuegos", "zona": None,
-                           "gateway": gw_fw[f], "deducido": deducido[f], "sin_camino": False, "huella": False}
+                           "funcion": "", "servicios": [], "interfaces": interfaces[f], "papel": "cortafuegos", "zona": None,
+                           "gateway": gw_fw[f], "deducido": deducido[f], "sin_camino": False,
+                           "huella": bool(huellas_saltos.get(f))}
     b = {"version": 1, "basado_en": desc.get("fecha"), "gestion": gestion, "rangos": list(rangos),
          "salida": salida, "traceroute": bool(desc.get("traceroute")), "equipos": salida_b, "fuera_de_rangos": fuera}
     b["redes_internas"] = _redes_internas(b)

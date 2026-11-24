@@ -39,6 +39,14 @@ def _de_cliente(red):
     return any(red.subnet_of(c) for c in _REDES_CLIENTE)
 
 
+def _de_cliente_ip(ip):
+    try:
+        a = ipaddress.IPv4Address(ip)
+    except ValueError:
+        return False
+    return any(a in c for c in _REDES_CLIENTE)
+
+
 def _externo_valido(a):
     """Una dirección DE FUERA: ni de las redes del cliente ni especial (loopback, multicast, reservada…). Las de
     documentación (198.51.100.0/24…) valen: son las del laboratorio."""
@@ -252,14 +260,22 @@ def descubrir(peticion, correr, gestion, operador, ahora, origen="consola"):
             e = {**e, "dns": e.get("dns") or v.get("dns"), "mac": e.get("mac") or v.get("mac"),
                  "fabricante": e.get("fabricante") or v.get("fabricante")}
             equipos.append(e)
-        con_ssh = [e["ip"] for e in equipos if any(p["puerto"] == 22 for p in e["puertos"])]
-        if con_ssh:
-            _, salida = correr(argumentos_huellas(con_ssh))      # sin huella no se agrupa; no es un fallo
-            huellas = parsear_huellas(salida)
-            equipos = [{**e, "huella_ssh": huellas.get(e["ip"])} for e in equipos]
     fuera = _nmap(correr, argumentos_salida(peticion))
     salida = fuera[0]["saltos"] if fuera else None
+    # La huella SSH de cada equipo con el 22 abierto Y la de los saltos privados del camino que quedan fuera de
+    # los rangos (el cortafuegos que el MDR ve por su red de gestión): con ella se reconocen como suyas las IPs
+    # de sus otras patas, que sí están en los rangos (banco, 24/11: 18 filas para 10 equipos).
+    ips = {e["ip"] for e in equipos}
+    pasos = [s for e in equipos for s in (e.get("saltos") or []) if s] + [s for s in (salida or []) if s]
+    saltos_fuera = sorted({s for s in pasos if s not in ips and s != gestion and _de_cliente_ip(s)})
+    con_ssh = [e["ip"] for e in equipos if any(p["puerto"] == 22 for p in e["puertos"])]
+    huellas = {}
+    if con_ssh or saltos_fuera:
+        _, texto = correr(argumentos_huellas(con_ssh + saltos_fuera))   # sin huella no se agrupa; no es un fallo
+        huellas = parsear_huellas(texto)
+        equipos = [{**e, "huella_ssh": huellas.get(e["ip"])} for e in equipos]
     return {"version": 1, "fecha": ahora, "operador": operador, "gestion": gestion, "origen": origen, "autorizado": True,
             "rangos": peticion["rangos"], "externo": peticion["externo"], "ritmo": peticion["ritmo"],
             "puertos": peticion["puertos"], "equipos": equipos, "salida": salida,
+            "huellas_saltos": {s: huellas[s] for s in saltos_fuera if s in huellas},
             "traceroute": any(e["saltos"] is not None for e in equipos) or salida is not None}
