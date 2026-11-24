@@ -46,6 +46,21 @@ describe("Red", () => {
     expect(screen.getAllByText("objetivo").length).toBe(2)
   })
 
+  it("un clic fuera de los equipos, o Escape, quita la selección", () => {
+    render(<Red onVerDecisiones={() => {}} />)
+    const mapa = screen.getByRole("group", { name: "Mapa de la red" })
+    fireEvent.click(screen.getByRole("button", { name: /web-banking/ }))
+    expect(screen.getByText("banca en línea")).toBeInTheDocument()
+    fireEvent.click(mapa)                                                   // el fondo del mapa
+    expect(screen.queryByText("banca en línea")).not.toBeInTheDocument()
+    expect(screen.getByText(/Pulsa un equipo/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /web-banking/ }))
+    fireEvent.click(screen.getByRole("button", { name: /fw-core/ }))        // otro equipo: cambia, no deselecciona
+    expect(screen.getByRole("button", { name: /fw-core/ })).toHaveAttribute("aria-pressed", "true")
+    fireEvent.keyDown(mapa, { key: "Escape" })
+    expect(screen.getByText(/Pulsa un equipo/)).toBeInTheDocument()
+  })
+
   it("el cortafuegos muestra lo que contuvo", () => {
     render(<Red onVerDecisiones={() => {}} />)
     fireEvent.click(screen.getByRole("button", { name: /fw-core/ }))

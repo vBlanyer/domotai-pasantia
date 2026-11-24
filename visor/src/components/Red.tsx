@@ -154,7 +154,10 @@ export function Red({ onVerDecisiones, onVerAtacante, onVerAprobaciones, onVerSa
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="rounded-lg border border-border bg-card p-3">
+        {/* un clic en el mapa fuera de un equipo, zona u origen (o Escape) quita la selección */}
+        <div className="rounded-lg border border-border bg-card p-3"
+          onClick={(e) => { if (!(e.target as Element).closest?.('[role="button"]')) setSel(null) }}
+          onKeyDown={(e) => { if (e.key === "Escape") setSel(null) }}>
           <MapaRed red={red} seleccionado={sel} onSeleccionar={setSel} dependencias={capas.dependencias} ataques={capas.ataques} cascada={capas.cascada}
             origenes={origenes} plegadas={plegadasEfectivas} onPlegar={plegar} onVerOrigen={onVerAtacante} />
         </div>
