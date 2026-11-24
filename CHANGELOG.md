@@ -38,6 +38,10 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **El paquete de alta comprueba que está en su equipo antes de tocar nada.** El de api-movil se ejecutó en
+  web-banking y dejó allí el usuario y el sudoers de otro equipo; solo la huella lo destapó al final. Ahora, si la
+  máquina no tiene la IP de su equipo, se para sin instalar nada y dice dónde ejecutarlo. Detrás de NAT,
+  `MDR_SIN_COMPROBAR_IP=1` se lo salta a sabiendas. El formato Ansible lo comprueba con un `assert`.
 - **Las pruebas de Conectividad ya no dejan decisiones fantasma.** Cada «Probar» entra por SSH en el equipo
   y Wazuh registra ese login (regla 5715 desde la IP de gestión). Como no pasaba por el registro de actividad
   del MDR, se triaba como ajeno y quedaba una decisión «no soportada» por cada equipo probado (alta del banco

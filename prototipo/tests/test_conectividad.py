@@ -328,3 +328,62 @@ class TestConectorSinSudoYRotacion(unittest.TestCase):
             self.assertIn(f"-i {conector.SSH_CLAVE} -i {conector.SSH_CLAVE}.nueva", conector.comando_ssh_clave("10.0.0.1", "true"))
             cx.guardar_rotacion(cx.ruta_rotacion(), None)
             self.assertNotIn(".nueva", conector.comando_ssh_clave("10.0.0.1", "true"))
+
+
+class TestPaqueteEnElEquipoEquivocado(unittest.TestCase):
+    """24/11: el paquete de api-movil se ejecutó en web-banking e instaló allí el usuario y el sudoers de otro
+    equipo; solo la huella lo destapó al final. Ahora comprueba ANTES de tocar nada que la máquina tiene la
+    IP de su equipo."""
+    EQ = {"nombre": "api-movil", "ip": "10.20.0.10", "papel": "servidor"}
+    PUB = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample mdr-conector"
+
+    def _paquete(self, formato="script"):
+        return cx.paquete(formato, self.EQ, "triaje", self.PUB, [("iptables", "-L")], "hoy",
+                          envoltorio="#!/bin/sh\nexit 126\n")[1]
+
+    def _guarda(self, salida_ip, env=None, con_ip=True):
+        import stat, subprocess
+        d = tempfile.mkdtemp()
+        if con_ip:
+            falso = os.path.join(d, "ip")
+            with open(falso, "w") as f:
+                f.write("#!/bin/sh\ncat <<'FIN'\n" + salida_ip + "\nFIN\n")
+            os.chmod(falso, os.stat(falso).st_mode | stat.S_IEXEC)
+        # PATH mínimo: el `ip` falso y lo imprescindible para el trozo (sh, grep, sed, tr)
+        for b in ("sh", "grep", "sed", "tr", "cat"):
+            os.symlink(subprocess.run(["sh", "-c", f"command -v {b}"], capture_output=True, text=True).stdout.strip(),
+                       os.path.join(d, b))
+        return subprocess.run(["sh", "-c", cx._guarda_equipo_sh("api-movil", "10.20.0.10") + "\necho SIGUE"],
+                              capture_output=True, text=True, env={"PATH": d, **(env or {})})
+
+    def test_va_antes_de_tocar_nada(self):
+        sh = self._paquete()
+        self.assertLess(sh.index(cx._guarda_equipo_sh("api-movil", "10.20.0.10")), sh.index('id "$U"'))
+
+    def test_en_su_equipo_sigue(self):
+        r = self._guarda("2: eth1    inet 10.20.0.10/24 brd 10.20.0.255 scope global eth1")
+        self.assertIn("SIGUE", r.stdout)
+
+    def test_en_otro_equipo_se_para_sin_cambiar_nada(self):
+        r = self._guarda("2: eth1    inet 10.10.0.10/24 brd 10.10.0.255 scope global eth1\n3: eth2 inet 10.20.0.100/24")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertNotIn("SIGUE", r.stdout)
+        self.assertIn("api-movil", r.stderr)
+        self.assertIn("10.20.0.10", r.stderr)
+        self.assertIn("MDR_SIN_COMPROBAR_IP=1", r.stderr)          # la salida para un equipo detrás de NAT
+
+    def test_con_nat_se_puede_saltar_a_sabiendas(self):
+        r = self._guarda("2: eth1    inet 192.168.5.7/24", env={"MDR_SIN_COMPROBAR_IP": "1"})
+        self.assertIn("SIGUE", r.stdout)
+        self.assertIn("no se comprueba", r.stderr)
+
+    def test_sin_forma_de_leer_sus_ip_avisa_y_sigue(self):
+        r = self._guarda("", con_ip=False)
+        self.assertIn("SIGUE", r.stdout)
+        self.assertIn("no se pudo comprobar", r.stderr)
+
+    def test_ansible_tambien_lo_comprueba(self):
+        yml = self._paquete("ansible")
+        self.assertIn("ansible.builtin.assert", yml)
+        self.assertIn("'10.20.0.10' in ansible_all_ipv4_addresses", yml)
+        self.assertLess(yml.index("ansible.builtin.assert"), yml.index("ansible.builtin.user"))

@@ -457,6 +457,29 @@ fi
 """
 
 
+def _guarda_equipo_sh(nombre, ip):
+    """Primer trozo del paquete «script»: ¿es esta la máquina de `nombre`? Si no tiene su IP, se para ANTES de
+    tocar nada (24/11: el de api-movil se ejecutó en web-banking y dejó allí el usuario y el sudoers de otro
+    equipo). Detrás de NAT el MDR lo ve por otra IP: MDR_SIN_COMPROBAR_IP=1 se lo salta a sabiendas. Sin forma
+    de leer las IPs (ni ip, ni ifconfig, ni hostname -I) avisa y sigue: la huella lo comprobará al final."""
+    ip_re = ip.replace(".", "\\.")
+    return f"""# ¿Es este el equipo? Antes de tocar nada, la máquina tiene que tener la IP de {nombre} ({ip}).
+if [ "${{MDR_SIN_COMPROBAR_IP:-}}" = 1 ]; then
+  echo "  aviso: no se comprueba que este equipo sea {nombre} ({ip}) (MDR_SIN_COMPROBAR_IP=1)" >&2
+else
+  IPS=$( {{ ip -4 addr show 2>/dev/null || ifconfig 2>/dev/null || hostname -I 2>/dev/null || true; }} | tr -s ' \\t/:' '\\n' )
+  if [ -z "$IPS" ]; then
+    echo "  aviso: no se pudo comprobar que este equipo sea {nombre} ({ip}) (sin ip, ifconfig ni hostname -I)" >&2
+  elif ! printf '%s\\n' "$IPS" | grep -qx '{ip_re}'; then
+    echo "Este paquete es para {nombre} ({ip}) y este equipo no tiene esa IP: no se ha instalado nada." >&2
+    echo "Ejecútalo en {nombre}. Si el MDR lo ve por otra IP (NAT), repite con MDR_SIN_COMPROBAR_IP=1 delante:" >&2
+    echo "  MDR_SIN_COMPROBAR_IP=1 sh alta-{nombre}.sh" >&2
+    exit 1
+  fi
+fi
+"""
+
+
 def paquete(formato, equipo, usuario, publica, reglas, generado, envoltorio=None):
     """Paquete de alta de un equipo: «script» (sh idempotente), «ansible» o «sudoers». Instala el
     envoltorio /usr/local/sbin/mdr-accion (`envoltorio`, generado desde el catálogo para su papel) y un
@@ -490,6 +513,9 @@ def paquete(formato, equipo, usuario, publica, reglas, generado, envoltorio=None
         return f"alta-{nombre}.yml", (
             f"# {cab}\n# Papel: {papel}{' · ' + listas if listas else ''}.\n"
             f"- name: Alta de {nombre} en el MDR\n  hosts: {nombre}\n  become: true\n  tasks:\n"
+            f"    - name: Comprobar que este es {nombre} ({equipo.get('ip')}) antes de tocar nada\n"
+            f"      ansible.builtin.assert:\n        that: \"'{equipo.get('ip')}' in ansible_all_ipv4_addresses\"\n"
+            f"        fail_msg: \"Este paquete es para {nombre} ({equipo.get('ip')}) y este equipo no tiene esa IP: no se instala nada\"\n"
             f"    - name: Usuario del conector, sin contraseña (solo clave)\n"
             f"      ansible.builtin.user: {{ name: {usuario}, shell: /bin/sh, password: '*' }}\n"
             f"    - name: Clave pública del conector\n"
@@ -515,7 +541,7 @@ def paquete(formato, equipo, usuario, publica, reglas, generado, envoltorio=None
 # Ejecútalo UNA vez como root en {nombre} ({equipo.get('ip')}). Es idempotente y no contiene ningún secreto:
 # solo la clave PÚBLICA del conector. Al final imprime la huella de la clave del host para la plataforma.
 set -eu
-U={usuario}
+{_guarda_equipo_sh(nombre, equipo.get('ip') or '')}U={usuario}
 E=""; T=""
 trap 'rm -f "$E" "$T"' EXIT
 # Portable (Debian/Ubuntu, RHEL y equipos mínimos con BusyBox): useradd o adduser, usermod o la línea
