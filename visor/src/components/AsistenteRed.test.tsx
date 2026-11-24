@@ -288,6 +288,21 @@ describe("AsistenteRed · revisión del 23/11", () => {
     expect(screen.queryByText(/fuera de la cadena/)).not.toBeInTheDocument()          // los demás avisos, en Validar
   })
 
+  it("la interfaz de datos se escribe por equipo y se guarda; un cortafuegos no la lleva", async () => {
+    render(<AsistenteRed />)
+    expect(screen.queryByLabelText("Interfaz de 10.99.0.1")).not.toBeInTheDocument()
+    const campo = screen.getByLabelText("Interfaz de 10.20.0.30")
+    expect(campo).toHaveValue("")                                                   // un borrador de antes no la trae
+    fireEvent.change(campo, { target: { value: "eth1" } })
+    await waitFor(() => expect(h.guardar).toHaveBeenCalledWith({ "10.20.0.30": { interfaz: "eth1" } }), { timeout: 2000 })
+  })
+
+  it("en Revisar avisa de los equipos sin interfaz (24/11: el DoS no se podía contener)", async () => {
+    h.propuesta.mockResolvedValue(PROP([], ["sin interfaz de datos: srv-app01, nas01. Una denegación de servicio contra ellos no se podrá contener (se acota la banda de su interfaz): indícala en cada uno"]))
+    render(<AsistenteRed />)
+    expect(await screen.findByText(/sin interfaz de datos: srv-app01, nas01/)).toBeInTheDocument()
+  })
+
   it("«Siguientes pasos» dice dónde lee ESTE MDR sus ficheros (24/11: decía /etc/mdr también en el laboratorio)", async () => {
     h.est = { ...ESTADO, instalacion: { perfil: "run/banco-nuevo/perfil.yml", postura: "run/banco-nuevo/postura.json",
       politica: "run/banco-nuevo/politica.yml" } }

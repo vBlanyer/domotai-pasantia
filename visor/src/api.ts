@@ -452,6 +452,7 @@ const EquipoBorradorSchema = z.object({
   no_tocar: z.boolean(), depende_de: z.array(z.string()), funcion: z.string(), gateway: z.string().nullable(),
   interfaces: z.array(z.string()), servicios: z.array(z.number()), deducido: z.boolean(), sin_camino: z.boolean(),
   huella: z.boolean().optional(),
+  interfaz: z.string().optional(),          // la de datos (LIMITAR_BANDA); los borradores de antes no la traen
 })
 export type EquipoBorrador = z.infer<typeof EquipoBorradorSchema>
 export const BorradorRedSchema = z.object({

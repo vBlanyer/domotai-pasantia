@@ -510,3 +510,52 @@ class TestNombresMenores(unittest.TestCase):
     def test_repetidos_sin_distinguir_mayusculas(self):
         b = a.aplicar_cambios(_oficina(), {"10.20.0.30": {"nombre": "SRV-APP01"}})
         self.assertTrue(any("repetido" in x for x in a.validar(b, CAT)["errores"]))
+
+
+class TestInterfazDeDatos(unittest.TestCase):
+    """24/11: el perfil del asistente no llevaba la interfaz de cada equipo y una denegación de servicio no se
+    podía contener (LIMITAR_BANDA acota la banda de SU interfaz). El técnico la indica; sin ella, se avisa."""
+    SERVIDORES = ("srv-web01", "srv-correo01", "srv-app01", "nas01", "impresora")   # srv-db01 es «no tocar»
+
+    def test_empieza_vacia_y_va_al_perfil(self):
+        b = _oficina()
+        self.assertEqual(b["equipos"]["10.20.0.10"]["interfaz"], "")
+        b = a.aplicar_cambios(b, {"10.20.0.10": {"interfaz": "eth1"}})
+        p = a.perfil_desde_borrador(b)
+        self.assertEqual(perfilm.interfaz_de(p, "srv-app01"), "eth1")
+        self.assertNotIn("interfaz", p["activos"]["srv-web01"])           # sin indicar, no se inventa
+        self.assertEqual(perfilm.validar(p), [])
+
+    def test_una_interfaz_que_no_vale_se_rechaza_y_vacia_se_quita(self):
+        for mala in ("eth 1", "eth1;reboot", "Eth1", "-eth1", "x" * 16, 7):
+            with self.assertRaises(ValueError, msg=mala):
+                a.aplicar_cambios(_oficina(), {"10.20.0.10": {"interfaz": mala}})
+        b = a.aplicar_cambios(_oficina(), {"10.20.0.10": {"interfaz": "ens18"}})
+        b = a.aplicar_cambios(b, {"10.20.0.10": {"interfaz": ""}})
+        self.assertNotIn("interfaz", a.perfil_desde_borrador(b)["activos"]["srv-app01"])
+
+    def test_sin_interfaz_un_solo_aviso_con_los_equipos(self):
+        avisos = [x for x in a.validar(_oficina(), CAT)["avisos"] if "interfaz" in x]
+        self.assertEqual(len(avisos), 1, avisos)
+        self.assertIn("denegación de servicio", avisos[0])
+        for n in self.SERVIDORES:
+            self.assertIn(n, avisos[0])
+        self.assertNotIn("srv-db01", avisos[0])                             # no tocar: el MDR no actúa en él
+        self.assertNotIn("fw-", avisos[0])
+
+    def test_con_todas_indicadas_no_avisa(self):
+        ips = [ip for ip, e in _oficina()["equipos"].items() if e["nombre"] in self.SERVIDORES]
+        b = a.aplicar_cambios(_oficina(), {ip: {"interfaz": "eth0"} for ip in ips})
+        self.assertFalse([x for x in a.validar(b, CAT)["avisos"] if "interfaz" in x])
+
+    def test_se_conserva_al_reescanear(self):
+        b = a.aplicar_cambios(_oficina(), {"10.20.0.10": {"interfaz": "eth1"}})
+        nuevo = a.conservar_trabajo(b, a.borrador_inicial(DESC))
+        self.assertEqual(nuevo["equipos"]["10.20.0.10"]["interfaz"], "eth1")
+
+    def test_un_borrador_de_antes_sin_el_campo_sigue_valiendo(self):
+        b = _oficina()
+        for e in b["equipos"].values():
+            e.pop("interfaz", None)
+        self.assertNotIn("interfaz", a.perfil_desde_borrador(b)["activos"]["srv-app01"])
+        self.assertEqual(a.validar(b, CAT)["errores"], [])

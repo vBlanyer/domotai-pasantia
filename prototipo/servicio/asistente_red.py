@@ -26,7 +26,10 @@ _NOMBRE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}\Z")
 _RESERVADOS = {"mdr", "internet", "desconocido"}
 _ZONA_GESTION = "Gestión"
 _FRAGILES = {9100, 515, 631, 554}
-_CAMPOS = {"incluido", "nombre", "zona", "papel", "criticidad", "no_tocar", "depende_de", "funcion", "gateway"}
+_CAMPOS = {"incluido", "nombre", "zona", "papel", "criticidad", "no_tocar", "depende_de", "funcion", "gateway", "interfaz"}
+# La interfaz de datos de un equipo (LIMITAR_BANDA acota la banda de ESA interfaz): la misma forma que admite
+# Conectividad para un equipo nuevo (inventario_store._INTERFAZ).
+_INTERFAZ = re.compile(r"^[a-z][a-z0-9._-]{0,14}\Z")
 
 
 def _en_rangos(ip, rangos):
@@ -118,7 +121,7 @@ def borrador_inicial(desc):
         puertos = sorted(p["puerto"] for p in e.get("puertos") or [])
         ptr = (e.get("dns") or "").split(".")[0]
         base = {"incluido": True, "nombre": ptr if _NOMBRE.match(ptr or "") else "",
-                "criticidad": "media", "no_tocar": False, "depende_de": [], "funcion": "", "servicios": puertos,
+                "criticidad": "media", "no_tocar": False, "depende_de": [], "funcion": "", "interfaz": "", "servicios": puertos,
                 "interfaces": [], "deducido": False, "sin_camino": False, "huella": bool(e.get("huella_ssh"))}
         if ip in fws:
             salida_b[ip] = {**base, "papel": "cortafuegos", "zona": None, "gateway": gw_fw[ip],
@@ -189,6 +192,10 @@ def _normalizar(ip, k, v):
         raise ValueError(f"{ip}.criticidad: {', '.join(CRITICIDADES)}")
     if k == "depende_de" and not (isinstance(v, list) and all(isinstance(x, str) for x in v)):
         raise ValueError(f"{ip}.depende_de: una lista de nombres")
+    if k == "interfaz":
+        if not (isinstance(v, str) and (v == "" or _INTERFAZ.match(v))):
+            raise ValueError(f"{ip}.interfaz: su nombre en el equipo (p. ej. eth0, ens18), en minúsculas y sin espacios")
+        return v
     if k == "funcion":
         if not isinstance(v, str):
             raise ValueError(f"{ip}.funcion: texto")
@@ -265,7 +272,7 @@ def aplicar_cambios_parcial(borrador, cambios):
     return nuevo, rechazados
 
 
-_CONSERVABLES = ("nombre", "zona", "criticidad", "no_tocar", "depende_de", "funcion", "incluido")
+_CONSERVABLES = ("nombre", "zona", "criticidad", "no_tocar", "depende_de", "funcion", "incluido", "interfaz")
 
 
 def conservar_trabajo(viejo, nuevo):
@@ -334,6 +341,8 @@ def perfil_desde_borrador(b):
         activo = {"ip": ip, "criticidad": e["criticidad"], "servicios_prestados": list(e["servicios"])}
         if e["funcion"]:
             activo["funcion"] = e["funcion"]
+        if e.get("interfaz"):
+            activo["interfaz"] = e["interfaz"]
         deps = [n for n in (_nombre_dep(b, d) for d in e["depende_de"]) if n]
         if deps:
             activo["depende_de"] = deps
@@ -465,6 +474,11 @@ def validar(b, catalogo, vistos=None):
         if e["papel"] != "cortafuegos" and e["servicios"] == [22]:
             avisos.append(f"{e['nombre'] or ip}: solo se ve el SSH (22). Si presta un servicio en un puerto poco común, "
                           "vuelve a escanear con «Lista propia» incluyéndolo junto a los demás: su postura quedaría incompleta")
+    sin_interfaz = [e["nombre"] or ip for ip, e in sorted(inc.items())
+                    if e["papel"] != "cortafuegos" and not e["no_tocar"] and not e.get("interfaz")]
+    if sin_interfaz:
+        avisos.append(f"sin interfaz de datos: {', '.join(sin_interfaz)}. Una denegación de servicio contra ellos no se "
+                      "podrá contener (se acota la banda de su interfaz): indícala en cada uno")
     for ip, e in sorted(b["equipos"].items()):
         if not e["incluido"] and e["servicios"]:
             avisos.append(f"{ip} descartado con puertos abiertos ({', '.join(map(str, e['servicios']))})")

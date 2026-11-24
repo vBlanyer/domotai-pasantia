@@ -169,6 +169,9 @@ function Escanear({ est }: { est: AsistenteEstado }) {
 
 type Rechazos = Record<string, Record<string, string>>
 
+// Avisos que se ven mientras se revisa (no solo al validar): se corrigen en esta misma tabla.
+const enRevisar = (x: string) => x.includes("alerta del SIEM") || x.startsWith("sin interfaz de datos")
+
 function Revisar({ borrador, nombres, propuesta, falloPropuesta, rechazos, onCambio }: {
   borrador: BorradorRed; nombres: string[]; propuesta: PropuestaRed | null; falloPropuesta: string | null
   rechazos: Rechazos
@@ -228,7 +231,7 @@ function Revisar({ borrador, nombres, propuesta, falloPropuesta, rechazos, onCam
         <datalist id="nombres-siem">{nombres.map((n) => <option key={n} value={n} />)}</datalist>
         <div className="asr-caja-tabla">
           <table className="asr-tabla">
-            <thead><tr><th>Incluir</th><th>Nombre en el SIEM</th><th>IP</th><th>Servicios</th><th>Llega por</th><th>Zona</th><th>Papel</th><th>Criticidad</th><th>No tocar</th><th>Depende de</th></tr></thead>
+            <thead><tr><th>Incluir</th><th>Nombre en el SIEM</th><th>IP</th><th>Interfaz</th><th>Servicios</th><th>Llega por</th><th>Zona</th><th>Papel</th><th>Criticidad</th><th>No tocar</th><th>Depende de</th></tr></thead>
             <tbody>
               {ips.map((ip) => {
                 const e = borrador.equipos[ip]
@@ -244,6 +247,9 @@ function Revisar({ borrador, nombres, propuesta, falloPropuesta, rechazos, onCam
                       {e.interfaces.length > 0 && <span className="asr-nota">también {e.interfaces.join(", ")}</span>}
                     </td>
                     <td className="asr-mono">{ip}</td>
+                    <td>{fw ? "—" : <input className={`asr-input asr-iface${malo(ip, "interfaz") ? " asr-falta" : ""}`} aria-label={`Interfaz de ${ip}`}
+                      placeholder="eth0" aria-invalid={malo(ip, "interfaz") ? true : undefined} title={malo(ip, "interfaz")}
+                      value={e.interfaz ?? ""} onChange={(x) => onCambio(ip, "interfaz", x.target.value)} />}</td>
                     <td><span className="asr-serv">{e.servicios.length ? e.servicios.map((p) => <span key={p} className="asr-p">{p}</span>) : <span className="asr-nota">ninguno</span>}</span></td>
                     <td>{llegaPor(ip, e)}</td>
                     <td>{fw ? "—" : <input className={`asr-input asr-zona${malo(ip, "zona") ? " asr-falta" : ""}`} aria-label={`Zona de ${ip}`}
@@ -276,8 +282,9 @@ function Revisar({ borrador, nombres, propuesta, falloPropuesta, rechazos, onCam
             : propuesta.validacion.errores.length === 0 ? <p className="asr-ok">Nada: puedes validar y exportar.</p>
             : <ul className="asr-lista">{propuesta.validacion.errores.map((x) => <li key={x}>{x}</li>)}</ul>}
           {/* el nombre que el SIEM no conoce se ve mientras se escribe, no solo al validar (24/11: «web-packing») */}
-          {propuesta && propuesta.validacion.avisos.some((x) => x.includes("alerta del SIEM")) && (
-            <ul className="asr-lista asr-avisos">{propuesta.validacion.avisos.filter((x) => x.includes("alerta del SIEM")).map((x) => <li key={x}>{x}</li>)}</ul>
+          {/* y los equipos sin interfaz de datos (24/11: el DoS no se podía contener) */}
+          {propuesta && propuesta.validacion.avisos.some(enRevisar) && (
+            <ul className="asr-lista asr-avisos">{propuesta.validacion.avisos.filter(enRevisar).map((x) => <li key={x}>{x}</li>)}</ul>
           )}
         </section>
       </div>

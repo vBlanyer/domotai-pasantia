@@ -687,6 +687,29 @@ class TestPapelDelEquipo(unittest.TestCase):
         self.assertIsNone(perfil.papel_deniega(p, "FORZAR_CAMBIO_PASS", "objetivo-vuln", {"usuario": "appqr"}))
         self.assertIn("root", perfil.papel_deniega(p, "FORZAR_CAMBIO_PASS", "objetivo-vuln", {"usuario": "root"}))
 
+    def test_sin_cuentas_autorizadas_lo_dice_en_vez_de_que_el_papel_no_la_incluye(self):
+        # 24/11: web-banking (servidor) se dio de alta sin cuentas; el bloqueo de cuenta salía como «el papel no
+        # incluye FORZAR_CAMBIO_PASS», cuando lo que falta es autorizar cuentas en Conectividad.
+        from prototipo.accion import catalogo as catm
+        p = perfil_fx()
+        p["papeles_equipo"] = {"objetivo-vuln": {"papel": "servidor", "servicios": [], "cuentas": [], "cuentas_cualquiera": False,
+                                                 "acciones": catm.acciones_efectivas(catm.PAPELES["servidor"]["acciones"])}}
+        m = perfil.papel_deniega(p, "FORZAR_CAMBIO_PASS", "objetivo-vuln", {"usuario": "backdoor"})
+        self.assertIn("objetivo-vuln no tiene cuentas autorizadas para bloquear", m)
+        self.assertIn("Conectividad", m)
+        self.assertIn("paquete de alta", m)
+        m = perfil.papel_deniega(p, "CERRAR_SERVICIO", "objetivo-vuln", {"servicio": "nginx"})
+        self.assertIn("objetivo-vuln no tiene servicios autorizados para parar", m)
+        # un cortafuegos no bloquea cuentas por su papel: ahí el motivo sigue siendo el de siempre
+        p["papeles_equipo"]["objetivo-vuln"] = {"papel": "cortafuegos", "acciones": catm.PAPELES["cortafuegos"]["acciones"]}
+        self.assertIn("no incluye FORZAR_CAMBIO_PASS", perfil.papel_deniega(p, "FORZAR_CAMBIO_PASS", "objetivo-vuln", {"usuario": "x"}))
+
+    def test_los_papeles_con_lista_coinciden_con_el_catalogo(self):
+        from prototipo.accion import catalogo as catm
+        for accion, (lista, _, papeles) in perfil._CON_LISTA.items():
+            self.assertEqual(catm.ACCION_CON_LISTA[accion][1], lista)
+            self.assertEqual(papeles, {n for n, d in catm.PAPELES.items() if accion in d["acciones"]})
+
     def test_con_nodo_de_ejecucion_se_mira_su_papel_y_no_el_del_activo(self):
         p = {"papeles_equipo": {"web": {"papel": "servidor", "acciones": ["BLOQUEAR_IP"]},
                                 "fw": {"papel": "cortafuegos", "acciones": ["BLOQUEAR_IP_FIREWALL"]}}}

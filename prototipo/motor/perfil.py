@@ -228,6 +228,13 @@ CUENTAS_DEL_SISTEMA = frozenset({"root", "daemon", "bin", "sys", "sync", "sshd",
                                  "postgres", "mysql", "triaje"})
 
 
+# Acciones cuyo objetivo es un nombre de una lista del equipo: el papel las trae, pero sin lista autorizada en
+# Conectividad no quedan en su sudoers (catalogo.acciones_efectivas). {acción: (lista, qué, papeles que la traen)};
+# una prueba lo cruza con catalogo.PAPELES (el motor no importa la capa de acción).
+_CON_LISTA = {"FORZAR_CAMBIO_PASS": ("cuentas", "cuentas autorizadas para bloquear", {"servidor", "puesto"}),
+              "CERRAR_SERVICIO": ("servicios", "servicios autorizados para parar", {"servidor"})}
+
+
 def papel_deniega(perfil, accion, activo, params=None, nodo=None):
     """Motivo por el que el papel del equipo de ejecución no admite `accion`, o None si la admite o el
     equipo no declara papel (comportamiento de siempre). `nodo`: el equipo donde se ejecuta, cuando no
@@ -241,6 +248,11 @@ def papel_deniega(perfil, accion, activo, params=None, nodo=None):
     if not pe:
         return None
     if accion not in (pe.get("acciones") or []):
+        lista, que, papeles_con = _CON_LISTA.get(accion, (None, None, ()))
+        if pe.get("papel") in papeles_con and not pe.get(lista) and not (lista == "cuentas" and pe.get("cuentas_cualquiera")):
+            cuentas = lista == "cuentas"
+            return (f"{nodo} no tiene {que}: {'autorízalas' if cuentas else 'autorízalos'} en Conectividad "
+                    f"({'«cualquier cuenta» o ' if cuentas else ''}una lista) y vuelve a ejecutar su paquete de alta")
         return f"el papel de {nodo} no incluye {accion}: su sudoers la denegaría"
     if accion == "CERRAR_SERVICIO" and (params or {}).get("servicio") not in (pe.get("servicios") or []):
         return f"{nodo} no admite parar el servicio {(params or {}).get('servicio') or '(sin servicio)'}: no está en su lista"

@@ -23,6 +23,7 @@
   background: var(--background); color: var(--foreground); box-sizing: border-box; }
 .asr-nombre { width: 150px; }
 .asr-zona, .asr-dep { width: 140px; }
+.asr-iface { width: 76px; font-family: ui-monospace, "JetBrains Mono", monospace; }
 .asr-falta { border-color: var(--grave); box-shadow: 0 0 0 2px color-mix(in srgb, var(--grave) 20%, transparent); }
 .asr-deps { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-width: 160px; }
 .asr-deps .asr-chip { font-family: inherit; padding: 2px 4px 2px 8px; }
