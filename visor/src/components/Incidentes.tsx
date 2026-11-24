@@ -121,15 +121,17 @@ function Caso({ e, regs, ahora, bloqueos, onVerDecisiones, onVerRed, onVerAtacan
   )
 }
 
-export function Incidentes({ claveInicial = null, onVerDecisiones, onVerRed, onVerAtacante, onVerContenciones }: {
+export function Incidentes({ claveInicial = null, onVerDecisiones, onVerRed, onVerAtacante, onVerContenciones, onSeleccionar }: {
   claveInicial?: string | null; onVerDecisiones?: (prefijo: string) => void; onVerRed?: () => void
   onVerAtacante?: (ip: string) => void; onVerContenciones?: () => void
+  onSeleccionar?: (clave: string | null) => void      // el incidente abierto: al volver de otra vista, se reabre
 } = {}) {
   const t = useSondeo(getTrazas)
   const c = useSondeo(getContenciones, 10000)
   // Llegando desde otra vista se abre ese incidente: cada salto vuelve a montar la vista, así que basta
   // con el valor inicial.
   const [actual, setActual] = useState<string | null>(claveInicial)
+  useEffect(() => { onSeleccionar?.(actual) }, [actual])  // eslint-disable-line react-hooks/exhaustive-deps
   const [filtro, setFiltro] = useState<FiltroIncidente>("abiertos")
   const [mios, setMios] = useState(false)
   const [orden, setOrden] = useState<OrdenIncidente>("reciente")

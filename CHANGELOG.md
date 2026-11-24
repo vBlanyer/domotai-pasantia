@@ -87,6 +87,8 @@ capítulo de resultados, y `evaluacion/resultados/`).
   enlace en cada subred (10.x.0.1) salían como equipos sueltos: 18 filas para 10 equipos. Ahora se lee también
   la huella de los saltos privados del camino, y sus otras IPs se agrupan como interfaces suyas. En vivo, el
   banco sale con 10 filas.
+- **«← Volver» del perfil del atacante vuelve a donde estabas.** Iba siempre a Red, aunque se abriera desde
+  Incidentes o Decisiones. Ahora vuelve a la vista de la que se abrió, y en Incidentes con el mismo incidente abierto.
 - **Asistente de red, detalles:**
   - Una lista de puertos con intervalos o texto («22,1-1024») se avisa y no se escanea (antes escaneaba solo el 22).
   - Un rango repetido no se añade dos veces.

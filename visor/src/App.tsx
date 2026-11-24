@@ -156,12 +156,16 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
   const [equipo, setEquipo] = useState<string | null>(null)
   const [textoDec, setTextoDec] = useState("")        // filtro de Decisiones sembrado al pivotar (p. ej. una IP)
   const [atacanteIp, setAtacanteIp] = useState<string | null>(null)   // perfil de atacante (drill-down)
+  // A qué vista vuelve «← Volver» del perfil del atacante: la de la que se abrió (Red, Decisiones, Incidentes).
+  // Antes volvía siempre a Red (24/11).
+  const [volverAtacante, setVolverAtacante] = useState<Vista>("red")
   const [paisAprob, setPaisAprob] = useState("")      // filtro de Aprobaciones por ubicación (desde Ubicaciones)
   const [aprobSel, setAprobSel] = useState<string | null>(null)   // pendiente abierta al llegar (desde el Panel)
   const [incidenteSel, setIncidenteSel] = useState<{ clave: string; cidr: string } | null>(null)   // detalle de incidente
   const [incidente, setIncidente] = useState<Decision | null>(null)
   const [menu, setMenu] = useState(false)             // drawer de navegación en móvil (< md)
   const vista = vistaVisible(vistaPedida, { atacante: !!atacanteIp, incidente: !!incidente })
+  const verAtacante = (ip: string) => { setAtacanteIp(ip); setVolverAtacante(vista); setVista("atacante") }
   useEffect(() => {
     const h = hashDeVista(vista), actual = window.location.hash
     if (actual === h) return
@@ -358,19 +362,19 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
           {vista === "metricas" && <Metricas />}
           {vista === "salud" && <Salud onVerConectividad={() => setVista("conectividad")} />}
           {vista === "red" && <Red onVerDecisiones={(n, texto) => { setEquipo(n); setTextoDec(texto ?? ""); setVista("decisiones") }}
-            onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }}
+            onVerAtacante={verAtacante}
             onVerAprobaciones={() => { setPaisAprob(""); setAprobSel(null); setVista("aprobaciones") }} onVerSalud={() => setVista("salud")} />}
           {vista === "ubicaciones" && <Ubicaciones
             onVerPais={(pais) => { setEquipo(null); setTextoDec(pais); setVista("decisiones") }}
             onVerAprobaciones={(pais) => { setPaisAprob(pais); setAprobSel(null); setVista("aprobaciones") }} />}
           {vista === "atacante" && atacanteIp && (
-            <PerfilAtacante ip={atacanteIp} onVolver={() => setVista("red")}
+            <PerfilAtacante ip={atacanteIp} onVolver={() => setVista(volverAtacante)}
               onVerDecisiones={(ip) => { setEquipo(null); setTextoDec(ip); setVista("decisiones") }} />
           )}
           {vista === "decisiones" && (
             <Decisiones equipo={equipo} textoInicial={textoDec} onQuitarEquipo={() => setEquipo(null)}
               onVerIncidente={(d) => { setIncidente(d); setVista("incidente") }}
-              onVerTrazas={() => setVista("trazas")} onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }}
+              onVerTrazas={() => setVista("trazas")} onVerAtacante={verAtacante}
               onVerContenciones={() => setVista("contenciones")} />
           )}
           {vista === "aprobaciones" && <Aprobaciones paisInicial={paisAprob} idInicial={aprobSel} onQuitarPais={() => setPaisAprob("")} />}
@@ -383,8 +387,9 @@ function Interfaz({ sesion, onCerrarSesion, onCambiarNombre }: { sesion: Sesion;
           {vista === "asistente" && <AsistenteRed />}
           {vista === "conectividad" && <Conectividad />}
           {vista === "incidentes" && <Incidentes claveInicial={incidenteSel?.clave ?? null}
+            onSeleccionar={(clave) => setIncidenteSel((s) => (clave ? { clave, cidr: s?.cidr ?? "" } : null))}
             onVerDecisiones={(prefijo) => { setEquipo(null); setTextoDec(prefijo); setVista("decisiones") }}
-            onVerRed={() => setVista("red")} onVerAtacante={(ip) => { setAtacanteIp(ip); setVista("atacante") }}
+            onVerRed={() => setVista("red")} onVerAtacante={verAtacante}
             onVerContenciones={() => setVista("contenciones")} />}
           {vista === "incidente" && incidente && (
             <VistaIncidente decision={incidente} onVolver={() => setVista("decisiones")} />

@@ -8,6 +8,21 @@ vi.mock("@/api", async (orig) => ({
   comprobarSesion: vi.fn(async () => h.respuesta),
   useSondeo: (fn: unknown) => h.fuentes.get(fn),
 }))
+// Dobles mínimos de las vistas de la navegación «volver» (24/11): solo lo que la prueba necesita pulsar.
+vi.mock("@/components/Incidentes", () => ({
+  Incidentes: ({ claveInicial, onVerAtacante, onSeleccionar }: {
+    claveInicial?: string | null; onVerAtacante?: (ip: string) => void; onSeleccionar?: (c: string | null) => void
+  }) => (
+    <div>
+      <p>incidentes-doble · abierto: {claveInicial ?? "ninguno"}</p>
+      <button onClick={() => onSeleccionar?.("INC-7")}>elegir INC-7</button>
+      <button onClick={() => onVerAtacante?.("198.51.100.10")}>ver atacante</button>
+    </div>
+  ),
+}))
+vi.mock("@/components/PerfilAtacante", () => ({
+  PerfilAtacante: ({ onVolver }: { onVolver: () => void }) => <button onClick={onVolver}>← Volver</button>,
+}))
 import AppReal from "./App"
 import { Toaster } from "@/components/ui/toast"
 const App = () => <Toaster><AppReal /></Toaster>
@@ -80,6 +95,22 @@ describe("recargar la página", () => {
       window.dispatchEvent(new HashChangeEvent("hashchange"))
     })
     expect(await screen.findByRole("heading", { level: 1, name: "Watchlist" })).toBeInTheDocument()
+    window.history.replaceState(null, "", "#")
+  })
+})
+
+describe("volver desde el perfil del atacante (24/11)", () => {
+  beforeEach(() => { cerrarSesion(); sessionStorage.clear(); fijarOperador("leo"); h.fuentes.clear() })
+
+  it("vuelve a la vista de la que se vino, con el mismo incidente abierto (antes iba siempre a Red)", { timeout: 15000 }, async () => {
+    window.history.replaceState(null, "", "#/incidentes")
+    h.respuesta = { tipo: "ok", requiereToken: false, operador: null }
+    render(<App />)
+    fireEvent.click(await screen.findByRole("button", { name: "elegir INC-7" }, { timeout: 5000 }))
+    fireEvent.click(screen.getByRole("button", { name: "ver atacante" }))
+    fireEvent.click(await screen.findByRole("button", { name: "← Volver" }))
+    expect(await screen.findByText("incidentes-doble · abierto: INC-7")).toBeInTheDocument()
+    expect(window.location.hash).toBe("#/incidentes")
     window.history.replaceState(null, "", "#")
   })
 })
