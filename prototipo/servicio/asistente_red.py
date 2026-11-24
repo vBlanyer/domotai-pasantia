@@ -456,6 +456,10 @@ def validar(b, catalogo, vistos=None):
         if e.get("huella_compartida_con"):
             avisos.append(f"{e['nombre'] or ip} comparte huella SSH con el cortafuegos {e['huella_compartida_con']} "
                           "(¿equipo clonado?): se deja como equipo aparte; compruébalo")
+    for ip, e in sorted(inc.items()):
+        if e["papel"] != "cortafuegos" and e["servicios"] == [22]:
+            avisos.append(f"{e['nombre'] or ip}: solo se ve el SSH (22). Si presta un servicio en un puerto poco común, "
+                          "vuelve a escanear con «Lista propia» incluyéndolo junto a los demás: su postura quedaría incompleta")
     for ip, e in sorted(b["equipos"].items()):
         if not e["incluido"] and e["servicios"]:
             avisos.append(f"{ip} descartado con puertos abiertos ({', '.join(map(str, e['servicios']))})")

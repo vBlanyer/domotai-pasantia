@@ -484,3 +484,18 @@ class TestNombresQueElSiemNoConoce(unittest.TestCase):
                 {"tipo": "actividad_suprimida", "clave": {"activo": "core-db"}}, {"activo": "desconocido"},
                 {"tipo": "auditoria_asistente", "activo": "x"}]
         self.assertEqual(a.nombres_vistos(regs), {"web-banking", "api-movil", "core-db"})
+
+
+class TestSoloSsh(unittest.TestCase):
+    """24/11: swift-alliance salía solo con el 22 (su servicio, 48002, no está entre los 1000 más comunes) y la
+    postura exportada quedaba incompleta sin aviso."""
+
+    def test_avisa_de_un_equipo_del_que_solo_se_ve_el_ssh(self):
+        b = a.aplicar_cambios(_oficina(), {})
+        b["equipos"]["10.20.0.10"]["servicios"] = [22]
+        avisos = a.validar(b, CAT)["avisos"]
+        self.assertTrue(any(x.startswith("srv-app01: solo se ve el SSH") and "Lista propia" in x for x in avisos), avisos)
+
+    def test_no_avisa_de_los_que_ofrecen_algo_mas_ni_de_los_cortafuegos(self):
+        avisos = a.validar(_oficina(), CAT)["avisos"]
+        self.assertFalse([x for x in avisos if "solo se ve el SSH" in x and ("srv-web01" in x or "fw-" in x)])

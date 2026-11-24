@@ -38,6 +38,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **El asistente avisa de un equipo del que solo se ve el SSH.** swift-alliance salía solo con el 22 (su servicio,
+  48002, no está entre los 1000 puertos más comunes) y la postura exportada quedaba incompleta sin aviso. Ahora
+  «Validar» lo avisa y sugiere volver a escanear con «Lista propia» incluyendo ese puerto.
 - **Renombrar un equipo después del alta ya no obliga a repetirla.** Conectividad guardaba el papel de un equipo del
   perfil por su nombre, así que renombrarlo en el perfil lo dejaba huérfano. Ahora guarda también su IP y, al arrancar,
   si el perfil le da otro nombre a esa IP, el papel pasa al nombre nuevo (queda en el registro). La huella, el puerto y
