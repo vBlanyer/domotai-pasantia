@@ -225,8 +225,29 @@ familias. `atacar auto` los lanza todos una vez y `atacar continuo` sin fin.
 | Qué | Cómo |
 |---|---|
 | El MDR | Ctrl+C en su terminal. Al salir imprime un resumen de la sesión. |
-| Los bloqueos del laboratorio, sin apagarlo | `sh lab/banco/banco.sh restaurar` |
+| Los bloqueos del laboratorio, sin apagarlo | `sh lab/banco/banco.sh restaurar`. Quita también las IP que añaden los ataques con origen rotado |
 | Toda la red del laboratorio | `sh lab/lab.sh down banco` |
+
+**Si se reinicia el equipo**, los contenedores del banco vuelven a arrancar, pero **sin sus IP 10.x ni
+sshd**: el MDR no podría escanear ni contener. `sh lab/banco/banco.sh comprobar-red` lo comprueba;
+`status`, `reiniciar.sh` y `mdr-nuevo` lo comprueban solos y, si la red se perdió, se paran y dicen
+cómo recrearla:
+
+```
+sh lab/banco/banco.sh down
+sh lab/lab.sh up banco
+sh lab/banco/banco.sh aprovisionar
+```
+
+Cada equipo del banco tiene **su propia clave SSH de host**, generada la primera vez que arranca su
+contenedor, así que la huella de cada uno es distinta. La extensión de Containerlab enseña en «Info»
+solo la IP de gestión (172.20.20.x); la de datos (10.x) está en la etiqueta `ip-eth1` del nodo, en su
+pestaña YAML.
+
+**El banco como un cliente nuevo.** Para ensayar la instalación desde cero sobre la red del banco:
+`sh lab/banco/banco.sh desaprovisionar` (deja los equipos sin acceso del MDR y sin clave del conector) y
+`sh lab/banco/banco.sh mdr-nuevo` (arranca el MDR con un perfil mínimo y traza propia en
+`run/banco-nuevo/`). Después, el recorrido de la sección 22.
 
 ### Qué ocurre después
 
@@ -291,6 +312,11 @@ Las señales del menú dicen dónde hay algo:
 | Icono rojo en «Estado de servicios» | Un servicio caído, el conector sin configurar o un equipo con problemas de conexión o configuración. Al pasar el ratón se ve el motivo |
 
 El botón del pie pliega el menú a iconos; la consola lo recuerda.
+
+La vista activa va en la dirección de la página (`http://127.0.0.1:8787/#/decisiones`): recargar te deja
+donde estabas y los botones atrás y adelante del navegador recorren las vistas. «← Volver» del perfil de
+un atacante te devuelve a la vista desde la que lo abriste (Red, Decisiones o Incidentes) y, en
+Incidentes, con el mismo incidente abierto.
 
 ### La cabecera
 
@@ -375,7 +401,10 @@ acción tumbaría otros servicios) y «escalada» (es un salto al cortafuegos), 
 2. **Lee «Si apruebas».** Qué se ejecuta, contra quién y con qué consecuencia. Si hay cascada, la
    lista de equipos que caerían.
 3. **Lee «Por qué lo propone el motor».** La clase, la confianza, por qué necesita a un humano y la
-   técnica ATT&CK, y debajo lo que ya pasó con ese origen.
+   técnica ATT&CK, y debajo lo que ya pasó con ese origen. Debajo, el **análisis ampliado** reúne, por
+   reglas y sin modelo de lenguaje, lo que ayuda a decidir: qué hizo este origen en la última hora, qué
+   ofrece el equipo atacado, qué dice el playbook de esa familia y qué conviene comprobar. Un origen que
+   está en la Watchlist sale marcado ⚑, con la nota que dejó quien lo revirtió.
 4. **Si quieres, escribe una observación** en «Observación para la traza». Se guarda en el caso, firmada con tu nombre, y se ve en Decisiones (paso «Analista») y en Trazas.
 5. **Decide:**
 
@@ -415,8 +444,8 @@ cada comando que se ejecuta por SSH, verificaciones, escaladas, reversiones y av
 
 > **Quién puede:** cualquier analista.
 
-- **Filtros:** «Todo», «Decisiones», «Incidentes», «Ejecución», «Avisos», y un campo para filtrar por
-  texto.
+- **Filtros:** «Todo», «Decisiones», «Incidentes», «Ejecución», «Reversiones», «Avisos», y un campo
+  para filtrar por texto.
 - **Desplazamiento automático:** se pausa si subes a leer y se reanuda al bajar al final.
 
 ### Qué significa cada símbolo
@@ -429,11 +458,12 @@ cada comando que se ejecuta por SSH, verificaciones, escaladas, reversiones y av
 | ✗ … NO verificada / ✗ … no se ejecutó | La contención no quedó: dice dónde, por qué y qué hacer |
 | · … evidencia: | La salida real de SSH o sudo que lo prueba |
 | ⇪ | Escalada: dónde contuvo o en qué equipos falló, y «POSIBLE ATAQUE» si lo es |
-| ↶ | Reversión |
+| ↶ | Reversión, o **contención perdida**: la regla ya no estaba en el equipo y el ataque se decide de nuevo (sección 10) |
 | ✓ ✋ ↻ | Veredicto de un analista |
 | ☰ | Cambio en un caso |
-| ↩ | Repetición suprimida (ruido) |
-| ↺ | Actividad propia del MDR, su propio SSH visto por el SIEM |
+| ↩ | Repetición suprimida (ruido): el ataque ya estaba decidido o su tarjeta espera a un analista |
+| ↺ | Actividad propia del MDR, su propio SSH visto por el SIEM (al contener o al probar en Conectividad) |
+| ⚑ | El origen está en la Watchlist («Revertir y vigilar»), con su nota |
 | ⏻ | Pausa de la automatización |
 | [aviso] | Aviso del sistema, por ejemplo «el MDR no tiene acceso a X» |
 
@@ -473,6 +503,12 @@ intentos antes y después del bloqueo, la regla exacta y el comando que la quita
 Revertir es real: el MDR quita la regla en el equipo y lo anota. Si el origen sigue intentándolo,
 volverá a llegar.
 
+**Si una regla desaparece del equipo sin pasar por aquí** (el equipo se reinició, alguien vació su
+cortafuegos), el MDR lo detecta cuando el ataque se repite: vuelve a comprobar la regla en el equipo,
+como mucho una vez cada 5 minutos por contención, y si ya no está la anota como **contención perdida**
+(en la Consola, «↶ … contención perdida») y decide el ataque de nuevo. Si no puede comprobarlo (sin
+conexión), sigue tratándolo como contenido.
+
 > **Ejemplo:** el bloqueo de 203.0.113.9 en web-banking muestra «12 intentos parados» en el día.
 > Si fuera un falso positivo (una IP de un socio, por ejemplo), «Revertir y vigilar…» lo quita y deja
 > la IP marcada en la Watchlist.
@@ -489,23 +525,28 @@ volverá a llegar.
 
 - **La franja de arriba** filtra al pulsarla: decisiones, contenidas en automático, pasaron por un
   analista, corregidas por el analista, frenadas por la política, contención fallida.
-- **El buscador** encuentra por equipo, IP, identificador o país; el selector, por clase.
-- **Filtros:** «Pendientes», «Falsos positivos», «Decididas por mí»… y la casilla «Incluir registros
-  del sistema» para ver reversiones y supresiones.
+- **El buscador** encuentra por equipo, IP, identificador o país; el selector, por clase. El
+  identificador dice de qué cliente y de qué día es cada decisión: `BCO-20261124-0042` es la 42.ª del
+  24/11/2026 en el cliente «BCO» (el prefijo lo pone el perfil).
+- **Filtros:** «Contenidas», «Revertidas», «Pendientes», «Falsos positivos», «Decididas por mí»… y la
+  casilla «Incluir registros del sistema» para ver reversiones y supresiones.
+- **Orden:** lo más reciente arriba, como en Trazas.
 
 | Color del desenlace | Desenlaces |
 |---|---|
 | Verde | contenida |
 | Rojo | fallida, vetada |
-| Ámbar | rechazada, pendiente, degradada |
-| Violeta | reclasificada |
+| Ámbar | rechazada, pendiente, degradada, perdida (la regla desapareció del equipo) |
+| Violeta | reclasificada, revertida |
 | Gris | enrutada, falso positivo, no soportada, sin acción |
 
 ### Leer el detalle
 
 El detalle se lee como una historia de seis pasos: la alerta del SIEM, la clasificación, la propuesta
 del motor, la política del cliente («automática», «retenida — espera tu aprobación», «degradada»,
-«vetada»), el analista y la ejecución, con dónde quedó contenida y el comando exacto.
+«vetada»), el analista y la ejecución, con dónde quedó contenida y el comando exacto. Si después se
+revirtió, un **séptimo paso** cuenta quién, cuándo, por qué y el comando que la quitó (o que la regla se
+perdió fuera del MDR), y si el mismo origen volvió y se contuvo de nuevo.
 
 **Si la contención falló**, cada intento lleva su causa en lenguaje claro y la evidencia debajo, por
 ejemplo «intento en atm: equipo sin aprovisionar — dalo de alta o fija su clave del host en
@@ -609,6 +650,10 @@ por hash. Si alguien altera un registro, la cadena se rompe en ese punto y la co
 3. Pulsa una fila para ver el registro, su «Causa del fallo» si la tiene, y la prueba de la cadena
    (el hash anterior y el suyo). «Copiar el registro (JSON)» lo copia para auditarlo fuera.
 
+Lo más reciente va arriba. El filtro «Reversiones» deja solo las reversiones; cada una dice quién, por qué,
+el comando exacto y su resultado, y enlaza con la decisión que deshizo. Una **contención perdida** sale como
+reversión hecha por el propio MDR («la regla ya no estaba en el equipo»).
+
 Si la cadena se rompe, el inspector abre directamente el registro alterado. Fuera de la consola, se
 comprueba con `python3 -m prototipo.servicio.traza --verificar run/trazas-….jsonl`.
 
@@ -697,7 +742,9 @@ explícitamente.
 
 ### Lo que se ve
 
-- **La franja de permisos**, con lo que puede hacer tu sesión.
+- **La franja de permisos**, con lo que puede hacer tu sesión. Un candado en un botón dice por qué no
+  está disponible: sin clave del conector, «falta la clave del conector: genérala arriba»; sin token,
+  «exige tu token de operador».
 - **La clave del conector**, con su huella y «Copiar clave pública». Si no existe, «Generar la clave
   del conector» (recomendada en ed25519).
 - **Las cifras:** equipos contenibles, conexión verificada, clave del host cambiada, sin aprovisionar.
@@ -716,6 +763,9 @@ explícitamente.
 **El aviso rojo encima del estado** aparece cuando una **contención real** falló en ese equipo: «la
 última contención falló», «posible ataque» o «sin acceso». Solo resta confianza: una prueba verde
 anterior no lo tapa. Se quita con una contención correcta o con una prueba nueva que pase.
+
+Cada prueba entra por SSH en el equipo y el SIEM registra ese login: el MDR lo reconoce como suyo (en la
+Consola, «↺ actividad propia del MDR») y no lo trata como un ataque.
 
 ### Dar de alta un equipo
 
@@ -808,6 +858,7 @@ Todo lo que el MDR sabe del cliente vive en su **perfil**, por ejemplo
 | `origenes_legitimos`, `terceros_confiables` | Quién no es atacante, y a quién no se bloquea sin humano |
 | `continuidad`, `excepciones` | Qué se automatiza según el impacto, y los servicios que nunca se tocan solos |
 | `rutas` | Adónde se enruta lo que no se contiene (por ejemplo, appsec) |
+| `prefijo_id` | El prefijo de los identificadores de decisión (por ejemplo, `BCO`: `BCO-20261124-0042`) |
 
 En producción, las reglas de la empresa (quién no es atacante, qué se automatiza y qué no se toca
 nunca) se sacan del perfil a `politica.yml`, en términos de negocio, para que las apruebe Seguridad.
@@ -837,6 +888,14 @@ Consola) y en la franja ámbar del mapa:
 | un `gateway` apuntando a un cortafuegos borrado | La escalada salta a los cortafuegos perimetrales («salto de respaldo»), pero **la cuarentena (AISLAR_NODO) de esos equipos deja de poder ejecutarse** hasta que se corrija |
 
 El historial del equipo borrado se conserva en Decisiones y en Trazas.
+
+### Renombrar un equipo
+
+El nombre de cada equipo tiene que ser **el mismo con el que llega en las alertas del SIEM**; si no, el
+MDR no reconoce sus alertas como de ese equipo. Para corregirlo, cámbialo en el perfil (o en el
+asistente de red, sección 22) y reinicia el MDR. Conectividad sigue a cada equipo por su **IP**: su
+huella, su puerto y sus pruebas se conservan y su papel pasa solo al nombre nuevo, así que **no hace
+falta repetir el alta**.
 
 ## 21. Recortes ante fallos de contención
 
@@ -889,16 +948,21 @@ y el conector. **Nada está preparado para el MDR**: el acceso a cada equipo se 
 3. **Conectividad → «Generar la clave del conector».** Se crea en el nodo `mdr`; la privada no sale de ahí.
 4. **Asistente de red → Escanear.** Los rangos y la IP del MDR ya vienen del perfil mínimo. Escribe la
    dirección de fuera (`198.51.100.10`), marca la autorización y pulsa «Escanear». **Tarda unos 5 minutos**
-   a ritmo suave; la página se actualiza sola.
-5. **Revisar lo encontrado.** El asistente propone dos cortafuegos (con sus otras interfaces agrupadas por la
-   huella SSH), un camino para cada equipo y una zona por subred; la impresora sale como equipo frágil y el
+   a ritmo suave; la página se actualiza sola. Límites: hasta 8 rangos, cada uno de las redes del cliente y
+   de /22 como mucho; la dirección de fuera tiene que ser de internet (una interna invertiría la cadena de
+   cortafuegos); «Lista propia» admite números de puerto separados por comas, sin intervalos.
+5. **Revisar lo encontrado.** El asistente propone **una fila por equipo**: los cortafuegos con sus otras
+   interfaces agrupadas por la huella SSH («también 10.20.0.1…», incluso si el MDR los ve por una IP fuera de
+   los rangos), un camino para cada equipo y una zona por subred; la impresora sale como equipo frágil y el
    puesto, que no ofrece nada, descartado. Completa lo que el escaneo no sabe:
    - **El nombre de cada equipo en el SIEM.** Es el que el MDR usa para reconocerlo. En la oficina es el nombre
      del nodo (`fw-borde`, `srv-web01`…). El campo sugiere los nombres que las alertas ya han traído; el
      escaneo en sí **no** genera alertas, así que las sugerencias aparecen a medida que hay actividad.
-   - **Las zonas** (por ejemplo, `DMZ` e `Interna`), la **criticidad**, qué equipo **no se toca
-     directamente** (la base de datos) y **de qué depende** cada uno (`srv-web01` de `srv-app01`, y este de
-     `srv-db01`).
+   - **Las zonas** (por ejemplo, `DMZ` e `Interna`), la **criticidad** y qué equipo **no se toca
+     directamente** (la base de datos).
+   - **De qué depende** cada uno (`srv-web01` de `srv-app01`, y este de `srv-db01`): se elige en el
+     desplegable «+ añadir…» entre los equipos escaneados, y sale con su nombre (o su IP si aún no lo tiene).
+     Si renombras el equipo después, la dependencia lo sigue.
    - **«Llega por»**: el cortafuegos por el que se sale desde cada equipo. Si el traceroute no lo vio («sin
      camino») o lo dedujo, elígelo aquí. Si al descartar un cortafuegos (o cambiarle el papel) quedan equipos
      que salían por él, se enganchan a su siguiente salto. Un router del proveedor que aparezca en el camino
@@ -908,17 +972,23 @@ y el conector. **Nada está preparado para el MDR**: el acceso a cada equipo se 
    marcado en rojo con el motivo, y los demás sí se guardan. Volver a escanear conserva lo que hayas escrito
    para los equipos que sigan en la red.
 
-   El mapa de abajo se dibuja con lo que vas aceptando, y «Falta para exportar» dice qué queda.
+   El mapa de abajo se dibuja con lo que vas aceptando, y «Falta para exportar» dice qué queda. En cuanto
+   hay alertas, también avisa de un nombre que el SIEM aún no ha enviado nunca, con el parecido («¿quizá
+   «web-banking»?»): suele ser una errata, y con ella el MDR no reconocería las alertas de ese equipo.
 6. **Validar y exportar.** Sin errores, descarga `perfil.yml`, `postura.json` y `politica.yml`. Los avisos
    que verás son esperables: la base de datos y la impresora quedan fuera de la cadena de contención (su
-   contención va a los cortafuegos perimetrales) y el paso de `fw-interno` al borde está deducido.
+   contención va a los cortafuegos perimetrales) y el paso de `fw-interno` al borde está deducido. Un equipo
+   del que **solo se ve el SSH** se avisa: si presta un servicio en un puerto poco común, vuelve a escanear con
+   «Lista propia» incluyéndolo. «Siguientes pasos» dice **dónde lee este MDR** cada fichero.
 7. **Instala** los tres ficheros en `run/oficina/` (sustituyen al perfil mínimo; compruébalos antes con
    `sh bin/mdr validar-perfil run/oficina/perfil.yml`) y vuelve a ejecutar `sh lab/oficina/oficina.sh mdr`.
    La Consola muestra la política cargada.
-8. **Conectividad, equipo por equipo** (los cortafuegos y los servidores con SSH): descarga su paquete de
-   alta y ejecútalo como su administrador, en el laboratorio con
-   `docker exec -i clab-oficina-<equipo> sh < alta-<equipo>.sh`; después «Leer la clave del host», compara la
-   huella con la que imprimió el paquete, fíjala y «Probar». Cada uno debe quedar **verificado**.
+8. **Conectividad, equipo por equipo** (los cortafuegos y los servidores con SSH): en su ficha, «Alta
+   pendiente» → **«Dar de alta»**: elige su papel, descarga su paquete de alta y ejecútalo como su
+   administrador, en el laboratorio con `docker exec -i clab-oficina-<equipo> sh < alta-<equipo>.sh`. El
+   paquete **se para sin tocar nada si no está en su equipo** (comprueba su IP) e imprime una huella marcada
+   (ED25519). En «Verificar», compárala con la que enseña la consola, marca «Coincide…» y pulsa «Dar de
+   alta»: fija la huella y prueba. Cada uno debe quedar **verificado**.
 9. **El ataque:** `sh lab/oficina/oficina.sh atacar` (fuerza bruta SSH desde internet contra `srv-web01`).
    Como la política lo deja todo en manos de un analista, la contención espera en **Aprobaciones**;
    apruébala y comprueba en la Consola que queda verificada, y en **Red** las tres zonas y los dos
@@ -926,6 +996,12 @@ y el conector. **Nada está preparado para el MDR**: el acceso a cada equipo se 
 
 > **Nota:** para repetir desde cero, `sh lab/oficina/oficina.sh down && sh lab/oficina/oficina.sh up` y borra
 > `run/oficina/`: el laboratorio recreado ya no tiene usuarios, claves ni reglas del ensayo anterior.
+
+**El mismo recorrido sobre el banco.** `sh lab/banco/banco.sh desaprovisionar` deja los equipos sin acceso del
+MDR y `sh lab/banco/banco.sh mdr-nuevo` lo arranca con un perfil mínimo (las 8 redes del banco ya cargadas como
+rangos) y su traza en `run/banco-nuevo/`. Los ficheros exportados se instalan ahí y se vuelve a lanzar
+`mdr-nuevo`; los paquetes se ejecutan con `docker exec -i clab-banco-<equipo> sh < alta-<equipo>.sh`. Para
+volver al banco de siempre: `sh lab/banco/banco.sh aprovisionar` y `sh reiniciar.sh`.
 
 ## Anexo A. Familias de ataque y su respuesta
 
@@ -1004,7 +1080,8 @@ Todos viven en `run/`, junto a la traza.
 | `conectividad-auditoria.jsonl` | Cada prueba y cambio en Conectividad |
 | `conectividad-pruebas.json` | La última prueba de cada equipo |
 | `conectividad-rotacion.json` | La rotación de clave en curso |
-| `inventario-operativo.yml` | Los equipos dados de alta desde la consola y sus papeles |
+| `inventario-operativo.yml` | Los equipos dados de alta desde la consola y sus papeles (con su IP: siguen al equipo si se renombra) |
+| `pausa.json` | La pausa de la automatización |
 | `watchlist.json` | La Watchlist |
 
 ## Anexo E. Preguntas frecuentes
@@ -1051,6 +1128,19 @@ analista.
 
 **¿El MDR sustituye al SIEM o a un antivirus?** No. Refina lo que el SIEM ya detecta; lo que el SIEM
 no ve, el MDR tampoco.
+
+**¿Encuentra vulnerabilidades en los servicios (versiones de Apache, SSH…)?** No: no es un escáner de
+vulnerabilidades ni parchea. Contiene el **ataque** cuando el SIEM lo ve: el escaneo previo, la fuerza
+bruta y, sobre todo, lo que el atacante hace después de entrar (cuenta nueva, ficheros, malware, salida a un
+destino malicioso). Un intento de explotación detectado (`explotacion_conocida`) se **enruta** a AppSec, porque
+el arreglo es parchear.
+
+**¿Por qué no se ven las IP 10.x en la extensión de Containerlab?** Porque las pone un comando al desplegar,
+no Containerlab: en «Info» sale la IP de gestión. La de datos está en la etiqueta `ip-eth1` de la pestaña YAML
+del nodo (sección 4).
+
+**Tras reiniciar el PC el MDR no contiene.** El banco perdió su red: `sh lab/banco/banco.sh comprobar-red` lo
+confirma, y se recrea con `down` y `up` (sección 4).
 
 ## Anexo F. Glosario
 

@@ -374,21 +374,29 @@ Si `mdr configurar` escribió el perfil mínimo, el servicio ya está en marcha 
 
 1. **Escanear.** Rangos de la red del cliente, la IP del MDR, una dirección de fuera para trazar la salida a
    internet, el ritmo (suave por defecto, por los equipos frágiles) y los puertos. Exige marcar que tienes la
-   **autorización por escrito** del cliente; avisa también a quien vigila su SIEM, porque el escaneo se ve.
-   Tarda unos minutos.
-2. **Revisar.** El asistente propone los cortafuegos (por los saltos del traceroute, con sus interfaces
-   agrupadas por la huella SSH), el camino de cada equipo, una zona por subred y un papel. Completa lo que el
-   escaneo no sabe: el **nombre de cada equipo en el SIEM**, las zonas, la criticidad, qué equipo **no se toca
-   directamente** y las dependencias. El mapa se dibuja mientras tanto.
+   **autorización por escrito** del cliente; avisa también a quien vigila su SIEM, porque el escaneo puede
+   verse. Tarda unos minutos. Hasta 8 rangos de las redes del cliente, de /22 como mucho; la dirección de fuera
+   tiene que ser de internet; una lista de puertos propia, números separados por comas.
+2. **Revisar.** El asistente propone **una fila por equipo**: los cortafuegos (por los saltos del traceroute,
+   con sus otras interfaces agrupadas por la huella SSH, también si el MDR los ve por una IP de fuera de los
+   rangos), el camino de cada equipo («Llega por», editable), una zona por subred y un papel. Completa lo que
+   el escaneo no sabe: el **nombre de cada equipo en el SIEM**, las zonas, la criticidad, qué equipo **no se
+   toca directamente** y de qué depende cada uno (se elige entre los equipos escaneados). El mapa se dibuja
+   mientras tanto. Cada cambio se guarda solo; uno que no vale se queda marcado con su motivo. Avisa de un
+   nombre que el SIEM no ha enviado nunca (con el parecido: suele ser una errata) y de un equipo del que solo
+   se ve el SSH (su servicio puede estar en un puerto poco común). Volver a escanear conserva lo escrito.
 3. **Validar y exportar.** Con las mismas reglas que `mdr validar-perfil`; sin errores, descarga
    `perfil.yml`, `postura.json` y una propuesta de `politica.yml` (sección 12).
 4. **Instala** el perfil y la postura (`/etc/mdr/perfil.yml`, `/var/lib/mdr/postura.json`), y la política
-   cuando la apruebe Seguridad; reinicia el servicio. Después, Conectividad (sección 10).
+   cuando la apruebe Seguridad; reinicia el servicio. «Siguientes pasos» dice las rutas de las que lee este
+   MDR. Después, Conectividad (sección 10).
 
 > **Nota:** la consola **nunca escribe el perfil vivo**: cambiar la red cambia dónde y cómo contiene el MDR, así
 > que lo aplica el técnico. El escaneo sale del equipo MDR por la red del cliente; si el servicio no tiene
 > privilegios para el traceroute, ejecuta `sudo mdr descubrir … --autorizado --salida /var/lib/mdr/asistente-descubrimiento.json`
-> y la consola lo leerá; la primera vez que lo use, lo anota en la traza firmada con quién lo lanzó y qué rangos.
+> y la consola lo leerá (con `sudo`, el fichero queda del dueño del directorio, el usuario del servicio, en
+> 0600); la primera vez que lo use, lo anota en la traza firmada con quién lo lanzó y qué rangos. Si la consola
+> no puede leer un fichero del asistente, lo dice en la vista.
 
 ### Pasos (a mano)
 
@@ -734,6 +742,10 @@ servicios no alcanzan la confianza de `si_hay_certeza` y siguen esperando a un a
 
 Para salir, pulsa tu nombre en la cabecera y elige «Cerrar sesión».
 
+La vista activa va en la dirección de la página (`…/#/decisiones`): recargar te deja donde estabas y los
+botones atrás y adelante del navegador recorren las vistas. «← Volver» del perfil de un atacante te devuelve
+a la vista desde la que lo abriste.
+
 | Mensaje | Qué hacer |
 |---|---|
 | «El daemon no reconoce ese token.» | Revisa el token, o pide uno a la administración del MDR |
@@ -842,7 +854,10 @@ acción tumbaría otros servicios) y «escalada» (es un salto al cortafuegos), 
 2. **Lee «Si apruebas».** Qué se ejecuta, contra quién y con qué consecuencia. Si hay cascada, la
    lista de equipos que caerían.
 3. **Lee «Por qué lo propone el motor».** La clase, la confianza, por qué necesita a un humano y la
-   técnica ATT&CK, y debajo lo que ya pasó con ese origen.
+   técnica ATT&CK, y debajo lo que ya pasó con ese origen. Debajo, el **análisis ampliado** reúne, por
+   reglas y sin modelo de lenguaje, lo que ayuda a decidir: qué hizo este origen en la última hora, qué
+   ofrece el equipo atacado, qué dice el playbook de esa familia y qué conviene comprobar. Un origen que
+   está en la Watchlist sale marcado ⚑, con la nota que dejó quien lo revirtió.
 4. **Si quieres, escribe una observación** en «Observación para la traza». Se guarda en el caso, firmada con tu nombre, y se ve en Decisiones (paso «Analista») y en Trazas.
 5. **Decide:**
 
@@ -881,8 +896,8 @@ verificaciones, escaladas, reversiones y avisos. Guarda las últimas 1000 línea
 
 > **Quién puede:** cualquier analista.
 
-- **Filtros:** «Todo», «Decisiones», «Incidentes», «Ejecución», «Avisos», y un campo para filtrar por
-  texto.
+- **Filtros:** «Todo», «Decisiones», «Incidentes», «Ejecución», «Reversiones», «Avisos», y un campo
+  para filtrar por texto.
 - **Desplazamiento automático:** se pausa si subes a leer y se reanuda al bajar al final.
 
 | Símbolo | Significado |
@@ -893,11 +908,12 @@ verificaciones, escaladas, reversiones y avisos. Guarda las últimas 1000 línea
 | ✗ … NO verificada / ✗ … no se ejecutó | La contención no quedó: dice dónde, por qué y qué hacer |
 | · … evidencia: | La salida real de SSH o sudo que lo prueba |
 | ⇪ | Escalada: dónde contuvo o en qué equipos falló, y «POSIBLE ATAQUE» si lo es |
-| ↶ | Reversión |
+| ↶ | Reversión, o **contención perdida**: la regla ya no estaba en el equipo y el ataque se decide de nuevo (sección 17) |
 | ✓ ✋ ↻ | Veredicto de un analista |
 | ☰ | Cambio en un caso |
-| ↩ | Repetición suprimida (ruido) |
-| ↺ | Actividad propia del MDR, su propio SSH visto por el SIEM |
+| ↩ | Repetición suprimida (ruido): el ataque ya estaba decidido o su tarjeta espera a un analista |
+| ↺ | Actividad propia del MDR, su propio SSH visto por el SIEM (al contener o al probar en Conectividad) |
+| ⚑ | El origen está en la Watchlist («Revertir y vigilar»), con su nota |
 | ⏻ | Pausa de la automatización |
 | [aviso] | Aviso del sistema, por ejemplo «el MDR no tiene acceso a X» |
 
@@ -934,6 +950,12 @@ intentos antes y después del bloqueo, la regla exacta y el comando que la quita
 Revertir es real: el MDR quita la regla en el equipo y lo anota. Si el origen sigue intentándolo,
 volverá a llegar.
 
+**Si una regla desaparece del equipo sin pasar por aquí** (el equipo se reinició, alguien vació su
+cortafuegos), el MDR lo detecta cuando el ataque se repite: vuelve a comprobar la regla en el equipo,
+como mucho una vez cada 5 minutos por contención, y si ya no está la anota como **contención perdida**
+(en la Consola, «↶ … contención perdida») y decide el ataque de nuevo. Si no puede comprobarlo (sin
+conexión), sigue tratándolo como contenido.
+
 > **Ejemplo:** el bloqueo de 203.0.113.9 en web01 muestra «12 intentos parados» en el día. Si fuera
 > un falso positivo (una IP de un socio, por ejemplo), «Revertir y vigilar…» lo quita y deja la IP
 > marcada en la Watchlist.
@@ -948,23 +970,28 @@ volverá a llegar.
 
 - **La franja de arriba** filtra al pulsarla: decisiones, contenidas en automático, pasaron por un
   analista, corregidas por el analista, frenadas por la política, contención fallida.
-- **El buscador** encuentra por equipo, IP, identificador o país; el selector, por clase.
-- **Filtros:** «Pendientes», «Falsos positivos», «Decididas por mí»… y la casilla «Incluir registros
+- **El buscador** encuentra por equipo, IP, identificador o país; el selector, por clase. El
+  identificador dice de qué cliente y de qué día es cada decisión: `EMP-20261124-0042` es la 42.ª del
+  24/11/2026 (el prefijo es el `prefijo_id` del perfil).
+- **Orden:** lo más reciente arriba, como en Trazas.
+- **Filtros:** «Contenidas», «Revertidas», «Pendientes», «Falsos positivos», «Decididas por mí»… y la casilla «Incluir registros
   del sistema» para ver reversiones y supresiones.
 
 | Color del desenlace | Desenlaces |
 |---|---|
 | Verde | contenida |
 | Rojo | fallida, vetada |
-| Ámbar | rechazada, pendiente, degradada |
-| Violeta | reclasificada |
+| Ámbar | rechazada, pendiente, degradada, perdida (la regla desapareció del equipo) |
+| Violeta | reclasificada, revertida |
 | Gris | enrutada, falso positivo, no soportada, sin acción |
 
 ### Leer el detalle
 
 El detalle se lee como una historia de seis pasos: la alerta del SIEM, la clasificación, la propuesta
 del motor, la política del cliente («automática», «retenida — espera tu aprobación», «degradada»,
-«vetada»), el analista y la ejecución, con dónde quedó contenida y el comando exacto.
+«vetada»), el analista y la ejecución, con dónde quedó contenida y el comando exacto. Si después se
+revirtió, un **séptimo paso** cuenta quién, cuándo, por qué y el comando que la quitó (o que la regla se
+perdió fuera del MDR), y si el mismo origen volvió y se contuvo de nuevo.
 
 **Si la contención falló**, cada intento lleva su causa en lenguaje claro y la evidencia debajo, por
 ejemplo «intento en app01: equipo sin aprovisionar — dalo de alta o fija su clave del host en
@@ -1135,6 +1162,10 @@ lo que se ve y lo que se hace después.
 
 - **Todo queda firmado:** cada prueba, alta, cambio de clave del host o rotación se anota en la traza
   encadenada, con el nombre de quien lo hizo; Trazas lo muestra como «Conectividad».
+- **Las pruebas no son ataques:** cada prueba entra por SSH en el equipo y el SIEM registra ese login; el
+  MDR lo reconoce como suyo («↺ actividad propia del MDR»).
+- **Un candado dice por qué** un botón no está disponible: sin clave del conector, «falta la clave del
+  conector»; sin token, «exige tu token de operador».
 - **Sustituir una clave del host ya fijada** solo se puede hacer desde el diálogo de confirmación:
   el servidor rechaza la sustitución si no se pide explícitamente.
 - **Apagarla:** con `TRIAJE_CONECTIVIDAD_DESACTIVADA=1` en `/etc/mdr/triaje.env` (y reiniciando), la
@@ -1239,9 +1270,11 @@ con `=0` en `/etc/mdr/triaje.env`, reiniciando el servicio. Los tres que usan lo
 | Reiniciar (tras cambiar el perfil o `triaje.env`) | `sudo systemctl restart mdr-triaje` |
 | Parar | `sudo systemctl stop mdr-triaje` |
 
-Al reiniciar, el MDR recupera de la traza las contenciones activas, y conserva las políticas, el
-inventario y la pausa de la automatización. **Se pierden** el estado operativo de Conectividad (los
-avisos de la última contención fallida) y la memoria de fallos, que viven en memoria.
+Al reiniciar, el MDR recupera de la traza las contenciones activas y **las aprobaciones pendientes**
+(vuelven a la cola con su hora original si la traza está íntegra; si no, quedan anotadas como «pendiente
+perdida»), y conserva las políticas, el inventario y la pausa de la automatización. **Se pierden** el
+estado operativo de Conectividad (los avisos de la última contención fallida) y la memoria de fallos, que
+viven en memoria.
 
 > **Nota:** parar el servicio **no** quita las contenciones puestas: siguen en los equipos. Para
 > quitarlas, revírtelas desde la consola antes de parar.
@@ -1355,6 +1388,10 @@ y se reinicia.
 
 > **Nota:** un equipo dado de alta desde la consola se quita borrándolo de
 > `/var/lib/mdr/inventario-operativo.yml` y reiniciando.
+
+**Renombrar un equipo** (su nombre tiene que ser el que trae en las alertas del SIEM): cámbialo en el perfil
+y reinicia. Conectividad sigue a cada equipo por su IP: su huella, su puerto y sus pruebas se conservan y su
+papel pasa solo al nombre nuevo, sin repetir el alta.
 
 ## 33. Rotar claves y tokens
 
@@ -1553,10 +1590,18 @@ decisiones **nuevas**, no de las que ya estaban en la cola al abrir la consola.
 cliente, no de Conectividad. Conectividad solo gestiona cómo entra el MDR en cada equipo; las altas
 nuevas entran en el mapa cuando se completan.
 
-**¿Se pierde algo al reiniciar el MDR?** La pausa, el estado operativo de Conectividad y la memoria de
-fallos. La traza, las políticas, el inventario y las contenciones activas se conservan.
+**¿Se pierde algo al reiniciar el MDR?** El estado operativo de Conectividad y la memoria de fallos. La
+traza, las políticas, el inventario, la pausa, las contenciones activas y las aprobaciones pendientes se
+conservan.
 
 ### El sistema
+
+**¿Encuentra vulnerabilidades en los servicios (versiones de Apache, SSH…)?** No: no es un escáner de
+vulnerabilidades ni parchea; para eso, el escáner del cliente. Contiene el **ataque** cuando el SIEM lo ve:
+el escaneo previo, la fuerza bruta y, sobre todo, lo que el atacante hace después de entrar (cuenta nueva,
+ficheros, malware, salida a un destino malicioso). Un intento de explotación detectado
+(`explotacion_conocida`) se **enruta** a AppSec, porque el arreglo es parchear. Para que el SIEM vea el
+tráfico del exploit hace falta un IDS que le envíe sus alertas.
 
 **¿Quién decide la acción?** Una política determinista, a partir de la familia del ataque, y la
 filtra el perfil del cliente. La justificación que acompaña a cada decisión se apoya en los mismos
