@@ -87,6 +87,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   enlace en cada subred (10.x.0.1) salían como equipos sueltos: 18 filas para 10 equipos. Ahora se lee también
   la huella de los saltos privados del camino, y sus otras IPs se agrupan como interfaces suyas. En vivo, el
   banco sale con 10 filas.
+- **Las IP de datos del banco, a la vista en Containerlab.** La extensión enseña solo la IP de gestión (eth0); la de
+  datos la pone un `exec`. Cada nodo la declara también como etiqueta `ip-<interfaz>`, visible en su pestaña YAML
+  (una prueba comprueba que coincide con su `exec`).
 - **El banco avisa si perdió su red.** Tras reiniciar el equipo, los contenedores vuelven sin sus IPs 10.x ni sshd y
   el MDR no puede contener, pero nada lo decía. `banco.sh comprobar-red` lo comprueba y dice cómo recrearlo; lo usan
   `status`, `mdr-nuevo` y `reiniciar.sh`, que ya no arrancan el MDR contra un banco sin red.

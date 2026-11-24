@@ -55,3 +55,18 @@ class TestTopologia(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEtiquetasConLaIpDeDatos(unittest.TestCase):
+    """24/11: la extensión de Containerlab enseña solo la IP de gestión (eth0). La de datos la pone un `exec`;
+    cada nodo la declara también como etiqueta `ip-<interfaz>` (se ve en su pestaña YAML), igual a su exec."""
+
+    def test_cada_ip_de_datos_esta_en_una_etiqueta_igual_a_su_exec(self):
+        import re
+        with open(TOPO, encoding="utf-8") as f:
+            nodos = yaml.safe_load(f)["topology"]["nodes"]
+        for nombre, n in nodos.items():
+            esperadas = {f"ip-{m.group(2)}": m.group(1) for c in (n or {}).get("exec") or []
+                         for m in [re.match(r"ip addr add (\S+) dev (\S+)$", c)] if m}
+            etiquetas = {k: v for k, v in ((n or {}).get("labels") or {}).items() if k.startswith("ip-")}
+            self.assertEqual(etiquetas, esperadas, nombre)
