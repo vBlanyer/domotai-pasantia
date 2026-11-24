@@ -167,13 +167,35 @@ function Revisar({ borrador, nombres, propuesta, falloPropuesta, rechazos, onCam
   rechazos: Rechazos
   onCambio: (ip: string, campo: keyof EquipoBorrador, valor: unknown) => void
 }) {
-  // «Depende de» se escribe como texto (con sus comas) y se guarda como lista: si el campo mostrara la lista
-  // ya limpia, la coma desaparecería al teclearla.
-  const [depTexto, setDepTexto] = useState<Record<string, string>>({})
   const ips = Object.keys(borrador.equipos).sort(porIp)
   const nombreDe = (ip: string) => borrador.equipos[ip]?.nombre || ip
   const cortafuegos = ips.filter((ip) => borrador.equipos[ip].papel === "cortafuegos" && borrador.equipos[ip].incluido)
   const malo = (ip: string, campo: string) => rechazos[ip]?.[campo]
+  // «Depende de»: se elige entre los equipos escaneados (se guarda su IP; el perfil exportado lleva su nombre).
+  // Cada dependencia, una etiqueta con el nombre en el SIEM o, si aún no lo tiene, la IP. Las antiguas, escritas
+  // por nombre, se enseñan tal cual.
+  const etiquetaDep = (d: string) => (borrador.equipos[d] ? nombreDe(d) : d)
+  const dependeDe = (ip: string, e: EquipoBorrador) => {
+    const candidatos = ips.filter((o) => o !== ip && !e.depende_de.includes(o)
+      && borrador.equipos[o].incluido && borrador.equipos[o].papel !== "cortafuegos")
+    return (
+      <div className="asr-deps">
+        {e.depende_de.map((d) => (
+          <span key={d} className="asr-chip">{etiquetaDep(d)}
+            <button type="button" aria-label={`Quitar la dependencia ${etiquetaDep(d)} de ${ip}`}
+              onClick={() => onCambio(ip, "depende_de", e.depende_de.filter((x) => x !== d))}>×</button>
+          </span>
+        ))}
+        {candidatos.length > 0 && (
+          <select className="asr-input asr-dep" aria-label={`Añadir dependencia de ${ip}`} value=""
+            onChange={(x) => { if (x.target.value) onCambio(ip, "depende_de", [...e.depende_de, x.target.value]) }}>
+            <option value="">+ añadir…</option>
+            {candidatos.map((o) => <option key={o} value={o}>{nombreDe(o)}</option>)}
+          </select>
+        )}
+      </div>
+    )
+  }
   // «Llega por»: el cortafuegos por el que se sale desde el equipo (el técnico lo indica si el traceroute no lo vio).
   const llegaPor = (ip: string, e: EquipoBorrador) => {
     const opciones = cortafuegos.filter((f) => f !== ip)
@@ -225,12 +247,7 @@ function Revisar({ borrador, nombres, propuesta, falloPropuesta, rechazos, onCam
                     <td><select className="asr-input" aria-label={`Criticidad de ${ip}`} value={e.criticidad} onChange={(x) => onCambio(ip, "criticidad", x.target.value)}>
                       {CRITICIDADES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></td>
                     <td>{fw ? "—" : <input type="checkbox" aria-label={`No tocar ${ip} directamente`} checked={e.no_tocar} onChange={(x) => onCambio(ip, "no_tocar", x.target.checked)} />}</td>
-                    <td>{fw ? "—" : <input className="asr-input asr-dep" aria-label={`Depende de (${ip})`} placeholder="nombres, con comas"
-                      value={depTexto[ip] ?? e.depende_de.join(", ")}
-                      onChange={(x) => {
-                        setDepTexto({ ...depTexto, [ip]: x.target.value })
-                        onCambio(ip, "depende_de", x.target.value.split(",").map((t) => t.trim()).filter(Boolean))
-                      }} />}</td>
+                    <td>{fw ? "—" : dependeDe(ip, e)}</td>
                   </tr>
                 )
               })}

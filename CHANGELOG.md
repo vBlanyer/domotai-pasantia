@@ -38,6 +38,11 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Asistente de red: «Depende de» se elige entre los equipos escaneados.** Antes se escribían nombres a mano,
+  separados por comas. Ahora cada dependencia es una etiqueta (nombre en el SIEM o, si aún no lo tiene, la IP)
+  y se añade desde un desplegable con los equipos incluidos. Se guarda por IP y el perfil exportado lleva el
+  nombre, así que renombrar después no la rompe. «Validar» avisa si depende de un equipo descartado o sin
+  nombre. Las dependencias antiguas escritas por nombre siguen valiendo.
 - **Asistente de red: una fila por equipo.** El cortafuegos que el MDR ve por su red de gestión (en el banco,
   fw-core por 10.100.0.1) queda fuera de los rangos escaneados, así que su huella SSH no se leía y sus puertas de
   enlace en cada subred (10.x.0.1) salían como equipos sueltos: 18 filas para 10 equipos. Ahora se lee también

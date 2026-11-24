@@ -24,6 +24,8 @@
 .asr-nombre { width: 150px; }
 .asr-zona, .asr-dep { width: 140px; }
 .asr-falta { border-color: var(--grave); box-shadow: 0 0 0 2px color-mix(in srgb, var(--grave) 20%, transparent); }
+.asr-deps { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-width: 160px; }
+.asr-deps .asr-chip { font-family: inherit; padding: 2px 4px 2px 8px; }
 .asr-chips, .asr-fila { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .asr-chip { font-family: ui-monospace, monospace; font-size: 12px; background: var(--muted); border: 1px solid var(--border);
   border-radius: 8px; padding: 4px 6px 4px 10px; display: inline-flex; gap: 6px; align-items: center; }

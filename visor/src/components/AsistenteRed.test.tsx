@@ -117,13 +117,32 @@ describe("AsistenteRed · lo revisado llega a la propuesta", () => {
     expect(llamadasTrasGuardar.length).toBeGreaterThan(0)
   })
 
-  it("«Depende de» deja escribir varias dependencias separadas por comas", async () => {
+  it("«Depende de» se elige entre los equipos escaneados: nombre si lo tiene, si no la IP", async () => {
     render(<AsistenteRed />)
-    const campo = screen.getByLabelText("Depende de (10.20.0.30)") as HTMLInputElement
-    fireEvent.change(campo, { target: { value: "srv-db01," } })
-    expect(campo.value).toBe("srv-db01,")
-    fireEvent.change(campo, { target: { value: "srv-db01, nas01" } })
-    await waitFor(() => expect(h.guardar).toHaveBeenCalledWith({ "10.20.0.30": { depende_de: ["srv-db01", "nas01"] } }), { timeout: 2000 })
+    const sel = screen.getByLabelText("Añadir dependencia de 10.20.0.30") as HTMLSelectElement
+    const textos = [...sel.options].map((o) => o.textContent)
+    expect(textos).toContain("srv-app01")                 // con nombre
+    expect(textos).not.toContain("10.20.0.30")            // no de sí mismo
+    expect(textos).not.toContain("fw-borde")              // ni de un cortafuegos
+    expect(textos).not.toContain("10.20.0.77")            // ni de uno descartado
+    fireEvent.change(sel, { target: { value: "10.20.0.10" } })
+    await waitFor(() => expect(h.guardar).toHaveBeenCalledWith({ "10.20.0.30": { depende_de: ["10.20.0.10"] } }), { timeout: 2000 })
+  })
+
+  it("cada dependencia sale como etiqueta y se quita con la ×", async () => {
+    h.est = { ...ESTADO, borrador: { ...BORRADOR, equipos: { ...BORRADOR.equipos,
+      "10.20.0.30": { ...BORRADOR.equipos["10.20.0.30"], depende_de: ["10.20.0.10", "srv-db01"] } } } }
+    render(<AsistenteRed />)
+    expect(screen.getByRole("button", { name: "Quitar la dependencia srv-app01 de 10.20.0.30" })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Quitar la dependencia srv-app01 de 10.20.0.30" }))
+    await waitFor(() => expect(h.guardar).toHaveBeenCalledWith({ "10.20.0.30": { depende_de: ["srv-db01"] } }), { timeout: 2000 })
+  })
+
+  it("sin nombre, la dependencia se ve por su IP", () => {
+    h.est = { ...ESTADO, borrador: { ...BORRADOR, equipos: { ...BORRADOR.equipos,
+      "10.20.0.10": { ...BORRADOR.equipos["10.20.0.10"], depende_de: ["10.20.0.30"] } } } }
+    render(<AsistenteRed />)
+    expect(screen.getByRole("button", { name: "Quitar la dependencia 10.20.0.30 de 10.20.0.10" })).toBeInTheDocument()
   })
 })
 

@@ -415,3 +415,42 @@ class TestBancoDiezFilas(unittest.TestCase):
 
     def test_sin_esa_huella_como_antes(self):
         self.assertEqual(len(a.borrador_inicial(self._desc(con_huella=False))["equipos"]), 18)
+
+
+class TestDependenciasPorIp(unittest.TestCase):
+    """24/11: «Depende de» se elige entre los equipos escaneados (por IP) y sale con su nombre en el perfil."""
+
+    def setUp(self):
+        self.b = _oficina()                    # 10.20.0.10 = srv-app01, 10.20.0.20 = srv-db01
+
+    def test_se_guarda_por_ip_y_el_perfil_lleva_el_nombre(self):
+        b = a.aplicar_cambios(self.b, {"10.20.0.10": {"depende_de": ["10.20.0.20"]}})
+        self.assertEqual(b["equipos"]["10.20.0.10"]["depende_de"], ["10.20.0.20"])
+        self.assertEqual(a.perfil_desde_borrador(b)["activos"]["srv-app01"]["depende_de"], ["srv-db01"])
+        self.assertEqual(a.validar(b, CAT)["errores"], [])
+
+    def test_renombrar_despues_no_rompe_la_dependencia(self):
+        b = a.aplicar_cambios(self.b, {"10.20.0.10": {"depende_de": ["10.20.0.20"]}})
+        b = a.aplicar_cambios(b, {"10.20.0.20": {"nombre": "bd-principal"}})
+        self.assertEqual(a.perfil_desde_borrador(b)["activos"]["srv-app01"]["depende_de"], ["bd-principal"])
+
+    def test_depender_de_uno_sin_nombre_o_descartado_es_un_error(self):
+        sin = a.aplicar_cambios(self.b, {"10.20.0.10": {"depende_de": ["10.20.0.20"]}, "10.20.0.20": {"nombre": ""}})
+        self.assertTrue(any("10.20.0.20" in x and "nombre" in x for x in a.validar(sin, CAT)["errores"]))
+        fuera = a.aplicar_cambios(self.b, {"10.20.0.10": {"depende_de": ["10.20.0.77"]}})
+        self.assertTrue(any("10.20.0.77" in x and "descartado" in x for x in a.validar(fuera, CAT)["errores"]))
+
+    def test_no_de_si_mismo_ni_de_una_ip_que_no_se_escaneo(self):
+        for dep in ("10.20.0.10", "10.20.0.99"):
+            with self.assertRaises(ValueError, msg=dep):
+                a.aplicar_cambios(self.b, {"10.20.0.10": {"depende_de": [dep]}})
+
+    def test_las_dependencias_por_nombre_siguen_valiendo(self):
+        self.assertEqual(a.perfil_desde_borrador(self.b)["activos"]["srv-web01"]["depende_de"], ["srv-app01"])
+
+    def test_al_reescanear_se_quitan_las_ip_que_ya_no_estan(self):
+        viejo = a.aplicar_cambios(self.b, {"10.20.0.10": {"depende_de": ["10.20.0.20", "10.20.0.30"]}})
+        desc = copy.deepcopy(DESC)
+        desc["equipos"] = [e for e in desc["equipos"] if e["ip"] != "10.20.0.30"]
+        nuevo = a.conservar_trabajo(viejo, a.borrador_inicial(desc))
+        self.assertEqual(nuevo["equipos"]["10.20.0.10"]["depende_de"], ["10.20.0.20"])

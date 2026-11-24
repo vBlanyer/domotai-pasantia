@@ -44,6 +44,20 @@ def _privada(ip):
     return a.is_private and not (a.is_loopback or a.is_link_local or a.is_unspecified or a.is_multicast)
 
 
+def _es_ip(x):
+    try:
+        ipaddress.IPv4Address(x)
+        return True
+    except ValueError:
+        return False
+
+
+def _nombre_dep(b, dep):
+    """Una dependencia se guarda por IP (la que se eligió en la consola) y sale con el nombre de ese equipo;
+    las antiguas, escritas por nombre, valen tal cual."""
+    return ((b["equipos"].get(dep) or {}).get("nombre") or None) if dep in b["equipos"] else dep
+
+
 def _subred(ip):
     return str(ipaddress.ip_network(f"{ip}/24", strict=False))
 
@@ -185,6 +199,13 @@ def _aplicar_uno(eq, ip, k, v):
     """Aplica UN campo sobre `eq` (in situ). ValueError si no vale; entonces no toca nada."""
     v = _normalizar(ip, k, v)
     e = eq[ip]
+    if k == "depende_de":
+        for x in v:
+            if _es_ip(x) and x == ip:
+                raise ValueError(f"{ip}.depende_de: un equipo no depende de sí mismo")
+            if _es_ip(x) and x not in eq:
+                raise ValueError(f"{ip}.depende_de: {x} no es un equipo del borrador")
+        v = list(dict.fromkeys(v))                       # sin repetidos, en el orden elegido
     if k == "gateway" and v is not None:
         fws = {x for x, o in eq.items() if o["papel"] == "cortafuegos"}
         if v == ip:
@@ -264,6 +285,7 @@ def conservar_trabajo(viejo, nuevo):
                 e[k] = copy.deepcopy(v[k])
         if e["papel"] == "cortafuegos":
             e["depende_de"] = []
+        e["depende_de"] = [x for x in e["depende_de"] if not _es_ip(x) or (x in eq and x != ip)]   # IPs que siguen
         gw = v.get("gateway")
         if gw in fws and gw != ip and e.get("gateway") is None and not (e["papel"] == "cortafuegos" and _cierra_ciclo(eq, ip, gw)):
             e.update({"gateway": gw, "sin_camino": False, "deducido": False})
@@ -311,8 +333,9 @@ def perfil_desde_borrador(b):
         activo = {"ip": ip, "criticidad": e["criticidad"], "servicios_prestados": list(e["servicios"])}
         if e["funcion"]:
             activo["funcion"] = e["funcion"]
-        if e["depende_de"]:
-            activo["depende_de"] = list(e["depende_de"])
+        deps = [n for n in (_nombre_dep(b, d) for d in e["depende_de"]) if n]
+        if deps:
+            activo["depende_de"] = deps
         activos[nombre] = activo
         if e["papel"] == "servidor" and gw and not e["no_tocar"]:
             topologia[nombre] = {"rol": "host_victima", "ip": ip, "gateway": gw}
@@ -369,7 +392,13 @@ def validar(b, catalogo):
                 for ip, e in sorted(inc.items()) if e["papel"] != "cortafuegos" and e.get("zona") == _ZONA_GESTION]
     for ip, e in inc.items():
         for dep in e["depende_de"]:
-            if dep not in nombres:
+            otro = b["equipos"].get(dep)
+            if otro is not None:                          # elegida en la consola: por IP
+                if not otro["incluido"]:
+                    errores.append(f"{e['nombre'] or ip}: depende de {dep}, que está descartado")
+                elif not otro["nombre"]:
+                    errores.append(f"{e['nombre'] or ip}: depende de {dep}, que aún no tiene nombre en el SIEM")
+            elif dep not in nombres:
                 errores.append(f"{e['nombre'] or ip}: depende de {dep}, que no está entre los equipos incluidos")
     for ciclo in _ciclos(inc, fws):
         errores.append(f"ciclo de cortafuegos: {' → '.join(_nombre_de(b, f) or f for f in ciclo)}: "
