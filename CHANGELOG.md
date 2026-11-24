@@ -38,6 +38,10 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **«Siguientes pasos» del asistente dice dónde lee ESTE MDR sus ficheros.** Decía `/etc/mdr/…` también en el
+  laboratorio. Ahora enseña las rutas reales del perfil, la postura y la política del daemon que corre (en el banco
+  como cliente nuevo, `run/banco-nuevo/…`).
+- **`mdr validar-politica` usa el `perfil.yml` que está junto a la política** si no se indica otro.
 - **El asistente avisa de un equipo del que solo se ve el SSH.** swift-alliance salía solo con el 22 (su servicio,
   48002, no está entre los 1000 puertos más comunes) y la postura exportada quedaba incompleta sin aviso. Ahora
   «Validar» lo avisa y sugiere volver a escanear con «Lista propia» incluyendo ese puerto.

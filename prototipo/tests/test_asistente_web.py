@@ -327,3 +327,12 @@ class TestRevision23_11(_Base):
         self.assertEqual(llamadas, [])
         _, est = self._req(srv, "GET", "/api/asistente")
         self.assertFalse(est["escaneando"])
+
+
+class TestRutasEnElResumen(_Base):
+    def test_el_resumen_dice_donde_instalar(self):
+        srv = self._srv()
+        srv.rutas_instalacion = {"perfil": "run/banco-nuevo/perfil.yml", "postura": "run/banco-nuevo/postura.json",
+                                 "politica": "run/banco-nuevo/politica.yml"}
+        _, est = self._req(srv, "GET", "/api/asistente")
+        self.assertEqual(est["instalacion"]["perfil"], "run/banco-nuevo/perfil.yml")

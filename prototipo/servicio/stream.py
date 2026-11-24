@@ -249,6 +249,14 @@ class ActividadMDR:
         return t is not None and self._reloj() - t <= self.VENTANA_SEG
 
 
+def rutas_instalacion(cfg, entorno):
+    """De dónde lee ESTE MDR su perfil, su postura y su política: el asistente de red las enseña en «Siguientes
+    pasos» (antes decía /etc/mdr/… también en el laboratorio). La política, la de TRIAJE_POLITICA o, sin ella,
+    junto al perfil."""
+    return {"perfil": cfg["perfil"], "postura": cfg["hallazgos"],
+            "politica": entorno.get("TRIAJE_POLITICA") or os.path.join(os.path.dirname(cfg["perfil"]), "politica.yml")}
+
+
 def marcar_conectividad(servidor, actividad):
     """Los SSH que lanza la vista Conectividad (probar, leer reglas, rotar la clave) también son actividad del
     MDR: su login llega a Wazuh como cualquier otro. Sin esto, cada «Probar» dejaba una decisión «no
@@ -1639,6 +1647,7 @@ def main(argv):
                                                                actividad.envolver(ejecutor))
         servidor.politica_info = politica_info      # la vista Políticas la enseña (versión, origen de cada valor)
         marcar_conectividad(servidor, actividad)    # sus SSH (probar, leer reglas…) también son actividad del MDR
+        servidor.rutas_instalacion = rutas_instalacion(cfg, os.environ)
         for linea in lineas_avisos_red(perfil):
             print(linea)
         if not cfg["agente"]:

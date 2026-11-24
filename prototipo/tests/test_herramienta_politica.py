@@ -33,6 +33,17 @@ class TestOrdenes(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn("válida", out)
 
+    def test_sin_perfil_usa_el_que_esta_junto_a_la_politica(self):
+        # 24/11: `mdr validar-politica run/banco-nuevo/politica.yml` pedía --perfil teniendo perfil.yml al lado.
+        d = tempfile.mkdtemp()
+        perfil = _fichero(d, "perfil.yml", {"activos": {}})
+        pol = _fichero(d, "politica.yml", {"respuesta_automatica": {"por_defecto": "con_analista"}})
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = hp.main(["validar", pol], env={})
+        self.assertEqual(rc, 0, buf.getvalue())
+        self.assertIn(perfil, buf.getvalue())                      # dice qué perfil usó
+
     def test_validar_un_fichero_ilegible_falla_sin_traceback(self):
         ruta = os.path.join(self.d, "politica.yml")
         with open(ruta, "w", encoding="utf-8") as f:

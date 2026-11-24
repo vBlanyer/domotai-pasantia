@@ -149,6 +149,7 @@ def resumen(srv, registros):
     except IlegibleError as e:
         desc, borrador, aviso = None, None, str(e)
     return {**srv.asistente_estado, "descubrimiento": desc, "borrador": borrador, "aviso_lectura": aviso,
+            "instalacion": getattr(srv, "rutas_instalacion", None),
             "nombres_siem": ar.nombres_del_siem(registros, base),
             "por_defecto": {"gestion": base.get("ip_gestion"), "rangos": list(base.get("redes_internas") or [])}}
 

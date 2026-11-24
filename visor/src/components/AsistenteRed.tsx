@@ -278,7 +278,9 @@ function Revisar({ borrador, nombres, propuesta, falloPropuesta, rechazos, onCam
   )
 }
 
-function Exportar({ propuesta, falloPropuesta }: { propuesta: PropuestaRed | null; falloPropuesta: string | null }) {
+function Exportar({ propuesta, falloPropuesta, instalacion }: {
+  propuesta: PropuestaRed | null; falloPropuesta: string | null; instalacion?: AsistenteEstado["instalacion"]
+}) {
   const [vista, setVista] = useState<"perfil" | "postura" | "politica">("perfil")
   if (!propuesta) return falloPropuesta
     ? <p className="asr-error" role="alert">No se pudo preparar la propuesta: {falloPropuesta}</p>
@@ -313,7 +315,15 @@ function Exportar({ propuesta, falloPropuesta }: { propuesta: PropuestaRed | nul
           <ol className="asr-que">
             <li>Revisa los ficheros y pásalos por el control de cambios del cliente.</li>
             <li>Compruébalo: <code>sudo mdr validar-perfil perfil.yml</code></li>
-            <li>Instálalos (<code>/etc/mdr/perfil.yml</code>, <code>/var/lib/mdr/postura.json</code>, y la política cuando la apruebe Seguridad) y reinicia el servicio.</li>
+            {instalacion ? (
+              <li>Instálalos donde los lee este MDR y reinícialo:
+                <ul className="asr-lista">
+                  <li><code>perfil.yml</code> → <code>{instalacion.perfil}</code></li>
+                  <li><code>postura.json</code> → <code>{instalacion.postura}</code></li>
+                  <li><code>politica.yml</code> → <code>{instalacion.politica}</code> (cuando la apruebe Seguridad)</li>
+                </ul>
+              </li>
+            ) : <li>Instálalos (<code>/etc/mdr/perfil.yml</code>, <code>/var/lib/mdr/postura.json</code>, y la política cuando la apruebe Seguridad) y reinicia el servicio.</li>}
             <li>En Conectividad, da de alta cada equipo: paquete de alta, huella SSH y prueba.</li>
           </ol>
         </section>
@@ -430,7 +440,7 @@ export function AsistenteRed() {
       {actual === 1 && <Escanear est={est} />}
       {actual === 2 && borrador && <Revisar borrador={borrador} nombres={est.nombres_siem} propuesta={propuesta}
         falloPropuesta={falloPropuesta} rechazos={rechazos} onCambio={cambiar} />}
-      {actual === 3 && <Exportar propuesta={propuesta} falloPropuesta={falloPropuesta} />}
+      {actual === 3 && <Exportar propuesta={propuesta} falloPropuesta={falloPropuesta} instalacion={est.instalacion} />}
     </div>
   )
 }

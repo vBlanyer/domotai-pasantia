@@ -2163,3 +2163,18 @@ class TestConectividadEsActividadPropia(unittest.TestCase):
 
     def test_sin_servidor_no_hace_nada(self):
         stream.marcar_conectividad(None, stream.ActividadMDR())
+
+
+class TestRutasDeInstalacion(unittest.TestCase):
+    """24/11: «Siguientes pasos» del asistente decía /etc/mdr/… también en el laboratorio; ahora enseña de dónde
+    lee ESTE MDR su perfil, su postura y su política."""
+
+    def test_las_del_daemon(self):
+        r = stream.rutas_instalacion({"perfil": "run/banco-nuevo/perfil.yml", "hallazgos": "run/banco-nuevo/postura.json"}, {})
+        self.assertEqual(r, {"perfil": "run/banco-nuevo/perfil.yml", "postura": "run/banco-nuevo/postura.json",
+                             "politica": "run/banco-nuevo/politica.yml"})
+
+    def test_la_politica_de_triaje_politica_si_esta_fijada(self):
+        r = stream.rutas_instalacion({"perfil": "/etc/mdr/perfil.yml", "hallazgos": "/var/lib/mdr/postura.json"},
+                                     {"TRIAJE_POLITICA": "/etc/mdr/politica.yml"})
+        self.assertEqual(r["politica"], "/etc/mdr/politica.yml")

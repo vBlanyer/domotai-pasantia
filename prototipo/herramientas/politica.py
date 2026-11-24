@@ -178,6 +178,12 @@ def main(argv=None, env=None):
     p.add_argument("--perfil", default=env.get("TRIAJE_PERFIL"))
     p.add_argument("--salida", default=env.get("TRIAJE_POLITICA") or "/etc/mdr/politica.yml")
     a = ap.parse_args(argv)
+    if not a.perfil and getattr(a, "politica", None):
+        # lo habitual: perfil.yml junto a la política (run/banco-nuevo/, /etc/mdr/)
+        junto = os.path.join(os.path.dirname(os.path.abspath(a.politica)), "perfil.yml")
+        if os.path.isfile(junto):
+            a.perfil = junto
+            print(f"perfil: {junto} (el que está junto a la política)")
     if not a.perfil:
         print("indica el perfil (--perfil o TRIAJE_PERFIL)")
         return 1

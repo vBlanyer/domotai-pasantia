@@ -261,6 +261,16 @@ describe("AsistenteRed · revisión del 23/11", () => {
     expect(screen.queryByText(/fuera de la cadena/)).not.toBeInTheDocument()          // los demás avisos, en Validar
   })
 
+  it("«Siguientes pasos» dice dónde lee ESTE MDR sus ficheros (24/11: decía /etc/mdr también en el laboratorio)", async () => {
+    h.est = { ...ESTADO, instalacion: { perfil: "run/banco-nuevo/perfil.yml", postura: "run/banco-nuevo/postura.json",
+      politica: "run/banco-nuevo/politica.yml" } }
+    render(<AsistenteRed />)
+    fireEvent.click(screen.getByRole("tab", { name: /Validar y exportar/ }))
+    expect(await screen.findByText("run/banco-nuevo/perfil.yml")).toBeInTheDocument()
+    expect(screen.getByText("run/banco-nuevo/postura.json")).toBeInTheDocument()
+    expect(screen.queryByText("/etc/mdr/perfil.yml")).not.toBeInTheDocument()
+  })
+
   it("avisa en Revisar de que hay un escaneo en marcha", () => {
     h.est = { ...ESTADO, escaneando: true }
     render(<AsistenteRed />)

@@ -469,6 +469,8 @@ export const AsistenteEstadoSchema = z.object({
                              externo: z.string() }).passthrough().nullable(),
   borrador: BorradorRedSchema.nullable(), nombres_siem: z.array(z.string()),
   aviso_lectura: z.string().nullable().optional(),       // un fichero del asistente que no se puede leer, y por qué
+  // de dónde lee ESTE MDR su perfil, postura y política (para «Siguientes pasos»)
+  instalacion: z.object({ perfil: z.string(), postura: z.string(), politica: z.string() }).nullable().optional(),
   por_defecto: z.object({ gestion: z.string().nullable(), rangos: z.array(z.string()) }),
 }).transform(({ error, ...resto }) => ({ ...resto, error_escaneo: error }))
 export type AsistenteEstado = z.output<typeof AsistenteEstadoSchema>
