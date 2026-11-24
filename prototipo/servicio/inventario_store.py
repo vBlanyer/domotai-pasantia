@@ -102,6 +102,43 @@ def _nombres_e_ips(perfil, inventario):
     return nombres, ips
 
 
+def _ips_del_perfil(perfil):
+    """{nombre: ip} de los equipos del perfil (activos y topología)."""
+    out = {}
+    for fuente in ((perfil or {}).get("activos") or {}, (perfil or {}).get("topologia") or {}):
+        for n, v in fuente.items():
+            if isinstance(v, dict) and v.get("ip"):
+                out.setdefault(n, str(v["ip"]))
+    return out
+
+
+def seguir_por_ip(perfil, inventario):
+    """(inventario, renombrados, cambiado): el papel de un equipo del perfil sigue a su IP. Se apunta la IP de
+    cada uno; si el perfil le da otro nombre a esa IP (se renombró), su entrada pasa al nombre nuevo, salvo que
+    ese ya tenga la suya. Los equipos nuevos de Conectividad (`nuevo`) llevan su IP y su nombre: no se tocan.
+    Antes, renombrar en el perfil dejaba el papel huérfano y obligaba a repetir el alta (24/11)."""
+    ips = _ips_del_perfil(perfil)
+    por_ip = {}
+    for n, ip in ips.items():
+        por_ip.setdefault(ip, n)
+    equipos = copy.deepcopy((inventario or {}).get("equipos") or {})
+    renombrados, cambiado = [], False
+    for n in sorted(equipos):
+        e = equipos[n]
+        if e.get("nuevo"):
+            continue
+        if n in ips:
+            if e.get("ip") != ips[n]:
+                e["ip"], cambiado = ips[n], True
+            continue
+        otro = por_ip.get(str(e.get("ip") or ""))
+        if otro and otro not in equipos:
+            equipos[otro] = {**equipos.pop(n), "ip": ips[otro]}
+            renombrados.append((n, otro))
+            cambiado = True
+    return {"equipos": equipos}, renombrados, cambiado
+
+
 def zonas(perfil):
     return list(((perfil or {}).get("red") or {}).get("zonas") or {})
 

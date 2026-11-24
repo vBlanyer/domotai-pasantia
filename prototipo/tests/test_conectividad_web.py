@@ -186,6 +186,24 @@ class TestPermisosAltaYRotacion(_Base):
     """Probar exige operador; freno por equipo; auditoría; pruebas en disco; alta en dos tiempos; rotación."""
     CAT = None
 
+    def test_renombrar_un_equipo_en_el_perfil_conserva_su_papel(self):
+        # 24/11: el inventario guarda el papel por nombre; al renombrar en el perfil quedaba huérfano.
+        import yaml
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, "inventario-operativo.yml"), "w") as f:
+            yaml.safe_dump({"equipos": {"db-viejo": {"papel": "servidor", "acciones": ["BLOQUEAR_IP"], "nuevo": False,
+                                                     "ip": "10.0.20.10"}}}, f)
+        srv = tablero.crear_servidor(tablero.EstadoTablero(), os.path.join(d, "t.jsonl"), puerto=0,
+                                     estaticos=tempfile.mkdtemp(), perfil=json.loads(json.dumps(PERFIL)),
+                                     ruta_conectividad=os.path.join(d, "conectividad.yml"),
+                                     ruta_auditoria_conectividad=os.path.join(d, "au.jsonl"))
+        self.addCleanup(srv.server_close)
+        self.assertEqual(srv._perfil_base["papeles_equipo"]["db-core"]["papel"], "servidor")
+        with open(os.path.join(d, "inventario-operativo.yml")) as f:
+            self.assertEqual(sorted(yaml.safe_load(f)["equipos"]), ["db-core"])
+        with open(os.path.join(d, "au.jsonl")) as f:
+            self.assertIn("db-viejo", f.read())                                   # queda en el registro
+
     def _srv_cat(self, **kw):
         from prototipo.accion import catalogo
         srv = self._srv(**kw)

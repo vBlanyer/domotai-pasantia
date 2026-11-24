@@ -49,7 +49,20 @@ def instalar(srv, ruta, ruta_auditoria):
     srv.ruta_rotacion = cx.ruta_rotacion(ruta) if ruta else None
     srv._perfil_canonico = srv._perfil_base
     if srv.ruta_inventario:
+        _seguir_por_ip(srv)
         srv._perfil_base = inv.fusionar(srv._perfil_canonico, inv.cargar(srv.ruta_inventario))
+
+
+def _seguir_por_ip(srv):
+    """El papel de cada equipo sigue a su IP: renombrarlo en el perfil no lo deja huérfano (24/11)."""
+    if not os.path.exists(srv.ruta_inventario):
+        return
+    nuevo, renombrados, cambiado = inv.seguir_por_ip(srv._perfil_canonico, inv.cargar(srv.ruta_inventario))
+    if not cambiado:
+        return
+    inv.guardar(srv.ruta_inventario, nuevo)
+    for viejo, actual in renombrados:
+        _auditar(srv, "mdr", "inventario_renombrado", actual, viejo, actual)
 
 
 def _reaplicar_perfil(srv):
@@ -543,7 +556,7 @@ def _post_inventario(srv, cuerpo, operador):
         if existente and existente["protegido"]:
             return 400, {"error": "equipo protegido (canal de gestión del MDR): no se configura desde aquí"}
         if existente and not (previo or {}).get("nuevo"):
-            nuevo = {**reglas, "nuevo": False}                         # equipo del perfil: solo su papel
+            nuevo = {**reglas, "nuevo": False, "ip": existente.get("ip")}   # equipo del perfil: su papel (y su IP: lo sigue)
         elif previo and previo.get("nuevo") and previo.get("estado") == "activo":
             nuevo = {**previo, **reglas}                               # ya dado de alta: solo su papel
         else:

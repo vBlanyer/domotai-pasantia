@@ -38,6 +38,10 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Renombrar un equipo después del alta ya no obliga a repetirla.** Conectividad guardaba el papel de un equipo del
+  perfil por su nombre, así que renombrarlo en el perfil lo dejaba huérfano. Ahora guarda también su IP y, al arrancar,
+  si el perfil le da otro nombre a esa IP, el papel pasa al nombre nuevo (queda en el registro). La huella, el puerto y
+  las pruebas ya iban por IP. Renombrar es: corregirlo en el asistente, exportar e instalar el perfil, y reiniciar.
 - **La huella dice de qué tipo es.** El paquete de alta imprimía dos huellas (ED25519 y RSA) y la consola enseñaba
   la ED25519 sin decirlo, así que era fácil comparar la que no tocaba. Ahora el paquete imprime solo la que se compara,
   marcada «(ED25519)» (o la RSA si el equipo no tiene otra), y la consola dice con qué línea compararla.
