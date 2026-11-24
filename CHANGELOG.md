@@ -38,6 +38,14 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Conectividad guía el alta de un equipo del perfil.** Para un equipo que viene del perfil (por ejemplo, exportado
+  por el asistente de red) y aún no tiene la huella fijada, la ficha enseñaba primero «Fijar la clave del host», que
+  es el último paso, y el paquete estaba escondido en «Papel y reglas → Editar». Ahora enseña «Alta pendiente» con
+  «Dar de alta», que abre los pasos en orden: papel y reglas, paquete de alta y verificar. Este último fija la
+  huella confirmada y prueba la conexión.
+- **Un solo botón para probar.** Sin cambios en el puerto o el usuario, la ficha ofrece «Probar la conexión».
+  «Probar y guardar» y «Probar sin guardar» salen solo al cambiar un ajuste (antes la primera prueba era «Probar sin
+  guardar», con el otro en gris, y no se encontraba).
 - **El paquete de alta comprueba que está en su equipo antes de tocar nada.** El de api-movil se ejecutó en
   web-banking y dejó allí el usuario y el sudoers de otro equipo; solo la huella lo destapó al final. Ahora, si la
   máquina no tiene la IP de su equipo, se para sin instalar nada y dice dónde ejecutarlo. Detrás de NAT,

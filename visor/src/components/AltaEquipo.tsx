@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import {
-  guardarInventario, getPaquete, leerClaveHost, aceptarClaveHost, darDeAlta,
+  guardarInventario, getPaquete, leerClaveHost, aceptarClaveHost, darDeAlta, probarConexion,
   type Conectividad as Datos, type EquipoConectividad, type FormatoPaquete, type PruebaConexion,
 } from "@/api"
 import { useToast } from "@/components/ui/use-toast"
@@ -31,11 +31,14 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
   d: Datos; equipo?: EquipoConectividad | null; pasoInicial?: Paso; onCerrar: () => void; onCambio: () => void
 }) {
   const toast = useToast()
-  const existente = !!equipo && equipo.alta !== "pendiente"        // solo su papel y reglas
+  // Un equipo del perfil sin huella fijada (p. ej. exportado por el asistente de red): su alta, sin inventario
+  // (ya está en el perfil): papel → paquete → huella y prueba.
+  const primeraVez = !!equipo && equipo.alta !== "pendiente" && !equipo.huella_fijada && !equipo.protegido
+  const existente = !!equipo && equipo.alta !== "pendiente" && !primeraVez   // solo su papel y reglas
   const nuevo = !equipo || equipo.alta === "pendiente"
   const papeles = d.papeles ?? []
   const acciones = d.acciones ?? []
-  const [paso, setPaso] = useState<Paso>(pasoInicial ?? (existente ? 2 : 1))
+  const [paso, setPaso] = useState<Paso>(pasoInicial ?? (existente || primeraVez ? 2 : 1))
   const [nombre, setNombre] = useState(equipo?.nombre ?? "")
   const [ip, setIp] = useState(equipo?.ip ?? "")
   const [zona, setZona] = useState(equipo?.zona ?? d.zonas?.[0] ?? "")
@@ -98,6 +101,17 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
       const a = await aceptarClaveHost(nombre, host.presentada, !!host.fijada)
       if (a.status !== 200) { setOcupado(false); setError(String(a.datos.error ?? `HTTP ${a.status}`)); return }
     }
+    if (primeraVez) {
+      // ya está en el perfil: con la huella fijada, la prueba completa es su alta
+      const p = await probarConexion(nombre, {})
+      setOcupado(false)
+      if (p.status === 200) setPrueba(p.datos as unknown as PruebaConexion)
+      onCambio()
+      if (p.status === 200 && (p.datos as { ok?: boolean }).ok) {
+        toast({ type: "success", title: `${nombre} dado de alta`, description: "Verificado: el motor ya puede contener en él." }); onCerrar()
+      } else setError(p.status === 200 ? "la prueba no pasa: revisa sus pasos" : String(p.datos.error ?? `HTTP ${p.status}`))
+      return
+    }
     const r = await darDeAlta(nombre, host.presentada)
     setOcupado(false)
     if (r.datos.prueba) setPrueba(r.datos.prueba as PruebaConexion)
@@ -118,6 +132,7 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
 
   const pasos: { n: Paso; t: string }[] = existente
     ? [{ n: 2, t: "Papel y reglas" }, { n: 3, t: "Paquete de corrección" }]
+    : primeraVez ? [{ n: 2, t: "Papel y reglas" }, { n: 3, t: "Paquete de alta" }, { n: 4, t: "Verificar y dar de alta" }]
     : [{ n: 1, t: "Inventario" }, { n: 2, t: "Papel y reglas" }, { n: 3, t: "Paquete de alta" }, { n: 4, t: "Verificar y dar de alta" }]
   return (
     <Capa titulo={existente ? `Papel y reglas de ${nombre}` : equipo ? `Alta de ${nombre}` : "Añadir equipo"} onCerrar={onCerrar}>
@@ -127,7 +142,7 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
             className={cn("flex flex-1 items-center gap-2 border-r border-border px-4 py-2.5 text-[12.5px] last:border-r-0",
               p.n === paso ? "bg-primary/7 font-semibold" : "text-muted-foreground")}>
             <span className={cn("grid size-[22px] shrink-0 place-items-center rounded-full text-[11.5px]",
-              p.n < paso ? "bg-ok/18 text-ok" : p.n === paso ? "bg-primary text-primary-foreground" : "bg-muted")}>{p.n < paso ? "✓" : p.n - (existente ? 1 : 0)}</span>{p.t}
+              p.n < paso ? "bg-ok/18 text-ok" : p.n === paso ? "bg-primary text-primary-foreground" : "bg-muted")}>{p.n < paso ? "✓" : p.n - (existente || primeraVez ? 1 : 0)}</span>{p.t}
           </li>
         ))}
       </ol>
@@ -187,7 +202,7 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
                   Cualquier cuenta salvo las del sistema (para las que crea el atacante)</label></Etiqueta>
             </div>
             <div className="flex justify-between">
-              {!existente ? <Boton onClick={() => setPaso(1)}>Atrás</Boton> : <span />}
+              {!existente && !primeraVez ? <Boton onClick={() => setPaso(1)}>Atrás</Boton> : <span />}
               <Boton tono="pri" onClick={guardarReglas} disabled={ocupado || elegidas.size === 0}>{ocupado ? "Guardando…" : existente ? "Guardar y generar el paquete de corrección" : "Generar el paquete de alta"}</Boton>
             </div>
           </>

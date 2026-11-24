@@ -47,7 +47,6 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
   const [host, setHost] = useState<{ fijada?: string | null; presentada?: string | null; coincide?: boolean } | null>(null)
   const [confirmar, setConfirmar] = useState(false)
   const [quitar, setQuitar] = useState(false)
-  const [coincide, setCoincide] = useState(false)
   const defecto = d.usuario_defecto ?? d.usuario_entorno
   const puertoNum = /^\d+$/.test(puerto) ? Number(puerto) : NaN
   const puertoOk = puertoNum >= 1 && puertoNum <= 65535
@@ -133,17 +132,14 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
       )}
 
       {sinFijar && (
-        <Seccion titulo="Fijar la clave del host">
-          <div className="space-y-2 rounded-md border border-aviso/40 bg-aviso/10 px-3 py-2.5 text-[13px]">
-            <p>El conector solo entra en un equipo cuya clave del host está fijada. Léela del equipo y compárala con la huella que imprimió su paquete de alta al ejecutarse en el equipo.</p>
-            {!puede ? <Bloqueado accion="Fijar la clave del host" motivo={MOTIVO_CORTO} />
-              : !host ? <Boton onClick={leer} disabled={ocupado !== null}>{ocupado === "leer" ? "Leyendo…" : "Leer la clave del equipo"}</Boton>
-              : !host.presentada ? <p className="text-critico">El equipo no respondió: comprueba que sshd está en marcha y que la red llega.</p>
-              : <>
-                <p className="rounded border border-border bg-card px-2 py-1.5 font-mono text-xs [overflow-wrap:anywhere]">{host.presentada}</p>
-                <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={coincide} onChange={(x) => setCoincide(x.target.checked)} />Coincide con la que imprimió el equipo</label>
-                <Boton tono="pri" onClick={() => aceptar()} disabled={!coincide || ocupado !== null}>{ocupado === "aceptar" ? "Fijando…" : "Fijar esta clave"}</Boton>
-              </>}
+        // Un equipo del perfil (p. ej. exportado por el asistente de red) al que el MDR aún no tiene acceso: el alta
+        // guiada (papel → paquete → huella y prueba). Antes la ficha enseñaba primero «Fijar la clave del host», que
+        // es el último paso, y el paquete estaba escondido en «Papel y reglas → Editar» (24/11).
+        <Seccion titulo="Alta pendiente">
+          <p className="text-[13px]">Está en el perfil, pero el MDR aún no tiene acceso: elige su papel, ejecuta su paquete de alta en el equipo, compara su huella y prueba la conexión.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {puede ? <Boton tono="pri" onClick={() => onAsistente({ equipo: e, paso: 2 })}>Dar de alta {e.nombre}</Boton>
+              : <Bloqueado accion="Dar de alta" motivo={MOTIVO_CORTO} />}
           </div>
         </Seccion>
       )}
@@ -229,12 +225,16 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
         <div className="space-y-2 bg-muted px-4 py-3">
           {puede ? (
             <div className="flex flex-wrap gap-2">
-              <Boton tono="pri" onClick={guardar} disabled={!cambiado || !puertoOk || ocupado !== null}>{ocupado === "guardar" ? "Probando…" : "Probar y guardar"}</Boton>
-              <Boton onClick={probar} disabled={!puertoOk || ocupado !== null}>{ocupado === "probar" ? "Probando…" : "Probar sin guardar"}</Boton>
-              <Boton onClick={() => { setPuerto(String(e.puerto)); setUsuario("") }} disabled={!cambiado || ocupado !== null}>Descartar</Boton>
+              {/* Sin cambios, un solo botón: la prueba de siempre. Con un puerto o usuario nuevos, probarlos y guardarlos
+                  (o solo probarlos). Antes la primera prueba era «Probar sin guardar» y no se encontraba (24/11). */}
+              {cambiado ? <>
+                <Boton tono="pri" onClick={guardar} disabled={!puertoOk || ocupado !== null}>{ocupado === "guardar" ? "Probando…" : "Probar y guardar"}</Boton>
+                <Boton onClick={probar} disabled={!puertoOk || ocupado !== null}>{ocupado === "probar" ? "Probando…" : "Probar sin guardar"}</Boton>
+                <Boton onClick={() => { setPuerto(String(e.puerto)); setUsuario("") }} disabled={ocupado !== null}>Descartar</Boton>
+              </> : <Boton tono="pri" onClick={probar} disabled={ocupado !== null}>{ocupado === "probar" ? "Probando…" : "Probar la conexión"}</Boton>}
             </div>
           ) : <Bloqueado accion="Probar y cambiar ajustes" motivo={MOTIVO_CORTO} />}
-          {puede && <p className="text-[11.5px] text-muted-foreground">Se guarda solo si la prueba pasa. Cada prueba y cada cambio quedan en el registro con tu operador.</p>}
+          {puede && <p className="text-[11.5px] text-muted-foreground">{cambiado ? "Se guarda solo si la prueba pasa. " : ""}Cada prueba y cada cambio quedan en el registro con tu operador.</p>}
         </div>
       )}
 

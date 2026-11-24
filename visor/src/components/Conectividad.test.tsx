@@ -65,7 +65,7 @@ describe("Conectividad", () => {
     await screen.findByText("SHA256:CONECTOR")
     expect(screen.getByRole("status")).toHaveTextContent("Consola abierta. Puedes ver la configuración. Probar y cambiar exige un token de operador")
     expect(screen.getByLabelText("Puerto")).toBeDisabled()
-    for (const b of ["Probar y guardar", "Probar sin guardar", "+ Añadir equipo", "Probar todos", "Volver a leer del equipo"])
+    for (const b of ["Probar la conexión", "Probar y guardar", "Probar sin guardar", "+ Añadir equipo", "Probar todos", "Volver a leer del equipo"])
       expect(screen.queryByRole("button", { name: b })).not.toBeInTheDocument()
     expect(screen.getByText(/Probar y cambiar ajustes · exige tu token de operador/)).toBeInTheDocument()   // candado con motivo
   })
@@ -82,11 +82,13 @@ describe("Conectividad", () => {
     expect(await screen.findByText("No se guardó: la prueba falló")).toBeInTheDocument()
   })
 
-  it("«Probar sin guardar» enseña los pasos", async () => {
+  it("sin cambios hay un solo botón, «Probar la conexión», que enseña los pasos (24/11: la primera prueba no se encontraba)", async () => {
     h.probar.mockResolvedValue({ status: 200, datos: PRUEBA_OK })
     render(vista())
     await screen.findByText("SHA256:CONECTOR")
-    fireEvent.click(screen.getByRole("button", { name: "Probar sin guardar" }))
+    expect(screen.queryByRole("button", { name: "Probar y guardar" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Probar sin guardar" })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Probar la conexión" }))
     expect(await screen.findByText("sudo deniega lo que está fuera del catálogo")).toBeInTheDocument()
     expect(h.probar).toHaveBeenCalledWith("fw-core", { puerto: null, usuario: null })
   })
@@ -156,19 +158,32 @@ describe("Conectividad", () => {
     await waitFor(() => expect(h.generar).toHaveBeenCalledWith("rsa"))
   })
 
-  it("la primera clave del host se fija sin el aviso de «cambiada» y solo confirmando la huella", async () => {
+  it("un equipo del perfil sin huella se da de alta paso a paso: papel → paquete → huella y prueba (24/11)", async () => {
     h.leer.mockResolvedValue({ status: 200, datos: { fijada: null, presentada: "SHA256:PRIMERA", coincide: false } })
     h.aceptar.mockResolvedValue({ status: 200, datos: { huella: "SHA256:PRIMERA" } })
+    h.inventario.mockResolvedValue({ status: 200, datos: { equipo: "fw-core", alta: null } })
+    h.paquete.mockResolvedValue({ nombre: "alta-fw-core.sh", contenido: "#!/bin/sh", formato: "script" })
+    h.probar.mockResolvedValue({ status: 200, datos: PRUEBA_OK })
     h.datos = base({ equipos: [equipo({ huella_fijada: null })] })
     render(vista())
     await screen.findByText("SHA256:CONECTOR")
-    fireEvent.click(region().getByRole("button", { name: "Leer la clave del equipo" }))
-    expect(await region().findByText("SHA256:PRIMERA")).toBeInTheDocument()
-    expect(region().queryByText(/presenta una clave distinta de la fijada/)).not.toBeInTheDocument()
-    expect(region().getByRole("button", { name: "Fijar esta clave" })).toBeDisabled()
-    fireEvent.click(region().getByRole("checkbox", { name: "Coincide con la que imprimió el equipo" }))
-    fireEvent.click(region().getByRole("button", { name: "Fijar esta clave" }))
+    expect(region().getByText(/Alta pendiente/)).toBeInTheDocument()
+    expect(region().queryByRole("button", { name: "Fijar esta clave" })).not.toBeInTheDocument()   // ya no es lo primero que se ve
+    fireEvent.click(region().getByRole("button", { name: "Dar de alta fw-core" }))
+    const capa = within(screen.getByRole("dialog"))
+    expect(capa.getByText("Alta de fw-core")).toBeInTheDocument()
+    expect(capa.getAllByRole("listitem").map((l) => l.textContent)).toEqual(["1Papel y reglas", "2Paquete de alta", "3Verificar y dar de alta"])
+    fireEvent.click(capa.getByRole("button", { name: "Generar el paquete de alta" }))
+    expect(await capa.findByRole("button", { name: /Descargar alta-fw-core\.sh/ })).toBeInTheDocument()
+    fireEvent.click(capa.getByRole("button", { name: "Ya está ejecutado" }))
+    fireEvent.click(capa.getByRole("button", { name: "Leer la clave del equipo" }))
+    expect(await capa.findByText("SHA256:PRIMERA")).toBeInTheDocument()
+    expect(capa.getByRole("button", { name: "Dar de alta fw-core" })).toBeDisabled()              // sin confirmar la huella, no
+    fireEvent.click(capa.getByRole("checkbox", { name: "Coincide con la que imprimió el equipo" }))
+    fireEvent.click(capa.getByRole("button", { name: "Dar de alta fw-core" }))
     await waitFor(() => expect(h.aceptar).toHaveBeenCalledWith("fw-core", "SHA256:PRIMERA", false))
+    await waitFor(() => expect(h.probar).toHaveBeenCalledWith("fw-core", {}))                     // fija Y prueba
+    expect(h.alta).not.toHaveBeenCalled()                                                         // no es un alta del inventario
   })
 
   it("el asistente manda «cualquier cuenta salvo las del sistema»", async () => {
