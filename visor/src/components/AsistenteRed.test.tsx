@@ -253,6 +253,14 @@ describe("AsistenteRed · revisión del 23/11", () => {
     expect(await screen.findByText(/No se pudo preparar la propuesta/)).toBeInTheDocument()
   })
 
+  it("en Revisar avisa de un nombre que el SIEM no conoce, con el parecido", async () => {
+    h.propuesta.mockResolvedValue(PROP([], ["«web-backing» (10.10.0.10) aún no ha llegado en ninguna alerta del SIEM: comprueba que es el nombre con que lo envía (¿quizá «web-banking»?)",
+      "srv-db01 está fuera de la cadena de contención"]))
+    render(<AsistenteRed />)
+    expect(await screen.findByText(/¿quizá «web-banking»\?/)).toBeInTheDocument()
+    expect(screen.queryByText(/fuera de la cadena/)).not.toBeInTheDocument()          // los demás avisos, en Validar
+  })
+
   it("avisa en Revisar de que hay un escaneo en marcha", () => {
     h.est = { ...ESTADO, escaneando: true }
     render(<AsistenteRed />)

@@ -454,3 +454,33 @@ class TestDependenciasPorIp(unittest.TestCase):
         desc["equipos"] = [e for e in desc["equipos"] if e["ip"] != "10.20.0.30"]
         nuevo = a.conservar_trabajo(viejo, a.borrador_inicial(desc))
         self.assertEqual(nuevo["equipos"]["10.20.0.10"]["depende_de"], ["10.20.0.20"])
+
+
+class TestNombresQueElSiemNoConoce(unittest.TestCase):
+    """24/11: «web-packing» pasó sin aviso; las alertas de ese equipo llegan como «web-banking»."""
+
+    def test_avisa_y_sugiere_el_parecido(self):
+        b = a.aplicar_cambios(_oficina(), {"172.16.10.10": {"nombre": "srv-wb01"}})
+        vistos = {"srv-web01", "srv-app01", "srv-db01", "fw-borde"}
+        avisos = a.validar(b, CAT, vistos=vistos)["avisos"]
+        self.assertTrue(any("srv-wb01" in x and "SIEM" in x and "srv-web01" in x for x in avisos), avisos)
+        self.assertEqual(a.validar(b, CAT, vistos=vistos)["errores"], [])          # aviso, no error
+
+    def test_los_que_si_llegan_no_se_avisan(self):
+        avisos = a.validar(_oficina(), CAT, vistos={"srv-web01", "srv-app01"})["avisos"]
+        self.assertFalse([x for x in avisos if x.startswith("«srv-web01»")])
+        self.assertTrue([x for x in avisos if x.startswith("«srv-db01»")])
+
+    def test_no_sugiere_un_nombre_que_ya_lleva_otro_equipo(self):
+        avisos = a.validar(_oficina(), CAT, vistos={"srv-web01", "srv-app01"})["avisos"]
+        db = next(x for x in avisos if x.startswith("«srv-db01»"))
+        self.assertNotIn("quizá", db)                           # srv-web01 se parece, pero ya es de 172.16.10.10
+
+    def test_sin_ninguna_alerta_todavia_no_avisa_de_nada(self):
+        self.assertFalse([x for x in a.validar(_oficina(), CAT, vistos=set())["avisos"] if "SIEM" in x])
+
+    def test_los_nombres_vistos_salen_de_la_traza(self):
+        regs = [{"tipo": "decision", "activo": "web-banking"}, {"tipo": "actividad_propia", "activo": "api-movil"},
+                {"tipo": "actividad_suprimida", "clave": {"activo": "core-db"}}, {"activo": "desconocido"},
+                {"tipo": "auditoria_asistente", "activo": "x"}]
+        self.assertEqual(a.nombres_vistos(regs), {"web-banking", "api-movil", "core-db"})

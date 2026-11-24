@@ -38,6 +38,10 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **El asistente avisa de un nombre que el SIEM no conoce.** «web-packing» pasó sin aviso, y las alertas de ese
+  equipo llegan como «web-banking». En cuanto hay alertas en la traza, se avisa de cada equipo cuyo nombre no ha
+  llegado en ninguna, con el parecido que aún no lleva otro equipo («¿quizá «web-banking»?»). Se ve ya en «Revisar
+  lo encontrado», mientras se escriben los nombres.
 - **Conectividad guía el alta de un equipo del perfil.** Para un equipo que viene del perfil (por ejemplo, exportado
   por el asistente de red) y aún no tiene la huella fijada, la ficha enseñaba primero «Fijar la clave del host», que
   es el último paso, y el paquete estaba escondido en «Papel y reglas → Editar». Ahora enseña «Alta pendiente» con

@@ -229,7 +229,7 @@ def post(srv, ruta, cuerpo, operador):
     return 404, {"error": "no encontrado"}
 
 
-def propuesta(srv, estado_red):
+def propuesta(srv, estado_red, registros=()):
     """GET /api/asistente/propuesta: los tres ficheros, la validación y el mapa. No escribe nada."""
     _adoptar_importado(srv)
     try:
@@ -247,5 +247,6 @@ def propuesta(srv, estado_red):
                                 + yaml.safe_dump(perfil, allow_unicode=True, sort_keys=False),
                  "postura_json": json.dumps(ar.postura_desde(d, borrador), ensure_ascii=False, indent=2),
                  "politica_yaml": yaml.safe_dump(ar.politica_desde(borrador, hoy), allow_unicode=True, sort_keys=False),
-                 "validacion": ar.validar(borrador, getattr(srv, "catalogo", None) or {}),
+                 "validacion": ar.validar(borrador, getattr(srv, "catalogo", None) or {},
+                                          vistos=ar.nombres_vistos(registros)),
                  "red": estado_red(perfil, [], [], None)}

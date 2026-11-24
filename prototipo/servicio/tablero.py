@@ -1125,7 +1125,7 @@ class _Manejador(BaseHTTPRequestHandler):
                 return self._responder(asistente_web.resumen(s, list(_registros_cacheados(s.ruta_traza)) + pend))
             if ruta == "/api/asistente/propuesta":   # perfil, postura y política propuestos; NO escribe nada
                 from prototipo.servicio import asistente_web
-                codigo, resp = asistente_web.propuesta(s, estado_red)
+                codigo, resp = asistente_web.propuesta(s, estado_red, list(_registros_cacheados(s.ruta_traza)))
                 return self._responder(resp, codigo)
             if ruta == "/api/conectividad/paquete":   # paquete de alta de un equipo (solo la clave PÚBLICA)
                 from prototipo.servicio import conectividad_web

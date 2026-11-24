@@ -372,8 +372,21 @@ def politica_desde(b, fecha):
                                      "equipos_propios": "con_analista"}}
 
 
-def validar(b, catalogo):
-    """{"errores", "avisos"}: con errores no se exporta."""
+def nombres_vistos(registros):
+    """Los nombres de equipo que han llegado en alertas (decisiones, actividad propia, repeticiones)."""
+    vistos = set()
+    for r in registros or []:
+        if r.get("tipo") not in (None, "decision", "pendiente", "actividad_propia", "actividad_suprimida"):
+            continue
+        a = r.get("activo") or (r.get("clave") or {}).get("activo")
+        if isinstance(a, str) and a and a != "desconocido":
+            vistos.add(a)
+    return vistos
+
+
+def validar(b, catalogo, vistos=None):
+    """{"errores", "avisos"}: con errores no se exporta. `vistos`: los nombres que ya han llegado en alertas del
+    SIEM; con alguno, se avisa de cada equipo cuyo nombre aún no ha llegado (con el parecido, si lo hay)."""
     errores, avisos = [], []
     inc = _incluidos(b)
     fws = {ip for ip, e in inc.items() if e["papel"] == "cortafuegos"}
@@ -426,6 +439,15 @@ def validar(b, catalogo):
             avisos.append(f"{n}: su salida hacia el borde está deducida del traceroute: confírmala")
         if e["papel"] == "cortafuegos" and not e.get("huella"):
             avisos.append(f"{n}: sin huella SSH; sus otras interfaces pueden aparecer como equipos sueltos")
+    if vistos:
+        import difflib
+        libres = sorted(set(vistos) - set(nombres))            # un nombre que ya lleva otro equipo no se sugiere
+        for ip, e in sorted(inc.items()):
+            n = e["nombre"]
+            if n and n not in vistos:
+                parecido = difflib.get_close_matches(n, libres, n=1, cutoff=0.75)
+                avisos.append(f"«{n}» ({ip}) aún no ha llegado en ninguna alerta del SIEM: comprueba que es el nombre "
+                              "con que lo envía" + (f" (¿quizá «{parecido[0]}»?)" if parecido else ""))
     for f in b.get("fuera_de_rangos") or []:
         if f in inc:
             avisos.append(f"{inc[f]['nombre'] or f}: cortafuegos fuera de los rangos escaneados; se propone su red "

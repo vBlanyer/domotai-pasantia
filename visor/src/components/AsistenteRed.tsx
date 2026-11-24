@@ -268,6 +268,10 @@ function Revisar({ borrador, nombres, propuesta, falloPropuesta, rechazos, onCam
             : <p className="asr-ayuda">Comprobando…</p>)
             : propuesta.validacion.errores.length === 0 ? <p className="asr-ok">Nada: puedes validar y exportar.</p>
             : <ul className="asr-lista">{propuesta.validacion.errores.map((x) => <li key={x}>{x}</li>)}</ul>}
+          {/* el nombre que el SIEM no conoce se ve mientras se escribe, no solo al validar (24/11: «web-packing») */}
+          {propuesta && propuesta.validacion.avisos.some((x) => x.includes("alerta del SIEM")) && (
+            <ul className="asr-lista asr-avisos">{propuesta.validacion.avisos.filter((x) => x.includes("alerta del SIEM")).map((x) => <li key={x}>{x}</li>)}</ul>
+          )}
         </section>
       </div>
     </>
