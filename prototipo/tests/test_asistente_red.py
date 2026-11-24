@@ -499,3 +499,14 @@ class TestSoloSsh(unittest.TestCase):
     def test_no_avisa_de_los_que_ofrecen_algo_mas_ni_de_los_cortafuegos(self):
         avisos = a.validar(_oficina(), CAT)["avisos"]
         self.assertFalse([x for x in avisos if "solo se ve el SSH" in x and ("srv-web01" in x or "fw-" in x)])
+
+
+class TestNombresMenores(unittest.TestCase):
+    def test_desconocido_esta_reservado(self):
+        # es el nombre que el adaptador da a las alertas sin equipo: todas irían a ese equipo
+        b = a.aplicar_cambios(_oficina(), {"10.20.0.30": {"nombre": "desconocido"}})
+        self.assertTrue(any("desconocido" in x and "reservado" in x for x in a.validar(b, CAT)["errores"]))
+
+    def test_repetidos_sin_distinguir_mayusculas(self):
+        b = a.aplicar_cambios(_oficina(), {"10.20.0.30": {"nombre": "SRV-APP01"}})
+        self.assertTrue(any("repetido" in x for x in a.validar(b, CAT)["errores"]))

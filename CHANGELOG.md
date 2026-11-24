@@ -87,6 +87,13 @@ capítulo de resultados, y `evaluacion/resultados/`).
   enlace en cada subred (10.x.0.1) salían como equipos sueltos: 18 filas para 10 equipos. Ahora se lee también
   la huella de los saltos privados del camino, y sus otras IPs se agrupan como interfaces suyas. En vivo, el
   banco sale con 10 filas.
+- **Asistente de red, detalles:**
+  - Una lista de puertos con intervalos o texto («22,1-1024») se avisa y no se escanea (antes escaneaba solo el 22).
+  - Un rango repetido no se añade dos veces.
+  - `desconocido` es un nombre reservado, porque es el que el adaptador da a las alertas sin equipo.
+  - Los nombres repetidos se comparan sin distinguir mayúsculas.
+  - El aviso de «Antes de escanear» dice que el escaneo **puede** generar alertas si el SIEM vigila la red, en línea
+    con el manual.
 - **Las IP de datos del banco, a la vista en Containerlab.** La extensión enseña solo la IP de gestión (eth0); la de
   datos la pone un `exec`. Cada nodo la declara también como etiqueta `ip-<interfaz>`, visible en su pestaña YAML
   (una prueba comprueba que coincide con su `exec`).

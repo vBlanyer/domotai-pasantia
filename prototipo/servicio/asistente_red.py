@@ -22,7 +22,8 @@ PAPELES = ("servidor", "cortafuegos", "fragil", "desconocido")
 CRITICIDADES = ("baja", "media", "alta", "critica")
 # El nombre es el que trae el SIEM (`resolver_activo`): mayúsculas, puntos (FQDN) y guiones bajos incluidos.
 _NOMBRE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}\Z")
-_RESERVADOS = {"mdr", "internet"}           # el equipo del MDR y el nodo externo del mapa
+# el equipo del MDR, el nodo externo del mapa y el nombre que el adaptador da a las alertas sin equipo
+_RESERVADOS = {"mdr", "internet", "desconocido"}
 _ZONA_GESTION = "Gestión"
 _FRAGILES = {9100, 515, 631, 554}
 _CAMPOS = {"incluido", "nombre", "zona", "papel", "criticidad", "no_tocar", "depende_de", "funcion", "gateway"}
@@ -396,9 +397,13 @@ def validar(b, catalogo, vistos=None):
             errores.append(f"{ip}: falta su nombre en el SIEM")
         else:
             nombres.setdefault(e["nombre"], []).append(ip)
+    # repetidos sin distinguir mayúsculas: «SRV-APP01» y «srv-app01» serían el mismo equipo para el operador
+    por_minusculas = {}
+    for n, ips in nombres.items():
+        por_minusculas.setdefault(n.lower(), []).extend(ips)
         if e.get("gateway") and e["gateway"] not in fws:
             errores.append(f"{e['nombre'] or ip}: su cortafuegos ({e['gateway']}) está descartado")
-    errores += [f"nombre repetido: {n} ({', '.join(ips)})" for n, ips in nombres.items() if len(ips) > 1]
+    errores += [f"nombre repetido: {n} ({', '.join(sorted(ips))})" for n, ips in por_minusculas.items() if len(ips) > 1]
     errores += [f"{', '.join(ips)}: «{n}» está reservado (el MDR o el nodo externo del mapa)"
                 for n, ips in nombres.items() if n.lower() in _RESERVADOS]
     errores += [f"{e['nombre'] or ip}: la zona «{_ZONA_GESTION}» es la del MDR; usa otro nombre"

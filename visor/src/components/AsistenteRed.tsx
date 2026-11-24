@@ -62,11 +62,17 @@ function Escanear({ est }: { est: AsistenteEstado }) {
   const [autorizado, setAutorizado] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
   const actuales = rangos ?? est.por_defecto.rangos
-  const listo = autorizado && actuales.length > 0 && externo.trim() !== "" && !est.escaneando
+  // Lista propia: números del 1 al 65535 separados por comas; lo que no lo es se dice (antes se descartaba en silencio
+  // y «22,1-1024» escaneaba solo el 22).
+  const fichas = lista === null ? [] : lista.split(",").map((x) => x.trim()).filter(Boolean)
+  const malPuerto = fichas.find((x) => !/^\d{1,5}$/.test(x) || Number(x) < 1 || Number(x) > 65535)
+  const errorPuertos = lista === null ? null : malPuerto !== undefined ? `«${malPuerto}» no es un puerto: números del 1 al 65535 separados por comas, sin intervalos`
+    : fichas.length === 0 ? "escribe al menos un puerto" : fichas.length > 100 ? "como mucho 100 puertos" : null
+  const listo = autorizado && actuales.length > 0 && externo.trim() !== "" && !est.escaneando && !errorPuertos
 
   const escanear = async () => {
     setFallo(null)
-    const puertos = lista === null ? "comunes" : lista.split(",").map((x) => Number(x.trim())).filter((x) => x > 0)
+    const puertos = lista === null ? "comunes" : fichas.map(Number)
     try {
       await escanearRed({ rangos: actuales, externo: externo.trim(), ritmo, puertos, autorizado })
     } catch (e) {
@@ -90,7 +96,7 @@ function Escanear({ est }: { est: AsistenteEstado }) {
             <label className="asr-oculto" htmlFor="asr-nuevo">Añadir rango</label>
             <input id="asr-nuevo" className="asr-input asr-mono" placeholder="10.30.0.0/24" value={nuevo} onChange={(e) => setNuevo(e.target.value)} />
             <button type="button" className="asr-sec" disabled={!nuevo.trim()}
-              onClick={() => { setRangos([...actuales, nuevo.trim()]); setNuevo("") }}>+ Añadir rango</button>
+              onClick={() => { if (!actuales.includes(nuevo.trim())) setRangos([...actuales, nuevo.trim()]); setNuevo("") }}>+ Añadir rango</button>
           </div>
           <p className="asr-ayuda">Pasan a ser las <b>redes internas</b> del perfil. Solo redes privadas, de /22 como mucho.</p>
         </div>
@@ -122,8 +128,9 @@ function Escanear({ est }: { est: AsistenteEstado }) {
               <span>Lista propia<small>Números separados por comas.</small></span></label>
           </div>
           {lista !== null && (
-            <input aria-label="Lista de puertos" className="asr-input asr-mono" value={lista} onChange={(e) => setLista(e.target.value)} />
+            <input aria-label="Lista de puertos" className={`asr-input asr-mono${errorPuertos ? " asr-falta" : ""}`} value={lista} onChange={(e) => setLista(e.target.value)} />
           )}
+          {errorPuertos && <p className="asr-error">{errorPuertos}</p>}
         </fieldset>
       </section>
       <div className="asr-col">
@@ -131,7 +138,7 @@ function Escanear({ est }: { est: AsistenteEstado }) {
           <h2 id="asr-antes">Antes de escanear</h2>
           <ul>
             <li>Escanear la red del cliente exige su <b>autorización por escrito</b>.</li>
-            <li>El escaneo genera alertas en el SIEM del cliente. Avísale; el MDR las reconoce como suyas.</li>
+            <li>El escaneo puede generar alertas en el SIEM del cliente si vigila la red. Avísale antes.</li>
             <li>Nada de lo que se encuentre se aplica solo: todo pasa por tu revisión.</li>
           </ul>
           <label className="asr-check"><input type="checkbox" checked={autorizado} onChange={(e) => setAutorizado(e.target.checked)} />

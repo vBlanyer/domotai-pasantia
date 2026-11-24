@@ -79,6 +79,33 @@ describe("AsistenteRed · Escanear", () => {
   })
 })
 
+describe("AsistenteRed · Escanear (menores del 23/11)", () => {
+  it("una lista de puertos con intervalos o texto se avisa y no se escanea (antes «22,1-1024» escaneaba solo el 22)", () => {
+    h.est = { ...ESTADO, borrador: null, descubrimiento: null }
+    render(<AsistenteRed />)
+    fireEvent.change(screen.getByLabelText(/Dirección de fuera/), { target: { value: "198.51.100.10" } })
+    fireEvent.click(screen.getByLabelText(/autorización por escrito/))
+    fireEvent.click(screen.getByLabelText(/Lista propia/))
+    fireEvent.change(screen.getByLabelText("Lista de puertos"), { target: { value: "22,1-1024" } })
+    expect(screen.getByText(/«1-1024» no es un puerto/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Escanear" })).toBeDisabled()
+  })
+
+  it("un rango repetido no se añade dos veces", () => {
+    h.est = { ...ESTADO, borrador: null, descubrimiento: null }
+    render(<AsistenteRed />)
+    fireEvent.change(screen.getByLabelText("Añadir rango"), { target: { value: "10.20.0.0/24" } })
+    fireEvent.click(screen.getByRole("button", { name: "+ Añadir rango" }))
+    expect(screen.getAllByRole("button", { name: "Quitar 10.20.0.0/24" })).toHaveLength(1)
+  })
+
+  it("el escaneo PUEDE generar alertas si el SIEM vigila la red (antes decía que las genera)", () => {
+    h.est = { ...ESTADO, borrador: null, descubrimiento: null }
+    render(<AsistenteRed />)
+    expect(screen.getByText(/puede generar alertas en el SIEM/i)).toBeInTheDocument()
+  })
+})
+
 describe("AsistenteRed · Revisar", () => {
   it("la tabla sale del borrador y sugiere nombres del SIEM", async () => {
     render(<AsistenteRed />)
