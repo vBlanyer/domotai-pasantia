@@ -166,6 +166,7 @@ class TestConectividadWeb(_Base):
         srv = self._srv({"tok": "ana"})
         st, r = self._req(srv, "POST", "/api/conectividad/leer-clave-host", {"equipo": "db-core"}, token="tok")
         self.assertEqual((st, r["fijada"], r["presentada"], r["coincide"]), (200, F3, F1, False))
+        self.assertEqual(r["tipo"], "ED25519")                         # la consola dice de qué tipo es
         self.assertEqual(self._req(srv, "POST", "/api/conectividad/clave-host", {"equipo": "db-core", "huella": F2}, token="tok")[0], 409)
         self.assertIsNone(self.f.escrito)
         # db-core ya tiene otra clave fijada: sustituirla (posible suplantación) exige pedirlo explícitamente

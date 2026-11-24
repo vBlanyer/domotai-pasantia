@@ -169,6 +169,11 @@ class TestHuellas(unittest.TestCase):
         self.assertEqual(cx.aceptar_clave_host("10.0.0.1", 22, F3, "/kh", correr), F3)
         self.assertEqual([e for a, e in llamadas if a[:1] == ["tee"]], [f"10.0.0.1 {K3}\n"])
 
+    def test_la_huella_presentada_dice_su_tipo(self):
+        # 24/11: la consola enseñaba la ED25519 sin decirlo y el paquete imprimía dos líneas (ED25519 y RSA).
+        correr, _ = self._correr(K3, con_keyscan=False)
+        self.assertEqual(cx.huella_presentada_con_tipo("10.0.0.1", 2222, correr), (F3, "ED25519"))
+
     def test_sin_ssh_keyscan_usa_ssh_hacia_un_fichero_temporal(self):
         correr, llamadas = self._correr(K3, con_keyscan=False)
         self.assertEqual(cx.huella_presentada("10.0.0.1", 2222, correr), F3)
@@ -381,6 +386,12 @@ class TestPaqueteEnElEquipoEquivocado(unittest.TestCase):
         r = self._guarda("", con_ip=False)
         self.assertIn("SIGUE", r.stdout)
         self.assertIn("no se pudo comprobar", r.stderr)
+
+    def test_imprime_solo_la_huella_que_se_compara(self):
+        sh = self._paquete()
+        self.assertIn("(ED25519)", sh.split("Alta lista")[1])
+        self.assertNotIn("for f in /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_rsa_key.pub", sh)
+        self.assertIn("ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub", sh)
 
     def test_ansible_tambien_lo_comprueba(self):
         yml = self._paquete("ansible")

@@ -407,10 +407,11 @@ def post(srv, ruta, cuerpo, operador):
         puerto = (ajustes["equipos"].get(e["ip"]) or {}).get("puerto") or 22
         rc, kh = correr(["cat", conector.SSH_KNOWN_HOSTS])
         claves = (cx.claves_de_known_hosts(kh) if rc == 0 else {}).get(e["ip"]) or []
-        presentada = cx.huella_presentada(e["ip"], puerto, correr)
+        presentada, tipo = cx.huella_presentada_con_tipo(e["ip"], puerto, correr)
         _auditar(srv, operador, "lectura_clave_host", e["nombre"], None, presentada)
         return 200, {"equipo": e["nombre"], "fijada": cx.huellas_fijadas(kh).get(e["ip"]) if rc == 0 else None,
-                     "presentada": presentada, "coincide": bool(presentada and presentada in {h for _, h in claves})}
+                     "presentada": presentada, "tipo": tipo,
+                     "coincide": bool(presentada and presentada in {h for _, h in claves})}
     if ruta == "/api/conectividad/inventario":
         return _post_inventario(srv, cuerpo, operador)
     if ruta == "/api/conectividad/inventario/quitar":

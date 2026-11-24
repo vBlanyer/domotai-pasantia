@@ -582,8 +582,15 @@ cat > "$T" <<'MDR_SUDOERS_FIN'
 MDR_SUDOERS_FIN
 visudo -cf "$T" >/dev/null
 {_LIMPIEZA_SUDOERS}install -m 440 -o root -g root "$T" /etc/sudoers.d/mdr-$U
-echo "Alta lista. Huella de la clave del host (compárala en la plataforma):"
-for f in /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_rsa_key.pub; do [ -f "$f" ] && ssh-keygen -lf "$f" || true; done
+# Una sola línea, la que enseña la plataforma (la ED25519; si el equipo no la tiene, la RSA): con dos, se
+# comparaba la que no era (24/11).
+if [ -f /etc/ssh/ssh_host_ed25519_key.pub ]; then
+  echo "Alta lista. Compara esta huella (ED25519) con la que enseña la plataforma:"
+  ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+else
+  echo "Alta lista. Compara esta huella (RSA) con la que enseña la plataforma:"
+  ssh-keygen -lf /etc/ssh/ssh_host_rsa_key.pub || true
+fi
 """
 
 
@@ -691,8 +698,16 @@ def escanear(ip, puerto, correr):
 
 def huella_presentada(ip, puerto, correr):
     """Huella (preferida) de la clave que presenta ahora el equipo, o None si no responde."""
+    return huella_presentada_con_tipo(ip, puerto, correr)[0]
+
+
+def huella_presentada_con_tipo(ip, puerto, correr):
+    """(huella, tipo) de la clave preferida que presenta el equipo (la ED25519 si la tiene), o (None, None). El
+    tipo se enseña junto a la huella: el equipo tiene varias claves y hay que comparar la misma (24/11)."""
     lineas = escanear(ip, puerto, correr)
-    return _preferida([huella_de(l)[::-1] for l in lineas]) if lineas else None
+    pares = [huella_de(l)[::-1] for l in lineas] if lineas else []
+    h = _preferida(pares) if pares else None
+    return h, next((t for t, x in pares if x == h), None)
 
 
 def aceptar_clave_host(ip, puerto, huella_confirmada, known_hosts, correr):

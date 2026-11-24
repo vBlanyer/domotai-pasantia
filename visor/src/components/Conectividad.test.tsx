@@ -159,7 +159,7 @@ describe("Conectividad", () => {
   })
 
   it("un equipo del perfil sin huella se da de alta paso a paso: papel → paquete → huella y prueba (24/11)", async () => {
-    h.leer.mockResolvedValue({ status: 200, datos: { fijada: null, presentada: "SHA256:PRIMERA", coincide: false } })
+    h.leer.mockResolvedValue({ status: 200, datos: { fijada: null, presentada: "SHA256:PRIMERA", tipo: "ED25519", coincide: false } })
     h.aceptar.mockResolvedValue({ status: 200, datos: { huella: "SHA256:PRIMERA" } })
     h.inventario.mockResolvedValue({ status: 200, datos: { equipo: "fw-core", alta: null } })
     h.paquete.mockResolvedValue({ nombre: "alta-fw-core.sh", contenido: "#!/bin/sh", formato: "script" })
@@ -178,6 +178,7 @@ describe("Conectividad", () => {
     fireEvent.click(capa.getByRole("button", { name: "Ya está ejecutado" }))
     fireEvent.click(capa.getByRole("button", { name: "Leer la clave del equipo" }))
     expect(await capa.findByText("SHA256:PRIMERA")).toBeInTheDocument()
+    expect(capa.getByText(/compárala con la línea \(ED25519\)/i)).toBeInTheDocument()            // de qué tipo es
     expect(capa.getByRole("button", { name: "Dar de alta fw-core" })).toBeDisabled()              // sin confirmar la huella, no
     fireEvent.click(capa.getByRole("checkbox", { name: "Coincide con la que imprimió el equipo" }))
     fireEvent.click(capa.getByRole("button", { name: "Dar de alta fw-core" }))

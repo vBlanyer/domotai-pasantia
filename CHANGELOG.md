@@ -38,6 +38,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **La huella dice de qué tipo es.** El paquete de alta imprimía dos huellas (ED25519 y RSA) y la consola enseñaba
+  la ED25519 sin decirlo, así que era fácil comparar la que no tocaba. Ahora el paquete imprime solo la que se compara,
+  marcada «(ED25519)» (o la RSA si el equipo no tiene otra), y la consola dice con qué línea compararla.
 - **Conectividad: el candado dice el motivo real.** Sin clave del conector, decía «exige tu token de operador» y lo
   que faltaba era la clave. Ahora dice «falta la clave del conector: genérala arriba».
 - **Decisiones: lo más reciente arriba**, como en Trazas. Antes salían en el orden de la traza, con lo más

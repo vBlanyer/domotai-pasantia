@@ -53,7 +53,7 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
   const [cualquiera, setCualquiera] = useState(!!equipo?.cuentas_cualquiera)
   const [formato, setFormato] = useState<FormatoPaquete>("script")
   const [paquete, setPaquete] = useState<{ nombre: string; contenido: string } | null>(null)
-  const [host, setHost] = useState<{ presentada?: string | null; fijada?: string | null } | null>(null)
+  const [host, setHost] = useState<{ presentada?: string | null; fijada?: string | null; tipo?: string | null } | null>(null)
   const [coincide, setCoincide] = useState(false)
   const [prueba, setPrueba] = useState<PruebaConexion | null>(null)
   const [ocupado, setOcupado] = useState(false)
@@ -237,7 +237,7 @@ export function AltaEquipo({ d, equipo, pasoInicial, onCerrar, onCambio }: {
                 <div className="font-medium">Clave que presenta {nombre} ahora</div>
                 {host ? <div className="rounded-md border border-border bg-muted px-2.5 py-2 font-mono text-[12.5px] [overflow-wrap:anywhere]">{host.presentada ?? "no responde"}</div>
                   : <Boton onClick={leer} disabled={ocupado}>Leer la clave del equipo</Boton>}
-                <p className="text-[11.5px] text-muted-foreground">Compárala con la que imprimió el paquete en el equipo. Si no coincide, alguien está en medio: no sigas.</p>
+                <p className="text-[11.5px] text-muted-foreground">Compárala con la línea {host?.tipo ? `(${host.tipo})` : ""} que imprimió el paquete en el equipo. Si no coincide, o la imprimió otro equipo (mira su <code>root@…</code>), no sigas.</p>
                 {host?.presentada && (
                   <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-primary" checked={coincide} onChange={(e) => setCoincide(e.target.checked)} />Coincide con la que imprimió el equipo</label>
                 )}
