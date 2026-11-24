@@ -28,6 +28,9 @@ const fecha = (iso?: string | null) => {
   return isNaN(t.getTime()) ? iso : t.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
 }
 const MOTIVO_CORTO = "exige tu token de operador"
+// El motivo real del candado: sin clave del conector no se puede probar ni dar de alta, tenga o no token
+// (24/11: el candado decía «exige tu token» y lo que faltaba era la clave).
+const motivoCorto = (d: Datos) => (d.falta_clave ? "falta la clave del conector: genérala arriba" : MOTIVO_CORTO)
 const TEXTO_CAMBIO: Record<string, string> = {
   clave_host: "clave del host aceptada", prueba: "prueba", lectura_clave_host: "clave del host leída", inventario: "papel e inventario",
   alta: "dado de alta", equipo: "ajuste", usuario_defecto: "usuario por defecto",
@@ -126,7 +129,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
               <Boton tono="pri" onClick={() => onAsistente({ equipo: e, paso: 3 })}>Ver el paquete de alta</Boton>
               <Boton onClick={() => onAsistente({ equipo: e, paso: 4 })}>Verificar y dar de alta</Boton>
               <Boton tono="dan" onClick={() => setQuitar(true)}>Quitar el alta</Boton>
-            </> : <Bloqueado accion="Continuar el alta" motivo={MOTIVO_CORTO} />}
+            </> : <Bloqueado accion="Continuar el alta" motivo={motivoCorto(d)} />}
           </div>
         </Seccion>
       )}
@@ -139,7 +142,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
           <p className="text-[13px]">Está en el perfil, pero el MDR aún no tiene acceso: elige su papel, ejecuta su paquete de alta en el equipo, compara su huella y prueba la conexión.</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {puede ? <Boton tono="pri" onClick={() => onAsistente({ equipo: e, paso: 2 })}>Dar de alta {e.nombre}</Boton>
-              : <Bloqueado accion="Dar de alta" motivo={MOTIVO_CORTO} />}
+              : <Bloqueado accion="Dar de alta" motivo={motivoCorto(d)} />}
           </div>
         </Seccion>
       )}
@@ -153,7 +156,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
                 <span className="text-muted-foreground">Fijada</span><span className="font-mono text-muted-foreground line-through [overflow-wrap:anywhere]">{host.fijada ?? "ninguna"}</span>
                 <span className="text-muted-foreground">Presenta</span><span className="font-mono text-critico [overflow-wrap:anywhere]">{host.presentada ?? "no responde"}</span>
               </div>
-            ) : puede ? <Boton onClick={leer} disabled={ocupado !== null}>Leer la clave que presenta</Boton> : <Bloqueado accion="Leer la clave" motivo={MOTIVO_CORTO} />}
+            ) : puede ? <Boton onClick={leer} disabled={ocupado !== null}>Leer la clave que presenta</Boton> : <Bloqueado accion="Leer la clave" motivo={motivoCorto(d)} />}
             {host?.presentada && !host.coincide && editable && (
               <Boton tono="dan" onClick={() => setConfirmar(true)} disabled={ocupado !== null}>Aceptar la nueva clave…</Boton>
             )}
@@ -233,7 +236,7 @@ function Inspector({ d, e, onCambio, onAsistente }: { d: Datos; e: EquipoConecti
                 <Boton onClick={() => { setPuerto(String(e.puerto)); setUsuario("") }} disabled={ocupado !== null}>Descartar</Boton>
               </> : <Boton tono="pri" onClick={probar} disabled={ocupado !== null}>{ocupado === "probar" ? "Probando…" : "Probar la conexión"}</Boton>}
             </div>
-          ) : <Bloqueado accion="Probar y cambiar ajustes" motivo={MOTIVO_CORTO} />}
+          ) : <Bloqueado accion="Probar y cambiar ajustes" motivo={motivoCorto(d)} />}
           {puede && <p className="text-[11.5px] text-muted-foreground">{cambiado ? "Se guarda solo si la prueba pasa. " : ""}Cada prueba y cada cambio quedan en el registro con tu operador.</p>}
         </div>
       )}
@@ -326,7 +329,7 @@ export function Conectividad() {
           <Boton tono="pri" onClick={() => setAsistente({ equipo: null })}>+ Añadir equipo</Boton>
           <Boton onClick={() => setRotar(true)}>{d.rotacion ? "Rotación de la clave en curso…" : "Rotar la clave del conector…"}</Boton>
           <Boton onClick={probarTodos} disabled={!!probando || !contenibles.length}>{probando ? `Probando ${probando}…` : "Probar todos"}</Boton>
-        </> : <Bloqueado accion="Añadir equipos, rotar la clave y probar" motivo={MOTIVO_CORTO} />}
+        </> : <Bloqueado accion="Añadir equipos, rotar la clave y probar" motivo={motivoCorto(d)} />}
         <span className="ml-auto text-xs text-muted-foreground">Modo del conector: <b className="font-medium text-foreground">{modoNombre}</b>{d.nodo_gestion ? <> · <span className="font-mono">{d.nodo_gestion}</span></> : null} · se elige al arrancar el daemon</span>
       </div>
 
@@ -360,7 +363,7 @@ export function Conectividad() {
               <input id="cx-defecto" value={valorDefecto} placeholder={d.usuario_entorno} onChange={(x) => setDefecto(x.target.value)} disabled={!puede}
                 className="h-[30px] w-40 rounded-[7px] border border-border bg-card px-2.5 text-[13px] outline-none focus:border-ring disabled:bg-muted disabled:text-muted-foreground" />
               {puede && defecto !== null && defecto !== (d.usuario_defecto ?? "") && <Boton tono="pri" className="h-[30px]" onClick={guardarDefecto}>Guardar</Boton>}
-              {!puede && <Bloqueado accion="Cambiarlo" motivo={MOTIVO_CORTO} />}
+              {!puede && <Bloqueado accion="Cambiarlo" motivo={motivoCorto(d)} />}
             </div>
             <p className="text-xs text-muted-foreground">Sin contraseña, solo clave, y sudo limitado al papel de cada equipo.</p>
           </div>

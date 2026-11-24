@@ -186,6 +186,15 @@ describe("Conectividad", () => {
     expect(h.alta).not.toHaveBeenCalled()                                                         // no es un alta del inventario
   })
 
+  it("sin clave del conector, el candado dice eso y no «exige tu token» (24/11)", async () => {
+    h.datos = base({ falta_clave: true, clave: null, editable: false, equipos: [equipo({ huella_fijada: null })],
+      permisos: { probar: false, editar: false, generar_clave: true, motivo: "falta la clave del conector: genérala para empezar" } })
+    render(vista())
+    await screen.findByText("No hay clave del conector: sin ella no entra en ningún equipo ni contiene.")
+    expect(region().getByText(/Dar de alta · falta la clave del conector/)).toBeInTheDocument()
+    expect(region().queryByText(/exige tu token de operador/)).not.toBeInTheDocument()
+  })
+
   it("el asistente manda «cualquier cuenta salvo las del sistema»", async () => {
     h.inventario.mockResolvedValue({ status: 200, datos: { equipo: "fw-core", alta: null } })
     h.paquete.mockResolvedValue({ nombre: "alta-fw-core.sh", contenido: "#!/bin/sh", formato: "script" })

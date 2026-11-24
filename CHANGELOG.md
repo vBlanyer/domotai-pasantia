@@ -38,6 +38,8 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Conectividad: el candado dice el motivo real.** Sin clave del conector, decía «exige tu token de operador» y lo
+  que faltaba era la clave. Ahora dice «falta la clave del conector: genérala arriba».
 - **Decisiones: lo más reciente arriba**, como en Trazas. Antes salían en el orden de la traza, con lo más
   antiguo primero; la abierta por defecto es ahora la más reciente.
 - **El asistente avisa de un nombre que el SIEM no conoce.** «web-packing» pasó sin aviso, y las alertas de ese
