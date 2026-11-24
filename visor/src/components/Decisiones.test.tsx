@@ -227,10 +227,10 @@ describe("Lista accesible por teclado", () => {
     h.decisiones = [{ indice: 1, id_decision: "s1", clase: "vp_intento_acceso", activo: "srv", prioridad: 2 },
                     { indice: 2, id_decision: "s2", clase: "vp_intento_acceso", activo: "otro", prioridad: 2 }]
     render(<Decisiones />)
-    expect(boton("srv")).toHaveAttribute("aria-current", "true")          // la primera, abierta por defecto
-    fireEvent.click(boton("otro"))
-    expect(boton("otro")).toHaveAttribute("aria-current", "true")
-    expect(boton("srv")).toHaveAttribute("aria-current", "false")
+    expect(boton("otro")).toHaveAttribute("aria-current", "true")         // la más reciente, arriba y abierta por defecto
+    fireEvent.click(boton("srv"))
+    expect(boton("srv")).toHaveAttribute("aria-current", "true")
+    expect(boton("otro")).toHaveAttribute("aria-current", "false")
   })
 })
 
@@ -239,12 +239,20 @@ describe("Decisiones paginadas", () => {
     h.decisiones = Array.from({ length: 30 }, (_, i) => (
       { indice: 100 + i, id_decision: `s${100 + i}`, clase: "vp_intento_acceso", activo: `eq${100 + i}`, prioridad: 3 }))
     render(<Decisiones />)
-    expect(screen.getByRole("button", { name: /ver detalle de eq100/i })).toBeInTheDocument()   // pág. 1
-    expect(screen.queryByRole("button", { name: /ver detalle de eq129/i })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /ver detalle de eq129/i })).toBeInTheDocument()   // pág. 1: lo más nuevo
+    expect(screen.queryByRole("button", { name: /ver detalle de eq100/i })).not.toBeInTheDocument()
     expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
-    expect(screen.getByRole("button", { name: /ver detalle de eq129/i })).toBeInTheDocument()    // pág. 2
-    expect(screen.queryByRole("button", { name: /ver detalle de eq100/i })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /ver detalle de eq100/i })).toBeInTheDocument()    // pág. 2: lo más viejo
+    expect(screen.queryByRole("button", { name: /ver detalle de eq129/i })).not.toBeInTheDocument()
+  })
+
+  it("lo más reciente arriba, como en Trazas (24/11)", () => {
+    h.decisiones = [1, 2, 3].map((i) => ({ indice: i, id_decision: `d${i}`, clase: "vp_intento_acceso", activo: `eq${i}`, prioridad: 2,
+      timestamp: `2026-11-24T10:0${i}:00Z` }))
+    render(<Decisiones />)
+    const filas = screen.getAllByRole("button", { name: /ver detalle de eq/i }).map((b) => b.getAttribute("aria-label"))
+    expect(filas.map((x) => x?.match(/eq\d/)?.[0])).toEqual(["eq3", "eq2", "eq1"])
   })
 
   it("con pocas decisiones no hay paginador", () => {

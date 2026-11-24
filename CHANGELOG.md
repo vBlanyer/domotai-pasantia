@@ -38,6 +38,8 @@ capítulo de resultados, y `evaluacion/resultados/`).
   `documentacion/05-fase5-implementacion-del-prototipo/observaciones-revision-15-11.md`, junto a su plan.
 
 ### Corregido
+- **Decisiones: lo más reciente arriba**, como en Trazas. Antes salían en el orden de la traza, con lo más
+  antiguo primero; la abierta por defecto es ahora la más reciente.
 - **El asistente avisa de un nombre que el SIEM no conoce.** «web-packing» pasó sin aviso, y las alertas de ese
   equipo llegan como «web-banking». En cuanto hay alertas en la traza, se avisa de cada equipo cuyo nombre no ha
   llegado en ninguna, con el parecido que aún no lleva otro equipo («¿quizá «web-banking»?»). Se ve ya en «Revisar

@@ -323,7 +323,8 @@ export function Decisiones({ equipo = null, textoInicial = "", onQuitarEquipo, o
   const casos = estadoDeCasos(ds)
   const base = filtrarDecisiones(ds, { ...filtro, equipo })
   const mias = soloMias && yo ? base.filter((x) => casos[x.id_decision ?? ""]?.asignado === yo) : base
-  const filtradas = mias.filter((x) => pasaFiltro(x, desenlace, yo) && (conSistema || !x.tipo || x.tipo === "decision"))
+  // Lo más reciente arriba, como en Trazas (la traza viene en orden de llegada).
+  const filtradas = mias.filter((x) => pasaFiltro(x, desenlace, yo) && (conSistema || !x.tipo || x.tipo === "decision")).reverse()
   const decididasPorMi = yo ? base.filter((x) => pasaFiltro(x, "decididas_por_mi", yo)).length : 0
   const pag = paginar(filtradas, pagina, tam)
   const ventana = ventanaDe(ds)
