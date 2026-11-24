@@ -14,6 +14,7 @@
 #   sh lab/banco/banco.sh atacar continuo ataques variados SIN FIN para probar el MDR en continuo
 #                                         (Ctrl+C para parar; --gap/--restaurar-cada/--semilla/--vueltas)
 #   sh lab/banco/banco.sh vigilar         panel en vivo: servicios en verde/rojo y ultimos cambios
+#   sh lab/banco/banco.sh comprobar-red   ¿conservan los nodos sus IPs 10.x y sshd? (tras reiniciar el equipo, no)
 #   sh lab/banco/banco.sh claves-propias  una clave SSH de host propia en cada nodo (una sola vez por
 #                                         contenedor); despues, 'aprovisionar' para fijar las huellas nuevas
 #   sh lab/banco/banco.sh desaprovisionar deshace 'aprovisionar' (equipos sin usuario triaje ni sudoers, y
@@ -50,6 +51,17 @@ quitar_alias() {
   for c in $(docker ps --format '{{.Names}}' | grep "^$P-"); do
     docker exec $c sh -c 'ip -4 -o addr show | awk "/ secondary / {print \$4, \$2}" | while read a d; do ip addr del "$a" dev "$d"; done' 2>/dev/null || true
   done
+}
+
+# ¿Conserva el banco su red? Tras reiniciar el equipo los contenedores vuelven SIN sus IPs 10.x (las pone el
+# despliegue) ni sshd: el MDR no podría escanear ni contener, y nada lo decía (24/11). Se mira en mdr-siem.
+red_viva() {
+  docker exec $P-mdr-siem sh -c 'ip -4 -o addr show' 2>/dev/null | grep -q ' 10\.100\.0\.10/' \
+    && docker exec $P-mdr-siem sh -c 'pgrep -f "^sshd: /usr/sbin/sshd"' >/dev/null 2>&1
+}
+aviso_red() {
+  echo "✗ El banco perdió su red (¿se reinició el equipo?): los nodos no tienen sus IPs 10.x o sshd está parado." >&2
+  echo "  Recréalo:  sh lab/banco/banco.sh down && sh lab/lab.sh up banco   (después, aprovisionar o el alta en Conectividad)" >&2
 }
 
 salud() {
@@ -111,6 +123,7 @@ case "${1:-up}" in
     ;;
   status)
     docker ps --filter name=$P --format '  {{.Names}}: {{.Status}}'
+    red_viva || aviso_red
     echo "== Salud (ultima muestra) =="; salud
     ;;
   test)
@@ -183,6 +196,7 @@ case "${1:-up}" in
     [ -f $D/postura.json ] || echo '{"nodos": {}}' > $D/postura.json
     W=clab-red-cliente-wazuh
     docker ps --format '{{.Names}}' | grep -q "^$W$" || { echo "Wazuh no está en marcha: sh lab/lab.sh up banco"; exit 1; }
+    red_viva || { aviso_red; exit 1; }
     pkill -9 -f "python3 -m prototipo(\.servicio)?\.stream" 2>/dev/null || true
     docker exec "$W" pkill -f "tail -n0 -F /var/ossec/logs/alerts/alerts.json" 2>/dev/null || true
     sleep 1
@@ -197,6 +211,9 @@ case "${1:-up}" in
     echo "  Consola: http://127.0.0.1:8787  ·  Ctrl+C para detener"
     docker exec "$W" sh -c 'tail -n0 -F /var/ossec/logs/alerts/alerts.json' \
       | python3 -m prototipo.servicio.stream - $D/perfil.yml $D/postura.json --salida "$SALIDA" --web
+    ;;
+  comprobar-red)
+    if red_viva; then echo "red del banco: ok (IPs 10.x y sshd en su sitio)"; else aviso_red; exit 1; fi
     ;;
   claves-propias)
     echo "== Clave SSH de host propia en cada nodo (solo en los que aún tienen la de la imagen) =="

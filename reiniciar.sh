@@ -40,6 +40,9 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${WAZUH}$"; then
   exit 1
 fi
 
+# Tras reiniciar el equipo el banco vuelve sin sus IPs 10.x ni sshd: el MDR no podría contener. Se dice y se para.
+B="$RAIZ/lab/banco/banco.sh"
+if [ -f "$B" ] && ! sh "$B" comprobar-red >/dev/null 2>&1; then sh "$B" comprobar-red; exit 1; fi
 # El `tail` de las alertas corre DENTRO del contenedor de Wazuh: el pkill de arriba (en el host, sin
 # permisos sobre procesos root del contenedor) no lo alcanza, y quedaba uno huérfano por reinicio.
 docker exec "$WAZUH" pkill -f "tail -n0 -F /var/ossec/logs/alerts/alerts.json" 2>/dev/null || true

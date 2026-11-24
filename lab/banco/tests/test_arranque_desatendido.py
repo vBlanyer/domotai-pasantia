@@ -411,3 +411,52 @@ class TestClienteNuevo(unittest.TestCase):
             self.assertIn(v, bloque)
         self.assertIn("run/banco-nuevo", bloque)
         self.assertNotIn("bancario.yml", bloque)                      # no parte del perfil que ya lo sabe todo
+
+
+# docker falso: Wazuh en marcha y, según FALSO_RED, mdr-siem con o sin su IP 10.100.0.10 y sshd.
+DOCKER_RED = r"""#!/bin/sh
+echo "$*" >> "$FALSO_DIR/ordenes"
+case "$*" in
+  ps*) printf 'clab-red-cliente-wazuh\nclab-banco-mdr-siem\nclab-banco-web-banking\n' ;;
+  *"ip -4 -o addr"*) [ "${FALSO_RED:-1}" = 1 ] && echo "3: eth1    inet 10.100.0.10/24 brd 10.100.0.255 scope global eth1" ;;
+  *pgrep*) [ "${FALSO_RED:-1}" = 1 ] && exit 0; exit 1 ;;
+esac
+exit 0
+"""
+
+
+class TestRedTrasReiniciar(unittest.TestCase):
+    """24/11: tras reiniciar el equipo los contenedores vuelven sin sus IPs 10.x ni sshd, y nada lo decía."""
+
+    def _correr(self, args, red):
+        with tempfile.TemporaryDirectory() as d:
+            r = _ejecutar(args, DOCKER_RED, {"FALSO_DIR": d, "FALSO_RED": red})
+            ruta = os.path.join(d, "ordenes")
+            return r, (open(ruta).read() if os.path.exists(ruta) else "")
+
+    def test_comprobar_red_pasa_con_el_banco_sano(self):
+        r, _ = self._correr(["comprobar-red"], "1")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_comprobar_red_dice_que_hacer_si_se_perdio(self):
+        r, _ = self._correr(["comprobar-red"], "0")
+        self.assertEqual(r.returncode, 1)
+        texto = r.stdout + r.stderr
+        self.assertIn("perdió su red", texto)
+        self.assertIn("sh lab/banco/banco.sh down", texto)
+        self.assertIn("sh lab/lab.sh up banco", texto)
+
+    def test_mdr_nuevo_no_arranca_contra_un_banco_sin_red(self):
+        r, ordenes = self._correr(["mdr-nuevo"], "0")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("perdió su red", r.stdout + r.stderr)
+        self.assertNotIn("alerts.json", ordenes)                       # no llegó a lanzar el MDR
+
+    def test_status_lo_avisa(self):
+        r, _ = self._correr(["status"], "0")
+        self.assertIn("perdió su red", r.stdout + r.stderr)
+
+    def test_reiniciar_tambien_lo_comprueba(self):
+        texto = open(os.path.join(RAIZ, "reiniciar.sh"), encoding="utf-8").read()
+        self.assertIn('sh "$B" comprobar-red', texto)
+        self.assertIn('B="$RAIZ/lab/banco/banco.sh"', texto)

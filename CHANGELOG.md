@@ -87,6 +87,9 @@ capítulo de resultados, y `evaluacion/resultados/`).
   enlace en cada subred (10.x.0.1) salían como equipos sueltos: 18 filas para 10 equipos. Ahora se lee también
   la huella de los saltos privados del camino, y sus otras IPs se agrupan como interfaces suyas. En vivo, el
   banco sale con 10 filas.
+- **El banco avisa si perdió su red.** Tras reiniciar el equipo, los contenedores vuelven sin sus IPs 10.x ni sshd y
+  el MDR no puede contener, pero nada lo decía. `banco.sh comprobar-red` lo comprueba y dice cómo recrearlo; lo usan
+  `status`, `mdr-nuevo` y `reiniciar.sh`, que ya no arrancan el MDR contra un banco sin red.
 - **Banco como cliente nuevo:** `banco.sh desaprovisionar` deshace `aprovisionar` (equipos sin usuario `triaje`,
   sudoers ni envoltorio, y mdr-siem sin clave del conector) y `banco.sh mdr-nuevo` arranca el MDR con un perfil
   mínimo y traza propia en `run/banco-nuevo/`, para dar de alta el banco con el asistente de red y Conectividad.
